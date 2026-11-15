@@ -208,7 +208,7 @@ export function formatValue(key: FieldKey, v: unknown): string {
 /**
  * The next game's time in one line (v1's lengthLine; planning and the game's length are never added up): "75 s
  * planning, then a 5 min game" for a fixed game; "1 min planning, then about 5 min (ends at a hidden moment, often
- * after 2 to 12 min)" for a half-life one (the 20%–80% range of its random end).
+ * after 2 to 12 min)" for a half-life one (v1's range: about the 25th to the 80th percentile of its random end).
  */
 export function lengthLine(d: Pick<Draft, "planningSeconds" | "worldSeconds" | "durationMode">): string {
   const m = (sec: number) => Math.max(1, Math.round(sec / 60));

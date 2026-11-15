@@ -141,7 +141,7 @@ try {
       await page.getByTestId("text-next-game-summary").getByText(/120 s to plan/).waitFor({ timeout: 15_000 });
       // A reload of the configure page starts from what the room holds now (no stale draft).
       await page.getByTestId("link-configure").click();
-      await page.getByTestId("change-planningSeconds").waitFor({ state: "detached", timeout: 5_000 }).catch(() => {});
+      await page.getByTestId("text-no-changes").waitFor({ timeout: 10_000 });
       assert.equal(await page.getByTestId("switch-commitClause").getAttribute("aria-checked"), "true");
       await page.goto(roomUrl);
     });

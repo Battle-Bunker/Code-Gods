@@ -5,10 +5,11 @@
  * value the server refuses sent instead of explained in v1's words, and a Review that hides what changes.
  */
 import { test } from "node:test";
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { AFFORDANCES } from "@workspace/v2-affordances";
 import { presetOf } from "@workspace/engine/convex/v2/presets.ts";
-import { FIELDS, SECTIONS, draftErrors, draftOf, fieldsOf, overridesFor, reviewDiff, choiceLabel, formatValue, stepChoices, lengthLine } from "../src/site/lib/configure-form.ts";
+import { DEFAULT_PAUSE_SECONDS, FIELDS, SECTIONS, draftErrors, draftOf, fieldsOf, overridesFor, reviewDiff, choiceLabel, formatValue, stepChoices, lengthLine } from "../src/site/lib/configure-form.ts";
 
 const beginner = presetOf("lines-beginner");
 
@@ -81,4 +82,9 @@ test("Review lists each change in page order as label: before → after, the set
   const other = presetOf("lines-beginner-bidding");
   const moved = reviewDiff(saved, { preset: other.id, draft: draftOf(other, {}) });
   assert.deepEqual(moved[0], { key: "preset", label: "Setup", from: beginner.title, to: other.title });
+});
+
+test("the page's pause default is the server's (a room left on it records no override)", () => {
+  const loop = readFileSync(new URL("../../engine/convex/v2/loop.ts", import.meta.url), "utf8");
+  assert.equal(Number(loop.match(/export const DEFAULT_PAUSE_SECONDS = (\d+);/)?.[1]), DEFAULT_PAUSE_SECONDS);
 });

@@ -91,7 +91,8 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
   useEffect(() => { if (owner) saveDraft(key, dirty ? { base, preset: presetId, draft } : null); }, [owner, key, base, presetId, draft, dirty]);
 
   // The room changed elsewhere: an untouched draft follows it; an edited one is kept and the owner may load theirs.
-  const lastSaved = useRef(saved);
+  // A draft restored from an earlier visit is compared with what the room holds now, so a change made meanwhile shows.
+  const lastSaved = useRef(stored?.base ?? saved);
   useEffect(() => {
     if (same(lastSaved.current, saved)) return;
     lastSaved.current = saved;
@@ -107,7 +108,7 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
     setDraft(draftOf(presetOf(id), overridesFor(draft, preset)));
     setPresetId(id);
   };
-  const saveBlocker = !owner ? "Only the room's owner changes its setup." : locked ? locked : invalid ? "Fix the settings marked in red first." : !changes.length ? "Nothing has changed yet." : null;
+  const saveBlocker = !owner ? "Only the room's owner changes its setup." : locked ? locked : !editable ? "Settings cannot change here." : invalid ? "Fix the settings marked in red first." : !changes.length ? "Nothing has changed yet." : null;
   // The page checks every value against the affordance's own limits first (draftErrors), so the draft's numbers are its.
   const args = () => ({ ...(presetId !== room.preset ? { preset: presetId } : {}), overrides: overridesFor(draft, preset) }) as Parameters<typeof settings.run>[0];
   const confirmText = `${changes.map(c => `${c.label}: ${c.from} → ${c.to}`).join("; ")}.`;
@@ -183,7 +184,11 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
                   <Link href={roomPath(code)} className="text-sm underline underline-offset-4" data-testid="link-cancel">Cancel</Link>
                   {Object.keys(room.overrides).some(k => k in FIELDS) && (
                     <AffordanceButton id="room.settings" args={{ overrides: {} }} label="Use the setup's own settings" tone="quiet" testId="button-reset-settings"
-                      onDone={() => { saveDraft(key, null); toast({ title: `Back to ${presetOf(room.preset).title}'s own settings` }); }} />
+                      onDone={() => {
+                        const own = { preset: room.preset, draft: draftOf(presetOf(room.preset), {}) };
+                        setPresetId(own.preset); setDraft(own.draft); setBase(own); setElsewhere(false); saveDraft(key, null);
+                        toast({ title: `Back to ${presetOf(room.preset).title}'s own settings` });
+                      }} />
                   )}
                 </div>
               </>)}
