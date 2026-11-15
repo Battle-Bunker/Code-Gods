@@ -184,6 +184,8 @@ def energy(offer):
 
 
 _WITNESSES = (2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41)
+# How many of the first witnesses make Miller-Rabin exact below each bound (Jaeschke; Sorenson and Webster).
+_ENOUGH = ((2047, 1), (1373653, 2), (25326001, 3), (3215031751, 4), (2152302898747, 5), (3474749660383, 6), (341550071728321, 7), (3825123056546413051, 9), (318665857834031151167461, 12))
 
 
 def prime(n):
@@ -200,7 +202,8 @@ def prime(n):
     while d % 2 == 0:
         d //= 2
         s += 1
-    for a in _WITNESSES:
+    k = next((n for bound, n in _ENOUGH if x < bound), len(_WITNESSES))   # fewer witnesses for smaller numbers: as exact
+    for a in _WITNESSES[:k]:
         y = pow(a, d, x)
         if y == 1 or y == x - 1:
             continue
@@ -277,11 +280,18 @@ def near_made_of(x, primes):
 
 def simplest(a, b):
     lo, hi = sorted((Fraction(a), Fraction(b)))
-    for d in range(1, 100001):
-        nlo, nhi = -((-lo * d) // 1), (hi * d) // 1
-        if nlo <= nhi:
-            return Fraction(nlo if nlo > 0 else nhi if nhi < 0 else 0, d)
-    return lo
+    if lo <= 0 <= hi:
+        return Fraction(0)
+
+    # The simplest rational in a closed interval of positives, by continued fractions (Stern-Brocot): a few steps.
+    def pos(x, y):
+        f = Fraction(x.numerator // x.denominator)
+        if f == x:
+            return x
+        if f + 1 <= y:
+            return f + 1
+        return f + 1 / pos(1 / (y - f), 1 / (x - f))
+    return -pos(-hi, -lo) if hi < 0 else pos(lo, hi)
 
 
 def _anchor(v, q, r, at_least):
