@@ -239,6 +239,8 @@ def __decode(text):
 def __encode_calls(result):
     if result is None:
         return "null"
+    if isinstance(result, dict) and isinstance(result.get("onlyIfBetter"), (list, tuple)):   # only_if_better(plan)
+        return _DUMPS({"onlyIfBetter": [_normal(c) for c in result["onlyIfBetter"]]}, separators=(",", ":"))
     if not isinstance(result, (list, tuple)):
-        raise TypeError("agent must return a list of calls, or None to skip")
+        raise TypeError("agent must return a list of calls, only_if_better(plan), or None to skip")
     return _DUMPS([_normal(c) for c in result], separators=(",", ":"))

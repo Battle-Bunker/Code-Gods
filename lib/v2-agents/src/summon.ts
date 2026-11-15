@@ -22,7 +22,7 @@ import type { Language } from "@workspace/v2-sandbox";
 export const SUMMON_ENERGY_PER_BIT = 1 / 6;
 
 const HELPERS = ["look", "peek", "goal", "progress", "move", "price", "cheapest", "energy", "prime", "square", "near", "whole", "root", "factors", "better", "call", "agent", "offer",
-  "worth", "rarity", "recent", "pushback", "note", "contested", "mine", "others", "points"];
+  "worth", "rarity", "recent", "pushback", "note", "contested", "mine", "others", "points", "onlyIfBetter", "only_if_better"];
 const OFFER = ["object", "view", "element", "myRule", "my_rule", "myScore", "my_score", "quote", "budget", "params", "tieBreaker", "tie_breaker", "card", "layers", "level", "top", "main", "tiebreak", "score", "terms", "valid", "charge", "total", "reason", "m", "c"];
 const JS_WORDS = [
   ...HELPERS, ...OFFER, "Q", "of", "from", "add", "sub", "mul", "div", "neg", "abs", "cmp", "eq", "isZero", "isInteger", "toNumber", "toString", "n", "d",

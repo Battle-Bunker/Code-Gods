@@ -159,6 +159,11 @@ def move(mutator, site=0, **args):
     return call(mutator, site=site, **args)
 
 
+def only_if_better(plan):
+    """The plan, made only if it raises your points on this line as you see them; otherwise nothing changes."""
+    return {"onlyIfBetter": _as_plan(plan)}
+
+
 _last_cheapest = [None, None, None]   # the offer, the plan cheapest() returned, and its price
 
 

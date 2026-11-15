@@ -173,6 +173,19 @@ export class EngineHost<S> implements AgentHost {
     this.phi = input.type.readLength(input.state, input.variant);
   }
 
+  /**
+   * The player's points at a state as the player sees them (the commit clause decides on these; v1's commitRaises):
+   * own bits exact, the others' sum as `othersAfter` discloses it (noise included, unclamped), and points own ×
+   * max(0, others). Null when the game does not say what lines are worth (no value function or no others).
+   */
+  payoffAt(state: S): { mine: number; others: number; points: number } | null {
+    if (!this.lookup || !this.others?.length) return null;
+    const mine = this.lookup(evaluateObject(this.type, this.family, this.params, state, this.variant, this.tieBreaker).score).bits;
+    const others = this.others.reduce((t, o) => t + o.look(evaluateObject(this.type, o.family, o.params, state, this.variant, o.tieBreaker).score).bits, 0)
+      + (this.input.disclosed?.(this.type.encode(state)) ?? 0);
+    return { mine, others, points: mine * Math.max(0, others) };
+  }
+
   handle(request: HostRequest, context: HostContext): HostReply {
     let reply: HostReply;
     try { reply = this.answer(request, context); } catch (e) { reply = err((e as Error).message); }
