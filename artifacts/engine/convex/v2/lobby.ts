@@ -13,6 +13,7 @@ import { makeFunctionReference } from "convex/server";
 import { DEFAULT_PEER_NOISE_BITS, newNoiseKey } from "./disclose.ts";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, drawEnd } from "./duration.ts";
 import { ensureWarm } from "./readiness.ts";
+import { unopposedDirections } from "@workspace/v2-agents/pure";
 
 const PLANNING_ENDS = makeFunctionReference<"mutation", { gameId: Id<"v2Games"> }>("v2/loop:planningEnds");
 const AI_TURN = makeFunctionReference<"action", { gameId: Id<"v2Games">; memberId: Id<"v2Members">; n: number }>("v2/aiTurn:turn");
@@ -274,6 +275,8 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     planningEndsAt: now + settings.planningSeconds * 1000, dealKey, rotates: wins.length === 0 && !again,
     // Drawn once, at the start (v1); in halfLife mode it is never disclosed while live.
     endAtWorld: drawEnd(settings.durationMode, settings.worldSeconds),
+    // The dealing trial, step 1: what this table could climb together unopposed (private; deal.ts will use it later).
+    unopposed: unopposedDirections(preset.variant, rules.map(r => `${r.family}/${r.tieBreaker}`)),
     ...(rotation ? { rotation } : {}),
     artefacts: seats.map((m, i) => ({ memberId: m._id, ruleKey: rules[i]!.ruleKey, contentHash: rules[i]!.contentHash })),
   });

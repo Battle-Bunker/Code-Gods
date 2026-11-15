@@ -112,3 +112,16 @@ test("at most eight players can play (v1's cap); the rest of the room watches", 
   assert.equal((await admin.query("v2/testing:header", { gameId: started.result.gameId })).roster.length, 8);
   await perform(many[0]!, "game.end", {}, { gameId: started.result.gameId });
 });
+
+test("the dealing trial's measurement: a game stores its table's unopposed directions, and no player read returns them", { timeout: 60_000 }, async () => {
+  const [ada] = await humans("Trial Ada");
+  const { roomId } = (await perform(ada!, "room.create", { name: "Trial room" })).result;
+  await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
+  const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
+  const stored = await admin.query("v2/testing:header", { gameId });
+  assert.ok(Array.isArray(stored.unopposed), "measured at the deal (an empty list when the table has no unopposed direction)");
+  for (const d of stored.unopposed) assert.ok(typeof d.direction === "string" && Array.isArray(d.rules) && ["weak", "strong"].includes(d.strength));
+  const header = await ada!.query("v2/games:header", { gameId });
+  assert.equal("unopposed" in header, false, "players are not shown it");
+  await perform(ada!, "game.end", {}, { gameId });
+});
