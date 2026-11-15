@@ -49,7 +49,7 @@ def agent(offer):
     m, c, p, tie = v.m, v.c, rule.params, rule.tie_breaker
     # A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.
     if m == None:
-        return climb(offer, [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tips(offer)], None, QUOTES)
+        return climb(offer, [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tips(offer) if offer.object not in PROTECT or fair(offer, plan)], None, QUOTES)
     tries = []                 # (plan, m after, c after): changes tried in the agent's own head
     for k in range(-FAR, FAR + 1):
         if k == 0:

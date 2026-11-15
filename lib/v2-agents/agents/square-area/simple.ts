@@ -38,7 +38,7 @@ function agent(offer) {
   const rule = goal(offer);         // your rule (free)
   const m = v.m, c = v.c, p = rule.params, tie = rule.tieBreaker;
   // A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.
-  if (!Q.isQ(m)) return climb(offer, tips(offer).map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]), null, QUOTES);
+  if (!Q.isQ(m)) return climb(offer, tips(offer).filter(([plan]) => !PROTECT.includes(offer.object) || fair(offer, plan)).map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]), null, QUOTES);
   const tries = [];                 // [plan, m after, c after]: changes tried in the agent's own head
   for (let k = -FAR; k <= FAR; k++) {
     if (k === 0) continue;

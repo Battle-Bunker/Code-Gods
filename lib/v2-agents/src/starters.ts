@@ -148,7 +148,7 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     `  const m = v.m, c = v.c, p = rule.params${kind === "example" ? "" : ", tie = rule.tieBreaker"};`,
     ...(kind === "naive" ? ["  if (!Q.isQ(m)) return null;       // a vertical line has no y = mx + c: skip"] : [
       "  // A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.",
-      `  if (!Q.isQ(m)) return climb(offer, tips(offer).map(([plan, m2, c2]) => [plan, score(m2, c2, ${args})]), null, QUOTES);`,
+      `  if (!Q.isQ(m)) return climb(offer, tips(offer).filter(([plan]) => !PROTECT.includes(offer.object) || fair(offer, plan)).map(([plan, m2, c2]) => [plan, score(m2, c2, ${args})]), null, QUOTES);`,
     ]),
     "  const tries = [];                 // [plan, m after, c after]: changes tried in the agent's own head",
     "  for (let k = -FAR; k <= FAR; k++) {",
@@ -239,7 +239,7 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     ...(kind === "naive" ? ["    if m == None:              # a vertical line has no y = mx + c: skip", "        return None"] : [
       "    # A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.",
       "    if m == None:",
-      `        return climb(offer, [(plan, score(m2, c2, ${args})) for plan, m2, c2 in tips(offer)], None, QUOTES)`,
+      `        return climb(offer, [(plan, score(m2, c2, ${args})) for plan, m2, c2 in tips(offer) if offer.object not in PROTECT or fair(offer, plan)], None, QUOTES)`,
     ]),
     "    tries = []                 # (plan, m after, c after): changes tried in the agent's own head",
     "    for k in range(-FAR, FAR + 1):",
