@@ -117,7 +117,7 @@ try {
       await page.goto(`${SITE}/rooms/${room}/games/${g.gameId}`);
       await page.getByTestId("text-my-total").waitFor();
       assert.match(await page.getByTestId("text-my-total").innerText(), /points/);
-      assert.match(await page.getByTestId("text-my-energy").innerText(), /energy/);
+      assert.match(await page.getByTestId("text-my-energy").innerText(), /^Energy [\d,]+\.\d\d/);
       for (const pane of ["objects", "my-card", "feed", "agents", "race"]) await page.getByTestId(`pane-${pane}`).waitFor();
       const row = page.locator("[data-testid^=row-line-]").first();
       await row.waitFor();
@@ -128,6 +128,9 @@ try {
       assert.doesNotMatch(feed, /payoff|object|\p{Extended_Pictographic}/iu, "the act log speaks in player words");
       assert.match(feed, /your [\d.,]+ bits? × others' [\d.,]+ bits? [=≈] [\d.,]+ points?/, "the act log shows how a line scores");
       assert.doesNotMatch(feed, /\d\.\d (bits?|points?|energy)/, "every measure has 2 decimal places");
+      // A label that says energy is followed by the number alone (coordinator, after the word sweep: "Energy 576.00 energy").
+      const doubled = (await page.locator("body").innerText()).match(/\benergy:?\s+(about\s+)?−?[\d,]+(\.\d+)?\s+energy\b/gi);
+      assert.equal(doubled, null, `${label}: the word energy doubled: ${doubled}`);
       await noHorizontalScroll(page, `${label} game`);
       await shot(page, `v2-game-${label}`);
       await row.click();

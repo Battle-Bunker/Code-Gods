@@ -14,11 +14,18 @@ test("energy a little below zero reads about 0 energy, with the exact figure for
   assert.equal(energyWords(-0.01), "about 0 energy");
 });
 
+test("beside a label that says energy, the amount is the number alone (coordinator: 'Energy 576.00 energy')", async () => {
+  const { energyAmount } = await import("../src/core/words.ts");
+  assert.equal(energyAmount(576), "576.00");
+  assert.equal(energyAmount(-8.9), "about 0");
+  assert.equal(energyAmount(-120), "−120.00");
+});
+
 test("power is explained in the same breath as the share (ux 3.7)", () => {
   assert.equal(powerSentence(25, [0.7]),
-    "Your power is the energy you earn each second: 25.00 energy a second. 70% of it goes to your agent, which spends it on moves; you keep 7.50 energy a second, saved up for replacing it or adding another.");
+    "Your power is the energy you earn each second: 25.00 a second. 70% of it goes to your agent, which spends it on moves; you keep 7.50 a second, saved up for replacing it or adding another.");
   assert.equal(powerSentence(25, [0.5, 0.25]),
-    "Your power is the energy you earn each second: 25.00 energy a second. 75% of it goes to your agents, which spend it on moves; you keep 6.25 energy a second, saved up for replacing one or adding another.");
+    "Your power is the energy you earn each second: 25.00 a second. 75% of it goes to your agents, which spend it on moves; you keep 6.25 a second, saved up for replacing one or adding another.");
   assert.match(powerSentence(25, []), /It all goes to your own energy until you summon an agent/);
   assert.match(powerSentence(25, [0.6, 0.4]), /All of it goes to your agents.*you keep none/);
   assert.equal(percent(0.125), "12.5%");

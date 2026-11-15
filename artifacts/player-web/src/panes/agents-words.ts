@@ -28,13 +28,13 @@ export const WORKING_TEXT = "Working: it spends energy as fast as it earns it.";
  * another."
  */
 export function powerSentence(power: number, shares: readonly number[]): string {
-  const head = `Your power is the energy you earn each second: ${num(power)} energy a second.`;
+  const head = `Your power is the energy you earn each second: ${num(power)} a second.`;
   const given = Math.min(1, Math.max(0, shares.reduce((n, s) => n + s, 0)));
   if (shares.length === 0) return `${head} It all goes to your own energy until you summon an agent, which then gets a share of it to spend on moves.`;
   const kept = power * (1 - given);
   const agents = shares.length === 1 ? "your agent, which spends" : "your agents, which spend";
   if (given >= 1) return `${head} All of it goes to ${agents} it on moves; you keep none, so your own energy stays where it is.`;
-  return `${head} ${percent(given)} of it goes to ${agents} it on moves; you keep ${num(kept)} energy a second, saved up for replacing ${shares.length === 1 ? "it" : "one"} or adding another.`;
+  return `${head} ${percent(given)} of it goes to ${agents} it on moves; you keep ${num(kept)} a second, saved up for replacing ${shares.length === 1 ? "it" : "one"} or adding another.`;
 }
 
 /** "Share of your power 70% (17.5 energy a second)". */

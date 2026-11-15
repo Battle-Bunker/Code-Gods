@@ -9,11 +9,12 @@ import { useState } from "react";
 import { objectWord, useAgentPrograms, useAgentCount, useGame, useGameScope, useMe, useMyAgents, useAgentEnergy, type Agent } from "@/sdk";
 import { useOpenPane } from "@/dock/open-pane";
 import { AffordanceButton, Tip } from "@/site/components/action";
-import { DEBT_TEXT, WORKING_TEXT, debtText, destroyConfirm, energyExact, energyWords, percent, powerSentence, shareText, workText } from "./agents-words";
+import { energyAmount } from "@/core/words";
+import { DEBT_TEXT, WORKING_TEXT, debtText, destroyConfirm, energyExact, percent, powerSentence, shareText, workText } from "./agents-words";
 
 function Energy({ value, testId }: { value: number; testId: string }) {
   const exact = energyExact(value);
-  const shown = <span className="tabular-nums text-foreground" data-testid={testId} tabIndex={exact ? 0 : undefined}>{energyWords(value)}</span>;
+  const shown = <span className="tabular-nums text-foreground" data-testid={testId} tabIndex={exact ? 0 : undefined}>{energyAmount(value)}</span>;
   return exact ? <Tip text={exact}>{shown}</Tip> : shown;
 }
 
