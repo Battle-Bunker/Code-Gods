@@ -15,7 +15,7 @@ import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { evaluateObject, q, rng, walkStep, type Q, type RuleFamily, type Score } from "@workspace/v2-core";
 import { divisibilityLadder, encodeLine, fromMC, lensMutators, lineQ, lineQLenses, lineType, lineZ, normalise, primeGradient, primeLanding, squareArea, treasure, wholeCrossing, type Line, type LineState } from "@workspace/v2-linear";
-import { annotate, bitsLine, CompactFace, ExpandedFace, GoalCard, MoveLine, MoveSketch, ObjectChip, type RuleRef } from "@workspace/v2-views";
+import { annotate, bitsLine, CompactFace, ExpandedFace, GameSummary, GoalCard, MoveLine, MoveSketch, ObjectChip, summarise, type RuleRef } from "@workspace/v2-views";
 import { pickExamples, valueFor } from "./values";
 import { emptyTank } from "@workspace/v2-views/demo";
 import "@workspace/v2-views/styles.css";
@@ -209,6 +209,26 @@ function Lenses() {
   );
 }
 
+// ------------------------------------------------------------------ the end summary
+
+/** "What earned your points" for a ladder rule on lines on and off its rungs (round 29: "…dealt prime…: −½"). */
+function EndSummary() {
+  const rule = { type: lineType, family: primeGradient, params: { ends: 1 }, variant: lineQ, tieBreaker: primeGradient.tieBreakers[0]!.id } as RuleRef<LineState, unknown>;
+  const objects = [
+    { number: 1, state: mc(11, 3), points: 41.2, bits: 6.1, want: 6.75 },
+    { number: 2, state: mc(10, 3), points: 12.5, bits: 2.5, want: 5 },
+    { number: 3, state: mc(-7, 2), points: 3.1, bits: 1, want: 3.1 },
+  ];
+  const summary = summarise({ rule, objects, tugs: [], total: 56.8 });
+  return (
+    <section className="g-section" id="summary" data-section="summary">
+      <h2>The end of a game: Prime Gradient</h2>
+      <p className="g-note">What earned the points, each line said through its rule's main part: on a rung in the rule's own words, off the rungs as the reading and the nearest prime.</p>
+      <GameSummary summary={summary as never} rule={rule as never} />
+    </section>
+  );
+}
+
 // ------------------------------------------------------------------ two-line systems
 
 const pairOf = (p: [bigint, bigint, bigint], r: [bigint, bigint, bigint]) => canonicalPair([normalise(...p) as Line, normalise(...r) as Line], pairQ) as PairState;
@@ -320,6 +340,7 @@ function Gallery() {
         {show("grids") && <GridsSection only={only} />}
         {show("lenses") && !only && <Lenses />}
         {show("pairs") && !only && <Pairs />}
+        {show("summary") && !only && <EndSummary />}
         {section === "plot" && <Hard />}
       </main>
     </div>

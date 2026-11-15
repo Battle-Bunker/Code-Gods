@@ -212,7 +212,7 @@ async function phoneEnd(browser: any) {
   await page.waitForTimeout(800);
   const earned = page.getByTestId("pane-results").getByText("What earned your points");
   let seen = false, last = -1;
-  for (let i = 0; i < 8 && !seen; i++) {
+  for (let i = 0; i < 20 && !seen; i++) {
     await page.mouse.move(195, 422);
     await page.mouse.wheel(0, 700);
     await page.waitForTimeout(500);
