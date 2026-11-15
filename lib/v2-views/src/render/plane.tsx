@@ -42,6 +42,8 @@ export interface PlaneLayout {
   /** The object's line across the window (box px). */
   readonly line: Seg | null;
   readonly lineRef: ElementRef | null;
+  /** The scene's other lines (a system of several), across the window (box px), in item order. */
+  readonly others: readonly { readonly ref: ElementRef; readonly seg: Seg | null }[];
   readonly points: readonly PlanePoint[];
   readonly labels: readonly PlaneLabel[];
   /** The triangle with the axes, when the rule reads it: box px, and whether it is too thin to see. */
@@ -194,6 +196,15 @@ export function planeLayout(input: PlaneLayoutInput): PlaneLayout | null {
     const pt = pointOf(p.values(it.el));
     if (pt && !raw.has(key(it.el))) land.push({ id: key(it.el), ref: it.el, priority: 3, ...pt, kind: "item", label: `${short(p, it.el)} ${readablePoint(p.values(it.el))}` });
   }
+  // A system of several lines: where each crosses the y-axis (or the x-axis), so every line is in the window.
+  const lineEls = p.scene.items.filter(i => i.draw === "line");
+  if (lineEls.length > 1) lineEls.forEach((it, i) => {
+    const sv = segOf(p.values(it.el));
+    if (!sv) return;
+    const [a, b] = sv, dx = b.x - a.x, dy = b.y - a.y;
+    const at = dx !== 0 ? { x: 0, y: a.y - (a.x * dy) / dx } : { x: a.x, y: 0 };
+    land.push({ id: `line${i}`, ref: null, priority: 3, ...at, kind: "item", label: "" });
+  });
   // The triangle the rule reads: its corners matter as much as its marks.
   const regionItem = p.scene.items.find(i => i.draw === "region");
   let world: XY[] | null = null;
@@ -258,6 +269,10 @@ export function planeLayout(input: PlaneLayoutInput): PlaneLayout | null {
     view = fitViewport({ points: [...without, ...kept], box: input.box, pad });
   }
   const line = clipLine(view, L.a, L.b, L.c);
+  const others = p.scene.items.filter(i => i.draw === "line").slice(1).map(it => {
+    const sv = segOf(p.values(it.el));
+    return { ref: it.el, seg: sv ? lineThrough(view, sv) : null };
+  });
 
   const inView = (pt: XY) => pt.x >= view.x0 && pt.x <= view.x1 && pt.y >= view.y0 && pt.y <= view.y1;
   // When the rule cites nothing here, the landmarks (the intercepts) are what there is to read: labelled where there is room.
@@ -280,6 +295,7 @@ export function planeLayout(input: PlaneLayoutInput): PlaneLayout | null {
   }));
   const segs: Seg[] = [];
   if (line) segs.push(line);
+  for (const o of others) if (o.seg) segs.push(o.seg);
   if (view.y0 <= 0 && view.y1 >= 0) segs.push({ x1: 0, y1: view.sy(0), x2: view.box.w, y2: view.sy(0) });
   if (view.x0 <= 0 && view.x1 >= 0) segs.push({ x1: view.sx(0), y1: 0, x2: view.sx(0), y2: view.box.h });
   const region = world && regionItem ? (() => {
@@ -333,7 +349,7 @@ export function planeLayout(input: PlaneLayoutInput): PlaneLayout | null {
     x: view.sx(sqWorld.x), y: view.sy(sqWorld.y + sqWorld.side), side: view.sx(sqWorld.side) - view.sx(0), ref: sqWorld.ref,
     label: `${readable(Qn.parse(sqWorld.ref.args!.s!))} × ${readable(Qn.parse(sqWorld.ref.args!.s!))} = ${sqV?.kind === "number" ? readable(sqV.q) : ""}`,
   } : null;
-  return { view, line, lineRef: L.ref, points, labels, region, offAxes, marks, ticks, square };
+  return { view, line, lineRef: L.ref, others, points, labels, region, offAxes, marks, ticks, square };
 }
 
 // ------------------------------------------------------------------ drawing
@@ -360,6 +376,30 @@ const lineThrough = (v: Viewport, s: [XY, XY]) => {
   const a = s[1].y - s[0].y, b = s[0].x - s[1].x, c = s[1].x * s[0].y - s[0].x * s[1].y;
   return clipLine(v, a, b, c);
 };
+
+/**
+ * Each line item's colour (0, 1, …) on a plane of several lines: by item order, except across a move (`before`), where
+ * a line keeps the colour it had although the canonical order of a system's lines may have flipped: an unchanged line
+ * keeps its colour, then a line parallel to one before (a slide) takes that one's, then the rest in order.
+ */
+export function lineColours(now: readonly ElementValue[], before?: readonly ElementValue[]): number[] {
+  const n = now.length;
+  if (!before || before.length !== n) return now.map((_, i) => i);
+  const out: (number | null)[] = now.map(() => null), used = new Set<number>();
+  const dir = (v: ElementValue) => { const s = segOf(v); return s ? { x: s[1].x - s[0].x, y: s[1].y - s[0].y } : null; };
+  const parallel = (a: ElementValue, b: ElementValue) => { const u = dir(a), w = dir(b); return !!u && !!w && Math.abs(u.x * w.y - u.y * w.x) <= 1e-9 * (Math.hypot(u.x, u.y) * Math.hypot(w.x, w.y)); };
+  const pass = (same: (a: ElementValue, b: ElementValue) => boolean) => {
+    now.forEach((v, i) => {
+      if (out[i] !== null) return;
+      const j = before.findIndex((b, j) => !used.has(j) && same(v, b));
+      if (j >= 0) { out[i] = j; used.add(j); }
+    });
+  };
+  pass((a, b) => fmtValue(a) === fmtValue(b));
+  pass(parallel);
+  pass(() => true);
+  return out as number[];
+}
 
 function Scene({ p }: { p: P }) {
   const box = planeRenderer.box[p.size];
@@ -408,23 +448,32 @@ function Scene({ p }: { p: P }) {
     }
   }
 
-  if (p.before && lineItem) {
-    const s = segOf(p.before(lineItem.el)), now = segOf(p.values(lineItem.el));
-    if (s && fmtValue(p.before(lineItem.el)) !== fmtValue(p.values(lineItem.el))) {
+  // Every line of the scene (a system has several), each in its colour; across a move, a line keeps its colour.
+  const lineItems = p.scene.items.filter(i => i.draw === "line");
+  const many = lineItems.length > 1;
+  const nowVals = lineItems.map(i => p.values(i.el));
+  const beforeVals = p.before ? lineItems.map(i => { try { return p.before!(i.el); } catch { return { kind: "undefined", reason: "" } as ElementValue; } }) : undefined;
+  const colour = lineColours(nowVals, beforeVals);
+  const tone = (c: number) => (many ? String(c + 1) : undefined);
+  if (beforeVals) {
+    // Where a moved line was: each line before that no line now is, faint, in its colour.
+    const kept = new Set(nowVals.map(v => fmtValue(v)));
+    beforeVals.forEach((b, j) => {
+      const s = segOf(b);
+      if (!s || kept.has(fmtValue(b)) || !nowVals.some(v => segOf(v))) return;
       const c = lineThrough(v, s);
-      if (c && now) back.push(<line key="was" className="line-was" {...c} />);
-    }
+      if (c) back.push(<line key={`was${j}`} className="line-was" data-line={tone(j)} {...c} />);
+    });
   }
-  if (p.next && lineItem) {
-    const s = segOf(p.next(lineItem.el));
-    if (s && fmtValue(p.next(lineItem.el)) !== fmtValue(p.values(lineItem.el))) {
-      const c = lineThrough(v, s);
-      if (c) {
-        // Unlabelled on the drawing (a word there would sit on the axes' numbers): the move's words are beside the face.
-        back.push(<g key="next" data-next=""><line className="line-next" {...c} /><title>the line after the next move</title></g>);
-      }
-    }
-  }
+  if (p.next) lineItems.forEach((it, i) => {
+    let nx: ElementValue;
+    try { nx = p.next!(it.el); } catch { return; }
+    const s = segOf(nx);
+    if (!s || fmtValue(nx) === fmtValue(p.values(it.el))) return;
+    const c = lineThrough(v, s);
+    // Unlabelled on the drawing (a word there would sit on the axes' numbers): the move's words are beside the face.
+    if (c) back.push(<g key={`next${i}`} data-next="" data-line={tone(colour[i]!)}><line className="line-next" {...c} /><title>the line after the next move</title></g>);
+  });
 
   // Ghost lines (candidate segments: the line of gradient g through the same y-intercept).
   const ghosts = marks.filter((m): m is Candidate => m.kind === "candidate" && p.values(m.ref).kind === "segment");
@@ -446,17 +495,19 @@ function Scene({ p }: { p: P }) {
     );
   }
 
-  if (L.line && L.lineRef) {
-    placed.add(key(L.lineRef));
-    const st = markState(marks, L.lineRef);
+  const drawLine = (ref: ElementRef, seg: Seg, i: number) => {
+    placed.add(key(ref));
+    const st = markState(marks, ref);
     back.push(
-      <g key="line" {...elAttrs(q, L.lineRef)} {...hover(q, L.lineRef)}>
-        <line className="hit" {...L.line} />
-        <line className="line" data-focus={st.focus ? "" : undefined} {...L.line} />
-        <title>{p.labelOf(L.lineRef)}</title>
+      <g key={`line${i}`} data-line={tone(colour[i]!)} {...elAttrs(q, ref, { changedFrom: !many })} data-changed={many && beforeVals && !beforeVals.some(b => fmtValue(b) === fmtValue(nowVals[i]!)) ? "" : undefined} {...hover(q, ref)}>
+        <line className="hit" {...seg} />
+        <line className="line" data-focus={st.focus ? "" : undefined} {...seg} />
+        <title>{p.labelOf(ref)}</title>
       </g>,
     );
-  }
+  };
+  if (L.line && L.lineRef) drawLine(L.lineRef, L.line, 0);
+  L.others.forEach((o, i) => { if (o.seg) drawLine(o.ref, o.seg, i + 1); });
 
   const labelOf = new Map(L.labels.map(l => [l.id, l]));
   // Measures: a bracket between two points, labelled with the term.
@@ -534,10 +585,13 @@ function Scene({ p }: { p: P }) {
 
 function planeText(scene: Plane, values: (r: ElementRef) => ElementValue): string {
   const parts: string[] = [];
+  const many = scene.items.filter(i => i.draw === "line").length > 1;
+  let n = 0;
   for (const it of scene.items) {
     const v = values(it.el);
     if (it.draw === "line") {
-      parts.push(v.kind === "segment" ? `a line through ${fmtValue({ kind: "point", ...v.from })} and ${fmtValue({ kind: "point", ...v.to })}` : fmtValue(v));
+      n++;
+      parts.push(v.kind === "segment" ? `${many ? `line ${n}` : "a line"} through ${fmtValue({ kind: "point", ...v.from })} and ${fmtValue({ kind: "point", ...v.to })}` : fmtValue(v));
     } else if (v.kind !== "undefined") {
       parts.push(`${it.el.name} ${fmtValue(v)}`);
     }

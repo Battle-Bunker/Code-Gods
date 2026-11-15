@@ -142,22 +142,29 @@ export function caption(t: EquationTemplate | undefined, rep: string, values: (r
 }
 export const captionText = (c: CaptionPiece[]): string => c.map(x => (typeof x === "string" ? x : x.text)).join("");
 
-export interface Worked { readonly lines: readonly Piece[][]; readonly caption: CaptionPiece[] | null }
-/** The lines a worked equation shows (undefined steps and repeats left out), or the last step's sentence. */
+/** `given`: how many of `lines` are given side by side (a system's equations) rather than worked from the one before. */
+export interface Worked { readonly lines: readonly Piece[][]; readonly given: number; readonly caption: CaptionPiece[] | null }
+/**
+ * The lines a worked equation shows (undefined steps and repeats left out), or the last step's sentence. A given line
+ * (a system's equation) is always kept: a repeat is two equal equations, and one that cannot be written says why in
+ * its place ("line 2 is upright: x = 3").
+ */
 export function worked(scene: Eq, rep: string, values: (r: ElementRef) => ElementValue): Worked | { undefined: string } {
   const all = [scene.template, ...(scene.steps ?? [])].map(t => pieces(t, rep, values));
+  const given = Math.min(scene.given ?? 0, all.length);
   const last = all[all.length - 1]!;
-  if ("undefined" in last) return last;
+  if ("undefined" in last && all.length > given) return last;
   const lines: Piece[][] = [];
-  for (const ps of all) {
-    if ("undefined" in ps) continue;
-    if (lines.length && lineText(lines[lines.length - 1]!) === lineText(ps)) continue;
+  all.forEach((ps, i) => {
+    if (i < given) { lines.push("undefined" in ps ? [{ kind: "text", text: ps.undefined }] : ps); return; }
+    if ("undefined" in ps) return;
+    if (lines.length > given && lineText(lines[lines.length - 1]!) === lineText(ps)) return;
     lines.push(ps);
-  }
-  return { lines, caption: caption(scene.caption, rep, values) };
+  });
+  return { lines, given, caption: caption(scene.caption, rep, values) };
 }
 
-export const isWorked = (scene: Eq): boolean => !!(scene.steps?.length || scene.caption);
+export const isWorked = (scene: Eq): boolean => !!(scene.steps?.length || scene.caption || scene.given);
 
 /** The plain text; a worked equation reads "0 = 3x − 7, so 3x = 7, so x = 2⅓ (nearest whole number 2, off by ⅓)". */
 export function text(scene: Eq, values: (r: ElementRef) => ElementValue, rep: string): string {
@@ -168,5 +175,7 @@ export function text(scene: Eq, values: (r: ElementRef) => ElementValue, rep: st
   }
   const w = worked(scene, rep, values);
   if ("undefined" in w) return w.undefined;
-  return w.lines.map(lineText).join(", so ") + (w.caption ? ` (${captionText(w.caption)})` : "");
+  const given = w.lines.slice(0, w.given).map(lineText).join(" and ");
+  const rest = w.lines.slice(w.given).map(lineText);
+  return [...(given ? [given] : []), ...rest].join(", so ") + (w.caption ? ` (${captionText(w.caption)})` : "");
 }
