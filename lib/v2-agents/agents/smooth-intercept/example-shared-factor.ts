@@ -15,7 +15,7 @@ function score(m, c, p) {
   if (s === null) return null;                    // none within 10,000: hopeless
   const main = Q.eq(a, s) ? a : Q.neg(Q.abs(Q.sub(a, s)));   // on a rung: the rung; else below every rung
   const wm = whole(Q.div(Q.sub(Q.mul(2, m), 1), 2));   // the gradient's whole part (rounded down)
-  return [main, common(Q.add(s, 1), wm)];   // main: the y-intercept's size itself when it is made only of the rule's primes (bigger is better: a ladder with no top), else minus how far it is from the nearest such number; tie-breaker: that number plus 1 sharing a bigger factor with the gradient's whole part is better
+  return [main, common(Q.add(s, 1), wm)];   // main: the y-intercept's size itself when it is made only of the rule's primes (bigger is better: a ladder with no top), else minus how far it is from the nearest such number; tie-breaker: take the number just after that number: a bigger number dividing both it and the gradient's whole part is better
 }
 
 const FAR = 3;      // how far one change may go
