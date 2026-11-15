@@ -4,7 +4,7 @@
  */
 import { canonicalJson, hashHex, tieBreakerId, type ObjectType, type RuleFamily, type TieBreaker, type Variant } from "@workspace/v2-core";
 import { pairLaw, pairType, type PairState } from "@workspace/v2-pair";
-import { knotsFrom, layerMeasures, sampledDraws, sampledOracle, TAIL_CEILING, tailOf, VALUE_CONFIG, type ValueConfig, type ValueFunction, type ValueTail } from "./value.ts";
+import { knotsFrom, ladderCaps, layerMeasures, sampledDraws, sampledOracle, TAIL_CEILING, tailOf, VALUE_CONFIG, type ValueConfig, type ValueFunction, type ValueTail } from "./value.ts";
 import { ruleKey, valuesHash } from "./keys.ts";
 
 /**
@@ -24,9 +24,11 @@ export const PAIR_SIZE_RATE = 1;
  * per factor (k factors need a number of at least 2^k) and keeps the line tail held under TAIL_CEILING per factor.
  * The generator and the committed-values test both read it.
  */
-export function pairTail(family: RuleFamily<any, any>, tb: TieBreaker, knots: Parameters<typeof tailOf>[0]): ValueTail {
+export function pairTail(family: RuleFamily<any, any>, tb: TieBreaker, knots: Parameters<typeof tailOf>[0], caps?: Parameters<typeof tailOf>[4]): ValueTail {
   const layer = tb === null ? undefined : (family.tieBreakers.find(l => l.id === tb) as { hill?: string } | undefined);
-  return tailOf(knots, TAIL_CEILING, layerMeasures(family, tb), layer?.hill === "smooth" ? undefined : PAIR_SIZE_RATE);
+  // A ladder family's main part (keepsParams) takes the ladder tail along its level (trial 28 for pairs: "ladder-log").
+  const m = layerMeasures(family, tb), measures = m.primary === "ladder" ? { ...m, primary: "ladder-log" as const } : m;
+  return tailOf(knots, TAIL_CEILING, measures, layer?.hill === "smooth" ? undefined : PAIR_SIZE_RATE, caps);
 }
 
 export function pairValueFunction<P>(family: RuleFamily<PairState, P>, params: P, variant: Variant,
@@ -43,7 +45,7 @@ export function pairValueFunction<P>(family: RuleFamily<PairState, P>, params: P
     schema: 7 as const, kind: "value-function" as const,
     ruleKey: ruleKey(pairType as ObjectType<unknown>, variant, family.id, params, tieBreaker),
     objectType: pairType.id, objectTypeVersion: pairType.version, variant: variant.id, variantHash: valuesHash(variant),
-    family: family.id, params, tieBreaker, seed, config: cfg, knots, tail: pairTail(family, tb, knots),
+    family: family.id, params, tieBreaker, seed, config: cfg, knots, tail: pairTail(family, tb, knots, ladderCaps(pairType as ObjectType<PairState>, family, params, variant)),
     diagnostics: { exact: [], sampled, candidates },
   };
   return { ...body, contentHash: hashHex(canonicalJson(body)) };

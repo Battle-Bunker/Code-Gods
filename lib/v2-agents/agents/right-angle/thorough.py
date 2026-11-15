@@ -1,5 +1,5 @@
 # Right Angle · Thorough
-# Main part: the lines cross at a right angle at a grid point, y on the dealt ladder. Tie-breaker: whichever you were dealt (the corner's distance is a big prime; the corner's distance shares a factor with the steeper gradient).
+# Main part: a right angle at whole x and y, y on your pattern. Tie-breaker: whichever you were dealt (the corner's |x| + |y| has a big smallest prime factor; the corner's |x| + |y| shares a factor with the steeper gradient).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others

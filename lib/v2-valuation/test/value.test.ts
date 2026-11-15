@@ -174,8 +174,8 @@ test("committed value functions are intact: each content hash matches, knots ris
     const measures = layerMeasures(family, body.tieBreaker === "none" ? null : body.tieBreaker);
     const tb = body.tieBreaker === "none" ? null : body.tieBreaker;
     const { type, variant } = findVariant(v);
-    const caps = body.objectType === "line" ? ladderCaps(type as never, family as never, body.params, variant) : undefined;
-    const tail = body.objectType === "pair" ? pairTail(family, tb, body.knots) : tailOf(body.knots, body.objectType === "line" ? TAIL_CEILING : Infinity, measures, undefined, caps);
+    const caps = body.objectType === "line" || body.objectType === "pair" ? ladderCaps(type as never, family as never, body.params, variant) : undefined;
+    const tail = body.objectType === "pair" ? pairTail(family, tb, body.knots, caps) : tailOf(body.knots, body.objectType === "line" ? TAIL_CEILING : Infinity, measures, undefined, caps);
     assert.deepEqual(body.tail, tail, `${v}/${f}/${x}: the tail is the one its knots and layers imply`);
     for (const t of [body.tail.secondary, body.tail.primary]) assert.ok(t.slope > 0 && Number.isFinite(t.slope), `${v}/${f}/${x}: tail ${JSON.stringify(t)}`);
     n++;

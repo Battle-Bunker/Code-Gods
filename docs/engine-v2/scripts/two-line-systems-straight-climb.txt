@@ -1,0 +1,24 @@
+Pairs: one seat, 2500⚡ on one object, from a rung start; each step the best bits per energy.
+| rule | start bits | straight run (steps × bits a step) | peak bits | ⚡ spent | steps | ends | last moves |
+|---|--:|---|--:|--:|--:|---|---|
+| whole-answer/peg-divisor {"q":5,"r":1} #1 | 8.6 | 1 × 1.1 | 11.2 | 52 | 4 | frozen | pair.slide 2,5; mach.stretch 1,-2; pair.turn 1,1 |
+| whole-answer/south-west {"q":5,"r":1} #1 | 8.0 | 0 × 0.0 | 8.0 | 0 | 0 | frozen |  |
+| no-fractions/numerator-smooth {"k":5} #1 | 5.3 | 1 × 3.1 | 8.4 | 6 | 1 | frozen | sys.translate 0,1 |
+| no-fractions/numerator-smooth {"k":5} #2 | 11.1 | 1 × 1.3 | 13.3 | 48 | 2 | frozen | sys.translate -1,0; pair.slide 2,2 |
+| no-fractions/numerator-shared {"k":5} #1 | 6.7 | 1 × 1.8 | 9.1 | 22 | 2 | frozen | pair.slide 2,1; pair.slide 2,2 |
+| no-fractions/numerator-shared {"k":5} #2 | 5.1 | 1 × 1.5 | 9.8 | 363 | 10 | frozen | si.shift 2,2; si.shift 2,10; mach.stretch 2,11 |
+| right-angle/corner-steep {"q":5,"r":1} #1 | 10.9 | 1 × 12.5 | 23.4 | 30 | 1 | frozen | pair.slide 2,5 |
+| double-gap/gap-divisor {"k":3} #1 | 11.0 | 1 × 11.5 | 22.5 | 42 | 2 | frozen | sys.translate 5,0; pair.quarter 2 |
+| double-gap/gap-prime {"k":3} #1 | 10.1 | 1 × 12.9 | 23.0 | 92 | 1 | frozen | pair.turn 2,-10 |
+| far-crossing/far-gap {"q":7,"r":4} #1 | 6.7 | 2 × 1.9 | 18.5 | 247 | 11 | frozen | pair.slide 1,5; pair.slide 1,1; si.shift 1,1 |
+| far-crossing/far-gap {"q":7,"r":4} #2 | 5.5 | 2 × 0.7 | 7.6 | 114 | 6 | frozen | si.tilt 2,2; pair.slide 2,-1; pair.slide 2,-1 |
+| far-crossing/far-height {"q":7,"r":4} #1 | 7.5 | 1 × 1.9 | 9.6 | 154 | 3 | frozen | pair.quarter 2; si.shift 2,2; si.shift 2,2 |
+| far-crossing/far-height {"q":7,"r":4} #2 | 6.9 | 1 × 0.5 | 7.5 | 20 | 2 | frozen | mach.stretch 2,3; si.shift 2,-1 |
+| high-start/start-echo {"q":5,"r":1} #1 | 6.8 | 1 × 1.2 | 12.4 | 244 | 6 | frozen | sys.translate 0,-5; pair.turn 1,-1/2; si.shift 1,1 |
+| high-start/start-echo {"q":5,"r":1} #2 | 6.9 | 1 × 1.5 | 12.3 | 186 | 9 | frozen | pair.slide 2,-1; pair.slide 1,1; mach.stretch 1,1/2 |
+| high-start/start-crossing {"q":5,"r":1} #1 | 6.8 | 1 × 1.1 | 13.6 | 189 | 8 | frozen | si.tilt 1,-1; si.tilt 1,-1; mach.stretch 1,5 |
+| high-start/start-crossing {"q":5,"r":1} #2 | 5.9 | 1 × 3.5 | 9.5 | 78 | 4 | frozen | mach.stretch 2,1/3; si.tilt 2,1; mach.stretch 2,2 |
+| steep-ratio/ratio-gap {"q":5,"r":2} #1 | 7.6 | 1 × 0.7 | 10.0 | 1799 | 4 | frozen | si.tilt 2,100; si.tilt 1,100; si.tilt 1,100 |
+| steep-ratio/ratio-gap {"q":5,"r":2} #2 | 7.3 | 1 × 1.9 | 19.1 | 1033 | 9 | frozen | mach.stretch 2,11; mach.stretch 2,11; si.tilt 1,-1/2 |
+| steep-ratio/ratio-prime {"q":5,"r":2} #1 | 5.3 | 1 × 3.0 | 13.3 | 1343 | 3 | frozen | mach.stretch 2,5; mach.stretch 2,5; mach.stretch 2,11 |
+| steep-ratio/ratio-prime {"q":5,"r":2} #2 | 5.8 | 2 × 1.1 | 18.2 | 987 | 5 | frozen | mach.stretch 2,5; mach.stretch 2,5; mach.stretch 2,5 |

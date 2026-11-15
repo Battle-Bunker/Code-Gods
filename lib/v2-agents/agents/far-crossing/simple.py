@@ -1,5 +1,5 @@
 # Far Crossing · Simple
-# Main part: the steeper line crosses the x-axis at a whole number on the dealt ladder. Tie-breaker: whichever you were dealt (the gap between the x-intercepts a multiple of q to your level; the lines cross at a height that is a multiple of q to your level).
+# Main part: the steeper line crosses the x-axis on your pattern. Tie-breaker: whichever you were dealt (the x-intercepts' gap near a multiple of your number; the crossing's height near a multiple of your number).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others

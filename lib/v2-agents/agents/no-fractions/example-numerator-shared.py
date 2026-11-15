@@ -1,5 +1,5 @@
 # Divide By · Example: the answer's numerators share a big factor
-# Main part: the number you divide by on the dealt powers. Tie-breaker: the answer's numerators share a big factor.
+# Main part: the number you divide by on your powers. Tie-breaker: the answer's numerators share a big factor.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
