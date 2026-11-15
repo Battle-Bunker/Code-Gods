@@ -109,6 +109,7 @@ test("contributors never throw, and say no steps, on a walk of lines under every
     const states: LineState[] = [s, mc(5, 27720), mc(q(1, 6), q(7, 6))];
     for (let i = 0; i < 60; i++) { s = walkStep(lineType, variant, s, g); states.push(s); }
     for (const f of beginnerPool) for (const tb of f.tieBreakers) for (const st of states) {
+      if (!f.dealable(variant).length) continue;   // a family dealt on the rationals only (Smooth Intercept)
       const r: RuleRef<LineState, unknown> = { type: lineType, family: f as never, params: f.dealable(variant)[0], variant, tieBreaker: tb.id };
       for (const p of contributors(r, st).parts) assert.doesNotMatch(p.sentence, /\bstep \d|NaN|undefined/, `${f.id}/${tb.id}: ${p.sentence}`);
     }

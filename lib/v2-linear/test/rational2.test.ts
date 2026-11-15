@@ -12,11 +12,12 @@ const score = (e: Evaluation) => (e.score === null ? "WORST" : e.score.map(x => 
 const ev = <P,>(f: RuleFamily<LineState, P>, p: P, s: LineState, tb?: TieBreaker) => evaluateSite(lineType, f, p, s, lineQ, 0, tb);
 const f = Qn.q;
 
-test("on the line type, undealt, dealable only on rational lines, with the dealt parameters of the §A2 run", () => {
+test("on the line type, undealt (but the adversaries redesigned as ladders and dealt), dealable only on rational lines, with the dealt parameters of the §A2 run", () => {
+  const dealt = new Set(["smooth-intercept"]);   // design-principles.md row 6: Prime Landing's opponent
   for (const fam of rational2Families) {
     assert.ok(lineType.families.some(x => x.id === fam.id), fam.id);
-    assert.ok(!beginnerPool.some(x => x.id === fam.id), fam.id);
-    assert.ok(!presets.some(p => p.rules.some(r => r.family === fam.id)), fam.id);
+    assert.equal(beginnerPool.some(x => x.id === fam.id), dealt.has(fam.id), fam.id);
+    if (!dealt.has(fam.id)) assert.ok(!presets.some(p => p.rules.some(r => r.family === fam.id)), fam.id);
     assert.equal(fam.dealable(lineZ).length, 0, fam.id);
   }
   assert.deepEqual(wholeAtT.dealable(lineQ), [{ T: "3/2" }]);
@@ -90,13 +91,15 @@ test("Smooth Crossing: the crossing's distance to the nearest 7-smooth number s;
   assert.equal(nearestSmooth(f(1021)), 1024n);                          // 1020 = 4·3·5·17 is not smooth
 });
 
-test("Smooth Intercept: c's distance to the nearest 7-smooth s; Ω(gcd(s, the crossing's whole number)), 0 when either is 0 or the line is flat", () => {
-  assert.equal(score(ev(smoothIntercept, {}, mc(-2, 16))), "0,3");          // crosses at 8; gcd(16, 8) = 8 = 2·2·2
-  assert.equal(score(ev(smoothIntercept, {}, mc(2, 360))), "0,5");          // crosses at −180; gcd = 180 = 2·2·3·3·5
-  assert.equal(score(ev(smoothIntercept, {}, mc(-1, 367))), "-7,0");        // 367 is prime; 360 is 7 away (375 is 8); gcd(360, 367) = 1
-  assert.equal(score(ev(smoothIntercept, {}, mc(0, 5))), "0,0");            // flat: never crosses, nothing shared
-  assert.equal(score(ev(smoothIntercept, {}, mc(3, f(1, 2)))), "-1/2,0");   // ½ → 1 (size at least 1); crossing −1/6 → 0
-  assert.match(smoothIntercept.card({}, "shared"), /367 \(a prime\) is not\. Tie-breaker:/);
+test("Smooth Intercept is a ladder of numbers made of the dealt primes; its tie-breaker is the factor that number plus 1 shares with the gradient's whole part", () => {
+  const p = { primes: [2, 3] };
+  assert.equal(score(ev(smoothIntercept, p, mc(-2, 16))), "16,1");          // on 16 = 2⁴; 17 and 2 share 1
+  assert.equal(score(ev(smoothIntercept, p, mc(17, 16))), "16,17");         // 17 and 17 share 17
+  assert.equal(score(ev(smoothIntercept, p, mc(17, 18))), "18,1");          // a rung up, 18 = 2·3²: 19 and 17 share 1 (the climb starts again)
+  assert.equal(score(ev(smoothIntercept, p, mc(-1, 367))), "-17,1");        // 367 is prime: 384 = 2⁷·3 is 17 away (324 is 43); 385 and −1 share 1
+  assert.equal(score(ev(smoothIntercept, p, mc(f(1, 2), 5))), "-1,0");      // 5: 4 and 6 are 1 away, the smaller; a whole part of 0 shares nothing
+  assert.equal(score(ev(smoothIntercept, { primes: [3, 5] }, mc(19, 75))), "75,19");   // 75 = 3·5·5; 76 = 4·19 and 19 share 19
+  assert.match(smoothIntercept.card(p, "shared-factor"), /made only by multiplying 2s and 3s, the bigger the better/);
 });
 
 test("Steep and Tall: min(m, c); Ω(gcd(⌊m⌋, ⌊c⌋)), 0 when either is 0", () => {

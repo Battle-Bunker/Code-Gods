@@ -801,28 +801,26 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   },
   {
     family: "smooth-intercept",
-    mainSays: "how far the y-intercept is from a 7-smooth number (closer is better)",
+    mainSays: "the y-intercept's size itself when it is made only of the rule's primes (bigger is better: a ladder with no top), else minus how far it is from the nearest such number",
     main: {
       ts: [
-        "const s0 = Q.isZero(c) ? 1 : near(Q.abs(c), smooth);   // the 7-smooth number nearest its size (1 for 0)",
-        "if (s0 === null) return null;                // none within 10,000: hopeless",
-        "const s = Q.cmp(c, 0) < 0 ? Q.neg(s0) : s0;   // the sign kept",
-        "const main = Q.neg(Q.abs(Q.sub(c, s)));",
-        "const k = Q.isZero(m) ? 0 : whole(Q.neg(Q.div(c, m)));   // the whole number nearest the x-axis crossing (0 if flat)",
+        "const a = Q.abs(c), s = near(a, n => n >= 2 && factors(n).every(f => p.primes.includes(Number(f))));   // the nearest rung",
+        "if (s === null) return null;                    // none within 10,000: hopeless",
+        "const main = Q.eq(a, s) ? a : Q.neg(Q.abs(Q.sub(a, s)));   // on a rung: the rung; else below every rung",
       ],
       py: [
-        "s0 = 1 if c == 0 else near(abs(c), smooth)   # the 7-smooth number nearest its size (1 for 0)",
-        "if s0 is None:                              # none within 10,000: hopeless",
+        "a = abs(c)",
+        "s = near(a, lambda n: n >= 2 and all(f in p[\"primes\"] for f in factors(n)))   # the nearest rung",
+        "if s is None:                                   # none within 10,000: hopeless",
         "    return None",
-        "s = -s0 if c < 0 else s0                # the sign kept",
-        "main = -abs(c - s)",
-        "k = 0 if m == 0 else whole(-c / m)              # the whole number nearest the x-axis crossing (0 if flat)",
+        "main = a if a == s else -abs(a - s)             # on a rung: the rung; else below every rung",
       ],
     },
     tieBreakers: {
-      shared: {
-        ts: "shared(s, k)", py: "shared(s, k)", says: "that smooth number sharing many prime factors with the whole number nearest the x-axis crossing is better",
-        lenses: ["tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less; does it still reach a crossing that shares factors?",
+      "shared-factor": {
+        pre: { ts: ["const wm = whole(Q.div(Q.sub(Q.mul(2, m), 1), 2));   // the gradient's whole part (rounded down)"], py: ["wm = whole((2 * m - 1) / 2)                # the gradient's whole part (rounded down)"] },
+        ts: "common(Q.add(s, 1), wm)", py: "common(s + 1, wm)", says: "that number plus 1 sharing a bigger factor with the gradient's whole part is better",
+        lenses: ["tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: tilting never moves the y-intercept, so the rung stays.",
       },
     },
   },

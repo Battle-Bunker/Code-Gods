@@ -250,28 +250,57 @@ const sharedLabel = (a: bigint, b: bigint, what: string): string =>
   a === 0n || b === 0n ? `${what}: one is 0, so nothing is shared (counted as 0)` : `${what}: prime factors of gcd(${a}, ${b}) = ${gcdB(a, b)}`;
 const SMOOTH_GLOSS = "Smooth numbers are built from small primes; 360 = 2·2·2·3·3·5 is smooth, 367 (a prime) is not.";
 
-const smoothInterceptShape: Shape<object> = {
-  main: distance("smooth", "the y-intercept close to a 7-smooth number",
-    `The y-intercept should be as close as possible to a number made only by multiplying 2s, 3s, 5s and 7s (like 12, 35, 64 or 360). ${SMOOTH_GLOSS}`, "si"),
+/**
+ * Smooth Intercept as a ladder (design-principles.md), Prime Landing's adversary on the y-intercept: a big prime there
+ * is no product of small primes. Main part, unbounded: the y-intercept (ignoring its sign) should be a number made only
+ * by multiplying the dealt primes, the bigger the better (u = |c| on such a number); any other line scores below every
+ * rung, minus its distance to the nearest one. Tie-breaker, read from that number s: the largest factor s + 1 shares
+ * with the gradient's whole part (a new rung changes s + 1, and the gradient that shared most no longer does; the
+ * crossing's factors were no tie-breaker: crossing at s itself, m = −1, shared everything on every rung).
+ * Dealt: the primes {3, 5}, {2, 7}, {3, 7}, {3, 11}: their ladders give the same bits per unit of code cost within 0.5
+ * (call 19; {2, 3}, {2, 5}, {2, 11}, {2, 13} and {5, 7} fell outside: the denser a set, the cheaper each rung).
+ */
+type SP = { primes: number[] };
+const SMOOTH_SETS: SP[] = [[3, 5], [2, 7], [3, 7], [3, 11]].map(primes => ({ primes }));
+/** The numbers ≥ 2 made only from `primes`, up to `top`, ascending. */
+function smoothUpTo(primes: readonly number[], top: bigint): bigint[] {
+  const out: bigint[] = [];
+  const walk = (n: bigint, i: number) => {
+    if (i === primes.length) { if (n >= 2n) out.push(n); return; }
+    for (let x = n; x <= top; x *= BigInt(primes[i]!)) walk(x, i + 1);
+  };
+  walk(1n, 0);
+  return out.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+}
+/** The number made only from `primes` (≥ 2) nearest x ≥ 0; on a tie the smaller. */
+export function nearestOver(x: Q, primes: readonly number[]): bigint {
+  const top = 2n * (Qn.floor(x) + 2n), least = BigInt(Math.min(...primes));
+  const xs = smoothUpTo(primes, top < least ? least : top);   // at least the smallest member
+  let best = xs[0]!;
+  for (const n of xs) if (Qn.cmp(Qn.abs(Qn.sub(x, q(n))), Qn.abs(Qn.sub(x, q(best)))) < 0) best = n;
+  return best;
+}
+const madeOf = (p: SP) => `${p.primes.slice(0, -1).map(x => `${x}s`).join(", ")} and ${p.primes.at(-1)}s`;
+const smoothInterceptShape: Shape<SP> = {
+  main: { ...more<SP>("smooth", "the y-intercept on as big a number of the dealt primes as possible", "", "si"),
+    sentence: p => `The y-intercept (ignoring its sign) should be a number made only by multiplying ${madeOf(p)}, the bigger the better; any other line scores below them all, the closer to one the better.` },
   tieBreakers: [
-    more("shared", "prime factors shared with the x-intercept's nearest whole number",
-      "That number and the whole number nearest the x-intercept should share as many prime factors as possible, counting repeats.", "si"),
+    more("shared-factor", "the factor that number plus 1 shares with the gradient's whole part",
+      "That number plus 1 and the whole part of the gradient should share as big a factor as possible (a whole part of 0 shares nothing).", "si"),
   ],
 };
-export const smoothIntercept = family("smooth-intercept", "Smooth Intercept", ["si", "crossing", "cart"], smoothInterceptShape, onRationals([{}]), ctx => {
+export const smoothIntercept = family<SP>("smooth-intercept", "Smooth Intercept", ["si", "crossing", "cart"], smoothInterceptShape, onRationals(SMOOTH_SETS), (ctx, p) => {
   const cRef = ref("si", "c");
   const cv = ctx.read(cRef), c = num(cv);
   if (c === null) return allUndefined(ctx, smoothInterceptShape, cv, cRef);   // vertical
-  const s = nearestSmooth(c);
-  ctx.term("smooth", `distance from the y-intercept ${Qn.toWire(c)} to ${s}`, gap(c, q(s)), [cRef]);
-  // A flat line never crosses the x-axis: nothing shared (0), as the card says.
-  const xRef = ref("crossing", "x0");
-  const X = num(ctx.read(xRef));
-  const n = X === null ? 0n : nearestInteger(X);
-  ctx.term("shared", X === null ? "a flat line never crosses the x-axis: nothing shared (counted as 0)" : sharedLabel(s, n, `${s} and ${n} (nearest the x-intercept)`),
-    q(sharedOmega(s, n)), [cRef, xRef]);
+  const a = Qn.abs(c), s = nearestOver(a, p.primes);
+  const on = a.d === 1n && a.n === s;
+  ctx.term("smooth", on ? `on ${s}` : `off ${s} by ${Qn.toWire(Qn.abs(Qn.sub(a, q(s))))}`, on ? a : Qn.neg(Qn.abs(Qn.sub(a, q(s)))), [cRef]);
+  const mRef = ref("si", "m"), m = num(ctx.read(mRef))!;
+  const w = Qn.floor(m), aw = w < 0n ? -w : w;
+  ctx.term("shared-factor", `the factor ${s + 1n} shares with the gradient's whole part ${w}`, q(aw === 0n ? 0n : gcdB(s + 1n, aw)), [cRef, mRef]);
   ctx.mark({ kind: "focus", ref: cRef });
-  const mark = ref("cart", "yAxisMark", { y: s });
+  const mark = ref("cart", "yAxisMark", { y: Qn.sign(c) < 0 ? -s : s });
   ctx.read(mark);
   ctx.mark({ kind: "candidate", ref: mark, term: "smooth" });
 });

@@ -1,5 +1,5 @@
-// Smooth Intercept · Example: prime factors shared with the x-intercept's nearest whole number
-// Main part: the y-intercept close to a 7-smooth number. Tie-breaker: prime factors shared with the x-intercept's nearest whole number.
+// Smooth Intercept · Example: the factor that number plus 1 shares with the gradient's whole part
+// Main part: the y-intercept on as big a number of the dealt primes as possible. Tie-breaker: the factor that number plus 1 shares with the gradient's whole part.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -7,16 +7,15 @@
 // with that player and put the line in LEAVE to keep it.
 // Changing it later costs only what you change. To summon another agent, first move power from your agents to your
 // own store (energy moves with it), pay, then share the power out again.
-// Try this: change FAR = 3 to 2: shorter steps cost less; does it still reach a crossing that shares factors?
+// Try this: change FAR = 3 to 2: tilting never moves the y-intercept, so the rung stays.
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p) {
-  const s0 = Q.isZero(c) ? 1 : near(Q.abs(c), smooth);   // the 7-smooth number nearest its size (1 for 0)
-  if (s0 === null) return null;                // none within 10,000: hopeless
-  const s = Q.cmp(c, 0) < 0 ? Q.neg(s0) : s0;   // the sign kept
-  const main = Q.neg(Q.abs(Q.sub(c, s)));
-  const k = Q.isZero(m) ? 0 : whole(Q.neg(Q.div(c, m)));   // the whole number nearest the x-axis crossing (0 if flat)
-  return [main, shared(s, k)];   // main: how far the y-intercept is from a 7-smooth number (closer is better); tie-breaker: that smooth number sharing many prime factors with the whole number nearest the x-axis crossing is better
+  const a = Q.abs(c), s = near(a, n => n >= 2 && factors(n).every(f => p.primes.includes(Number(f))));   // the nearest rung
+  if (s === null) return null;                    // none within 10,000: hopeless
+  const main = Q.eq(a, s) ? a : Q.neg(Q.abs(Q.sub(a, s)));   // on a rung: the rung; else below every rung
+  const wm = whole(Q.div(Q.sub(Q.mul(2, m), 1), 2));   // the gradient's whole part (rounded down)
+  return [main, common(Q.add(s, 1), wm)];   // main: the y-intercept's size itself when it is made only of the rule's primes (bigger is better: a ladder with no top), else minus how far it is from the nearest such number; tie-breaker: that number plus 1 sharing a bigger factor with the gradient's whole part is better
 }
 
 const FAR = 3;      // how far one change may go
