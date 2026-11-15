@@ -1,5 +1,5 @@
 # Leapfrog · Thorough
-# Main part: each number one apart from the number two cells along. Tie-breaker: each number one apart from the number two cells down.
+# Main part: each number one apart from the number two cells along. Tie-breaker: down the columns: each number one apart from the number two cells below.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 # other players' rarity there added up, so a change that suits your rule but spoils the board for the others can

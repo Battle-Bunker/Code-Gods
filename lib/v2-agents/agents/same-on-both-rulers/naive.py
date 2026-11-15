@@ -9,6 +9,9 @@
 
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    if m is None:              # the vertical line x = c
+        main = -abs(c - p["T"])                        # x = c meets y = x at c
+        return [main, None]
     if m == 1:                                      # x 1: no number stays unchanged
         return None
     fixed = c / (1 - m)                             # where y = mx + c meets y = x

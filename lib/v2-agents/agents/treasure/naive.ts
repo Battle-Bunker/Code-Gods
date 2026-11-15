@@ -8,6 +8,10 @@
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p, tie) {
+  if (m === null) {               // the vertical line x = c
+    const main = Q.neg(Q.abs(Q.sub(c, p.k)));      // how far across from (k, T) it passes
+    return [main, null];
+  }
   const main = Q.neg(Q.abs(Q.sub(Q.add(Q.mul(m, p.k), c), p.T)));   // y(k) = m·k + c
   // main: how far y(k) is from T (closer is better)
   if (tie === "prime-terms") {   // more different primes among y(1) ... y(8) is better

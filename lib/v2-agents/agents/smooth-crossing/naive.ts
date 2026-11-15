@@ -8,6 +8,13 @@
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p, tie) {
+  if (m === null) {               // the vertical line x = c
+    const s0 = Q.isZero(c) ? 1 : near(Q.abs(c), smooth);   // the 7-smooth number nearest its size (1 for 0)
+    if (s0 === null) return null;                // none within 10,000: hopeless
+    const s = Q.cmp(c, 0) < 0 ? Q.neg(s0) : s0;   // the sign kept
+    const main = Q.neg(Q.abs(Q.sub(c, s)));
+    return [main, null];
+  }
   if (Q.isZero(m)) return null;                   // a flat line never crosses: the worst score
   const x = Q.neg(Q.div(c, m));                   // where y = mx + c crosses the x-axis
   const s0 = Q.isZero(x) ? 1 : near(Q.abs(x), smooth);   // the 7-smooth number nearest its size (1 for 0)

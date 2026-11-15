@@ -47,6 +47,9 @@
 #   tips(offer)                  on a vertical line (x = k: no y = mx + c), the moves that tip it into one: mirror across
 #                                y = x (to y = k) or nudge b up by 1 or 2; each (plan, m after, c after). A small read.
 #                                [] on any other line.
+#   vertical(offer, far)         on a vertical line x = k, its steps: the tips (as tips(offer)) and the slides sideways
+#                                by ±1 … ±far and to the nearest whole number, each (plan, None, k after)
+#                                (score(None, k) reads x = k). [] on any other line.
 #   climb(offer, options, now, most)
 #                                the step that raises your points here most (your rarity × the others' rarity, added
 #                                up), from options [(plan, score it reaches), ...]; None when none does. It weighs the
@@ -276,6 +279,22 @@ def tips(offer):
         (call("gen.nudge", which="b", k=1), -a, -c),
         (call("gen.nudge", which="b", k=2), -a / 2, -c / 2),
     ]
+
+
+def vertical(offer, far):
+    try:
+        g = offer.view("gen")
+    except HostError:
+        return []
+    a, b, c = g.a, g.b, g.c
+    if not isinstance(a, Fraction) or not isinstance(c, Fraction) or b != 0 or a == 0:
+        return []
+    x = -c / a
+    out = tips(offer) + [(call("cart.slide", u=k, v=0), None, x + k) for k in range(-far, far + 1) if k != 0]
+    w = whole(x) - x
+    if w != 0:
+        out.append((call("cart.slide", u=w, v=0), None, x + w))
+    return out
 
 
 def climb(offer, options, now, most=None):

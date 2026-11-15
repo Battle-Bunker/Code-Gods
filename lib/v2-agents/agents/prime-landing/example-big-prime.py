@@ -12,6 +12,10 @@
 
 def score(m, c, p):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    if m is None:              # the vertical line x = c
+        landing = near(c, prime)                        # it lands on the x-axis: the prime nearest
+        main = -abs(c - landing)
+        return [main, None]
     landing = near(c, prime)                        # the prime nearest the y-intercept
     main = -abs(c - landing)
     return [main, landing]   # main: how far the y-intercept is from the nearest prime (closer is better); tie-breaker: a bigger prime is better
@@ -32,15 +36,16 @@ def agent(offer):
     v = look(offer, "si")      # the line as y = mx + c
     rule = goal(offer)         # your rule (free)
     m, c, p = v.m, v.c, rule.params
-    # A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.
-    if m == None:
-        return climb(offer, [(plan, score(m2, c2, p)) for plan, m2, c2 in tips(offer) if offer.object not in PROTECT or fair(offer, plan)], None, QUOTES)
     tries = []                 # (plan, m after, c after): changes tried in the agent's own head
-    for k in range(-FAR, FAR + 1):
-        if k == 0:
-            continue
-        tries.append((move("si.shift", k=k), m, c + k))   # move the line up or down
-    tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
+    if m == None:              # a vertical line (x = k): tip it into y = mx + c, or slide it sideways
+        m, c = None, look(offer, "crossing").x0   # where it stands: score(None, k) reads the line x = k
+        tries += vertical(offer, FAR)   # its tips into y = mx + c and its slides sideways
+    else:
+        for k in range(-FAR, FAR + 1):
+            if k == 0:
+                continue
+            tries.append((move("si.shift", k=k), m, c + k))   # move the line up or down
+        tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
     options = [(plan, score(m2, c2, p)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:

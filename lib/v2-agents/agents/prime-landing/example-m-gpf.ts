@@ -11,6 +11,11 @@
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p) {
+  if (m === null) {               // the vertical line x = c
+    const landing = near(c, prime);                 // it lands on the x-axis: the prime nearest
+    const main = Q.neg(Q.abs(Q.sub(c, landing)));
+    return [main, null];
+  }
   const landing = near(c, prime);                 // the prime nearest the y-intercept
   const main = Q.neg(Q.abs(Q.sub(c, landing)));
   const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)
@@ -29,16 +34,19 @@ function agent(offer) {
   contested(offer, 3);
   const v = look(offer, "si");      // the line as y = mx + c
   const rule = goal(offer);         // your rule (free)
-  const m = v.m, c = v.c, p = rule.params;
-  // A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.
-  if (!Q.isQ(m)) return climb(offer, tips(offer).filter(([plan]) => !PROTECT.includes(offer.object) || fair(offer, plan)).map(([plan, m2, c2]) => [plan, score(m2, c2, p)]), null, QUOTES);
+  let m = v.m, c = v.c, p = rule.params;
   const tries = [];                 // [plan, m after, c after]: changes tried in the agent's own head
-  for (let k = -FAR; k <= FAR; k++) {
-    if (k === 0) continue;
-    tries.push([move("si.shift", { k }), m, Q.add(c, k)]);   // move the line up or down
-    tries.push([move("si.tilt", { k }), Q.add(m, k), c]);   // make it steeper or flatter
+  if (!Q.isQ(m)) {                  // a vertical line (x = k): tip it into y = mx + c, or slide it sideways
+    m = null, c = look(offer, "crossing").x0;   // where it stands: score(null, k) reads the line x = k
+    tries.push(...vertical(offer, FAR));   // its tips into y = mx + c and its slides sideways
+  } else {
+    for (let k = -FAR; k <= FAR; k++) {
+      if (k === 0) continue;
+      tries.push([move("si.shift", { k }), m, Q.add(c, k)]);   // move the line up or down
+      tries.push([move("si.tilt", { k }), Q.add(m, k), c]);   // make it steeper or flatter
+    }
+    tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
   }
-  tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
   let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p)]);   // each step and the score it reaches
   // A promise: on these lines, only steps that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));

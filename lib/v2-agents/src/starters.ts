@@ -101,6 +101,16 @@ function lensesFor(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null): 
   return (Object.keys(LENSES) as LensId[]).filter(id => { const l: Lens = LENSES[id]; return !l.only || l.only.includes(e.family); });
 }
 
+/** The tie-breaker a vertical line scores: the expression for the ones the rule reads there, else null (the worst). */
+function verticalTie(e: FamilyEntry, tieBreaker: string | null, language: ShippedLanguage): string {
+  const ts = language === "typescript", none = ts ? "null" : "None";
+  const defined = (e.vertical?.defined ?? []).filter(id => e.tieBreakers[id]);
+  for (const id of defined) if (e.tieBreakers[id]!.pre) throw new Error(`${e.family}/${id}: a vertical tie-breaker needs no pre lines`);
+  const expr = (id: string) => (ts ? e.tieBreakers[id]!.ts : e.tieBreakers[id]!.py);
+  if (tieBreaker !== null) return defined.includes(tieBreaker) ? expr(tieBreaker) : none;
+  return defined.reduceRight((rest, id) => (ts ? `tie === ${JSON.stringify(id)} ? (${expr(id)}) : ${rest}` : `(${expr(id)}) if tie == ${JSON.stringify(id)} else ${rest}`), none);
+}
+
 // ---------------------------------------------------------------- TypeScript
 
 function scoreTs(e: FamilyEntry, tieBreaker: string | null): string[] {
@@ -108,6 +118,12 @@ function scoreTs(e: FamilyEntry, tieBreaker: string | null): string[] {
   const out = [
     "// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.",
     `function score(m, c, p${tieBreaker === null ? ", tie" : ""}) {`,
+    ...(e.vertical ? [
+      "  if (m === null) {               // the vertical line x = c",
+      ...e.vertical.main.ts.map(l => `    ${l}`),
+      `    return [main, ${verticalTie(e, tieBreaker, "typescript")}];`,
+      "  }",
+    ] : []),
     ...e.main.ts.map(l => `  ${l}`),
   ];
   if (tieBreaker !== null) {
@@ -145,8 +161,8 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     ]),
     "  const v = look(offer, \"si\");      // the line as y = mx + c",
     "  const rule = goal(offer);         // your rule (free)",
-    `  const m = v.m, c = v.c, p = rule.params${kind === "example" ? "" : ", tie = rule.tieBreaker"};`,
-    ...(kind === "naive" ? ["  if (!Q.isQ(m)) return null;       // a vertical line has no y = mx + c: skip"] : [
+    `  ${e.vertical && kind !== "naive" ? "let" : "const"} m = v.m, c = v.c, p = rule.params${kind === "example" ? "" : ", tie = rule.tieBreaker"};`,
+    ...(kind === "naive" ? ["  if (!Q.isQ(m)) return null;       // a vertical line has no y = mx + c: skip"] : e.vertical ? [] : [
       "  // A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.",
       `  if (!Q.isQ(m)) return climb(offer, tips(offer).filter(([plan]) => !PROTECT.includes(offer.object) || fair(offer, plan)).map(([plan, m2, c2]) => [plan, score(m2, c2, ${args})]), null, QUOTES);`,
     ]),
@@ -188,7 +204,33 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     ]),
     "}",
   );
-  return out;
+  return kind === "naive" || !e.vertical ? out : verticalBranch(out, "typescript");
+}
+
+/**
+ * For a family that reads vertical lines: the steps from one (the tips into y = mx + c and the slides sideways) in a
+ * branch beside the usual steps, so both end in the same points-aware climb (score(null, k) reads x = k).
+ */
+function verticalBranch(out: string[], language: ShippedLanguage): string[] {
+  const ts = language === "typescript";
+  const start = out.findIndex(l => l.startsWith(ts ? "  const tries = [];" : "    tries = []"));
+  const end = out.findIndex(l => l.startsWith(ts ? "  tries.push(...rounding(" : "    tries += rounding("));
+  if (start < 0 || end < start) throw new Error("verticalBranch: the steps were not found");
+  const branch = ts ? [
+    "  if (!Q.isQ(m)) {                  // a vertical line (x = k): tip it into y = mx + c, or slide it sideways",
+    "    m = null, c = look(offer, \"crossing\").x0;   // where it stands: score(null, k) reads the line x = k",
+    "    tries.push(...vertical(offer, FAR));   // its tips into y = mx + c and its slides sideways",
+    "  } else {",
+    ...out.slice(start + 1, end + 1).map(l => `  ${l}`),
+    "  }",
+  ] : [
+    "    if m == None:              # a vertical line (x = k): tip it into y = mx + c, or slide it sideways",
+    "        m, c = None, look(offer, \"crossing\").x0   # where it stands: score(None, k) reads the line x = k",
+    "        tries += vertical(offer, FAR)   # its tips into y = mx + c and its slides sideways",
+    "    else:",
+    ...out.slice(start + 1, end + 1).map(l => `    ${l}`),
+  ];
+  return [...out.slice(0, start + 1), ...branch, ...out.slice(end + 1)];
 }
 
 // ---------------------------------------------------------------- Python
@@ -198,6 +240,11 @@ function scorePy(e: FamilyEntry, tieBreaker: string | null): string[] {
   const out = [
     `def score(m, c, p${tieBreaker === null ? ", tie" : ""}):`,
     "    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.",
+    ...(e.vertical ? [
+      "    if m is None:              # the vertical line x = c",
+      ...e.vertical.main.py.map(l => `        ${l}`),
+      `        return [main, ${verticalTie(e, tieBreaker, "python")}]`,
+    ] : []),
     ...e.main.py.map(l => `    ${l}`),
   ];
   if (tieBreaker !== null) {
@@ -236,7 +283,7 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     "    v = look(offer, \"si\")      # the line as y = mx + c",
     "    rule = goal(offer)         # your rule (free)",
     kind === "example" ? "    m, c, p = v.m, v.c, rule.params" : "    m, c, p, tie = v.m, v.c, rule.params, rule.tie_breaker",
-    ...(kind === "naive" ? ["    if m == None:              # a vertical line has no y = mx + c: skip", "        return None"] : [
+    ...(kind === "naive" ? ["    if m == None:              # a vertical line has no y = mx + c: skip", "        return None"] : e.vertical ? [] : [
       "    # A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.",
       "    if m == None:",
       `        return climb(offer, [(plan, score(m2, c2, ${args})) for plan, m2, c2 in tips(offer) if offer.object not in PROTECT or fair(offer, plan)], None, QUOTES)`,
@@ -279,7 +326,7 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
       `    return climb(offer, options, score(m, c, ${args}), QUOTES)`,
     ]),
   );
-  return out;
+  return kind === "naive" || !e.vertical ? out : verticalBranch(out, "python");
 }
 
 // ---------------------------------------------------------------- assembly
