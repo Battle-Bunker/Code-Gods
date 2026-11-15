@@ -115,6 +115,9 @@ event (each redrawn seat's new rule) then a `values` event per object. The heade
 counts down from the clock. Agents read the new parameters on their next act. `artefacts` keep the dealt rules (a
 rematch deals the same).
 
+Births (decision 31): on the beginner presets `settings.regularBirths`, birth j at j / birthsPerSecond world seconds
+(`duration.ts` regularBirths: 240 and 480 s, so 5 objects at the end); elsewhere v1's stochastic births.
+
 Idle parking (v1's, `activity.ts`): 30 minutes after the last human activity (`account.touch`, which the app calls on
 real interaction; room create and join; the owner's start, rematch and resume) a live game parks at its next commit:
 paused with `parked` (header), no ticks, no AI turns, no autopilot. The next human activity resumes every parked game.

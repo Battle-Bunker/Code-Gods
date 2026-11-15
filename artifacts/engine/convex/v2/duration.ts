@@ -52,6 +52,16 @@ export function drawEnd(mode: DurationMode, worldSeconds: number, uniform: () =>
  */
 export const timeScaleOf = (x: { timeScale?: number }) => x.timeScale ?? 1;
 
+/**
+ * Births on a regular schedule (owner decision 31, "1 spawn per 4 minutes so it ends at 5", on the beginner presets):
+ * birth j at j / rate world seconds, so a window (from, to] holds those scheduled in it. Presets without it keep v1's
+ * stochastic births (the rate, stochastically rounded per tick).
+ */
+export function regularBirths(perSecond: number, from: number, to: number): number {
+  if (!(perSecond > 0) || !(to > from)) return 0;
+  return Math.floor(to * perSecond + 1e-9) - Math.floor(from * perSecond + 1e-9);
+}
+
 /** The world second a game ends at (PRIVATE in halfLife mode). */
 export const endWorldOf = (game: { endAtWorld?: number; settings: { worldSeconds: number } }) => game.endAtWorld ?? game.settings.worldSeconds;
 export const durationModeOf = (game: { settings: { durationMode?: DurationMode } }): DurationMode => game.settings.durationMode ?? "fixed";

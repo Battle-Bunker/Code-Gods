@@ -90,6 +90,9 @@ test("a room dilated by 10 plays the same game ten times faster: 600 world secon
   const wall = (Date.now() - started) / 1000;
   assert.ok(wall < 120, `ten minutes of game in about one: ${Math.round(wall)} s`);
   assert.equal((await admin.query("v2/testing:clock", { gameId })).worldSeconds, 600, "the whole world was played");
+  // Decision 31's regular births: 3 starting lines, one at 240 and one at 480 s: exactly 5 at the end.
+  const lines = (await ada!.query("v2/spectate:objectIds", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page;
+  assert.equal(lines.length, 5, "the beginner game ends at 5 lines");
   // Standings every 10 world seconds where the tick allows (a tick covers 15 world seconds at 10×).
   const history = await ada!.query("v2/games:standingsHistory", { gameId, after: -1 });
   const worlds = history.map((r: any) => r.worldSeconds).slice(0, -1);   // the last is the final scoreboard
