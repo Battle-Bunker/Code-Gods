@@ -3,8 +3,9 @@
  * beginner.ts unchanged, 15 Nov, so their redesign against design-principles.md does not collide with the others').
  */
 import { gcd, Qn, q, ref, type Q } from "@workspace/v2-core";
+import { fromMC, type LineState } from "./line.ts";
 import { allUndefined, distance, factorLabel, family, gap, ladder, more, notOnWhole, num, prime, squareGap, undef, undealt, verticalAt, VERTICAL_NO, type Shape } from "./layers.ts";
-import { digitLevel, distanceToPrime, isPrimeEnding, largestPrimeFactor, nearestInteger, nearestPrimeEnding, nearestSquareRoot, PRIME_ENDINGS, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
+import { digitLevel, distanceToPrime, isPrime, isPrimeEnding, largestPrimeFactor, nearestInteger, nearestPrimeEnding, nearestSquareRoot, PRIME_ENDINGS, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
 
 // ---------------------------------------------------------------- Square Area (the owner's example 2)
 
@@ -125,6 +126,30 @@ export function areaRung(area: Q, k: number): { p: bigint; u: Q } {
   const p = nearestPrimeEnding(x, k);
   return { p, u: Qn.neg(Qn.sub(Qn.abs(Qn.sub(x, q(p))), q(1, 2))) };
 }
+/**
+ * Witnesses for the tail cap (lib/v2-linear witnesses.ts; CLAUDE.md: a value tail never grows faster than the φ of the
+ * cheapest state that reaches it): for n digits, up to three lines y = −(a/b)x + c/b whose area c²/(2ab) rounds down to
+ * an n-digit prime ending in k, with c = 2^i·3^j (cheap under the code: ½ a bit a unit of its prime factors), a ≤ 30 and
+ * b ≤ 8: φ grows by about 2.5 bits a digit. Empty for a number of digits no such line reaches.
+ */
+const SMOOTH23: bigint[] = (() => {
+  const out: bigint[] = [];
+  for (let t = 1n; t < 10n ** 48n; t *= 2n) for (let u = t; u < 10n ** 48n; u *= 3n) out.push(u);
+  return out.sort((x, y) => (x < y ? -1 : x > y ? 1 : 0));
+})();
+export function areaWitness(p: Ends, n: number): LineState[] {
+  const lo = 10n ** BigInt(n - 1), hi = 10n ** BigInt(n), K = BigInt(p.ends), out: LineState[] = [];
+  for (let a = 1n; a <= 30n && out.length < 3; a++) for (let b = 1n; b <= 8n && out.length < 3; b++) {
+    for (const c of SMOOTH23) {
+      const area = (c * c) / (2n * a * b);
+      if (area >= hi) break;
+      if (area < lo || area % 10n !== K || !isPrime(area)) continue;
+      out.push({ lines: [fromMC(q(-a, b), q(c, b))] });
+      break;
+    }
+  }
+  return out;
+}
 export const pythagoreanArea = ladder(family<Ends>("pythagorean-area", "Pythagorean Area", ["tri"], pythShape, AREA_ENDS, (ctx, pr) => {
   const area = ref("tri", "area");
   const av = ctx.read(area);
@@ -138,4 +163,4 @@ export const pythagoreanArea = ladder(family<Ends>("pythagorean-area", "Pythagor
   ctx.term("shared-factor", `the factor ${p - 1n} shares with the slanted side squared's whole part ${w}`, q(w === 0n ? 0n : gcd(p - 1n, w)), [area, hyp]);
   ctx.mark({ kind: "focus", ref: area });
   ctx.mark({ kind: "focus", ref: hyp });
-}));
+}), areaWitness);

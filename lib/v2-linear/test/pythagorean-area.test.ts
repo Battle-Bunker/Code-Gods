@@ -74,3 +74,16 @@ test("rungs are exact primes for big areas: 243424875139476387348923089 has no f
   assert.deepEqual(areaRung(q(2003496914728200718921177n), 7).u, digitLevel(2003496914728200718921177n));   // a 25-digit prime: level 6
   assert.equal(Math.floor(Qn.toNumber(digitLevel(2003496914728200718921177n))), 6);
 });
+
+test("witnesses for the tail cap: lines whose area rounds down to an n-digit prime ending in k", async () => {
+  const { areaWitness } = await import("../src/beginner-areas.ts");
+  for (const ends of [1, 3, 7, 9]) for (const n of [2, 5, 12]) {
+    const ws = areaWitness({ ends }, n);
+    assert.ok(ws.length > 0, `ending ${ends}, ${n} digits`);
+    for (const w of ws) {
+      const area = terms(ends, w).area;   // on a rung: digitLevel of an n-digit prime
+      const u = Qn.toNumber(Qn.parse(area));
+      assert.ok(u > 0, `ending ${ends}, ${n} digits: ${area}`);
+    }
+  }
+});
