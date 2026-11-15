@@ -7,7 +7,7 @@
 import { OpFailure } from "@workspace/v2-affordances";
 import { hashHex } from "@workspace/v2-core";
 import { startersFor } from "@workspace/v2-agents/pure";
-import { editPriceOf, priceOf } from "./pricing";
+import { editPriceOf, priceOf, priceScaleOf } from "./pricing";
 export { editPriceOf, priceOf };
 import {
   agentIncome, defaultShare, energyCapacity, firstAgentShare, floorShare, movePower, ownIncome, roundShare, settle, settleOwn, spend, type Account,
@@ -84,7 +84,7 @@ export async function summonAgent(ctx: MutationCtx, game: Doc<"v2Games">, player
   a: { language: Language; source: string; name?: string; share?: number }): Promise<{ agentId: Id<"v2Agents">; price: number }> {
   if (game.phase === "ended") throw new OpFailure("The game is over.");
   if (player.agents >= MAX_AGENTS) throw new OpFailure(`You have ${MAX_AGENTS} agents, the most a player may have.`, "agent.destroy");
-  const world = (await clockOf(ctx, game._id)).worldSeconds, price = priceOf(a.language, a.source);
+  const world = (await clockOf(ctx, game._id)).worldSeconds, price = priceOf(a.language, a.source, priceScaleOf(game));
   const share = roundShare(a.share ?? defaultShare(player.allocated));
   if (share <= 0 || player.allocated + share > 1 + 1e-9) throw new OpFailure(`You have ${roundShare(1 - player.allocated)} of your power left to give.`, "power.allocate");
   const own = await pay(ctx, game, player, world, price);
@@ -116,7 +116,7 @@ export async function ownAgent(ctx: MutationCtx, player: Doc<"v2Players">, agent
 /** Swaps a new program into an agent (a replace, or an earlier version put back), paying only for the change. */
 export async function reprogram(ctx: MutationCtx, game: Doc<"v2Games">, player: Doc<"v2Players">, agent: Doc<"v2Agents">,
   a: { language: Language; source: string; kind: "replace" | "putBack"; from?: number }): Promise<{ version: number; price: number }> {
-  const world = (await clockOf(ctx, game._id)).worldSeconds, price = editPriceOf(agent, a.language, a.source);
+  const world = (await clockOf(ctx, game._id)).worldSeconds, price = editPriceOf(agent, a.language, a.source, priceScaleOf(game));
   const own = await pay(ctx, game, player, world, price);
   const version = agent.version + 1, sourceHash = hashHex(a.source);
   await ctx.db.patch(agent._id, { language: a.language, source: a.source, sourceHash, version });
@@ -181,7 +181,7 @@ export async function summonPracticePartners(ctx: MutationCtx, game: Doc<"v2Game
     if (p.kind !== "practice") continue;
     const rule = (await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", p.memberId)).unique())!;
     const language: Language = k++ === 0 ? "typescript" : "python";
-    const starters = startersFor(rule.family, language, rule.tieBreaker).map(s => ({ s, price: priceOf(language, s.source) }));
+    const starters = startersFor(rule.family, language, rule.tieBreaker).map(s => ({ s, price: priceOf(language, s.source, priceScaleOf(game)) }));
     // The Simple starter; in a room whose starting energy is too low for it, the dearest one that fits; else none.
     const fits = starters.filter(x => x.price <= p.energy).sort((x, y) => y.price - x.price);
     const pick = fits.find(x => x.s.kind === "simple") ?? fits[0];

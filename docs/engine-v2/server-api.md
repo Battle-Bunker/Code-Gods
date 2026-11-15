@@ -99,10 +99,13 @@ Idle parking (v1's, `activity.ts`): 30 minutes after the last human activity (`a
 real interaction; room create and join; the owner's start, rematch and resume) a live game parks at its next commit:
 paused with `parked` (header), no ticks, no AI turns, no autopilot. The next human activity resumes every parked game.
 Paying to read (owner decision 35; v1's paid observation; `knowledge.ts`): every game pays to look, at the read price
-(bits ÷ κ) times `settings.readPriceWeight` (preset: 3 on lines, 1 on grids, so a look is about 1 ⚡; override 0 to 4;
-0 reads the live world free; a game stored without one reads free). A seated player of a live game sees each object as
-last told (`v2Knowledge`): at its birth, by their own agents' changes and complete reads, or by `object.look` (one object
-or all, from their own store; refused before the world runs). `play:object` adds `knownAt`, `changesSince` (activity is
+(bits ÷ κ) times `settings.readPriceWeight` (preset: derived from its power so that 5 looks a second at a typical
+object take a tenth of it, `MEDIAN_LOOK_BITS` and v2-economy `readPriceWeightFor`; override 0 to 4; 0 reads the live
+world free; a game stored without one reads free). A seated player of a live game sees each object as last told
+(`v2Knowledge`): at its birth, by every act their own agents run on it (decision 36: what an agent learns, its owner
+knows free, with the agent's own measurement), or by `object.look` (one object or all, from their own store; refused
+before the world runs). Summon and edit prices are their bits times the game's power ÷ 64 (`priceScale` on the header;
+v2-economy `summonPriceScale`). `play:object` adds `knownAt`, `changesSince` (activity is
 public) and `lookPrice`; the sorts, `objects.list`, object reads, quotes and scores, `othersAt`, the check's samples and
 `spectate:object` read the told state; the act log, `moves.list` and `objectMoves` show only the player's own agents'
 moves; the public log shows another player's move without mover, state or bits; tugs are
@@ -117,8 +120,8 @@ At most 8 players can play (v1's cap); the rest of a room watches.
 Published standings are exact (the owner's decision 33: "a coarse time grain leaderboard"; call 15): standings, their
 history and the chart are the exact totals, batched every `scoreIntervalSeconds`; per-object figures are readings.
 
-`v2/games:header` carries `peerNoiseVariance` and `peerNoiseBits` (its σ, what "about ±" shows; 0: exact), and
-`readPriceWeight`.
+`v2/games:header` carries `peerNoiseVariance` and `peerNoiseBits` (its σ, what "about ±" shows; 0: exact),
+`readPriceWeight` and `priceScale`.
 Agents get `occupied` (decision 24): the tick's view of which object holds each state.
 
 Values carry the uniqueness correction (§2.6, `withUniqueness`) at a fixed object count per game, `valueObjects`: the

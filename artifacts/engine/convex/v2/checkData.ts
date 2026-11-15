@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { internalQuery } from "../_generated/server";
 import { resolveContext, userById } from "./access";
 import { knownOf, readsKnowledge } from "./knowledge";
+import { priceScaleOf } from "./pricing";
 
 export const context = internalQuery({
   args: { userId: v.string(), scope: v.any(), agentId: v.optional(v.string()) },
@@ -23,7 +24,7 @@ export const context = internalQuery({
     const id = agentId ? ctx.db.normalizeId("v2Agents", agentId) : null, agent = id ? await ctx.db.get(id) : null;
     if (agentId && (!agent || agent.memberId !== r.member._id || agent.gameId !== r.game._id || agent.destroyedAt !== undefined)) return { refused: "That agent is not yours." };
     return {
-      variant: r.game.variant, seed: r.game.seed, energy: r.player.energy, rule: { family: rule.family, params: rule.params, tieBreaker: rule.tieBreaker }, samples,
+      variant: r.game.variant, seed: r.game.seed, energy: r.player.energy, priceScale: priceScaleOf(r.game), rule: { family: rule.family, params: rule.params, tieBreaker: rule.tieBreaker }, samples,
       current: agent ? { language: agent.language, source: agent.source } : null,
     };
   },

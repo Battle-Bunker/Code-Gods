@@ -42,3 +42,23 @@ export function actCharge({ readBits, callBits, committed }: ActChargeInput): nu
   const read = readCharge(readBits);
   return committed ? read + changeCharge(callBits) : read;
 }
+
+/**
+ * The power v1 calibrated summon prices at (its Grid default), energy per world second. A summon or an edit is priced
+ * at its bits times power ÷ this (the coordinator's call on decision 21), so a typical starter costs the same seconds of
+ * full power whatever a preset's power is.
+ */
+export const SUMMON_CALIBRATION_POWER = 64;
+/** The factor on summon and edit prices at this power. */
+export const summonPriceScale = (powerPerSecond: number): number => bits(powerPerSecond, "power") / SUMMON_CALIBRATION_POWER;
+
+/**
+ * The god's looks (owner decision 35: "querying 5 objects every second would be easily affordable but doing so 100
+ * times a second would be prohibitive"): the weight on the read price at which LOOKS_PER_SECOND looks of a typical
+ * object (`medianLookBits`, its full read) take LOOK_POWER_SHARE of a player's power. 100 a second then take twice it.
+ */
+export const LOOKS_PER_SECOND = 5;
+export const LOOK_POWER_SHARE = 0.1;
+export function readPriceWeightFor(powerPerSecond: number, medianLookBits: number): number {
+  return (LOOK_POWER_SHARE * bits(powerPerSecond, "power")) / LOOKS_PER_SECOND / (bits(medianLookBits, "look bits") * READ_PRICE);
+}

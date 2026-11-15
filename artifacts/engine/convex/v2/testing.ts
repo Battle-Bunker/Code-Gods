@@ -461,6 +461,16 @@ export const setReadiness = internalMutation({
 });
 
 /** An object's live state and version (what a paid game's players are not shown). */
+/** A member's knowledge of a game's objects (decision 36's check): each object's told version and when. */
+export const knowledgeOf = internalQuery({
+  args: { gameId: v.id("v2Games"), memberId: v.id("v2Members") },
+  handler: async (ctx, { gameId, memberId }) => {
+    fixtures();
+    const rows = await ctx.db.query("v2Knowledge").withIndex("by_game_member_born", q => q.eq("gameId", gameId).eq("memberId", memberId)).collect();
+    return rows.map(r => ({ objectId: r.objectId, version: r.version, learnedAt: r.learnedAt }));
+  },
+});
+
 /** An object's full read, in bits, at its live state (what a look reads: knowledge.ts fullReadBits). */
 export const fullReadBits = internalQuery({
   args: { objectId: v.id("v2Objects") },
