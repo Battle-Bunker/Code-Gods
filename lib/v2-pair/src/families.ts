@@ -75,7 +75,7 @@ const levelTarget = (qq: number, level: number): bigint => BigInt(qq) ** BigInt(
  * never pays more than a state that reaches it costs.
  */
 /**
- * A rung is a window, not a point (trial 32, the coordinator's order after #856): level L is held while the state is
+ * A rung is a window, not a point (trial 34, the coordinator's order after #856): level L is held while the state is
  * within 1/(L + 2) of it (its distance to the level's number plus any exactness the main part asks, an angle or a whole
  * x), so ½ at the first valuation level, ⅓ at the first residue or power level, narrower each level up. Exact rungs
  * froze a seat on a rung: almost every single move broke the level (two-line-systems.md §13), so a seat there had no
@@ -275,7 +275,7 @@ export const wholeAnswer = family({
     // The peg: y's number on the ladder (stretching both lines by q multiplies it by q), x's nearest whole number.
     const l = valuationLadder(a.y, p, distanceToWhole(a.x));
     ctx.term("answer", `the answer's y: ${stepsUp(l.level, 0)}`, l.u, [PX, PY]);
-    // Trial 33: each tie-breaker a relation to the level's own number N (row 3): stepping up changes N and restarts it.
+    // Trial 35: each tie-breaker a relation to the level's own number N (row 3): stepping up changes N and restarts it.
     ctx.term("y-divisor", "the common factor of N (y on the ladder) and the number you divide by", shared(l.n, d.n), [PY, D]);
     ctx.term("x-multiple", "how far x is from a multiple of N (y on the ladder), other than 0", offMultiple(a.x, mod1(l.n)), [PX, PY]);
     ctx.mark({ kind: "focus", ref: P });
@@ -301,7 +301,7 @@ export const noFractions = family({
     const size = absB(d.n);
     const pl = powerLadder(p.k!, t => q(absB(size - t)));
     ctx.term("divisor", `the number you divide by: ${stepsUp(pl.level)}`, pl.u, [D]);
-    const nx = Qn.mul(a.x, d).n, ny = Qn.mul(a.y, d).n, N = powerNumber(p.k!, pl.level);   // k^T(L) × k (trial 33)
+    const nx = Qn.mul(a.x, d).n, ny = Qn.mul(a.y, d).n, N = powerNumber(p.k!, pl.level);   // k^T(L) × k (trial 35)
     ctx.term("numerator-step", "how far x·D is from a multiple of k^T(L) × k, other than 0", offMultiple(q(nx), N), [PX, D]);
     ctx.term("numerator-power", "the common factor of y·D and k^T(L) × k", shared(ny, N), [PY, D]);
   },
@@ -323,7 +323,7 @@ export const rightAngle = family({
     if (off === null || !a) return void (ctx.term("right", "the corner", PARALLEL, [OFF_RIGHT]), allUndefined(ctx, ["corner-multiple", "corner-steep"], PARALLEL, [PX, PY]));
     const l = residueLadder(a.y, p, Qn.add(off, distanceToWhole(a.x))), m = read(ctx, MS);
     ctx.term("right", `the corner's y: ${stepsUp(l.level)}`, l.u, [OFF_RIGHT, PX, PY]);
-    // Trial 33: relations to the level's own number N, the corner's y with the remainder.
+    // Trial 35: relations to the level's own number N, the corner's y with the remainder.
     ctx.term("corner-multiple", "how far x is from a multiple of N (y with the remainder), other than 0", offMultiple(a.x, mod1(l.n)), [PX, PY]);
     ctx.term("corner-steep", "the common factor of N (y with the remainder) and the steeper gradient's whole part", m === null ? q(0) : shared(l.n, Qn.floor(Qn.abs(m))), [PY, MS]);
     ctx.mark({ kind: "focus", ref: P });
@@ -346,7 +346,7 @@ export const fortyFive = family({
     if (d.n === 0n || !a) return void (ctx.term("forty-five", "the corner", PARALLEL, [OFF45]), allUndefined(ctx, ["corner-divisor", "corner-gap"], PARALLEL, [PX, PY]));
     const l = residueLadder(Qn.add(Qn.abs(a.x), Qn.abs(a.y)), p, Qn.add(off, distanceToWhole(a.x)));
     ctx.term("forty-five", `the corner's |x| + |y|: ${stepsUp(l.level)}`, l.u, [OFF45, PX, PY]);
-    // Trial 33: relations to the level's own number N, |x| + |y| with the remainder.
+    // Trial 35: relations to the level's own number N, |x| + |y| with the remainder.
     ctx.term("corner-divisor", "the common factor of N (|x| + |y| with the remainder) and the number you divide by", shared(l.n, d.n), [PX, PY, D]);
     ctx.term("corner-gap", "how far the y-intercepts' gap is from a multiple of N, other than 0", g === null ? U("a vertical line has no y-intercept") : offMultiple(g, mod1(l.n)), [PX, PY, YGAP]);
     ctx.mark({ kind: "focus", ref: P });
@@ -394,7 +394,7 @@ export const doubleGap = family({
     const whole = distanceToWhole(yg);
     const gl = powerLadder(p.k!, t => Qn.add(whole, Qn.abs(Qn.sub(yg, Qn.mul(q(t), xg)))));
     ctx.term("gaps", `the gaps: ${stepsUp(gl.level)}`, gl.u, [YGAP, XGAP]);
-    const N = powerNumber(p.k!, gl.level);   // trial 33: k^T(L) × k, the level's own number
+    const N = powerNumber(p.k!, gl.level);   // trial 35: k^T(L) × k, the level's own number
     ctx.term("gap-divisor", "the common factor of D and k^T(L) × k", shared(read(ctx, D)!.n, N), [YGAP, XGAP, D]);
     ctx.term("gap-step", "how far the y-intercepts' gap is from a multiple of k^T(L) × k, other than 0", offMultiple(yg, N), [YGAP, XGAP]);
   },
@@ -457,7 +457,7 @@ export const steepRatio = family({
     if (r === null) { const why = U("a ratio needs two lines with gradients, the gentler not flat"); return void (ctx.term("ratio", "ratio", why, [RATIO]), allUndefined(ctx, ["ratio-gap", "ratio-divisor"], why, [RATIO])); }
     const l = valuationLadder(r, p, q(0), 2n), k = l.n;
     ctx.term("ratio", `the number of times as steep: ${stepsUp(l.level, 0)}`, l.u, [RATIO]);
-    // Trial 33: relations to the level's own number, the ratio K rounded.
+    // Trial 35: relations to the level's own number, the ratio K rounded.
     ctx.term("ratio-gap", "how far the y-intercepts' gap is from a multiple of K, other than 0", g === null ? U("a vertical line has no y-intercept") : offMultiple(g, mod1(k)), [RATIO, YGAP]);
     ctx.term("ratio-divisor", "the common factor of K and the number you divide by", shared(k, read(ctx, D)!.n), [RATIO, D]);
   },

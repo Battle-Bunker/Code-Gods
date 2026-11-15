@@ -41,7 +41,7 @@ const DIST = { ts: "const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a 
 const FLOOR = { ts: "const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down", py: "floor = lambda v: v // 1   # rounded down" };
 const PARALLEL = { ts: "if (f.x === null) return null;   // parallel lines never cross: no score", py: ["if f.x is None:   # parallel lines never cross: no score", "    return None"] };
 const MOD1 = { ts: "const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1", py: "mod1 = lambda n: abs(int(n)) or 1   # |n|, at least 1" };
-/** A power ladder's own number at its level: k^T(L) × k (trial 33), the next multiplication's size. */
+/** A power ladder's own number at its level: k^T(L) × k (trial 35), the next multiplication's size. */
 const POWER_N = { ts: "const lv = levelOf(main, p.k), N = BigInt(p.k) ** BigInt((lv * (lv + 1)) / 2 + 1);   // your power reached, times k", py: "lv = level_of(main, p[\"k\"]); N = p[\"k\"] ** (lv * (lv + 1) // 2 + 1)   # your power reached, times k" };
 const T = (ts: string, py: string, says: string, tryThis: string): PairTieBreakerEntry => ({ ts, py, says, tryThis });
 

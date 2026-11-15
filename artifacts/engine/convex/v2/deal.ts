@@ -97,7 +97,7 @@ export function anchoredFreshDeal(pool: readonly DealtRule[], seats: number, see
     const a = r.below(seats);
     return { deal: anchoredDeal(pool, seats, a, r, variant, (deal, anchorGap) => [seatingCost(variant, deal), anchorGap]), anchor: a };
   }
-  return { deal: dealFrom(pool, seats, r, variant ? rules => seatingCost(variant, rules) : undefined), anchor: null };
+  return { deal: dealFrom(pool, seats, r, variant ? rules => seatingCost(variant, rules) : undefined, entryTriesOf(variant)), anchor: null };
 }
 
 /**
@@ -186,6 +186,15 @@ const hasOpponents = (variant: string) => findVariant(variant).type.id === "line
 const familySet = (pool: readonly { family: string }[]) => new Set(pool.map(r => r.family));
 /** Shuffles a seating rule may draw before it settles for the deal with the fewest clashes. */
 const SEATING_TRIES = 200;
+/**
+ * Draws of the seats' entries (parameters and tie-breaker) for one family order before the next shuffle, on an object
+ * type whose seating rule reads the dealt parameters (pairs). Reshuffling families at every clash under-dealt the
+ * family with the most clash rules (Whole Answer: 503 seats of an expected 750 at 4 seats, 574 of 938 at 5; the lens
+ * worker, 15 Nov), since the shuffles that seated it were rejected most. Redrawing its numbers first keeps the family
+ * draw uniform. Lines and grids keep one draw per shuffle, so their seeded deals are unchanged.
+ */
+const PAIR_ENTRY_TRIES = 40;
+const entryTriesOf = (variant: string | undefined): number => (variant && isPair(variant) ? PAIR_ENTRY_TRIES : 1);
 /** The deal's random stream for a game seed: the fresh deal and the bid dealer draw from the same one. */
 export const dealRng = (seed: string): Rng => rng(seed, "deal");
 /**
@@ -195,7 +204,7 @@ export const dealRng = (seed: string): Rng => rng(seed, "deal");
  * entries uniformly. With `clashes` (the seating rule's cost of the dealt families), the first draw costing 0, else the
  * cheapest.
  */
-export function dealFrom(pool: readonly DealtRule[], seats: number, r: Rng, clashes?: (rules: readonly DealtRule[]) => number): DealtRule[] {
+export function dealFrom(pool: readonly DealtRule[], seats: number, r: Rng, clashes?: (rules: readonly DealtRule[]) => number, entryTries = 1): DealtRule[] {
   if (pool.length === 0) throw new Error("No rule of this preset is dealable (none has a value function): nothing can be dealt");
   const byFamily = new Map<string, DealtRule[]>();
   for (const x of pool) byFamily.set(x.family, [...(byFamily.get(x.family) ?? []), x]);
@@ -207,10 +216,12 @@ export function dealFrom(pool: readonly DealtRule[], seats: number, r: Rng, clas
       const j = r.below(i + 1);
       [order[i], order[j]] = [order[j]!, order[i]!];
     }
-    const deal = Array.from({ length: seats }, (_, i) => { const entries = byFamily.get(order[i % order.length]!)!; return entries[r.below(entries.length)]!; });
-    const n = clashes ? clashes(deal) : 0;
-    if (n < fewest) { best = deal; fewest = n; }
-    if (n === 0) break;
+    for (let e = 0; e < (clashes ? entryTries : 1); e++) {
+      const deal = Array.from({ length: seats }, (_, i) => { const entries = byFamily.get(order[i % order.length]!)!; return entries[r.below(entries.length)]!; });
+      const n = clashes ? clashes(deal) : 0;
+      if (n < fewest) { best = deal; fewest = n; }
+      if (n === 0) return best!;
+    }
   }
   return best!;
 }
@@ -295,7 +306,7 @@ export interface PolicyChoice {
  */
 export function policyDeal(pool: readonly DealtRule[], kinds: readonly SeatKind[], seed: string, variant: string): PolicyChoice {
   const r = rng(seed, "deal-policy");
-  const tables = Array.from({ length: POLICY_CANDIDATES }, () => dealFrom(pool, kinds.length, r, rules => seatingCost(variant, rules)));
+  const tables = Array.from({ length: POLICY_CANDIDATES }, () => dealFrom(pool, kinds.length, r, rules => seatingCost(variant, rules), entryTriesOf(variant)));
   const ids = [...new Set(pool.map(ruleId))];
   const measured = ids.some((a, i) => ids.some((b, j) => j > i && pairPmi(variant, a, b) !== null));
   const shaped = tables.map(deal => {
@@ -329,7 +340,7 @@ export function bidDealer(pool: readonly DealtRule[], variant?: string): BidDeal
       const left = pool.filter(x => !excluded.includes(x.family));
       // The won families are seated too: the seating rule counts their clashes with the rest (by family: their dealt
       // parameters are drawn apart, so a line rule's parameter clash with a won seat is not seen here).
-      return dealFrom(left, count, r, variant ? rules => seatingCost(variant, [...excluded.map(family => ({ family })), ...rules]) : undefined);
+      return dealFrom(left, count, r, variant ? rules => seatingCost(variant, [...excluded.map(family => ({ family })), ...rules]) : undefined, entryTriesOf(variant));
     },
   };
 }

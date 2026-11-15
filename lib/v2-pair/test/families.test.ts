@@ -29,7 +29,7 @@ test("Whole Answer on 2x + 3y = 12, x − y = 1: the answer (3, 2), y on the val
   // q 5, r 2: y = 2 = 5⁰ × 2 is level 0; level 1 wants 10 when divided by 25 (5 × a number leaving 2), nearest 10, 8 away.
   // The score is 5⁰ × (1 + 1/(1 + 8)) = 10/9.
   const p = { q: 5, r: 2 };
-  // Trial 33: y's number N = 2 and D = −5 share 1; x = 3 is 1 from 2 or 4, the nearest multiples of 2 other than 0.
+  // Trial 35: y's number N = 2 and D = −5 share 1; x = 3 is 1 from 2 or 4, the nearest multiples of 2 other than 0.
   assert.deepEqual(score("whole-answer", "y-divisor", school, p), ["10/9", "1"]);
   assert.deepEqual(score("whole-answer", "x-multiple", school, p), ["10/9", "-1"]);
   // q 3, r 1: 2 leaves 2, off the ladder; level 0's nearest is 1, one away: (1/3) × (1 + 1/2); N = 1 shares 1 with D.
@@ -61,7 +61,7 @@ test("the residue ladder has no top: each level is q times rarer, every met leve
   // window of ⅓ and level 2's of ¼: level 0).
   const met = residueLadder(Qn.q(3), { q: 5, r: 3 }).u, near = residueLadder(Qn.q(176, 10), { q: 5, r: 3 }).u;
   assert.ok(Qn.cmp(met, near) > 0, `${Qn.toWire(met)} > ${Qn.toWire(near)}`);
-  // A rung is a window (trial 32): within 1/(L + 2) of the level's number holds it, so small moves keep the level.
+  // A rung is a window (trial 34): within 1/(L + 2) of the level's number holds it, so small moves keep the level.
   assert.equal(residueLadder(Qn.q(179, 10), { q: 5, r: 3 }).level, 2);    // 0.1 from 18, inside ¼
   assert.equal(residueLadder(Qn.q(177, 10), { q: 5, r: 3 }).level, 1);    // 0.3 from 18: inside ⅓, not ¼
   assert.equal(residueLadder(Qn.q(176, 10), { q: 5, r: 3 }).level, 0);
@@ -91,7 +91,7 @@ test("Divide By and Gap Ratio climb the powers of the dealt k; their cards say s
   assert.equal(at(25).level, 0, "25 is no rung");
   assert.deepEqual([at(124).level, Qn.toWire(at(124).u)], [0, "3/2"]);
   assert.ok(Qn.cmp(at(125).u, at(5).u) > 0 && Qn.cmp(at(5).u, at(124).u) > 0);
-  // Its tie-breakers read the numerators x·D = −15 and y·D = −10 against the level's number, k^T(1) × k = 25 (trial 33):
+  // Its tie-breakers read the numerators x·D = −15 and y·D = −10 against the level's number, k^T(1) × k = 25 (trial 35):
   // −15 is 10 from −25, the nearest multiple other than 0; −10 shares 5 with 25.
   assert.deepEqual(score("no-fractions", "numerator-step", school, { k: 5 }), ["610/121", "-10"]);
   assert.deepEqual(score("no-fractions", "numerator-power", school, { k: 5 }), ["610/121", "5"]);
@@ -117,7 +117,7 @@ test("the axes are the centre: a right angle at (0, 0), but 0 is on no dealt lad
 
 test("Steep Ratio reads the whole number of times on its ladder, at least 2 either way", () => {
   const s = sys(Y(6, 0), Y(2, 5));     // 3 times as steep
-  // 3 shares 1 with D = −4 (trial 33: the tie-breaker reads the ratio's own number).
+  // 3 shares 1 with D = −4 (trial 35: the tie-breaker reads the ratio's own number).
   assert.deepEqual(score("steep-ratio", "ratio-divisor", s, { q: 5, r: 3 }), ["14/13", "1"]);   // 3 = 5⁰ × 3: level 0; level 1 (15 of 25) 12 away
   assert.deepEqual(score("steep-ratio", "ratio-divisor", s, { q: 3, r: 1 }), ["78/25", "1"]);   // 3 = 3¹ × 1: level 1; level 2 (27 of 81) 24 away
 });
@@ -216,7 +216,7 @@ test("pair cards: the main sentence at most 30 words, a tie-breaker at most 20, 
   }
 });
 
-test("row 3 (trial 33): every dealt tie-breaker reads the number its main part reached, so stepping up restarts it", () => {
+test("row 3 (trial 35): every dealt tie-breaker reads the number its main part reached, so stepping up restarts it", () => {
   // Right Angle {5, 1}: corners at y = 1 (level 1) and y = 6 (level 2: 6 leaves 1 by 5 and 6 by 25), x = 6 both. x = 6 is
   // a multiple of 1 (on target, 0) at level 1, but 0 away from 6 at level 2 too; x = 3 is on target at level 1, 3 from 6.
   const at = (y: number, x: number) => sys(L(1, 0, -x), L(0, 1, -y));   // x = X, y = Y: a right angle at (X, Y)

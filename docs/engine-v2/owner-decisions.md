@@ -678,6 +678,37 @@ back) or TRIAL (a declared experiment, measured and reported).
       unbounded ladder with sparse rungs is better than a top hit exactly; the follow-up (every palindrome a rung, odd
       or even number of digits × mirror) replaces it if row 2 improves and fairness, the energy gate and the deal hold.
 
+34. **TRIAL** (the coordinator's order after #856, carried out by the two-line-systems worker; two-line-systems.md §13):
+    a pair ladder's rung is a window, and a zoom joins residue rungs.
+    - **The window.** Level L is held while the state is within 1/(L + 2) of the level's number, counting the main
+      part's exactness too (the angle, a whole x): ½ at the first valuation level, ⅓ at the first residue or power
+      level, and narrower each level up. The tie-breakers read the rung's number, rounded. Cards say "near".
+    - **The zoom (`sys.zoom`).** A zoom of both lines about (0, 0) by a factor, priced as a factor, with trial 29's size
+      floor on the larger line. With a slide of the plane by the remainder r it takes a residue ladder's number N to
+      q·N + r, which is on the next level whenever N is on this one.
+    - **Motivation.** On exact rungs almost every single move broke the level, so a seat on a rung had no tie-breaker
+      work and no next step.
+      - From a rung, the share of single moves that keep the level: 7–53%.
+      - The share that also change the tie-breaker: 0–36%.
+      - The share that raise the level: about 0.
+    - **Effects:** §13 of two-line-systems.md.
+35. **TRIAL** (the coordinator's order after #856, row 3 of design-principles.md; two-line-systems.md §13): each
+    tie-breaker of Whole Answer, Divide By, Right Angle, Forty-Five, Gap Ratio and Steep Ratio is a relation between
+    the number its main part reached (N) and another aspect of the system: "near a multiple of N, other than 0", or
+    "the biggest common factor with N".
+    - **For the power ladders,** N is k^T(L) × k.
+    - **Stepping up changes N, so it restarts the climb,** as Far Crossing's and High Start's tie-breakers already did.
+    - **Retired:** the smallest prime factor of |x| + |y|, how many prime factors a numerator has, and the like. These
+      read the object alone and were the same whatever level the main part reached.
+    - **The new tie-breakers.**
+      - Whole Answer: y's number and D share a factor; x near a multiple of y.
+      - Divide By: x·D near a multiple of N; y·D shares a factor with N.
+      - Right Angle: the corner's x near a multiple of its y; its y shares a factor with the steeper gradient.
+      - Forty-Five: |x| + |y| shares a factor with D; the y-intercepts' gap near a multiple of |x| + |y|.
+      - Gap Ratio: D shares a factor with N; the y-intercepts' gap near a multiple of N.
+      - Steep Ratio: the y-intercepts' gap near a multiple of the ratio; the ratio shares a factor with D.
+    - **Effects:** §13.
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.

@@ -296,7 +296,7 @@ def _anchor(v, q, r, at_least):
 
 
 def _window(level):
-    # A rung is a window (trial 32): level L is held within 1/(L + 2) of it, as the engine's rungWindow.
+    # A rung is a window (trial 34): level L is held within 1/(L + 2) of it, as the engine's rungWindow.
     return Fraction(1, level + 2)
 
 
