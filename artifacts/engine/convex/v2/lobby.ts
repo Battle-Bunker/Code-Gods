@@ -8,6 +8,7 @@ import { MAX_MEMBERS, MAX_PLAYERS, normaliseCode, userById } from "./access";
 import { bidDealer, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, practiceDeal, rotatedDeal, ruleView, type DealtRule, type PastDeal } from "./deal.ts";
 import { dealWithBids, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
 import { isPreset, presetOf } from "./presets.ts";
+import { typeOf } from "./world.ts";
 import { summonPracticePartners } from "./agents.ts";
 import { makeFunctionReference } from "convex/server";
 import { DEFAULT_PEER_NOISE_BITS, newNoiseKey } from "./disclose.ts";
@@ -306,7 +307,7 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
   await ctx.db.insert("v2Events", {
     gameId, seq: 0, kind: "gameStarted",
     data: {
-      objectType: "line", variant: preset.variant, preset: preset.id, seed, settings, rotation,
+      objectType: typeOf(preset.variant).id, variant: preset.variant, preset: preset.id, seed, settings, rotation,
       ...(auction ? { auction: { pricing: auction.pricing, bids: auction.bids, wins } } : {}),
       players: seats.map((m, i) => ({ memberId: m._id, kind: m.kind, family: rules[i]!.family, params: rules[i]!.params, tieBreaker: rules[i]!.tieBreaker, ruleKey: rules[i]!.ruleKey, contentHash: rules[i]!.contentHash })),
     },
