@@ -12,7 +12,7 @@ export function useWorldNow(): number | null {
   const header = useGame();
   const now = useNow(1000);
   if (!header?.startedAt || header.phase !== "live") return null;
-  return Math.max(0, (now - header.startedAt) / 1000);
+  return Math.max(0, ((now - header.startedAt) / 1000) * (header.timeScale ?? 1));   // W3 #698
 }
 
 export function FreshMark({ o, testId, worldNow }: { o: Seen; testId?: string; worldNow?: number | null }) {

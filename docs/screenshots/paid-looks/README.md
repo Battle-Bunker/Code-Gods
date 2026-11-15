@@ -11,12 +11,16 @@ two beginner presets, 30 s into the world, before any look or Watcher:
 | `grids-beginner-desktop.png` | Grids, the same |
 | `grids-beginner-phone.png` | Grids on a phone |
 
-The view's age over those 30 s (every row, every 2 s), from the run that took these:
+The view's age over those 30 s (every row, every 2 s). Re-taken on the beginner economy of W3 #709 (power 4 a second,
+a start of 90 energy on lines and 130 on grids):
 
 | Preset | Median | 90% | Max | Calm (≤ 10 s) |
 | --- | --- | --- | --- | --- |
-| Lines beginner | 2 s | 12 s | 18 s | 89% |
-| Grids beginner | 4 s | 11 s | 16 s | 88% |
+| Lines beginner | 10 s | 21 s | 27 s | 52% |
+| Grids beginner | 9 s | 33 s | 39 s | 56% |
 
-Looking ("Look at all … (N energy)", a line's "Look now") and the Watcher ("Keep my lines fresh") are inside the folded
+At power 8 (the first shots) the same run read: lines median 2 s, 90% 12 s, max 18 s, 89% calm; grids median 4 s,
+90% 11 s, max 16 s, 88% calm. Halving power halves the starter's turns, and with them how often the player is told.
+
+Looking ("Look at every line now (N energy)", a line's "Look now") and the Watcher ("Keep my lines fresh") are inside the folded
 section: extras for a player who wants their view sooner, never a step of the first game.
