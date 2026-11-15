@@ -1,5 +1,5 @@
 /**
- * pnpm --filter @workspace/v2-valuation values -- [--variant line-z] [--family id] [--tie-breaker id|none] [--draws n] [--all-params] [--where json] [--seed s] [--write]
+ * pnpm --filter @workspace/v2-valuation values -- [--variant line-z] [--family id] [--tie-breaker id|none] [--draws n] [--all-params] [--where json] [--params json] [--seed s] [--write]
  *
  * Builds value functions (owner decision 23; value.ts, value-grid.ts) for the rules on a line, grid or two-line variant: each family's first dealable
  * parameters (every dealable parameter set with --all-params; with --where '{"T":18}', those that match it), once per tie-breaker dealt there. --draws sets the direct draws per tilt (default: VALUE_CONFIG's). Prints each one's knots in brief; --write stores it under
@@ -23,7 +23,11 @@ const ROOT = join(import.meta.dirname, "..");
 
 const where = opt("where") ? (JSON.parse(opt("where")!) as Record<string, unknown>) : null;
 const matches = (p: unknown) => !where || Object.entries(where).every(([k, v]) => (p as Record<string, unknown>)[k] === v);
-for (const family of families) for (const params of args.includes("--all-params") ? family.dealable(variant).filter(matches) : family.dealable(variant).slice(0, 1)) {
+// --params '[{"q":11,"r":1}]': exactly these parameter sets (candidates to measure before they are dealt).
+const explicit = opt("params") ? (JSON.parse(opt("params")!) as unknown[]) : null;
+const paramsOf = (family: RuleFamily<any, unknown>) =>
+  explicit ?? (args.includes("--all-params") ? family.dealable(variant).filter(matches) : family.dealable(variant).slice(0, 1));
+for (const family of families) for (const params of paramsOf(family)) {
   const choices: (string | null)[] = tbOpt ? [tbOpt === "none" ? null : tbOpt] : tieBreakersOn(family, variant).length ? tieBreakersOn(family, variant).map(t => t.id) : [null];
   for (const tieBreaker of choices) {
     const t = Date.now();

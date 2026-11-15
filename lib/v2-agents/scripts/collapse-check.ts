@@ -34,7 +34,8 @@
 import { spawn } from "node:child_process";
 import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
-import { rng } from "@workspace/v2-core";
+import { canonicalJson, driftParams, rng } from "@workspace/v2-core";
+import { findValues } from "../src/harness.ts";
 import { GRIDS_BEGINNER_ECONOMY, KAPPA, LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
 import {
   CHEAP, DISCLOSE, RAMP, SINGLE, cheapFails, discloseFails, dynamicsFailures, failureCount, oneClosedForm, rampFails,
@@ -68,6 +69,9 @@ const { values: o } = parseArgs({ options: {
   objects: { type: "string", default: "3" },
   births: { type: "string", default: String(1 / 240) },
   "old-row": { type: "string", default: "yes" },
+  // Test 2 under drift (the coordinator, 15 Nov): on every cheap table, redraw one seat's parameters at a time (staggered
+  // drift) and ask whether the cheap best state still holds CHEAP.reach of the new table's best. Information, not counted.
+  drift: { type: "string", default: "no" },
   jobs: { type: "string", default: String(Math.min(3, availableParallelism())) },
   json: { type: "boolean", default: false },
   child: { type: "boolean", default: false },
@@ -195,7 +199,7 @@ async function runVariant(v: VariantId): Promise<VariantResult> {
     // ------------------------------------------------ tests 2 and 3: per dealt table
     if ((tests.has(2) || tests.has(3)) && !reused) {
       const t0 = performance.now();
-      let cheap = 0, single = 0;
+      let cheap = 0, single = 0, redraws = 0, survived = 0;
       const ratios: number[] = [], keeps: number[] = [], sizes: number[] = [];
       const enumCache = new Map<number, { xs: number[][] } | null>();
       for (const [t, table] of tables.entries()) {
@@ -224,15 +228,33 @@ async function runVariant(v: VariantId): Promise<VariantResult> {
         const isCheap = tableCheap(searched, refBest);
         if (isCheap) cheap++;
         ratios.push(refBest > 0 ? searched / refBest : 1);
+        let driftNote = "";
+        if (o.drift === "yes" && isCheap && top[0]) {
+          const best = top[0].x, kept: string[] = [];
+          for (const [j, rule] of table.entries()) {
+            const fam = space.type.families.find(f => f.id === rule.family)!;
+            const next = driftParams(fam, space.variant, rule.params, `${v}:${beta}:${t}`, j, 1, p => findValues(v, { ...rule, params: p as Record<string, unknown> }) !== null);
+            if (canonicalJson(next) === canonicalJson(rule.params)) continue;
+            const bs2 = table.map((x, k) => space.bits(k === j ? { ...x, params: next as Record<string, unknown> } : x));
+            const F2 = (x: number[]) => { const st = space.state(x)!; return total(bs2.map(b => b(st))); };
+            const ref2 = anneal(space, r, F2, REF * B, 10, `${v}:${beta}:${t}:drift${j}`).best;
+            const share = ref2 > 0 ? F2(best) / ref2 : 1;
+            redraws++;
+            if (share >= CHEAP.reach) survived++;
+            kept.push(`seat ${j} → ${canonicalJson(next)}: old best keeps ${pct(share)}`);
+          }
+          driftNote = `; after a redraw: ${kept.join("; ") || "no seat has another value"}`;
+        }
         const keep = refBest > 0 && top.length === SINGLE.n ? top.reduce((a, s) => a + s.v, 0) / (SINGLE.n * refBest) : top.length < SINGLE.n ? 1 : 0;
         const closed = oneClosedForm(top.map(s => s.x));
         keeps.push(keep);
         if (singleFails({ keep, closedForm: closed })) single++;
-        details.push(`${v} β ${beta} table ${t} (${table.map(ruleName).join(", ")}): W ≈ ${size.toExponential(1)} states${set ? " (enumerated)" : ""}, best F ${f1(refBest)} at (${top[0]?.x.join(", ")}), B-search ${f1(searched)} (${pct(searched / (refBest || 1))})${isCheap ? " CHEAP" : ""}; 24 best keep ${pct(keep)}${closed ? ", one closed form" : ""}; top 3 ${top.slice(0, 3).map(s => `(${s.x.join(", ")})`).join(" ")}`);
+        details.push(`${v} β ${beta} table ${t} (${table.map(ruleName).join(", ")}): W ≈ ${size.toExponential(1)} states${set ? " (enumerated)" : ""}, best F ${f1(refBest)} at (${top[0]?.x.join(", ")}), B-search ${f1(searched)} (${pct(searched / (refBest || 1))})${isCheap ? " CHEAP" : ""}${driftNote}; 24 best keep ${pct(keep)}${closed ? ", one closed form" : ""}; top 3 ${top.slice(0, 3).map(s => `(${s.x.join(", ")})`).join(" ")}`);
       }
       if (tests.has(2)) {
         row.verdicts["2"] = cheapFails(cheap, tables.length) ? "FAIL" : "PASS";
-        row.notes["2"] = `${cheap}/${tables.length} tables cheap; B-search median ${pct(median(ratios))} of best; W ≈ ${median(sizes).toExponential(1)}`;
+        row.notes["2"] = `${cheap}/${tables.length} tables cheap; B-search median ${pct(median(ratios))} of best; W ≈ ${median(sizes).toExponential(1)}` +
+          (o.drift === "yes" ? `; under drift ${survived}/${redraws} one-seat redraws leave a cheap best still at ${pct(CHEAP.reach)} of the new best` : "");
       }
       if (tests.has(3)) {
         row.verdicts["3"] = single > CHEAP.tablesShare * tables.length ? "FAIL" : "PASS";

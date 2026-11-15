@@ -11,6 +11,10 @@
  * (the coordinator, 15 Nov). A preset whose parameters drift (driftSeconds > 0; the coordinator's declared TRIAL) may
  * differ by up to DRIFT_TOLERANCE bits: every seat cycles through the values, so unfairness between them is averaged
  * over the redraws.
+ *
+ * Sampled knots are compared as estimates (the coordinator, 15 Nov: "a statistical correction, not a loosening"): each
+ * compared knot carries its interval (lo–hi), and peers differ when their intervals are more than the band apart (the
+ * highest lo less the lowest hi), so two honest peers whose estimates differ by sampling noise pass.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -20,31 +24,36 @@ import { PRESETS } from "../../convex/v2/presets.ts";
 
 const TOLERANCE = 0.5;
 const DRIFT_TOLERANCE = 1.0;
-const top = (knots: readonly { bits: number }[]) => knots.reduce((m, k) => Math.max(m, k.bits), 0);
-const median = (knots: readonly { bits: number }[]) => [...knots].map(k => k.bits).sort((a, b) => a - b)[Math.floor(knots.length / 2)] ?? 0;
-/** The least bits of a knot whose main part is exact (its primary score 0), or null when no knot has it. */
-const exactMain = (knots: readonly { u: unknown; bits: number }[]) => {
-  const xs = knots.filter(k => Array.isArray(k.u) && k.u[0] === "0").map(k => k.bits);
-  return xs.length ? Math.min(...xs) : null;
+type Knot = { u: unknown; bits: number; lo?: number; hi?: number };
+/** A knot's estimate as an interval (an exact knot's is its value). */
+type Est = { lo: number; hi: number };
+const est = (k: Knot | undefined): Est => (k ? { lo: k.lo ?? k.bits, hi: k.hi ?? k.bits } : { lo: 0, hi: 0 });
+const byBits = (knots: readonly Knot[]) => [...knots].sort((a, b) => a.bits - b.bits);
+const top = (knots: readonly Knot[]) => est(byBits(knots).at(-1));
+const median = (knots: readonly Knot[]) => est(byBits(knots)[Math.floor(knots.length / 2)]);
+/** The least worth of a knot whose main part is exact (its primary score 0), or null when no knot has it. */
+const exactMain = (knots: readonly Knot[]): Est | null => {
+  const k = byBits(knots).find(x => Array.isArray(x.u) && x.u[0] === "0");
+  return k ? est(k) : null;
 };
 
 test("a family's parameter peers in a dealable pool have the same top and spread of worth", () => {
   const problems: string[] = [];
   for (const preset of PRESETS) {
     const drifts = preset.driftSeconds > 0;
-    const peers = new Map<string, { params: string; top: number; median: number; exact: number | null }[]>();
+    const peers = new Map<string, { params: string; top: Est; median: Est; exact: Est | null }[]>();
     for (const r of dealablePool(preset)) {
       const v = VALUE_RECORDS.find(x => x.ruleKey === r.ruleKey);
       if (!v) continue;
       const key = `${r.family}/${r.tieBreaker}`;
-      peers.set(key, [...(peers.get(key) ?? []), { params: JSON.stringify(r.params), top: top(v.knots), median: median(v.knots), exact: exactMain(v.knots as never) }]);
+      peers.set(key, [...(peers.get(key) ?? []), { params: JSON.stringify(r.params), top: top(v.knots as readonly Knot[]), median: median(v.knots as readonly Knot[]), exact: exactMain(v.knots as readonly Knot[]) }]);
     }
     for (const [family, rs] of peers) {
       if (rs.length < 2) continue;
       const exact = rs.every(r => r.exact !== null);
       for (const field of exact ? ["exact"] as const : ["top", "median"] as const) {
-        const xs = rs.map(r => r[field]!), spread = Math.max(...xs) - Math.min(...xs);
-        if (spread > (drifts ? DRIFT_TOLERANCE : TOLERANCE)) problems.push(`${preset.id} ${family}: ${field} differs by ${spread.toFixed(2)} bits across ${rs.map(r => r.params).join(", ")}`);
+        const xs = rs.map(r => r[field]!), gap = Math.max(...xs.map(x => x.lo)) - Math.min(...xs.map(x => x.hi));
+        if (gap > (drifts ? DRIFT_TOLERANCE : TOLERANCE)) problems.push(`${preset.id} ${family}: ${field} intervals ${gap.toFixed(2)} bits apart across ${rs.map(r => r.params).join(", ")}`);
       }
     }
   }
