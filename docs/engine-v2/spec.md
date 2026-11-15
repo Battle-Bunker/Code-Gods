@@ -176,7 +176,8 @@ mixedInt(0) = 1,   mixedInt(±n) = 2 + mixedPos(n)
 Its Kraft sum is exactly 1, so it is normalisable on the unbounded domains (and on the triples of the Q domain, a
 subset). A large prime is dear and a large smooth number cheap: 23 costs 15.6 bits and 24 costs 8.6; 47 costs 27.6 and 48
 costs 9.6. A number's energy is roughly its shortest arithmetic description. `φ(line)` is mixedInt(m) + mixedInt(c) on Z
-and mixedInt(a) + mixedInt(b) + mixedInt(c) on Q. Measured (by the walk-law report, `lib/v2-valuation/src/law.ts`, since deleted): on `line-z` the
+and mixedInt(a) + mixedInt(b) + mixedInt(c) on Q (since the C3 trial, Q uses the variants of §12.2: p(0) = 1/8 on a and
+c, b by steps). Measured before the trial (by the walk-law report, `lib/v2-valuation/src/law.ts`, since deleted): on `line-z` the
 line's largest number is at most 2, 20 and 162 for 50%, 90% and 99% of the stationary mass (on `line-q` 1, 12 and 81),
 and 24 is about 200 times commoner than 23. The constant STEP sets how strong gravity is: the earlier Elias-gamma
 ("digits") code made size cost only logarithmically (#347's doubling code), and a steps-only code would make size cost
@@ -640,12 +641,21 @@ bits(s) = −log2 π{ x : utility(x) ≥ utility(s) }        (lexicographic ≥;
 It is defined at every utility, so there are no rungs, levels, caps or "too coarse" rules: a utility must not be
 binary (it may be discrete by nature: a smallest prime factor, a run length).
 
-**The artefact is the value function** (`lib/v2-valuation/src/value.ts`, schema 6, under `values/`): knots, sorted from
+**The artefact is the value function** (`lib/v2-valuation/src/value.ts`, schema 7, under `values/`): knots, sorted from
 the worst score up, each a score with its bits and a certified interval [lo, hi]. Survival is monotone in the score, so
 for k_i ≤ s ≤ k_j the value lies in [lo(k_i), hi(k_j)]: a lookup (`valueLookup`) returns the knot's value at a knot, the
-midpoint and that bracket between knots, and, beyond the best knot, an extrapolation along the last knots (along the
-secondary utility at the same primary, else along the primary), marked `beyond`, with the best knot's lo as its
-certified floor and no ceiling. Knots are kept wherever the value moves by more than `delta` (0.05 bits), so a lookup
+midpoint and that bracket between knots, and, beyond the best knot, the **tail rule** (owner decision 26: no maximum),
+marked `beyond`, with the best knot's lo as its certified floor and no ceiling. The best knot is where measurement
+stops, not a top: the tail fits the last knots along the secondary utility at the same primary, else along the primary,
+as a straight line (distances, and sizes whose knots rise at least STEP/4 bits per unit and fit a line no worse) or a
+magnitude ramp, bits on log2(1 + u) (the default for sizes: a line through a magnitude would over-value far scores).
+A layer whose value is a prime or a prime factor declares `measure: "prime"`; its tail is a line at STEP = ½ bit per
+unit, the code's own cost of a prime (a slower straight-line fit is taken, never below half that).
+Its slope is never below the law's floor (TAIL_FLOOR ≈ 0.38 bits per doubling, one coordinate doubling from 1 to 2) and,
+on lines, never above the law's ceiling (TAIL_CEILING = STEP = 0.5 bits per unit, what the code charges per unit of a
+prime, so a tail never pays more than the cheapest state with that score costs; a ramp is held to it at its start).
+So a lookup keeps rising without bound wherever the score can keep improving; a distance's tail ends at its top, 0. See
+docs/engine-v2/maxima.md. Knots are kept wherever the value moves by more than `delta` (0.05 bits), so a lookup
 between knots is within delta/2 of the truth.
 
 **How knots are certified.** Each knot takes the tightest interval any survival oracle gives:
@@ -667,20 +677,19 @@ between knots is within delta/2 of the truth.
   plain draws from π, which are unbiased, show more of it. (A single sample read at many scores overstates misses,
   because its estimates move together; the grids session found the same, grids.md §5.2b.) A score rarer than the last
   certified knot is
-  extrapolated (marked `beyond`, floor = that knot's lo).
+  extrapolated by the tail rule (marked `beyond`, floor = that knot's lo): 18 bits is a limit on measurement, not on value.
 
-**The board's box is part of the law, not a truncation of it.** Every line variant has a `heightCap` (10^6): a line
-with |a|, |b| or |c| above it is not a state of the game (§12), and a mutator call that would make one is invalid, so the
-walk stays where it is (`walkStep`: an invalid result is a rejection). Proposals are symmetric and each refused move
-is a rejection in both directions, so detailed balance under the potential holds on the box, and the walk's
-stationary law is π conditioned on the box: π_box(x) = 2^−φ(x) / Z_box. That is the law values are taken under. The
-sums use it exactly: they keep only in-box numbers and divide by Z_box, computed in full by a sieve over every
-integer up to the cap (`capMass`). The direct draws use it too (a drawn coordinate past the cap is refused). Nothing
-else is truncated: the enumeration budget is a truncation of the *sum*, and its remainder is the certified interval.
-For scale, the code puts 3.4·10^−5 of a coordinate's mass past 10^6, so the box holds all but 6.7·10^−5 of the
-unconfined product law on line-z (1.0·10^−4 on line-q). It matters only for very rare scores: about 78% of the lines
-with c a multiple of lcm(1..16) lie past the cap. The cycle diagnostic is about prices, and a refusal has none, so the
-cycle gate (lib/v2-linear/test/potential.test.ts) is unaffected by the boundary.
+**There is no box (owner decision 26).** A coefficient of any size is a state; a bigger number is only dearer, through
+φ. The law needs no box to be normalised: p(n) = 2^−mixedInt(n) is a complete code over all integers (its Kraft sum is
+1: 2^−1 for 0, plus 2·2^−2·Π_p 1/(1 − 2^−p/2)/Z = 1/2 for the rest, the Euler product of the factorisation code), so
+π on line-z is the product p(m)·p(c) exactly, and on line-q the product p(a)·p(b)·p(c) restricted to canonical triples,
+whose mass is at most 1 (lib/v2-core codes.test.ts, lib/v2-linear no-box.test.ts). The exact sums enumerate every
+integer within their budget, with no conditioning; what lies past the budget is the certified remainder. (The old
+10^6 box held all but 3.4·10^−5 of a coordinate's mass, but about 78% of the lines with c a multiple of lcm(1..16):
+removing it lowers the value of such scores honestly, and leaves the exact sums slightly more mass outside, so their
+rarest knots are certified a little less far; the tail takes over there.) Evaluation stays bounded in time for any
+size: trial division stops at 10^5 (a larger cofactor counts as one prime), coin counting gives up past 10^5 steps
+("undefined"), and the gaps between numbers with no factor below 10^5 are bounded.
 
 When value functions replaced the rung tables, the old rung values were checked to be this function at the old
 thresholds; the rung machinery (thresholds, ladders, the restricted-walk estimator, caps, the too-hard backlog and the
@@ -737,7 +746,7 @@ function is defined at every score, and a lookup past the best knot is extrapola
 ### 7.6 The value record
 
 One JSON file per rule key, committed under `lib/v2-valuation/values/<variant>/<family>/<params-hash>-<tie-breaker>.json`
-(schema 6: `ruleKey`, the variant and its hash, family, params, tie-breaker, seed, config, the knots, the tail and a
+(schema 7: `ruleKey`, the variant and its hash, family, params, tie-breaker, seed, config, the knots, the tail and a
 `contentHash` of everything else), written by `pnpm --filter @workspace/v2-valuation values`. The engine bundles them
 (`artifacts/engine/convex/v2/values.gen.ts`, `scripts/gen-v2-values.mjs`, `--check` in CI); the game header records each
 dealt rule's `contentHash` (§9).
@@ -898,7 +907,6 @@ a·x + b·y + c = 0 with gcd(|a|, |b|, |c|) = 1 and the sign fixed by b > 0, or 
 | | `"Q"` | every line with rational coefficients, vertical included |
 | `linesPerObject` | 1 … 8 | k |
 | `argDomain` | `"Z"`, `"Q"` | whether mutator arguments are integers or rationals (default: the domain's) |
-| `heightCap` | integer | the board's box: \|a\|, \|b\|, \|c\| at most this (default 10^6); a call past it is invalid, so the walk's law is π conditioned on the box, and values are taken under that law (§7.0) |
 
 Variants shipped first: `line-z` (Z, k = 1), `line-q` (Q, k = 1), `line-z4` (Z, k = 4).
 
@@ -907,8 +915,11 @@ Variants shipped first: `line-z` (Z, k = 1), `line-q` (Q, k = 1), `line-z4` (Z, 
 The mixed number code of §2.5 (owner decision 17):
 
 - Domain Z: φ = Σ_lines mixedInt(m) + mixedInt(c).
-- Domain Q: φ = Σ_lines mixedInt(a) + mixedInt(b) + mixedInt(c) of the primitive triple. (The Kraft sum is below 1: the code
-  is defined on all triples, the domain is a subset.)
+- Domain Q: φ = Σ_lines mixed⅛(a) + steps¹⁄₁₆(b) + mixed⅛(c) of the primitive triple (code C3 of fractions.md §4, a
+  trial; `LINE_Q_CODES` in `lib/v2-linear/src/line.ts`): mixed⅛ is the mixed code with p(0) = 1/8 (0 → 3 bits,
+  ±n → 1 − log2(7/8) + mixedPos(n)), steps¹⁄₁₆ the steps code with p(0) = 1/16 (0 → 4 bits, ±n → 1 − log2(15/16) +
+  GEO + STEP·(|n| − 1), GEO = −log2(1 − 2^−STEP)). Each is complete (Kraft sum 1) and unbounded. (The Kraft sum of the
+  triple's code is below 1: it is defined on all triples, the domain is a subset.)
 
 ### 12.3 Representations
 
@@ -962,8 +973,8 @@ against 346.7).
 | `int.move` | int | axis: 1 bit; k: nz | p += k or q += k, keeping the other | partial: `int.move(axis, −k)` where the result has both intercepts |
 | `mach.stretch` | mach | factor f: digits (`nonzeroRat`), f ≠ ±1 | m ·= f, c ·= f (every output × f) | `mach.stretch(1/f)`, the same price; partial only where 1/f leaves the domain |
 
-Results outside the variant's domain are invalid (a Z-domain line with a fractional coefficient, a vertical line in Z, a
-line past `heightCap`). The cheap-in-one-lens, dear-in-another examples of #346 §4.5 hold: y = x + 5 → y = 3x + 3 is one
+Results outside the variant's domain are invalid (a Z-domain line with a fractional coefficient, a vertical line in Z;
+there is no limit on size, owner decision 26). The cheap-in-one-lens, dear-in-another examples of #346 §4.5 hold: y = x + 5 → y = 3x + 3 is one
 `seq.step(2)` (steps on 2) against `si.shift(−4)` and `si.tilt(2)` (steps on 4 and on 2).
 
 **The lens mutators (a trial: variant `line-q-lenses`, preset `lines-lenses`).** The first five of

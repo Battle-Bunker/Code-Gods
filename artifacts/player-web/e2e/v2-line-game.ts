@@ -10,7 +10,9 @@
  *   and the moves that would make it rarer with their prices and new bits; a tap selects a part) → the goal card shows
  *   the parts on their rulers → the game ends on its own
  *   and the results lead with "You finished …".
- * The room's game is shortened to 5 s planning and 30 world seconds (room.settings, as its owner).
+ * The room's game is shortened to 5 s planning and 30 world seconds (room.settings, as its owner), and its others'
+ * sums are read with noise (peerNoiseVariance 64; the beginner preset reads exact, owner decision 32: the grid game
+ * covers that path).
  *
  *   pnpm --filter @workspace/player-web run e2e:game        (SKIP_DEPLOY=1 reuses the uploaded build)
  */
@@ -62,7 +64,7 @@ async function shorten(page: Page, code: string) {
   const client = new ConvexHttpClient(CLOUD);
   client.setAuth(token);
   const found = await client.query("v2/rooms:byCode" as never, { code } as never) as { roomId: string };
-  const out = await client.mutation("v2/ops/room:settings" as never, { args: { overrides: { planningSeconds: 5, worldSeconds: 30 } }, roomId: found.roomId } as never) as { ok: boolean; error?: { message: string } };
+  const out = await client.mutation("v2/ops/room:settings" as never, { args: { overrides: { planningSeconds: 5, worldSeconds: 30, peerNoiseVariance: 64 } }, roomId: found.roomId } as never) as { ok: boolean; error?: { message: string } };
   assert.ok(out.ok, `room.settings: ${out.error?.message}`);
 }
 

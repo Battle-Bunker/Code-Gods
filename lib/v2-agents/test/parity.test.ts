@@ -92,10 +92,10 @@ test("the points helpers: worth, rarity, recent, pushback and contested agree in
     { mine: false, pointsBefore: 5, pointsAfter: 2 }, { mine: true, pointsBefore: 2, pointsAfter: 9 }, { mine: false, pointsBefore: 9, pointsAfter: 3 },
     { mine: true, pointsBefore: 3, pointsAfter: 8 }, { mine: false, pointsBefore: 8, pointsAfter: 12 }, { mine: false, pointsBefore: 12, pointsAfter: 1 },
   ];
-  // A flat-tailed value function: 0 bits for WORST, 3 at a score of 1, 7 at 2 and beyond.
-  const values = { knots: [[null, 0], [["1"], 3], [["2"], 7]].map(([u, bits]) => ({ u: u as string[] | null, bits: bits as number, lo: bits as number, hi: bits as number, source: "exact" as const })), tail: { secondary: 0, primary: 0 } };
+  // A value function: 0 bits for WORST, 3 at a score of 1, 7 at 2, and 1 bit more per unit beyond (no maximum).
+  const values = { knots: [[null, 0], [["1"], 3], [["2"], 7]].map(([u, bits]) => ({ u: u as string[] | null, bits: bits as number, lo: bits as number, hi: bits as number, source: "exact" as const })), tail: { secondary: { form: "linear" as const, slope: 1 }, primary: { form: "linear" as const, slope: 1 } } };
   const ts = `function agent(offer) {
-  const w = worth(offer), r = [rarity(offer, null), rarity(offer, [1]), rarity(offer, [Q.from(5, 2)]), rarity(offer, [9])];
+  const w = worth(offer), r = [rarity(offer, null), rarity(offer, [1]), rarity(offer, [Q.of(5, 2)]), rarity(offer, [9])];
   const out = [w.mine, w.others, w.points, ...r, recent(offer).length, pushback(offer), contested(offer, 3), contested(offer, 2), note(offer, "  two  "), note(offer, "x"), note(offer, "y")];
   return [move("probe", { r: out.join("|") })];
 }`;
@@ -113,7 +113,7 @@ test("the points helpers: worth, rarity, recent, pushback and contested agree in
     if (res.ok) out.push({ r: (JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r, notes: host.notes, readBits: res.readBits });
   }
   assert.deepEqual(out[1], out[0], "Python and TypeScript differ");
-  assert.deepEqual(out[0]!.r.split("|"), ["4", "6", "24", "0", "3", "7", "7", "6", "2", "false", "true", "true", "true", "false"]);
+  assert.deepEqual(out[0]!.r.split("|"), ["4", "6", "24", "0", "3", "7.5", "14", "6", "2", "false", "true", "true", "true", "false"]);
   assert.deepEqual(out[0]!.notes, ["Tug-of-war on line 0: another player keeps pulling it back. Make a deal with them; to keep your agent off it, add 0 to \"leaves these lines alone\" under your agent.", "two", "x"], "at most 3 notes, trimmed");
 });
 
@@ -165,7 +165,7 @@ test("climb: the step that raises my points most (rarity × the others' total), 
   const other = { family: "prime-gradient", params: {}, tieBreaker: "prime" };
   const others = [{ rule: other, values: findValues("line-z", other)! }];
   const at = { lines: [fromMC(q(7), q(3))] };   // m = 7 is prime: the other player's rule likes it, so tilting lowers the others
-  const values = { knots: [[null, 0], [["1"], 3], [["2"], 7]].map(([u, bits]) => ({ u: u as string[] | null, bits: bits as number, lo: bits as number, hi: bits as number, source: "exact" as const })), tail: { secondary: 0, primary: 0 } };
+  const values = { knots: [[null, 0], [["1"], 3], [["2"], 7]].map(([u, bits]) => ({ u: u as string[] | null, bits: bits as number, lo: bits as number, hi: bits as number, source: "exact" as const })), tail: { secondary: { form: "linear" as const, slope: 1 }, primary: { form: "linear" as const, slope: 1 } } };
   // Scores are given: the shift reaches 1 (3 bits), the tilt 2 (7 bits) but lowers the others, a third option is not allowed.
   const ts = `function agent(offer) {
   const sh = [move("si.shift", { k: 1 })], ti = [move("si.tilt", { k: 1 })], no = [move("nope", {})];

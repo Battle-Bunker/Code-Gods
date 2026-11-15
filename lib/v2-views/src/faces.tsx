@@ -32,6 +32,19 @@ export function bitsLine(a: Annotation): string {
   return a.bits === null ? "" : `${fmtBits(a.bits)} (${chanceText(a.bits)} by chance)`;
 }
 
+/**
+ * How fresh a player's view of an object is, once every game prices its looks (owner decision 35, W3's PR B): each object
+ * shows as the player last saw it (its birth, their own agents' changes, or a paid look), and `changesSince` counts the
+ * changes made by others since. "Up to date" at 0; "As you last saw it: 3 changes ago" after.
+ */
+export interface Seen { readonly changesSince: number }
+export function seenText(s: Seen): string {
+  return s.changesSince <= 0 ? "Up to date: no one has changed it since you last saw it." : `As you last saw it: ${s.changesSince === 1 ? "1 change" : `${s.changesSince.toLocaleString("en-US")} changes`} ago.`;
+}
+function SeenNote({ seen }: { seen?: Seen }): ReactElement | null {
+  return seen ? <div className="v2v-seen" data-testid="text-seen" data-stale={seen.changesSince > 0 ? "" : undefined}>{seenText(seen)}</div> : null;
+}
+
 /** One part in one line: "● main part: y-intercept 25 · 2 above 23" / "◆ tie-breaker: that prime 23". */
 export function partLine(p: Contributor): string {
   const g = `${GLYPH[p.role]} ${PART_NAME[p.role]}:`;
@@ -61,7 +74,10 @@ export interface CompactFaceProps<S, P> {
   readonly before?: S;
   /** The cheapest move that makes the object rarer, drawn as a hint: true computes it here (own rule only), or pass one. */
   readonly next?: boolean | Move<S> | null;
-  /** When the object does not score (a vertical line, for a rule that reads its y-intercept): "To score: <the move>". */
+  /** How fresh this view of the object is (priced looks): drawn as a line above the face when given. */
+  readonly seen?: Seen;
+  /** When the object does not score (a vertical line, for a rule that reads its y-intercept): "To score: <the move>".
+   *  On by default (playtest round 12: a rule that does not score says what would); false to leave it out. */
   readonly toScore?: boolean;
 }
 
@@ -75,13 +91,14 @@ export function CompactFace<S, P>(props: CompactFaceProps<S, P>): ReactElement {
   // The next move (asked for), or, not scoring and asked for (`toScore`), the cheapest move that makes it score: one
   // search either way, only when the caller wants a hint.
   const next = useMemo(() => {
-    if (props.next !== true && !(props.toScore && a.score === null)) return props.next || null;
+    if (props.next !== true && !((props.toScore ?? true) && a.score === null)) return props.next || null;
     if (a.score === null) return moves(props.rule, props.state, props.value, { k: 1 }).find(m => m.utility !== null) ?? null;
     return props.next === true ? moves(props.rule, props.state, props.value, { k: 1 })[0] ?? null : null;
   }, [props.next, props.toScore, props.rule, props.state, props.value, a.score]);
   const bits = bitsLine(a);
   return (
-    <div className="v2v v2v-compact-face" data-scoring={a.score === null ? undefined : ""}>
+    <div className="v2v v2v-compact-face" data-scoring={a.score === null ? undefined : ""} data-stale={props.seen && props.seen.changesSince > 0 ? "" : undefined}>
+      <SeenNote seen={props.seen} />
       <RepView type={props.rule.type} state={props.state} rep={rep} size="compact" site={site} marks={e.marks} terms={e.terms} roles={rolesOf(parts)}
         before={props.before} next={next ? next.after : undefined} />
       {bits && <div className="v2v-face-foot"><span className="v2v-rarity" data-worst={a.score === null ? "" : undefined} title={BITS_HELP}>{bits}</span></div>}
@@ -119,7 +136,7 @@ export function RulerView({ part, width = 300 }: { part: Part; width?: number })
       {r.refs.map(ref => <line key={ref.at} className="v2v-ruler-ref" data-strong={ref.strong ? "" : undefined} x1={X(ref.at)} x2={X(ref.at)} y1={Y - 7} y2={Y + 7} />)}
       {shown.map(ref => <text key={ref.at} className="v2v-ruler-label" data-strong={ref.strong ? "" : undefined} x={X(ref.at)} y={Y + 19} textAnchor="middle">{ref.label}</text>)}
       <circle className="v2v-ruler-value" cx={X(r.value)} cy={Y} r={4.5} />
-      <text className="v2v-ruler-label" data-value="" x={Math.min(W - lw / 2 - 2, Math.max(lw / 2 + 2, X(r.value)))} y={Y - 10} textAnchor="middle">{label}</text>
+      <text className="v2v-ruler-label" data-value="" x={Math.min(W - lw / 2 - 2, Math.max(lw / 2 + 2, X(r.value)))} y={Y - 10} textAnchor="middle" aria-label={`${PART_NAME[part.role]}: ${r.valueText}`}><title>{`${PART_NAME[part.role]}: ${r.valueText}`}</title>{label}</text>
     </svg>
   );
 }
@@ -312,6 +329,8 @@ export const shortTitle = (t: string): string => t.split(":")[0]!.replace(/^the 
 // ------------------------------------------------------------------ expanded face
 
 export interface ExpandedFaceProps<S, P> {
+  /** How fresh this view of the object is (priced looks): drawn as a line above the face when given. */
+  readonly seen?: Seen;
   readonly rule: RuleRef<S, P>;
   readonly state: S;
   readonly site?: number;
@@ -378,14 +397,26 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
   const title = (id: string) => shortTitle(representation(rule.type, id).title);
   const bits = bitsLine(a);
   const first = list[0];
+  // Not scoring: what would make it score, the cheapest such move and its price (playtest round 12: Exact Change said
+  // only why not, and its holder had no way forward).
+  const toScore = useMemo(
+    () => (a.score !== null || props.improvement === false ? null : list.find(m => m.utility !== null) ?? moves(rule, state, props.value, { k: 1 }).find(m => m.utility !== null) ?? null),
+    [a.score, list, rule, state, props.value, props.improvement],
+  );
 
   return (
     <div className="v2v v2v-expanded" data-scoring={a.score === null ? undefined : ""}>
+      <SeenNote seen={props.seen} />
       <header className="v2v-exp-head">
         <ObjectChip type={rule.type} state={state} />
         {bits && <span className="v2v-exp-level" data-worst={a.score === null ? "" : undefined} title={BITS_HELP}>{bits}</span>}
       </header>
-      {a.worst && <p className="v2v-worst">This {a.noun} does not score for your rule: {a.worst}.</p>}
+      {a.worst && (
+        <p className="v2v-worst">
+          This {a.noun} does not score for your rule: {a.worst}.
+          {toScore && <span data-testid="text-to-score"> To score: {toScore.words}{!toScore.words.includes(toScore.text) && toScore.text.length <= 40 ? ` (it becomes ${toScore.text})` : ""}, for {fmtEnergy(toScore.price.total)}.</span>}
+        </p>
+      )}
       {sel !== null && (
         <p className="v2v-selchip" data-role={sa.parts[sel]!.role}>
           {GLYPH[sa.parts[sel]!.role]} {sa.parts[sel]!.name} selected: only its marks are drawn{" "}

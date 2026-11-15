@@ -4,7 +4,7 @@
  * (cases copied from v1's deal-rotation test). What would break: an unconverged or too-coarse rule reaching a player;
  * a deal that is not reproducible from its seed; a rotation that repeats a rule for a player within a round.
  */
-import { topBits, valueRecord } from "../../convex/v2/values.ts";
+import { measuredToBits, valueRecord } from "../../convex/v2/values.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { dealablePool, freshDeal, isPracticeGame, practiceDeal, rotatedDeal, ruleView, type DealtRule, type PastDeal, type SeatKind } from "../../convex/v2/deal.ts";
@@ -46,7 +46,7 @@ test("a dealt rule's card comes from its family, and every dealt rule has a valu
     assert.ok(vf && vf.contentHash === r.contentHash, `${r.ruleKey} is dealt with its value function`);
     assert.equal(vf.knots[0]!.bits, 0, "the worst score is worth nothing");
     for (let i = 1; i < vf.knots.length; i++) assert.ok(vf.knots[i]!.bits >= vf.knots[i - 1]!.bits, "worth never falls as the score improves");
-    assert.ok(topBits(vf) > 0);
+    assert.ok(measuredToBits(vf) > 0);
   }
 });
 

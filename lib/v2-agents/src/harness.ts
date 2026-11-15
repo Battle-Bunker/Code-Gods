@@ -46,10 +46,11 @@ export interface RuleOutcome {
    */
   readonly utilities: { readonly start: readonly (number | null)[]; readonly end: readonly (number | null)[] };
   /**
-   * Mean bits per line at the start and the end, and the rule's top: its best knot's bits. `beyond`: lines whose score
-   * is past the best knot, so their bits are extrapolated. Null without a value function.
+   * Mean bits per line at the start and the end, and `measuredTo`: the bits at the rule's furthest measured knot (not
+   * a maximum: past it the tail keeps rising, owner decision 26). `beyond`: lines whose score is past that knot, so their
+   * bits are extrapolated. Null without a value function.
    */
-  readonly bits: { readonly start: number; readonly end: number; readonly top: number; readonly beyond: { readonly start: number; readonly end: number } } | null;
+  readonly bits: { readonly start: number; readonly end: number; readonly measuredTo: number; readonly beyond: { readonly start: number; readonly end: number } } | null;
   /** The sum over lines of the rule's bits, end minus start (null without a value function). */
   readonly bitsGained: number | null;
 }
@@ -113,7 +114,7 @@ export function findValues(variant: string, rule: HarnessPlayer["rule"]): ValueF
 
 /**
  * A player's value of a line: `bits(s)` is n_i, their rarity, looked up at the line's score in the rule's value function
- * (0 for every line without one); `values` is what `runAct` takes; `top` is the best knot's bits.
+ * (0 for every line without one); `values` is what `runAct` takes; `measuredTo` is the furthest measured knot's bits.
  */
 export function valuer<S>(type: ObjectType<S>, variant: Variant, rule: HarnessPlayer["rule"]) {
   const family = type.families.find(f => f.id === rule.family)!;
@@ -126,7 +127,7 @@ export function valuer<S>(type: ObjectType<S>, variant: Variant, rule: HarnessPl
     lookup: (s: S) => (look ? look(scoreOf(s)) : null),
     bits: (s: S) => (look ? look(scoreOf(s)).bits : 0),
     worth: (u: Score) => { const w = look ? look(u) : { bits: 0, lo: 0, hi: 0 }; return { bits: w.bits, lo: w.lo, hi: w.hi }; },
-    top: vf ? vf.knots.at(-1)!.bits : null,
+    measuredTo: vf ? vf.knots.at(-1)!.bits : null,
     values: vf ? { knots: vf.knots, tail: vf.tail } as Pick<ValueFunction, "knots" | "tail"> : undefined,
   };
 }
@@ -212,8 +213,8 @@ export async function runHarness<S>(boxes: Sandboxes, input: HarnessInput<S>): P
     return {
       player: p.name, rule: `${p.rule.family}/${p.rule.tieBreaker}`,
       utilities: { start: utilities(start), end: utilities(lines) },
-      bits: v.top === null ? null : { start: total(start) / n, end: total(lines) / n, top: v.top, beyond: { start: beyond(start), end: beyond(lines) } },
-      bitsGained: v.top === null ? null : total(lines) - total(start),
+      bits: v.measuredTo === null ? null : { start: total(start) / n, end: total(lines) / n, measuredTo: v.measuredTo, beyond: { start: beyond(start), end: beyond(lines) } },
+      bitsGained: v.measuredTo === null ? null : total(lines) - total(start),
     };
   });
   const sum = (rows: number[][], j: number) => rows.reduce((t, x) => t + x[j]!, 0);
@@ -240,9 +241,9 @@ export const utilityCell = (x: RuleOutcome, j: number): string =>
 /** A report as Markdown: the rules' progress, then each player's spending by view. */
 export function formatReport(r: HarnessReport): string {
   const out = [
-    "| Player | Rule | Main part (mean utility, start → end) | Tie-breaker | Bits a line (start → end / top) | Lines past the top knot | Bits gained |",
+    "| Player | Rule | Main part (mean utility, start → end) | Tie-breaker | Bits a line (start → end / measured to) | Lines past the furthest knot | Bits gained |",
     "|---|---|---|---|---|---|--:|",
-    ...r.rules.map(x => `| ${x.player} | ${x.rule} | ${utilityCell(x, 0)} | ${utilityCell(x, 1)} | ${x.bits ? `${f1(x.bits.start)} → ${f1(x.bits.end)} / ${f1(x.bits.top)}` : "– (no value function)"} | ${x.bits ? `${x.bits.beyond.start} → ${x.bits.beyond.end}` : "–"} | ${x.bitsGained === null ? "–" : f1(x.bitsGained)} |`),
+    ...r.rules.map(x => `| ${x.player} | ${x.rule} | ${utilityCell(x, 0)} | ${utilityCell(x, 1)} | ${x.bits ? `${f1(x.bits.start)} → ${f1(x.bits.end)} / ${f1(x.bits.measuredTo)}` : "– (no value function)"} | ${x.bits ? `${x.bits.beyond.start} → ${x.bits.beyond.end}` : "–"} | ${x.bitsGained === null ? "–" : f1(x.bitsGained)} |`),
     "",
     "| Player | Points gained (start → end) | energy lost to reversals (times) | Others' rarity kept by its moves | Notes |",
     "|---|--:|--:|--:|--:|",

@@ -130,7 +130,9 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     that makes larger numbers harder to reach. Ideally we want to fit curves to map utility to energy so that the
     possible energy of an object can be unbounded. I don't want Maxima anywhere ideally, but if we have to accept some
     really high maximum possible scores for some rules because they must have their utility-to-energy relation calculated
-    fully empirically then I will accept this for the sake of allowing more diversity of rule types."
+    fully empirically then I will accept this for the sake of allowing more diversity of rule types." (Lines lose
+    their 10^6 box; a value function's fitted tail is the rule past its best knot and never saturates, held between the
+    law's floor and ceiling. The audit of every maximum left: docs/engine-v2/maxima.md.)
 
 27. On entanglement (relayed by the coordinator, 14 November): "I want rules to be highly entangled with one another
     but it's also ok for some rule pairs to be less entangled than others. That's what creates interesting political

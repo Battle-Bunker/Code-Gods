@@ -101,7 +101,7 @@ if (want("law")) {
   for (let a = -L; a <= L; a++) for (let b = 0; b <= L; b++) for (let c = -L; c <= L; c++) {
     const n = normalise(BigInt(a), BigInt(b), BigInt(c));
     if ("invalid" in n || Number(n.a) !== a || Number(n.b) !== b || Number(n.c) !== c) continue;
-    const p = 2 ** -(phi(a) + phi(b) + phi(c)); m1 += p; m2 += p * p;
+    const p = 2 ** -lineType.readLength({ lines: [n] }, lineQ); m1 += p; m2 += p * p;
   }
   say(`line-q: Σπ² = ${(m2 / m1 / m1).toFixed(4)}, collision entropy ${f2(-Math.log2(m2 / m1 / m1))} bits (window |a|, b, |c| ≤ ${L})`);
   let g = 0; for (let x = 0; x <= 9; x++) g += cellProbability(x, grid4) ** 2;

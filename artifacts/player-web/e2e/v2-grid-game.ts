@@ -182,9 +182,9 @@ try {
     assert.match(sentence, /Your rarity ([\d.,]+ → [\d.,]+ bits?|stayed [\d.,]+ bits?)/, `the move says your rarity in bits: ${sentence}`);
     assert.match(sentence, /Points on this grid [−\d.,]+ → [−\d.,]+|Points on this grid stayed|No points on this grid/, `the move says the points before → after: ${sentence}`);
     assert.match(sentence, FORMULA, `the move says yours × others' = points: ${sentence}`);
-    // Live, the others' sums are blurred (W3 #608, v1 peerNoiseBits): the figure is written as an estimate.
-    // An estimate ("about … ≈") only where the room blurs the others' bits; the beginner game is exact (decision 32).
-    assert.match(sentence, /others' (about −?[\d,]+\.\d\d bits? ≈|[\d,]+\.\d\d bits? [=≈])/, `${label}: live, the others' bits in the formula: ${sentence}`);
+    // The beginner preset reads exact (owner decision 32, noise variance 0): no "about" (the line game covers a noisy room).
+    assert.doesNotMatch(sentence, /\babout\b/, `${label}: an exact room writes exact figures: ${sentence}`);
+    assert.match(sentence, /others' −?[\d,]+\.\d\d bits? [=≈] /, `${label}: the others' bits, exact: ${sentence}`);
     assert.doesNotMatch(sentence, /payoff|object|\p{Extended_Pictographic}/iu);
     assert.doesNotMatch(sentence, /\d\.\d (bits?|points?|energy)/, `every measure has 2 decimal places: ${sentence}`);
     // The change is drawn as a small board beside the sentence, not written as sixteen digits (coordinator, round 6).

@@ -22,6 +22,11 @@ export const undealt = <P,>(l: L<P>): L<P> => ({ ...l, dealtOn: () => false });
 export function more<P>(id: string, title: string, sentence: string, rep: string | "size" = "size"): L<P> {
   return { id, title, sentence: () => sentence, rep, sense: "max" };
 }
+/**
+ * A layer whose value is a prime or a prime factor, bigger better: its value function keeps rising past the measured
+ * knots at the code's own cost of a prime, ½ bit per unit (owner decisions 26 and 30).
+ */
+export const prime = <P,>(l: L<P>): L<P> => ({ ...l, measure: "prime" });
 
 export const undef = (v: ElementValue): Undef => ({ undefined: v.kind === "undefined" ? v.reason : "not a number" });
 export const num = (v: ElementValue): Q | null => (v.kind === "number" ? v.q : null);

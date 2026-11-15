@@ -17,7 +17,8 @@ import { compactMarks, El, key, markState, Readouts } from "./common.tsx";
 /** One line of an equation: its text with italic variables, its numbers as element nodes. */
 function Line({ p, ps, label }: { p: RenderProps<Eq>; ps: Piece[]; label: string }) {
   return (
-    <div className="v2v-eq-line" aria-label={label}>
+    // A long line in a compact face is set smaller rather than cut (playtest round 12: "/ = 3¹¹⁄₁₆₂x").
+    <div className="v2v-eq-line" aria-label={label} style={p.size === "compact" && label.length > 13 ? { fontSize: `${Math.max(13, Math.round((21 * 13) / label.length))}px` } : undefined}>
       {ps.map((x, i) => x.kind === "text"
         ? <span key={i}>{x.text.split(/([a-z])/i).map((t, j) => (/^[a-z]$/i.test(t) ? <span key={j} className="v2v-var">{t}</span> : t))}</span>
         : (

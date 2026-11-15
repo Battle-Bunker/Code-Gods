@@ -39,7 +39,8 @@ export const { op: state, as: stateAs } = defineOp("bid.state", "query", async e
   const mine = rows.find(r => r.memberId === member._id);
   return {
     deadline: phase.deadline, pricing: phase.pricing,
-    families: phase.families.map(f => ({ family: f.family, card: f.card, top: f.top })),
+    // The stored `top` is how far the value curves were measured, not a ceiling (owner decision 26: no maximum).
+    families: phase.families.map(f => ({ family: f.family, card: f.card, measuredTo: f.top })),
     mine: mine?.bids ?? [],
     done: rows.filter(r => r.done).map(r => ({ memberId: r.memberId, name: members.find(m => m._id === r.memberId)?.name ?? "" })),
   };
