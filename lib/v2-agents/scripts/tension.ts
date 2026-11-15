@@ -313,7 +313,8 @@ for (let a = 0; a < NR; a++) for (let b = a + 1; b < NR; b++) {
 // ---------------------------------------------------------------- the flagged case: one prime for several rules
 
 const idx = (name: string) => { const i = RULES.findIndex(r => ruleName(r) === name); if (i < 0) throw new Error(name); return i; };
-const FLAG = ["square-area/spf", "whole-crossing/k-spf", "prime-landing/big-prime"].map(idx);
+// The 247k case's rules, those still dealt (Prime Landing's big-prime went with its redesign, 15 Nov).
+const FLAG = ["square-area/spf", "whole-crossing/k-spf", "prime-landing/big-prime"].filter(n => RULES.some(r => ruleName(r) === n)).map(idx);
 /** The line with x-intercept p and y-intercept q (p, q whole, non-zero): q·x + p·y − p·q = 0, normalised. */
 function byIntercepts(p: bigint, q: bigint): LineState {
   const n = normalise(q, p, -p * q);

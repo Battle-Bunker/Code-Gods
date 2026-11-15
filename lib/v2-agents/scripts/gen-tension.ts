@@ -134,7 +134,7 @@ const quant = (xs: number[]) => { const s = xs.slice().sort((a, b) => a - b); re
 
 say(`Tension table for line-q from ${o.json} (seed ${res.seed}, repeats of ${res.steps}): ${NR} rules, ${ND} cheap directions, ${ladders.length} ladders over ${PRIMES.length} primes ${PRIMES[0]}–${PRIMES.at(-1)}.`);
 say();
-say(`Reference (${ref.id}; the 247k line y = −2x + 734 is p = 367): ${rules[SA]} ${f3(ref.gains[SA]!)}, ${rules[WC]} ${f3(ref.gains[WC]!)}, ${rules[PL]} ${f3(ref.gains[PL]!)} bits per energy; joint (the smaller) ${f3(reference.gainPerEnergy)}.`);
+say(`Reference (${ref.id}; the 247k line y = −2x + 734 is p = 367): ${rules[SA]} ${f3(ref.gains[SA]!)}, ${rules[WC]} ${f3(ref.gains[WC]!)}, ${PL < 0 ? "(prime-landing/big-prime no longer dealt)" : `${rules[PL]} ${f3(ref.gains[PL]!)}`} bits per energy; joint (the smaller) ${f3(reference.gainPerEnergy)}.`);
 const joint: number[] = [], jointSum: number[] = [], per: number[] = [];
 const perBy = new Map<string, number[]>();
 for (let a = 0; a < NR; a++) for (let d = 0; d < ND; d++) if (res.repeats[rules[a]!]![cheapIdx[d]!]![1]! >= MIN) per.push(gains[a]![d]!);
