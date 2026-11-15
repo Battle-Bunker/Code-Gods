@@ -83,6 +83,7 @@ const { values: o } = parseArgs({ options: {
   kind: { type: "string", default: "simple" }, objects: { type: "string", default: "3" }, births: { type: "string", default: String(1 / 240) },
   variant: { type: "string", default: "line-q" }, preset: { type: "string" }, instances: { type: "boolean", default: false }, only: { type: "string" }, from: { type: "string", default: "0" }, json: { type: "string" }, focus: { type: "string" }, climber: { type: "string", default: "plain" }, seed: { type: "string" },
   seats: { type: "string", default: "3" }, twostep: { type: "boolean", default: false },
+  power: { type: "string", default: "1" }, reading: { type: "string" },
 } });
 
 interface PoolRule { readonly family: string; readonly params: unknown; readonly tieBreakers: readonly string[] }
@@ -92,7 +93,10 @@ const setup = ((): { type: ObjectType<unknown>; variant: Variant; pool: readonly
   const variant = o.variant === "line-z" ? lineZ : o.variant === "line-q-lenses" ? lineQLenses : lineQ;
   return { type: lineType as ObjectType<unknown>, variant, pool: presets.find(p => p.variant === variant.id)!.rules, economy: LINES_BEGINNER_ECONOMY };
 })();
-const { type, variant, pool, economy: E } = setup;
+// --power scales the economy's power (every seat's income); --reading distinct seats rules whose main parts are read in
+// different representations, --reading shared seats two that share one (the third is any other family).
+const { type, variant, pool } = setup, E = { ...setup.economy, powerPerSecond: setup.economy.powerPerSecond * Number(o.power) };
+const readingOf = (r: PoolRule) => type.families.find(f => f.id === r.family)!.main.rep;
 const seconds = Number(o.seconds), drift = Number(o.drift);
 /** Row 2 (design-principles.md): no seat should sit on a main-part level it reached this early. */
 const EARLY_SECONDS = 120;
@@ -160,9 +164,15 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   // --instances: three seats of distinct dealt rules (a family may sit twice with other params), counted per rule; a pool
   // of fewer than three families (Grids · arithmetic) seats that way.
   const same = (a: PoolRule, b: PoolRule) => a.family === b.family && (!o.instances || JSON.stringify(a.params) === JSON.stringify(b.params));
+  const readable = (r: PoolRule) => o.reading === "distinct" ? !picks.some(x => readingOf(x) === readingOf(r))
+    : o.reading === "shared" && picks.length === 1 ? readingOf(picks[0]!) === readingOf(r) : true;
+  if (o.reading === "shared" && !o.focus) {   // start from a family that has a partner sharing its reading
+    const twins = choices.filter(r => choices.some(x => x.family !== r.family && readingOf(x) === readingOf(r)));
+    picks.push(twins[R.below(twins.length)]!);
+  }
   // Pairs: no table the seating rule forbids (lib/v2-pair seating.ts), as the dealer.
   const seatable = (r: PoolRule) => o.type !== "pairs" || pairClashes([...picks, r]).length === 0;
-  while (picks.length < Math.min(Number(o.seats), o.instances ? choices.length : new Set(choices.map(c => c.family)).size)) { const r = choices[R.below(choices.length)]!; if (!picks.some(x => same(x, r)) && seatable(r)) picks.push(r); }
+  while (picks.length < Math.min(Number(o.seats), o.instances ? choices.length : new Set(choices.map(c => c.family)).size)) { const r = choices[R.below(choices.length)]!; if (!picks.some(x => same(x, r)) && seatable(r) && readable(r)) picks.push(r); }
   const keyOf = (r: PoolRule) => (r.family === o.focus || o.instances ? `${r.family} ${JSON.stringify(r.params)}` : r.family);
   const keys = picks.map(keyOf);
   const seats = picks.map((r, k) => {
