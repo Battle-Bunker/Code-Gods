@@ -3,7 +3,15 @@ import { canonicalJson, hashHex, type ObjectType, type Variant } from "@workspac
 
 export function ruleKey(type: ObjectType<unknown>, variant: Variant, familyId: string, params: unknown, tieBreaker: string): string {
   variant = valuesVariant(type, variant);
-  return `${type.id}@${type.version}/${variant.id}#${hashHex(canonicalJson(variant))}/${familyId}/${canonicalJson(params)}/tb=${tieBreaker}`;
+  return `${type.id}@${type.version}/${variant.id}#${valuesHash(variant)}/${familyId}/${canonicalJson(params)}/tb=${tieBreaker}`;
+}
+
+/**
+ * What a value function depends on: the object type and the variant's params (the law π ∝ 2^−φ). Not its menu
+ * (mutators, which code, birth mix): a change of menu keeps every stored value and its key (the coordinator, 15 Nov).
+ */
+export function valuesHash(variant: Variant): string {
+  return hashHex(canonicalJson({ objectType: variant.objectType, params: variant.params }));
 }
 
 /** The variant whose value functions `variant` uses: itself, or the one it names in valuesOf (same type and params). */

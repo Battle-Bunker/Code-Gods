@@ -986,8 +986,8 @@ Landing 227 bits); it returns when the "no straight hill" check passes for every
 (`coef.swap`, `basis.lean`, `basis.zoom`, `fold`) are a trial, offered beside line-q's ten by `line-q-lenses` only
 (preset `lines-lenses`, N = 14): line-q's ten keep their proportions in 3/4 of the mass, the four share 1/4 (log2 16
 each). `line-q-lenses` has line-q's params, so the same law π ∝ 2^−φ, and reads line-q's value functions
-(`Variant.valuesOf`); a value function does not depend on the menu, so a menu change re-keys the stored values without
-recomputing them (`lib/v2-valuation/scripts/rekey-values.ts`). Representation moves (turn, swap, fold) are priced as choices and
+(`Variant.valuesOf`); a value function does not depend on the menu, so its key hashes only the object type and the
+variant's params (`valuesHash`, lib/v2-valuation keys.ts): a menu change keeps every stored value and its key. Representation moves (turn, swap, fold) are priced as choices and
 digits; the lean adds an amount (priced by size); the zoom is a factor (digits). A mutator may declare a least fee
 (`Mutator.floor`, the same for a call and its inverse): `coef.swap` pays at least φ of the dearer of the two numbers it
 swaps (each read with line-q's code for a and c),
