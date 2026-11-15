@@ -12,6 +12,7 @@
 import { applyPriced, rng, variantMutators, type ObjectType, type Rng, type Variant } from "@workspace/v2-core";
 import { gridPresets, gridType, grid4, type GridState } from "@workspace/v2-grid";
 import { lineQ, lineType, lineZ, normalise, presets, type LineState } from "@workspace/v2-linear";
+import { canonicalPair, encodePair, pairPresets, pairQ, pairType, type PairState } from "@workspace/v2-pair";
 import { findValues, valuer } from "../src/harness.ts";
 
 // ---------------------------------------------------------------- small numeric helpers
@@ -44,15 +45,16 @@ export class MinHeap<T> {
 
 export type Rule = { family: string; params: Record<string, unknown>; tieBreaker: string };
 export const ruleName = (r: Rule) => `${r.family}/${r.tieBreaker}`;
-export type VariantId = "line-z" | "line-q" | "grid-4-d10";
-export const VARIANTS: readonly VariantId[] = ["line-q", "line-z", "grid-4-d10"];
+export type VariantId = "line-z" | "line-q" | "grid-4-d10" | "pair-q";
+export const VARIANTS: readonly VariantId[] = ["line-q", "line-z", "grid-4-d10", "pair-q"];
 
 /**
  * The dealable rules of a variant's pool (the first preset whose variant it is, so a preset's id moving between variants
  * changes nothing here), each family with each tie-breaker; `skipped` are those without a committed value function.
  */
 export function poolOf(variant: VariantId): { rules: Rule[]; skipped: string[]; preset: string } {
-  const preset = variant === "grid-4-d10" ? gridPresets.find(p => p.variant === variant) : presets.find(p => p.variant === variant);
+  const preset = variant === "grid-4-d10" ? gridPresets.find(p => p.variant === variant)
+    : variant === "pair-q" ? pairPresets.find(p => p.variant === variant) : presets.find(p => p.variant === variant);
   if (!preset) throw new Error(`no preset deals ${variant}`);
   const all: Rule[] = preset.rules.flatMap(r => (r.tieBreakers as readonly string[]).map(t => ({ family: r.family, params: r.params as Record<string, unknown>, tieBreaker: t })));
   return { rules: all.filter(r => findValues(variant, r)), skipped: all.filter(r => !findValues(variant, r)).map(ruleName), preset: preset.id };
@@ -158,6 +160,27 @@ export function spaceOf(id: VariantId): Space<any> {
       call: (d, k) => ({ mutator: "gen.nudge", args: { which: COEF[d]!, k: String(k) } }),
       // Another coordinate held at 1, so a nudge never leaves a common factor; b probed above K when k < 0.
       probes: (d, k) => (d === 0 ? [[0, 1, 1], [2, 1, 3]] : d === 1 ? (k < 0 ? [[1, 70, 1], [1, 90, 3]] : [[1, 0, 1], [1, 3, 1]]) : [[1, 1, 0], [3, 1, 5]]),
+    });
+  }
+  if (id === "pair-q") {
+    // Six coordinates, line 1's (a, b, c) then line 2's, moved one at a time by gen.nudge on that line. Only states whose
+    // lines are already in canonical order are points of the model, so a jump that re-sorts the pair is left out: a subset
+    // of what is truly reachable, as for the other variants.
+    const COEF = ["a", "b", "c"];
+    const LINE_Q_PROBES = (c: number, k: number): [number[], number[]] => (c === 0 ? [[0, 1, 1], [2, 1, 3]] : c === 1 ? (k < 0 ? [[1, 70, 1], [1, 90, 3]] : [[1, 0, 1], [1, 3, 1]]) : [[1, 1, 0], [3, 1, 5]]);
+    return makeSpace<PairState>(id, pairType, pairQ, {
+      dims: 6, K: 64, bounds: [null, [0, Number.MAX_SAFE_INTEGER], null, null, [0, Number.MAX_SAFE_INTEGER], null],
+      coords: s => s.lines.flatMap(l => [Number(l.a), Number(l.b), Number(l.c)]),
+      state: x => {
+        const lines = [x.slice(0, 3), x.slice(3, 6)].map(t => { const [a, b, c] = t.map(v => BigInt(v)) as [bigint, bigint, bigint]; const n = normalise(a, b, c); return "invalid" in n || n.a !== a || n.b !== b || n.c !== c ? null : n; });
+        if (!lines[0] || !lines[1]) return null;
+        const s = canonicalPair([lines[0], lines[1]], pairQ);
+        return "invalid" in s || encodePair(s) !== `${x.slice(0, 3).join(",")};${x.slice(3).join(",")}` ? null : s;
+      },
+      call: (d, k) => ({ mutator: "gen.nudge", args: { line: d < 3 ? "1" : "2", which: COEF[d % 3]!, k: String(k) } }),
+      // The other line far away in the sort order (a = ±2^50), so the probed line keeps its place for any value the
+      // reach search can afford.
+      probes: (d, k) => LINE_Q_PROBES(d % 3, k).map(p => (d < 3 ? [...p, 2 ** 50, 1, 1] : [-(2 ** 50), 1, 1, ...p])) as [number[], number[]],
     });
   }
   return makeSpace<GridState>(id, gridType, grid4, {

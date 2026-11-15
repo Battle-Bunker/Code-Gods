@@ -13,9 +13,10 @@ import { valueObjects } from "../convex/v2/world.ts";
 import { actReadings } from "../convex/v2/disclose.ts";
 import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { runAct, type ActRecord } from "@workspace/v2-agents";
+import { hasStarters, runAct, type ActRecord } from "@workspace/v2-agents";
 import { lineQ, lineType } from "@workspace/v2-linear";
 import { gridType, grid4 } from "@workspace/v2-grid";
+import { pairType, pairQ } from "@workspace/v2-pair";
 import type { ObjectType, Variant } from "@workspace/v2-core";
 import { createSandbox, type Language, type Sandbox } from "@workspace/v2-sandbox";
 import { admin, httpJwt, humans, perform, SITE_, type Human } from "./v2-helpers.ts";
@@ -228,3 +229,6 @@ else test("grids-beginner is withheld until grid value functions land", async ()
   assert.match(out.error.message, /not playable yet/);
   assert.ok(!(await h!.query("v2/setups:presets", {})).some((p: any) => p.id === "grids-beginner"), "not listed");
 });
+// Two lines as one object (docs/engine-v2/two-line-systems.md): a full game once its value functions and starters land.
+// Withheld (deal.ts playable) until both land; then this plays it end to end.
+if (VALUE_RECORDS.some(r => r.variant === pairQ.id) && pairType.families.some(f => hasStarters(f.id))) gameSuite("lines-pairs", pairType, pairQ);

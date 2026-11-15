@@ -7,6 +7,7 @@
 import { GRIDS_BEGINNER_ECONOMY, LINES_BEGINNER_ECONOMY, readPriceWeightFor } from "@workspace/v2-economy";
 import { preset as linearPreset, type PoolRule } from "@workspace/v2-linear";
 import { gridPresets } from "@workspace/v2-grid";
+import { pairPresets } from "@workspace/v2-pair";
 
 export interface PresetBid { pricing: "first" | "second"; disclosure: "none" | "handicaps" | "all"; seconds: number }
 /** The economy a preset plays (docs/energy-model.md; `lib/v2-economy` owns the maths). */
@@ -59,16 +60,16 @@ const ECONOMY: PresetEconomy = {
  * A typical object's full read, in bits: the median over 1,000 births of each variant a preset plays (measured; the
  * unit test v2-presets keeps it within 10% of the births). The read-price weight is set from it.
  */
-export const MEDIAN_LOOK_BITS: Readonly<Record<string, number>> = { "line-q": 13.7, "line-q-lenses": 14.0, "grid-4-d10": 41.1 };
+export const MEDIAN_LOOK_BITS: Readonly<Record<string, number>> = { "line-q": 13.7, "line-q-lenses": 14.0, "grid-4-d10": 41.1, "pair-q": 26.4 };
 export function medianLookBits(variant: string): number {
   const bits = MEDIAN_LOOK_BITS[variant];
   if (bits === undefined) throw new Error(`No median look for the variant ${variant}: measure it (MEDIAN_LOOK_BITS)`);
   return bits;
 }
 
-/** A pool by id: the line presets' (v2-linear) or the grid's (v2-grid). */
+/** A pool by id: the line presets' (v2-linear), the grid's (v2-grid) or the two-line systems' (v2-pair). */
 function poolPreset(id: string): { id: string; title: string; variant: string; rules: readonly PoolRule[] } {
-  const g = gridPresets.find(x => x.id === id);
+  const g = gridPresets.find(x => x.id === id) ?? pairPresets.find(x => x.id === id);
   return g ? { id: g.id, title: g.title, variant: g.variant, rules: g.rules as readonly PoolRule[] } : linearPreset(id);
 }
 
@@ -122,6 +123,9 @@ export const PRESETS: readonly Preset[] = [
   // A trial (docs/engine-v2/lenses-and-mutators.md §5): the beginner pool with five more ways to move a line. Not the default.
   fromPool("lines-lenses", V1_DEFAULT_BOARD),
   GRIDS,
+  // Two lines as one object (docs/engine-v2/two-line-systems.md): not the default. Withheld until its rules have value
+  // functions and shipped starters (deal.ts playable).
+  fromPool("lines-pairs", V1_DEFAULT_BOARD),
   { ...GRIDS, id: "grids-beginner-bidding", title: "Grids · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
   fromPool("grids-more-rules", { ...V1_DEFAULT_BOARD, startingEnergy: GRIDS_BEGINNER_ECONOMY.startingEnergy }),
 ];

@@ -16,7 +16,7 @@ export type Args = Readonly<Record<string, Q | string>>;
 // moves are dear"): with o the bits of which + where + the choices, a size σ costs rate(o)·σ − o, so the call's whole
 // fee is rate(o)·σ, and a move of size n costs exactly n unit moves.
 
-interface Field {
+export interface Field {
   /** Every value priced at most maxBits (any order). */
   values(maxBits: number): (Q | string)[];
   bits(v: Q | string): number;
@@ -25,7 +25,7 @@ interface Field {
 }
 
 /** The size part of a call: one or two named numbers, priced given o, the bits of the rest of the call. */
-interface Size {
+export interface Size {
   readonly names: readonly string[];
   bits(vals: readonly Q[], o: number): number;
   /** Every value priced at most maxBits given o. */
@@ -173,6 +173,12 @@ function fields(base: number, spec: Readonly<Record<string, Field>>, size?: Size
     },
   };
 }
+
+/**
+ * The argument codes, for object types made of lines (lib/v2-pair): the same choices, sizes and pricing against the
+ * rest of the call, so a move on one line of a system is priced exactly as on a line.
+ */
+export const lineArgCodes = { fields, amount, displacement, factor, position, oneOf } as const;
 
 // ---------------------------------------------------------------- helpers
 

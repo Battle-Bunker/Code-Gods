@@ -19,7 +19,8 @@
   "dependencies": {
     "@workspace/v2-core": "workspace:*",
     "@workspace/v2-linear": "workspace:*",
-    "@workspace/v2-grid": "workspace:*"
+    "@workspace/v2-grid": "workspace:*",
+    "@workspace/v2-pair": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:"
