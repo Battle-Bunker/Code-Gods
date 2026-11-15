@@ -55,7 +55,7 @@ const pileRung = (y: Q): { t: bigint; n: bigint; u: Q } => {
 const piles = (p: KT) => `${p.side === -1 ? "minus " : ""}a coin pile (1, 3, 6, 10, 15, …)`;
 const treasureShape: Shape<KT> = {
   main: { ...more<KT>("pile", "y(k) on as big a coin pile as possible", "", "table"),
-    sentence: p => `When x is ${p.k}, y should land on ${piles(p)}, the bigger the better; any other y scores below them all, the closer to a pile the better.` },
+    sentence: p => `When x is ${p.k}, y should land on ${piles(p)}, the bigger the better; otherwise, the closer to a pile the better.` },
   tieBreakers: [
     more<KT>("shared-factor", "the biggest number dividing both the pile's height and the gradient's whole part",
       "Tie-breaker: the pile is n coins high. The biggest number dividing both n and the gradient's whole part (ignoring sign) should be as big as possible.", "si"),
