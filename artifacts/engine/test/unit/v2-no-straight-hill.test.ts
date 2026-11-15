@@ -24,13 +24,9 @@ import { valueRecord } from "../../convex/v2/values.ts";
 const LIMIT = 35, STARTS = 3, MAX_STEPS = 80;
 /**
  * Known open fails, each reported to its owner. An entry that no longer fails fails the test below: remove it then.
- * Square Area's prime-factor tie-breakers (the grids session's family): their prime-valued tails pay about p/2 bits for
- * a root with a big prime factor, reached by shifts: 58.5 bits on line-q, 141–316 on line-q-lenses (15 Nov).
+ * (Square Area's prime-factor tie-breakers left with its redesign as a window ladder, 15 Nov.)
  */
-const OPEN: Record<string, string> = {
-  "square-area/lpf": "grids session, reported 15 Nov",
-  "square-area/spf": "grids session, reported 15 Nov",
-};
+const OPEN: Record<string, string> = {};
 const FACTORS = ["2", "3", "5", "7", "11", "13", "17", "10", "1/2", "1/3", "1/5", "1/10"];
 const AMOUNTS = ["1", "-1", "2", "-2", "10", "-10", "100", "-100", "1000", "-1000", "1/2", "-1/2"];
 const CALLS: Record<string, readonly Record<string, string>[]> = {

@@ -3,38 +3,101 @@
  * beginner.ts unchanged, 15 Nov, so their redesign against design-principles.md does not collide with the others').
  */
 import { gcd, Qn, q, ref, type Q } from "@workspace/v2-core";
-import { fromMC, normalise, type LineState } from "./line.ts";
+import { fromMC, LINE_Q_CODES, normalise, type LineState } from "./line.ts";
 import { allUndefined, distance, factorLabel, family, gap, ladder, more, num, prime, squareGap, undealt, verticalAt, VERTICAL_NO, type Shape } from "./layers.ts";
-import { digitLevel, digitNote, distanceToPrime, isPrime, isPrimeEnding, largestPrimeFactor, nearestInteger, nearestPrimeEnding, nearestSquareRoot, PRIME_ENDINGS, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
+import { digitLevel, digitNote, distanceToPrime, isPrime, isPrimeEnding, isqrt, largestPrimeFactor, nearestInteger, nearestPrimeEnding, nearestSquareRoot, PRIME_ENDINGS, primeFactorCount, smallestPrimeFactor, stepNote } from "./numbers.ts";
 
-// ---------------------------------------------------------------- Square Area (the owner's example 2)
+// ---------------------------------------------------------------- Square Area (the owner's example 2; a ladder since 15 Nov)
 
-const squareShape: Shape<object> = {
-  main: distance("square", "area close to a square number", "The triangle the line cuts off the axes should have an area as close as possible to a square number.", "tri"),
+/**
+ * Square Area as a ladder (design-principles.md; the redesign of beginner-line-redesign.md §4.9, on Prime Landing's and
+ * Pythagorean Area's pattern). Main part, unbounded: the area of the triangle the line cuts off the axes, rounded down,
+ * (or rounded to the nearest, by the dealt parameter) should be a square number r² ending in d, the bigger the better, in levels of digits (u = digitLevel(r²)); any other
+ * line scores below every rung, minus how far its area is from the nearest window [r², r² + 1). A rung is a window: the
+ * next one is a small shift or tilt away (y = −2x + 2r has area r², so a shift by 2 moves r by 1). The old main part (the
+ * area close to any square) had a top at 0; its tie-breakers, the root's smallest and largest prime factor, had
+ * prime-valued tails that shifts climbed to 58–316 bits (the energy gate), and the root's number of prime factors was a
+ * straight hill (a stretch by 2, 3 or 5 adds one at every size). Here a stretch by f multiplies the area by f, so only a
+ * square f keeps a rung, and only some squares keep its last digit: repeated, those are priced as shortcuts on a big line.
+ * Dealt: d = 1 and 9, the endings of odd squares (roots ending 1 or 9, and 3 or 7), each with the area rounded down and
+ * rounded to the nearest whole number: bits less the cheapest line's code cost, median over rungs, −8.1 to −8.5 (800k
+ * draws, 15 Nov). Not dealt, measured the same way: the even endings 4 and 6 (roots with 2s, which the code makes cheap:
+ * −9.5 and −9.8), 5 (−9.2), the area rounded up (ending 1: −8.7, every tiny triangle rounds up to 1 = 1²), and the roots'
+ * own last digit (a root ending in 1 has the rung 1, one ending in 9 starts at 81: medians 2.1 bits apart). One ending
+ * both ways shares every exact square (y = −2x + 2r has area r²), so that pair is forbidden (seating.ts).
+ * Tie-breaker, read from that square's root r: the factor r + 1 shares with the x-crossing's whole part (ignoring its
+ * sign). A new rung changes r + 1, so the crossing that shared most no longer does and the climb starts again.
+ * Adversary: Pythagorean Area reads the same number and wants it rounded down to a prime: a square is never a prime, so
+ * on every rung of the one the other is off its ladder (and the reverse).
+ */
+type SquareEnds = { ends: number; round?: "nearest" };
+const SQUARE_ENDS: SquareEnds[] = [{ ends: 1 }, { ends: 9 }, { ends: 1, round: "nearest" }, { ends: 9, round: "nearest" }];
+const squareShape: Shape<SquareEnds> = {
+  main: { ...more<SquareEnds>("square", "the triangle's area on as big a square ending in d as possible", "", "tri"),
+    // Under 30 words with the tie-breaker (the coordinator's ask): "the triangle" is the one the line cuts off the axes.
+    sentence: p => `Triangle area, rounded${p.round ? "" : " down"}: a square number ending in ${p.ends}. Bigger is better, each extra digit counts for less.` },
   tieBreakers: [
-    prime(more("spf", "that square's root's smallest prime factor", "The smallest prime factor of that square's root should be as big as possible.", "tri")),
-    prime(more("lpf", "that square's root's largest prime factor", "The largest prime factor of that square's root should be as big as possible.", "tri")),
-    // Undealt (the coordinator's no-straight-hill check, 15 Nov): a stretch by 2, 3 or 5 adds a prime factor to the root
-    // at every size, the same bits per fee all the way (artifacts/engine test v2-no-straight-hill). For the grids session.
-    undealt(more("omega", "prime factors of that square's root", "That square's root should have as many prime factors as possible (12 = 2·2·3 has three).", "tri")),
+    more<SquareEnds>("shared-factor", "the factor that square's root plus 1 shares with the x-crossing's whole part",
+      "Root plus 1 and x-crossing share a big factor.", "crossing"),
   ],
 };
-export const squareArea = family("square-area", "Square Area", ["tri", "cart"], squareShape, [{}], ctx => {
+/**
+ * The ladder's value: on a rung, digitLevel(r²) when the area rounds down (to the nearest, for `round: "nearest"`) to a square r²
+ * (r ≥ 1) ending in d; else minus how far the area is from the nearest such window, [r², r² + 1) rounding down or
+ * [r² − ½, r² + ½) to the nearest (on a tie the lower one), below every rung.
+ */
+export function squareRung(area: Q, d: number, near = false): { r: bigint; u: Q } {
+  // The window of r² is [r² + a, r² + a + 1): a = 0 rounding down, −½ to the nearest (a half rounds up).
+  const a = near ? q(-1, 2) : q(0);
+  const f = Qn.floor(Qn.sub(area, a));
+  const s = isqrt(f < 0n ? 0n : f), D = BigInt(d);
+  const ends = (r: bigint) => (r * r) % 10n === D;
+  if (s >= 1n && s * s === f && ends(s)) return { r: s, u: digitLevel(f) };
+  let lo = s;
+  while (lo >= 1n && !ends(lo)) lo--;
+  let hi = s + 1n;
+  while (!ends(hi)) hi++;
+  // Up to the window above, and past the window below.
+  const above = Qn.sub(Qn.add(q(hi * hi), a), area);
+  if (lo < 1n) return { r: hi, u: Qn.neg(above) };
+  const below = Qn.sub(area, Qn.add(q(lo * lo + 1n), a));
+  return Qn.cmp(below, above) <= 0 ? { r: lo, u: Qn.neg(below) } : { r: hi, u: Qn.neg(above) };
+}
+/**
+ * Witnesses for the tail cap (as Pythagorean Area's areaWitness): for n digits, up to three lines y = −2x + 2r, whose area
+ * is r² exactly, with r² ending in d and r made of cheap primes (2, 3, 7, 11, 13; never 5, whose squares end in 5 or 0):
+ * φ grows by about 1.7 bits a digit. Empty for a number of digits no such r reaches.
+ */
+const ROOTS: bigint[] = (() => {
+  const out: bigint[] = [];
+  const walk = (n: bigint, i: number) => {
+    out.push(n);
+    for (let j = i; j < 5; j++) { const x = n * [2n, 3n, 7n, 11n, 13n][j]!; if (x < 10n ** 40n) walk(x, j); }
+  };
+  walk(1n, 0);
+  return out;
+})();
+export function squareWitness(p: SquareEnds, n: number): LineState[] {
+  const lo = 10n ** BigInt(n - 1), hi = 10n ** BigInt(n);
+  return ROOTS.filter(r => (r * r) % 10n === BigInt(p.ends) && r * r >= lo && r * r < hi)
+    .map(r => ({ r, bits: LINE_Q_CODES.c.bits(2n * r) })).sort((x, y) => x.bits - y.bits).slice(0, 3)
+    .map(({ r }) => ({ lines: [fromMC(q(-2), q(2n * r))] }));
+}
+export const squareArea = ladder(family<SquareEnds>("square-area", "Square Area", ["tri", "crossing", "cart"], squareShape, SQUARE_ENDS, (ctx, pr) => {
   const area = ref("tri", "area");
   const av = ctx.read(area);
   const a = num(av);
-  if (a === null) return allUndefined(ctx, squareShape, av, area);
-  const sq = squareGap(a);
-  ctx.term("square", `distance from the area to ${sq.root * sq.root}`, sq.d, [area]);
-  ctx.term("spf", factorLabel("smallest", "the root", q(sq.root)), q(smallestPrimeFactor(sq.root)), [area]);
-  ctx.term("lpf", factorLabel("largest", "the root", q(sq.root)), q(largestPrimeFactor(sq.root)), [area]);
-  ctx.term("omega", `prime factors of ${sq.root}`, q(primeFactorCount(sq.root)), [area]);
-  ctx.mark({ kind: "note", ref: area, text: `area ${Qn.toWire(a)}, nearest square ${sq.root * sq.root} = ${sq.root}²` });
-  // The nearest square itself, as a shape the plane draws beside the triangle (marks only: no term changes).
-  const sqRef = ref("tri", "square", { s: sq.root });
+  if (a === null) return allUndefined(ctx, squareShape, av, area);   // no triangle: a level or vertical line, or one through (0, 0)
+  const { r, u } = squareRung(a, pr.ends, pr.round === "nearest");
+  ctx.term("square", Qn.sign(u) > 0 ? `area ${Qn.toWire(a)}, which rounds ${pr.round ? "" : "down "}to ${r}² = ${r * r}: ${stepNote((r * r).toString().length, "digit", "digits")}` : `area ${Qn.toWire(a)}, ${Qn.toWire(Qn.neg(u))} from the window of ${r}² = ${r * r}`, u, [area]);
+  const xRef = ref("crossing", "x0"), x = num(ctx.read(xRef))!, w = Qn.floor(Qn.abs(x));
+  ctx.term("shared-factor", `${r + 1n} and the x-crossing's whole part ${w}: the biggest number dividing both is ${w === 0n ? 0n : gcd(r + 1n, w)}`, q(w === 0n ? 0n : gcd(r + 1n, w)), [area, xRef]);
+  ctx.mark({ kind: "focus", ref: area });
+  // The square itself, as a shape the plane draws beside the triangle (marks only: no term changes).
+  const sqRef = ref("tri", "square", { s: r });
   ctx.read(sqRef);
   ctx.mark({ kind: "candidate", ref: sqRef, term: "square" });
-});
+}), squareWitness);
 
 // ---------------------------------------------------------------- Ruler (restored, decision 22; a ladder since 15 Nov)
 

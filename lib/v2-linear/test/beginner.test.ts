@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateSite, Qn, q, rng, walkStep, type Evaluation, type Q, type RuleFamily } from "@workspace/v2-core";
 import { nearestPalindrome } from "../src/beginner-rulers.ts";
-import { LINE_Q_CODES, primeGradient, beginnerFamilies, beginnerPool, presets, divisibilityLadder, exactChange, lineQ, lineType, lineZ, primeLanding, primeStaircase, ruler, sameOnBothRulers, squareArea, treasure, wholeCrossing, type LineState } from "../src/index.ts";
+import { LINE_Q_CODES, primeGradient, beginnerFamilies, beginnerPool, presets, divisibilityLadder, exactChange, lineQ, lineType, lineZ, primeLanding, primeStaircase, ruler, sameOnBothRulers, treasure, wholeCrossing, type LineState } from "../src/index.ts";
 import { mc } from "./helpers.ts";
 
 /** Every layer's term, as wire strings, for one evaluation. */
@@ -20,7 +20,7 @@ test("the beginner pool: the curator's eight families and two restored ones (Exa
   assert.deepEqual(beginnerPool.map(f => f.id), ["prime-landing", "smooth-intercept", "square-area", "whole-crossing", "divisibility-ladder", "treasure", "same-on-both-rulers", "prime-gradient", "prime-staircase", "ruler", "pythagorean-area"]);
   for (const f of beginnerPool) {
     // The ladder families have one or two secondaries, each read from the rung; the rest two to six.
-    assert.ok(f.tieBreakers.length >= (["prime-staircase", "smooth-intercept", "prime-landing", "whole-crossing", "prime-gradient", "divisibility-ladder", "pythagorean-area", "treasure", "same-on-both-rulers", "ruler"].includes(f.id) ? 1 : 2) && f.tieBreakers.length <= 6, f.id);
+    assert.ok(f.tieBreakers.length >= (["prime-staircase", "smooth-intercept", "prime-landing", "whole-crossing", "prime-gradient", "divisibility-ladder", "pythagorean-area", "treasure", "same-on-both-rulers", "ruler", "square-area"].includes(f.id) ? 1 : 2) && f.tieBreakers.length <= 6, f.id);
   }
 });
 
@@ -35,11 +35,7 @@ test("restored families (decision 22), worked by hand", () => {
 
 test("worked examples, one line per family", () => {
   assert.deepEqual(terms(primeStaircase, { ends: 7 }, mc(30, 7)), { run: "73/12", "shared-factor": "6", "step-back": "6" });   // 7, 37, …, 157 (run 6), then 187 = 11·17, 10 from 197: 6 + 1/12; gcd(156, 6) = 6; |y(−1)| = 23, 6 from 17
-  assert.deepEqual(terms(squareArea, {}, mc(-2, 6)),
-    { square: "0", "spf": "3", "lpf": "3", "omega": "1" });   // legs 3 and 6: area 9
-  // legs 12 and 24 (y = −2x + 24): area 144 = 12², 12 = 2·2·3
-  const t12 = terms(squareArea, {}, mc(-2, 24));
-  assert.deepEqual([t12.square, t12["spf"], t12["lpf"], t12["omega"]], ["0", "2", "3", "3"]);
+  // Square Area's worked lines: test/square-area.test.ts.
   // Treasure: y(2) = 10 is the pile 4 coins high (level 1 + (1 + 0.10)/2); 4 and the gradient 2 share 2.
   assert.deepEqual(terms(treasure, { k: 2 }, mc(2, 6)), { pile: "31/20", "shared-factor": "2" });
   // y(2) = 7 rounds to no pile: ½ past rounding to 6 (3 coins high); 3 and 1 share 1.

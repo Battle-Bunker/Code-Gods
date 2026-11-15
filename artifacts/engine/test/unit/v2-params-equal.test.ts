@@ -99,6 +99,15 @@ const LADDER_COST: Readonly<Record<string, (u: string, params: Record<string, un
     const cost = rulerCosts().get(p);
     return cost === undefined ? null : [String(p), cost];
   },
+  // Square Area: the rung is the square s = r² (u = digitLevel(s) on a rung, decoded as Pythagorean Area's prime is),
+  // costed as the cheapest line whose area rounds to it (the same enumeration as Pythagorean Area's, rounded to the
+  // nearest for the nearest instances).
+  "square-area": (u, p) => {
+    const s = primeOfLevel(u);
+    if (s === null) return null;
+    const cost = areaCosts(p.round === "nearest").get(s);
+    return cost === undefined ? null : [String(s), cost];
+  },
   "prime-staircase": (u, p) => {
     const [n, d = "1"] = u.split("/"), L = Number(BigInt(n!) / BigInt(d));
     const cost = L >= 1 ? staircaseCosts(p.ends as number)[L] : undefined;
@@ -133,9 +142,11 @@ function primeOfLevel(u: string): bigint | null {
  * code). Rungs costlier than that are left unpriced. About a second.
  */
 const AREA_BUDGET = 36;
-let AREA_COSTS: Map<bigint, number> | null = null;
-function areaCosts(): Map<bigint, number> {
-  if (AREA_COSTS) return AREA_COSTS;
+const AREA_COSTS = new Map<boolean, Map<bigint, number>>();
+/** As above, keyed by the area rounded down, or to the nearest with `near` (Square Area's nearest instances). */
+function areaCosts(near = false): Map<bigint, number> {
+  const hit = AREA_COSTS.get(near);
+  if (hit) return hit;
   const one = LINE_Q_CODES.c.bits(1n), most = 2 * (AREA_BUDGET - LINE_Q_CODES.b.bits(1n) - 2 * one);
   const primes: number[] = [];
   for (let n = 2; n <= most; n++) if (primes.every(x => n % x !== 0)) primes.push(n);
@@ -152,12 +163,12 @@ function areaCosts(): Map<bigint, number> {
       for (const [c, sc] of cheap) {
         if (sa + sc > left) break;
         if (gcd(gcd(a, b), c) !== 1n) continue;
-        const p = (c * c) / (2n * a * b), bits = bb + 2 * one + (sa + sc) / 2;
+        const p = (c * c + (near ? a * b : 0n)) / (2n * a * b), bits = bb + 2 * one + (sa + sc) / 2;
         if (bits < (costs.get(p) ?? Infinity)) costs.set(p, bits);
       }
     }
   }
-  AREA_COSTS = costs;
+  AREA_COSTS.set(near, costs);
   return costs;
 }
 /**
