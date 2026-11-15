@@ -273,3 +273,42 @@ Status: **K** kept, **C** changed, **D** dropped, **?** unknown.
   - Sandbox warm-up (#53).
   - Each AI-seat permission (#57).
   - A full search for a v2 player cap (#55).
+
+---
+
+## 4. App: player-facing behaviour (W5, 15 November)
+
+This section compares the v1 client (`archive:artifacts/player-web`) with the v2 app, pane by pane and affordance by
+affordance. Hours are app work. **W3** means the item needs a server read or operation first. **Q** means it waits on an
+owner question.
+
+**Carried over, checked:**
+- paid looks (always paid, keep fresh), noise on others' figures, hidden random end, score interval, idle parking;
+- the public log with live anonymity, bidding screens, replay with watch-as;
+- the fully transparent ended game: `e2e:ended` walks every pane for lines and grids, on desktop and phone, and closes
+  the gap left open in §3 (#11);
+- one pause, power share and pull back, "summon when I have the energy", rematch;
+- rule gallery, palette, glossary, AI quotas, assistant threads and owner powers;
+- chat closing after the end.
+
+| # | v1 behaviour | v2 now | Hours | Needs |
+|---|---|---|---|---|
+| A1 | Configure page with every setting; saved setups (page/get/save/duplicate/remove) and seeded system setups | Preset picker and three overrides | 6–8 | W3 (tables, ops); see §2 #66 |
+| A2 | Rival-inference assistant tools (fit_utility_mixture, list_utility_candidates, get_utility_series, get_board_at); "Possible gods" list | Absent | 3 | W3 (reads) |
+| A3 | Objects sorts: payoff, bits, others, mutations, newest, oldest, recently mutated. Filters: all, positive, contested | Sorts: points, rarity, recent | 3 | W3 (indexed fields) |
+| A4 | Feed filters (who, object, minimum impact); group by mutator, "cost against yield" | Mine / all moves toggle only | 3 | — |
+| A5 | Goal card: "How rare is each rule score?" table; editable, randomisable example | Fixed example | 3 | Q: check that the rarity table doesn't point at peaks |
+| A6 | My agents: sparkline, "Edit a copy", version comparison, "How energy works" | Absent | 3 | — |
+| A7 | Replay: keyboard shortcuts, speeds ¼–64×, deep links (?e ?t &as), copy a moment link, download | Scrubber and watch-as | 2–3 | W3 for download |
+| A8 | Owner "Cancel bidding" | Absent | 1 | W3 (op) |
+| A9 | Phone assistant bottom sheet; pane maximise | Absent | 3 | — |
+| A10 | Chat filters: Humans, AI, Mentions | Absent | 1 | — |
+| A11 | Grid tiles / colour-blind toggle | Absent | 2 | — |
+| A12 | "Copy game rules for an AI"; "Connect a player app" sheet | The CLI and MCP exist; no sheet in the app | 1 | — |
+| A13 | Header: overdrawn warning, retry-uncertain banner | Absent | 1 | W3 (check the field) |
+| A14 | "Who am I" and "Server info" sheets | Absent | 1 | — |
+| A15 | run_code tool and Code results pane | Absent | 2 | W3 (sandbox op); Q (wanted?) |
+| A16 | Hold rarity; score-noise variants; other deleted setups | Deleted | — | Q, already open in §1 |
+
+**Order of restoration.** Items with no server need and no open question come first, largest effect on play first: A4,
+A6, A7 (without download), A10, A11, A9, A12, A14. Each operation among them goes through `lib/v2-affordances`.
