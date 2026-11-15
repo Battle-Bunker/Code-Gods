@@ -7,7 +7,7 @@
  * picture, a big prime on an axis) does not climb most of a table at once (decision 30); §4 of the doc measures it.
  */
 import { Qn, q, ref, type ElementRef, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
-import { distanceToWhole, fromMC, normalise, smallestPrimeFactor, type Line } from "@workspace/v2-linear";
+import { distanceToWhole, fromMC, normalise, primeFactorCount, smallestPrimeFactor, type Line } from "@workspace/v2-linear";
 import type { PairState } from "./pair.ts";
 
 type Ctx = EvalContext<PairState>;
@@ -203,6 +203,7 @@ const gcdB = (x: bigint, y: bigint): bigint => { let a = absB(x), b = absB(y); w
 /** A common factor of two anchors; an anchor of 0 earns nothing (0), so the trivial anchor is the bottom. */
 const shared = (x: bigint, y: bigint): Q => q(x === 0n || y === 0n ? 0n : gcdB(x, y));
 const spf = (x: bigint): Q => q(smallestPrimeFactor(x));
+const omega = (x: bigint): Q => q(primeFactorCount(x));
 
 interface Spec {
   readonly id: string; readonly title: string; readonly depends: readonly string[];
@@ -291,22 +292,24 @@ export const noFractions = family({
   id: "no-fractions", title: "Divide By", depends: ["pair", "solve"],
   main: main("divisor", "the number you divide by on your powers", p => `When you solve, you divide by a number: it should be ${p.k} or −${p.k}; better, ${big(p.k! ** 3)}; then ${big(p.k! ** 6)}.`, "solve", "max"),
   tieBreakers: [
-    tb("numerator-step", "x times the number you divide by near a multiple of your next power", p => `x times the number you divide by: near a multiple of ${p.k} times your power reached, other than 0.`, "pair", "small"),
-    tb("numerator-power", "y times the number you divide by near a multiple of your next power", p => `y times the number you divide by: near a multiple of ${p.k} times your power reached, other than 0.`, "pair", "small"),
+    tb("numerator-smooth", "the answer's numerators add up to a number with many prime factors", "x and y times the number you divide by, added as distances: how many prime factors it has.", "pair", "smooth"),
+    tb("numerator-shared", "the answer's numerators share a big factor", "x and y times the number you divide by: their biggest common factor.", "pair", "shared"),
   ],
   params: DEALT_NUMBERS["no-fractions"],
   witness: (p, n) => { const K = BigInt(p.k!) ** BigInt(triangle(n)); return [sysOf(normalise(K + 1n, 1n, 0n) as Line, normalise(1n, 1n, -1n) as Line)]; },   // you divide by K
   evaluate: (ctx, p) => {
     const d = read(ctx, D)!, a = answer(ctx);
-    if (!a) return void (ctx.term("divisor", "the number you divide by", PARALLEL, [D]), allUndefined(ctx, ["numerator-step", "numerator-power"], PARALLEL, [PX, PY]));
+    if (!a) return void (ctx.term("divisor", "the number you divide by", PARALLEL, [D]), allUndefined(ctx, ["numerator-smooth", "numerator-shared"], PARALLEL, [PX, PY]));
     const size = absB(d.n);
     const pl = powerLadder(p.k!, t => q(absB(size - t)));
     ctx.term("divisor", `the number you divide by: ${stepsUp(pl.level)}`, pl.u, [D]);
-    const nx = Qn.mul(a.x, d).n, ny = Qn.mul(a.y, d).n, N = powerNumber(p.k!, pl.level);   // k^T(L) × k (trial 35)
-    // As a share of N: a whole-number relation to N is about log₂ k rarer for a bigger k, unfair between peers (the
-    // parameter-equality audit: 3.85 bits apart); a share of the target is the same for every k.
-    ctx.term("numerator-step", "how far x·D is from a multiple of k^T(L) × k, other than 0, as a share of it", Qn.div(offMultiple(q(nx), N), q(N)), [PX, D]);
-    ctx.term("numerator-power", "how far y·D is from a multiple of k^T(L) × k, other than 0, as a share of it", Qn.div(offMultiple(q(ny), N), q(N)), [PY, D]);
+    // The numerators x·D and y·D change with the number the main part reached, so stepping up restarts the climb (row 3
+    // holds as first designed). Trial 35's relations to k^T(L) × k were unfair between peers: a whole-number relation to
+    // N is about log₂ k rarer for a bigger k (3.85 bits apart on the parameter-equality audit), and a share of N moved
+    // the median knot as much.
+    const nx = Qn.mul(a.x, d).n, ny = Qn.mul(a.y, d).n;
+    ctx.term("numerator-smooth", "how many prime factors |x·D| + |y·D| has", omega(absB(nx) + absB(ny)), [PX, PY, D]);
+    ctx.term("numerator-shared", "the common factor of x·D and y·D", shared(nx, ny), [PX, PY, D]);
   },
 });
 

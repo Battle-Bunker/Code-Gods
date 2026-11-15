@@ -693,7 +693,7 @@ back) or TRIAL (a declared experiment, measured and reported).
       - The share that raise the level: about 0.
     - **Effects:** §13 of two-line-systems.md.
 35. **TRIAL** (the coordinator's order after #856, row 3 of design-principles.md; two-line-systems.md §13): each
-    tie-breaker of Whole Answer, Divide By, Right Angle, Forty-Five, Gap Ratio and Steep Ratio is a relation between
+    tie-breaker of Whole Answer, Right Angle, Forty-Five, Gap Ratio and Steep Ratio is a relation between
     the number its main part reached (N) and another aspect of the system: "near a multiple of N, other than 0", or
     "the biggest common factor with N".
     - **For the power ladders,** N is k^T(L) × k.
@@ -705,8 +705,9 @@ back) or TRIAL (a declared experiment, measured and reported).
       a factor". Those tie-breakers became "near a multiple", whose distance grows with the same stretch.
     - **The new tie-breakers.**
       - Whole Answer: D near a multiple of y's number; x near a multiple of y.
-      - Divide By: x·D and y·D near a multiple of N, each as a share of N. A whole-number relation to N is about
-        log₂ k rarer for a bigger k, which made peers unequal by 3.85 bits.
+      - Divide By keeps its tie-breakers. They read the numerators x·D and y·D, which change when D steps up. The
+        relations tried instead were unfair between peers: a whole-number relation to N is about log₂ k rarer for a
+        bigger k (3.85 bits apart), and a share of N moved the median knot as much.
       - Right Angle: the corner's x near a multiple of its y; its y shares a factor with the steeper gradient.
       - Forty-Five: |x| + |y| shares a factor with D; the y-intercepts' gap near a multiple of |x| + |y|.
       - Gap Ratio: D shares a factor with N; the y-intercepts' gap near a multiple of N.

@@ -60,12 +60,12 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
   {
     family: "no-fractions", stretchBy: true, mainSays: "the level of the number you divide by on k, k³, k⁶, … (higher is better)", simple: ["combine", "turn", "stretch"],
     main: {
-      ts: [PARALLEL.ts, "const main = powerLadder(p.k, t => Q.abs(Q.sub(Q.abs(f.D), t)));   // the number you divide by on k, k³, k⁶, …", "const nx = Q.mul(f.x, f.D), ny = Q.mul(f.y, f.D);   // the answer's numerators", POWER_N.ts],
-      py: [...PARALLEL.py, "main = power_ladder(p[\"k\"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^3, k^6, ...", "nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators", POWER_N.py],
+      ts: [PARALLEL.ts, "const main = powerLadder(p.k, t => Q.abs(Q.sub(Q.abs(f.D), t)));   // the number you divide by on k, k³, k⁶, …", "const nx = Q.mul(f.x, f.D), ny = Q.mul(f.y, f.D);   // the answer's numerators"],
+      py: [...PARALLEL.py, "main = power_ladder(p[\"k\"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^3, k^6, ...", "nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators"],
     },
     tieBreakers: {
-      "numerator-step": T("Q.neg(Q.div(offMultiple(nx, N), Q.of(N)))", "-off_multiple(nx, N) / N", "x times the number you divide by near a multiple of k times your power reached (not 0) is better", "add \"slide\" to KINDS: it moves the answer, and so the numerators."),
-      "numerator-power": T("Q.neg(Q.div(offMultiple(ny, N), Q.of(N)))", "-off_multiple(ny, N) / N", "y times the number you divide by near a multiple of k times your power reached (not 0) is better", "add \"stretch\" to KINDS and compare."),
+      "numerator-smooth": T("omega(Q.add(Q.abs(nx), Q.abs(ny)))", "omega(abs(nx) + abs(ny))", "numerators adding up to a number with many prime factors are better", "add \"slide\" to KINDS: it moves the answer, and so the numerators."),
+      "numerator-shared": T("common(nx, ny)", "common(nx, ny)", "numerators sharing a big factor are better", "add \"stretch\" to KINDS and compare."),
     },
   },
   {

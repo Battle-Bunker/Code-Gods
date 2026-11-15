@@ -1,5 +1,5 @@
 # Divide By · Bold
-# Main part: the number you divide by on your powers. Tie-breaker: whichever you were dealt (x times the number you divide by near a multiple of your next power; y times the number you divide by near a multiple of your next power).
+# Main part: the number you divide by on your powers. Tie-breaker: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -14,12 +14,11 @@ def score(L, p, tie):
         return None
     main = power_ladder(p["k"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^3, k^6, ...
     nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators
-    lv = level_of(main, p["k"]); N = p["k"] ** (lv * (lv + 1) // 2 + 1)   # your power reached, times k
     # main: the level of the number you divide by on k, k³, k⁶, … (higher is better)
-    if tie == "numerator-step":   # x times the number you divide by near a multiple of k times your power reached (not 0) is better
-        return [main, -off_multiple(nx, N) / N]
-    if tie == "numerator-power":   # y times the number you divide by near a multiple of k times your power reached (not 0) is better
-        return [main, -off_multiple(ny, N) / N]
+    if tie == "numerator-smooth":   # numerators adding up to a number with many prime factors are better
+        return [main, omega(abs(nx) + abs(ny))]
+    if tie == "numerator-shared":   # numerators sharing a big factor are better
+        return [main, common(nx, ny)]
     return [main]
 
 

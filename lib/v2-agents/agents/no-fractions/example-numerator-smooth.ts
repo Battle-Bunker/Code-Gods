@@ -1,9 +1,9 @@
-// Divide By · Example: y times the number you divide by near a multiple of your next power
-// Main part: the number you divide by on your powers. Tie-breaker: y times the number you divide by near a multiple of your next power.
+// Divide By · Example: the answer's numerators add up to a number with many prime factors
+// Main part: the number you divide by on your powers. Tie-breaker: the answer's numerators add up to a number with many prime factors.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
-// Try this: add "stretch" to KINDS and compare.
+// Try this: add "slide" to KINDS: it moves the answer, and so the numerators.
 
 // How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(L, p) {
@@ -11,8 +11,7 @@ function score(L, p) {
   if (f.x === null) return null;   // parallel lines never cross: no score
   const main = powerLadder(p.k, t => Q.abs(Q.sub(Q.abs(f.D), t)));   // the number you divide by on k, k³, k⁶, …
   const nx = Q.mul(f.x, f.D), ny = Q.mul(f.y, f.D);   // the answer's numerators
-  const lv = levelOf(main, p.k), N = BigInt(p.k) ** BigInt((lv * (lv + 1)) / 2 + 1);   // your power reached, times k
-  return [main, Q.neg(Q.div(offMultiple(ny, N), Q.of(N)))];   // main: the level of the number you divide by on k, k³, k⁶, … (higher is better); tie-breaker: y times the number you divide by near a multiple of k times your power reached (not 0) is better
+  return [main, omega(Q.add(Q.abs(nx), Q.abs(ny)))];   // main: the level of the number you divide by on k, k³, k⁶, … (higher is better); tie-breaker: numerators adding up to a number with many prime factors are better
 }
 
 const FAR = 3;      // how far one move may go
