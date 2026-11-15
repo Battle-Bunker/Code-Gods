@@ -3,7 +3,8 @@
  * line-q's primitive triple (a, b, c) of a·x + b·y + c = 0. The two lines are an unordered set: the canonical state
  * lists them sorted by (a, b, c), so writing them the other way round is the same object, and a swapped copy is never a
  * second object (owner decision 24). Two lines may be parallel (the answer is then undefined); they may not be equal.
- * φ is the sum of the six numbers' mixed codes (owner decision 17), so the law is π ∝ 2^−φ on distinct pairs.
+ * φ is the sum of the six numbers' codes (PAIR_CODES: line-q's, with a zero rarer, trial 30), so the law is π ∝ 2^−φ
+ * on distinct pairs. Only the rationals (pair-q): the codes are the triple's.
  */
 import { Qn, q, type Invalid, type Q, type Variant } from "@workspace/v2-core";
 import { mixedIntCode, stepsIntCode, type IntCode } from "@workspace/v2-core";

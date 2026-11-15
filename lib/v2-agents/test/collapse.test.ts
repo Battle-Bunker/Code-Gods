@@ -25,10 +25,10 @@ test("a rule ramps only when all three conditions hold", () => {
   assert.equal(rampFails({ topCostShare: 0.98, growth: 0.05, corr: 0.99 }), false);
 });
 
-test("a table is cheap when at least half of its 12 searches reach 95% of the best known (the coordinator, 15 Nov)", () => {
+test("a table is cheap when at least one in three of its 12 searches reaches 95% of the best known (the coordinator, 15 Nov)", () => {
   assert.equal(CHEAP.searches, 12);
-  assert.equal(tableCheap(6, 12), true);
-  assert.equal(tableCheap(5, 12), false);
+  assert.equal(tableCheap(4, 12), true);
+  assert.equal(tableCheap(3, 12), false);
 });
 
 test("one closed form: one free coordinate, the others in at most two classes up to sign", () => {

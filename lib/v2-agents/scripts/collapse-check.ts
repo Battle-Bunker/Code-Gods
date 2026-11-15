@@ -17,9 +17,9 @@
  *                    gain per energy, strong / weak
  *   2 cheap optimum  per dealt 3-seat table: 12 searchers with the rules and B evaluations each in W (enumerating when
  *                    W ≤ B, else annealing with 10 restarts) against the best state known (theirs, and a reference of W
- *                    enumerated or ref-mult·B of annealing); a table is cheap when at least half the searches reach 95%
- *                    of it (a hit rate: one search is a coin toss near the threshold), the variant fails when more
- *                    than a quarter of its tables are cheap
+ *                    enumerated or ref-mult·B of annealing); a table is cheap when at least one in three searches
+ *                    reaches 95% of it (a hit rate: one search is a coin toss near the threshold), the variant fails
+ *                    when more than a quarter of its tables are cheap
  *   3 single answer  per table: the best 24 distinct states in W keep ≥ 70% of 24 × the best and lie in one closed form
  *   4 dynamics       the plain starters and, on lines, the shortcut climber (scripts/climbers.ts) play --seconds (600) under
  *                    unique objects at this β, at --objects starting objects and --births a second (the presets' 3 and
@@ -212,7 +212,8 @@ async function runVariant(v: VariantId): Promise<VariantResult> {
         const finds = size <= B && set ? Array.from({ length: CHEAP.searches }, () => ({ best: refBest, at: top[0]?.x ?? [] }))
           : Array.from({ length: CHEAP.searches }, (_, i) => anneal(space, r, F, B, 10, `${v}:${beta}:${t}:B:${i}`));
         const known = Math.max(refBest, ...finds.map(x => x.best));
-        if (known > refBest && top[0]) top[0] = { x: finds.reduce((a, b) => (b.best > a.best ? b : a)).at, v: known };   // the best known leads the drift check
+        // The best known leads the list (the drift check and test 3 read it), the reference's states after it.
+        if (known > refBest) top = [{ x: finds.reduce((a, b) => (b.best > a.best ? b : a)).at, v: known }, ...top].slice(0, SINGLE.n);
         refBest = known;
         const hits = finds.filter(x => known <= 0 || x.best >= CHEAP.reach * known).length, searched = median(finds.map(x => x.best));
         const isCheap = tableCheap(hits, CHEAP.searches);

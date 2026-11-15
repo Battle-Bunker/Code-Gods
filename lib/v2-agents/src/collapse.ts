@@ -50,8 +50,8 @@ export const CHEAP = Object.freeze({
   searches: 12,
   /** A search hits when it reaches this share of the best known. */
   reach: 0.95,
-  /** The table is cheap when at least this share of its searches hit. */
-  hitShare: 0.5,
+  /** The table is cheap when at least this share of its searches hit: one search in three finding it is cheap. */
+  hitShare: 1 / 3,
   /** The variant fails when more than this share of its tables are cheap. */
   tablesShare: 0.25,
 });

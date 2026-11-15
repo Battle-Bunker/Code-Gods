@@ -52,7 +52,7 @@ const times = (qq: number, e: number) => `${big(qq ** e)} times`;
 /** "(that − 4) ÷ 7 does too, and so on": the residue ladder's next step said as a rule a child can follow. */
 const again = (what: string, p: P) => `(${what} − ${p.r}) ÷ ${p.q} does too, and so on.`;
 /** A ladder's place said in words for the card (no "level"): a residue or power ladder from 1 up, a valuation from 0. */
-const stepsUp = (L: number, from = 1) => (L < from ? "not on your pattern yet" : L === 0 ? "on your pattern" : `on your pattern, ${L} step${L === 1 ? "" : "s"} up`);
+const stepsUp = (L: number, from = 1) => (L < from ? "not on your pattern yet" : L === from ? "on your pattern" : `on your pattern, ${L - from} step${L - from === 1 ? "" : "s"} up`);
 const levelTarget = (qq: number, level: number): bigint => BigInt(qq) ** BigInt(Math.max(0, level + 1));
 
 /**
@@ -62,13 +62,13 @@ const levelTarget = (qq: number, level: number): bigint => BigInt(qq) ** BigInt(
  * divided by q², then R₃ = r + rq + rq² when divided by q³, and so on (written in base q, it ends in the digit r, then
  * rr, then rrr): level j is q times rarer than level j − 1 and needs a number at least about q^(j−1), so it costs about
  * log₂ q more bits of φ. The remainder r is never 0 or q − 1, the two remainders a single number (0 or −1) meets at
- * every level, which would make a top. A power ladder (k) asks for k, then k², then k³, ….
+ * every level, which would make a top. A power ladder (k) asks for k, then k³, then k⁶, … (powerLadder).
  *
  * The score is q^L × (1 + 1/(1 + d)) (or k^L × …), bigger better: L the highest level met, d how far the state is from
  * the next level (0 never, or that level would be met). So every met level beats every state below it, nearer the
- * next level is better, and the score doubles at most once per level as its size (log₂ q bits per level, what the law
- * charges for the number): the value tail of a pair (1 bit per doubling, lib/v2-valuation PAIR_SIZE_RATE) cannot pay a
- * level more than its rarity.
+ * next level is better. Past the measured knots the value tail runs along the level at the rate measured between levels
+ * ("ladder-log", trial 28 for pairs), capped at each level by the φ of a cheap system reaching it (`witness`): a level
+ * never pays more than a state that reaches it costs.
  */
 const ladderScore = (base: bigint, level: number, next: Q): Q => Qn.mul(q(base ** BigInt(level)), Qn.add(q(1), Qn.inv(Qn.add(q(1), next))));
 /** The highest level met (off(j) = 0) and the score; off(j) is non-decreasing in j for a residue ladder. */
@@ -93,9 +93,9 @@ export function residueLadder(v: Q, p: P, other: Q = q(0), minAbs = 0n): { level
  * multiplies the number by q, so level L + 1 is L + 1 stretches above level L: the climb is ongoing and dearer at every
  * level. 0 is on no level (m ≠ 0). The score is q^L × (1 + 1/(1 + d)), d how far from level L + 1 (the nearest q^T(L+1)
  * × m', m' leaving r); off the ladder, (1/q) × (1 + 1/(1 + d)), d how far from level 0, below every level. The score
- * grows one factor q per LEVEL (not per stretch), so beyond the measured knots the value tail (at most 1 bit per doubling
- * of the score, PAIR_SIZE_RATE) pays log₂ q bits a level while a level costs ever more stretches: a seat's bits grow like
- * the square root of the energy it spends, not linearly (the runaway of §9: 59 bits in a 600 s game). n: the number on
+ * grows one factor q per LEVEL (not per stretch), and a level costs ever more stretches, each dearer on a bigger line
+ * (trial 29's shortcut floor), while the value of a level is capped by a witness's φ (trial 28): the runaway of §9
+ * (59 bits in a 600 s game) stays closed. n: the number on
  * the ladder, else the nearest number leaving r when divided by q.
  */
 const triangle = (L: number) => (L * (L + 1)) / 2;
@@ -387,8 +387,8 @@ export const farCrossing = family({
   id: "far-crossing", title: "Far Crossing", depends: ["si", "pair"],
   main: main("far", "the steeper line crosses the x-axis on your pattern", p => `The steeper line crosses the x-axis at a whole number leaving ${p.r} when divided by ${p.q}; better if ${again("that number", p)}`, "si", "max"),
   tieBreakers: [
-    tb("far-gap", "the x-intercepts' gap near a multiple of your number", p => `The x-intercepts' gap: near a multiple of ${p.q} other than 0; of ${p.q! ** 2} once you step up, then ${p.q! ** 3}.`, "si", "small"),
-    tb("far-height", "the crossing's height near a multiple of your number", p => `The crossing's height: near a multiple of ${p.q} other than 0; of ${p.q! ** 2} once you step up, then ${p.q! ** 3}.`, "pair", "small"),
+    tb("far-gap", "the x-intercepts' gap near a multiple of your number", p => `The x-intercepts' gap: near a multiple of ${p.q} other than 0; of ${p.q! ** 2} once on your pattern; then ${p.q! ** 3}.`, "si", "small"),
+    tb("far-height", "the crossing's height near a multiple of your number", p => `The crossing's height: near a multiple of ${p.q} other than 0; of ${p.q! ** 2} once on your pattern; then ${p.q! ** 3}.`, "pair", "small"),
   ],
   params: DEALT_NUMBERS["far-crossing"],
   witness: (p, n) => residueAt(p, n).map(N => sysOf(mc(q(2), q(-2n * N)), mc(q(1, 2), q(1)))),   // the steeper line meets the x-axis at N

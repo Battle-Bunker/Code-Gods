@@ -12,6 +12,7 @@ const CODES = [PAIR_CODES.a, PAIR_CODES.b, PAIR_CODES.c];
 
 export function pairLaw(variant: Variant): Law<PairState> {
   const p = lineParams(variant);
+  if (p.domain !== "Q") throw new Error(`pairLaw draws (a, b, c) triples: ${variant.id} is not on the rationals`);
   return {
     draw(r: Rng, t: number) {
       const lines: Line[] = [];
