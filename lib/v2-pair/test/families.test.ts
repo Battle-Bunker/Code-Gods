@@ -120,16 +120,28 @@ test("Far Crossing's and High Start's tie-breakers aim at a multiple of q^(L+1),
   const fc = { q: 7, r: 2 }, lo = sys(Y(3, -6), Y(1, -51));
   assert.equal(score("far-crossing", "far-gap", lo, fc)![1], "0");
   assert.equal(score("far-crossing", "far-height", lo, fc)![1], "-49/2");   // a distance: smaller is better, stored negated
-  // One level up (16 leaves 16 by 49): the same gap of 49 is now 49 from a multiple of 343, so the climb restarts.
-  assert.equal(score("far-crossing", "far-gap", sys(Y(3, -48), Y(1, -65)), fc)![1], "-49");
-  // High Start {5, 4}: the gentler line's y-intercept 20 = 5 × 4 is level 1, target 25. The steeper y = 3x + 50 has
-  // y-intercept 50, on target; they cross at x = −15, 10 from −25 (or 0, well 15).
-  const hs = { q: 5, r: 4 }, up = sys(Y(3, 50), Y(1, 20));
+  // One level up (16 leaves 16 by 49): the same gap of 49 is now 294 from 343, the nearest non-zero multiple, so the
+  // climb restarts.
+  assert.equal(score("far-crossing", "far-gap", sys(Y(3, -48), Y(1, -65)), fc)![1], "-294");
+  // High Start {5, 4}: the gentler line's y-intercept 20 = 5 × 4 is level 1, target 25. The steeper y = 3x + 45 has
+  // y-intercept 45: the gap between the intercepts is 25, on target; they cross at x = −12.5, 12.5 from −25 (0 is no
+  // multiple).
+  const hs = { q: 5, r: 4 }, up = sys(Y(3, 45), Y(1, 20));
   assert.equal(score("high-start", "start-echo", up, hs)![1], "0");
-  assert.equal(score("high-start", "start-crossing", up, hs)![1], "-10");
+  assert.equal(score("high-start", "start-crossing", sys(Y(3, 50), Y(1, 20)), hs)![1], "-10");
   // Off the ladder (3 does not leave 4 by 5) the target is 1: whole numbers.
   assert.equal(score("high-start", "start-crossing", sys(Y(3, 50), Y(1, 3)), hs)![1], "-1/2");
   assert.match(familyOf("far-crossing").card(fc, "far-gap"), /multiple of 7.*49/);
+  // 0 is no multiple (review): two lines through one point of the x-axis have gap 0 and cross at height 0, which would
+  // be a top at every level. 0 is a whole step from the nearest non-zero multiple.
+  const through = sys(Y(3, -6), Y(1, -2));   // both through (2, 0)
+  assert.equal(score("far-crossing", "far-gap", through, fc)![1], "-49");
+  assert.equal(score("far-crossing", "far-height", through, fc)![1], "-49");
+  // High Start: lines sharing their y-intercept cross at x = 0 and have no gap between the intercepts.
+  const shared = sys(Y(3, 20), Y(1, 20));
+  assert.equal(score("high-start", "start-crossing", shared, hs)![1], "-25");
+  assert.equal(score("high-start", "start-echo", shared, hs)![1], "-25");
+  assert.match(familyOf("high-start").card(hs, "start-crossing"), /a whole number other than 0; once.*on your ladder, a whole multiple of 5/);
 });
 
 test("a zoom of the picture (positions × n) cannot raise a capped hill past the number it is capped by", () => {

@@ -1,5 +1,5 @@
 # High Start · Naive (for learning)
-# Main part: the gentler line crosses the y-axis on the dealt ladder. Tie-breaker: whichever you were dealt (the steeper line's y-intercept a multiple of q to your level; the lines cross at an x that is a multiple of q to your level).
+# Main part: the gentler line crosses the y-axis on the dealt ladder. Tie-breaker: whichever you were dealt (the gap between the y-intercepts a multiple of q to your level; the lines cross at an x that is a multiple of q to your level).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -14,8 +14,8 @@ def score(L, p, tie):
         return None
     main, H = valuation_ladder(f.cg, p["q"], p["r"])   # the y-intercept on your ladder
     # main: the level of the gentler line's y-intercept on your ladder (higher is better)
-    if tie == "start-echo":   # the steeper line's y-intercept near a multiple of q to the power one above your level is better
-        return [main, None if f.cs is None else -off_multiple(f.cs, p["q"] ** (level_of(main, p["q"]) + 1))]
+    if tie == "start-echo":   # the gap between the y-intercepts near a multiple of q to the power one above your level is better
+        return [main, None if f.ygap is None else -off_multiple(f.ygap, p["q"] ** (level_of(main, p["q"]) + 1))]
     if tie == "start-crossing":   # a crossing whose x is near a multiple of q to the power one above your level is better
         return [main, None if f.x is None else -off_multiple(f.x, p["q"] ** (level_of(main, p["q"]) + 1))]
     return [main]

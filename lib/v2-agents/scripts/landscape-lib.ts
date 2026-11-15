@@ -12,7 +12,8 @@
 import { applyPriced, canonicalJson, rng, variantMutators, type ObjectType, type Rng, type Variant } from "@workspace/v2-core";
 import { gridPresets, gridType, grid4, type GridState } from "@workspace/v2-grid";
 import { lineQ, lineType, lineZ, normalise, presets, type LineState } from "@workspace/v2-linear";
-import { canonicalPair, encodePair, pairPresets, pairQ, pairType, type PairState } from "@workspace/v2-pair";
+import { canonicalPair, encodePair, pairClashes, pairPresets, pairQ, pairType, type PairState } from "@workspace/v2-pair";
+import { GRIDS_BEGINNER_ECONOMY, LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
 import { findValues, valuer } from "../src/harness.ts";
 
 // ---------------------------------------------------------------- small numeric helpers
@@ -344,3 +345,26 @@ export function identify<S>(rules: readonly Rule[], bits: (r: Rule) => (s: S) =>
   }
   return { need, unidentified };
 }
+
+// ---------------------------------------------------------------- the collapse check's tables (shared with cheap-optima.ts)
+
+/** A line's (or board's) share of a 3-seat game's energy: (start + power · seconds) · 3 / 24. */
+export function shareOfGame(v: VariantId, seconds: number) {
+  const e = v === "grid-4-d10" ? GRIDS_BEGINNER_ECONOMY : LINES_BEGINNER_ECONOMY;
+  return ((e.startingEnergy + e.powerPerSecond * seconds) * 3) / 24;
+}
+
+/** Tables of three rules from three different families, dealt by a seeded draw; pairs: none the seating rule forbids (lib/v2-pair seating.ts). */
+export function deal(rules: readonly Rule[], n: number, seed: string): Rule[][] {
+  const r = rng("collapse-tables", seed), out: Rule[][] = [];
+  const fams = [...new Set(rules.map(x => x.family))];
+  if (fams.length < 3) return out;
+  while (out.length < n) {
+    const f = fams.slice(), pick: Rule[] = [];
+    for (let k = 0; k < 3; k++) { const fam = f.splice(r.below(f.length), 1)[0]!; const of = rules.filter(x => x.family === fam); pick.push(of[r.below(of.length)]!); }
+    if (seed === "pair-q" && pairClashes(pick).length) continue;
+    out.push(pick);
+  }
+  return out;
+}
+

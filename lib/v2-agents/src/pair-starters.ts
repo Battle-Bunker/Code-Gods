@@ -58,7 +58,7 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     family: "no-fractions", stretchBy: true, mainSays: "the level of the number you divide by on k, k³, k⁶, … (higher is better)", simple: ["combine", "turn", "stretch"],
     main: {
       ts: [PARALLEL.ts, "const main = powerLadder(p.k, t => Q.abs(Q.sub(Q.abs(f.D), t)));   // the number you divide by on k, k³, k⁶, …", "const nx = Q.mul(f.x, f.D), ny = Q.mul(f.y, f.D);   // the answer's numerators"],
-      py: [...PARALLEL.py, "main = power_ladder(p[\"k\"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^2, k^3, ...", "nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators"],
+      py: [...PARALLEL.py, "main = power_ladder(p[\"k\"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^3, k^6, ...", "nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators"],
     },
     tieBreakers: {
       "numerator-smooth": T("omega(Q.add(Q.abs(nx), Q.abs(ny)))", "omega(abs(nx) + abs(ny))", "numerators adding up to a number with many prime factors are better", "add \"slide\" to KINDS: it moves the answer, and so the numerators."),
@@ -116,7 +116,7 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
       py: [FLOOR.py, "if f.cg is None or f.mg is None:   # the gentler line is upright: no score", "    return None", "main, H = valuation_ladder(f.cg, p[\"q\"], p[\"r\"])   # the y-intercept on your ladder"],
     },
     tieBreakers: {
-      "start-echo": T("f.cs === null ? null : Q.neg(offMultiple(f.cs, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))", "None if f.cs is None else -off_multiple(f.cs, p[\"q\"] ** (level_of(main, p[\"q\"]) + 1))", "the steeper line's y-intercept near a multiple of q to the power one above your level is better", "add \"shift\" to KINDS: it moves one y-intercept alone."),
+      "start-echo": T("f.ygap === null ? null : Q.neg(offMultiple(f.ygap, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))", "None if f.ygap is None else -off_multiple(f.ygap, p[\"q\"] ** (level_of(main, p[\"q\"]) + 1))", "the gap between the y-intercepts near a multiple of q to the power one above your level is better", "add \"shift\" to KINDS: it moves one y-intercept alone."),
       "start-crossing": T("f.x === null ? null : Q.neg(offMultiple(f.x, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))", "None if f.x is None else -off_multiple(f.x, p[\"q\"] ** (level_of(main, p[\"q\"]) + 1))", "a crossing whose x is near a multiple of q to the power one above your level is better", "add \"slide\" to KINDS: it moves the crossing along a line."),
     },
   },

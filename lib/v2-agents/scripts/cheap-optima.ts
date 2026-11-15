@@ -7,33 +7,18 @@
  *   node --experimental-strip-types scripts/cheap-optima.ts [--beta 0.05] [--tables 2,3,5,7] [--runs 12] [--evals 100000]
  */
 import { parseArgs } from "node:util";
-import { rng } from "@workspace/v2-core";
-import { pairClashes, pairType } from "@workspace/v2-pair";
-import { LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
 import { births } from "../src/index.ts";
-import { anneal, costAt, poolOf, reach, ruleName, spaceOf, total, type Rule, type Space } from "./landscape-lib.ts";
+import { anneal, costAt, deal, poolOf, reach, ruleName, shareOfGame, spaceOf, total, type Space } from "./landscape-lib.ts";
 
 const { values: o } = parseArgs({ options: {
   beta: { type: "string", default: "0.05" }, tables: { type: "string", default: "0,1,2,3,4,5,6,7" }, runs: { type: "string", default: "12" },
   evals: { type: "string", default: "100000" }, "ref-mult": { type: "string", default: "10" }, seconds: { type: "string", default: "600" },
 } });
 const v = "pair-q" as const, space = spaceOf(v) as Space<any>, rules = poolOf(v).rules;
-const e = LINES_BEGINNER_ECONOMY, E = ((e.startingEnergy + e.powerPerSecond * Number(o.seconds)) * 3) / 24;
+const E = shareOfGame(v, Number(o.seconds));
 const beta = Number(o.beta), B = Number(o.evals), RUNS = Number(o.runs), REF = Number(o["ref-mult"]);
 
-// The test's deal, draw for draw (collapse-check.ts deal()).
-function deal(n: number): Rule[][] {
-  const r = rng("collapse-tables", v), out: Rule[][] = [];
-  const fams = [...new Set(rules.map(x => x.family))];
-  while (out.length < n) {
-    const f = fams.slice(), pick: Rule[] = [];
-    for (let k = 0; k < 3; k++) { const fam = f.splice(r.below(f.length), 1)[0]!; const of = rules.filter(x => x.family === fam); pick.push(of[r.below(of.length)]!); }
-    if (pairClashes(pick).length) continue;
-    out.push(pick);
-  }
-  return out;
-}
-const tables = deal(8);
+const tables = deal(rules, 8, v);   // the test's own deal (landscape-lib.ts)
 const birthXs = births(space.type, space.variant, "collapse", 2).map(s => space.coords(s));
 const reaches = birthXs.map(x => reach(space, x, beta, E));
 const show = (x: readonly number[]) => {
@@ -57,4 +42,3 @@ for (const t of o.tables!.split(",").map(Number)) {
   console.log(`  reference ${ref.best.toFixed(1)} (${Math.round(100 * ref.best / best.best)}%); searches reaching 95%: ${hits}/${RUNS}; their ratios ${ratios.map(x => Math.round(100 * x)).join(" ")}`);
   for (const [i, f] of finds.entries()) if (f.best >= 0.95 * best.best) console.log(`    search ${i}: ${f.best.toFixed(1)} at (${f.at.join(", ")}): ${show(f.at)}; seats ${bs.map(b => b(space.state(f.at)!).toFixed(1)).join(" / ")}`);
 }
-void pairType;

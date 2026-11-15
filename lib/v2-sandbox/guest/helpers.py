@@ -103,7 +103,7 @@
 #                                number is t; level L at an exact k^T(L), T(L) = L(L + 1)/2 (k, k^3, k^6, ...), d to
 #                                the next rung (on no rung: to the nearest); returns the score.
 #   level_of(score, q)           the level a ladder's score stands for: the largest L with q^L <= score (-1 below 1).
-#   off_multiple(v, m)           how far v is from the nearest whole multiple of m.
+#   off_multiple(v, m)           how far v is from the nearest whole multiple of m other than 0.
 #
 # These run in the trusted prelude, outside the step count, so each does a bounded amount of work.
 from fractions import Fraction
@@ -288,7 +288,8 @@ def level_of(score, q):
 def off_multiple(v, m):
     x = Fraction(v)
     f = (x / m) // 1
-    below, above = x - f * m, (f + 1) * m - x
+    lo, hi = (-1 if f == 0 else f), (1 if f + 1 == 0 else f + 1)   # 0 is no multiple
+    below, above = abs(x - lo * m), abs(hi * m - x)
     return below if below <= above else above
 
 
