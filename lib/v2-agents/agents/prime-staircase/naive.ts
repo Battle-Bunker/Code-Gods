@@ -11,7 +11,8 @@ function score(m, c, p, tie) {
   const run = [];                                 // the different primes ending in p.ends it starts with
   let stopped = false, miss = null;               // miss: the size of the first term that is not such a prime
   for (let n = 0; n < 12; n++) {                  // y(0) ... y(11)
-    const t = Q.add(Q.mul(m, n), c), isPrime = prime(t) && Q.toString(t).endsWith(String(p.ends));
+    const t = Q.mul(p.side ?? 1, Q.add(Q.mul(m, n), c));   // y(n), or −y(n) on the mirror (minus primes)
+    const isPrime = prime(t) && Q.toString(t).endsWith(String(p.ends));
     if (!stopped && isPrime && !run.some(r => Q.eq(r, t))) run.push(t); else stopped = true;
     if (!isPrime && miss === null) miss = Q.abs(t);
   }

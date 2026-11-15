@@ -11,14 +11,15 @@
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p, tie) {
-  const nearest = near(m, prime, p.ends);         // the prime ending in p.ends nearest the gradient
+  const s = p.side ?? 1;                          // 1, or −1 on the mirror: minus a prime
+  const nearest = near(Q.mul(s, m), prime, p.ends);   // the prime ending in p.ends nearest the gradient (times s)
   if (nearest === null) return null;              // none within 10,000: hopeless
-  const main = Q.neg(Q.abs(Q.sub(m, nearest)));
+  const main = Q.neg(Q.abs(Q.sub(Q.mul(s, m), nearest)));
   // main: how far the gradient is from the nearest prime ending in the rule's digit (closer is better)
   if (tie === "prime") return [main, nearest];   // a bigger prime is better
   if (tie === "cPrime") {   // a y-intercept close to such a prime too is better
-    const cp = near(c, prime, p.ends);          // the prime ending in p.ends nearest the y-intercept
-    return [main, Q.neg(Q.abs(Q.sub(c, cp)))];
+    const cp = near(Q.mul(s, c), prime, p.ends);   // the prime ending in p.ends nearest the y-intercept (times s)
+    return [main, Q.neg(Q.abs(Q.sub(Q.mul(s, c), cp)))];
   }
   if (tie === "c-spf") {   // the y-intercept's smallest prime factor big is better
     const fc = factors(c) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)

@@ -17,6 +17,8 @@ const MIRRORS: Record<string, [object, object][]> = {
   "prime-landing": [[{ ends: 7 }, { ends: 7, side: -1 }]],
   "treasure": [[{ k: 2, T: 37 }, { k: 2, T: -37 }]],
   "same-on-both-rulers": [[{ T: 6 }, { T: -6 }]],
+  "prime-gradient": [[{ ends: 1 }, { ends: 1, side: -1 }]],
+  "prime-staircase": [[{ ends: 3 }, { ends: 3, side: -1 }]],
 };
 for (const [family, pairs] of Object.entries(MIRRORS)) {
   const files = readdirSync(join(DIR, family)).map(f => ({ f, v: JSON.parse(readFileSync(join(DIR, family, f), "utf8")) }));
