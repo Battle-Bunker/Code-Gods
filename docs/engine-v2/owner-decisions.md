@@ -400,6 +400,13 @@ back) or TRIAL (a declared experiment, measured and reported).
     r = 1 and 2 measured peers (an exact main 3.85 and 4.23 bits; it was 1.35 for any whole number). Each mirror's symmetry is a unit test. Ending grids (1, 3, 7, 9) fail
     the audit at any floor: the code makes a prime cost about ½ bit per unit, so the first qualifying primes differ by
     up to 4 bits.
+    - **Amended** (the coordinator, 15 Nov, from playtest rounds 19 to 22: a redraw reset a ladder's climb; Prime
+      Landing redrew to its mirror and then made 102 moves for +1.06 points): a ladder family (design-principles.md rows
+      1 to 3 pass) is never redrawn: `RuleFamily.keepsParams`, read by driftParams (lib/v2-core), so the server
+      (convex/v2/drift.ts) and the in-memory table follow it. Ladder families now: Prime Staircase, Prime Landing,
+      Whole Crossing, Smooth Intercept. Only the old bounded families keep redraws until they are redesigned; when the
+      last is, the beginner presets' redraw setting goes to off. Tested: lib/v2-core principles.test.ts, artifacts/engine
+      test/unit/v2-drift.test.ts.
 
 17. **TRIAL** (declared 15 Nov, following decisions 39–42): the grid anchors' solved mains leave the dealt values.
     Opposite Nines' "every cell and its opposite add up to 9" (37 bits) and Magic Eighteen's "every row adds up to 18"
@@ -497,6 +504,24 @@ back) or TRIAL (a declared experiment, measured and reported).
     a player finds by pressing one button. The zoom returns only when that check passes on develop for every dealt
     family against zoom, stretch and turn. `line-q` offers ten (the turn at log2 20, the nine at log2 (9/0.95));
     the swap's floor (re-measured: 3% of swaps above their fee) stands.
+
+25. **Correction** (the spec lead, 15 Nov, after playtest rounds 21 and 22 and the pool's 59-bit seats): no straight
+    hills. Smooth Intercept scored the y-intercept's size, so a stretch by a dealt prime added the same value at every size
+    (0.9 bits a doubling); seats stretched 36–57 times on one object to 49–59 bits, and round 21 parked a line at 3⁸.
+    - **Smooth Intercept** scores how many of the dealt primes the y-intercept is made of, in triangular levels (level ℓ
+      needs ℓ(ℓ + 1)/2 of them), the smaller of two numbers with as many counting a little more (the owner's "small
+      values and lots of prime factors"). Dealt sets {3, 7}, {3, 11}, {3, 13}, {3, 17}: {2, 7} left (a 2 is cheaper per
+      level: 12 bits at level 4 against 17), and with it round 20's climb by doubling. Effects (40 games, drift off):
+      seats peak at 19.6 bits (p95 15.5; was 59 and 49), mean gain by set 269–380.
+    - **Prime Landing** keeps "bigger is better" in levels of digits (level ℓ needs ℓ(ℓ + 1)/2 digits): by size, 30 zooms
+      by 7 reached a landing worth 227 bits. A monotone relabelling: the same bits within the sampled ladder.
+    - **The check** (lib/v2-core `straightHill`, run by artifacts/engine test v2-no-straight-hill on every dealt line rule
+      against every stretch, zoom and turn its preset offers, and their inverses, 30 times from typical lines): the bits
+      gained per fee must fall along the chain (unless under 0.02 a fee bit) and the chain may gain at most 30 bits. A
+      family that fails is not dealt: Square Area's `omega` (prime factors of the square's root; a stretch adds one at
+      every size) is undealt until the grids session redesigns it.
+    - **Views**: a ladder family's main part on a rung is said in the family's words ("on 75: 3 of the dealt primes
+      multiplied, level 2"), not as its level number.
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
