@@ -2,8 +2,10 @@
  * What a pane that failed to load says (playtest round 8/04: "[CONVEX Q(v2/play:moves)] [Request ID: …] Server Error
  * Function execution timed out …", and Try again showed the same request). Pure, so it is unit tested.
  *
- * A server failure stays in the shared subscription while anything on the page reads it, so resetting the pane reads
- * the same error again: only a reload asks the server afresh (no client retry: docs/convex-read-architecture.md).
+ * A server failure stays in the shared subscription while anything on the page reads it, so resetting the pane alone
+ * reads the same error again. A failed live read (LiveError) is asked afresh by dropping and re-creating just its
+ * subscription on a press of Try again; any other server error still reloads (no client retry loop:
+ * docs/convex-read-architecture.md).
  */
 export interface PaneErrorWords { readonly text: string; readonly reload: boolean }
 
@@ -31,7 +33,7 @@ export function paneErrorWords(error: unknown): PaneErrorWords {
     const slow = /timed out/i.test(message);
     const live = error instanceof LiveError;
     return {
-      text: `${slow ? "This pane could not load: the server took too long (it is busy right now)." : "This pane could not load: the server had a problem."}${live ? " It comes back by itself as soon as the server answers." : ""}`,
+      text: `${slow ? "This pane could not load: the server took too long (it is busy right now)." : "This pane could not load: the server had a problem."}${live ? " It comes back by itself when the server answers; Try again asks it now." : ""}`,
       reload: !live,
     };
   }

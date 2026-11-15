@@ -22,6 +22,6 @@ test("a failed live read comes back by itself (round 24: panes stayed broken unt
   assert.deepEqual(liveSourceOf(e), { query, args });
   const w = paneErrorWords(e);
   assert.equal(w.reload, false, "no reload: the subscription brings it back");
-  assert.equal(w.text, "This pane could not load: the server took too long (it is busy right now). It comes back by itself as soon as the server answers.");
+  assert.equal(w.text, "This pane could not load: the server took too long (it is busy right now). It comes back by itself when the server answers; Try again asks it now.");
   assert.equal(liveSourceOf(cause), null, "an error that is not a live read has no source");
 });

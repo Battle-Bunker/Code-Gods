@@ -2,7 +2,7 @@
  * What both docks draw around a pane: its name, its menu (move, close, open another: the same view affordances an
  * assistant uses), its error boundary (ux-lessons 4.1: a failed pane takes down only itself) and its scrolling body.
  */
-import { createContext, useCallback, useContext, useEffect, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import type { FunctionReference } from "convex/server";
 import { MoreHorizontal, X } from "lucide-react";
 import { useAffordance } from "@workspace/v2-affordances/react";
@@ -61,11 +61,20 @@ function WatchBack({ query, args, onBack }: { query: unknown; args: unknown; onB
 function PaneError({ error, resetError }: ErrorFallbackProps) {
   const w = paneErrorWords(error);
   const source = liveSourceOf(error);
+  // Try again on a failed read (W3, round 24: an errored result stays in its subscription until it is dropped): drop
+  // that one subscription (WatchBack leaves), then show the pane on the next frame, which subscribes afresh. One
+  // press, one new read; never a loop, and the page is not reloaded.
+  const [again, setAgain] = useState(false);
+  useEffect(() => {
+    if (!again) return;
+    const frame = requestAnimationFrame(() => resetError());
+    return () => cancelAnimationFrame(frame);
+  }, [again]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="p-4 text-sm space-y-2" data-testid="pane-error" role="alert">
-      {source && <WatchBack query={source.query} args={source.args} onBack={resetError} />}
+      {source && !again && <WatchBack query={source.query} args={source.args} onBack={resetError} />}
       <p className="text-destructive">{w.text}</p>
-      <button type="button" className="underline underline-offset-4" data-testid="button-pane-retry" onClick={() => (w.reload ? window.location.reload() : resetError())}>
+      <button type="button" className="underline underline-offset-4" data-testid="button-pane-retry" onClick={() => (w.reload ? window.location.reload() : source ? setAgain(true) : resetError())}>
         {w.reload ? "Try again (reloads the page)" : "Try again"}
       </button>
     </div>
