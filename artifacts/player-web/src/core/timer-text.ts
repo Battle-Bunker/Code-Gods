@@ -28,7 +28,8 @@ export function timerText(h: Header, now: number): { label: string; value: strin
         // Memoryless: the time left has the same spread however long the game has run, so the range never narrows.
         const { hi } = halfLifeInterval90(h.worldSeconds);
         // It cannot end in its first tenth of the half-life (trial 16; public, like the half-life itself).
-        const elapsed = h.startedAt != null ? Math.max(0, (now - h.startedAt) / 1000) : 0;
+        // World seconds since the start: wall time at the game's timeScale (W3 #698; 1 outside sims and local playtests).
+        const elapsed = h.startedAt != null ? Math.max(0, ((now - h.startedAt) / 1000) * (h.timeScale ?? 1)) : 0;
         const wait = Math.max(0, MIN_LIFETIME_FRACTION * h.worldSeconds - elapsed);
         const tip = `This game ends at a hidden random moment, never in its first ${clock(MIN_LIFETIME_FRACTION * h.worldSeconds)}. After that every second it has the same chance of ending, so the clock never counts down: however long it has run, 9 times in 10 it ends within the next ${clock(Math.ceil(hi))}.`;
         if (wait > 0) return { label: "Game ends", value: "not yet", note: `it cannot end for ${clock(Math.ceil(wait))}; then any moment: 9 times in 10 within the next ${clock(Math.ceil(wait + hi))}`, tip };

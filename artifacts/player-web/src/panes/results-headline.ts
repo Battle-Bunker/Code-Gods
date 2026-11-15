@@ -60,9 +60,9 @@ export function rotationSummary(r: RotationRound | null | undefined, me: string 
  * random moment past a floor of a tenth of the half-life; half of such games end within the floor plus the half-life.
  * Null for a fixed game, whose end was on the clock.
  */
-export function endNote(h: { durationMode?: string; worldSeconds: number; startedAt: number | null; endedAt: number | null }): string | null {
+export function endNote(h: { durationMode?: string; worldSeconds: number; startedAt: number | null; endedAt: number | null; timeScale?: number }): string | null {
   if (h.durationMode !== "halfLife") return null;
   const half = clock(Math.round(h.worldSeconds * 1.1));
-  const when = h.startedAt != null && h.endedAt != null ? `, after ${clock(Math.round((h.endedAt - h.startedAt) / 1000))} of world time` : "";
+  const when = h.startedAt != null && h.endedAt != null ? `, after ${clock(Math.round(((h.endedAt - h.startedAt) / 1000) * (h.timeScale ?? 1)))} of world time` : "";
   return `This game ended at a hidden moment${when}: half of such games end within ${half}. Any second could have been the last.`;
 }
