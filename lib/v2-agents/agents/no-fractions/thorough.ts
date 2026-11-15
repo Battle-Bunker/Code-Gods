@@ -1,5 +1,5 @@
 // Divide By · Thorough
-// Main part: the number you divide by is the dealt one. Tie-breaker: whichever you were dealt (the answer's distance is a big prime; the answer's distance shares a factor with the steeper gradient).
+// Main part: the number you divide by on the dealt powers. Tie-breaker: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -9,18 +9,18 @@
 // How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(L, p, tie) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
-  const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down
   if (f.x === null) return null;   // parallel lines never cross: no score
-  const main = Q.neg(Q.abs(Q.sub(Q.abs(f.D), p.k)));
-  // main: how far the number you divide by is from your number k (closer is better)
-  if (tie === "answer-prime") return [main, spf(Q.add(Q.abs(f.X), Q.abs(f.Y)))];   // |X| + |Y| with a big smallest prime factor is better
-  if (tie === "answer-gradient") return [main, f.ms === null ? 0 : common(Q.add(Q.abs(f.X), Q.abs(f.Y)), floor(Q.abs(f.ms)))];   // |X| + |Y| sharing a big factor with the steeper gradient is better
+  const main = powerLadder(p.k, t => Q.abs(Q.sub(Q.abs(f.D), t)));   // the number you divide by on k, k², k³, …
+  const nx = Q.mul(f.x, f.D), ny = Q.mul(f.y, f.D);   // the answer's numerators
+  // main: the level of the number you divide by on k, k², k³, … (higher is better)
+  if (tie === "numerator-smooth") return [main, omega(Q.add(Q.abs(nx), Q.abs(ny)))];   // numerators adding up to a number with many prime factors are better
+  if (tie === "numerator-shared") return [main, common(nx, ny)];   // numerators sharing a big factor are better
   return [main];
 }
 
-const FAR = 3;      // how far one move may go
+const FAR = 2;      // how far one move may go
 const QUOTES = 16;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["shift","tilt","stretch","turn","slide","combine","reflect","quarter"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+const KINDS = ["shift","tilt","stretch","turn","slide","combine","reflect","quarter","translate"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
@@ -32,7 +32,8 @@ function agent(offer) {
   contested(offer, 3);
   const L = pairOf(offer);          // the two lines, a·x + b·y + c = 0 each
   const { params: p, tieBreaker: tie } = goal(offer);   // your rule and tie-breaker (free)
-  const tries = pairSteps(L, FAR, KINDS);   // [plan, lines after]: moves tried in the agent's own head
+  // Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.
+  const tries = pairSteps(L, FAR, KINDS, [p.q ?? p.k].filter(Boolean));   // [plan, lines after]: moves tried in the agent's own head
   let options = tries.map(([plan, L2]) => [plan, score(L2, p, tie)]);   // each move and the score it reaches
   // A promise: on these pairs, only moves that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));

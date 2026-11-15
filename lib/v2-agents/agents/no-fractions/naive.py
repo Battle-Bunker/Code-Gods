@@ -1,5 +1,5 @@
 # Divide By · Naive (for learning)
-# Main part: the number you divide by is the dealt one. Tie-breaker: whichever you were dealt (the answer's distance is a big prime; the answer's distance shares a factor with the steeper gradient).
+# Main part: the number you divide by on the dealt powers. Tie-breaker: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -11,25 +11,27 @@ def score(L, p, tie):
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     if f.x is None:   # parallel lines never cross: no score
         return None
-    main = -abs(abs(f.D) - p["k"])
-    # main: how far the number you divide by is from your number k (closer is better)
-    if tie == "answer-prime":   # |X| + |Y| with a big smallest prime factor is better
-        return [main, spf(abs(f.X) + abs(f.Y))]
-    if tie == "answer-gradient":   # |X| + |Y| sharing a big factor with the steeper gradient is better
-        return [main, 0 if f.ms is None else common(abs(f.X) + abs(f.Y), abs(f.ms) // 1)]
+    main = power_ladder(p["k"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^2, k^3, ...
+    nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators
+    # main: the level of the number you divide by on k, k², k³, … (higher is better)
+    if tie == "numerator-smooth":   # numerators adding up to a number with many prime factors are better
+        return [main, omega(abs(nx) + abs(ny))]
+    if tie == "numerator-shared":   # numerators sharing a big factor are better
+        return [main, common(nx, ny)]
     return [main]
 
 
 FAR = 2      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-KINDS = ["combine","turn"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+KINDS = ["combine","turn","stretch"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 
 
 def agent(offer):
     L = pair_of(offer)          # the two lines, a*x + b*y + c = 0 each
     rule = goal(offer)          # your rule (free)
     p, tie = rule.params, rule.tie_breaker
-    tries = pair_steps(L, FAR, KINDS)   # (plan, lines after): moves tried in the agent's own head
+    # Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.
+    tries = pair_steps(L, FAR, KINDS, [f for f in (p.get("q"), p.get("k")) if f])   # (plan, lines after): moves tried in the agent's own head
     top, plans = score(L, p, tie), []
     for plan, L2 in tries:
         s = score(L2, p, tie)

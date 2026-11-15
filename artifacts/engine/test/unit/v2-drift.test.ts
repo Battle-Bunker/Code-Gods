@@ -68,3 +68,18 @@ test("a redraw never seats a pair the line seating rule forbids (Prime Landing b
   const free = Array.from({ length: 60 }, (_, t) => redrawParams("line-q", "prime-landing", "shared-factor", { ends: 9 }, "seed", 1, t + 1)?.params);
   assert.ok(free.some(p => lineClashes([wc, { family: "prime-landing", params: p }]).length > 0));
 });
+
+test("a pair redraw never seats a pair the seating rule forbids (lib/v2-pair seating.ts)", async () => {
+  const { pairClash } = await import("@workspace/v2-pair");
+  // Right Angle beside Whole Answer {q 5, r 1}: never r 1. High Start beside Whole Answer at q 7 and Steep Ratio at
+  // q 5: every High Start value shares a q with one of them, so it keeps its parameters.
+  const ra = { family: "right-angle", params: { q: 5, r: 2 } }, wa = { family: "whole-answer", params: { q: 5, r: 1 } };
+  let moved = 0;
+  for (let tick = 1; tick <= 40; tick++) {
+    const next = redrawParams("pair-q", ra.family, "corner-prime", ra.params, "seed", 1, tick, [wa]);
+    if (next) { moved++; assert.ok(!pairClash({ family: ra.family, params: next.params }, wa), JSON.stringify(next.params)); }
+    const others = [{ family: "whole-answer", params: { q: 7, r: 4 } }, { family: "steep-ratio", params: { q: 5, r: 4 } }];
+    assert.equal(redrawParams("pair-q", "high-start", "high-and-rising", { q: 5, r: 2 }, "seed", 1, tick, others), null);
+  }
+  assert.ok(moved > 0, "Right Angle still drifts");
+});

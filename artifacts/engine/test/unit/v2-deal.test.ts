@@ -184,3 +184,19 @@ test("lines: a fresh deal never seats Prime Landing beside Whole Crossing on the
   }
   assert.ok(both > 0, "the two families are still seated together, on landings that pull apart");
 });
+
+// Pair seating (lib/v2-pair seating.ts): no two rules one move climbs together, read from the rules' parameters.
+test("pairs: a lines-pairs deal seats no forbidden pair of rules, and records none", async () => {
+  const { pairClashes } = await import("@workspace/v2-pair");
+  const { seatingClashes, hasSeatingRule } = await import("../../convex/v2/deal.ts");
+  const preset = presetOf("lines-pairs"), pool = dealablePool(preset);
+  assert.ok(hasSeatingRule(preset.variant));
+  let changed = 0;
+  for (let s = 0; s < 40; s++) {
+    const seed = `pair-seat-${s}`, deal = freshDeal(pool, 3, seed, preset.variant);
+    assert.deepEqual(pairClashes(deal), [], seed);
+    assert.deepEqual(seatingClashes(preset.variant, deal), []);
+    if (JSON.stringify(deal) !== JSON.stringify(freshDeal(pool, 3, seed))) changed++;
+  }
+  assert.ok(changed > 0, "the seating rule changes some deals");
+});

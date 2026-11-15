@@ -82,15 +82,26 @@
 #                                ratio (steeper gradient over the other), ygap, xgap (the gaps between the intercepts),
 #                                off_right, off45 (how far from a right angle, from 45 degrees), origin (a line through
 #                                (0, 0)).
-#   pair_steps(L, far, kinds)    the steps of the given kinds ("shift", "tilt", "stretch", "turn", "slide", "combine",
-#                                "reflect", "quarter") on either line, each (plan, lines after); steps the game would
-#                                refuse are left out.
+#   pair_steps(L, far, kinds, factors)  the steps of the given kinds ("shift", "tilt", "stretch", "turn", "slide",
+#                                "combine", "reflect", "quarter" on either line; "translate", both lines slid together),
+#                                each (plan, lines after); steps the game would refuse are left out. factors: extra
+#                                stretch factors (a ladder's x q).
 #   spf(n), omega(n), common(a, b)  a whole number's smallest prime factor (1 for 0 and +-1), its number of prime
 #                                factors counting repeats (0 for 0 and +-1), and the biggest factor a and b share (0 if
 #                                either is 0).
 #   nearest_leaving(v, q, r, at_least)  the whole number nearest v that leaves r when divided by q (negatives too:
 #                                -2 leaves 1 when divided by 3), the smaller on a tie; with at_least, only numbers at
 #                                least that far from 0 (a pair rule's dealt remainder).
+#   ladder(v, q, r, other, at_least)  a pair rule's residue ladder: (score, n). Level j is met when v is a whole number
+#                                leaving r when divided by q, rr (in base q) when divided by q^2, rrr by q^3, ... and
+#                                other is 0; score = q^L * (1 + 1/(1 + d)), L the highest level met, d how far from
+#                                the next; n = nearest_leaving(v, q, r, at_least).
+#   valuation_ladder(v, q, r, other, at_least)  (score, n): v the whole number q^t * m with m leaving r when divided by
+#                                q (and other 0) is at level L, the highest with L(L + 1)/2 <= t (a stretch by q adds 1
+#                                to t); score = q^L * (1 + 1/(1 + d)), d how far from level L + 1 (off the ladder: below).
+#   power_ladder(k, off)         the same over k, k^2, k^3, ...: off(t) is how far the state is from the level whose
+#                                number is t; level L at an exact k^L, d to k^(L+1) (on no level: to the nearest
+#                                power); returns the score.
 #
 # These run in the trusted prelude, outside the step count, so each does a bounded amount of work.
 from fractions import Fraction
@@ -243,16 +254,72 @@ def simplest(a, b):
     return lo
 
 
-def nearest_leaving(x, q, r, at_least=0):
-    v = Fraction(x)
-    # The two numbers with the remainder either side of v; the lower wins a tie.
+def _anchor(v, q, r, at_least):
+    # The two numbers with the remainder either side of v (moved outwards past |n| < at_least); the lower wins a tie.
     lo = r + q * int((v - r) // q)
     hi = lo + q
     while abs(lo) < at_least:
         lo -= q
     while abs(hi) < at_least:
         hi += q
-    return lo if v - lo <= hi - v else hi
+    return (lo, v - lo) if v - lo <= hi - v else (hi, hi - v)
+
+
+def _climb(base, off):
+    level, d = 0, off(1)
+    while level < 4096 and d == 0:
+        level += 1
+        d = off(level + 1)
+    return base ** level * (1 + Fraction(1) / (1 + d))
+
+
+def nearest_leaving(x, q, r, at_least=0):
+    return _anchor(Fraction(x), q, r, at_least)[0]
+
+
+def ladder(x, q, r, other=0, at_least=0):
+    v, o = Fraction(x), Fraction(other)
+
+    def off(j):
+        R = 0
+        for _ in range(j):
+            R = R * q + r
+        return o + _anchor(v, q ** j, R, at_least)[1]
+    return _climb(q, off), _anchor(v, q, r, at_least)[0]
+
+
+def valuation_ladder(x, q, r, other=0, at_least=0):
+    v, o = Fraction(x), Fraction(other)
+    level = -1
+    if o == 0 and v.denominator == 1 and v != 0 and abs(v) >= at_least:
+        m, t = v.numerator, 0
+        while m % q == 0:
+            m //= q
+            t += 1
+        if m % q == r:
+            level = 0
+            while (level + 1) * (level + 2) // 2 <= t:
+                level += 1
+    T = (level + 1) * (level + 2) // 2
+    d = o + _anchor(v, q ** (T + 1), r * q ** T, at_least)[1]
+    n = v.numerator if level >= 0 else _anchor(v, q, r, at_least)[0]
+    return Fraction(q) ** level * (1 + Fraction(1) / (1 + d)), n
+
+
+def power_ladder(k, off):
+    # Levels are not nested: L at an exact k^L (d: the distance to k^(L+1)); on no level, d to the nearest power.
+    level, best, prev = 0, None, None
+    for j in range(1, 4097):
+        o = Fraction(off(k ** j))
+        if o == 0:
+            level = j
+        if best is None or o < best:
+            best = o
+        if prev is not None and o >= prev:
+            break
+        prev = o
+    d = Fraction(off(k ** (level + 1))) if level > 0 else best
+    return Fraction(k) ** level * (1 + Fraction(1) / (1 + d))
 
 
 def root(n):
@@ -429,7 +496,7 @@ def solved(L):
         origin=c1 == 0 or c2 == 0)
 
 
-def pair_steps(L, far, kinds):
+def pair_steps(L, far, kinds, factors=()):
     ln = [[int(x) for x in l] for l in L]
 
     def norm(a, b, c):
@@ -495,6 +562,31 @@ def pair_steps(L, far, kinds):
                 A, B, C = a + k * ja, b + k * jb, c + k * jc
                 if (A != 0 or B != 0) and _gcd(_gcd(A, B), C) == 1:
                     add(call("pair.combine", line=line, k=k), norm(A, B, C))
+    # A stretch of either line by each extra factor (a ladder's shortcut: x q climbs one rung), beyond 2 ... far + 1.
+    if "stretch" in kinds:
+        for i in (0, 1):
+            a, b, c = ln[i]
+            if b == 0:
+                continue
+            m, k0 = Fraction(-a, b), Fraction(-c, b)
+            for f in factors:
+                if abs(f) > far + 1:
+                    r = pair(i, from_mc(m * f, k0 * f))
+                    if r:
+                        out.append((call("mach.stretch", line=str(i + 1), f=f), r))
+    # Both lines slid across the plane by (u, 0) or (0, v): the crossing moves with them.
+    if "translate" in kinds:
+        for k in range(-far, far + 1):
+            if k == 0:
+                continue
+            for u, v in ((k, 0), (0, k)):
+                moved = [norm(a, b, c - a * u - b * v) for a, b, c in ln]
+                if None in moved or moved[0] == moved[1]:
+                    continue
+                r = sorted(moved)
+                if r == sorted(ln):
+                    continue
+                out.append((call("sys.translate", u=u, v=v), [[Fraction(x) for x in t] for t in r]))
     return out
 
 
