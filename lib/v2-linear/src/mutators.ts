@@ -383,7 +383,7 @@ const turnWords = (t: Q | string, aboutPin: boolean): string =>
     : `${Qn.sign(t) > 0 ? "anticlockwise" : "clockwise"} by the angle of a ${unsigned(t)} gradient`;
 
 export const turn: M = {
-  id: "rot.turn", reps: ["cart", "norm"], title: "turn the line about a point", perSite: true,
+  id: "rot.turn", reps: ["cart", "norm"], title: "turn the line around a pin, like a clock hand", perSite: true,
   describe: a => `turn the line ${turnWords(a.turn!, a.centre !== "origin")} about ${a.centre === "origin" ? "the origin" : pinWords(Qa(a, "centre"))}`,
   args: v => fields(baseBits(v, true, "rot.turn"), { centre: centre(argD(v)), turn: turnField }),
   apply: (state, site, a, v) => {
@@ -425,6 +425,13 @@ export const swap: M = {
     return replace(state, site, S(a, "pair") === "m-c" ? normalise(C, B, A) : normalise(A, C, B), v);
   },
   inverse: { kind: "self" },
+  // Swapping two numbers keeps every digit, so Δφ is about 0 and a swap was nearly free: in play two swaps in three gained
+  // more than their fee (coordinator's call, 15 Nov). Its fee is at least φ of the larger number it swaps, in
+  // ax + by + c = 0, read from both lines (the same pair, so the same floor for the swap back).
+  floor: (before, after, site, a) => Math.max(...[before, after].flatMap(s => {
+    const l = s.lines[site]!;
+    return (S(a, "pair") === "m-c" ? [l.a, l.c] : [l.b, l.c]).map(n => mixedIntBits(n));
+  })),
 };
 
 export const lean: M = {
@@ -441,8 +448,8 @@ export const lean: M = {
 };
 
 export const zoom: M = {
-  id: "basis.zoom", reps: ["tri", "norm"], title: "zoom in or out from the origin", perSite: true,
-  describe: a => `zoom by ${w(Qa(a, "f"))} from the origin (both crossings × ${w(Qa(a, "f"))}, same gradient)`,
+  id: "basis.zoom", reps: ["tri", "norm"], title: "zoom the line away from the origin or towards it, keeping its steepness", perSite: true,
+  describe: a => `zoom by ${w(Qa(a, "f"))} from the origin: where the line crosses each axis moves × ${w(Qa(a, "f"))}, and it keeps its steepness`,
   args: v => fields(baseBits(v, true, "basis.zoom"), {}, factor),
   apply: (state, site, a, v) => {
     const l = state.lines[site]!;

@@ -449,6 +449,13 @@ back) or TRIAL (a declared experiment, measured and reported).
     1.5 inside a family. First applied to Prime Landing's ladder (endings 1, 3, 7, 9: every rung's bits are its code
     cost plus 1.0).
 
+23. (decided 15 Nov, on the lens worker's pool-dynamics check, docs/engine-v2/scripts/stretch-lens-pool-dynamics.md,
+    following decisions 25, 27 and 28; the owner asked by name for "rotating the line about a point"): `rot.turn` and
+    `basis.zoom` join the beginner line set. `line-q` offers eleven mutators: the turn and the zoom at the price they
+    were measured at (which = log2 20), the nine at log2 10 (Kraft sum 1). `coef.swap`, `basis.lean` and `fold` stay in
+    `lines-lenses`. `coef.swap`'s fee is floored at φ of the larger number it swaps (in play two swaps in three had
+    gained more than their fee); it joins nothing until a re-measure shows fewer than one swap in ten above its fee.
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.

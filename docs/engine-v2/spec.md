@@ -977,14 +977,19 @@ Results outside the variant's domain are invalid (a Z-domain line with a fractio
 there is no limit on size, owner decision 26). The cheap-in-one-lens, dear-in-another examples of #346 §4.5 hold: y = x + 5 → y = 3x + 3 is one
 `seq.step(2)` (steps on 2) against `si.shift(−4)` and `si.tilt(2)` (steps on 4 and on 2).
 
-**The lens mutators (a trial: variant `line-q-lenses`, preset `lines-lenses`).** The first five of
-[lenses-and-mutators.md](lenses-and-mutators.md) §5 (owner decisions 25, 27 and 28), offered beside the nine by
-`line-q-lenses` only (N = 14), with a weighted "which" code (`Variant.which`, a prefix code with Kraft sum 1; the walk
-draws a mutator with probability 2^−which and each size code uses its own mutator's which bits as o): the nine at
-log2 12 = 3.58 bits, the five at log2 20 = 4.32 (owner-decisions.md, coordinator's call 12, a trial).
-`line-q` keeps its nine, its prices and its values. `line-q-lenses` has line-q's params, so the same law π ∝ 2^−φ, and
-reads line-q's value functions (`Variant.valuesOf`). Representation moves (turn, swap, fold) are priced as choices and
-digits; the lean adds an amount (priced by size); the zoom is a factor (digits). Each is undone by itself or by the same
+**The lens mutators.** The first five of [lenses-and-mutators.md](lenses-and-mutators.md) §5 (owner decisions 25, 27
+and 28). Two are in the beginner line set (coordinator's call 23): `line-q` offers the nine and `rot.turn` and
+`basis.zoom` (N = 11), with a weighted "which" code (`Variant.which`, a prefix code with Kraft sum 1; the walk draws a
+mutator with probability 2^−which and each size code uses its own mutator's which bits as o): the nine at log2 10 =
+3.32 bits, the turn and the zoom at log2 20 = 4.32. The other three (`coef.swap`, `basis.lean`, `fold`) are a trial,
+offered beside line-q's eleven by `line-q-lenses` only (preset `lines-lenses`, N = 14): line-q's eleven keep their
+proportions in 3/4 of the mass (log2 40/3 and log2 80/3), the three share 1/4 (log2 12 each). `line-q-lenses` has
+line-q's params, so the same law π ∝ 2^−φ, and reads line-q's value functions (`Variant.valuesOf`); a value function
+does not depend on the menu, so a menu change re-keys the stored values without recomputing them
+(`lib/v2-valuation/scripts/rekey-values.ts`). Representation moves (turn, swap, fold) are priced as choices and
+digits; the lean adds an amount (priced by size); the zoom is a factor (digits). A mutator may declare a least fee
+(`Mutator.floor`, the same for a call and its inverse): `coef.swap` pays at least φ of the larger number it swaps,
+since a swap keeps every digit (Δφ ≈ 0) and was otherwise nearly free. Each is undone by itself or by the same
 mutator at the same fee (exact potential; `lib/v2-linear/test/lens-mutators.test.ts`).
 
 | Id | Representations | Arguments (bits) | Effect | Inverse |
