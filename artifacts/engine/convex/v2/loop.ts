@@ -16,7 +16,7 @@ import { measured, objectReading, readingNoise, shownAt } from "./disclose.ts";
 import { endWorldOf, scoreIntervalOf } from "./duration.ts";
 import { shouldPark } from "./activity.ts";
 import { allReady, ensureWarm, isReady, LANGUAGES } from "./readiness.ts";
-import { fullReadBits, observationOf, tell } from "./knowledge.ts";
+import { fullReadBits, paysToRead, tell } from "./knowledge.ts";
 
 /** Wall milliseconds between ticks; world time advances by the wall time that passed, at most MAX_DT a tick. */
 export const TICK_MS = 1500;
@@ -110,7 +110,7 @@ async function addObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule
   for (const val of values) {
     await ctx.db.insert("v2ObjectValues", { objectId, gameId: game._id, memberId: val.memberId as Id<"v2Members">, number, score: val.score, rarityBits: val.rarityBits, want: val.want, points: val.points, ...shownOf(val), version: 1, changedAt: world });
     // Paid observation: a birth is public, so every player is told it (knowledge.ts).
-    if (observationOf(game) === "paid") await tell(ctx, game, val.memberId as Id<"v2Members">, { objectId, number, state: wire, version: 1, score: val.score, rarityBits: val.rarityBits, want: val.shownWant, points: val.shownPoints }, world);
+    if (paysToRead(game)) await tell(ctx, game, val.memberId as Id<"v2Members">, { objectId, number, state: wire, version: 1, score: val.score, rarityBits: val.rarityBits, want: val.shownWant, points: val.shownPoints }, world);
   }
   return { objectId, values };
 }
@@ -167,7 +167,7 @@ async function applyToPlayers(ctx: MutationCtx, gameId: Id<"v2Games">, changes: 
   if (changes.length === 0) return;
   const players = await ctx.db.query("v2Players").withIndex("by_game", q => q.eq("gameId", gameId)).take(16);
   const engine = await engineOf(ctx, gameId), totals = { ...engine.totals }, shownTotals = { ...(engine.shownTotals ?? engine.totals) };
-  const paid = observationOf((await ctx.db.get(gameId))!) === "paid";
+  const paid = paysToRead((await ctx.db.get(gameId))!);
   for (const p of players) {
     let delta = 0, shownDelta = 0, touched = false;
     // A paid game's scatter shows what each player was told: the tellings write it (knowledge.ts tell).
@@ -480,7 +480,7 @@ export const commit = internalMutation({
       });
       // Paid observation: an act that read the whole object paid exactly a look, so its owner is told the object as it
       // stood (a change commits below and tells it as changed).
-      if (!committed && observationOf(game) === "paid" && record.readBits >= fullReadBits(game.variant, st.state) - 1e-9) {
+      if (!committed && paysToRead(game) && record.readBits >= fullReadBits(game.variant, st.state) - 1e-9) {
         const row = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", act.objectId).eq("memberId", act.memberId as Id<"v2Members">)).unique();
         if (row) await tell(ctx, game, act.memberId as Id<"v2Members">, { objectId: act.objectId, number: act.number, state: st.state, version: st.version, score: row.score, rarityBits: row.rarityBits, ...measured(game, row) }, world);
       }
@@ -488,7 +488,7 @@ export const commit = internalMutation({
       const { before, after } = await changeObject(ctx, game, seats, act.objectId, record.after, world, act.memberId);
       changes.push({ number: act.number, values: after, before });
       // Paid observation: the mover is told the object its agent changed (the change paid for the look).
-      if (observationOf(game) === "paid") {
+      if (paysToRead(game)) {
         const mine = after.find(x => x.memberId === act.memberId)!;
         await tell(ctx, game, act.memberId as Id<"v2Members">, { objectId: act.objectId, number: act.number, state: record.after, version: st.version + 1, score: mine.score, rarityBits: mine.rarityBits, ...measured(game, mine) }, world);
       }
@@ -562,7 +562,7 @@ export const exactValues = internalMutation({
   args: { gameId: v.id("v2Games"), memberId: v.id("v2Members") },
   handler: async (ctx, { gameId, memberId }) => {
     const game = (await ctx.db.get(gameId))!;
-    const paid = observationOf(game) === "paid", world = (await clockOf(ctx, gameId)).worldSeconds;
+    const paid = paysToRead(game), world = (await clockOf(ctx, gameId)).worldSeconds;
     const digest = await ctx.db.query("v2Digests").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).unique();
     const packed = digest ? [...digest.packed] : [];
     for await (const r of ctx.db.query("v2ObjectValues").withIndex("by_game_member_born", q => q.eq("gameId", gameId).eq("memberId", memberId))) {

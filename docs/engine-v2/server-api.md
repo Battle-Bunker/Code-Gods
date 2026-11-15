@@ -98,12 +98,14 @@ games last 600 s with 3 objects and one birth per 240 s (decisions 31, 34). The 
 Idle parking (v1's, `activity.ts`): 30 minutes after the last human activity (`account.touch`, which the app calls on
 real interaction; room create and join; the owner's start, rematch and resume) a live game parks at its next commit:
 paused with `parked` (header), no ticks, no AI turns, no autopilot. The next human activity resumes every parked game.
-Paid observation (v1's `observation: "paid"`, a room setting, default free; `knowledge.ts`): a seated player of a
-paid live game sees each object as last told (`v2Knowledge`): at its birth, by their own agents' changes and complete
-reads, or by `object.look` (one object or all, each at its full read's price from their own store). `play:object`
-adds `knownAt` and `changesSince` (activity is public); the sorts, `objects.list`, object reads, quotes and scores,
-`othersAt`, the check's samples and `spectate:object` read the told state; the act log, `moves.list` and `objectMoves`
-show only the player's own agents' moves; the public log shows another player's move without state or bits; tugs are
+Paying to read (owner decision 35; v1's paid observation; `knowledge.ts`): every game pays to look, at the read price
+(bits ÷ κ) times `settings.readPriceWeight` (preset: 3 on lines, 1 on grids, so a look is about 1 ⚡; override 0 to 4;
+0 reads the live world free; a game stored without one reads free). A seated player of a live game sees each object as
+last told (`v2Knowledge`): at its birth, by their own agents' changes and complete reads, or by `object.look` (one object
+or all, from their own store; refused before the world runs). `play:object` adds `knownAt`, `changesSince` (activity is
+public) and `lookPrice`; the sorts, `objects.list`, object reads, quotes and scores, `othersAt`, the check's samples and
+`spectate:object` read the told state; the act log, `moves.list` and `objectMoves` show only the player's own agents'
+moves; the public log shows another player's move without mover, state or bits; tugs are
 empty. After the end everything is open.
 
 Sandbox readiness (v1's, `readiness.ts`): players never wait for a sandbox to boot. A game's start warms every
@@ -116,7 +118,7 @@ Published standings are exact (the owner's decision 33: "a coarse time grain lea
 history and the chart are the exact totals, batched every `scoreIntervalSeconds`; per-object figures are readings.
 
 `v2/games:header` carries `peerNoiseVariance` and `peerNoiseBits` (its σ, what "about ±" shows; 0: exact), and
-`observation`.
+`readPriceWeight`.
 Agents get `occupied` (decision 24): the tick's view of which object holds each state.
 
 Values carry the uniqueness correction (§2.6, `withUniqueness`) at a fixed object count per game, `valueObjects`: the

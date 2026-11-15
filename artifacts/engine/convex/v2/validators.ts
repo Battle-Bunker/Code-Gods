@@ -59,7 +59,8 @@ export const headerV = v.object({
   /** World seconds between published standings. */
   scoreIntervalSeconds: v.number(),
   /** "paid": a seated player sees each object as last told and pays to look (knowledge.ts); "free": as it is. */
-  observation: v.union(v.literal("free"), v.literal("paid")),
+  /** The weight on a look's read price (bits ÷ κ × weight; decision 35); 0: the live world reads free. */
+  readPriceWeight: v.number(),
   /** Paused because nobody acted for 30 minutes: any human activity (`account.touch`) resumes it. */
   parked: v.boolean(),
 });
@@ -104,6 +105,8 @@ export const playObjectV = v.object({
   value: v.union(v.object({ score: scoreWireV, rarityBits: v.number(), want: v.number(), points: v.number(), version: v.number() }), v.null()),
   /** Paid observation (knowledge.ts): when the caller was last told this object (world seconds), and how many changes it has had since (public). */
   knownAt: v.optional(v.union(v.number(), v.null())), changesSince: v.optional(v.number()),
+  /** In a game that pays to read (decision 35), live and seated: what a look at it costs now (⚡). */
+  lookPrice: v.optional(v.number()),
 });
 export const agentRowV = v.object({
   agentId: v.id("v2Agents"), name: v.string(), language: languageV, version: v.number(), share: v.number(), createdAt: v.number(),

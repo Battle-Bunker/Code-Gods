@@ -20,6 +20,7 @@ import { makeFunctionReference } from "convex/server";
 import { fixturesOn } from "../auth/identity";
 import { presetOf } from "./presets";
 import { RUNTIME_VERSION } from "./readiness";
+import { fullReadBits as fullReadBitsOf } from "./knowledge";
 import { newNoiseKey, objectReading, readingNoise, shownAt } from "./disclose";
 
 const fixtures = () => {
@@ -460,6 +461,16 @@ export const setReadiness = internalMutation({
 });
 
 /** An object's live state and version (what a paid game's players are not shown). */
+/** An object's full read, in bits, at its live state (what a look reads: knowledge.ts fullReadBits). */
+export const fullReadBits = internalQuery({
+  args: { objectId: v.id("v2Objects") },
+  handler: async (ctx, { objectId }) => {
+    fixtures();
+    const st = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", objectId)).unique())!;
+    return fullReadBitsOf((await ctx.db.get(st.gameId))!.variant, st.state);
+  },
+});
+
 export const stateOf = internalQuery({
   args: { objectId: v.id("v2Objects") },
   handler: async (ctx, { objectId }) => {

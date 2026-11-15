@@ -19,7 +19,7 @@ import {
 } from "./validators";
 import { pageOpts } from "./pages";
 import { attributed, disclosed, disclosesNoise, objectReading, readingNoise } from "./disclose";
-import { KNOWLEDGE_SORT, knownOf, listsKnowledge, readsKnowledge } from "./knowledge";
+import { KNOWLEDGE_SORT, knownOf, listsKnowledge, lookPrice, readPriceWeightOf, readsKnowledge } from "./knowledge";
 
 /** ≤ 20 agents per player (R3). */
 export const MAX_AGENTS = 20;
@@ -116,6 +116,8 @@ export const object = query({
         objectId: object._id, number: object.number, bornAt: object.bornAt, state: k?.state ?? "", version: k?.version ?? 0, changedAt: state.changedAt,
         value: k ? { score: k.score, rarityBits: k.rarityBits, want: k.want, points: k.points, version: k.version } : null,
         knownAt: k?.learnedAt ?? null, changesSince: state.version - (k?.version ?? 0),
+        // What a look at it costs now (decision 35): its full read at the read price times the game's weight.
+        lookPrice: lookPrice(game.variant, state.state, readPriceWeightOf(game)),
       };
     }
     const value = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", object._id).eq("memberId", member._id)).unique();

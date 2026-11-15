@@ -1,7 +1,7 @@
 /** Live game queries every member reads: the header, the scoreboard and its history (integration plan §2.2). */
 import { durationModeOf, scoreIntervalOf } from "./duration";
 import { peerNoiseSigmaOf, peerNoiseVarianceOf } from "./disclose";
-import { observationOf } from "./knowledge";
+import { readPriceWeightOf } from "./knowledge";
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query } from "../_generated/server";
@@ -22,7 +22,8 @@ export function headerView(game: Doc<"v2Games">, me: Doc<"v2Members">["_id"] | n
     // The variance of each reading of the others' sums while live (disclose.ts, decision 32), and its σ; 0: exact.
     peerNoiseVariance: peerNoiseVarianceOf(game), peerNoiseBits: peerNoiseSigmaOf(game),
     // Whether a seated player sees objects as last told and pays to look (knowledge.ts).
-    observation: observationOf(game),
+    // The weight on a look's read price (decision 35): 0 reads the live world free.
+    readPriceWeight: readPriceWeightOf(game),
   };
 }
 

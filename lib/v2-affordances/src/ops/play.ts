@@ -123,7 +123,7 @@ export const playOps = [
   }),
   affordance({
     id: "object.look", title: "Look at objects", group: "objects", scope: "game",
-    description: "In a game with paid looks (the room's observation setting): see one object as it is now, or every object when no objectId is given, paying each one's full read at the read price from the caller's own store. Until a look, an object shows as the caller was last told it: at its birth, by their own agents' changes and complete reads, or by an earlier look. Refused, with the price and the store, when the store cannot pay; keep some power for yourself to look.",
+    description: "See one object as it is now, or every object when no objectId is given, paying each one's full read at the read price times the game's weight (readPriceWeight; a game at 0 reads free and has nothing to look at) from the caller's own store; each look is a fresh measurement of the others' bits. Until a look, an object shows as the caller was last told it: at its birth, by their own agents' changes and complete reads, or by an earlier look. Refused, with the price and the store, when the store cannot pay; keep some power for yourself to look.",
     tooltip: "Pay to see objects as they are now.", keywords: ["look", "refresh", "see", "observe", "update view"],
     params: obj({ objectId: id.optional(), requestId: requestId.optional() }), result: z.object({ looked: z.number().int(), price: z.number() }),
     contexts: ["live", "paused"], caller: "seated", effect: "write", confirm: "inline", runs: "server",

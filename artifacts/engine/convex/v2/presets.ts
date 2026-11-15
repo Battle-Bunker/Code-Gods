@@ -39,6 +39,13 @@ export interface Preset {
    * beginner presets (the owner); 64 (σ 8, v1's default) elsewhere.
    */
   peerNoiseVariance: number;
+  /**
+   * The weight on a look's read price (bits ÷ κ; decision 35: "querying 5 objects every second would be easily
+   * affordable but doing so 100 times a second would be prohibitive"): a look costs about 1.1 ⚡ on a line (weight 3,
+   * median 11.7 bits) and 1.3 ⚡ on a grid (weight 1, median 41 bits), so 5 a second take about a tenth of a player's
+   * 64 ⚡/s and 100 a second about twice all of it.
+   */
+  readPriceWeight: number;
   economy: PresetEconomy;
   bid?: PresetBid;
 }
@@ -66,6 +73,7 @@ function fromPool(id: string, extra: Partial<Preset> & { id?: string; title?: st
     // Owner decision 32: each reading of the others' sums is an independent draw of this variance; σ 8 (v1's default)
     // outside the beginner game.
     startingObjects: 3, durationMode: "fixed", peerNoiseVariance: 64,
+    readPriceWeight: p.variant.startsWith("grid") ? 1 : 3,
     economy: ECONOMY, ...extra,
   };
 }
