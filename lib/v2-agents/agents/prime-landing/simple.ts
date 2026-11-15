@@ -55,6 +55,8 @@ function agent(offer) {
       tries.push([move("si.shift", { k }), m, Q.add(c, k)]);   // move the line up or down
       tries.push([move("si.tilt", { k }), Q.add(m, k), c]);   // make it steeper or flatter
     }
+    // The next rung up (the ladder has no top): one jump through the valley between, priced by its size.
+    for (let t = Q.add(near(c, prime, p.ends), 10), i = 0; i < 100; t = Q.add(t, 10), i++) if (prime(t)) { tries.push([move("si.shift", { k: Q.sub(t, c) }), m, t]); break; }
     tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
   }
   let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches

@@ -83,6 +83,11 @@ export interface FamilyEntry {
    * Without it, a vertical line scores nothing and a starter only tips it.
    */
   readonly vertical?: { readonly main: Lines; readonly defined?: readonly string[] };
+  /**
+   * A ladder with no top (design-principles.md 1 and 2): lines that add the step to the next rung up to `tries`, one
+   * jump through the valley between rungs, priced by its size. Every starter but the naive one takes them.
+   */
+  readonly rungs?: Lines;
 }
 
 const neg = (ts: string) => `Q.neg(${ts})`;
@@ -374,6 +379,21 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   },
   {
     family: "prime-landing",
+    rungs: {
+      ts: [
+        "// The next rung up (the ladder has no top): one jump through the valley between, priced by its size.",
+        "for (let t = Q.add(near(c, prime, p.ends), 10), i = 0; i < 100; t = Q.add(t, 10), i++) if (prime(t)) { tries.push([move(\"si.shift\", { k: Q.sub(t, c) }), m, t]); break; }",
+      ],
+      py: [
+        "# The next rung up (the ladder has no top): one jump through the valley between, priced by its size.",
+        "t = near(c, prime, p[\"ends\"]) + 10",
+        "for _ in range(100):",
+        "    if prime(t):",
+        "        tries.append((move(\"si.shift\", k=t - c), m, t))",
+        "        break",
+        "    t += 10",
+      ],
+    },
     mainSays: "the y-intercept itself when it is a prime ending in the rule's digit (bigger is better: a ladder with no top), else minus how far it is from the nearest one",
     main: {
       ts: [

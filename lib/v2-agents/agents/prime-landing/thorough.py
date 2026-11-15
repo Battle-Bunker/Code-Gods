@@ -64,6 +64,13 @@ def agent(offer):
             tries.append((move("cart.pivot", x0=-1, k=k), m + k, c + k))   # turn the line about its point at x = -1 (m and c both change by k)
             f = k + 1 if k > 0 else k - 1
             tries.append((move("mach.stretch", f=f), m * f, c * f))   # multiply every output by f (m and c both)
+        # The next rung up (the ladder has no top): one jump through the valley between, priced by its size.
+        t = near(c, prime, p["ends"]) + 10
+        for _ in range(100):
+            if prime(t):
+                tries.append((move("si.shift", k=t - c), m, t))
+                break
+            t += 10
         tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
     options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.
