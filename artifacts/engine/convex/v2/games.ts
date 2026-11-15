@@ -2,6 +2,7 @@
 import { durationModeOf, scoreIntervalOf } from "./duration";
 import { peerNoiseSigmaOf, peerNoiseVarianceOf } from "./disclose";
 import { readPriceWeightOf } from "./knowledge";
+import { priceScaleOf } from "./pricing";
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query } from "../_generated/server";
@@ -24,6 +25,8 @@ export function headerView(game: Doc<"v2Games">, me: Doc<"v2Members">["_id"] | n
     // Whether a seated player sees objects as last told and pays to look (knowledge.ts).
     // The weight on a look's read price (decision 35): 0 reads the live world free.
     readPriceWeight: readPriceWeightOf(game),
+    // The factor on summon and edit prices (power ÷ 64): the app scales the prices it quotes by it.
+    priceScale: priceScaleOf(game),
   };
 }
 

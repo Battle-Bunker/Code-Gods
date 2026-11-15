@@ -59,7 +59,16 @@ test("a paid game shows each object as last told; a look pays to see it now; the
   const after = (await ada!.query("v2/play:me", { gameId })).energy;
   assert.ok(Math.abs(before - after - looked.result.price) < 0.5, `the look is paid from the store: ${before} → ${after} for ${looked.result.price}`);
   const bits = await admin.query("v2/testing:fullReadBits", { objectId: stale! });
-  assert.ok(Math.abs(looked.result.price - 3 * bits / 32) < 1e-9, `the read price (bits ÷ 32) times the weight 3: ${looked.result.price} for ${bits} bits`);
+  const weight = (await ada!.query("v2/games:header", { gameId })).readPriceWeight;
+  assert.ok(weight > 0 && Math.abs(looked.result.price - weight * bits / 32) < 1e-9, `the read price (bits ÷ 32) times the weight ${weight}: ${looked.result.price} for ${bits} bits`);
+
+  // Decision 36: a player knows free everything their agents learn. Every act the partner's agents ran on an object
+  // they saw current (not stale) told the partner the object then.
+  const partner = (await ada!.query("v2/games:header", { gameId })).roster.find((r: any) => r.kind === "practice")!.memberId;
+  const known = new Map((await admin.query("v2/testing:knowledgeOf", { gameId, memberId: partner })).map((k: any) => [k.objectId, k]));
+  const acts = (await admin.query("v2/testing:events", { gameId, after: -1 })).filter((e: any) => e.kind === "act" && e.data.memberId === partner && e.data.outcome !== "stale");
+  assert.ok(acts.length > 0, "the partner's agents acted");
+  for (const e of acts) assert.ok((known.get(e.data.objectId) as any)?.learnedAt >= e.data.worldSeconds - 1e-9, `act ${e.data.n} (${e.data.outcome}) told its owner the object`);
   const now = await ada!.query("v2/play:object", { objectId: stale });
   assert.deepEqual([now.state, now.changesSince], [(await admin.query("v2/testing:stateOf", { objectId: stale! })).state, 0], "seen as it is");
   const all = await perform(ada!, "object.look", {}, scope);

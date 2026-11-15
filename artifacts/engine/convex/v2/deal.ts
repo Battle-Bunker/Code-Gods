@@ -170,8 +170,8 @@ export function bidDealer(pool: readonly DealtRule[], variant?: string): BidDeal
 }
 
 /**
- * The families on offer in a bid phase: each with its card and the ✨ bits at the furthest measured knot of its rules'
- * value curves (rounded to 0.1): a scale for the bid, not a ceiling (owner decision 26: rarer scores keep rising).
+ * The families on offer in a bid phase: each with its card and the rarity bits at the furthest measured knot of its
+ * rules' value curves (rounded to 0.1): a scale for the bid, not a ceiling (owner decision 26: rarer scores keep rising).
  */
 export function offers(pool: readonly DealtRule[]) {
   const out: { family: string; title: string; card: string; top: number }[] = [];

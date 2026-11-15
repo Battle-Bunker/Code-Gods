@@ -48,11 +48,15 @@ test("planning: check, summon, replace, put back, split power, destroy", async (
   assert.equal(summoned.ok, true, JSON.stringify(summoned));
   assert.ok(Math.abs(summoned.result.price - checked.result.price) < 1e-9, "check quotes the summon price");
   const after = await me(ada!);
-  assert.ok(Math.abs(before.energy - summoned.result.price - after.energy) < 1e-6, "the price is paid from the own store");
   assert.equal(after.agents, 1);
   const agentId = summoned.result.agentId;
+  // Paid from the own store; what the store's smaller capacity (its power now split with the agent) cannot hold moves to
+  // the agent (docs/energy-model.md: power moves with its energy).
+  const given = (await ada!.query("v2/play:agentEnergy", { agentId })).energy;
+  assert.ok(Math.abs(before.energy - summoned.result.price - after.energy - given) < 1e-6, `the price is paid from the own store: ${before.energy} − ${summoned.result.price} = ${after.energy} + ${given} given to the agent`);
 
-  const tooDear = await perform(bo!, "agent.summon", { language: "python", source: `def agent(offer):\n  ${"x = 1\n  ".repeat(2000)}return None\n` }, scope(), "action");
+  // Dense (about 10,000 bits, under the 16 KiB limit): dearer than Bo's 1,200 even at the game's power scale, 8 ÷ 64.
+  const tooDear = await perform(bo!, "agent.summon", { language: "python", source: `def agent(offer):\n  ${"x=[1,2,3,4,5,6,7,8,9]\n  ".repeat(675)}return None\n` }, scope(), "action");
   assert.equal(tooDear.error.code, "failed", "a program dearer than the store is refused");
   assert.ok(tooDear.error.data.price > tooDear.error.data.store, JSON.stringify(tooDear.error.data));
 

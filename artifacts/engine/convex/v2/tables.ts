@@ -50,7 +50,7 @@ const shownFields = { shownWant: v.optional(v.number()), shownPoints: v.optional
 const storedValueSnapV = v.object({ score: scoreWireV, level: legacyLevel, rarityBits: v.number(), want: v.number(), points: v.number(), ...shownFields });
 const legacyLadder = v.optional(v.array(v.object({ level: v.number(), label: v.string(), rarityBits: v.number(), layer: v.optional(v.string()) })));
 export const bidV = v.object({ family: v.string(), percent: v.number() });
-/** A family on offer in the bid phase, as a player judges it: its card and the most ✨ bits its rules reach. */
+/** A family on offer in the bid phase, as a player judges it: its card and the most rarity bits its rules reach. */
 export const offerV = v.object({ family: v.string(), title: v.string(), card: v.string(), top: v.number() });
 
 export const eventKindV = v.union(

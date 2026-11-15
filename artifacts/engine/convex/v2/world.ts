@@ -1,6 +1,6 @@
 /**
  * Values and points (spec §7.7, §8; owner decision 23), pure: each player's rule evaluated on a state, its utility (the
- * plain lexicographic score), the utility's ✨ worth n_i in bits from the rule's value function, and
+ * plain lexicographic score), the utility's rarity worth n_i in bits from the rule's value function, and
  * π_i = n_i · Σ_{j≠i} n_j. Used by the commit (loop.ts) and the read affordances, so a value has one definition.
  */
 import { evaluateObject, scoreToWire, type ObjectType } from "@workspace/v2-core";
