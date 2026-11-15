@@ -20,7 +20,9 @@ export interface Overrides {
 export { PEER_NOISE_VARIANCE_OPTIONS };
 /** A noise variance in words: its σ, the "about ±" a reading carries. */
 /** The price of a look in the next game's summary: "looking is free" or "a look costs 3× the read price". */
-export const lookWords = (weight: number) => (weight === 0 ? "looking is free" : `a look costs ${weight}× the read price`);
+export const lookWords = (weight: number) => (weight === 0 ? "looking is free" : `a look costs ${weightText(weight)}× the read price`);
+/** A weight as people read it: two decimals ("0.37"), whole quarters as they are ("1.5"). */
+export const weightText = (w: number) => (Number.isInteger(w * 4) ? String(w) : w.toFixed(2));
 export const noiseWords = (variance: number) => (variance === 0 ? "Exact" : `Blurred by about ${Math.round(Math.sqrt(variance) * 10) / 10} bits`);
 
 /** A preset under trial: the Lab's (`lab-…`) and the local test presets (`test-…`). */
@@ -91,7 +93,8 @@ export function overridesOf(f: SettingsForm, p: Preset): { ok: true; overrides: 
   const interval = num(f.scoreIntervalSeconds), noise = num(f.peerNoiseVariance);
   if (interval === null || !Number.isInteger(interval) || interval < 1 || interval > 3600) errors.scoreIntervalSeconds = "Totals are counted every 1 to 3,600 whole seconds.";
   const weight = num(f.readPriceWeight);
-  if (weight === null || weight < 0 || weight > 4 || !Number.isInteger(weight * 4)) errors.readPriceWeight = "The price of a look is 0 to 4 times the read price, in quarters.";
+  const ownWeight = weight !== null && Math.abs(weight - p.readPriceWeight) < 1e-9;   // the preset's own (derived from its power) stays as it is
+  if (weight === null || (!ownWeight && (weight < 0 || weight > 4 || !Number.isInteger(weight * 4)))) errors.readPriceWeight = "The price of a look is 0 to 4 times the read price, in quarters.";
   if (noise === null || !PEER_NOISE_VARIANCE_OPTIONS.includes(noise)) errors.peerNoiseVariance = "The noise's variance is 0, 4, 16, 64 or 256 bits².";
   if (Object.keys(errors).length) return { ok: false, errors };
   const o: Overrides = {};
@@ -101,7 +104,7 @@ export function overridesOf(f: SettingsForm, p: Preset): { ok: true; overrides: 
   if (f.durationMode !== p.durationMode) o.durationMode = f.durationMode;
   if (interval !== DEFAULT_SCORE_INTERVAL_SECONDS) o.scoreIntervalSeconds = interval!;
   if (noise !== p.peerNoiseVariance) o.peerNoiseVariance = noise!;
-  if (weight !== p.readPriceWeight) o.readPriceWeight = weight!;
+  if (!ownWeight) o.readPriceWeight = weight!;
   return { ok: true, overrides: o };
 }
 

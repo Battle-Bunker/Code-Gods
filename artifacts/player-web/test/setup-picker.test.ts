@@ -64,7 +64,7 @@ test("values the server would refuse are explained in words instead of sent", ()
 });
 
 test("the next game's summary uses the overrides", () => {
-  assert.equal(nextGameSummary(beginner, { worldSeconds: 120 }), `3 or more players · 60 s to plan · 2 min game · ${beginner.startingEnergy} energy to start · others' sums exact · totals every 10 s · a look costs 3× the read price.`);
+  assert.equal(nextGameSummary(beginner, { worldSeconds: 120 }), `3 or more players · 60 s to plan · 2 min game · ${beginner.startingEnergy} energy to start · others' sums exact · totals every 10 s · a look costs ${beginner.readPriceWeight.toFixed(2)}× the read price.`);
   assert.match(nextGameSummary(presetOf("lines-beginner-bidding"), {}), /45 s of bidding first/);
 });
 
@@ -92,14 +92,16 @@ test("the noise defaults to the preset's own (decision 32: 0 on the beginner gam
   assert.deepEqual(overridesOf(formOf(lenses, {}), lenses), { ok: true, overrides: {} }, "the preset's own is not sent");
 });
 
-test("every game pays to look (owner decision 35); the room sets the price's weight, 0 to 4 in quarters", () => {
+test("every game pays to look (owner decision 35); the room sets the price's weight, 0 to 4 in quarters, or keeps the preset's own", () => {
   const f = formOf(beginner, {});
-  assert.equal(f.readPriceWeight, "3", "lines: 3× the read price");
+  // The preset's weight is derived from its power (W3 #695), not a quarter: it is kept as it is, and never sent.
+  assert.equal(Number(f.readPriceWeight), beginner.readPriceWeight);
+  assert.deepEqual(overridesOf(f, beginner), { ok: true, overrides: {} }, "the preset's own is valid and not sent");
   assert.deepEqual(overridesOf({ ...f, readPriceWeight: "0" }, beginner), { ok: true, overrides: { readPriceWeight: 0 } });
-  assert.deepEqual(overridesOf(f, beginner), { ok: true, overrides: {} }, "the preset's own is not sent");
-  assert.equal(overridesOf({ ...f, readPriceWeight: "0.3" }, beginner).ok, false, "quarters only");
+  assert.deepEqual(overridesOf({ ...f, readPriceWeight: "1.5" }, beginner), { ok: true, overrides: { readPriceWeight: 1.5 } });
+  assert.equal(overridesOf({ ...f, readPriceWeight: "0.3" }, beginner).ok, false, "any other value in quarters only");
   assert.equal(overridesOf({ ...f, readPriceWeight: "5" }, beginner).ok, false, "at most 4");
-  assert.match(nextGameSummary(beginner, {}), /a look costs 3× the read price/);
+  assert.match(nextGameSummary(beginner, {}), new RegExp(`a look costs ${beginner.readPriceWeight.toFixed(2)}× the read price`));
   assert.match(nextGameSummary(beginner, { readPriceWeight: 0 }), /looking is free/);
   assert.doesNotMatch(JSON.stringify(f), /observation/, "no free/paid choice any more");
 });
