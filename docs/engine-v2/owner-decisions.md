@@ -174,6 +174,9 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     coordinator's calls 8 and 9 on the count and births. At the beginner length of 300 s that ends at 4 objects, not 5;
     the coordinator is asking the owner whether the game should be longer.)
 
+34. On the beginner game's length (relayed by the coordinator, 15 November): "The beginner game should be 10m long".
+    (Beginner presets: 600 s, 3 starting objects, one birth per 240 s, so 5 objects by the end.)
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact
