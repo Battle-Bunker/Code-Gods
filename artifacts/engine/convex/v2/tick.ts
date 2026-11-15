@@ -15,7 +15,7 @@ import { internalAction } from "../_generated/server";
 import { MAX_DT } from "./loop";
 import { sandboxFor } from "./runtime";
 import { birthDraws, decode, scopeOf, typeOf, variantOf } from "./world";
-import { agentNoiseAt } from "./disclose";
+import { actReadings } from "./disclose";
 import { valueFnIn } from "./values";
 
 type Snapshot = {
@@ -24,7 +24,7 @@ type Snapshot = {
   /** The world second the game ends at (private in halfLife mode; the tick only follows it). */
   endWorld: number;
   held: { objectId: string; state: string }[]; noiseKey: string | null;
-  settings: { worldSeconds: number; startingObjects: number; peerNoiseBits?: number; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
+  settings: { worldSeconds: number; startingObjects: number; peerNoiseVariance?: number; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
   seats: { memberId: string; rule: { family: string; params: unknown; tieBreaker: string | null; ruleKey: string } }[];
   ready: ("typescript" | "python")[];
   agents: { agentId: string; memberId: string; language: "typescript" | "python"; source: string; version: number; share: number; energy: number; settledAt: number }[];
@@ -60,10 +60,9 @@ export const tick = internalAction({
       // births (the commit places the same draw: the first no object holds), then each act that commits here.
       const holder = new Map(snap.held.map(h => [h.state, h.objectId]));
       born.forEach((draws, i) => { const w = draws.find(d => !holder.has(d)); if (w !== undefined) holder.set(w, `born:${i}`); });
-      // Disclosure noise on the others' sums (disclose.ts): the host's othersAfter reports what a player is shown.
-      // B1: each player's agents see a draw of their own (disclose.ts agentNoiseAt), not the shown one.
+      // Disclosure noise on the others' sums (owner decision 32, disclose.ts actReadings): every read an agent makes is
+      // an independent measurement, never shared, deterministic given the act's seed.
       const noise = { noiseKey: snap.noiseKey ?? undefined, settings: snap.settings };
-      const disclosedFor = (memberId: string) => (e: string) => agentNoiseAt(noise, memberId, e);
       const nOffers = snap.objects > 0 ? opportunities(econ.opportunitiesPerSecond, dt, r) : 0;
       const picks = Array.from({ length: nOffers }, () => 1 + r.below(snap.objects));
       const states = new Map((await ctx.runQuery(STATES, { gameId, numbers: picks })).map(s => [s.number, s]));
@@ -105,7 +104,10 @@ export const tick = internalAction({
         const sandbox = await sandboxFor(ctx, agent.language);
         // `offer.object` is the line's number, the one every read and the app show ("leave line 4 alone").
         // What the agent may know of its owner's stake in the line (W2's worth/recent/contested), as of the last commit.
-        const input = told.get(`${agent.memberId}:${s.objectId}`) ?? { history: [] };
+        // Its own value now is measured afresh for this act (actInputs sends it exact; recorded as the agent read it).
+        const reads = actReadings(noise, agent.memberId, seed);
+        const exact = told.get(`${agent.memberId}:${s.objectId}`) ?? { history: [] };
+        const input = exact.value ? { ...exact, value: reads.value(exact.value) } : exact;
         // The seat's value function (decision 23), as the deal recorded it by ruleKey: replay re-derives it from the bundle.
         const vf = valueFnIn(seat.rule.ruleKey, scope);
         const { record } = await runAct(sandbox, {
@@ -115,7 +117,7 @@ export const tick = internalAction({
           ...input, ...(vf ? { values: vf } : {}), others: othersOf.get(seat.memberId)!,
           // Any held state, the object's own included: v1's uniqueness, "a transformation onto any existing value
           // (including the object's own) fails entirely".
-          occupied: e => holder.has(e), disclosed: disclosedFor(agent.memberId),
+          occupied: e => holder.has(e), disclosed: reads.disclosed,
         });
         // The credit rule (docs/energy-model.md §7.2): a change that would leave the agent owing more than its capacity
         // does not commit and pays only its reads; a change that does not change the state is not a change.

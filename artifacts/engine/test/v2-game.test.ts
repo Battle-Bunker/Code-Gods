@@ -10,7 +10,7 @@
  */
 import { UNIQUENESS, VALUE_RECORDS } from "../convex/v2/values.gen.ts";
 import { valueObjects } from "../convex/v2/world.ts";
-import { agentNoiseAt } from "../convex/v2/disclose.ts";
+import { actReadings } from "../convex/v2/disclose.ts";
 import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { runAct, type ActRecord } from "@workspace/v2-agents";
@@ -169,7 +169,7 @@ test("re-executing every act from its recorded inputs gives the same act", { tim
   // What the tick told each act (decision 24 and the disclosure noise), rebuilt from the record: who held each state
   // when the act ran (the births and committed acts before it, as the tick saw them) and the game's noise.
   const game = await admin.query("v2/testing:noiseOf", { gameId });
-  const disclosedFor = (memberId: string) => (s: string) => agentNoiseAt({ noiseKey: game.noiseKey ?? undefined, settings: game.settings }, memberId, s);
+  const disclosedFor = (memberId: string, seed: string) => actReadings({ noiseKey: game.noiseKey ?? undefined, settings: game.settings }, memberId, seed).disclosed;
   const holderAt = new Map<number, Map<string, string>>(), holder = new Map<string, string>(), stateOf = new Map<string, string>();
   for (const e of events) {
     if (e.kind === "act") holderAt.set(e.data.n, new Map(holder));
@@ -194,7 +194,7 @@ test("re-executing every act from its recorded inputs gives the same act", { tim
       ...(d.input ?? {}), values: valueFn(rule.ruleKey, events[0].data),
       // The other seats' rules and value functions (their othersAfter), in seat order, from the bundle.
       others: [...rules.values()].filter((p: any) => p.memberId !== d.memberId).map((p: any) => ({ rule: { family: p.family, params: p.params, tieBreaker: p.tieBreaker }, values: valueFn(p.ruleKey, events[0].data) })),
-      occupied: (s: string) => held.has(s), disclosed: disclosedFor(d.memberId),
+      occupied: (s: string) => held.has(s), disclosed: disclosedFor(d.memberId, d.seed),
     });
     const same = (r: ActRecord | any) => ({ outcome: r.outcome, after: r.after, charge: r.charge, calls: r.calls.map((c: any) => [c.mutator, c.site, c.args]), readBits: r.readBits, notes: r.notes ?? [] });
     assert.deepEqual(same(record), same(d), `act ${d.n}`);

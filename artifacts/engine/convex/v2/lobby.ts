@@ -10,7 +10,7 @@ import { dealWithBids, type Bid, type BidPricing, type BidWin } from "@workspace
 import { isPreset, presetOf } from "./presets.ts";
 import { summonPracticePartners } from "./agents.ts";
 import { makeFunctionReference } from "convex/server";
-import { DEFAULT_PEER_NOISE_BITS, newNoiseKey } from "./disclose.ts";
+import { newNoiseKey } from "./disclose.ts";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, drawEnd } from "./duration.ts";
 import { ensureWarm } from "./readiness.ts";
 import { unopposedDirections } from "@workspace/v2-agents/pure";
@@ -260,8 +260,8 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     worldSeconds: room.overrides.worldSeconds ?? preset.worldSeconds,
     startingEnergy: room.overrides.startingEnergy ?? preset.startingEnergy,
     startingObjects: preset.startingObjects, minPlayers: preset.minPlayers, economy: preset.economy,
-    // Disclosure noise on the others' sums while live (disclose.ts; v1's peerNoiseBits, default 8).
-    peerNoiseBits: room.overrides.peerNoiseBits ?? preset.peerNoiseBits ?? DEFAULT_PEER_NOISE_BITS,
+    // The variance of each reading of the others' sums while live (disclose.ts, owner decision 32).
+    peerNoiseVariance: room.overrides.peerNoiseVariance ?? preset.peerNoiseVariance,
     // How the game ends and how often standings are published (duration.ts; v1's settings).
     durationMode: room.overrides.durationMode ?? preset.durationMode,
     scoreIntervalSeconds: room.overrides.scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS,

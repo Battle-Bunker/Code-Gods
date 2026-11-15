@@ -47,7 +47,9 @@ export const headerV = v.object({
   /** The caller's seat in this game, or null for a spectator. */
   me: v.union(v.id("v2Members"), v.null()),
   summary: v.union(v.object({ winner: v.union(v.id("v2Members"), v.null()), objects: v.number(), acts: v.number() }), v.null()),
-  /** σ, in bits, of the noise on every others' sum shown while live (disclose.ts); 0: exact. */
+  /** The variance, bits², of each reading of the others' sums while live (disclose.ts, decision 32); 0: exact. */
+  peerNoiseVariance: v.number(),
+  /** Its standard deviation, bits (√ peerNoiseVariance): what "about ± σ" shows. */
   peerNoiseBits: v.number(),
   /**
    * How the game ends (duration.ts): "fixed" at `worldSeconds` (and `endsAt`); "halfLife" at a hidden random moment, half

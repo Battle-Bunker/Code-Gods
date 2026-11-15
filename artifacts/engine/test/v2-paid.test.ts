@@ -58,10 +58,10 @@ test("a paid game shows each object as last told; a look pays to see it now; the
   const all = await perform(ada!, "object.look", {}, scope);
   assert.equal(all.result.looked, ids.length, "a look at every object");
 
-  const firstPage = await ada!.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 3, cursor: null } });
+  const firstPage = await ada!.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 1, cursor: null } });
   await perform(ada!, "game.end", {}, scope);
   // A page loaded while live keeps its cursor through the end (the app's paginated list re-runs it then).
-  await ada!.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 3, cursor: firstPage.continueCursor } });
+  await ada!.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 1, cursor: firstPage.continueCursor } });
   const listed = await perform(ada!, "objects.list", { sort: "points", limit: 50 }, scope, "query");
   for (let i = 0; ; i++) {   // the end tells everyone everything, exact (scheduled at the end)
     const rows = (await ada!.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: page })).page;

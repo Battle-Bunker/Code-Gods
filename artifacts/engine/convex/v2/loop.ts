@@ -12,7 +12,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { decode, distinctBirths, heldReason, scopeOf, valuesOf, type SeatRule, type Value as ExactValue } from "./world.ts";
-import { noiseAt, shownAt } from "./disclose.ts";
+import { measured, objectReading, readingNoise, shownAt } from "./disclose.ts";
 import { endWorldOf, scoreIntervalOf } from "./duration.ts";
 import { shouldPark } from "./activity.ts";
 import { allReady, ensureWarm, isReady, LANGUAGES } from "./readiness.ts";
@@ -76,11 +76,10 @@ export async function appendEvent(ctx: MutationCtx, gameId: Id<"v2Games">, kind:
   return seq;
 }
 
-/** Every roster seat's exact bits of a state, in roster order, and the state's disclosure noise (a v2Log row's). */
+/** Every roster seat's exact bits of a state, in roster order (a v2Log row's; each reader's reading is theirs: play.ts log). */
 function logBits(game: Doc<"v2Games">, values: readonly Value[]) {
   const by = new Map(values.map(v => [v.memberId, v]));
-  const first = values[0];
-  return { bits: game.roster.map(r => by.get(r.memberId)?.rarityBits ?? 0), noise: first ? first.shownWant - first.want : 0 };
+  return { bits: game.roster.map(r => by.get(r.memberId)?.rarityBits ?? 0) };
 }
 
 // ---------------------------------------------------------------- values in the read model
@@ -95,11 +94,11 @@ async function holderOf(ctx: MutationCtx, gameId: Id<"v2Games">, state: string, 
   return null;
 }
 
-/** A player's value of a state, exact and as disclosed while live (disclose.ts: the state's noise on the others' sum). */
+/** A player's value of an object at a version, exact and as they read it while live (disclose.ts: their own reading). */
 type Value = ExactValue & { shownWant: number; shownPoints: number };
-function valuesAt(game: Doc<"v2Games">, seats: SeatRule[], wire: string): Value[] {
-  const noise = noiseAt(game, wire);
-  return valuesOf(decode(wire, game.variant), game.variant, seats, scopeOf(game).objects).map(v => ({ ...v, ...shownAt(v, noise) }));
+function valuesAt(game: Doc<"v2Games">, seats: SeatRule[], wire: string, objectId: Id<"v2Objects">, version: number): Value[] {
+  return valuesOf(decode(wire, game.variant), game.variant, seats, scopeOf(game).objects)
+    .map(v => ({ ...v, ...shownAt(v, readingNoise(game, v.memberId, objectReading(objectId, version))) }));
 }
 const shownOf = (v: Value) => ({ shownWant: v.shownWant, shownPoints: v.shownPoints });
 
@@ -107,7 +106,7 @@ const shownOf = (v: Value) => ({ shownWant: v.shownWant, shownPoints: v.shownPoi
 async function addObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[], number: number, wire: string, world: number) {
   const objectId = await ctx.db.insert("v2Objects", { gameId: game._id, number, bornAt: world });
   await ctx.db.insert("v2ObjectStates", { objectId, gameId: game._id, state: wire, version: 1, changedAt: world });
-  const values = valuesAt(game, seats, wire);
+  const values = valuesAt(game, seats, wire, objectId, 1);
   for (const val of values) {
     await ctx.db.insert("v2ObjectValues", { objectId, gameId: game._id, memberId: val.memberId as Id<"v2Members">, number, score: val.score, rarityBits: val.rarityBits, want: val.want, points: val.points, ...shownOf(val), version: 1, changedAt: world });
     // Paid observation: a birth is public, so every player is told it (knowledge.ts).
@@ -126,7 +125,7 @@ const concerns = (mine: boolean, was: number, now: number) => mine || Math.abs(n
 async function changeObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[], objectId: Id<"v2Objects">, wire: string, world: number, mover: string) {
   const st = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", objectId)).unique())!;
   await ctx.db.patch(st._id, { state: wire, version: st.version + 1, changedAt: world });
-  const after = valuesAt(game, seats, wire);
+  const after = valuesAt(game, seats, wire, objectId, st.version + 1);
   const before = new Map<string, Value>();
   for (const val of after) {
     const row = (await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", val.memberId as Id<"v2Members">)).unique())!;
@@ -384,7 +383,8 @@ export const actInputs = internalQuery({
     for (const objectId of objectIds) for (const memberId of memberIds) {
       // One document a pair: the value row carries the last moves that concerned this player (changeObject).
       const val = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", memberId)).unique();
-      out.push({ memberId, objectId, ...(val ? { value: { mine: val.rarityBits, others: val.shownWant ?? val.want, points: val.shownPoints ?? val.points } } : {}), history: val?.recent ?? [] });
+      // Exact here: the tick measures it afresh for each act (decision 32; tick.ts), as its agent reads it.
+      out.push({ memberId, objectId, ...(val ? { value: { mine: val.rarityBits, others: val.want, points: val.points } } : {}), history: val?.recent ?? [] });
     }
     return out;
   },
@@ -482,7 +482,7 @@ export const commit = internalMutation({
       // stood (a change commits below and tells it as changed).
       if (!committed && observationOf(game) === "paid" && record.readBits >= fullReadBits(game.variant, st.state) - 1e-9) {
         const row = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", act.objectId).eq("memberId", act.memberId as Id<"v2Members">)).unique();
-        if (row) await tell(ctx, game, act.memberId as Id<"v2Members">, { objectId: act.objectId, number: act.number, state: st.state, version: st.version, score: row.score, rarityBits: row.rarityBits, want: row.shownWant ?? row.want, points: row.shownPoints ?? row.points }, world);
+        if (row) await tell(ctx, game, act.memberId as Id<"v2Members">, { objectId: act.objectId, number: act.number, state: st.state, version: st.version, score: row.score, rarityBits: row.rarityBits, ...measured(game, row) }, world);
       }
       if (!committed) continue;
       const { before, after } = await changeObject(ctx, game, seats, act.objectId, record.after, world, act.memberId);
@@ -490,12 +490,12 @@ export const commit = internalMutation({
       // Paid observation: the mover is told the object its agent changed (the change paid for the look).
       if (observationOf(game) === "paid") {
         const mine = after.find(x => x.memberId === act.memberId)!;
-        await tell(ctx, game, act.memberId as Id<"v2Members">, { objectId: act.objectId, number: act.number, state: record.after, version: st.version + 1, score: mine.score, rarityBits: mine.rarityBits, want: mine.shownWant, points: mine.shownPoints }, world);
+        await tell(ctx, game, act.memberId as Id<"v2Members">, { objectId: act.objectId, number: act.number, state: record.after, version: st.version + 1, score: mine.score, rarityBits: mine.rarityBits, ...measured(game, mine) }, world);
       }
       const was = logBits(game, [...before.values()]), now = logBits(game, after);
       await ctx.db.insert("v2Log", {
         gameId: game._id, seq: actSeq, worldSeconds: world, kind: "move", objectId: act.objectId, number: act.number, version: st.version + 1,
-        stateBefore: record.before, state: record.after, bits: now.bits, bitsBefore: was.bits, noise: now.noise, noiseBefore: was.noise,
+        stateBefore: record.before, state: record.after, bits: now.bits, bitsBefore: was.bits,
         by: act.memberId as Id<"v2Members">, agentId: act.agentId, calls: record.calls.map(c => ({ mutator: c.mutator, site: c.site, args: c.args })), charge,
       });
       await appendEvent(ctx, game._id, "values", { objectId: act.objectId, number: act.number, values: after.map(({ memberId, score, rarityBits }) => ({ memberId, score, rarityBits })) });
