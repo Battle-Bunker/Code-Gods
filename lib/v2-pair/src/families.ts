@@ -34,13 +34,22 @@ const tb = (id: string, title: string, sentence: string, rep: string, hill: Sens
 
 /** "leaves 2 when divided by 5" (r = 0: "is a multiple of 5"). */
 const leaves = (p: P) => (p.r === 0 ? `is a multiple of ${p.q}` : `leaves ${p.r} when divided by ${p.q}`);
+/**
+ * The dealt numbers (two-line-systems.md §8.4, lib/v2-agents scripts/pair-reach.ts). Measured over a residue grid
+ * (q 3, 5, 7, 11 or 13, r coprime to q: a remainder of 0 would cap the prime tie-breakers at q) and k 1–6 (Divide By) or
+ * 2–5 (Gap Ratio). Dealt: the largest set where, for every tie-breaker,
+ *  - a greedy climber from 40 births reaches between 5.6 and 10.9 bits, so every seat's rule is within a factor of 2
+ *    of every other's (the coordinator's balance call, decision 42);
+ *  - within 1 bit of the family's median;
+ *  - and whose value functions pass the engine's equal-opportunity audit (test/unit/v2-params-equal.test.ts).
+ */
 export const DEALT_NUMBERS: Readonly<Record<string, readonly P[]>> = {
-  "whole-answer": [{ q: 5, r: 2 }, { q: 5, r: 3 }, { q: 5, r: 4 }, { q: 7, r: 5 }],
-  "no-fractions": [{ k: 1 }, { k: 3 }],
-  "double-gap": [{ k: 2 }, { k: 3 }, { k: 4 }],
-  "far-crossing": [{ q: 5, r: 2 }, { q: 5, r: 4 }],
-  "high-start": [{ q: 7, r: 2 }, { q: 7, r: 3 }, { q: 7, r: 5 }],
-  "steep-ratio": [{ q: 5, r: 1 }, { q: 5, r: 4 }],
+  "whole-answer": [{ q: 5, r: 2 }, { q: 5, r: 3 }, { q: 5, r: 4 }, { q: 7, r: 2 }, { q: 7, r: 3 }, { q: 7, r: 4 }, { q: 7, r: 5 }, { q: 7, r: 6 }],
+  "no-fractions": [{ k: 4 }, { k: 5 }],
+  "double-gap": [{ k: 2 }, { k: 3 }, { k: 4 }, { k: 5 }],
+  "far-crossing": [{ q: 7, r: 3 }, { q: 11, r: 3 }, { q: 13, r: 2 }],
+  "high-start": [{ q: 7, r: 2 }, { q: 11, r: 2 }, { q: 11, r: 3 }],
+  "steep-ratio": [{ q: 7, r: 3 }, { q: 7, r: 4 }, { q: 11, r: 3 }],
 };
 /**
  * The whole number n leaving r when divided by q (n − r a multiple of q, negatives included: −2 leaves 1 when divided
