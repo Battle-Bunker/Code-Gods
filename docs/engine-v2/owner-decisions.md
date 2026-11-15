@@ -728,6 +728,16 @@ back) or TRIAL (a declared experiment, measured and reported).
     hold. In player text the second preference is a "secondary preference", never "tie-break" (the owner's own word;
     v1 forbade "tie-break" in player text).
 
+36. **CALL** (the coordinator's, 15 Nov, on the lens worker's account of v1's rival-inference tools): v1's
+    `get_utility_series`, `get_board_at` and `list_utility_candidates` are restored as v1 had them, through
+    lib/v2-affordances (assistant, MCP, CLI, palette and panes): live figures blurred exactly as every other live
+    disclosure, never attributed. `get_utility_series` is v2's `log.list`; `list_utility_candidates` is `rule.candidates`.
+    `fit_utility_mixture` is restored too (the owner ruled rival inference legitimate but "possible but hard"), offered
+    only in games whose disclosure noise is at least v1's (variance 64, σ 8) and refused with a plain reason elsewhere:
+    the beginner game's noise is 0, where the fit would hand over the others' rules in minutes ("high peaks easy to find
+    … by being told the rules"). Before it ships, a check: with a fitted rule set at σ 8, can a search find joint peaks
+    cheaply? If yes, it is held and reported. Order: the series and the board, then the candidates, then the fit.
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.
