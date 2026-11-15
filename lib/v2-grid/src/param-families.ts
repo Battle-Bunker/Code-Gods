@@ -1,8 +1,9 @@
 /**
  * Parameterised grid families (owner decisions 40–42; trials declared by the coordinator, undealt until gated): one shared
  * relation per card with one or two dealt numbers, plus the units it reads, and the guard every main part carries: no
- * two rows or two columns the same (the period-2 route). A family deals the (value, tie-breaker) pairs in PARAM_DEALT,
- * each of the same reach in play (a 100-move climber from π boards reaches a median of 17 ± 0.5 bits, main part and
+ * two rows or two columns holding the same numbers (the period-2 route). A family deals the (value, tie-breaker) pairs
+ * in PARAM_DEALT,
+ * each of the same reach in play (about half of all 100-move climbs from π boards reach 17 bits, main part and
  * tie-breaker as dealt), and a redraw (parameter drift) moves to a nearby value (`gridDriftNeighbours`).
  *
  * - Magic Totals: the residue family (Magic Accountant and Magic Eighteen folded in), totals leaving r when divided by q.
@@ -29,13 +30,13 @@ const leaves = (r: number, q: number) => (r === 0 ? `be a multiple of ${q}` : `l
 /** The same remainder after "a number that": "is a multiple of 7" or "leaves 3 when divided by 7". */
 const thatLeaves = (r: number, q: number) => (r === 0 ? `is a multiple of ${q}` : `leaves ${r} when divided by ${q}`);
 /**
- * The guard every main part carries (the period-2 route, gate of #713): boards that repeat a row or a column (two
- * alternating digits, repeated row pairs) met every main part at once. Each row equal to an earlier row, and each column
- * equal to an earlier column, adds 1 to the main part's distance.
+ * The guard every main part carries (the period-2 route, gates of #713 and #734): boards that repeat a row or a column
+ * met every main part at once, and so did boards that repeat one in another order (6757 / 3536 / 7675 / 5363). Each row
+ * holding the same numbers, in any order, as an earlier row, and each such column, adds 1 to the main part's distance.
  */
-export const NO_REPEATS = ", and no two rows or two columns may be the same";
+export const NO_REPEATS = ", and no two rows or two columns may hold the same numbers";
 export function repeats(n: number, v: readonly number[]): number {
-  const seen = (ls: number[][]) => { const s = new Set<string>(); let r = 0; for (const l of ls) { const k = l.map(i => v[i]).join(","); if (s.has(k)) r++; else s.add(k); } return r; };
+  const seen = (ls: number[][]) => { const s = new Set<string>(); let r = 0; for (const l of ls) { const k = l.map(i => v[i]!).sort((a, b) => a - b).join(","); if (s.has(k)) r++; else s.add(k); } return r; };
   return seen(rows(n)) + seen(cols(n));
 }
 
@@ -224,77 +225,61 @@ export const paramGridFamilies = (n: number): readonly RuleFamily<GridState, any
 // ---------------------------------------------------------------- the dealt (value, tie-breaker) pairs
 
 /**
- * Each family deals a (value, tie-breaker) pair only where the 100-move first-improvement climber (±1 on a cell or a
- * swap, 64 starts from π boards) reaches a median within ±0.5 bits of one common band, 17 bits, for the main part and
- * that tie-breaker as dealt (bits from 4M π boards). The tie-breakers moved reach by up to 5 bits (gate of #713), so the
- * band is per pair. A digit string lists the tie-breakers dealt with a value, by their index in the family's list.
+ * Each family deals a (value, tie-breaker) pair only where 45–55% of 256 first-improvement climbs (≤100 moves of ±1 on a
+ * cell or a swap, from π boards) reach 17 bits, for the main part and that tie-breaker as dealt (bits from 4M π boards).
+ * A share of climbs is used, not the median: climbs either solve a rule or stall, so a median of 64 climbs moved by ±2
+ * bits between samples (gate of #734). A digit string lists the tie-breakers dealt with a value, by their index.
  */
 const MT_DEALT: readonly (readonly [TotalUnits, number, number, string])[] = [
-  ["columns-boxes", 6, 0, "01"], ["columns-boxes", 6, 1, "0"], ["columns-boxes", 6, 2, "0"],
-  ["columns-boxes", 6, 4, "0"], ["columns-boxes", 6, 5, "0"], ["columns-boxes", 7, 1, "012"],
-  ["columns-boxes", 7, 2, "1"], ["columns-boxes", 7, 3, "12"], ["columns-boxes", 7, 4, "01"],
-  ["columns-boxes", 7, 5, "012"], ["columns-boxes", 8, 0, "2"], ["columns-boxes", 8, 5, "1"],
-  ["columns-boxes", 9, 1, "2"], ["columns-boxes", 9, 2, "2"], ["columns-boxes", 9, 3, "2"],
-  ["columns-boxes", 9, 4, "2"], ["columns-boxes", 9, 5, "2"], ["columns-boxes", 9, 8, "2"],
-  ["columns-boxes", 10, 1, "2"], ["columns-boxes", 10, 2, "0"], ["columns-boxes", 10, 7, "2"],
-  ["columns-boxes", 10, 8, "2"], ["columns-boxes", 11, 1, "0"], ["columns-boxes", 11, 2, "2"],
-  ["columns-boxes", 11, 3, "2"], ["columns-boxes", 11, 4, "2"], ["columns-boxes", 11, 6, "2"],
-  ["columns-boxes", 11, 7, "2"], ["columns-boxes", 11, 8, "2"], ["columns-boxes", 11, 9, "2"],
-  ["columns-boxes", 11, 10, "0"], ["columns-boxes", 12, 3, "2"], ["columns-boxes", 12, 5, "2"],
-  ["columns-boxes", 12, 6, "2"], ["columns-boxes", 12, 9, "2"], ["rows-boxes", 6, 1, "0"],
-  ["rows-boxes", 6, 2, "0"], ["rows-boxes", 6, 4, "0"], ["rows-boxes", 6, 5, "0"], ["rows-boxes", 7, 0, "12"],
-  ["rows-boxes", 7, 1, "12"], ["rows-boxes", 7, 2, "012"], ["rows-boxes", 7, 3, "0"], ["rows-boxes", 7, 4, "0"],
-  ["rows-boxes", 7, 5, "1"], ["rows-boxes", 7, 6, "01"], ["rows-boxes", 8, 0, "2"], ["rows-boxes", 8, 3, "01"],
-  ["rows-boxes", 8, 4, "01"], ["rows-boxes", 8, 5, "2"], ["rows-boxes", 8, 6, "2"], ["rows-boxes", 9, 1, "02"],
-  ["rows-boxes", 9, 2, "2"], ["rows-boxes", 9, 3, "2"], ["rows-boxes", 9, 4, "2"], ["rows-boxes", 9, 5, "2"],
-  ["rows-boxes", 9, 8, "2"], ["rows-boxes", 10, 0, "2"], ["rows-boxes", 10, 1, "2"], ["rows-boxes", 10, 9, "2"],
-  ["rows-boxes", 11, 1, "0"], ["rows-boxes", 11, 2, "02"], ["rows-boxes", 11, 3, "2"], ["rows-boxes", 11, 4, "2"],
-  ["rows-boxes", 11, 5, "2"], ["rows-boxes", 11, 6, "2"], ["rows-boxes", 11, 7, "2"], ["rows-boxes", 11, 9, "02"],
-  ["rows-boxes", 11, 10, "2"], ["rows-boxes", 12, 0, "2"], ["rows-boxes", 12, 3, "2"], ["rows-boxes", 12, 4, "2"],
-  ["rows-boxes", 12, 5, "2"], ["rows-boxes", 12, 8, "2"], ["rows-boxes", 12, 9, "0"], ["rows-boxes", 12, 10, "2"],
-  ["rows-columns", 5, 0, "0"], ["rows-columns", 5, 2, "01"], ["rows-columns", 5, 4, "012"],
-  ["rows-columns", 6, 5, "0"], ["rows-columns", 8, 0, "2"], ["rows-columns", 8, 7, "0"],
-  ["rows-columns", 9, 0, "02"], ["rows-columns", 9, 1, "2"], ["rows-columns", 9, 2, "02"],
-  ["rows-columns", 9, 5, "0"], ["rows-columns", 9, 6, "2"], ["rows-columns", 9, 7, "02"],
-  ["rows-columns", 10, 2, "0"], ["rows-columns", 10, 4, "2"], ["rows-columns", 10, 7, "0"],
-  ["rows-columns", 11, 7, "0"], ["rows-columns", 12, 0, "2"], ["rows-columns", 12, 2, "2"],
-  ["rows-columns", 12, 5, "0"], ["rows-columns", 12, 6, "0"], ["rows-columns", 12, 7, "2"],
-  ["rows-columns", 12, 9, "2"],
+  ["columns-boxes", 6, 2, "1"], ["columns-boxes", 6, 5, "0"], ["columns-boxes", 7, 1, "2"],
+  ["columns-boxes", 7, 2, "0"], ["columns-boxes", 7, 3, "0"], ["columns-boxes", 7, 4, "02"],
+  ["columns-boxes", 7, 5, "2"], ["columns-boxes", 8, 1, "0"], ["columns-boxes", 8, 2, "2"],
+  ["columns-boxes", 8, 3, "02"], ["columns-boxes", 8, 5, "2"], ["columns-boxes", 8, 6, "02"],
+  ["columns-boxes", 9, 1, "02"], ["columns-boxes", 9, 2, "2"], ["columns-boxes", 9, 4, "02"],
+  ["columns-boxes", 9, 5, "2"], ["columns-boxes", 9, 7, "0"], ["columns-boxes", 10, 0, "2"],
+  ["columns-boxes", 10, 1, "2"], ["columns-boxes", 10, 3, "0"], ["columns-boxes", 10, 5, "0"],
+  ["columns-boxes", 10, 7, "0"], ["columns-boxes", 10, 9, "0"], ["columns-boxes", 11, 2, "0"],
+  ["columns-boxes", 11, 3, "0"], ["columns-boxes", 11, 4, "0"], ["columns-boxes", 11, 6, "0"],
+  ["columns-boxes", 11, 8, "0"], ["columns-boxes", 11, 9, "2"], ["columns-boxes", 12, 0, "2"],
+  ["columns-boxes", 12, 1, "02"], ["columns-boxes", 12, 2, "02"], ["columns-boxes", 12, 3, "02"],
+  ["columns-boxes", 12, 4, "0"], ["columns-boxes", 12, 5, "0"], ["columns-boxes", 12, 10, "0"],
+  ["rows-boxes", 6, 0, "01"], ["rows-boxes", 6, 1, "1"], ["rows-boxes", 7, 1, "02"], ["rows-boxes", 7, 2, "0"],
+  ["rows-boxes", 7, 3, "0"], ["rows-boxes", 7, 4, "1"], ["rows-boxes", 8, 1, "0"], ["rows-boxes", 8, 2, "0"],
+  ["rows-boxes", 8, 3, "02"], ["rows-boxes", 8, 4, "2"], ["rows-boxes", 9, 1, "0"], ["rows-boxes", 9, 2, "02"],
+  ["rows-boxes", 9, 3, "2"], ["rows-boxes", 9, 4, "02"], ["rows-boxes", 9, 5, "2"], ["rows-boxes", 9, 7, "0"],
+  ["rows-boxes", 10, 1, "2"], ["rows-boxes", 10, 3, "0"], ["rows-boxes", 10, 4, "0"], ["rows-boxes", 10, 5, "2"],
+  ["rows-boxes", 10, 7, "0"], ["rows-boxes", 10, 8, "0"], ["rows-boxes", 10, 9, "2"], ["rows-boxes", 11, 2, "02"],
+  ["rows-boxes", 11, 5, "0"], ["rows-boxes", 11, 8, "02"], ["rows-boxes", 11, 9, "2"], ["rows-boxes", 11, 10, "0"],
+  ["rows-boxes", 12, 1, "02"], ["rows-boxes", 12, 2, "0"], ["rows-boxes", 12, 3, "2"], ["rows-boxes", 12, 4, "02"],
+  ["rows-boxes", 12, 5, "0"], ["rows-boxes", 12, 7, "2"], ["rows-boxes", 12, 8, "0"], ["rows-columns", 5, 2, "0"],
+  ["rows-columns", 6, 0, "0"], ["rows-columns", 6, 5, "0"], ["rows-columns", 7, 5, "0"],
+  ["rows-columns", 7, 6, "0"], ["rows-columns", 8, 0, "0"], ["rows-columns", 8, 7, "0"],
+  ["rows-columns", 9, 3, "0"], ["rows-columns", 9, 4, "0"], ["rows-columns", 9, 8, "02"],
+  ["rows-columns", 10, 2, "02"], ["rows-columns", 10, 3, "2"], ["rows-columns", 10, 8, "0"],
+  ["rows-columns", 10, 9, "0"], ["rows-columns", 11, 9, "02"], ["rows-columns", 11, 10, "2"],
+  ["rows-columns", 12, 2, "0"], ["rows-columns", 12, 3, "2"], ["rows-columns", 12, 4, "0"],
+  ["rows-columns", 12, 5, "0"], ["rows-columns", 12, 8, "0"], ["rows-columns", 12, 9, "1"],
 ];
 const SPREAD_DEALT: readonly (readonly [SpreadWindows, number, string])[] = [
-  ["column-triples", 1, "012"], ["column-triples", 4, "1"], ["row-triples", 1, "012"], ["row-triples", 4, "1"],
-  ["squares-column-triples", 3, "02"], ["squares-columns", 4, "0"], ["squares-row-triples", 3, "02"],
-  ["squares-rows", 4, "1"], ["squares", 6, "1"],
+  ["squares-column-triples", 1, "0"], ["squares-column-triples", 2, "2"], ["squares-columns", 1, "12"],
+  ["squares-columns", 2, "0"], ["squares-columns", 4, "1"], ["squares-row-triples", 1, "0"],
+  ["squares-row-triples", 2, "2"], ["squares-row-triples", 3, "1"], ["squares-rows", 1, "12"],
+  ["squares-rows", 2, "02"], ["squares-rows", 4, "1"], ["squares", 1, "2"],
 ];
 const NL_DEALT: readonly (readonly [NumberAxis, number, number, string])[] = [
-  ["columns", 9, 4, "1"], ["columns", 9, 5, "1"], ["columns", 9, 8, "1"], ["columns", 11, 2, "1"],
-  ["columns", 11, 6, "2"], ["rows-columns", 9, 2, "0"], ["rows-columns", 9, 3, "0"], ["rows-columns", 9, 5, "2"],
-  ["rows-columns", 11, 0, "0"], ["rows-columns", 11, 10, "0"], ["rows-columns", 13, 0, "1"],
-  ["rows-columns", 13, 1, "12"], ["rows-columns", 13, 2, "02"], ["rows-columns", 13, 3, "02"],
-  ["rows-columns", 13, 4, "02"], ["rows-columns", 13, 5, "012"], ["rows-columns", 13, 6, "1"],
-  ["rows-columns", 13, 7, "02"], ["rows-columns", 13, 8, "2"], ["rows-columns", 13, 9, "012"],
-  ["rows-columns", 13, 10, "1"], ["rows-columns", 13, 11, "1"], ["rows-columns", 13, 12, "0"], ["rows", 9, 2, "1"],
-  ["rows", 9, 3, "1"], ["rows", 9, 8, "1"], ["rows", 11, 0, "1"], ["rows", 11, 3, "1"], ["rows", 11, 4, "1"],
-  ["rows", 11, 5, "1"], ["rows", 11, 7, "1"], ["rows", 11, 10, "1"], ["rows", 13, 1, "1"], ["rows", 13, 2, "1"],
-  ["rows", 13, 3, "1"], ["rows", 13, 10, "1"], ["rows", 13, 12, "1"],
+  ["columns", 11, 0, "1"], ["columns", 11, 6, "2"], ["columns", 11, 7, "12"], ["rows-columns", 11, 0, "02"],
+  ["rows-columns", 13, 2, "2"], ["rows-columns", 13, 3, "1"], ["rows-columns", 13, 5, "1"],
+  ["rows-columns", 13, 6, "1"], ["rows-columns", 13, 7, "2"], ["rows-columns", 13, 8, "0"],
+  ["rows-columns", 13, 10, "1"], ["rows-columns", 13, 12, "1"], ["rows", 11, 8, "2"],
 ];
 const PS_DEALT: readonly (readonly [Pairing, number, number | null, string])[] = [
-  ["box-diagonal", 4, 5, "12"], ["box-diagonal", 4, 6, "1"], ["box-diagonal", 5, 6, "2"],
-  ["box-diagonal", 5, 8, "01"], ["box-diagonal", 6, 8, "2"], ["box-diagonal", 6, 11, "0"],
-  ["box-diagonal", 7, 9, "1"], ["box-diagonal", 7, 10, "01"], ["column-leap", 4, 5, "0"],
-  ["column-leap", 4, 6, "02"], ["column-leap", 5, 6, "2"], ["column-leap", 5, 8, "02"],
-  ["column-leap", 6, 11, "012"], ["column-leap", 7, 9, "01"], ["column-leap", 7, 10, "1"],
-  ["column-mirror", 4, 5, "02"], ["column-mirror", 4, 6, "012"], ["column-mirror", 5, 6, "2"],
-  ["column-mirror", 5, 8, "2"], ["column-mirror", 6, 8, "2"], ["column-mirror", 6, 11, "01"],
-  ["column-mirror", 7, 9, "01"], ["column-mirror", 7, 10, "01"], ["half-turn", 4, 5, "2"], ["half-turn", 4, 6, "0"],
-  ["half-turn", 5, 6, "2"], ["half-turn", 5, 8, "2"], ["half-turn", 6, 8, "2"], ["half-turn", 7, 9, "1"],
-  ["half-turn", 7, 10, "01"], ["row-leap", 4, 5, "02"], ["row-leap", 4, 6, "1"], ["row-leap", 5, 6, "2"],
-  ["row-leap", 5, 8, "02"], ["row-leap", 6, 8, "2"], ["row-leap", 7, 10, "0"], ["row-mirror", 4, 5, "2"],
-  ["row-mirror", 4, 6, "02"], ["row-mirror", 5, 6, "2"], ["row-mirror", 5, 8, "2"], ["row-mirror", 6, 8, "0"],
-  ["row-mirror", 7, 9, "01"], ["row-mirror", 7, 10, "01"], ["side-by-side", 4, 6, "1"], ["side-by-side", 5, 6, "2"],
-  ["side-by-side", 5, 8, "01"], ["side-by-side", 6, 8, "2"], ["side-by-side", 6, 11, "2"],
-  ["side-by-side", 7, 9, "1"], ["side-by-side", 7, 10, "01"], ["stacked", 4, 5, "12"], ["stacked", 5, 6, "2"],
-  ["stacked", 5, 8, "1"], ["stacked", 7, 9, "0"], ["stacked", 7, 10, "01"],
+  ["half-turn", 4, 5, "01"], ["half-turn", 4, 6, "01"], ["half-turn", 4, 7, "0"], ["half-turn", 5, 7, "012"],
+  ["half-turn", 5, 9, "02"], ["half-turn", 6, 8, "2"], ["half-turn", 6, 9, "1"], ["half-turn", 6, 11, "0"],
+  ["half-turn", 7, 9, "0"], ["half-turn", 7, 11, "01"], ["half-turn", 8, 10, "12"], ["side-by-side", 1, 7, "2"],
+  ["side-by-side", 2, null, "1"], ["side-by-side", 4, 5, "02"], ["side-by-side", 4, 6, "1"],
+  ["side-by-side", 5, 6, "2"], ["side-by-side", 5, 7, "01"], ["side-by-side", 5, 8, "01"],
+  ["side-by-side", 5, 9, "02"], ["side-by-side", 6, 8, "1"], ["side-by-side", 6, 11, "0"],
+  ["side-by-side", 7, 10, "1"], ["side-by-side", 7, 11, "01"], ["side-by-side", 8, 10, "012"],
 ];
 
 const tbIds = (fam: { tieBreakers: readonly { id: string }[] }, code: string) => [...code].map(c => fam.tieBreakers[Number(c)]!.id);
