@@ -217,3 +217,15 @@ test("on a rational line the starters clear a fraction their rule cares about: y
     assert.ok(!v.result.elements.c.q.includes("/"), `${language}: the intercept is whole now (${v.result.elements.c.q})`);
   }
 });
+
+test("a vertical line is tipped, not skipped: the starters climb the tips (mirror or nudge b) in both languages", async () => {
+  const at = { lines: [{ a: 1n, b: 0n, c: -3n }] };   // x = 3
+  for (const language of ["typescript", "python"] as const) {
+    const simple = startersFor("prime-landing", language).find(a => a.kind === "simple")!;
+    const { record } = await runAct(await boxes.get(language), {
+      type: lineType, variant: lineQ, state: at, rule: { family: "prime-landing", params: paramsOf("prime-landing"), tieBreaker: familyOf("prime-landing").tieBreakers[0]!.id }, program: program(simple), seed: "1", energy: 500,
+    });
+    assert.equal(record.outcome, "committed", `${language}: ${record.reason}`);
+    assert.ok(["cart.mirror", "gen.nudge"].includes(record.calls[0]!.mutator), `${language}: ${record.calls[0]!.mutator}`);
+  }
+});

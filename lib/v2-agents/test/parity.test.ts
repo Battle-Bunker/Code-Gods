@@ -224,3 +224,32 @@ test("rounding: on a line with fractions, the steps to the whole number below an
   assert.ok(b!.endsWith("mach.stretch:2:1:3"), b);
   assert.equal(z, "0", "whole numbers: nothing to round");
 });
+
+test("fractions and tips: steps into halves and thirds; on a vertical line, the moves that tip it; the same in both languages", async () => {
+  const ts = `function agent(offer) {
+  const say = t => t.map(([p, m, c]) => p.mutator + ":" + Object.values(p.args).join(",") + ":" + Q.toString(m) + ":" + Q.toString(c)).join(" ");
+  return [move("probe", { r: [say(fractions(Q.of(2), Q.of(5))), say(tips(offer))].join("|") })];
+}`;
+  const py = `def agent(offer):
+    def say(t):
+        return " ".join(p["mutator"] + ":" + ",".join(str(v) for v in p["args"].values()) + ":" + str(m) + ":" + str(c) for p, m, c in t)
+    return [move("probe", r="|".join([say(fractions(Fraction(2), Fraction(5))), say(tips(offer))]))]
+`;
+  const out: string[][] = [];
+  for (const state of [{ lines: [{ a: 2n, b: 0n, c: -1n }] }, line(3, 4, lineQ).state]) {   // x = 1/2 (vertical), then y = 3x + 4
+    const row: string[] = [];
+    for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
+      const host = new EngineHost({ type: lineType, variant: lineQ, state, rule: { family: "m-meets-c", params: {} }, energy: 10 });
+      const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
+      assert.equal(res.ok, true, res.ok ? "" : res.error);
+      if (res.ok) row.push((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r);
+    }
+    assert.equal(row[1], row[0], "Python and TypeScript differ");
+    out.push(row[0]!.split("|"));
+  }
+  const [frac, tipsVertical] = out[0]!, [, tipsSloped] = out[1]!;
+  assert.equal(frac!.split(" ").length, 15, "6 shifts, 6 tilts, 3 stretches");
+  assert.ok(frac!.startsWith("si.shift:1/2:2:11/2 si.tilt:1/2:5/2:5"), frac);
+  assert.equal(tipsVertical, "cart.mirror:diagonal:0:1/2 gen.nudge:b,1:-2:1 gen.nudge:b,2:-1:1/2", "x = 1/2 tips to y = 1/2, y = -2x + 1, y = -x + 1/2");
+  assert.equal(tipsSloped, "", "a line that is not vertical has nothing to tip");
+});

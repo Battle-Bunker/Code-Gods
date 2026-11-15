@@ -146,7 +146,10 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     "  const v = look(offer, \"si\");      // the line as y = mx + c",
     "  const rule = goal(offer);         // your rule (free)",
     `  const m = v.m, c = v.c, p = rule.params${kind === "example" ? "" : ", tie = rule.tieBreaker"};`,
-    "  if (!Q.isQ(m)) return null;       // a vertical line has no y = mx + c: skip",
+    ...(kind === "naive" ? ["  if (!Q.isQ(m)) return null;       // a vertical line has no y = mx + c: skip"] : [
+      "  // A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.",
+      `  if (!Q.isQ(m)) return climb(offer, tips(offer).filter(([plan]) => !PROTECT.includes(offer.object) || fair(offer, plan)).map(([plan, m2, c2]) => [plan, score(m2, c2, ${args})]), null, QUOTES);`,
+    ]),
     "  const tries = [];                 // [plan, m after, c after]: changes tried in the agent's own head",
     "  for (let k = -FAR; k <= FAR; k++) {",
     "    if (k === 0) continue;",
@@ -168,7 +171,7 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
   }
   out.push(
     "  }",
-    ...(kind === "naive" ? [] : ["  tries.push(...rounding(m, c));   // on a line with fractions: to a whole number, by one part, or stretched"]),
+    ...(kind === "naive" ? [] : ["  tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds"]),
     ...(kind === "naive" ? [
       `  let top = score(m, c, ${args}), plans = [];`,
       "  for (const [plan, m2, c2] of tries) {",
@@ -233,8 +236,11 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     "    v = look(offer, \"si\")      # the line as y = mx + c",
     "    rule = goal(offer)         # your rule (free)",
     kind === "example" ? "    m, c, p = v.m, v.c, rule.params" : "    m, c, p, tie = v.m, v.c, rule.params, rule.tie_breaker",
-    "    if m == None:              # a vertical line has no y = mx + c: skip",
-    "        return None",
+    ...(kind === "naive" ? ["    if m == None:              # a vertical line has no y = mx + c: skip", "        return None"] : [
+      "    # A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.",
+      "    if m == None:",
+      `        return climb(offer, [(plan, score(m2, c2, ${args})) for plan, m2, c2 in tips(offer) if offer.object not in PROTECT or fair(offer, plan)], None, QUOTES)`,
+    ]),
     "    tries = []                 # (plan, m after, c after): changes tried in the agent's own head",
     "    for k in range(-FAR, FAR + 1):",
     "        if k == 0:",
@@ -256,7 +262,7 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     }
   }
   out.push(
-    ...(kind === "naive" ? [] : ["    tries += rounding(m, c)   # on a line with fractions: to a whole number, by one part, or stretched"]),
+    ...(kind === "naive" ? [] : ["    tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds"]),
     ...(kind === "naive" ? [
       `    top, plans = score(m, c, ${args}), []`,
       "    for plan, m2, c2 in tries:",

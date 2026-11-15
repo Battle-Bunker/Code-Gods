@@ -32,7 +32,8 @@ function agent(offer) {
   const v = look(offer, "si");      // the line as y = mx + c
   const rule = goal(offer);         // your rule (free)
   const m = v.m, c = v.c, p = rule.params;
-  if (!Q.isQ(m)) return null;       // a vertical line has no y = mx + c: skip
+  // A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.
+  if (!Q.isQ(m)) return climb(offer, tips(offer).filter(([plan]) => !PROTECT.includes(offer.object) || fair(offer, plan)).map(([plan, m2, c2]) => [plan, score(m2, c2, p)]), null, QUOTES);
   const tries = [];                 // [plan, m after, c after]: changes tried in the agent's own head
   for (let k = -FAR; k <= FAR; k++) {
     if (k === 0) continue;
@@ -42,7 +43,7 @@ function agent(offer) {
     const f = k > 0 ? k + 1 : k - 1;
     tries.push([move("mach.stretch", { f }), Q.mul(m, f), Q.mul(c, f)]);   // multiply every output by f (m and c both)
   }
-  tries.push(...rounding(m, c));   // on a line with fractions: to a whole number, by one part, or stretched
+  tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
   let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p)]);   // each step and the score it reaches
   // A promise: on these lines, only steps that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));

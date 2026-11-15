@@ -38,6 +38,11 @@
 #                                gradient or the y-intercept to the whole number below or above, nudge it by one part
 #                                (±1/d), or stretch the line by a denominator d; each (plan, m after, c after). [] when
 #                                both are whole numbers.
+#   fractions(m, c)              steps into fractions on a line y = mx + c: shift or tilt by ±1/2, ±1/3, ±2/3, or stretch
+#                                by 1/2, 2/3 or 3/2; each (plan, m after, c after) ([] on a vertical line).
+#   tips(offer)                  on a vertical line (x = k: no y = mx + c), the moves that tip it into one: mirror across
+#                                y = x (to y = k) or nudge b up by 1 or 2; each (plan, m after, c after). A small read.
+#                                [] on any other line.
 #   climb(offer, options, now, most)
 #                                the step that raises your points here most (your rarity × the others' rarity, added
 #                                up), from options [(plan, score it reaches), ...]; None when none does. It weighs the
@@ -213,6 +218,33 @@ def rounding(m, c):
     for d in parts:
         out.append((call("mach.stretch", f=Fraction(d)), m * d, c * d))
     return out
+
+
+def fractions(m, c):
+    out = []
+    if not isinstance(m, Fraction) or not isinstance(c, Fraction):
+        return out
+    for k in (Fraction(1, 2), Fraction(-1, 2), Fraction(1, 3), Fraction(-1, 3), Fraction(2, 3), Fraction(-2, 3)):
+        out.append((call("si.shift", k=k), m, c + k))
+        out.append((call("si.tilt", k=k), m + k, c))
+    for f in (Fraction(1, 2), Fraction(2, 3), Fraction(3, 2)):
+        out.append((call("mach.stretch", f=f), m * f, c * f))
+    return out
+
+
+def tips(offer):
+    try:
+        g = offer.view("gen")
+    except HostError:
+        return []
+    a, b, c = g.a, g.b, g.c
+    if not isinstance(a, Fraction) or not isinstance(c, Fraction) or b != 0 or a == 0:
+        return []
+    return [
+        (call("cart.mirror", axis="diagonal"), Fraction(0), -c / a),
+        (call("gen.nudge", which="b", k=1), -a, -c),
+        (call("gen.nudge", which="b", k=2), -a / 2, -c / 2),
+    ]
 
 
 def climb(offer, options, now, most=None):
