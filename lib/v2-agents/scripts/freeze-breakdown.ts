@@ -35,7 +35,6 @@ const boxes = sandboxes();
 type Tally = { n: number; flat: number; pricedOut: number; tension: number; available: number; bestGain: number[]; moving: number[] };
 const per = new Map<string, Tally>();
 const tally = (f: string) => { let t = per.get(f); if (!t) per.set(f, t = { n: 0, flat: 0, pricedOut: 0, tension: 0, available: 0, bestGain: [], moving: [] }); return t; };
-const examples: { family: string; table: string; seat: string; params: string; line: string; call: string; price: number; own: number[]; others: number[]; points: number[] }[] = [];
 let objectsSeen = 0, objectsMovingLastMinute = 0, perMinute: number[] = [];
 
 for (const [ti, table] of tables.entries()) for (let g = 0; g < Number(o.games); g++) {
@@ -49,30 +48,20 @@ for (const [ti, table] of tables.entries()) for (let g = 0; g < Number(o.games);
   for (const s of p.final) {
     const host = new EngineHost({ type: space.type, variant: space.variant, state: s, rule: table[0]!, energy: 0 });
     const calls = [...wide, ...lineShortcutMoves(space.variant, table[0]!, s)];
-    const priced = calls.map(c => ({ c, x: host.price([c]) })).filter(p => p.x.valid);
+    const priced = calls.map(c => host.price([c])).filter(x => x.valid);
     // A seat's points: its bits times the others' bits on the object (the game's product rule).
     const bitsOf = table.map(r => space.bits(r)), at = (x: unknown) => bitsOf.map(b => b(x));
     const before = at(s), points = (v: number[], i: number) => v[i]! * (v.reduce((a, b) => a + b, 0) - v[i]!);
-    const after = priced.map(({ c, x }) => ({ total: x.total, v: at(x.result), call: c }));
+    const after = priced.map(x => ({ total: x.total, v: at(x.result) }));
     for (const [i, rule] of table.entries()) {
       const t = tally(rule.family), p0 = points(before, i);
       t.n++;
-      let best = 0, bestCheap = 0, pointsUp = false, bestUp: (typeof after)[number] | null = null;
+      let best = 0, bestCheap = 0, pointsUp = false;
       for (const x of after) {
         const gain = x.v[i]! - before[i]!;
         if (gain > best) best = gain;
         if (x.total <= fullCharge && gain > bestCheap) bestCheap = gain;
-        if (x.total <= fullCharge && gain > 1e-9 && points(x.v, i) > p0 + 1e-9) {
-          pointsUp = true;
-          if (!bestUp || points(x.v, i) > points(bestUp.v, i)) bestUp = x;
-        }
-      }
-      // The examples the agents session replays with the shipped starter: the move that raises the seat's points most.
-      if (pointsUp && bestUp && examples.filter(e => e.family === rule.family).length < 2) {
-        const others = (v: number[]) => v.reduce((a, b) => a + b, 0) - v[i]!;
-        examples.push({ family: rule.family, table: table.map(ruleName).join(", "), seat: ruleName(rule), params: JSON.stringify(rule.params),
-          line: space.type.encode(s), call: JSON.stringify(bestUp.call), price: bestUp.total,
-          own: [before[i]!, bestUp.v[i]!], others: [others(before), others(bestUp.v)], points: [p0, points(bestUp.v, i)] });
+        if (x.total <= fullCharge && gain > 1e-9 && points(x.v, i) > p0 + 1e-9) pointsUp = true;
       }
       if (best <= 1e-9) t.flat++;
       else if (bestCheap <= 1e-9) t.pricedOut++;
@@ -91,6 +80,3 @@ console.log("|---|--:|--:|--:|--:|--:|--:|");
 for (const [f, t] of [...per].sort((a, b) => b[1].available / b[1].n - a[1].available / a[1].n)) {
   console.log(`| ${f} | ${t.n} | ${pct(t.flat, t.n)} | ${pct(t.pricedOut, t.n)} | ${pct(t.tension, t.n)} | ${pct(t.available, t.n)} | ${med(t.bestGain).toFixed(2)} |`);
 }
-
-console.log("\nExamples (an end object and the affordable move that raises the seat's points most; a, b, c of ax + by + c = 0):");
-for (const e of examples) console.log(`- ${e.seat} ${e.params} on [${e.table}], line ${e.line}: ${e.call} for ${e.price.toFixed(1)}⚡; own ${e.own.map(x => x.toFixed(2)).join(" → ")}, others ${e.others.map(x => x.toFixed(2)).join(" → ")}, points ${e.points.map(x => x.toFixed(1)).join(" → ")}`);
