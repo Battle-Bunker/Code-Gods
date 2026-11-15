@@ -92,8 +92,10 @@ export const ruler = family("ruler", "Ruler", ["norm", "si", "tri", "gen"], rule
  * Dealt: k = 1, 3, 7, 9. Ending 9's rungs are rarer at equal area (about a bit and a half), and dearer to reach by as
  * much: the median over rungs of a rung's bits less the code cost of the cheapest line found on it is −10.1 to −10.5
  * bits for all four endings (15 Nov). Like Prime Landing's, the params-equal audit compares them by top and median.
- * Prime Gradient is its named adversary: a steep gradient on a prime shrinks the area (c²/2|m|), and the area grows by
- * flattening the line.
+ * Square Area is its named adversary on the same number: a square is never a prime, so an area near a square is off
+ * this ladder (the tension matrix, 15 Nov: all 12 pairs of their tie-breakers in tension; climbing either lowers the other
+ * 50–65% of the time). Prime Landing shares a climb only on lines whose y-intercept is 2 (area = crossing), whose
+ * gradient −2/p has a bottom number p: priced out by the code (y = −(2/1009)x + 2 has φ 1020 bits).
  */
 type Ends = { ends: number };
 const AREA_ENDS: Ends[] = PRIME_ENDINGS.map(ends => ({ ends }));
