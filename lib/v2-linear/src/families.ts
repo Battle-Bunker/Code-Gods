@@ -7,6 +7,7 @@ import { gcd, Qn, q, ref, type ElementRef, type ElementValue, type EvalContext, 
 import type { LineState } from "./line.ts";
 import { digitLevel, digitNote, isPrimeEnding, largestPrimeFactor, nearbyPrimes, nearestPrimeEnding, smallestPrimeFactor } from "./numbers.ts";
 import { beginnerFamilies, factorLabel } from "./beginner.ts";
+import { gradientWitness } from "./witnesses.ts";
 import { rationalFamilies } from "./rational.ts";
 import { rational2Families } from "./rational2.ts";
 
@@ -55,7 +56,7 @@ const pg = {
   ] as L<Ends>[],
 };
 export const primeGradient: RuleFamily<LineState, Ends> = {
-  id: "prime-gradient", title: "Prime Gradient", card: (p, tb) => card(pg, p, tb), keepsParams: true,
+  id: "prime-gradient", title: "Prime Gradient", card: (p, tb) => card(pg, p, tb), keepsParams: true, witness: gradientWitness,
   params: [], dealable: () => [1, 9].flatMap(ends => [{ ends }, { ends, side: -1 as const }]), depends: ["si", "cart"], ...pg,
   evaluate(ctx, pr) {
     const mRef = ref("si", "m"), cRef = ref("si", "c");

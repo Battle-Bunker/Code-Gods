@@ -3,6 +3,7 @@
  * beginner.ts unchanged, 15 Nov, so their redesign against design-principles.md does not collide with the others').
  */
 import { gcd, Qn, q, ref, type ElementRef, type Q } from "@workspace/v2-core";
+import { fromMC, type LineState } from "./line.ts";
 import { allUndefined, distance, factorLabel, family, gap, more, num, prime, verticalAt, verticalMain, ladder, type L, type Shape } from "./layers.ts";
 import { digitLevel, distanceToPrime, distanceToWhole, isqrt, largestPrimeFactor, nearestInteger, smallestPrimeFactor } from "./numbers.ts";
 
@@ -52,6 +53,17 @@ const pileRung = (y: Q): { t: bigint; n: bigint; u: Q } => {
   const { t, n } = nearestPile(y);
   return { t, n, u: Qn.neg(Qn.sub(Qn.abs(Qn.sub(y, q(t))), q(1, 2))) };
 };
+/**
+ * Treasure's witnesses for the tail cap (lib/v2-linear witnesses.ts): the n-th unit is a pile of n digits; the smallest,
+ * reached by the flat line y = T and the lines of gradient ±1 through (k, T) (minus T on the mirror).
+ */
+export const treasureWitness = (p: KT, n: number): LineState[] => {
+  const lo = 10n ** BigInt(n - 1);
+  let h = (isqrt(8n * lo + 1n) - 1n) / 2n;
+  while ((h * (h + 1n)) / 2n < lo) h++;
+  const T = q(((h * (h + 1n)) / 2n) * (p.side === -1 ? -1n : 1n)), k = q(p.k);
+  return [Qn.ZERO, Qn.ONE, Qn.neg(Qn.ONE)].map(m => ({ lines: [fromMC(m, Qn.sub(T, Qn.mul(m, k)))] }));
+};
 const piles = (p: KT) => `${p.side === -1 ? "minus " : ""}a coin pile (1, 3, 6, 10, 15, …)`;
 const treasureShape: Shape<KT> = {
   main: { ...more<KT>("pile", "y(k) on as big a coin pile as possible", "", "table"),
@@ -74,7 +86,7 @@ export const treasure = ladder(family<KT>("treasure", "Treasure", ["table", "si"
   const tm = ref("cart", "yAxisMark", { y: flipT(p, q(t)) });
   ctx.read(tm);
   ctx.mark({ kind: "candidate", ref: tm, term: "pile" });
-}));
+}), treasureWitness);
 
 // ---------------------------------------------------------------- Same on Both Rulers
 

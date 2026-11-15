@@ -73,21 +73,24 @@ test("the dealt remainder's whole number: nearest, negatives counted (−2 leave
 });
 
 test("Divide By and Gap Ratio climb the powers of the dealt k; their cards say so", () => {
-  // D = ±5: with k 5 it is level 1 (next 25, 20 away): 5 × (1 + 1/21); with k 2, level 0, 1 away from 4: 1 + 1/2.
-  assert.deepEqual(score("no-fractions", null, school, { k: 5 }), ["110/21"]);
-  assert.deepEqual(score("no-fractions", null, school, { k: 2 }), ["3/2"]);
-  // The powers are not nested: 25 is level 2 (it is not 5), above 5 and above 24, which is 1 from 25 on no level.
+  // D = ±5: with k 5 it is level 1 (next rung 125, 120 away): 5 × (1 + 1/121); with k 2 (rungs 2, 8, 64), level 0, 3 from 2 and 8: 1 + 1/4.
+  assert.deepEqual(score("no-fractions", null, school, { k: 5 }), ["610/121"]);
+  assert.deepEqual(score("no-fractions", null, school, { k: 2 }), ["5/4"]);
+  // Triangular rungs (as the valuation ladders'): level L at k^T(L), T(L) = L(L + 1)/2, so 5, 125, 15,625, … — each
+  // level one more multiplication by k than the last (a Divide By object climbed 40 levels in a game when every power
+  // was a level). The rungs are not nested (125 is not 5): 125 is level 2, above 5 and above 124, 1 from 125 on none.
   const at = (n: number) => powerLadder(5, t => Qn.q(BigInt(Math.abs(n)) > t ? BigInt(Math.abs(n)) - t : t - BigInt(Math.abs(n))));
-  assert.equal(at(25).level, 2);
-  assert.equal(at(125).level, 3);
-  assert.deepEqual([at(24).level, Qn.toWire(at(24).u)], [0, "3/2"]);
-  assert.ok(Qn.cmp(at(25).u, at(5).u) > 0 && Qn.cmp(at(5).u, at(24).u) > 0);
+  assert.equal(at(125).level, 2);
+  assert.equal(at(15625).level, 3);
+  assert.equal(at(25).level, 0, "25 is no rung");
+  assert.deepEqual([at(124).level, Qn.toWire(at(124).u)], [0, "3/2"]);
+  assert.ok(Qn.cmp(at(125).u, at(5).u) > 0 && Qn.cmp(at(5).u, at(124).u) > 0);
   // Its tie-breakers read the numerators x·D and y·D (15 and 10 up to sign): 25 has two prime factors; they share 5.
-  assert.deepEqual(score("no-fractions", "numerator-smooth", school, { k: 5 }), ["110/21", "2"]);   // 25 = 5 × 5
-  assert.deepEqual(score("no-fractions", "numerator-shared", school, { k: 5 }), ["110/21", "5"]);
-  assert.match(familyOf("no-fractions").card({ k: 3 }, null), /should be 3 \(or −3\); better still 9, then 27, and so on/);
-  assert.match(familyOf("double-gap").card({ k: 4 }, null), /4 times the gap between their x-intercepts; better still 16 times/);
-  assert.match(familyOf("far-crossing").card({ q: 7, r: 2 }, "far-prime"), /leaves 2 when divided by 7; better still, leaves 16 when divided by 49, then 114 when divided by 343, and so on\..*Tie-breaker/);
+  assert.deepEqual(score("no-fractions", "numerator-smooth", school, { k: 5 }), ["610/121", "2"]);   // 25 = 5 × 5
+  assert.deepEqual(score("no-fractions", "numerator-shared", school, { k: 5 }), ["610/121", "5"]);
+  assert.match(familyOf("no-fractions").card({ k: 3 }, null), /should be 3 \(or −3\); better still 27, then 729, and so on/);
+  assert.match(familyOf("double-gap").card({ k: 4 }, null), /4 times the gap between their x-intercepts; better still 64 times/);
+  assert.match(familyOf("far-crossing").card({ q: 7, r: 2 }, "far-gap"), /leaves 2 when divided by 7; better still, leaves 16 when divided by 49, then 114 when divided by 343, and so on\..*Tie-breaker/);
   // y = x + 2 and y = −2x + 4: the y-intercepts' gap is 2, the x-intercepts' gap 4; 2 = ½ × 4, no power of k fits (level 0).
   for (const k of [2, 3]) assert.ok(Qn.cmp(Qn.parse(score("double-gap", null, sys(Y(1, 2), Y(-2, 4)), { k })![0]!), Qn.q(k)) < 0);
 });
@@ -111,10 +114,40 @@ test("Steep Ratio reads the whole number of times on its ladder, at least 2 eith
   assert.deepEqual(score("steep-ratio", "ratio-prime", s, { q: 3, r: 1 }), ["78/25", "3"]);   // 3 = 3¹ × 1: level 1; level 2 (27 of 81) 24 away
 });
 
+test("Far Crossing's and High Start's tie-breakers aim at a multiple of q^(L+1), L the level the main part reached (row 3)", () => {
+  // Far Crossing {7, 2}: the steeper line y = 3x − 6 meets the x-axis at 2 (level 1: 2 leaves 2 by 7, not 16 by 49), so
+  // the target is 49. The gentler y = x − 51 meets it at 51: the gap 49 is on target; they cross at (−22.5, −73.5).
+  const fc = { q: 7, r: 2 }, lo = sys(Y(3, -6), Y(1, -51));
+  assert.equal(score("far-crossing", "far-gap", lo, fc)![1], "0");
+  assert.equal(score("far-crossing", "far-height", lo, fc)![1], "-49/2");   // a distance: smaller is better, stored negated
+  // One level up (16 leaves 16 by 49): the same gap of 49 is now 294 from 343, the nearest non-zero multiple, so the
+  // climb restarts.
+  assert.equal(score("far-crossing", "far-gap", sys(Y(3, -48), Y(1, -65)), fc)![1], "-294");
+  // High Start {5, 4}: the gentler line's y-intercept 20 = 5 × 4 is level 1, target 25. The steeper y = 3x + 45 has
+  // y-intercept 45: the gap between the intercepts is 25, on target; they cross at x = −12.5, 12.5 from −25 (0 is no
+  // multiple).
+  const hs = { q: 5, r: 4 }, up = sys(Y(3, 45), Y(1, 20));
+  assert.equal(score("high-start", "start-echo", up, hs)![1], "0");
+  assert.equal(score("high-start", "start-crossing", sys(Y(3, 50), Y(1, 20)), hs)![1], "-10");
+  // Off the ladder (3 does not leave 4 by 5) the target is 1: whole numbers.
+  assert.equal(score("high-start", "start-crossing", sys(Y(3, 50), Y(1, 3)), hs)![1], "-1/2");
+  assert.match(familyOf("far-crossing").card(fc, "far-gap"), /multiple of 7.*49/);
+  // 0 is no multiple (review): two lines through one point of the x-axis have gap 0 and cross at height 0, which would
+  // be a top at every level. 0 is a whole step from the nearest non-zero multiple.
+  const through = sys(Y(3, -6), Y(1, -2));   // both through (2, 0)
+  assert.equal(score("far-crossing", "far-gap", through, fc)![1], "-49");
+  assert.equal(score("far-crossing", "far-height", through, fc)![1], "-49");
+  // High Start: lines sharing their y-intercept cross at x = 0 and have no gap between the intercepts.
+  const shared = sys(Y(3, 20), Y(1, 20));
+  assert.equal(score("high-start", "start-crossing", shared, hs)![1], "-25");
+  assert.equal(score("high-start", "start-echo", shared, hs)![1], "-25");
+  assert.match(familyOf("high-start").card(hs, "start-crossing"), /a whole number other than 0; once.*on your ladder, a whole multiple of 5/);
+});
+
 test("a zoom of the picture (positions × n) cannot raise a capped hill past the number it is capped by", () => {
   // y = 2x + 3 and y = −x + 6 cross at (1, 4); zoom × 96 (a smooth number): c × 96.
   const base = sys(Y(2, 3), Y(-1, 6)), zoomed = sys(Y(2, 288), Y(-1, 576));
-  for (const [id, tb] of [["whole-answer", "peg-divisor"], ["double-gap", "gap-divisor"], ["high-start", "start-factors"]] as const) {
+  for (const [id, tb] of [["whole-answer", "peg-divisor"], ["double-gap", "gap-divisor"], ["high-start", "start-echo"]] as const) {
     const before = score(id, tb, base), after = score(id, tb, zoomed);
     if (!before || !after) continue;
     // D is unchanged by a zoom, so a common factor with D stays at most |D| = 3.
@@ -136,7 +169,7 @@ test("a primary is never met by one line alone: the diagonal itself, a line thro
   assert.deepEqual(score("on-the-diagonal", null, sys(Y(2, -3), Y(-1, 6))), ["0"]);   // (3, 3)
 });
 
-test("seating: no two rules one move climbs together (the same r on the y readers, the same q on the valuation ladders, one base for Gap Ratio and Divide By)", async () => {
+test("seating: no two rules one move climbs together (the same r on the y readers, the same q on the valuation ladders, a shared prime for Gap Ratio and Divide By)", async () => {
   const { pairClash, pairClashes } = await import("../src/seating.ts");
   const rule = (family: string, params?: unknown) => ({ family, params });
   assert.ok(pairClash(rule("whole-answer", { q: 7, r: 3 }), rule("right-angle", { q: 7, r: 3 })), "PMI 3.3 bits");
@@ -151,7 +184,10 @@ test("seating: no two rules one move climbs together (the same r on the y reader
   assert.ok(pairClash(rule("forty-five", { q: 5, r: 1 }), rule("whole-answer", { q: 5, r: 4 })));
   assert.ok(!pairClash(rule("whole-answer", { q: 5, r: 2 }), rule("right-angle", { q: 7, r: 1 })), "2 or −3 against 1: no small number in both");
   assert.ok(!pairClash(rule("high-start", { q: 5, r: 2 }), rule("steep-ratio", { q: 7, r: 2 })));
-  assert.ok(!pairClash(rule("double-gap", { k: 2 }), rule("no-fractions", { k: 6 })));
+  // Sharing one prime is enough: a stretch by −3 eight times made D = −216 = 6³ and the gaps' ratio a power of 3
+  // (Divide By k 6 +18.7 bits with Gap Ratio k 3 +12.5, the tension matrix of §10).
+  assert.ok(pairClash(rule("double-gap", { k: 3 }), rule("no-fractions", { k: 6 })));
+  assert.ok(!pairClash(rule("double-gap", { k: 3 }), rule("no-fractions", { k: 10 })));
   assert.ok(pairClash(rule("whole-answer", { q: 5, r: 1 }), rule("forty-five", { q: 7, r: 1 })), "both at (0, 1)");
   assert.ok(!pairClash(rule("whole-answer", { q: 5, r: 2 }), rule("forty-five", { q: 7, r: 4 })));
   assert.ok(!pairClash(rule("whole-answer"), rule("right-angle", { q: 5, r: 1 })), "unknown parameters clash only as one family");

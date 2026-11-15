@@ -1,5 +1,15 @@
 # The tug-of-war: why lines go back and forth, and what changes it
 
+> **Correction (15 Nov, evening).** Every table below seats three families drawn at random from the pool, every seat
+> runs TypeScript, and it counts committed moves per minute for the whole table. Practice games at the time dealt
+> differently: `practiceDeal` sought partners that *share the human's goal*, and seated the second partner in Python.
+> Playtests count *objects changed per minute*. Measured the playtests' way and dealt the practice way, the table
+> reproduces the quiet practice boards of rounds 26–27. For example, Whole Crossing with Divisibility Ladder and Prime
+> Landing changed 3, 0, 1, 0, 0, 0, 0, 0, 0, 0 objects per minute, with 99% of acts skipped. So the figures below
+> describe **random tables only**, not practice games. The coordinator has since made the practice deal the same as a
+> real deal. The regression test `artifacts/engine/test/v2-pace.test.ts` plays one engine game and the same deal in the
+> table, and requires the two to agree.
+
 Measured on 15 November 2026 for the coordinator, as evidence for the owner's decision on the beginner board (decision 31:
 three objects growing to five). All runs use `lib/v2-agents/scripts/pool-dynamics.ts`: the line beginner pool,
 three seats each running the shipped Simple starter, 600-second games, power 4, rule redraws off, 24 games per row

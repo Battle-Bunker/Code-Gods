@@ -49,7 +49,7 @@ import { unopposedDirections, WEAK_BELOW } from "../src/unopposed.ts";
 import type { Program } from "../src/act.ts";
 import { callsUpTo, directions, frozenShare, lineShortcutMoves, lineStarter, playTable, SHORTCUT, type Played } from "./climbers.ts";
 import {
-  anneal, corr, costAt, countWithin, enumerate, identify, median, poolOf, reach, ruleName, sample, spaceOf, total, VARIANTS,
+  anneal, corr, costAt, countWithin, deal, enumerate, identify, median, poolOf, reach, ruleName, sample, shareOfGame, spaceOf, total, VARIANTS,
   type Reach, type Rule, type Space, type VariantId,
 } from "./landscape-lib.ts";
 
@@ -97,26 +97,6 @@ interface Row {
 interface VariantResult { variant: VariantId; preset: string; rules: number; skipped: string[]; rows: Row[]; details: string[] }
 
 // ---------------------------------------------------------------- one variant
-
-/** A line's (or board's) share of a 3-seat game's energy: (start + power · seconds) · 3 / 24. */
-function shareOfGame(v: VariantId, seconds: number) {
-  const e = v === "grid-4-d10" ? GRIDS_BEGINNER_ECONOMY : LINES_BEGINNER_ECONOMY;
-  return ((e.startingEnergy + e.powerPerSecond * seconds) * 3) / 24;
-}
-
-/** Tables of three rules from three different families, dealt by a seeded draw; pairs: none the seating rule forbids (lib/v2-pair seating.ts). */
-function deal(rules: readonly Rule[], n: number, seed: string): Rule[][] {
-  const r = rng("collapse-tables", seed), out: Rule[][] = [];
-  const fams = [...new Set(rules.map(x => x.family))];
-  if (fams.length < 3) return out;
-  while (out.length < n) {
-    const f = fams.slice(), pick: Rule[] = [];
-    for (let k = 0; k < 3; k++) { const fam = f.splice(r.below(f.length), 1)[0]!; const of = rules.filter(x => x.family === fam); pick.push(of[r.below(of.length)]!); }
-    if (seed === "pair-q" && pairClashes(pick).length) continue;
-    out.push(pick);
-  }
-  return out;
-}
 
 /** The scripted table for test 4: the mixed tables the seats played (scripts/table.ts), when the pool deals them. */
 const PLAYED: Record<string, string[]> = {

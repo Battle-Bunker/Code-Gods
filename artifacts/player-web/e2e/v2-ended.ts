@@ -31,8 +31,8 @@ if (!process.env.SKIP_DEPLOY) {
   assert.equal(deploy.status, 0, "deploy-static failed");
 }
 
-async function signIn(browser: any, who: string) {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+async function signIn(browser: any, who: string, viewport = { width: 1440, height: 900 }) {
+  const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
   const page = await context.newPage();
   const errors: string[] = [];
   page.on("pageerror", (e: Error) => errors.push(e.message));
@@ -181,8 +181,49 @@ async function endedGame(page: Page, preset: string, noun: string) {
   console.log(`${label}: after the end: ${checked.join(", ")}`);
 }
 
+/**
+ * A phone after the buzzer (playtest round 26, 08): the page opens at "How the game went", scrolling up from the bottom
+ * never jumps back, "What earned your points" can be reached, and "See it line by line" opens Lines.
+ */
+async function phoneEnd(browser: any) {
+  const { context, page, errors } = await signIn(browser, "bob", { width: 390, height: 844 });
+  await page.getByTestId("button-create-room").first().click();
+  await page.waitForURL(/\/rooms\/[A-Z0-9]+$/);
+  await setUp(page, page.url().split("/").at(-1)!, "lines-beginner");
+  await page.getByTestId("button-practice-game").click();
+  await page.waitForURL(/\/games\//, { timeout: 30_000 });
+  await page.getByTestId("button-summon-first").click();
+  await page.getByTestId("text-forge-status").getByText(/is summoned/).waitFor({ timeout: 60_000 });
+  const startNow = page.getByTestId("button-start-world");
+  if (await startNow.count()) { await startNow.click(); await startNow.click().catch(() => {}); }
+  await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
+  const scroller = page.getByTestId("dock-stacked");
+  await page.getByTestId("pane-results").getByText(/You finished/).waitFor({ timeout: 20_000 });
+  assert.equal(await scroller.evaluate((el: HTMLElement) => el.scrollTop), 0, "phone: the end opens at How the game went");
+  await page.getByTestId("text-summary-next").waitFor({ timeout: 15_000 });
+  await scroller.evaluate((el: HTMLElement) => el.scrollTo(0, el.scrollHeight));
+  await page.waitForTimeout(500);
+  let last = await scroller.evaluate((el: HTMLElement) => el.scrollTop);
+  while (last > 0) {
+    await scroller.evaluate((el: HTMLElement) => el.scrollBy(0, -350));
+    await page.waitForTimeout(400);
+    const now = await scroller.evaluate((el: HTMLElement) => el.scrollTop);
+    assert.ok(now < last, `phone: scrolling up moves up (${last} → ${now}), never back down`);
+    last = now;
+  }
+  const earned = page.getByTestId("pane-results").getByText("What earned your points");
+  if (await earned.count()) { await earned.scrollIntoViewIfNeeded(); assert.ok(await earned.isVisible(), "phone: What earned your points can be reached"); }
+  await page.getByTestId("button-line-by-line-bar").click();
+  await page.getByTestId("pane-objects").locator("[data-testid^=row-line-]").first().waitFor({ timeout: 15_000 });
+  await page.screenshot({ path: path.join(shots, "ended-phone.png") });
+  assert.deepEqual(errors, [], "phone: no page errors");
+  await context.close();
+  console.log("phone: after the buzzer the page opens at the result, scrolls without jumping, and See it line by line opens Lines");
+}
+
 const browser = await chromium.launch();
 try {
+  await phoneEnd(browser);
   const { context, page, errors } = await signIn(browser, "admin");   // AI (the assistant) runs only in rooms an administrator owns
   await endedGame(page, "lines-beginner", "line");
   await endedGame(page, "grids-beginner", "grid");

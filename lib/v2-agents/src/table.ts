@@ -63,6 +63,8 @@ export interface TableInput<S> {
   readonly economy?: Economy;
   /** Default 0.1, the beginner preset's. */
   readonly birthsPerSecond?: number;
+  /** Births on a regular schedule (the beginner presets) rather than at random at that rate. */
+  readonly regularBirths?: boolean;
   /** Parameter drift (the coordinator's call 18, server #723): every this many seconds each seat's rule parameters are
    *  redrawn among the dealable ones with a value record (driftParams); the family and tie-breaker stay. Absent: none.
    *  Staggered as the server does it: seat i of n redraws at k × interval + i × interval / n (k ≥ 1), and no seat
@@ -87,6 +89,8 @@ export interface TableInput<S> {
   readonly actEconomy?: ActEconomy;
   /** Called after every act, for measurements (scripts/collapse-check.ts): what it did and the line's state after it. */
   readonly onAct?: (e: TableAct<S>) => void;
+  /** An experiment: redraw ladder families' parameters too (they keep theirs all game, decision of #797). */
+  readonly driftLadders?: boolean;
   /** Called after each parameter redraw (driftSeconds), per seat whose parameters changed. */
   readonly onDrift?: (e: { readonly at: number; readonly seat: number; readonly params: Record<string, unknown> }) => void;
 }
@@ -97,6 +101,9 @@ export interface TableAct<S> {
   readonly object: number;
   readonly seat: number;
   readonly outcome: ActRecord["outcome"];
+  /** The act's wall time in the sandbox, in milliseconds, and its interpreter steps where counted. */
+  readonly ms: number;
+  readonly steps?: number;
   /** Why the act failed or skipped, when the record says. */
   readonly reason?: string;
   readonly committed: boolean;
@@ -273,7 +280,8 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
       .map(m => ({ mine: m.by === i, pointsBefore: m.before[i]!, pointsAfter: m.after[i]! }));
     const actKey = `act:${actN}`;
     let reads = 0;
-    const { record, state } = await runAct(await sandbox(a.program.language), {
+    const box = await sandbox(a.program.language), started = performance.now();
+    const { record, state } = await runAct(box, {
       type, variant, state: lines[object]!, rule: seats[i]!.rule, program: a.program,
       seed: BigInt(`0x${hashHex(`${input.seed}:act:${actN++}`).slice(0, 15)}`), energy, income: agentIncome(P, a.share), object, liveObjects: lines.length, ...(input.actEconomy ? { economy: input.actEconomy } : {}),
       value: (shown => ({ mine: n[i]!, others: shown, points: n[i]! * Math.max(0, shown) }))(total - n[i]! + noiseAt(`${actKey}:value`)), history, ...(vals[i]!.values ? { values: vals[i]!.values } : {}),
@@ -290,7 +298,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     if (world >= input.seconds - 60) { stats[i]!.lateActs++; if (verdict !== "committed") stats[i]!.lateIdle++; }
     a.acc = { balance: energy - charge, settledWorldSeconds: world };
     a.acts++; stats[i]!.acts++; stats[i]!.spentActs += charge;
-    input.onAct?.({ at: world, object, seat: i, outcome: record.outcome, ...(record.reason ? { reason: record.reason } : {}), committed: verdict === "committed", before: lines[object]!, state: verdict === "committed" ? state : lines[object]!, objects: lines.length, calls: record.calls, charge, balance: energy - charge, income: agentIncome(P, a.share) });
+    input.onAct?.({ at: world, ms: performance.now() - started, steps: record.steps, object, seat: i, outcome: record.outcome, ...(record.reason ? { reason: record.reason } : {}), committed: verdict === "committed", before: lines[object]!, state: verdict === "committed" ? state : lines[object]!, objects: lines.length, calls: record.calls, charge, balance: energy - charge, income: agentIncome(P, a.share) });
     if (verdict !== "committed") return;
     const from = type.encode(lines[object]!), to = type.encode(state), last = lastMove.get(object);
     if (last && last.by !== i && last.from === to) stats[i]!.flips++;
@@ -485,7 +493,9 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
         // Seat i's redraws fall at k·D + i·D/n: the k-th is due when (world − i·D/n) / D passes k.
         const off = (i * D) / seats.length, tick = Math.floor((world - off) / D);
         if (tick < 1 || tick <= Math.floor((was - off) / D)) continue;
-        const family = type.families.find(f => f.id === s.rule.family)!;
+        const found = type.families.find(f => f.id === s.rule.family)!;
+        // driftLadders (an experiment): ladder families are redrawn too, as before #797.
+        const family = input.driftLadders && found.keepsParams ? { ...found, keepsParams: false } : found;
         // A value the line seating rule forbids beside the other seats' rules is not drawn (lib/v2-linear seating.ts).
         const others = seats.filter((_, j) => j !== i).map(o => o.rule), before = lineClashes(others).length;
         const next = driftParams(family, variant, s.rule.params, input.seed, i, tick, p => findValues(variant.id, { ...s.rule, params: p as Record<string, unknown> }) !== null
@@ -504,7 +514,9 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
       startTotals = startTotals.map((t, i) => t + next.reduce((a, p) => a + p[i]!, 0) - points.reduce((a, p) => a + p[i]!, 0));
       points = next;
     }
-    for (let b = opportunities(input.birthsPerSecond ?? 0.1, TICK_SECONDS, r); b > 0; b--) {
+    // Regular births (the beginner presets, decision 31): one every 1/rate world seconds, as convex/v2/duration.ts regularBirths.
+    const rate = input.birthsPerSecond ?? 0.1, nBorn = input.regularBirths ? Math.floor(world * rate + 1e-9) - Math.floor(was * rate + 1e-9) : opportunities(rate, TICK_SECONDS, r);
+    for (let b = nBorn; b > 0; b--) {
       const born = births(type, variant, `${input.seed}:${lines.length + 1}`, 1)[0]!;
       lines = [...lines, born]; points = [...points, pointsOf(born)];
       startTotals = startTotals.map((t, i) => t + points.at(-1)![i]!);   // a newborn line's points are no one's gain

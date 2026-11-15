@@ -13,7 +13,8 @@
  *   small numbers are the law's commonest, PMI 2.0–2.3 bits); Whole Answer with Forty-Five the same way (Forty-Five
  *   reads |n|);
  * - two valuation ladders (Whole Answer, High Start, Steep Ratio) with the same q: a stretch by q climbs both;
- * - Gap Ratio with Divide By when their k are powers of one base (2 and 4; 3 and 9): a turn climbs both.
+ * - Gap Ratio with Divide By when their k share a prime factor (3 and 6; 4 and 10): a stretch or turn by that prime
+ *   climbs both (Divide By k 6 +18.7 bits beside Gap Ratio k 3 +12.5 from one stretch by −3, two-line-systems.md §10).
  */
 export interface SeatedPairRule { family: string; params?: unknown }
 
@@ -33,12 +34,7 @@ const num = (p: unknown, k: string): number | undefined => {
   const v = (p as Record<string, unknown> | undefined)?.[k];
   return typeof v === "number" ? v : undefined;
 };
-/** The product of the distinct primes of k (k's base: 4 → 2, 9 → 3, 6 → 6). */
-function radical(k: number): number {
-  let r = 1;
-  for (let p = 2; p * p <= k; p++) if (k % p === 0) { r *= p; while (k % p === 0) k /= p; }
-  return k > 1 ? r * k : r;
-}
+const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
 const both = (a: SeatedPairRule, b: SeatedPairRule, x: string, y: string) =>
   (a.family === x && b.family === y) || (a.family === y && b.family === x);
 
@@ -50,7 +46,7 @@ export function pairClash(a: SeatedPairRule, b: SeatedPairRule): boolean {
   if (SAME_Y.includes(a.family) && SAME_Y.includes(b.family) && known && (ra === rb || meetNearZero(a, b, qa, ra, qb, rb))) return true;
   if (both(a, b, "whole-answer", "forty-five") && known && meetNearZero(a, b, qa, ra, qb, rb)) return true;
   if (VALUATION.includes(a.family) && VALUATION.includes(b.family) && qa !== undefined && qa === qb) return true;
-  if (both(a, b, "double-gap", "no-fractions") && ka !== undefined && kb !== undefined && radical(ka) === radical(kb)) return true;
+  if (both(a, b, "double-gap", "no-fractions") && ka !== undefined && kb !== undefined && gcd(ka, kb) > 1) return true;
   return false;
 }
 

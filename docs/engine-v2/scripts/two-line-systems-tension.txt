@@ -1,30 +1,30 @@
-pair-q, lines-pairs: 118 rules in 8 families, 104 directions (arguments ≤ 8 bits), strategies repeated 8 times.
+pair-q, lines-pairs: 110 rules in 8 families, 104 directions (arguments ≤ 8 bits), strategies repeated 8 times.
 
 When a move raises the row's family, the share of those moves that raise / lower the column's (best tie-breaker):
 
 | raises ↓ \ then → | whole-answer | no-fractions | right-angle | forty-five | double-gap | far-crossing | high-start | steep-ratio |
 |---|---|---|---|---|---|---|---|---|
-| whole-answer (46866 climbs) | · | 39% / 40% | 53% / 38% | 57% / 39% | 27% / 32% | 23% / 18% | 35% / 24% | 30% / 32% |
-| no-fractions (18327 climbs) | 51% / 41% | · | 48% / 42% | 53% / 43% | 27% / 27% | 26% / 18% | 32% / 27% | 35% / 25% |
-| right-angle (63120 climbs) | 65% / 22% | 33% / 43% | · | 55% / 39% | 23% / 31% | 24% / 18% | 32% / 20% | 30% / 29% |
-| forty-five (116378 climbs) | 56% / 27% | 35% / 37% | 50% / 40% | · | 28% / 34% | 29% / 15% | 32% / 23% | 33% / 31% |
-| double-gap (24154 climbs) | 37% / 38% | 32% / 44% | 37% / 50% | 45% / 47% | · | 24% / 17% | 32% / 24% | 41% / 45% |
-| far-crossing (26996 climbs) | 40% / 32% | 33% / 39% | 43% / 41% | 49% / 41% | 34% / 31% | · | 19% / 20% | 32% / 32% |
-| high-start (10550 climbs) | 47% / 35% | 36% / 42% | 45% / 46% | 50% / 41% | 32% / 32% | 14% / 16% | · | 33% / 33% |
-| steep-ratio (29628 climbs) | 40% / 39% | 37% / 40% | 44% / 46% | 47% / 43% | 39% / 34% | 25% / 15% | 30% / 25% | · |
+| whole-answer (26607 climbs) | · | 34% / 41% | 53% / 37% | 57% / 39% | 29% / 32% | 32% / 24% | 43% / 30% | 31% / 31% |
+| no-fractions (18268 climbs) | 52% / 41% | · | 47% / 44% | 54% / 43% | 27% / 29% | 39% / 26% | 41% / 37% | 38% / 28% |
+| right-angle (63120 climbs) | 60% / 26% | 27% / 43% | · | 55% / 39% | 23% / 32% | 31% / 23% | 38% / 31% | 28% / 31% |
+| forty-five (116378 climbs) | 53% / 30% | 33% / 35% | 50% / 40% | · | 29% / 34% | 38% / 21% | 41% / 30% | 33% / 30% |
+| double-gap (23932 climbs) | 38% / 37% | 31% / 43% | 37% / 51% | 44% / 47% | · | 27% / 21% | 36% / 30% | 40% / 46% |
+| far-crossing (44208 climbs) | 44% / 36% | 32% / 42% | 41% / 47% | 48% / 44% | 28% / 34% | · | 41% / 30% | 31% / 31% |
+| high-start (27809 climbs) | 45% / 37% | 34% / 38% | 42% / 49% | 51% / 42% | 34% / 31% | 37% / 19% | · | 33% / 32% |
+| steep-ratio (17700 climbs) | 40% / 39% | 32% / 41% | 45% / 46% | 50% / 40% | 37% / 33% | 32% / 20% | 37% / 33% | · |
 
-Ordered pairs where the column rises more often than it falls (aligned): 34 of 56.
+Ordered pairs where the column rises more often than it falls (aligned): 36 of 56.
 
-Repeated basic strategies that raise some family by more than 1 bit: 821657. How many families each raises by more than 1 bit:
+Repeated basic strategies that raise some family by more than 1 bit: 796469. How many families each raises by more than 1 bit:
 
-- 1: 47% (386868)
-- 2: 30% (248354)
-- 3: 15% (119922)
-- 4: 6% (51464)
-- 5: 2% (13219)
-- 6: 0% (1635)
-- 7: 0% (194)
-- 8: 0% (1)
+- 1: 48% (384525)
+- 2: 31% (248522)
+- 3: 14% (111350)
+- 4: 5% (40873)
+- 5: 1% (9506)
+- 6: 0% (1508)
+- 7: 0% (175)
+- 8: 0% (10)
 
-Largest second-family gain of one repeated strategy: 11.3 bits, mach.stretch 1,3 ×8 from 1,1,-18;2,1,-24 to 81,1,-1458;162,1,-1944 (double-gap +13.5, no-fractions +11.3).
-(4022 s)
+Largest second-family gain of one repeated strategy: 12.5 bits, mach.stretch 1,-3 ×8 from -5,1,-75;1,3,11 to -81,1,-891;135,1,2025 (no-fractions +18.7, double-gap +12.5, high-start +2.8).
+(3853 s)

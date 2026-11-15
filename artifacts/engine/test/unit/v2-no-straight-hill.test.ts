@@ -1,82 +1,115 @@
 /**
- * No straight hill (the coordinator's mechanical check, 15 Nov; lib/v2-core principles.ts straightHill): for every dealt
- * line rule of every line preset, every shortcut its variant offers (a stretch or zoom by a factor and by its inverse, a
- * turn about the origin) applied 30 times from typical lines (draws of the variant's law) must gain less per fee as the
- * chain goes on, and at most 30 bits in all; so must the greedy chain that takes, each step, whichever of the kind's
- * arguments raises the rule most (Divisibility Ladder's "steep": 77.6 bits by mixed stretches where every fixed factor
- * stayed under 10). A chain back at a state it held is a cycle and stops there. Breaks caught: Smooth Intercept scored by the y-intercept's size, where a
- * stretch by a dealt prime added the same 0.9 bits at every size (playtest round 21: 3⁸ by "multiply by −3", 59-bit
- * seats). A family that fails is not dealt.
+ * The energy gate (the coordinator's ruling, 15 Nov; replaces the slope rules and the "30 bits in 30 steps" cap): can a
+ * greedy climber, with one seat's whole-game income spent on one object, take a dealt line rule past 35 bits?
+ *
+ * For every dealt line rule of every line preset, from law draws and (for a ladder family) from rung starts (a law draw
+ * moved by the cheapest shift or tilt onto its first rung), the climber repeatedly takes the move that raises the rule
+ * most per energy among the variant's shortcuts (stretch, zoom and turn by small factors and turns) and shifts and
+ * tilts of every size (1 to 1000, and ½), never repeating a state, until the income (power × game length + start) is
+ * spent or no move helps. It fails when the rule's bits pass 35 anywhere on the way. What keeps ladders under it is the
+ * price of a shortcut on a big line (v2-linear mutators.ts shortcutFloor) and the cap on a ladder's value tail (v2-
+ * valuation value.ts ladderCaps). Breaks caught: Smooth Intercept by repeated "multiply by 3" (playtest round 21: 59-bit
+ * seats; round 26: a line frozen at 22.87 bits); Divisibility Ladder's greedy mixed stretches to 77.6 bits.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { applyCall, evaluateSite, isInvalid, rng, variantMutators, type ObjectType } from "@workspace/v2-core";
-import { greedyChain, straightHill } from "@workspace/v2-core";
 import { lineLaw, type LineState } from "@workspace/v2-linear";
 import { findVariant, valueLookup } from "@workspace/v2-valuation";
 import { dealablePool, familyOf } from "../../convex/v2/deal.ts";
 import { PRESETS } from "../../convex/v2/presets.ts";
 import { valueRecord } from "../../convex/v2/values.ts";
 
-const FACTORS = ["2", "3", "5", "7", "11", "13", "17", "1/2", "1/3", "1/5"];
-const SHORTCUTS: Record<string, readonly Record<string, string>[]> = {
+const LIMIT = 35, STARTS = 3, MAX_STEPS = 80;
+/**
+ * Known open fails, each reported to its owner. An entry that no longer fails fails the test below: remove it then.
+ * Square Area's prime-factor tie-breakers (the grids session's family): their prime-valued tails pay about p/2 bits for
+ * a root with a big prime factor, reached by shifts: 58.5 bits on line-q, 141–316 on line-q-lenses (15 Nov).
+ */
+const OPEN: Record<string, string> = {
+  "square-area/lpf": "grids session, reported 15 Nov",
+  "square-area/spf": "grids session, reported 15 Nov",
+};
+const FACTORS = ["2", "3", "5", "7", "11", "13", "17", "10", "1/2", "1/3", "1/5", "1/10"];
+const AMOUNTS = ["1", "-1", "2", "-2", "10", "-10", "100", "-100", "1000", "-1000", "1/2", "-1/2"];
+const CALLS: Record<string, readonly Record<string, string>[]> = {
   "mach.stretch": FACTORS.map(f => ({ f })),
   "basis.zoom": FACTORS.map(f => ({ f })),
-  // About the origin, and about the pins at x = 0 and ±1 (how starters turn: about the y-intercept).
-  "rot.turn": [{ centre: "origin", turn: "left" }, { centre: "origin", turn: "3/4" }, { centre: "origin", turn: "-4/3" },
+  "rot.turn": [{ centre: "origin", turn: "left" }, { centre: "origin", turn: "3/4" },
     ...["0", "1", "-1"].flatMap(centre => ["1", "-1", "1/2", "-1/2", "left"].map(turn => ({ centre, turn })))],
+  "si.shift": AMOUNTS.map(k => ({ k })),
+  "si.tilt": AMOUNTS.map(k => ({ k })),
 };
-const STARTS = 4, CHAIN = 30;
 
-test("no dealt line rule is a straight hill along any shortcut its preset offers", () => {
-  const failures: string[] = [];
+test(`no dealt line rule passes ${LIMIT} bits on one seat's whole-game income spent on one object`, () => {
+  const failures: string[] = [], report: string[] = [];
+  const seen = new Set<string>(), openWorst = new Map<string, number>();
   let chains = 0;
   for (const preset of PRESETS) {
     const { type, variant } = findVariant(preset.variant);
     if (type.id !== "line") continue;
-    const offered = variantMutators(type, variant).filter(m => m.id in SHORTCUTS);
-    const law = lineLaw(variant), r = rng("straight-hill", preset.id);
-    const starts: LineState[] = [];
-    while (starts.length < STARTS) { const d = law.draw(r, 1); if (d.state) starts.push(d.state as LineState); }
+    const T = type as ObjectType<LineState>;
+    const income = preset.economy.powerPerSecond * preset.worldSeconds + preset.startingEnergy;
+    const offered = new Set(variantMutators(type, variant).map(m => m.id));
+    const calls = Object.entries(CALLS).filter(([m]) => offered.has(m)).flatMap(([mutator, list]) => list.map(args => ({ mutator, args })));
+    const step = (s: LineState, c: { mutator: string; args: Record<string, string> }) => {
+      const a = applyCall(T, variant, s, { mutator: c.mutator, site: 0, args: c.args });
+      return isInvalid(a) ? null : { s: a.result, fee: a.price.total };
+    };
+    const law = lineLaw(variant);
     for (const rule of dealablePool(preset)) {
+      // One run per variant, rule and income (the bidding preset shares the beginner's).
+      const key = `${variant.id}|${rule.ruleKey}|${income}|${[...offered].sort().join()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
       const rec = valueRecord(rule.ruleKey);
       if (!rec) continue;
       const look = valueLookup(rec), fam = familyOf(rule.family);
-      const bitsOf = (s: LineState) => {
-        const e = evaluateSite(type as ObjectType<LineState>, fam as never, rule.params, s, variant, 0, rule.tieBreaker);
-        return e.score === null ? 0 : look(e.score).bits;
-      };
-      for (const m of offered) for (const args of SHORTCUTS[m.id]!) for (const [k, start] of starts.entries()) {
-        const bits = [bitsOf(start)], fees: number[] = [];
-        const seen = new Set([type.encode(start)]);
-        let s = start;
-        for (let i = 0; i < CHAIN; i++) {
-          const a = applyCall(type as ObjectType<LineState>, variant, s, { mutator: m.id, site: 0, args });
-          if (isInvalid(a)) break;
-          // Back to a state it held: a cycle (four quarter turns), which repeats rather than climbs.
-          if (seen.has(type.encode(a.result))) break;
-          seen.add(type.encode(a.result));
-          s = a.result;
-          fees.push(a.price.total);
-          bits.push(bitsOf(s));
+      const ev = (s: LineState) => evaluateSite(T, fam as never, rule.params, s, variant, 0, rule.tieBreaker);
+      const bitsOf = (s: LineState) => { const e = ev(s); return e.score === null ? 0 : look(e.score).bits; };
+      const main = (s: LineState) => { const v = ev(s).terms[0]?.value; return v && typeof v === "object" && "n" in v ? Number(v.n) / Number(v.d) : -Infinity; };
+      const r = rng("energy-gate", preset.id, rule.ruleKey);
+      const starts: LineState[] = [];
+      for (let k = 0; starts.length < STARTS && k < 50; k++) { const d = law.draw(r, 1); if (d.state) starts.push(d.state as LineState); }
+      if (fam.keepsParams) {
+        for (let k = 0, found = 0; found < STARTS && k < 30; k++) {
+          const d = law.draw(r, 1);
+          if (!d.state) continue;
+          let best: { s: LineState; fee: number } | null = null;
+          for (const m of ["si.shift", "si.tilt"]) for (let j = -60; j <= 60; j++) {
+            if (!j) continue;
+            const o = step(d.state as LineState, { mutator: m, args: { k: String(j) } });
+            if (o && main(o.s) >= 1 && (!best || o.fee < best.fee)) best = o;
+          }
+          if (best) { starts.push(best.s); found++; }
+        }
+      }
+      let worst = 0;
+      for (const [k, start] of starts.entries()) {
+        let s = start, spent = 0, top = bitsOf(s);
+        const visited = new Set([T.encode(s)]);
+        for (let i = 0; i < MAX_STEPS; i++) {
+          let pick: { s: LineState; fee: number; g: number; b: number } | null = null;
+          const b0 = bitsOf(s);
+          for (const c of calls) {
+            const o = step(s, c);
+            if (!o || spent + o.fee > income || visited.has(T.encode(o.s))) continue;
+            const b = bitsOf(o.s), g = (b - b0) / Math.max(o.fee, 1e-9);
+            if (g > 0 && (!pick || g > pick.g)) pick = { ...o, g, b };
+          }
+          if (!pick) break;
+          s = pick.s; spent += pick.fee; visited.add(T.encode(s)); top = Math.max(top, pick.b);
         }
         chains++;
-        const why = straightHill(bits, fees);
-        if (why) failures.push(`${preset.id} ${rule.family}${JSON.stringify(rule.params)}/${rule.tieBreaker} by ${m.id} ${JSON.stringify(args)} from start ${k}: ${why}`);
+        worst = Math.max(worst, top);
+        if (top > LIMIT && !(`${rule.family}/${rule.tieBreaker}` in OPEN)) failures.push(`${preset.id} ${rule.family}${JSON.stringify(rule.params)}/${rule.tieBreaker} from ${k < STARTS ? "law draw" : "rung start"} ${k}: ${top.toFixed(1)} bits for ${spent.toFixed(0)}⚡ (at ${T.encode(s)})`);
       }
-      // The greedy chain: each step, whichever of the kind's arguments raises the rule most (a climber mixes factors).
-      for (const m of offered) for (const [k, start] of starts.entries()) {
-        const next = (s: LineState) => SHORTCUTS[m.id]!.flatMap(args => {
-          const a = applyCall(type as ObjectType<LineState>, variant, s, { mutator: m.id, site: 0, args });
-          return isInvalid(a) ? [] : [{ state: a.result, fee: a.price.total }];
-        });
-        const { bits, fees } = greedyChain(start, next, bitsOf, s => type.encode(s), CHAIN);
-        chains++;
-        const why = straightHill(bits, fees);
-        if (why) failures.push(`${preset.id} ${rule.family}${JSON.stringify(rule.params)}/${rule.tieBreaker} by ${m.id} (greedy) from start ${k}: ${why}`);
-      }
+      report.push(`${preset.id} ${rule.family}${JSON.stringify(rule.params)}/${rule.tieBreaker}: best ${worst.toFixed(1)} bits`);
+      if (`${rule.family}/${rule.tieBreaker}` in OPEN) openWorst.set(`${rule.family}/${rule.tieBreaker}`, Math.max(openWorst.get(`${rule.family}/${rule.tieBreaker}`) ?? 0, worst));
     }
   }
+  console.log(report.join("\n"));
   assert.ok(chains > 100, `${chains} chains`);
-  assert.deepEqual([...new Set(failures)], []);
+  assert.deepEqual(failures, []);
+  for (const [rule, worst] of openWorst) assert.ok(worst > LIMIT, `${rule} now stays at ${worst.toFixed(1)} bits: remove it from OPEN`);
 });
