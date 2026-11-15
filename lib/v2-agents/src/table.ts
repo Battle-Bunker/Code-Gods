@@ -18,7 +18,7 @@ import { aiSeatSystemPrompt, commitmentBriefing, commitmentsOf, findDeals, runAs
 import { hashHex, Qn, rng, ruleLayers, scoreToWire, type ObjectType, type Variant } from "@workspace/v2-core";
 import {
   actCredit, affordable, agentIncome, defaultShare, energyCapacity, firstAgentShare, LINES_BEGINNER_ECONOMY, movePower, newAccount,
-  opportunities, pickByEnergy, readCharge, roundShare, settle, settleOwn, spend, type Account, type Economy,
+  opportunities, pickByEnergy, readCharge, roundShare, settle, settleOwn, spend, summonPriceScale, type Account, type Economy,
 } from "@workspace/v2-economy";
 import type { Sandbox } from "@workspace/v2-sandbox";
 import { runAct, type ActRecord, type Program } from "./act.ts";
@@ -156,6 +156,9 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   const { type, variant, seats } = input;
   const econ = input.economy ?? LINES_BEGINNER_ECONOMY;
   const P = econ.powerPerSecond, T = econ.fullChargeSeconds, whole = P * T;
+  // Summon and edit prices scale with the power (bits × power ÷ 64), as the server charges them.
+  const scale = summonPriceScale(P);
+  const summonPrice = (p: Program) => scale * summonBits(p.language, p.source).energy;
   const r = rng("table", input.seed);
   const checks = rng("table-checks", input.seed);   // apart from r, so a model's checks never change what agents are offered
   let lines = births(type, variant, input.seed, input.lines);
@@ -202,7 +205,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   function summon(i: number, program: Program, share?: number, name?: string) {
     const p = players[i]!;
     if (mine(i).length >= MAX_AGENTS) throw new Error(`You have ${MAX_AGENTS} agents, the most a player may have.`);
-    const price = summonBits(program.language, program.source).energy;
+    const price = summonPrice(program);
     const s = roundShare(share ?? defaultShare(p.allocated));
     if (s <= 0 || p.allocated + s > 1 + 1e-9) throw new Error(`You have ${roundShare(1 - p.allocated)} of your power left to give.`);
     pay(i, price, "summons");
@@ -232,7 +235,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
 
   // At the start, each seat summons its program at the first-agent share (as practice partners do).
   for (const [i, s] of seats.entries()) {
-    const need = summonBits(s.program.language, s.program.source).energy;
+    const need = summonPrice(s.program);
     const share = firstAgentShare({ allocated: 0, powerPerSecond: P, fullChargeSeconds: T, need }) ?? defaultShare(0);
     summon(i, s.program, share, `${s.name}'s agent`);
   }
@@ -395,10 +398,10 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
         case "agent.check": {
           const program = { language: args.language as Program["language"], source: String(args.source ?? "") };
           const samples = [0, 1, 2, 3].map(() => { const j = checks.below(lines.length); return { objectId: String(j), state: lines[j]! }; });
-          const rep = await check(await sandbox(program.language), { type, variant, rule: seat.rule, program, samples, energy: settledOwn(i).balance });
+          const rep = await check(await sandbox(program.language), { type, variant, rule: seat.rule, program, samples, energy: settledOwn(i).balance, priceScale: scale });
           // With agentId: what agent.replace with this program would cost (only the change, or the whole price in another language).
           const x = args.agentId === undefined ? null : agentArg(i, args);
-          const editPrice = x === null ? null : program.language === x.program.language ? editBits(program.language, x.program.source, program.source).energy : rep.price;
+          const editPrice = x === null ? null : program.language === x.program.language ? scale * editBits(program.language, x.program.source, program.source).energy : rep.price;
           return { verdict: rep.verdict, summary: rep.summary, price: rep.price, editPrice, sample: rep.sample };
         }
         case "agent.summon": {
@@ -408,7 +411,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
         case "agent.replace": {
           const x = agentArg(i, args);
           const program = { language: args.language as Program["language"], source: String(args.source ?? "") };
-          const price = program.language === x.program.language ? editBits(program.language, x.program.source, program.source).energy : summonBits(program.language, program.source).energy;
+          const price = program.language === x.program.language ? scale * editBits(program.language, x.program.source, program.source).energy : summonPrice(program);
           pay(i, price, "edits");
           x.program = program; x.programs.push(program); stats[i]!.replaced++;
           return { version: x.programs.length - 1, price };

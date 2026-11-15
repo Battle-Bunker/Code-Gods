@@ -15,7 +15,7 @@ import { isGridTypeFamily } from "../src/grid-starters.ts";
 import { readFileSync } from "node:fs";
 import { evaluateSite, q, Qn, scoreToWire, type Variant } from "@workspace/v2-core";
 import { valueLookup } from "@workspace/v2-valuation";
-import { firstAgentShare, LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
+import { firstAgentShare, GRIDS_BEGINNER_ECONOMY, LINES_BEGINNER_ECONOMY, summonPriceScale } from "@workspace/v2-economy";
 import { fromMC, lineType, lineQ, lineZ, type LineState } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
 import {
@@ -154,9 +154,10 @@ test("each example gains value: on some newborn line its bits rise and the main 
   }
 });
 
-test("every shipped agent is payable from its beginner preset's starting energy (lines 600, grids 900), at about the same price in both languages", () => {
+test("every shipped agent is payable from its beginner preset's starting energy, at about the same price in both languages", () => {
   for (const a of all) {
-    const price = summonBits(a.language, a.source).energy;
+    // The summon price scales with the preset's power (bits × power ÷ 64), as the server charges it.
+    const price = summonBits(a.language, a.source).energy * summonPriceScale((isGridTypeFamily(a.family) ? GRIDS_BEGINNER_ECONOMY : LINES_BEGINNER_ECONOMY).powerPerSecond);
     const starting = isGridTypeFamily(a.family) ? GRID_BEGINNER_STARTING_ENERGY : BEGINNER_STARTING_ENERGY;
     assert.ok(price <= starting, `${shippedPath(a)} costs ${price.toFixed(1)} energy of ${starting}`);
     if (a.language === "typescript") {
@@ -202,8 +203,8 @@ test("check: works, warns, fails and rejected, with the summon price and every a
 });
 
 test("after a first summon at the first-agent share, the player's store can still hold the dearest shipped agent (ux 1.5, 3.7)", () => {
-  const dearest = Math.max(...all.map(a => summonBits(a.language, a.source).energy));
   const e = LINES_BEGINNER_ECONOMY;
+  const dearest = Math.max(...all.filter(a => !isGridTypeFamily(a.family)).map(a => summonBits(a.language, a.source).energy)) * summonPriceScale(e.powerPerSecond);
   const share = firstAgentShare({ allocated: 0, powerPerSecond: e.powerPerSecond, fullChargeSeconds: e.fullChargeSeconds, need: dearest });
   assert.ok(share !== undefined && share >= 0.65, `first agent's share ${share}`);
   assert.ok((1 - share) * e.powerPerSecond * e.fullChargeSeconds >= dearest, "the store's capacity holds the dearest agent");

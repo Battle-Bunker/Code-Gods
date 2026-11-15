@@ -75,6 +75,8 @@ test("without the manoeuvre a second summon is refused: the store holds too litt
     type: lineType, variant: lineZ, lines: 4, seed: "u", seconds: 1.5,
     seats: [seat("Ada", "model", "treasure", "prime-terms"), seat("Cy", "naive", "prime-landing", "big-prime")],
     model: { provider: mockProvider(ada), budget: new Budget({ tokens: 10_000_000, usd: 5 }) },
+    // At power 64 (summon prices at their calibrated bits) the store after the first summon holds less than a second one.
+    economy: { powerPerSecond: 64, fullChargeSeconds: 30, startingEnergy: 600, opportunitiesPerSecond: 25 },
   });
   assert.equal(report.seats[0]!.failedToolCalls, 1);
   assert.equal(report.seats[0]!.summoned, 0);
