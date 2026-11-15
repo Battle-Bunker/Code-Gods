@@ -26,7 +26,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { VALUE_RECORDS } from "../../convex/v2/values.gen.ts";
+import { valueRecord } from "../../convex/v2/values.ts";
 import { dealablePool, familyOf } from "../../convex/v2/deal.ts";
 import { PRESETS } from "../../convex/v2/presets.ts";
 import { LINE_Q_CODES } from "@workspace/v2-linear";
@@ -119,7 +119,7 @@ test("a family's parameter peers in a dealable pool have the same top and spread
     const drifts = preset.driftSeconds > 0;
     const peers = new Map<string, { params: string; top: Est; median: Est; exact: Est | null; ladder: Map<string, number> | null }[]>();
     for (const r of dealablePool(preset)) {
-      const v = VALUE_RECORDS.find(x => x.ruleKey === r.ruleKey);
+      const v = valueRecord(r.ruleKey);
       if (!v) continue;
       const key = `${r.family}/${r.tieBreaker}`;
       peers.set(key, [...(peers.get(key) ?? []), { params: JSON.stringify(r.params), top: top(v.knots as readonly Knot[]), median: median(v.knots as readonly Knot[]), exact: familyOf(r.family).main.sense === "min" ? exactMain(v.knots as readonly Knot[]) : null,

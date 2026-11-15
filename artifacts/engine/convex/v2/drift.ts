@@ -17,7 +17,7 @@ import { canonicalJson, driftParams } from "@workspace/v2-core";
 import { findVariant, ruleKey } from "@workspace/v2-valuation";
 import { familyOf, seatingClashes } from "./deal.ts";
 import type { SeatedRule } from "@workspace/v2-linear";
-import { valueRecord } from "./values.ts";
+import { valueHead } from "./values.ts";
 
 /** A game's drift interval in world seconds (0: off; games stored before drift have none). */
 export const driftSecondsOf = (game: { settings: { driftSeconds?: number } }) => Math.max(0, game.settings.driftSeconds ?? 0);
@@ -39,8 +39,8 @@ export function redrawParams(variantId: string, family: string, tieBreaker: stri
   const { type, variant } = findVariant(variantId);
   const keyOf = (p: unknown) => ruleKey(type, variant, family, p, tieBreaker ?? "none");
   const seatable = (p: unknown) => seatingClashes(variantId, [...others, { family, params: p }]).length === seatingClashes(variantId, others).length;
-  const next = driftParams(f, variant, current, seed, seat, tick, p => valueRecord(keyOf(p)) !== null && seatable(p));
+  const next = driftParams(f, variant, current, seed, seat, tick, p => valueHead(keyOf(p)) !== null && seatable(p));
   if (canonicalJson(next) === canonicalJson(current)) return null;
-  const key = keyOf(next), record = valueRecord(key)!;
+  const key = keyOf(next), record = valueHead(key)!;
   return { params: next, ruleKey: key, contentHash: record.contentHash };
 }

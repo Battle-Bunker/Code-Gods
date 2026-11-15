@@ -14,6 +14,7 @@ import { makeFunctionReference } from "convex/server";
 import { newNoiseKey } from "./disclose.ts";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, drawEnd, timeScaleOf } from "./duration.ts";
 import { ensureWarm } from "./readiness.ts";
+import { endGame } from "./loop.ts";
 import { unopposedDirections } from "@workspace/v2-agents/pure";
 
 const PLANNING_ENDS = makeFunctionReference<"mutation", { gameId: Id<"v2Games"> }>("v2/loop:planningEnds");
@@ -247,6 +248,22 @@ export async function rematchDeal(ctx: QueryCtx, room: Doc<"v2Rooms">): Promise<
 }
 
 /**
+ * A practice game is one person's (one human seat): starting another ends the unfinished one they left (playtest round
+ * 24: each re-deal left a world running its full length with its AI turns, about 28 at once, and the backend timed out).
+ * A game with another human in it is never ended for them; nor is a game in this room (the start refuses a running one).
+ */
+async function endAbandonedPractice(ctx: MutationCtx, human: Doc<"v2Members">, roomId: Id<"v2Rooms">) {
+  if (!human.userId) return;
+  const userId = human.userId;
+  for (const m of await ctx.db.query("v2Members").withIndex("by_user", q => q.eq("userId", userId)).order("desc").take(50)) {
+    if (m.roomId === roomId) continue;
+    const room = await ctx.db.get(m.roomId);
+    const game = room?.gameId ? await ctx.db.get(room.gameId) : null;
+    if (game && game.phase !== "ended" && isPracticeGame(game.roster.map(s => s.kind)) && game.roster.some(s => s.memberId === m._id)) await endGame(ctx, game);
+  }
+}
+
+/**
  * Starts a game in the room: deals every seated member a rule (rotated, fresh, or with the bid phase's wins), opens
  * their accounts at the preset's starting energy, writes the header and the record's first event, and enters
  * planning. The world (births, acts) is the loop's (W3-4). A preset with a bid phase opens it instead (`openBidding`).
@@ -257,6 +274,7 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
   if (seats.length < preset.minPlayers) throw new OpFailure(`Needs ${preset.minPlayers} players; ${seats.length} seated.`, "seats.fillPracticePartners");
   // v1's cap (archive owner.ts): at most eight players; more room members can watch.
   if (seats.length > MAX_PLAYERS) throw new OpFailure(`At most ${MAX_PLAYERS} players can play; ${seats.length} are seated.`, "room.setSpectator");
+  if (isPracticeGame(seats.map(m => m.kind))) await endAbandonedPractice(ctx, seats.find(m => m.kind === "human")!, room._id);
   const seed = again?.seed ?? crypto.randomUUID(), now = Date.now();
   let { rules, dealKey, rotation } = again ? { rules: seats.map(m => again.rules.get(m._id)!), dealKey: again.dealKey, rotation: null } : await nextDeal(ctx, room, seats, seed);
   if (rules.some(r => !r) || (again && again.rules.size !== seats.length)) throw new OpFailure("A rematch needs the same seated players as the last game.", "game.start");

@@ -6,13 +6,24 @@
 import type { Score } from "@workspace/v2-core";
 import type { ObjectType } from "@workspace/v2-core";
 import { findVariant, valueLookup, valuesVariant, withUniqueness } from "@workspace/v2-valuation";
-import { UNIQUENESS, VALUE_RECORDS, type ValueRecord } from "./values.gen.ts";
+import { CURVES, UNIQUENESS, VALUE_INDEX, type ValueRecord } from "./values.gen.ts";
 
-const BY_KEY = new Map(VALUE_RECORDS.map(r => [r.ruleKey, r]));
+const INDEX = new Map(VALUE_INDEX.map(r => [r.ruleKey, r]));
+const RECORDS = new Map<string, ValueRecord>();
 const LOOKUPS = new Map<string, ReturnType<typeof valueLookup>>();
 
-/** The rule's value function, or null when it has none (such a rule is not dealt). */
-export const valueRecord = (ruleKey: string): ValueRecord | null => BY_KEY.get(ruleKey) ?? null;
+/** The rule's value function, or null when it has none (such a rule is not dealt). Its curve is parsed on first use. */
+export function valueRecord(ruleKey: string): ValueRecord | null {
+  let r = RECORDS.get(ruleKey);
+  if (!r) {
+    const head = INDEX.get(ruleKey), curve = CURVES[ruleKey];
+    if (!head || curve === undefined) return null;
+    RECORDS.set(ruleKey, r = { ...head, ...(JSON.parse(curve) as Pick<ValueRecord, "knots" | "tail">) });
+  }
+  return r;
+}
+/** A rule's value function without its curve (its contentHash, family, params), or null: never parses a curve. */
+export const valueHead = (ruleKey: string): Omit<ValueRecord, "knots" | "tail"> | null => INDEX.get(ruleKey) ?? null;
 
 /**
  * The game a worth is looked up in (owner decision 24, spec §2.6): its variant and `objects`, the object count the
