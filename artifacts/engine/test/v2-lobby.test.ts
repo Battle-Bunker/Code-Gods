@@ -113,6 +113,21 @@ test("at most eight players can play (v1's cap); the rest of the room watches", 
   await perform(many[0]!, "game.end", {}, { gameId: started.result.gameId });
 });
 
+test("grid seating: a grid game records the clashes its deal left (none at three seats), a line game none, and no player read returns it", { timeout: 60_000 }, async () => {
+  const [ada] = await humans("Seating Ada");
+  for (const [preset, grid] of [["grids-beginner", true], ["lines-beginner", false]] as const) {
+    const { roomId } = (await perform(ada!, "room.create", { name: `Seating ${preset}`, preset })).result;
+    await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
+    const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
+    const stored = await admin.query("v2/testing:header", { gameId });
+    if (grid) assert.deepEqual(stored.seating, { clashes: [] }, "three seats: one family from each cluster at most");
+    else assert.equal(stored.seating, undefined);
+    const header = await ada!.query("v2/games:header", { gameId });
+    assert.equal("seating" in header, false, "players are not shown it");
+    await perform(ada!, "game.end", {}, { gameId });
+  }
+});
+
 test("the dealing trial's measurement: a game stores its table's unopposed directions, and no player read returns them", { timeout: 60_000 }, async () => {
   const [ada] = await humans("Trial Ada");
   const { roomId } = (await perform(ada!, "room.create", { name: "Trial room" })).result;
