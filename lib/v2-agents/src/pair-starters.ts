@@ -362,7 +362,7 @@ const KINDS: Record<StarterKind, { title: string; summary: string; tryThis: stri
     tryThis: "add the \"combine\" moves from the Thorough starter: adding one equation to the other keeps the answer where it is.", far: 1, quotes: 4,
   },
   thorough: {
-    title: "Thorough", summary: "Like Simple, but it also uses the moves that use both lines (elimination, sliding along the other line, reflecting, quarter turns) and compares more prices.",
+    title: "Thorough", summary: "Like Simple, but it also uses moves that use both lines (elimination, sliding along the other line, and your rule's own) and compares more prices.",
     tryThis: "change QUOTES = 6 to 2: fewer prices asked, but it may miss a cheaper plan.", far: 1, quotes: 6,
   },
   bold: {
@@ -391,7 +391,7 @@ const HOW_NAIVE = [
 
 function lensesFor(kind: AgentKind, family: string): LensId[] {
   const own = PAIR_SCORES[family]!.lenses;
-  const ids: LensId[] = kind === "simple" || kind === "naive" ? ["shift", "tilt"] : ["shift", "tilt", ...own, ...(kind === "thorough" ? (["combine", "slide", "reflect", "quarter"] as LensId[]) : [])];
+  const ids: LensId[] = kind === "simple" || kind === "naive" ? ["shift", "tilt"] : ["shift", "tilt", ...own, ...(kind === "thorough" ? (["combine", "slide"] as LensId[]) : [])];
   return [...new Set(ids)];
 }
 

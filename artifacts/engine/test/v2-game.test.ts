@@ -1,6 +1,6 @@
 /**
  * Milestones M1's and M4's acceptance (integration plan §5.2, §5.5), on the live local backend, once per object type: a
- * room of three practice partners on `Lines · beginner`, then on `Grids · beginner`, planning 5 s and 60 world seconds. Every partner summons its rule's Simple starter (TypeScript
+ * room of three practice partners on `Lines · beginner`, then on `Grids · beginner`, then on two-line systems (`lines-pairs`), planning 5 s and 60 world seconds, a fixed end. Every partner summons its rule's Simple starter (TypeScript
  * for one, Python for two), each makes committed acts, the standings are not zero and the game ends by itself. Then the
  * record replays (spec §9.2–§9.3): folding the stored events gives the final standings exactly, and re-executing every
  * act from its recorded inputs in a local sandbox gives the same act.
@@ -42,7 +42,7 @@ before(async () => {
   ({ roomId } = (await perform(host!, "room.create", { name: `${preset} room`, preset })).result);
   await perform(host!, "room.setSpectator", { spectator: true }, { roomId });
   assert.deepEqual((await perform(host!, "seats.fillPracticePartners", {}, { roomId })).result, { added: 3 });
-  await perform(host!, "room.settings", { overrides: { planningSeconds: 5, worldSeconds: 60 } }, { roomId });
+  await perform(host!, "room.settings", { overrides: { planningSeconds: 5, worldSeconds: 60, durationMode: "fixed" } }, { roomId });
   const started = await perform(host!, "game.start", {}, { roomId });
   assert.equal(started.ok, true, JSON.stringify(started));
   gameId = started.result.gameId;

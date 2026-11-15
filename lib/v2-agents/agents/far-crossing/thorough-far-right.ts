@@ -78,8 +78,6 @@ function agent(offer) {
       if (f.D) { const g = gcd(M[0], M[1]), dx = K * M[1] / g, dy = -K * M[0] / g; tries.push([move("pair.slide", { line, k }), pair(line_(L[0], L[1], L[2] - L[0] * dx - L[1] * dy), M)]); }   // slide a line so the crossing moves k steps along the other line
       { const a = L[0] + K * M[0], b = L[1] + K * M[1], c = L[2] + K * M[2]; if ((a || b) && gcd(gcd(a, b), c) === 1n) tries.push([move("pair.combine", { line, k }), pair(line_(a, b, c), M)]); }   // add k times the other equation to this one (the answer stays)
     }
-    { const n2 = M[0] * M[0] + M[1] * M[1], d = L[0] * M[0] + L[1] * M[1]; tries.push([move("pair.reflect", { line }), pair(line_(n2 * L[0] - 2n * d * M[0], n2 * L[1] - 2n * d * M[1], n2 * L[2] - 2n * d * M[2]), M)]); }   // reflect a line in the other line (the answer stays)
-    if (f.D) tries.push([move("pair.quarter", { line }), pair(line_(-L[1] * f.D, L[0] * f.D, L[1] * f.nx - L[0] * f.ny), M)]);   // turn a line a quarter turn about the crossing
   }
   let options = tries.filter(([, S2]) => S2).map(([plan, S2]) => [plan, score(S2, TIE)]);   // each step and the score it reaches
   // A promise: on these pairs, only steps that leave the other players at least as well off.

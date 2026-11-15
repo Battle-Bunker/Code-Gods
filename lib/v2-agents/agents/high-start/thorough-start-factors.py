@@ -134,12 +134,6 @@ def agent(offer):
             a, b, c = L[0] + k * M[0], L[1] + k * M[1], L[2] + k * M[2]
             if (a or b) and gcd(gcd(a, b), c) == 1:
                 tries.append((move("pair.combine", line=n, k=k), pair(line(a, b, c), M)))
-        # reflect a line in the other line (the answer stays)
-        n2, d = M[0] * M[0] + M[1] * M[1], L[0] * M[0] + L[1] * M[1]
-        tries.append((move("pair.reflect", line=n), pair(line(n2 * L[0] - 2 * d * M[0], n2 * L[1] - 2 * d * M[1], n2 * L[2] - 2 * d * M[2]), M)))
-        # turn a line a quarter turn about the crossing
-        if f["D"]:
-            tries.append((move("pair.quarter", line=n), pair(line(-L[1] * f["D"], L[0] * f["D"], L[1] * f["nx"] - L[0] * f["ny"]), M)))
     options = [(plan, score(S2, TIE)) for plan, S2 in tries if S2 is not None]   # each step and the score it reaches
     # A promise: on these pairs, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:
