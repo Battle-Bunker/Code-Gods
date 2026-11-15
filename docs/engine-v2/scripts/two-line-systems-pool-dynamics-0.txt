@@ -1,0 +1,22 @@
+game 1: forty-five/corner-smooth, whole-answer/south-west, far-crossing/far-right; 0 redraws
+game 2: high-start/start-factors, forty-five/corner-smooth, steep-ratio/ratio-gap; 0 redraws
+game 3: right-angle/corner-prime, forty-five/corner-gap, far-crossing/far-right; 0 redraws
+game 4: right-angle/corner-steep, forty-five/corner-smooth, whole-answer/south-west; 0 redraws
+game 5: high-start/high-and-rising, forty-five/corner-smooth, right-angle/corner-steep; 0 redraws
+game 6: high-start/high-and-rising, right-angle/corner-steep, steep-ratio/ratio-prime; 0 redraws
+game 7: right-angle/corner-steep, high-start/start-factors, no-fractions/numerator-smooth; 0 redraws
+game 8: double-gap/gap-prime, steep-ratio/ratio-gap, high-start/start-factors; 0 redraws
+game 9: right-angle/corner-prime, no-fractions/numerator-shared, far-crossing/far-prime; 0 redraws
+game 10: far-crossing/far-prime, steep-ratio/ratio-gap, no-fractions/numerator-smooth; 0 redraws
+pair-q pool, simple starters, 10 games of 600 s, no drift, power 4, 3/s
+| family | games | mean points gained | moves a minute | energy at end | spent / income | own bits at end | others' bits at end | moves | share raising points | flips | energy taken back | objects moving in the last third | main-part levels per object climbed: median / max | end bits on those objects (mean, max) | seats still climbing the main part in the last third | valleys crossed (rung to higher rung) | main-part steps that lowered the tie-breaker | recovered, median s | redraws answered, median s | end bits under current / other params | main-part progress taken by others (climbed back) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| whole-answer | 2 | 345 | 3.3 | 48 | 97% | 5.6 | 8.7 | 34 | 100% | 18.5 | 354 | 32% | 3 / 5 | 6.1 (max 14.1) | 50% | 61 | 41% of 61 | 0%, - | - | 5.5 / 0.9 | 84 (50%) |
+| steep-ratio | 4 | 262 | 1.8 | 69 | 96% | 6.3 | 8.5 | 18 | 100% | 6.3 | 255 | 31% | 2 / 10 | 7.0 (max 14.7) | 25% | 69 | 13% of 72 | 0%, - | - | 6.3 / 2.1 | 34 (94%) |
+| high-start | 5 | 217 | 2.4 | 34 | 98% | 4.5 | 9.3 | 24 | 100% | 8.2 | 413 | 34% | 1 / 3 | 5.1 (max 16.0) | 60% | 97 | 6% of 97 | 0%, - | - | 4.5 / 1.2 | 75 (75%) |
+| forty-five | 5 | 204 | 4.4 | 53 | 97% | 5.3 | 8.2 | 44 | 100% | 25.6 | 661 | 44% | 2 / 6 | 5.6 (max 14.7) | 60% | 219 | 8% of 219 | 0%, - | - | 5.2 / 1.9 | 266 (39%) |
+| far-crossing | 4 | 195 | 2.8 | 108 | 94% | 4.5 | 10.1 | 28 | 100% | 4.3 | 272 | 34% | 2 / 12 | 4.7 (max 8.3) | 50% | 90 | 1% of 90 | 0%, - | - | 4.5 / 2.5 | 55 (53%) |
+| no-fractions | 3 | 189 | 1.0 | 109 | 94% | 4.0 | 10.2 | 10 | 100% | 0.0 | 68 | 18% | 1 / 2 | 4.5 (max 11.0) | 33% | 14 | 21% of 14 | 33%, 62 | - | 3.5 / 1.1 | 7 (43%) |
+| double-gap | 1 | 181 | 7.5 | 28 | 98% | 3.3 | 10.2 | 75 | 100% | 66.0 | 1385 | 60% | 2 / 3 | 3.9 (max 11.0) | 0% | 74 | 20% of 75 | 0%, - | - | 3.3 / 1.5 | 72 (88%) |
+| right-angle | 6 | 116 | 4.1 | 49 | 97% | 3.3 | 9.6 | 41 | 100% | 25.3 | 724 | 40% | 2 / 4 | 3.8 (max 13.2) | 33% | 229 | 8% of 229 | 0%, - | - | 3.4 / 1.6 | 261 (10%) |
+balance: best family's mean gain over the worst's: 3.0
