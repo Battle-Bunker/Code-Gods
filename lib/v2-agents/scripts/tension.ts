@@ -559,7 +559,9 @@ say();
  * median bits over law draws) in at least half of them. The check is informative only when B, climbing freely by the
  * same rule from law draws, rises above floor + 1 in at least half of them; otherwise ".".
  */
-const EX_STATES = 12, EX_STEPS = 3, EX_DRAWS = 40;
+/** A pair is measured on at least MIN_FREE states where B rises freely (the coordinator: a share from 4 states is an artefact). */
+const MIN_FREE = 12;
+const EX_STATES = 48, EX_STEPS = 3, EX_DRAWS = 40;
 const cheapDirs = DIRS.filter((_, d) => cheap[d]);
 function climbB(s0: LineState, b: number, keep: ((s: LineState) => boolean) | null): number {
   let s = s0, best = allBits(s)[b]!;
@@ -613,6 +615,8 @@ const atFloor = (s: LineState, b: number, keep: ((t: LineState) => boolean) | nu
  * constraint, not the start, holds B down. "1" when that holds on at least half of the states where B can rise freely;
  * "." when fewer than 4 such states.
  */
+/** Per (A, B): [states where B rises freely, of them where keeping A high holds B at its floor]. */
+const exclusionCounts: [number, number][][] = RULES.map(() => RULES.map(() => [0, 0] as [number, number]));
 const exclusion: string[] = RULES.map((_, a) => {
   const hs = highStates[a]!.slice(0, EX_STATES);
   return RULES.map((_b, b) => {
@@ -624,7 +628,8 @@ const exclusion: string[] = RULES.map((_, a) => {
       const a0 = allBits(s)[a]!;
       if (atFloor(s, b, t => allBits(t)[a]! >= a0 - 1)) held++;
     }
-    if (free < 4) return ".";
+    exclusionCounts[a]![b] = [free, held];
+    if (free < MIN_FREE) return ".";
     return held >= free / 2 ? "1" : "0";
   }).join("");
 });
@@ -651,8 +656,10 @@ if (o.json) {
     })])),
     repeatsLegend: `per rule, per direction: the direction repeated ${STEPS} times from every state, [runs, runs raising the rule, mean Δbits given a rise, mean price (fee + surcharge, bits) of the ${STEPS} moves of a raising run]`,
     opportunityLegend: `per rule A, per direction (in order): one character per rule C (in the order of rules): the number of fractions in [${OPP_F.join(", ")}] that C's opportunity cost reaches, as a share of A's gain, in at least half of A's rising runs of ${STEPS} repeats (C's cost: its best bits one move from the start, or staying, less its bits at the run's end); " " the same family, "." fewer than 8 rising runs`,
-    exclusionLegend: `per rule A: one character per rule B (in the order of rules): "1" when, on A's high states (A ≥ ${HIGH} bits, sampled and from its ladder witnesses, up to ${EX_STATES}), a greedy climb of B of ${EX_STEPS} cheap moves takes B off its floor freely but not when it keeps A within 1 bit, on at least half of the states where it can rise freely (B's floor: a ladder below its second rung, main part < 2; otherwise within 1 bit of its median over law draws); "0" otherwise; "." fewer than 4 states where B rises freely; " " the same family`,
+    exclusionLegend: `per rule A: one character per rule B (in the order of rules): "1" when, on A's high states (A ≥ ${HIGH} bits, sampled and from its ladder witnesses, up to ${EX_STATES}), a greedy climb of B of ${EX_STEPS} cheap moves takes B off its floor freely but not when it keeps A within 1 bit, on at least half of the states where it can rise freely (B's floor: a ladder below its second rung, main part < 2; otherwise within 1 bit of its median over law draws); "0" otherwise; "." fewer than ${MIN_FREE} states where B rises freely; " " the same family`,
     exclusion,
+    exclusionCountsLegend: "per rule A, per rule B: [A's high states where B rises freely, of them where keeping A within 1 bit holds B at its floor]",
+    exclusionCounts,
     opportunityFractions: OPP_F,
     opportunity: Object.fromEntries(RULES.map((_, a) => [R(a), DIRS.map((_d, d) => RULES.map((_c, c) => {
       if (FAM[c] === FAM[a]) return " ";
