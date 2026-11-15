@@ -84,3 +84,11 @@ test("a grid game's palette says grids, not objects (round 8b)", () => {
   for (const r of rows) assert.doesNotMatch(`${r.human.title} ${r.human.tooltip}`, /\bobjects?\b/i, r.id);
   assert.equal(nouned("Objects and an object", { one: "line", many: "lines" }), "Lines and a line");
 });
+
+test("the room's settings open the configure page (v1's \"Configure the room's setup\"), not a note to find the controls", () => {
+  const ctx = affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: true, spectator: false }], preset: "lines-beginner", phase: "lobby", game: null } as never });
+  const row = paletteCommands(ctx, { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, roomPath: "/rooms/ABCD" } as never).find(r => r.id === "room.settings");
+  assert.ok(row, "the owner is offered the room's settings");
+  assert.deepEqual(row.performer, { kind: "navigate", to: "/rooms/ABCD/configure" });
+  assert.equal(row.confirm, "none", "opening the page asks nothing; its Save confirms");
+});
