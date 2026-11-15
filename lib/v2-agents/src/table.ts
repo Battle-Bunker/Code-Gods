@@ -58,7 +58,7 @@ export interface TableInput<S> {
   readonly seed: string;
   /** World seconds (the beginner preset: 300). */
   readonly seconds: number;
-  /** Default: the beginner economy (64 power, 30 s to full, 600 energy to start, 25 opportunities a second). */
+  /** Default: the beginner economy (v2-economy LINES_BEGINNER_ECONOMY: 8 power, 240 s to full, 600 energy to start, 3 opportunities a second). */
   readonly economy?: Economy;
   /** Default 0.1, the beginner preset's. */
   readonly birthsPerSecond?: number;

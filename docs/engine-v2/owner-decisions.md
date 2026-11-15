@@ -299,6 +299,10 @@ back) or TRIAL (a declared experiment, measured and reported).
     tie-breakers each. The beginner eight keep their mains, Two Pair's "pairs far apart" and Strangers' "1s beside
     bigger numbers", and get tied replacements for the 22 independent ones (primes, zeros, corners, odd, "X big"),
     which leave the dealt pool but stay in the code, undealt, until the coordinator reports the effect (grids.md §6).
+13. The beginner economy at 3 Hz (decision 37): power 8 ⚡/s (was 64), fullChargeSeconds 240 (was 30, so the store still
+    holds 1,920 ⚡), startingEnergy 600, β 0.05. Motive: keep energy binding per act as it was at 25 Hz (about 8 ⚡ an
+    act, about 1.5 unit moves), since the owner wants god energy to stay crucial; at power 64 a seat would have about
+    64 ⚡ an act and energy would stop binding.
 
 15. **TRIAL, now the rule** (declared 15 Nov, departing from v1; confirmed by the owner's decision 33, "a coarse time
     grain leaderboard"; its `peerNoiseBits` 8 on the beginner presets withdrawn by decision 32): the published standings
