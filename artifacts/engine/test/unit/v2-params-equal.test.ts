@@ -62,11 +62,16 @@ const LADDER_COST: Readonly<Record<string, (u: string, params: Record<string, un
     const level = BigInt(n!) / BigInt(d);
     return !u.startsWith("-") && level >= 1n ? [String(level), 0] : null;
   },
-  // Same on Both Rulers: the rung is the level of digits of the palindrome the unchanged number rounds to, as Treasure.
-  "same-on-both-rulers": u => {
-    const [n, d = "1"] = u.split("/");
-    const level = BigInt(n!) / BigInt(d);
-    return !u.startsWith("-") && level >= 1n ? [String(level), 0] : null;
+  // Same on Both Rulers: the rung is the level of digits of the palindrome the unchanged number rounds to (the whole
+  // part of u, u ≥ 1), costed as its cheapest line, y = P with P the smallest palindrome in d of the level's digits:
+  // d = 2's palindromes are bigger numbers than d = 1's, so dearer to write and rarer by as much.
+  "same-on-both-rulers": (u, p) => {
+    const [n, dd = "1"] = u.split("/");
+    const level = BigInt(n!) / BigInt(dd);
+    if (u.startsWith("-") || level < 1n) return null;
+    const D = Number((level * (level + 1n)) / 2n), d = BigInt((p as { d: number }).d);
+    const P = D === 1 ? d : d * 10n ** BigInt(D - 1) + d;
+    return [String(level), LINE_Q_CODES.c.bits(P) + LINE_Q_CODES.a.bits(0n)];
   },
   "whole-crossing": u => (/^\d+$/.test(u) ? [u, 0] : null),
   // The two-line valuation ladders (Whole Answer, High Start, Steep Ratio; lib/v2-pair families.ts): the score is
