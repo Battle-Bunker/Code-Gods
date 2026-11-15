@@ -260,6 +260,10 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     comparable play across rules and across a rule's dealt values) and (2) dynamism (play keeps moving, no dominant
     one-line strategy, no settled optimum), with played objects not reaching hundreds of bits as a sanity bound.
 
+43. On hold rarity (relayed by the coordinator, 15 November): "I said I don't want hold rarity added unless you have a
+    good reason and it sounds like you've confirmed that it offers negligible marginal value." So hold rarity stays out
+    of v2 (the measurement: docs/engine-v2/hold-measurement.md; coordinator's call 11).
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact
