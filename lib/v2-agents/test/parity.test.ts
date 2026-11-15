@@ -284,3 +284,18 @@ test("climb: a step dearer than the allowance (15 s of income) is paid from ener
   assert.equal(out[0]![0], "shift", "saved energy pays for it");
   assert.equal(out[2]![0], "none", "without the savings it waits (no debt beyond the allowance)");
 });
+
+test("simplest: the fraction with the smallest denominator between two numbers (then the numerator nearest 0); the same in both languages", async () => {
+  const cases = [["37/2", "39/2"], ["-81/100", "-77/100"], ["-3", "5"], ["5/7", "5/7"], ["-1", "-1/3"], ["1/1000", "1/999"]];
+  const ts = `function agent(offer) { return [move("probe", { r: ${JSON.stringify(cases)}.map(([a, b]) => Q.toString(simplest(Q.from(a), Q.from(b)))).join("|") })]; }`;
+  const py = `def agent(offer):\n    return [move("probe", r="|".join(str(simplest(Fraction(a), Fraction(b))) for a, b in ${JSON.stringify(cases)}))]\n`;
+  const out: string[] = [];
+  for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
+    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(3, 2), q(-4), lineQ).state, rule: { family: "triangle-area", params: { A: 6 } }, energy: 100 });
+    const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
+    assert.equal(res.ok, true, res.ok ? "" : res.error);
+    if (res.ok) out.push((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r);
+  }
+  assert.equal(out[1], out[0], "Python and TypeScript differ");
+  assert.deepEqual(out[0]!.split("|"), ["19", "-4/5", "0", "5/7", "-1", "1/999"]);
+});
