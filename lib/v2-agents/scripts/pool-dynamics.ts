@@ -83,7 +83,7 @@ const { values: o } = parseArgs({ options: {
   kind: { type: "string", default: "simple" }, objects: { type: "string", default: "3" }, births: { type: "string", default: String(1 / 240) },
   variant: { type: "string", default: "line-q" }, preset: { type: "string" }, instances: { type: "boolean", default: false }, only: { type: "string" }, from: { type: "string", default: "0" }, json: { type: "string" }, focus: { type: "string" }, climber: { type: "string", default: "plain" }, seed: { type: "string" },
   seats: { type: "string", default: "3" }, twostep: { type: "boolean", default: false },
-  power: { type: "string", default: "1" }, reading: { type: "string" },
+  power: { type: "string", default: "1" }, reading: { type: "string" }, server: { type: "boolean", default: false },
 } });
 
 interface PoolRule { readonly family: string; readonly params: unknown; readonly tieBreakers: readonly string[] }
@@ -111,7 +111,7 @@ interface Stat {
   mainSteps: number; valleys: number; tbLost: number; recovered: number; recovery: number[];
   energyEnd: number[]; spentShare: number[]; perMinute: number[];
   own: number[]; others: number[]; moves: number[]; trueGain: number[]; flips: number[]; reversal: number[];
-  committed: number; raisedOther: number; bestJoint: number[];
+  committed: number; raisedOther: number; bestJoint: number[]; thirds: number[];
   /** Contest: episodes where another seat's move lowered this seat's main part on an object it had climbed; those it climbed back. */
   taken: number; reclimbed: number;
 }
@@ -121,7 +121,7 @@ const stat = (f: string) => stats.get(f) ?? (stats.set(f, {
   levels: [], endBits: [], seats: 0, climbingLate: 0, plateauEarly: 0, mainSteps: 0, valleys: 0, tbLost: 0, recovered: 0, recovery: [],
   energyEnd: [], spentShare: [], perMinute: [],
   own: [], others: [], moves: [], trueGain: [], flips: [], reversal: [], taken: 0, reclimbed: 0,
-  committed: 0, raisedOther: 0, bestJoint: [],
+  committed: 0, raisedOther: 0, bestJoint: [], thirds: [0, 0, 0],
 }), stats.get(f)!);
 // --seed line-q on line-q-lenses deals the same seats as line-q, game for game.
 const R = rng("pool-dynamics", o.seed ?? variant.id, o.from);
@@ -177,7 +177,8 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   const keys = picks.map(keyOf);
   const seats = picks.map((r, k) => {
     const tieBreaker = r.tieBreakers[R.below(r.tieBreakers.length)]!;
-    const a = startersFor(r.family, "typescript").find(x => x.kind === o.kind)!;
+    // --server: as the server seats practice partners (convex/v2/agents.ts): the first in TypeScript, the rest in Python.
+    const a = startersFor(r.family, o.server && k > 0 ? "python" : "typescript").find(x => x.kind === o.kind)!;
     const program = ending ? lineStarter(r.family, ending) : { language: a.language, source: o.twostep ? twoStep(a.source) : a.source };
     return { name: `P${k}`, kind: "starter" as const, rule: { family: r.family, params: r.params as Record<string, unknown>, tieBreaker }, program };
   });
@@ -223,7 +224,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
         seats.forEach((_, j) => { if (j === e.seat) return; m.others += a[j]! - b[j]!; if (a[j]! >= b[j]! + 1) shared = true; if (b[j]! >= 2) { m.exposed++; if (a[j]! < b[j]! / 2) m.halved++; } });
         if (shared) m.shared++;
         const tot = a.reduce((t, x) => t + x, 0);
-        { const sm = stat(keys[e.seat]!); sm.committed++; if (seats.some((_, j) => j !== e.seat && a[j]! >= b[j]! + 0.5)) sm.raisedOther++; }
+        { const sm = stat(keys[e.seat]!); sm.committed++; sm.thirds[Math.min(2, Math.floor((3 * e.at) / seconds))]!++; if (seats.some((_, j) => j !== e.seat && a[j]! >= b[j]! + 0.5)) sm.raisedOther++; }
         a.forEach((x, j) => { if (tot - x >= 10) bestJoint[j] = Math.max(bestJoint[j]!, x); });
         a.forEach((x, j) => { const k = keys[j]!, p = peakBy.get(k); if (!p || x > p.bits) peakBy.set(k, { bits: x, game: g }); });
         peakSeat = Math.max(peakSeat, ...a); peakTable = Math.max(peakTable, a.reduce((t, x) => t + x * (tot - x), 0));

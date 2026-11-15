@@ -6,7 +6,7 @@
 import type { ReactElement } from "react";
 import { elementDecl, elementValue, refKey, representation, type ElementRef, type ElementValue, type Mark, type ObjectType, type SceneData, type Term } from "@workspace/v2-core";
 import { marksForRep, meaningKey, projectRef } from "./refs.ts";
-import { typesetNote } from "./format.ts";
+import { labelWithArgs, typesetNote } from "./format.ts";
 import { rendererFor, type DrawSize } from "./scene.ts";
 import "./render/register.ts";
 import { isSingleLine } from "./render/equation.tsx";
@@ -29,8 +29,7 @@ export function valuesOf<S>(type: ObjectType<S>, state: S, site: number): (r: El
 export function labelOf<S>(type: ObjectType<S>, r: ElementRef): string {
   try {
     const d = elementDecl(type, r);
-    const args = r.args ? Object.entries(r.args) : [];
-    return args.length ? `${d.label} (${args.map(([k, v]) => `${k} = ${v.replace("-", "−")}`).join(", ")})` : d.label;
+    return labelWithArgs(d.label, r.args);
   } catch { return refKey(r); }
 }
 

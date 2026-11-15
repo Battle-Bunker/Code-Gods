@@ -188,7 +188,7 @@ test("Whole Crossing's residues r and 5 − r are exact peers: r scores the line
   }
   for (const [a, c] of [[2n, -17n], [1n, 13n]] as const) assert.deepEqual(terms(wholeCrossing, { q: 5, r: 4 }, x(a, -c), lineQ), terms(wholeCrossing, { q: 5, r: 1 }, x(a, c), lineQ));
   assert.deepEqual(wholeCrossing.dealable(lineQ), [1, 2, 3, 4].map(r => ({ q: 5, r })));
-  assert.match(wholeCrossing.card({ q: 5, r: 3 }, null), /on a whole number leaving 3 when divided by 5, times 5 as often as possible\. More 5s are better/);
+  assert.match(wholeCrossing.card({ q: 5, r: 3 }, null), /on a whole number leaving 3 once its 5s are divided out \(like 8, 40 or 200\), with as many 5s as possible/);
 });
 
 test("Prime Staircase is a ladder: a longer run always wins, and its shared factor starts again on a longer run (design-principles.md)", () => {
@@ -207,12 +207,15 @@ test("Prime Landing's levels of digits: level L needs L(L + 1)/2 digits, and a b
   assert.deepEqual([7n, 11n, 101n, 1000003n, 10000000019n].map(p => Math.floor(u(p))), [1, 1, 2, 3, 4]);   // 1, 2, 3, 7, 11 digits
 });
 
-test("every dealt line family's main sentence is one a child can act on: at most 30 words, and a ladder's never says \"level\" (round 24)", () => {
+test("every dealt line card is one a child can act on: the main sentence at most 30 words, the tie-breaker at most 20, and a ladder's never says \"level\" (rounds 24 and 26)", () => {
+  const words = (s: string) => s.split(/\s+/).filter(Boolean).length;
   for (const f of beginnerPool) for (const p of f.dealable(lineQ)) {
-    const s = f.main.sentence(p as never), words = s.split(/\s+/).filter(Boolean).length;
-    if (f.keepsParams) {
-      assert.ok(words <= 30, `${f.id} ${JSON.stringify(p)}: ${words} words: ${s}`);
-      assert.doesNotMatch(s, /level/i, `${f.id}: ${s}`);
+    const s = f.main.sentence(p as never);
+    assert.ok(words(s) <= 30, `${f.id} ${JSON.stringify(p)}: ${words(s)} words: ${s}`);
+    if (f.keepsParams) assert.doesNotMatch(s, /level/i, `${f.id}: ${s}`);
+    for (const t of f.tieBreakers) {
+      const ts = t.sentence(p as never).replace(/^Tie-breaker: /, "");
+      assert.ok(words(ts) <= 20, `${f.id}/${t.id}: ${words(ts)} words: ${ts}`);
     }
   }
 });
