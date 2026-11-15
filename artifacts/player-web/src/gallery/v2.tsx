@@ -8,7 +8,7 @@
  * 3. Every dealable rule (family × parameters) as a compact face.
  * 4. Grids (v2-grids.tsx): a board in every representation, a storyboard, and every grid family on example boards.
  *
- * `?scheme=dark` for the dark scheme, `?family=<id>` for one family, `?section=story|families|dealt|grids|lenses` for one section.
+ * `?scheme=dark` for the dark scheme, `?family=<id>` for one family, `?section=story|families|dealt|grids|lenses|pairs` for one section.
  * e2e/v2-views.ts takes the screenshots in docs/screenshots/v2-views/.
  */
 import { StrictMode, type ReactNode } from "react";
@@ -20,6 +20,7 @@ import { pickExamples, valueFor } from "./values";
 import { emptyTank } from "@workspace/v2-views/demo";
 import "@workspace/v2-views/styles.css";
 import { GridsSection } from "./v2-grids";
+import { canonicalPair, pairQ, pairType, wholeAnswer, type PairState } from "@workspace/v2-pair";
 
 const mc = (m: number | Q, c: number | Q): LineState =>
   ({ lines: [fromMC(typeof m === "number" ? q(m) : m, typeof c === "number" ? q(c) : c)] });
@@ -208,6 +209,35 @@ function Lenses() {
   );
 }
 
+// ------------------------------------------------------------------ two-line systems
+
+const pairOf = (p: [bigint, bigint, bigint], r: [bigint, bigint, bigint]) => canonicalPair([normalise(...p) as Line, normalise(...r) as Line], pairQ) as PairState;
+/** Pairs for Whole Answer: crossing on a peg, crossing off it, an upright line, parallel lines. */
+const PAIRS: { title: string; state: PairState; before?: PairState }[] = [
+  { title: "crossing on a whole point", state: pairOf([1n, 1n, -3n], [1n, -1n, -1n]) },
+  { title: "crossing between pegs", state: pairOf([2n, 3n, -7n], [1n, -2n, -1n]) },
+  { title: "one line upright", state: pairOf([1n, 0n, -3n], [2n, -1n, 1n]) },
+  { title: "parallel: no crossing", state: pairOf([2n, -1n, 1n], [2n, -1n, -4n]) },
+  // A move that flips the stored order: the line that did not move keeps its colour.
+  { title: "after a move (y = x − 1 up to y = x + 9)", state: pairOf([1n, -1n, 9n], [2n, 1n, -5n]), before: pairOf([1n, -1n, -1n], [2n, 1n, -5n]) },
+];
+
+function Pairs() {
+  const rule = { type: pairType, family: wholeAnswer, params: wholeAnswer.dealable(pairQ)[0], variant: pairQ } as RuleRef<PairState, unknown>;
+  return (
+    <section className="g-section" id="pairs" data-section="pairs">
+      <h2>Two-line systems: Whole Answer</h2>
+      <p className="g-note">Each pair as one object: both lines on the plane, each in its own colour, the equations given side by side and solved (lines-pairs, withheld from the lobby until its starters land).</p>
+      {PAIRS.map(p => (
+        <div key={p.title} className="g-row" data-pair={p.title}>
+          <div className="g-small"><Cell title={p.title}><CompactFace rule={rule} state={p.state} before={p.before} /></Cell></div>
+          <Cell title="expanded" wide><ExpandedFace rule={rule} state={p.state} before={p.before} improvement={false} /></Cell>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 // ------------------------------------------------------------------ 3. every dealable rule
 
 function Dealt() {
@@ -276,7 +306,7 @@ function Gallery() {
         <h1>Engine v2 views</h1>
         <p className="g-note">The chip, the compact face and the expanded face for every rule of the line and of the grid. Point at a number to light the same quantity in every view; point at a part to see only its marks.</p>
         <nav className="g-nav">
-          <a href="#story">Storyboards</a><a href="#families">Families</a><a href="#dealt">Every dealable rule</a><a href="#grids">Grids</a><a href="#lenses">Lens moves</a>
+          <a href="#story">Storyboards</a><a href="#families">Families</a><a href="#dealt">Every dealable rule</a><a href="#grids">Grids</a><a href="#lenses">Lens moves</a><a href="#pairs">Pairs</a>
           <a href={link({ scheme: other })}>{other} scheme</a>
         </nav>
         {show("story") && !only && <Storyboards />}
@@ -289,6 +319,7 @@ function Gallery() {
         {show("dealt") && <Dealt />}
         {show("grids") && <GridsSection only={only} />}
         {show("lenses") && !only && <Lenses />}
+        {show("pairs") && !only && <Pairs />}
         {section === "plot" && <Hard />}
       </main>
     </div>
