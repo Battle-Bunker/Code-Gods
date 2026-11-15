@@ -171,81 +171,81 @@ independence is partly the finding 2 artefact. Threshold 1 needs the redesigned 
 
 Measured by `pnpm --filter @workspace/v2-agents pmi -- --variant line-q` (lib/v2-agents/scripts/pmi.ts), 2026-11-15: 127 rules (every committed value function of line-q; 42 dealt in lines-beginner), 5,000,000 draws of the line-q law (tilts 1, 0.75, 0.55, 0.4, 0.3, 1,000,000 each), 1,638,987 accepted, effective sample size 752,681. Depths 4, 6, 8, 10, 12 bits; a depth is read when the joint upper set holds at least 30 effective draws; a depth not read where independence would put at least 300 effective draws in the joint set is an exclusion, shown "≤ bound" (PMI ≤ log2(30 / expected)). Headline: the mean over the depths read (exclusions as their bound). Cells: PMI per depth.
 
-Pairs of different families: 7529. Independent (|PMI| ≤ 1): **3776**; mild (1 to 2): 1011; mild anti (−2 to −1): 632; aligned (> 2): **649**; anti-aligned (< −2): **1235**; unread: 226.
-Pairs read at each depth (and exclusions): 4 bits 6701 (602), 6 bits 4721 (0), 8 bits 1289 (0), 10 bits 230 (0), 12 bits 89 (0). A pair unread at a depth is one whose joint upper set is too thin at the sample size; for an independent pair the joint set at t bits has mass 2^(−2t), so depths past about 8 are read only for aligned pairs, and the headline of an aligned pair averages more (and deeper) depths.
+Pairs of different families: 7529. Independent (|PMI| ≤ 1): **3738**; mild (1 to 2): 1032; mild anti (−2 to −1): 627; aligned (> 2): **639**; anti-aligned (< −2): **1265**; unread: 228.
+Pairs read at each depth (and exclusions): 4 bits 6700 (601), 6 bits 4790 (0), 8 bits 1396 (0), 10 bits 245 (0), 12 bits 89 (0). A pair unread at a depth is one whose joint upper set is too thin at the sample size; for an independent pair the joint set at t bits has mass 2^(−2t), so depths past about 8 are read only for aligned pairs, and the headline of an aligned pair averages more (and deeper) depths.
 
 ### Family matrix (headline PMI, mean over tie-breakers and parameter sets; diagonal: two tie-breakers of one family)
 
 | | CC | DL | EL | ES | EC | FN | LD | MMC | NP | PG | PGr | PL | PS | PSt | PA | R | SOBR | SC | SG | SI | SS | SA | SGr | SAT | SIn | TG | T | TA | WA | WAT | WC | WI |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| **CC** crossing-check | -0.2 | -1.4 | -5.8 | 0.1 | 0.9 | 0.5 | -0.2 | -0.1 | 0.6 | 0.8 | -4.6 | -1.5 | 0.3 | -1.0 | -0.6 | 0.6 | -0.1 | -2.7 | -2.9 | -0.1 | -0.6 | -0.6 | -4.3 | -6.2 | -3.6 | 1.6 | 0.7 | 0.2 | -1.5 | -2.2 | -0.2 | -1.9 |
-| **DL** divisibility-ladder | -1.4 |  | -5.7 | -5.5 | 0.3 | -3.1 | -6.1 | -3.4 | -2.4 | -3.6 | 1.4 | 2.2 | -4.8 | -1.8 | 0.9 | -0.5 | 0.1 | 5.4 | 4.8 | -6.3 | 3.6 | 2.3 | 3.0 | 3.6 | 5.7 | -0.2 | 1.0 | -0.9 | 0.0 | 5.4 | 3.0 | -1.1 |
-| **EL** egyptian-line | -5.8 | -5.7 |  | -2.8 | -5.8 | 2.6 | -0.2 | 3.4 | -5.9 | -5.7 | -5.9 | -5.8 | -4.4 | -5.7 | -5.8 | -5.9 | -5.9 | -5.3 | -4.8 | -5.9 | -4.8 | -4.7 | -5.9 | -5.8 | -5.9 | -5.8 | -5.8 | -5.9 | -5.5 | -5.5 | -5.1 | -5.1 |
+| **CC** crossing-check | -0.2 | -1.4 | -5.8 | 0.1 | 0.9 | 0.5 | -0.2 | -0.1 | 0.6 | 0.8 | -4.6 | -1.5 | 0.3 | -1.0 | -0.6 | 0.6 | -1.6 | -2.7 | -2.9 | -0.1 | -0.6 | -0.6 | -4.3 | -6.2 | -3.6 | 1.6 | 0.7 | 0.2 | -1.5 | -2.2 | -0.2 | -1.9 |
+| **DL** divisibility-ladder | -1.4 |  | -5.7 | -5.5 | 0.3 | -3.1 | -6.1 | -3.4 | -2.4 | -3.6 | 1.4 | 2.2 | -4.8 | -1.8 | 0.9 | -0.5 | 1.0 | 5.4 | 4.8 | -6.3 | 3.6 | 2.3 | 3.0 | 3.6 | 5.7 | -0.2 | 1.0 | -0.9 | 0.0 | 5.4 | 3.0 | -1.1 |
+| **EL** egyptian-line | -5.8 | -5.7 |  | -2.8 | -5.8 | 2.6 | -0.2 | 3.4 | -5.9 | -5.7 | -5.9 | -5.8 | -4.4 | -5.7 | -5.8 | -5.9 | -5.8 | -5.3 | -4.8 | -5.9 | -4.8 | -4.7 | -5.9 | -5.8 | -5.9 | -5.8 | -5.8 | -5.9 | -5.5 | -5.5 | -5.1 | -5.1 |
 | **ES** euclid-steps | 0.1 | -5.5 | -2.8 |  | -0.9 | -5.7 | 3.3 | -0.3 | 0.3 | 1.3 | -0.7 | -0.5 | 2.9 | -0.4 | -0.1 | -0.6 | -0.6 | -3.1 | -4.7 | -1.3 | -0.5 | -0.6 | -5.8 | -2.2 | -1.5 | 1.6 | -0.9 | -0.5 | -1.5 | -3.3 | -1.9 | -2.6 |
-| **EC** exact-change | 0.9 | 0.3 | -5.8 | -0.9 | 7.3 | -6.4 | -0.2 | -5.9 | 1.2 | 0.0 | -3.2 | -2.0 | 0.3 | 1.0 | 1.6 | 1.0 | -2.1 | -1.2 | 1.0 | 1.3 | 0.9 | 1.0 | -1.0 | -6.4 | -6.5 | -6.4 | 0.1 | 1.9 | 1.0 | -0.5 | 1.7 | 1.0 |
-| **FN** farey-neighbours | 0.5 | -3.1 | 2.6 | -5.7 | -6.4 | 3.2 | -0.8 | 2.4 | 1.1 | 0.3 | -3.6 | -6.4 | -3.8 | -1.5 | -3.9 | 0.4 | -0.9 | -5.9 | -3.6 | -0.0 | -0.4 | -0.4 | -4.7 | 0.3 | -6.0 | -0.0 | 0.2 | -2.3 | -6.1 | -2.0 | -4.1 | -2.9 |
+| **EC** exact-change | 0.9 | 0.3 | -5.8 | -0.9 | 7.3 | -6.4 | -0.2 | -5.9 | 1.2 | 0.0 | -3.2 | -2.0 | 0.3 | 1.0 | 1.6 | 1.0 | -2.2 | -1.2 | 1.0 | 1.3 | 0.9 | 1.0 | -1.0 | -6.4 | -6.5 | -6.4 | 0.1 | 1.9 | 1.0 | -0.5 | 1.7 | 1.0 |
+| **FN** farey-neighbours | 0.5 | -3.1 | 2.6 | -5.7 | -6.4 | 3.2 | -0.8 | 2.4 | 1.1 | 0.3 | -3.6 | -6.4 | -3.8 | -1.5 | -3.9 | 0.4 | -3.7 | -5.9 | -3.6 | -0.0 | -0.4 | -0.4 | -4.7 | 0.3 | -6.0 | -0.0 | 0.2 | -2.3 | -6.1 | -2.0 | -4.1 | -2.9 |
 | **LD** long-division | -0.2 | -6.1 | -0.2 | 3.3 | -0.2 | -0.8 | 4.3 | 1.0 | 0.3 | 0.1 | -1.2 | 0.3 | 2.0 | -0.6 | -0.1 | -0.7 | -0.4 | -2.5 | -5.2 | -1.6 | -0.8 | -0.9 | -6.3 | -2.0 | -1.2 | 0.2 | -1.0 | -0.2 | -1.4 | -2.8 | -0.4 | -3.5 |
-| **MMC** m-meets-c | -0.1 | -3.4 | 3.4 | -0.3 | -5.9 | 2.4 | 1.0 | 5.3 | 0.3 | -0.8 | -3.8 | -6.5 | 0.1 | -2.8 | -4.9 | 0.4 | -1.7 | -6.0 | 1.2 | -1.8 | -1.0 | -1.0 | -2.7 | 0.3 | -6.3 | 0.5 | -1.7 | -3.0 | -6.2 | -3.3 | -3.7 | -2.4 |
-| **NP** near-point | 0.6 | -2.4 | -5.9 | 0.3 | 1.2 | 1.1 | 0.3 | 0.3 | 6.0 | 0.2 | -5.0 | -0.9 | 0.4 | -1.0 | 0.1 | -0.0 | -1.9 | -6.0 | -5.5 | 0.1 | 0.1 | 0.1 | -4.7 | -6.6 | -5.3 | 2.4 | -1.3 | 0.8 | -0.4 | -2.4 | -0.5 | -2.1 |
+| **MMC** m-meets-c | -0.1 | -3.4 | 3.4 | -0.3 | -5.9 | 2.4 | 1.0 | 5.3 | 0.3 | -0.8 | -3.8 | -6.5 | 0.1 | -2.8 | -4.9 | 0.4 | -4.4 | -6.0 | 1.2 | -1.8 | -1.0 | -1.0 | -2.7 | 0.3 | -6.3 | 0.5 | -1.7 | -3.0 | -6.2 | -3.3 | -3.7 | -2.4 |
+| **NP** near-point | 0.6 | -2.4 | -5.9 | 0.3 | 1.2 | 1.1 | 0.3 | 0.3 | 6.0 | 0.2 | -5.0 | -0.9 | 0.4 | -1.0 | 0.1 | -0.0 | -3.8 | -6.0 | -5.5 | 0.1 | 0.1 | 0.1 | -4.7 | -6.6 | -5.3 | 2.4 | -1.3 | 0.8 | -0.4 | -2.4 | -0.5 | -2.1 |
 | **PG** pell-gradient | 0.8 | -3.6 | -5.7 | 1.3 | 0.0 | 0.3 | 0.1 | -0.8 | 0.2 | -1.1 | -6.4 | -0.3 | -0.5 | -0.1 | 0.4 | 0.2 | 0.2 | -1.4 | -5.3 | -0.4 | -2.1 | -2.3 | -5.7 | -0.2 | -0.6 | 2.5 | -0.6 | 0.1 | -1.0 | -1.9 | -0.6 | -1.6 |
-| **PGr** prime-gradient | -4.6 | 1.4 | -5.9 | -0.7 | -3.2 | -3.6 | -1.2 | -3.8 | -5.0 | -6.4 | -3.5 | -1.5 | -5.0 | 0.2 | 0.2 | -1.0 | -0.6 | -2.3 | 2.7 | 0.8 | -1.4 | -0.6 | 2.5 | -1.8 | 0.5 | -6.5 | -0.8 | -0.2 | -3.3 | 0.5 | -2.4 | 0.9 |
-| **PL** prime-landing | -1.5 | 2.2 | -5.8 | -0.5 | -2.0 | -6.4 | 0.3 | -6.5 | -0.9 | -0.3 | -1.5 | -3.1 | -0.0 | 1.0 | 1.7 | 1.0 | 0.5 | 2.1 | 0.4 | 1.2 | 1.7 | 2.2 | -2.1 | -2.5 | 2.5 | -0.1 | 0.6 | -0.8 | 2.3 | -0.3 | 2.1 | 1.1 |
-| **PS** prime-slope | 0.3 | -4.8 | -4.4 | 2.9 | 0.3 | -3.8 | 2.0 | 0.1 | 0.4 | -0.5 | -5.0 | -0.0 | 3.5 | -0.3 | -0.0 | -0.2 | 0.0 | -3.3 | -4.5 | -1.5 | -5.6 | -5.4 | -5.1 | -0.6 | -0.7 | 0.5 | -0.1 | 0.0 | -2.7 | -2.4 | -0.7 | -2.8 |
-| **PSt** prime-staircase | -1.0 | -1.8 | -5.7 | -0.4 | 1.0 | -1.5 | -0.6 | -2.8 | -1.0 | -0.1 | 0.2 | 1.0 | -0.3 | -1.0 | 1.1 | 0.3 | 1.0 | -1.7 | -1.9 | 0.7 | 0.1 | 0.6 | 0.4 | 0.1 | -0.3 | 0.0 | 0.3 | 0.6 | -0.1 | -0.7 | 0.6 | 0.9 |
-| **PA** pythagorean-area | -0.6 | 0.9 | -5.8 | -0.1 | 1.6 | -3.9 | -0.1 | -4.9 | 0.1 | 0.4 | 0.2 | 1.7 | -0.0 | 1.1 | -1.7 | 0.9 | 1.3 | 0.6 | 1.2 | 1.2 | 0.1 | 0.1 | 0.3 | 2.3 | 1.3 | 0.8 | 0.6 | -0.3 | 1.5 | 0.2 | 1.4 | 1.3 |
-| **R** ruler | 0.6 | -0.5 | -5.9 | -0.6 | 1.0 | 0.4 | -0.7 | 0.4 | -0.0 | 0.2 | -1.0 | 1.0 | -0.2 | 0.3 | 0.9 | 6.0 | 1.5 | -1.2 | 1.5 | 0.3 | 1.3 | 1.3 | -0.5 | 0.5 | 1.0 | 0.4 | -0.5 | 1.0 | 0.8 | 0.2 | 2.1 | 0.6 |
-| **SOBR** same-on-both-rulers | -0.1 | 0.1 | -5.9 | -0.6 | -2.1 | -0.9 | -0.4 | -1.7 | -1.9 | 0.2 | -0.6 | 0.5 | 0.0 | 1.0 | 1.3 | 1.5 | -3.7 | -2.2 | 0.9 | 0.4 | 0.9 | 1.1 | -0.9 | -2.4 | 0.3 | 0.1 | -0.1 | 1.5 | 0.2 | -0.1 | 0.2 | 0.9 |
-| **SC** smooth-crossing | -2.7 | 5.4 | -5.3 | -3.1 | -1.2 | -5.9 | -2.5 | -6.0 | -6.0 | -1.4 | -2.3 | 2.1 | -3.3 | -1.7 | 0.6 | -1.2 | -2.2 |  | 1.4 | 0.6 | 6.1 | 3.5 | -2.2 | -0.7 | 6.2 | -0.8 | 0.8 | -6.0 | 5.3 | -0.9 | 3.2 | 1.8 |
-| **SG** smooth-gradient | -2.9 | 4.8 | -4.8 | -4.7 | 1.0 | -3.6 | -5.2 | 1.2 | -5.5 | -5.3 | 2.7 | 0.4 | -4.5 | -1.9 | 1.2 | 1.5 | 0.9 | 1.4 |  | 0.9 | 0.9 | 1.7 | 6.2 | 5.5 | 4.1 | -5.4 | 0.9 | 1.1 | -1.8 | 4.3 | 1.4 | 1.1 |
-| **SI** smooth-intercept | -0.1 | -6.3 | -5.9 | -1.3 | 1.3 | -0.0 | -1.6 | -1.8 | 0.1 | -0.4 | 0.8 | 1.2 | -1.5 | 0.7 | 1.2 | 0.3 | 0.4 | 0.6 | 0.9 | 8.0 | 1.2 | 0.4 | 1.9 | 3.2 | 2.4 | -0.8 | 1.3 | 0.7 | -0.8 | 0.4 | -0.2 | 0.9 |
-| **SS** smooth-square | -0.6 | 3.6 | -4.8 | -0.5 | 0.9 | -0.4 | -0.8 | -1.0 | 0.1 | -2.1 | -1.4 | 1.7 | -5.6 | 0.1 | 0.1 | 1.3 | 0.9 | 6.1 | 0.9 | 1.2 |  | 5.7 | 1.0 | -0.2 | 4.9 | 1.1 | 0.6 | 0.4 | 4.5 | -0.8 | 2.8 | 0.8 |
-| **SA** square-area | -0.6 | 2.3 | -4.7 | -0.6 | 1.0 | -0.4 | -0.9 | -1.0 | 0.1 | -2.3 | -0.6 | 2.2 | -5.4 | 0.6 | 0.1 | 1.3 | 1.1 | 3.5 | 1.7 | 0.4 | 5.7 | 5.5 | -0.4 | 0.2 | 3.2 | 1.1 | 0.2 | 0.5 | 3.1 | -0.7 | 2.3 | 0.4 |
-| **SGr** steady-gradient | -4.3 | 3.0 | -5.9 | -5.8 | -1.0 | -4.7 | -6.3 | -2.7 | -4.7 | -5.7 | 2.5 | -2.1 | -5.1 | 0.4 | 0.3 | -0.5 | -0.9 | -2.2 | 6.2 | 1.9 | 1.0 | -0.4 | 4.6 | 4.5 | 2.3 | -6.5 | 0.8 | -0.2 | -4.1 | -0.4 | -1.5 | 0.9 |
-| **SAT** steep-and-tall | -6.2 | 3.6 | -5.8 | -2.2 | -6.4 | 0.3 | -2.0 | 0.3 | -6.6 | -0.2 | -1.8 | -2.5 | -0.6 | 0.1 | 2.3 | 0.5 | -2.4 | -0.7 | 5.5 | 3.2 | -0.2 | 0.2 | 4.5 |  | -6.6 | 1.4 | -1.4 | 1.1 | -1.8 | 0.9 | -0.3 | 2.2 |
-| **SIn** sunken-intercept | -3.6 | 5.7 | -5.9 | -1.5 | -6.5 | -6.0 | -1.2 | -6.3 | -5.3 | -0.6 | 0.5 | 2.5 | -0.7 | -0.3 | 1.3 | 1.0 | 0.3 | 6.2 | 4.1 | 2.4 | 4.9 | 3.2 | 2.3 | -6.6 |  | -0.3 | -0.7 | -2.9 | 4.2 | 2.4 | 4.0 | 2.6 |
-| **TG** target-gradient | 1.6 | -0.2 | -5.8 | 1.6 | -6.4 | -0.0 | 0.2 | 0.5 | 2.4 | 2.5 | -6.5 | -0.1 | 0.5 | 0.0 | 0.8 | 0.4 | 0.1 | -0.8 | -5.4 | -0.8 | 1.1 | 1.1 | -6.5 | 1.4 | -0.3 | 6.1 | -0.8 | 0.1 | -0.6 | -2.6 | 0.0 | -2.4 |
-| **T** treasure | 0.7 | 1.0 | -5.8 | -0.9 | 0.1 | 0.2 | -1.0 | -1.7 | -1.3 | -0.6 | -0.8 | 0.6 | -0.1 | 0.3 | 0.6 | -0.5 | -0.1 | 0.8 | 0.9 | 1.3 | 0.6 | 0.2 | 0.8 | -1.4 | -0.7 | -0.8 | -2.5 | -0.1 | 0.3 | 0.9 | 0.7 | 0.7 |
-| **TA** triangle-area | 0.2 | -0.9 | -5.9 | -0.5 | 1.9 | -2.3 | -0.2 | -3.0 | 0.8 | 0.1 | -0.2 | -0.8 | 0.0 | 0.6 | -0.3 | 1.0 | 1.5 | -6.0 | 1.1 | 0.7 | 0.4 | 0.5 | -0.2 | 1.1 | -2.9 | 0.1 | -0.1 | 1.3 | -0.6 | -0.3 | 1.0 | 0.1 |
-| **WA** whole-area | -1.5 | 0.0 | -5.5 | -1.5 | 1.0 | -6.1 | -1.4 | -6.2 | -0.4 | -1.0 | -3.3 | 2.3 | -2.7 | -0.1 | 1.5 | 0.8 | 0.2 | 5.3 | -1.8 | -0.8 | 4.5 | 3.1 | -4.1 | -1.8 | 4.2 | -0.6 | 0.3 | -0.6 | 4.8 | -0.1 | 3.3 | 0.8 |
-| **WAT** whole-at-t | -2.2 | 5.4 | -5.5 | -3.3 | -0.5 | -2.0 | -2.8 | -3.3 | -2.4 | -1.9 | 0.5 | -0.3 | -2.4 | -0.7 | 0.2 | 0.2 | -0.1 | -0.9 | 4.3 | 0.4 | -0.8 | -0.7 | -0.4 | 0.9 | 2.4 | -2.6 | 0.9 | -0.3 | -0.1 | -0.1 | -0.9 | 0.3 |
-| **WC** whole-crossing | -0.2 | 3.0 | -5.1 | -1.9 | 1.7 | -4.1 | -0.4 | -3.7 | -0.5 | -0.6 | -2.4 | 2.1 | -0.7 | 0.6 | 1.4 | 2.1 | 0.2 | 3.2 | 1.4 | -0.2 | 2.8 | 2.3 | -1.5 | -0.3 | 4.0 | 0.0 | 0.7 | 1.0 | 3.3 | -0.9 | -5.0 | 1.3 |
-| **WI** whole-intercept | -1.9 | -1.1 | -5.1 | -2.6 | 1.0 | -2.9 | -3.5 | -2.4 | -2.1 | -1.6 | 0.9 | 1.1 | -2.8 | 0.9 | 1.3 | 0.6 | 0.9 | 1.8 | 1.1 | 0.9 | 0.8 | 0.4 | 0.9 | 2.2 | 2.6 | -2.4 | 0.7 | 0.1 | 0.8 | 0.3 | 1.3 | 0.5 |
+| **PGr** prime-gradient | -4.6 | 1.4 | -5.9 | -0.7 | -3.2 | -3.6 | -1.2 | -3.8 | -5.0 | -6.4 | -3.5 | -1.5 | -5.0 | 0.2 | 0.2 | -1.0 | -1.1 | -2.3 | 2.7 | 0.8 | -1.4 | -0.6 | 2.5 | -1.8 | 0.5 | -6.5 | -0.8 | -0.2 | -3.3 | 0.5 | -2.4 | 0.9 |
+| **PL** prime-landing | -1.5 | 2.2 | -5.8 | -0.5 | -2.0 | -6.4 | 0.3 | -6.5 | -0.9 | -0.3 | -1.5 | -3.1 | -0.0 | 1.0 | 1.7 | 1.0 | 2.0 | 2.1 | 0.4 | 1.2 | 1.7 | 2.2 | -2.1 | -2.5 | 2.5 | -0.1 | 0.6 | -0.8 | 2.3 | -0.3 | 2.1 | 1.1 |
+| **PS** prime-slope | 0.3 | -4.8 | -4.4 | 2.9 | 0.3 | -3.8 | 2.0 | 0.1 | 0.4 | -0.5 | -5.0 | -0.0 | 3.5 | -0.3 | -0.0 | -0.2 | 0.1 | -3.3 | -4.5 | -1.5 | -5.6 | -5.4 | -5.1 | -0.6 | -0.7 | 0.5 | -0.1 | 0.0 | -2.7 | -2.4 | -0.7 | -2.8 |
+| **PSt** prime-staircase | -1.0 | -1.8 | -5.7 | -0.4 | 1.0 | -1.5 | -0.6 | -2.8 | -1.0 | -0.1 | 0.2 | 1.0 | -0.3 | -1.0 | 1.1 | 0.3 | 0.9 | -1.7 | -1.9 | 0.7 | 0.1 | 0.6 | 0.4 | 0.1 | -0.3 | 0.0 | 0.3 | 0.6 | -0.1 | -0.7 | 0.6 | 0.9 |
+| **PA** pythagorean-area | -0.6 | 0.9 | -5.8 | -0.1 | 1.6 | -3.9 | -0.1 | -4.9 | 0.1 | 0.4 | 0.2 | 1.7 | -0.0 | 1.1 | -1.7 | 0.9 | 1.5 | 0.6 | 1.2 | 1.2 | 0.1 | 0.1 | 0.3 | 2.3 | 1.3 | 0.8 | 0.6 | -0.3 | 1.5 | 0.2 | 1.4 | 1.3 |
+| **R** ruler | 0.6 | -0.5 | -5.9 | -0.6 | 1.0 | 0.4 | -0.7 | 0.4 | -0.0 | 0.2 | -1.0 | 1.0 | -0.2 | 0.3 | 0.9 | 6.0 | 0.8 | -1.2 | 1.5 | 0.3 | 1.3 | 1.3 | -0.5 | 0.5 | 1.0 | 0.4 | -0.5 | 1.0 | 0.8 | 0.2 | 2.1 | 0.6 |
+| **SOBR** same-on-both-rulers | -1.6 | 1.0 | -5.8 | -0.6 | -2.2 | -3.7 | -0.4 | -4.4 | -3.8 | 0.2 | -1.1 | 2.0 | 0.1 | 0.9 | 1.5 | 0.8 | -3.4 | 0.8 | 0.8 | 1.3 | 1.3 | 1.6 | -1.3 | -2.3 | 1.6 | 1.1 | 0.3 | 0.0 | 1.2 | 0.7 | 1.4 | 1.3 |
+| **SC** smooth-crossing | -2.7 | 5.4 | -5.3 | -3.1 | -1.2 | -5.9 | -2.5 | -6.0 | -6.0 | -1.4 | -2.3 | 2.1 | -3.3 | -1.7 | 0.6 | -1.2 | 0.8 |  | 1.4 | 0.6 | 6.1 | 3.5 | -2.2 | -0.7 | 6.2 | -0.8 | 0.8 | -6.0 | 5.3 | -0.9 | 3.2 | 1.8 |
+| **SG** smooth-gradient | -2.9 | 4.8 | -4.8 | -4.7 | 1.0 | -3.6 | -5.2 | 1.2 | -5.5 | -5.3 | 2.7 | 0.4 | -4.5 | -1.9 | 1.2 | 1.5 | 0.8 | 1.4 |  | 0.9 | 0.9 | 1.7 | 6.2 | 5.5 | 4.1 | -5.4 | 0.9 | 1.1 | -1.8 | 4.3 | 1.4 | 1.1 |
+| **SI** smooth-intercept | -0.1 | -6.3 | -5.9 | -1.3 | 1.3 | -0.0 | -1.6 | -1.8 | 0.1 | -0.4 | 0.8 | 1.2 | -1.5 | 0.7 | 1.2 | 0.3 | 1.3 | 0.6 | 0.9 | 8.0 | 1.2 | 0.4 | 1.9 | 3.2 | 2.4 | -0.8 | 1.3 | 0.7 | -0.8 | 0.4 | -0.2 | 0.9 |
+| **SS** smooth-square | -0.6 | 3.6 | -4.8 | -0.5 | 0.9 | -0.4 | -0.8 | -1.0 | 0.1 | -2.1 | -1.4 | 1.7 | -5.6 | 0.1 | 0.1 | 1.3 | 1.3 | 6.1 | 0.9 | 1.2 |  | 5.7 | 1.0 | -0.2 | 4.9 | 1.1 | 0.6 | 0.4 | 4.5 | -0.8 | 2.8 | 0.8 |
+| **SA** square-area | -0.6 | 2.3 | -4.7 | -0.6 | 1.0 | -0.4 | -0.9 | -1.0 | 0.1 | -2.3 | -0.6 | 2.2 | -5.4 | 0.6 | 0.1 | 1.3 | 1.6 | 3.5 | 1.7 | 0.4 | 5.7 | 5.5 | -0.4 | 0.2 | 3.2 | 1.1 | 0.2 | 0.5 | 3.1 | -0.7 | 2.3 | 0.4 |
+| **SGr** steady-gradient | -4.3 | 3.0 | -5.9 | -5.8 | -1.0 | -4.7 | -6.3 | -2.7 | -4.7 | -5.7 | 2.5 | -2.1 | -5.1 | 0.4 | 0.3 | -0.5 | -1.3 | -2.2 | 6.2 | 1.9 | 1.0 | -0.4 | 4.6 | 4.5 | 2.3 | -6.5 | 0.8 | -0.2 | -4.1 | -0.4 | -1.5 | 0.9 |
+| **SAT** steep-and-tall | -6.2 | 3.6 | -5.8 | -2.2 | -6.4 | 0.3 | -2.0 | 0.3 | -6.6 | -0.2 | -1.8 | -2.5 | -0.6 | 0.1 | 2.3 | 0.5 | -2.3 | -0.7 | 5.5 | 3.2 | -0.2 | 0.2 | 4.5 |  | -6.6 | 1.4 | -1.4 | 1.1 | -1.8 | 0.9 | -0.3 | 2.2 |
+| **SIn** sunken-intercept | -3.6 | 5.7 | -5.9 | -1.5 | -6.5 | -6.0 | -1.2 | -6.3 | -5.3 | -0.6 | 0.5 | 2.5 | -0.7 | -0.3 | 1.3 | 1.0 | 1.6 | 6.2 | 4.1 | 2.4 | 4.9 | 3.2 | 2.3 | -6.6 |  | -0.3 | -0.7 | -2.9 | 4.2 | 2.4 | 4.0 | 2.6 |
+| **TG** target-gradient | 1.6 | -0.2 | -5.8 | 1.6 | -6.4 | -0.0 | 0.2 | 0.5 | 2.4 | 2.5 | -6.5 | -0.1 | 0.5 | 0.0 | 0.8 | 0.4 | 1.1 | -0.8 | -5.4 | -0.8 | 1.1 | 1.1 | -6.5 | 1.4 | -0.3 | 6.1 | -0.8 | 0.1 | -0.6 | -2.6 | 0.0 | -2.4 |
+| **T** treasure | 0.7 | 1.0 | -5.8 | -0.9 | 0.1 | 0.2 | -1.0 | -1.7 | -1.3 | -0.6 | -0.8 | 0.6 | -0.1 | 0.3 | 0.6 | -0.5 | 0.3 | 0.8 | 0.9 | 1.3 | 0.6 | 0.2 | 0.8 | -1.4 | -0.7 | -0.8 | -2.5 | -0.1 | 0.3 | 0.9 | 0.7 | 0.7 |
+| **TA** triangle-area | 0.2 | -0.9 | -5.9 | -0.5 | 1.9 | -2.3 | -0.2 | -3.0 | 0.8 | 0.1 | -0.2 | -0.8 | 0.0 | 0.6 | -0.3 | 1.0 | 0.0 | -6.0 | 1.1 | 0.7 | 0.4 | 0.5 | -0.2 | 1.1 | -2.9 | 0.1 | -0.1 | 1.3 | -0.6 | -0.3 | 1.0 | 0.1 |
+| **WA** whole-area | -1.5 | 0.0 | -5.5 | -1.5 | 1.0 | -6.1 | -1.4 | -6.2 | -0.4 | -1.0 | -3.3 | 2.3 | -2.7 | -0.1 | 1.5 | 0.8 | 1.2 | 5.3 | -1.8 | -0.8 | 4.5 | 3.1 | -4.1 | -1.8 | 4.2 | -0.6 | 0.3 | -0.6 | 4.8 | -0.1 | 3.3 | 0.8 |
+| **WAT** whole-at-t | -2.2 | 5.4 | -5.5 | -3.3 | -0.5 | -2.0 | -2.8 | -3.3 | -2.4 | -1.9 | 0.5 | -0.3 | -2.4 | -0.7 | 0.2 | 0.2 | 0.7 | -0.9 | 4.3 | 0.4 | -0.8 | -0.7 | -0.4 | 0.9 | 2.4 | -2.6 | 0.9 | -0.3 | -0.1 | -0.1 | -0.9 | 0.3 |
+| **WC** whole-crossing | -0.2 | 3.0 | -5.1 | -1.9 | 1.7 | -4.1 | -0.4 | -3.7 | -0.5 | -0.6 | -2.4 | 2.1 | -0.7 | 0.6 | 1.4 | 2.1 | 1.4 | 3.2 | 1.4 | -0.2 | 2.8 | 2.3 | -1.5 | -0.3 | 4.0 | 0.0 | 0.7 | 1.0 | 3.3 | -0.9 | -5.0 | 1.3 |
+| **WI** whole-intercept | -1.9 | -1.1 | -5.1 | -2.6 | 1.0 | -2.9 | -3.5 | -2.4 | -2.1 | -1.6 | 0.9 | 1.1 | -2.8 | 0.9 | 1.3 | 0.6 | 1.3 | 1.8 | 1.1 | 0.9 | 0.8 | 0.4 | 0.9 | 2.2 | 2.6 | -2.4 | 0.7 | 0.1 | 0.8 | 0.3 | 1.3 | 0.5 |
 
 ### Families by independence (pairs with other families)
 
 | Family | dealt | rules | pairs read | independent | mild ± | aligned | anti-aligned | mean PMI | mean |PMI| |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
 | long-division | no | 3 | 366 | 264 (72%) | 53 | 6 | 43 | -0.64 | 1.03 |
-| treasure | 4/4 | 4 | 485 | 330 (68%) | 115 | 12 | 28 | 0.04 | 0.91 |
-| triangle-area | no | 10 | 1150 | 757 (66%) | 249 | 59 | 85 | 0.04 | 1.01 |
-| ruler | 3/3 | 3 | 369 | 237 (64%) | 107 | 17 | 8 | 0.41 | 0.88 |
+| triangle-area | no | 10 | 1150 | 771 (67%) | 249 | 45 | 85 | -0.01 | 0.98 |
+| treasure | 4/4 | 4 | 485 | 323 (67%) | 122 | 12 | 28 | 0.05 | 0.92 |
+| ruler | 3/3 | 3 | 369 | 243 (66%) | 101 | 17 | 8 | 0.39 | 0.86 |
 | pell-gradient | no | 18 | 1935 | 1223 (63%) | 268 | 166 | 278 | -0.57 | 1.46 |
-| smooth-intercept | 4/4 | 4 | 484 | 298 (62%) | 123 | 40 | 23 | 0.15 | 1.11 |
-| prime-staircase | 8/10 | 10 | 1150 | 704 (61%) | 258 | 77 | 111 | -0.08 | 1.13 |
+| prime-staircase | 8/10 | 10 | 1150 | 702 (61%) | 254 | 83 | 111 | -0.08 | 1.14 |
+| smooth-intercept | 4/4 | 4 | 484 | 292 (60%) | 127 | 42 | 23 | 0.18 | 1.13 |
 | euclid-steps | no | 1 | 123 | 70 (57%) | 23 | 9 | 21 | -0.44 | 1.53 |
-| same-on-both-rulers | 4/4 | 4 | 487 | 276 (57%) | 139 | 41 | 31 | 0.16 | 1.17 |
-| pythagorean-area | 4/4 | 4 | 484 | 272 (56%) | 128 | 53 | 31 | 0.29 | 1.28 |
+| pythagorean-area | 4/4 | 4 | 484 | 266 (55%) | 135 | 52 | 31 | 0.30 | 1.28 |
 | prime-slope | no | 3 | 362 | 198 (55%) | 55 | 31 | 78 | -0.84 | 1.66 |
-| target-gradient | no | 2 | 248 | 129 (52%) | 44 | 46 | 29 | -0.01 | 1.69 |
-| smooth-square | no | 1 | 124 | 63 (51%) | 25 | 20 | 16 | 0.06 | 1.77 |
-| square-area | 2/3 | 3 | 366 | 180 (49%) | 81 | 57 | 48 | -0.10 | 1.68 |
-| near-point | no | 2 | 248 | 120 (48%) | 40 | 30 | 58 | -0.54 | 1.84 |
-| farey-neighbours | no | 2 | 155 | 75 (48%) | 27 | 9 | 44 | -1.10 | 1.95 |
-| whole-crossing | 4/4 | 4 | 484 | 233 (48%) | 144 | 67 | 40 | 0.22 | 1.38 |
-| crossing-check | no | 18 | 1934 | 906 (47%) | 496 | 163 | 369 | -0.55 | 1.62 |
-| prime-landing | 4/4 | 4 | 484 | 212 (44%) | 136 | 61 | 75 | -0.21 | 1.52 |
-| exact-change | no | 3 | 366 | 155 (42%) | 132 | 34 | 45 | -0.01 | 1.68 |
-| whole-at-t | no | 2 | 241 | 97 (40%) | 60 | 16 | 68 | -0.98 | 2.01 |
-| whole-intercept | no | 5 | 596 | 225 (38%) | 155 | 82 | 134 | -0.40 | 2.06 |
-| prime-gradient | 4/4 | 4 | 484 | 181 (37%) | 63 | 15 | 225 | -2.35 | 2.81 |
-| m-meets-c | no | 2 | 248 | 87 (35%) | 57 | 15 | 89 | -1.85 | 2.41 |
-| sunken-intercept | no | 1 | 124 | 43 (35%) | 20 | 25 | 36 | -0.57 | 2.53 |
-| steep-and-tall | no | 1 | 124 | 39 (31%) | 31 | 18 | 36 | -1.11 | 2.76 |
-| divisibility-ladder | 1/1 | 1 | 123 | 33 (27%) | 20 | 25 | 45 | -1.07 | 2.94 |
-| whole-area | no | 2 | 246 | 54 (22%) | 98 | 38 | 56 | -0.47 | 2.11 |
-| smooth-gradient | no | 1 | 122 | 24 (20%) | 37 | 14 | 47 | -1.07 | 2.92 |
-| steady-gradient | no | 3 | 246 | 47 (19%) | 64 | 26 | 109 | -2.02 | 3.30 |
-| smooth-crossing | no | 1 | 124 | 17 (14%) | 38 | 22 | 47 | -1.30 | 3.02 |
+| smooth-square | no | 1 | 124 | 63 (51%) | 25 | 20 | 16 | 0.08 | 1.78 |
+| target-gradient | no | 2 | 248 | 125 (50%) | 48 | 46 | 29 | 0.02 | 1.72 |
+| same-on-both-rulers | 4/4 | 4 | 485 | 238 (49%) | 155 | 31 | 61 | -0.08 | 1.42 |
+| near-point | no | 2 | 248 | 120 (48%) | 40 | 28 | 60 | -0.60 | 1.85 |
+| square-area | 2/3 | 3 | 366 | 176 (48%) | 85 | 57 | 48 | -0.08 | 1.69 |
+| farey-neighbours | no | 2 | 153 | 73 (48%) | 25 | 9 | 46 | -1.20 | 2.02 |
+| whole-crossing | 4/4 | 4 | 484 | 227 (47%) | 150 | 67 | 40 | 0.26 | 1.39 |
+| crossing-check | no | 18 | 1934 | 900 (47%) | 483 | 160 | 391 | -0.61 | 1.65 |
+| prime-landing | 4/4 | 4 | 484 | 214 (44%) | 130 | 65 | 75 | -0.16 | 1.54 |
+| exact-change | no | 3 | 366 | 156 (43%) | 133 | 32 | 45 | -0.02 | 1.67 |
+| whole-at-t | no | 2 | 241 | 95 (39%) | 62 | 16 | 68 | -0.95 | 2.02 |
+| whole-intercept | no | 5 | 596 | 219 (37%) | 161 | 82 | 134 | -0.39 | 2.07 |
+| prime-gradient | 4/4 | 4 | 484 | 174 (36%) | 70 | 15 | 225 | -2.37 | 2.83 |
+| m-meets-c | no | 2 | 248 | 85 (34%) | 53 | 15 | 95 | -1.94 | 2.47 |
+| sunken-intercept | no | 1 | 124 | 39 (31%) | 24 | 25 | 36 | -0.53 | 2.57 |
+| steep-and-tall | no | 1 | 124 | 39 (31%) | 30 | 19 | 36 | -1.11 | 2.76 |
+| divisibility-ladder | 1/1 | 1 | 123 | 31 (25%) | 22 | 25 | 45 | -1.04 | 2.97 |
+| whole-area | no | 2 | 246 | 57 (23%) | 96 | 37 | 56 | -0.43 | 2.10 |
+| smooth-gradient | no | 1 | 122 | 26 (21%) | 35 | 14 | 47 | -1.08 | 2.91 |
+| steady-gradient | no | 3 | 246 | 45 (18%) | 66 | 26 | 109 | -2.03 | 3.32 |
+| smooth-crossing | no | 1 | 124 | 19 (15%) | 38 | 22 | 45 | -1.20 | 2.98 |
 | egyptian-line | no | 1 | 124 | 3 (2%) | 0 | 4 | 117 | -5.21 | 5.40 |
 
 ### Calibration of the value functions against these draws
@@ -401,7 +401,6 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":2,"q":6}/whole | pell-gradient{"D":3,"k":0}/pell-c | neither | **3.95** | 3.4 | 4.5 |  |  |  | 23974 |
 | euclid-steps/largest-quotient | long-division/m-bottom-spf | neither | **3.92** | 2.9 | 4.9 |  |  |  | 17296 |
 | crossing-check{"k":1,"q":6}/whole | pell-gradient{"D":6,"k":0}/pell-c | neither | **3.88** | 3.0 | 4.2 | 4.5 |  |  | 20095 |
-| same-on-both-rulers{"d":2}/shared-factor | square-area/spf | both | **3.88** | 0.5 | 1.4 | 5.9 | 7.7 |  | 3344 |
 | crossing-check{"k":2,"q":6}/whole | pell-gradient{"D":3,"k":0}/difference | neither | **3.87** | 3.2 | 4.5 |  |  |  | 15212 |
 | crossing-check{"k":2,"q":6}/whole | pell-gradient{"D":3,"k":0}/share-den | neither | **3.87** | 3.2 | 4.5 |  |  |  | 15212 |
 | crossing-check{"k":2,"q":6}/size | pell-gradient{"D":3,"k":0}/difference | neither | **3.87** | 3.2 | 4.5 |  |  |  | 15263 |
@@ -424,15 +423,16 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":1,"q":2}/whole | pell-gradient{"D":2,"k":0}/pell-c | neither | **3.72** | 3.0 | 4.1 | 4.1 |  |  | 20851 |
 | crossing-check{"k":1,"q":6}/size | pell-gradient{"D":6,"k":0}/difference | neither | **3.71** | 3.1 | 3.9 | 4.1 |  |  | 11704 |
 | sunken-intercept/shared | whole-crossing{"q":5,"r":4}/shared-factor | one | **3.70** | 1.2 | 2.1 | 3.5 | 5.2 | 6.5 | 6505 |
+| prime-landing{"ends":9,"side":-1}/shared-factor | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | both | **3.69** | 2.8 | 2.9 | 4.0 | 5.0 |  | 27000 |
 | prime-staircase{"ends":3,"side":-1}/shared-factor | smooth-intercept{"primes":[3,13]}/shared-factor | one | **3.69** | 3.7 |  |  |  |  | 30876 |
 | prime-staircase{"ends":3}/shared-factor | smooth-intercept{"primes":[3,13]}/shared-factor | both | **3.69** | 3.7 |  |  |  |  | 30876 |
 | crossing-check{"k":1,"q":6}/size | pell-gradient{"D":7,"k":0}/pell-c | neither | **3.68** | 2.7 | 3.9 | 4.5 |  |  | 17400 |
 | crossing-check{"k":2,"q":4}/whole | pell-gradient{"D":2,"k":0}/pell-c | neither | **3.68** | 3.2 | 4.1 |  |  |  | 22693 |
 | crossing-check{"k":2,"q":4}/whole | pell-gradient{"D":2,"k":0}/difference | neither | **3.68** | 3.2 | 4.1 |  |  |  | 22693 |
 | crossing-check{"k":2,"q":4}/whole | pell-gradient{"D":2,"k":0}/share-den | neither | **3.68** | 3.2 | 4.1 |  |  |  | 22693 |
-| same-on-both-rulers{"d":2,"side":-1}/shared-factor | square-area/spf | both | **3.66** | 0.5 | 1.3 | 5.5 | 7.3 |  | 3352 |
 | prime-staircase{"ends":3,"side":-1}/shared-factor | smooth-intercept{"primes":[3,17]}/shared-factor | one | **3.66** | 3.7 |  |  |  |  | 28941 |
 | prime-staircase{"ends":3}/shared-factor | smooth-intercept{"primes":[3,17]}/shared-factor | both | **3.66** | 3.7 |  |  |  |  | 28941 |
+| prime-landing{"ends":9}/shared-factor | same-on-both-rulers{"digits":"even"}/shared-factor | both | **3.65** | 2.8 | 2.9 | 4.0 | 4.9 |  | 27145 |
 | steep-and-tall/shared | treasure{"k":3}/shared-factor | one | **3.65** | 0.8 | 2.3 | 3.8 | 5.2 | 6.1 | 5739 |
 | divisibility-ladder/next-rung | smooth-square/shared | one | **3.64** | 1.1 | 3.3 | 4.7 | 5.4 |  | 5967 |
 | steady-gradient/gcd-c | whole-at-t/gcd-c | neither | **3.62** | 2.9 | 4.0 | 4.3 | 3.8 | 3.2 | 28674 |
@@ -474,6 +474,7 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | smooth-crossing/shared | whole-crossing{"q":5,"r":3}/shared-factor | one | **3.39** | 2.8 | 2.6 | 3.6 | 4.6 |  | 7967 |
 | crossing-check{"k":3,"q":4}/size | near-point/lattice | neither | **3.39** | 1.8 | 4.4 | 4.0 |  |  | 7867 |
 | square-area/lpf | sunken-intercept/shared | one | **3.38** | 0.8 | 2.9 | 3.9 | 4.4 | 4.9 | 6874 |
+| prime-landing{"ends":1,"side":-1}/shared-factor | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | both | **3.38** | 2.7 | 2.7 | 3.7 | 4.3 |  | 23163 |
 | prime-landing{"ends":9}/shared-factor | prime-staircase{"ends":9}/step-back | both | **3.37** | 1.9 | 3.0 | 3.4 | 5.2 |  | 14790 |
 | smooth-crossing/shared | whole-area/gcd-den-m | neither | **3.37** | 3.2 | 3.3 | 3.5 | 3.5 |  | 14501 |
 | exact-change/big-piles | whole-crossing{"q":5,"r":1}/shared-factor | one | **3.37** | 2.2 | 3.0 | 4.9 |  |  | 5885 |
@@ -481,12 +482,14 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | prime-staircase{"ends":3}/step-back | smooth-intercept{"primes":[3,11]}/shared-factor | both | **3.34** | 3.3 |  |  |  |  | 27637 |
 | steep-and-tall/shared | whole-intercept/omega | neither | **3.31** | 1.3 | 2.3 | 3.3 | 4.3 | 5.3 | 8927 |
 | steady-gradient/divisors | steep-and-tall/shared | neither | **3.31** | 1.3 | 2.3 | 3.4 | 4.3 | 5.3 | 13964 |
+| prime-landing{"ends":1}/shared-factor | same-on-both-rulers{"digits":"even"}/shared-factor | both | **3.31** | 2.7 | 2.7 | 3.9 | 4.0 |  | 23267 |
 | pythagorean-area{"ends":3}/shared-factor | triangle-area{"A":4}/even | one | **3.28** | 3.4 | 3.2 |  |  |  | 27375 |
 | pythagorean-area{"ends":3}/shared-factor | triangle-area{"A":4}/legs | one | **3.28** | 3.3 | 3.2 |  |  |  | 27375 |
 | crossing-check{"k":2,"q":2}/size | whole-crossing{"q":5,"r":2}/shared-factor | one | **3.27** | 1.7 | 2.4 | 3.8 | 5.1 |  | 4101 |
 | prime-staircase{"ends":1}/shared-factor | square-area/spf | both | **3.27** | 0.8 | 0.2 | 4.7 | 7.3 |  | 5218 |
 | prime-landing{"ends":9,"side":-1}/shared-factor | prime-staircase{"ends":9}/shared-factor | both | **3.25** | 1.9 | 2.4 | 3.4 | 5.3 |  | 14669 |
 | crossing-check{"k":1,"q":6}/whole | pell-gradient{"D":7,"k":0}/share-den | neither | **3.24** | 2.7 | 3.7 |  |  |  | 18467 |
+| prime-landing{"ends":1}/shared-factor | same-on-both-rulers{"digits":"odd"}/shared-factor | both | **3.23** | 2.0 | 2.4 | 4.2 | 4.3 |  | 11242 |
 | crossing-check{"k":1,"q":6}/whole | pell-gradient{"D":7,"k":0}/difference | neither | **3.22** | 2.7 | 3.7 |  |  |  | 17256 |
 | smooth-crossing/shared | whole-intercept/gcd-den-m | neither | **3.22** | 2.6 | 3.3 | 3.2 | 3.8 |  | 11745 |
 | pell-gradient{"D":1,"k":1}/share-den | target-gradient/same-den | neither | **3.22** | 2.1 | 4.0 | 3.5 |  |  | 11431 |
@@ -582,10 +585,8 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":1,"q":4}/whole | pell-gradient{"D":5,"k":0}/pell-c | neither | **2.91** | 2.7 | 3.1 |  |  |  | 13424 |
 | crossing-check{"k":1,"q":4}/whole | pell-gradient{"D":5,"k":0}/difference | neither | **2.91** | 2.7 | 3.1 |  |  |  | 13021 |
 | crossing-check{"k":1,"q":4}/whole | pell-gradient{"D":5,"k":0}/share-den | neither | **2.91** | 2.7 | 3.1 |  |  |  | 13021 |
-| near-point/gcd-x | same-on-both-rulers{"d":2}/shared-factor | one | **2.89** | 2.9 | 2.9 |  |  |  | 19507 |
 | prime-landing{"ends":9}/shared-factor | whole-area/gcd-x | one | **2.89** | 2.6 | 3.3 | 2.8 |  |  | 20260 |
 | ruler/far | whole-crossing{"q":5,"r":2}/shared-factor | both | **2.89** | 0.1 | 1.9 | 3.8 | 5.7 |  | 2024 |
-| near-point/lattice | same-on-both-rulers{"d":2}/shared-factor | one | **2.89** | 2.9 | 2.9 |  |  |  | 19688 |
 | crossing-check{"k":1,"q":4}/whole | pell-gradient{"D":3,"k":0}/pell-c | neither | **2.88** | 3.0 | 2.8 |  |  |  | 16669 |
 | divisibility-ladder/next-rung | prime-staircase{"ends":9}/step-back | both | **2.88** | 2.0 | 3.8 |  |  |  | 12840 |
 | exact-change/prime-coins | prime-landing{"ends":1}/shared-factor | one | **2.88** | 2.0 | 2.8 | 3.8 |  |  | 11656 |
@@ -593,11 +594,13 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | smooth-intercept{"primes":[3,7]}/shared-factor | whole-at-t/gcd-c | one | **2.88** | 0.7 | 2.5 | 3.2 | 5.1 |  | 4090 |
 | egyptian-line/bottom | farey-neighbours/bottoms | neither | **2.87** | 2.9 |  |  |  |  | 170 |
 | sunken-intercept/shared | whole-intercept/gcd-den-m | neither | **2.87** | 1.6 | 2.4 | 2.8 | 3.6 | 3.9 | 12330 |
+| same-on-both-rulers{"digits":"even"}/shared-factor | square-area/lpf | both | **2.86** | 1.0 | 2.5 | 5.0 |  |  | 5789 |
 | prime-landing{"ends":9,"side":-1}/shared-factor | whole-area/gcd-x | one | **2.86** | 2.6 | 3.2 | 2.8 |  |  | 19945 |
 | crossing-check{"k":3,"q":6}/whole | target-gradient/same-den | neither | **2.86** | 2.4 | 3.3 |  |  |  | 12625 |
 | smooth-square/shared | whole-crossing{"q":5,"r":3}/shared-factor | one | **2.86** | 1.3 | 2.6 | 3.3 | 4.3 |  | 3683 |
 | pell-gradient{"D":1,"k":1}/share-den | prime-slope/twins | neither | **2.86** | 2.9 |  |  |  |  | 5743 |
 | pell-gradient{"D":1,"k":1}/difference | prime-slope/twins | neither | **2.86** | 2.9 |  |  |  |  | 5743 |
+| prime-landing{"ends":9}/shared-factor | same-on-both-rulers{"digits":"odd"}/shared-factor | both | **2.85** | 1.6 | 2.1 | 4.7 | 3.0 |  | 8824 |
 | smooth-intercept{"primes":[3,7]}/shared-factor | whole-intercept/gcd-floor-m | one | **2.85** | 2.0 | 2.7 | 3.3 | 3.4 |  | 13089 |
 | pythagorean-area{"ends":7}/shared-factor | triangle-area{"A":18}/even | one | **2.85** | 2.2 | 4.5 | 1.9 |  |  | 13193 |
 | prime-landing{"ends":1,"side":-1}/shared-factor | prime-staircase{"ends":1}/step-back | both | **2.85** | 1.6 | 3.1 | 3.9 |  |  | 10212 |
@@ -606,10 +609,12 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | prime-staircase{"ends":9}/step-back | whole-at-t/gcd-c | one | **2.84** | 1.9 | 3.7 |  |  |  | 11613 |
 | whole-crossing{"q":5,"r":1}/shared-factor | whole-intercept/omega | one | **2.83** | 1.5 | 1.9 | 2.6 | 3.6 | 4.6 | 5225 |
 | steady-gradient/gcd-c | whole-intercept/mc-spf | neither | **2.83** | 3.2 | 3.1 | 2.2 |  |  | 8982 |
+| prime-landing{"ends":9,"side":-1}/shared-factor | same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | both | **2.83** | 1.6 | 2.0 | 4.8 |  |  | 8650 |
 | prime-landing{"ends":1,"side":-1}/shared-factor | pythagorean-area{"ends":1}/shared-factor | both | **2.82** | 2.0 | 2.5 | 2.7 | 4.1 |  | 12107 |
 | pythagorean-area{"ends":7}/shared-factor | triangle-area{"A":18}/legs | one | **2.82** | 2.1 | 4.5 | 1.9 |  |  | 12146 |
 | prime-staircase{"ends":9}/shared-factor | pythagorean-area{"ends":1}/shared-factor | both | **2.82** | 1.8 | 2.0 | 2.7 | 4.8 |  | 14585 |
 | whole-crossing{"q":5,"r":2}/shared-factor | whole-intercept/omega | one | **2.82** | 2.0 | 2.1 | 3.1 | 4.1 |  | 5338 |
+| prime-landing{"ends":1,"side":-1}/shared-factor | same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | both | **2.81** | 2.0 | 2.2 | 4.2 |  |  | 11143 |
 | divisibility-ladder/next-rung | pythagorean-area{"ends":9}/shared-factor | both | **2.81** | 1.6 | 4.0 |  |  |  | 8535 |
 | crossing-check{"k":1,"q":2}/whole | pell-gradient{"D":2,"k":0}/difference | neither | **2.81** | 3.0 | 4.1 | 1.3 |  |  | 20851 |
 | crossing-check{"k":1,"q":2}/whole | pell-gradient{"D":2,"k":0}/share-den | neither | **2.81** | 3.0 | 4.1 | 1.3 |  |  | 20851 |
@@ -624,7 +629,6 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | pell-gradient{"D":3,"k":0}/pell-c | prime-slope/twins | neither | **2.79** | 2.8 |  |  |  |  | 5205 |
 | crossing-check{"k":1,"q":4}/size | pell-gradient{"D":5,"k":0}/pell-c | neither | **2.79** | 2.6 | 3.0 |  |  |  | 14025 |
 | smooth-square/shared | whole-area/gcd-den-m | neither | **2.79** | 2.4 | 1.7 | 3.4 | 3.6 |  | 9248 |
-| prime-staircase{"ends":1}/shared-factor | same-on-both-rulers{"d":1}/shared-factor | both | **2.78** | -0.1 | 4.0 | 4.5 |  |  | 3567 |
 | crossing-check{"k":1,"q":4}/size | pell-gradient{"D":3,"k":0}/pell-c | neither | **2.78** | 2.9 | 2.6 |  |  |  | 17241 |
 | pell-gradient{"D":2,"k":0}/pell-c | ruler/prime-gradient | one | **2.77** | 0.3 | 5.3 |  |  |  | 3755 |
 | pell-gradient{"D":2,"k":0}/difference | ruler/prime-gradient | one | **2.77** | 0.3 | 5.3 |  |  |  | 3755 |
@@ -638,18 +642,15 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | pell-gradient{"D":1,"k":1}/pell-c | target-gradient/gcd-tops | neither | **2.75** | 2.1 | 4.5 | 1.7 |  |  | 11547 |
 | prime-landing{"ends":1}/shared-factor | pythagorean-area{"ends":1}/shared-factor | both | **2.74** | 2.0 | 2.5 | 2.8 | 3.7 |  | 11900 |
 | square-area/omega | whole-crossing{"q":5,"r":4}/shared-factor | one | **2.74** | 1.2 | 2.2 | 3.0 | 4.6 |  | 4128 |
-| same-on-both-rulers{"d":2}/shared-factor | triangle-area{"A":8}/legs | one | **2.74** | 2.3 | 3.2 |  |  |  | 13876 |
-| same-on-both-rulers{"d":2}/shared-factor | triangle-area{"A":8}/even | one | **2.73** | 2.3 | 3.2 |  |  |  | 14051 |
 | egyptian-line/bottom | m-meets-c/size | neither | **2.73** | 2.7 |  |  |  |  | 9301 |
 | smooth-intercept{"primes":[3,17]}/shared-factor | whole-intercept/gcd-floor-m | one | **2.73** | 1.8 | 2.7 | 3.3 | 3.1 |  | 11026 |
 | prime-landing{"ends":9,"side":-1}/shared-factor | smooth-crossing/shared | one | **2.73** | 2.5 | 2.8 | 2.8 |  |  | 12828 |
-| prime-staircase{"ends":1}/shared-factor | same-on-both-rulers{"d":1,"side":-1}/shared-factor | both | **2.72** | -0.1 | 4.0 | 4.3 |  |  | 3586 |
-| same-on-both-rulers{"d":2,"side":-1}/shared-factor | triangle-area{"A":8}/legs | one | **2.72** | 2.3 | 3.2 |  |  |  | 13928 |
 | crossing-check{"k":2,"q":2}/size | treasure{"k":3,"side":-1}/shared-factor | one | **2.72** | 1.6 | 1.5 | 2.8 | 4.9 |  | 6693 |
 | smooth-intercept{"primes":[3,11]}/shared-factor | whole-at-t/gcd-c | one | **2.72** | 0.4 | 2.4 | 2.9 | 5.2 |  | 3285 |
+| same-on-both-rulers{"digits":"even","side":-1}/shared-factor | square-area/lpf | both | **2.72** | 1.0 | 2.4 | 4.8 |  |  | 5639 |
 | smooth-intercept{"primes":[3,11]}/shared-factor | whole-intercept/gcd-floor-m | one | **2.71** | 1.8 | 2.7 | 3.2 | 3.2 |  | 11421 |
-| same-on-both-rulers{"d":2,"side":-1}/shared-factor | triangle-area{"A":8}/even | one | **2.71** | 2.3 | 3.2 |  |  |  | 14104 |
 | smooth-intercept{"primes":[3,17]}/shared-factor | steady-gradient/gcd-c | one | **2.70** | 1.7 | 2.6 | 3.3 | 3.1 |  | 10547 |
+| prime-staircase{"ends":1}/shared-factor | same-on-both-rulers{"digits":"even"}/shared-factor | both | **2.70** | 1.9 | 2.6 | 3.6 |  |  | 11775 |
 | crossing-check{"k":1,"q":4}/whole | pell-gradient{"D":6,"k":0}/pell-c | neither | **2.70** | 2.9 | 2.5 |  |  |  | 16617 |
 | smooth-intercept{"primes":[3,13]}/shared-factor | whole-intercept/gcd-floor-m | one | **2.70** | 1.8 | 2.7 | 3.2 | 3.1 |  | 11190 |
 | prime-landing{"ends":9,"side":-1}/shared-factor | whole-intercept/omega | one | **2.69** | 2.1 | 2.3 | 2.9 | 3.4 |  | 12741 |
@@ -664,18 +665,18 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":3,"q":4}/whole | pell-gradient{"D":2,"k":0}/difference | neither | **2.66** | 3.3 | 2.8 | 1.9 |  |  | 10660 |
 | crossing-check{"k":3,"q":4}/whole | pell-gradient{"D":2,"k":0}/share-den | neither | **2.66** | 3.3 | 2.8 | 1.9 |  |  | 10660 |
 | crossing-check{"k":1,"q":4}/whole | pell-gradient{"D":3,"k":0}/difference | neither | **2.66** | 2.6 | 2.7 |  |  |  | 9112 |
+| exact-change/big-bill | same-on-both-rulers{"digits":"odd"}/shared-factor | one | **2.66** | 2.3 | 2.2 | 3.5 |  |  | 14872 |
 | prime-staircase{"ends":7}/shared-factor | triangle-area{"A":12}/legs | one | **2.65** | 1.4 | 2.0 | 4.6 |  |  | 3905 |
 | smooth-crossing/shared | square-area/lpf | one | **2.65** | 2.1 | 3.2 |  |  |  | 9873 |
 | smooth-square/shared | whole-crossing{"q":5,"r":4}/shared-factor | one | **2.65** | 1.1 | 2.3 | 3.1 | 4.2 |  | 4128 |
 | square-area/omega | whole-crossing{"q":5,"r":1}/shared-factor | one | **2.64** | 1.2 | 2.2 | 2.9 | 4.3 |  | 4128 |
 | whole-crossing{"q":5,"r":3}/shared-factor | whole-intercept/omega | one | **2.64** | 1.9 | 2.0 | 3.0 | 3.7 |  | 5176 |
 | smooth-intercept{"primes":[3,13]}/shared-factor | whole-at-t/gcd-c | one | **2.64** | 0.4 | 2.4 | 2.8 | 5.0 |  | 3129 |
+| prime-staircase{"ends":1}/shared-factor | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | both | **2.64** | 1.9 | 2.6 | 3.4 |  |  | 11820 |
 | pell-gradient{"D":6,"k":0}/difference | whole-at-t/gcd-den-m | neither | **2.63** | 1.9 | 1.9 | 4.2 |  |  | 672 |
 | prime-landing{"ends":1,"side":-1}/shared-factor | whole-area/gcd-den-m | one | **2.63** | 2.0 | 3.3 |  |  |  | 7285 |
 | prime-staircase{"ends":7}/step-back | triangle-area{"A":12}/even | one | **2.62** | 1.4 | 2.0 | 4.4 |  |  | 7517 |
-| exact-change/big-piles | same-on-both-rulers{"d":2}/shared-factor | one | **2.62** | 2.7 | 2.6 |  |  |  | 14632 |
 | crossing-check{"k":3,"q":6}/whole | pell-gradient{"D":3,"k":0}/difference | neither | **2.61** | 3.2 | 2.1 |  |  |  | 14439 |
-| prime-staircase{"ends":1}/step-back | same-on-both-rulers{"d":1}/shared-factor | both | **2.61** | -0.2 | 3.6 | 4.5 |  |  | 3616 |
 | crossing-check{"k":3,"q":6}/whole | pell-gradient{"D":3,"k":0}/share-den | neither | **2.61** | 3.2 | 2.0 |  |  |  | 14439 |
 | prime-staircase{"ends":3,"side":-1}/shared-factor | whole-intercept/mc-spf | neither | **2.61** | 2.6 |  |  |  |  | 4235 |
 | prime-staircase{"ends":3}/shared-factor | whole-intercept/mc-spf | one | **2.61** | 2.6 |  |  |  |  | 4235 |
@@ -692,47 +693,42 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | prime-landing{"ends":9,"side":-1}/shared-factor | square-area/lpf | both | **2.58** | 1.1 | 3.3 | 3.4 |  |  | 6583 |
 | prime-staircase{"ends":9}/shared-factor | smooth-crossing/shared | one | **2.57** | 2.6 |  |  |  |  | 13606 |
 | crossing-check{"k":1,"q":4}/size | pell-gradient{"D":6,"k":0}/pell-c | neither | **2.57** | 2.8 | 2.3 |  |  |  | 17216 |
-| pythagorean-area{"ends":3}/shared-factor | same-on-both-rulers{"d":1}/shared-factor | both | **2.57** | 1.6 | 2.1 | 4.0 |  |  | 8393 |
 | crossing-check{"k":3,"q":4}/whole | pell-gradient{"D":2,"k":0}/pell-c | neither | **2.57** | 3.3 | 2.8 | 1.7 |  |  | 10660 |
+| exact-change/big-piles | same-on-both-rulers{"digits":"odd"}/shared-factor | one | **2.56** | 2.5 | 2.1 | 3.1 |  |  | 13816 |
 | crossing-check{"k":1,"q":2}/whole | pell-gradient{"D":3,"k":0}/difference | neither | **2.56** | 2.9 | 2.2 |  |  |  | 12394 |
 | crossing-check{"k":1,"q":2}/whole | pell-gradient{"D":3,"k":0}/share-den | neither | **2.56** | 2.9 | 2.2 |  |  |  | 12394 |
-| exact-change/big-bill | same-on-both-rulers{"d":1}/shared-factor | one | **2.56** | 2.6 | 1.8 | 3.3 |  |  | 15625 |
 | pell-gradient{"D":6,"k":0}/share-den | whole-at-t/gcd-den-m | neither | **2.55** | 1.9 | 1.6 | 4.2 |  |  | 672 |
 | prime-landing{"ends":1}/shared-factor | whole-area/gcd-den-m | one | **2.55** | 1.9 | 3.2 |  |  |  | 7144 |
 | crossing-check{"k":3,"q":6}/whole | near-point/lattice | neither | **2.55** | 2.4 | 2.7 |  |  |  | 12769 |
 | crossing-check{"k":3,"q":6}/whole | near-point/gcd-x | neither | **2.55** | 2.4 | 2.7 |  |  |  | 12552 |
-| same-on-both-rulers{"d":2,"side":-1}/shared-factor | triangle-area{"A":6}/even | one | **2.54** | 2.2 | 2.9 |  |  |  | 13012 |
-| same-on-both-rulers{"d":2,"side":-1}/shared-factor | triangle-area{"A":6}/legs | one | **2.54** | 2.2 | 2.9 |  |  |  | 12807 |
-| prime-staircase{"ends":1}/step-back | same-on-both-rulers{"d":1,"side":-1}/shared-factor | both | **2.54** | -0.2 | 3.6 | 4.3 |  |  | 3665 |
-| same-on-both-rulers{"d":2}/shared-factor | triangle-area{"A":6}/even | one | **2.53** | 2.2 | 2.9 |  |  |  | 12972 |
+| exact-change/prime-coins | same-on-both-rulers{"digits":"odd"}/shared-factor | one | **2.55** | 2.2 | 2.1 | 3.3 |  |  | 13368 |
+| prime-staircase{"ends":9}/shared-factor | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | both | **2.54** | 2.0 | 2.3 | 3.3 |  |  | 14574 |
+| same-on-both-rulers{"digits":"even"}/shared-factor | square-area/spf | both | **2.54** | 1.0 | 2.3 | 4.3 |  |  | 5789 |
 | crossing-check{"k":3,"q":6}/size | near-point/lattice | neither | **2.53** | 2.4 | 2.7 |  |  |  | 12700 |
 | crossing-check{"k":3,"q":6}/size | near-point/gcd-x | neither | **2.53** | 2.4 | 2.7 |  |  |  | 12483 |
-| same-on-both-rulers{"d":2}/shared-factor | triangle-area{"A":6}/legs | one | **2.53** | 2.2 | 2.9 |  |  |  | 12733 |
 | exact-change/big-piles | triangle-area{"A":18}/even | neither | **2.53** | 2.0 | 3.1 |  |  |  | 9485 |
 | exact-change/big-piles | triangle-area{"A":18}/legs | neither | **2.53** | 2.0 | 3.1 |  |  |  | 9276 |
 | crossing-check{"k":1,"q":2}/size | pell-gradient{"D":3,"k":0}/difference | neither | **2.53** | 2.9 | 2.2 |  |  |  | 12030 |
 | prime-landing{"ends":1,"side":-1}/shared-factor | prime-staircase{"ends":1}/shared-factor | both | **2.53** | 1.6 | 2.0 | 3.9 |  |  | 9686 |
 | crossing-check{"k":1,"q":2}/size | pell-gradient{"D":3,"k":0}/share-den | neither | **2.53** | 2.9 | 2.2 |  |  |  | 12030 |
-| same-on-both-rulers{"d":2,"side":-1}/shared-factor | triangle-area{"A":12}/legs | one | **2.52** | 2.3 | 2.8 |  |  |  | 13882 |
 | prime-landing{"ends":1}/shared-factor | prime-staircase{"ends":1}/shared-factor | both | **2.52** | 1.7 | 2.0 | 3.9 |  |  | 9709 |
 | crossing-check{"k":1,"q":4}/whole | pell-gradient{"D":6,"k":0}/difference | neither | **2.52** | 2.8 | 2.2 |  |  |  | 8260 |
 | prime-staircase{"ends":7}/step-back | triangle-area{"A":12}/legs | one | **2.51** | 1.1 | 2.0 | 4.5 |  |  | 6039 |
 | pythagorean-area{"ends":3}/shared-factor | triangle-area{"A":6}/even | one | **2.51** | 2.5 |  |  |  |  | 15052 |
 | prime-gradient{"ends":1}/shared-factor | steep-and-tall/shared | one | **2.51** | 2.3 | 3.8 | 1.9 | 1.5 | 3.1 | 20579 |
 | crossing-check{"k":1,"q":2}/whole | pell-gradient{"D":3,"k":0}/pell-c | neither | **2.51** | 2.8 | 2.2 |  |  |  | 16761 |
-| crossing-check{"k":3,"q":2}/whole | same-on-both-rulers{"d":2}/shared-factor | one | **2.50** | 2.2 | 2.8 |  |  |  | 6751 |
 | smooth-gradient/shared | square-area/omega | neither | **2.50** | 0.8 | 2.9 | 2.3 | 4.1 |  | 3303 |
 | square-area/lpf | whole-crossing{"q":5,"r":3}/shared-factor | both | **2.50** | 1.3 | 3.6 | 2.6 |  |  | 3683 |
 | crossing-check{"k":3,"q":2}/whole | near-point/lattice | neither | **2.50** | 2.5 |  |  |  |  | 8405 |
 | crossing-check{"k":3,"q":2}/whole | near-point/gcd-x | neither | **2.49** | 2.5 |  |  |  |  | 8248 |
-| same-on-both-rulers{"d":2,"side":-1}/shared-factor | triangle-area{"A":12}/even | one | **2.49** | 2.2 | 2.7 |  |  |  | 14263 |
-| pythagorean-area{"ends":3}/shared-factor | same-on-both-rulers{"d":1,"side":-1}/shared-factor | both | **2.48** | 1.6 | 1.9 | 3.9 |  |  | 8428 |
-| same-on-both-rulers{"d":2}/shared-factor | triangle-area{"A":12}/legs | one | **2.48** | 2.3 | 2.7 |  |  |  | 13701 |
+| prime-staircase{"ends":1}/step-back | same-on-both-rulers{"digits":"even"}/shared-factor | both | **2.48** | 1.9 | 2.2 | 3.4 |  |  | 12466 |
 | pell-gradient{"D":3,"k":0}/difference | prime-slope/matching-c | neither | **2.48** | 2.5 |  |  |  |  | 7658 |
 | pell-gradient{"D":3,"k":0}/share-den | prime-slope/matching-c | neither | **2.48** | 2.5 |  |  |  |  | 7658 |
+| prime-staircase{"ends":9}/shared-factor | same-on-both-rulers{"digits":"even"}/shared-factor | both | **2.48** | 2.0 | 2.2 | 3.2 |  |  | 14708 |
 | pythagorean-area{"ends":1}/shared-factor | triangle-area{"A":18}/legs | one | **2.48** | 2.5 |  |  |  |  | 17625 |
 | prime-staircase{"ends":1}/step-back | pythagorean-area{"ends":1}/shared-factor | both | **2.48** | 1.9 | 2.7 | 2.9 |  |  | 12693 |
 | pell-gradient{"D":6,"k":0}/pell-c | target-gradient/same-den | neither | **2.47** | 2.5 |  |  |  |  | 12722 |
+| prime-staircase{"ends":9}/step-back | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | both | **2.47** | 2.0 | 2.1 | 3.3 |  |  | 14562 |
 | pythagorean-area{"ends":3}/shared-factor | triangle-area{"A":6}/legs | one | **2.47** | 2.5 |  |  |  |  | 14433 |
 | prime-landing{"ends":1}/shared-factor | square-area/lpf | both | **2.47** | 0.9 | 3.3 | 3.2 |  |  | 5204 |
 | crossing-check{"k":1,"q":2}/size | pell-gradient{"D":3,"k":0}/pell-c | neither | **2.47** | 2.8 | 2.2 |  |  |  | 16182 |
@@ -740,17 +736,14 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":2,"q":4}/whole | pell-gradient{"D":3,"k":0}/difference | neither | **2.46** | 3.1 | 1.9 |  |  |  | 13257 |
 | crossing-check{"k":2,"q":4}/whole | pell-gradient{"D":3,"k":0}/share-den | neither | **2.46** | 3.1 | 1.9 |  |  |  | 13257 |
 | m-meets-c/size | smooth-gradient/shared | neither | **2.46** | -0.6 | 1.4 | 3.7 | 5.4 |  | 893 |
-| prime-landing{"ends":9,"side":-1}/shared-factor | same-on-both-rulers{"d":2,"side":-1}/shared-factor | both | **2.46** | 0.0 | 0.2 | 4.5 | 5.0 |  | 3515 |
 | whole-area/gcd-den-m | whole-intercept/omega | neither | **2.46** | 2.2 | 2.4 | 2.4 | 2.7 |  | 9858 |
 | crossing-check{"k":1,"q":4}/size | pell-gradient{"D":6,"k":0}/share-den | neither | **2.45** | 2.6 | 2.3 |  |  |  | 8260 |
-| same-on-both-rulers{"d":2}/shared-factor | triangle-area{"A":12}/even | one | **2.45** | 2.2 | 2.7 |  |  |  | 14085 |
 | crossing-check{"k":2,"q":4}/size | pell-gradient{"D":3,"k":0}/difference | neither | **2.45** | 3.1 | 1.8 |  |  |  | 13290 |
 | pythagorean-area{"ends":1}/shared-factor | triangle-area{"A":18}/even | one | **2.45** | 2.4 |  |  |  |  | 17625 |
 | crossing-check{"k":2,"q":4}/size | pell-gradient{"D":3,"k":0}/share-den | neither | **2.45** | 3.1 | 1.8 |  |  |  | 13290 |
 | divisibility-ladder/next-rung | prime-staircase{"ends":1}/shared-factor | both | **2.44** | 2.4 |  |  |  |  | 15070 |
 | square-area/spf | whole-intercept/spf | one | **2.44** | -0.1 | 2.2 | 5.3 |  |  | 1540 |
-| prime-landing{"ends":9}/shared-factor | same-on-both-rulers{"d":2}/shared-factor | both | **2.44** | -0.1 | 0.4 | 4.4 | 5.0 |  | 3361 |
-| exact-change/prime-coins | same-on-both-rulers{"d":2}/shared-factor | one | **2.43** | 2.4 | 2.5 |  |  |  | 14202 |
+| prime-staircase{"ends":1}/step-back | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | both | **2.44** | 1.9 | 2.3 | 3.1 |  |  | 12506 |
 | pell-gradient{"D":6,"k":0}/pell-c | target-gradient/gcd-tops | neither | **2.43** | 2.4 |  |  |  |  | 12055 |
 | pell-gradient{"D":1,"k":1}/pell-c | target-gradient/same-den | neither | **2.43** | 2.1 | 4.2 | 1.0 |  |  | 11547 |
 | pythagorean-area{"ends":1}/shared-factor | whole-area/gcd-den-m | one | **2.42** | 1.7 | 3.1 |  |  |  | 7098 |
@@ -766,7 +759,6 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | m-meets-c/size | whole-intercept/gcd-floor-m | neither | **2.40** | -0.7 | 1.4 | 3.4 | 5.4 |  | 1656 |
 | square-area/omega | whole-crossing{"q":5,"r":2}/shared-factor | one | **2.40** | 1.3 | 2.6 | 3.3 |  |  | 3634 |
 | prime-staircase{"ends":9}/shared-factor | whole-intercept/omega | one | **2.39** | 2.4 |  |  |  |  | 15360 |
-| prime-landing{"ends":1,"side":-1}/shared-factor | same-on-both-rulers{"d":1,"side":-1}/shared-factor | both | **2.39** | -0.6 | 3.3 | 4.5 |  |  | 2210 |
 | prime-staircase{"ends":3,"side":-1}/step-back | whole-intercept/mc-spf | neither | **2.39** | 2.4 |  |  |  |  | 4235 |
 | prime-staircase{"ends":3}/step-back | whole-intercept/mc-spf | one | **2.39** | 2.4 |  |  |  |  | 4235 |
 | pell-gradient{"D":2,"k":0}/pell-c | whole-at-t/gcd-den-m | neither | **2.38** | 1.8 | 3.0 |  |  |  | 1157 |
@@ -777,20 +769,20 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | prime-staircase{"ends":9}/step-back | pythagorean-area{"ends":1}/shared-factor | both | **2.37** | 1.8 | 0.5 | 2.7 | 4.5 |  | 14403 |
 | crossing-check{"k":3,"q":6}/whole | pell-gradient{"D":3,"k":0}/pell-c | neither | **2.37** | 2.7 | 2.0 |  |  |  | 15698 |
 | prime-staircase{"ends":7}/step-back | square-area/spf | both | **2.37** | 0.7 | 1.2 | 5.2 |  |  | 4112 |
+| same-on-both-rulers{"digits":"even","side":-1}/shared-factor | square-area/spf | both | **2.37** | 1.0 | 2.2 | 3.9 |  |  | 5639 |
 | square-area/lpf | whole-intercept/spf | one | **2.37** | -0.1 | 2.1 | 5.1 |  |  | 1542 |
 | divisibility-ladder/next-rung | square-area/lpf | both | **2.37** | 1.1 | 3.6 |  |  |  | 5964 |
 | square-area/spf | whole-crossing{"q":5,"r":2}/shared-factor | both | **2.36** | 1.3 | 3.4 |  |  |  | 3634 |
 | crossing-check{"k":1,"q":4}/size | pell-gradient{"D":6,"k":0}/difference | neither | **2.36** | 2.6 | 2.1 |  |  |  | 8260 |
+| pythagorean-area{"ends":7}/shared-factor | same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | both | **2.36** | 1.5 | 1.7 | 1.6 | 4.6 |  | 7354 |
 | m-meets-c/size | whole-crossing{"q":5,"r":4}/shared-factor | one | **2.36** | 2.4 |  |  |  |  | 7561 |
-| same-on-both-rulers{"d":1}/shared-factor | whole-intercept/spf | one | **2.35** | 0.5 | 2.6 | 4.0 |  |  | 2578 |
 | crossing-check{"k":3,"q":6}/size | pell-gradient{"D":3,"k":0}/pell-c | neither | **2.35** | 2.7 | 2.0 |  |  |  | 15447 |
-| exact-change/big-piles | same-on-both-rulers{"d":1}/shared-factor | one | **2.35** | 2.6 | 2.0 | 2.4 |  |  | 12158 |
 | m-meets-c/meetPrime | whole-crossing{"q":5,"r":4}/shared-factor | one | **2.34** | 2.3 |  |  |  |  | 7561 |
-| prime-landing{"ends":1}/shared-factor | same-on-both-rulers{"d":1}/shared-factor | both | **2.34** | -0.6 | 3.3 | 4.4 |  |  | 2176 |
 | prime-staircase{"ends":9}/step-back | whole-intercept/omega | one | **2.34** | 2.4 | 2.3 |  |  |  | 15149 |
 | pythagorean-area{"ends":7}/shared-factor | ruler/prime-gradient | both | **2.33** | 0.1 | 2.6 | 4.2 |  |  | 4011 |
 | pythagorean-area{"ends":7}/shared-factor | ruler/square-area | both | **2.33** | 0.1 | 2.6 | 4.2 |  |  | 4012 |
 | steady-gradient/gcd-c | treasure{"k":3,"side":-1}/shared-factor | one | **2.32** | 0.4 | 1.5 | 2.8 | 4.6 |  | 4296 |
+| prime-staircase{"ends":9}/step-back | same-on-both-rulers{"digits":"even"}/shared-factor | both | **2.32** | 2.0 | 1.8 | 3.2 |  |  | 14674 |
 | square-area/lpf | whole-crossing{"q":5,"r":2}/shared-factor | both | **2.32** | 1.3 | 3.6 | 2.1 |  |  | 3634 |
 | prime-staircase{"ends":1}/shared-factor | whole-intercept/omega | one | **2.32** | 2.3 |  |  |  |  | 12588 |
 | prime-landing{"ends":9}/shared-factor | whole-crossing{"q":5,"r":4}/shared-factor | both | **2.32** | 1.4 | 3.2 |  |  |  | 6062 |
@@ -840,7 +832,6 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | whole-crossing{"q":5,"r":2}/shared-factor | whole-intercept/gcd-den-m | one | **2.25** | 0.3 | 1.7 | 4.8 |  |  | 2108 |
 | crossing-check{"k":1,"q":4}/whole | target-gradient/gcd-tops | neither | **2.25** | 2.0 | 2.5 |  |  |  | 8511 |
 | prime-landing{"ends":9,"side":-1}/shared-factor | smooth-square/shared | one | **2.24** | 1.0 | 3.0 | 2.8 |  |  | 6583 |
-| same-on-both-rulers{"d":1,"side":-1}/shared-factor | whole-intercept/spf | one | **2.24** | 0.5 | 2.5 | 3.7 |  |  | 2601 |
 | prime-landing{"ends":9,"side":-1}/shared-factor | square-area/omega | one | **2.24** | 1.0 | 2.9 | 2.8 |  |  | 6583 |
 | steady-gradient/gcd-c | treasure{"k":3}/shared-factor | one | **2.24** | 0.5 | 1.6 | 2.9 | 4.0 |  | 4412 |
 | treasure{"k":4,"side":-1}/shared-factor | whole-intercept/gcd-floor-m | one | **2.23** | 0.5 | 1.5 | 2.7 | 4.3 |  | 3924 |
@@ -886,11 +877,11 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | prime-gradient{"ends":1,"side":-1}/shared-factor | whole-intercept/gcd-floor-m | one | **2.16** | 1.5 | 2.8 |  |  |  | 13033 |
 | prime-landing{"ends":9}/shared-factor | square-area/omega | one | **2.16** | 1.1 | 2.9 | 2.5 |  |  | 6726 |
 | prime-landing{"ends":9}/shared-factor | pythagorean-area{"ends":9}/shared-factor | both | **2.16** | 2.1 | 3.3 | 1.1 |  |  | 15095 |
-| exact-change/prime-coins | same-on-both-rulers{"d":1}/shared-factor | one | **2.15** | 2.5 | 1.8 | 2.1 |  |  | 13428 |
 | crossing-check{"k":2,"q":4}/size | near-point/lattice | neither | **2.15** | 2.7 | 1.6 |  |  |  | 15837 |
 | crossing-check{"k":2,"q":4}/size | near-point/gcd-x | neither | **2.15** | 2.7 | 1.6 |  |  |  | 15580 |
 | crossing-check{"k":2,"q":4}/whole | near-point/lattice | neither | **2.15** | 2.6 | 1.7 |  |  |  | 15488 |
 | crossing-check{"k":2,"q":4}/whole | near-point/gcd-x | neither | **2.15** | 2.6 | 1.7 |  |  |  | 15231 |
+| same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | smooth-intercept{"primes":[3,17]}/shared-factor | both | **2.15** | 0.9 | 1.7 | 3.9 |  |  | 4430 |
 | crossing-check{"k":1,"q":4}/size | target-gradient/gcd-tops | neither | **2.14** | 1.9 | 2.4 |  |  |  | 8655 |
 | exact-change/prime-coins | triangle-area{"A":12}/legs | neither | **2.14** | 1.6 | 2.7 |  |  |  | 7564 |
 | triangle-area{"A":12}/legs | whole-intercept/spf | neither | **2.14** | 1.8 | 2.0 | 2.6 |  |  | 5149 |
@@ -898,9 +889,8 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | prime-landing{"ends":1,"side":-1}/shared-factor | sunken-intercept/shared | one | **2.13** | 1.8 | 2.2 | 1.8 | 2.8 |  | 14440 |
 | prime-staircase{"ends":9}/step-back | smooth-square/shared | one | **2.13** | 0.8 | 3.5 |  |  |  | 6116 |
 | crossing-check{"k":1,"q":2}/whole | prime-slope/twins | neither | **2.13** | 2.1 |  |  |  |  | 3228 |
-| crossing-check{"k":3,"q":6}/whole | same-on-both-rulers{"d":2}/shared-factor | one | **2.12** | 1.5 | 2.7 |  |  |  | 8289 |
 | whole-area/gcd-den-m | whole-crossing{"q":5,"r":2}/shared-factor | one | **2.12** | 1.3 | 2.9 | 2.2 |  |  | 3276 |
-| same-on-both-rulers{"d":2}/shared-factor | square-area/lpf | both | **2.12** | 0.5 | -0.2 | 6.0 |  |  | 3344 |
+| same-on-both-rulers{"digits":"even"}/shared-factor | whole-intercept/gcd-den-m | one | **2.12** | 1.7 | 2.1 | 2.6 |  |  | 8313 |
 | crossing-check{"k":3,"q":2}/size | exact-change/prime-coins | neither | **2.12** | 1.4 | 1.2 | 3.8 |  |  | 6087 |
 | prime-staircase{"ends":9}/step-back | square-area/omega | one | **2.12** | 0.8 | 3.4 |  |  |  | 6115 |
 | prime-staircase{"ends":7}/step-back | smooth-crossing/shared | one | **2.11** | 2.1 |  |  |  |  | 7881 |
@@ -912,11 +902,11 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | pell-gradient{"D":5,"k":0}/difference | square-area/spf | one | **2.10** | 2.1 |  |  |  |  | 10582 |
 | pell-gradient{"D":5,"k":0}/share-den | square-area/spf | one | **2.10** | 2.1 |  |  |  |  | 10582 |
 | square-area/spf | whole-intercept/gcd-den-m | one | **2.10** | 2.1 |  |  |  |  | 8823 |
-| crossing-check{"k":3,"q":6}/size | same-on-both-rulers{"d":2}/shared-factor | one | **2.10** | 1.5 | 2.7 |  |  |  | 8163 |
 | crossing-check{"k":3,"q":2}/whole | exact-change/big-bill | neither | **2.10** | 1.6 | 1.1 | 3.6 |  |  | 4864 |
 | prime-slope/twins | target-gradient/gcd-tops | neither | **2.10** | 2.1 |  |  |  |  | 3302 |
 | pell-gradient{"D":5,"k":0}/difference | square-area/lpf | one | **2.10** | 2.1 |  |  |  |  | 10598 |
 | pell-gradient{"D":5,"k":0}/share-den | square-area/lpf | one | **2.10** | 2.1 |  |  |  |  | 10598 |
+| same-on-both-rulers{"digits":"odd"}/shared-factor | smooth-intercept{"primes":[3,17]}/shared-factor | both | **2.10** | 0.8 | 1.5 | 3.9 |  |  | 4327 |
 | crossing-check{"k":2,"q":4}/size | m-meets-c/meetPrime | neither | **2.10** | 0.2 | 3.9 |  |  |  | 2551 |
 | pythagorean-area{"ends":1}/shared-factor | steep-and-tall/shared | one | **2.10** | 0.8 | 1.5 | 3.1 | 3.1 |  | 7212 |
 | pell-gradient{"D":5,"k":0}/difference | square-area/omega | neither | **2.09** | 2.1 |  |  |  |  | 10598 |
@@ -927,6 +917,7 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | triangle-area{"A":12}/even | whole-intercept/spf | neither | **2.08** | 1.7 | 2.0 | 2.5 |  |  | 5149 |
 | crossing-check{"k":3,"q":4}/whole | treasure{"k":3}/shared-factor | one | **2.08** | 2.1 |  |  |  |  | 4795 |
 | prime-slope/twins | target-gradient/same-den | neither | **2.08** | 2.1 |  |  |  |  | 3302 |
+| same-on-both-rulers{"digits":"even","side":-1}/shared-factor | whole-intercept/gcd-den-m | one | **2.08** | 1.6 | 2.1 | 2.5 |  |  | 8097 |
 | prime-landing{"ends":1,"side":-1}/shared-factor | pythagorean-area{"ends":9}/shared-factor | both | **2.07** | 2.1 | 3.2 | 0.9 |  |  | 13739 |
 | pell-gradient{"D":5,"k":0}/pell-c | square-area/spf | one | **2.07** | 2.1 |  |  |  |  | 10582 |
 | pell-gradient{"D":5,"k":0}/difference | smooth-square/shared | neither | **2.06** | 2.1 |  |  |  |  | 10608 |
@@ -937,6 +928,7 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":2,"q":2}/size | near-point/gcd-x | neither | **2.06** | 2.1 |  |  |  |  | 9829 |
 | crossing-check{"k":1,"q":4}/size | target-gradient/same-den | neither | **2.06** | 1.9 | 2.2 |  |  |  | 8892 |
 | pell-gradient{"D":5,"k":0}/pell-c | square-area/omega | neither | **2.06** | 2.1 |  |  |  |  | 10598 |
+| same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | steep-and-tall/shared | one | **2.05** | 1.9 | 1.3 | 2.1 | 2.9 |  | 11186 |
 | crossing-check{"k":3,"q":2}/whole | exact-change/big-piles | neither | **2.05** | 1.7 | 0.4 | 4.0 |  |  | 4363 |
 | crossing-check{"k":2,"q":2}/whole | near-point/gcd-x | neither | **2.04** | 2.0 |  |  |  |  | 9652 |
 | prime-landing{"ends":1,"side":-1}/shared-factor | whole-crossing{"q":5,"r":2}/shared-factor | both | **2.04** | 1.9 | 2.2 |  |  |  | 5441 |
@@ -954,7 +946,6 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | pell-gradient{"D":2,"k":0}/pell-c | prime-slope/matching-c | neither | **2.02** | 2.0 |  |  |  |  | 8536 |
 | pell-gradient{"D":2,"k":0}/difference | prime-slope/matching-c | neither | **2.02** | 2.0 |  |  |  |  | 8536 |
 | pell-gradient{"D":2,"k":0}/share-den | prime-slope/matching-c | neither | **2.02** | 2.0 |  |  |  |  | 8536 |
-| same-on-both-rulers{"d":2}/shared-factor | whole-area/gcd-den-m | one | **2.02** | 0.7 | 1.9 | 3.5 |  |  | 2564 |
 | triangle-area{"A":12}/legs | whole-area/gcd-den-m | neither | **2.02** | 0.8 | 0.9 | 4.4 |  |  | 2602 |
 | prime-landing{"ends":1}/shared-factor | pythagorean-area{"ends":9}/shared-factor | both | **2.02** | 2.1 | 3.2 | 0.7 |  |  | 13759 |
 | pell-gradient{"D":1,"k":1}/share-den | prime-slope/matching-c | neither | **2.02** | 2.0 |  |  |  |  | 9107 |
@@ -966,11 +957,10 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | ruler/square-area | triangle-area{"A":4}/even | one | **2.02** | 1.1 | 2.9 |  |  |  | 7384 |
 | ruler/prime-gradient | triangle-area{"A":4}/even | one | **2.02** | 1.1 | 2.9 |  |  |  | 7375 |
 | crossing-check{"k":1,"q":4}/size | pell-gradient{"D":7,"k":0}/pell-c | neither | **2.01** | 1.9 | 2.1 |  |  |  | 9891 |
-| same-on-both-rulers{"d":2,"side":-1}/shared-factor | triangle-area{"A":18}/even | one | **2.01** | 2.0 | 2.1 |  |  |  | 12846 |
+| prime-staircase{"ends":7}/shared-factor | same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | both | **2.01** | 1.7 | 2.3 |  |  |  | 4294 |
+| prime-staircase{"ends":7}/shared-factor | same-on-both-rulers{"digits":"odd"}/shared-factor | both | **2.01** | 1.7 | 2.3 |  |  |  | 4299 |
 | crossing-check{"k":1,"q":4}/whole | pell-gradient{"D":7,"k":0}/share-den | neither | **2.01** | 2.1 | 2.0 |  |  |  | 10440 |
-| same-on-both-rulers{"d":2,"side":-1}/shared-factor | triangle-area{"A":18}/legs | one | **2.01** | 1.9 | 2.1 |  |  |  | 12482 |
 | sunken-intercept/shared | whole-area/gcd-den-m | neither | **2.00** | 1.5 | 1.9 | 2.0 | 2.4 | 2.2 | 8910 |
-| same-on-both-rulers{"d":2,"side":-1}/shared-factor | square-area/lpf | both | **2.00** | 0.5 | -0.4 | 5.8 |  |  | 3352 |
 | pell-gradient{"D":1,"k":1}/pell-c | prime-slope/matching-c | neither | **2.00** | 2.0 |  |  |  |  | 9107 |
 
 ### Anti-aligned pairs (headline < −2), different families
@@ -986,12 +976,17 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":1,"q":4}/whole | near-point/gcd-x | neither | **-7.17** | -7.2 |  |  |  |  | 42 |
 | m-meets-c/meetPrime | pythagorean-area{"ends":9}/shared-factor | one | **-7.13** | -7.1 |  |  |  |  | 48 |
 | m-meets-c/size | pythagorean-area{"ends":9}/shared-factor | one | **-7.12** | -7.1 |  |  |  |  | 49 |
+| crossing-check{"k":1,"q":2}/whole | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-7.09** | -7.1 |  |  |  |  | 48 |
+| crossing-check{"k":1,"q":2}/size | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-7.08** | -7.1 |  |  |  |  | 47 |
+| near-point/gcd-x | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-6.95** | -6.9 |  |  |  |  | 50 |
 | crossing-check{"k":2,"q":6}/size | steady-gradient/divisors | neither | **-6.92** | -6.9 |  |  |  |  | 56 |
 | crossing-check{"k":2,"q":4}/size | steady-gradient/divisors | neither | **-6.91** | -6.9 |  |  |  |  | 56 |
 | crossing-check{"k":2,"q":6}/whole | steady-gradient/divisors | neither | **-6.90** | -6.9 |  |  |  |  | 56 |
 | crossing-check{"k":2,"q":4}/whole | steady-gradient/divisors | neither | **-6.90** | -6.9 |  |  |  |  | 56 |
 | m-meets-c/meetPrime | whole-intercept/omega | neither | **-6.88** | -6.9 |  |  |  |  | 34 |
 | m-meets-c/size | whole-intercept/omega | neither | **-6.87** | -6.9 |  |  |  |  | 34 |
+| m-meets-c/meetPrime | same-on-both-rulers{"digits":"even"}/shared-factor | one | **-6.77** | -6.8 |  |  |  |  | 47 |
+| m-meets-c/size | same-on-both-rulers{"digits":"even"}/shared-factor | one | **-6.75** | -6.8 |  |  |  |  | 47 |
 | crossing-check{"k":3,"q":2}/whole | prime-gradient{"ends":9}/shared-factor | one | **-6.66** | -6.7 |  |  |  |  | 38 |
 | crossing-check{"k":2,"q":2}/whole | prime-gradient{"ends":9,"side":-1}/shared-factor | one | **-6.66** | -6.7 |  |  |  |  | 50 |
 | pell-gradient{"D":7,"k":0}/share-den | prime-gradient{"ends":1}/shared-factor | one | **-6.65** | ≤-6.6 |  |  |  |  | 0 |
@@ -1021,16 +1016,13 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | m-meets-c/meetPrime | prime-landing{"ends":9}/shared-factor | one | **-6.61** | ≤-6.6 |  |  |  |  | 0 |
 | crossing-check{"k":1,"q":6}/size | near-point/lattice | neither | **-6.61** | ≤-6.6 |  |  |  |  | 0 |
 | pythagorean-area{"ends":1}/shared-factor | triangle-area{"A":6}/even | one | **-6.61** | ≤-6.6 |  |  |  |  | 0 |
-| near-point/lattice | same-on-both-rulers{"d":1,"side":-1}/shared-factor | one | **-6.61** | ≤-6.6 |  |  |  |  | 2 |
 | pell-gradient{"D":1,"k":1}/pell-c | whole-intercept/gcd-floor-m | neither | **-6.60** | ≤-6.6 |  |  |  |  | 0 |
 | crossing-check{"k":2,"q":2}/size | whole-intercept/gcd-floor-m | neither | **-6.60** | ≤-6.6 |  |  |  |  | 6 |
-| m-meets-c/meetPrime | same-on-both-rulers{"d":1}/shared-factor | one | **-6.60** | ≤-6.6 |  |  |  |  | 3 |
 | pell-gradient{"D":6,"k":0}/pell-c | prime-gradient{"ends":1}/shared-factor | one | **-6.60** | ≤-6.6 |  |  |  |  | 0 |
 | pell-gradient{"D":1,"k":1}/difference | prime-gradient{"ends":1}/shared-factor | one | **-6.60** | ≤-6.6 |  |  |  |  | 0 |
 | pell-gradient{"D":1,"k":1}/share-den | prime-gradient{"ends":1}/shared-factor | one | **-6.60** | ≤-6.6 |  |  |  |  | 0 |
 | pythagorean-area{"ends":9}/shared-factor | triangle-area{"A":8}/legs | one | **-6.60** | ≤-6.6 |  |  |  |  | 0 |
 | pythagorean-area{"ends":9}/shared-factor | triangle-area{"A":6}/even | one | **-6.60** | ≤-6.6 |  |  |  |  | 0 |
-| exact-change/big-bill | same-on-both-rulers{"d":1,"side":-1}/shared-factor | one | **-6.60** | ≤-6.6 |  |  |  |  | 0 |
 | pell-gradient{"D":7,"k":0}/difference | prime-gradient{"ends":1}/shared-factor | one | **-6.60** | ≤-6.6 |  |  |  |  | 0 |
 | crossing-check{"k":1,"q":2}/size | steady-gradient/divisors | neither | **-6.60** | ≤-6.6 |  |  |  |  | 27 |
 | m-meets-c/size | whole-area/gcd-x | neither | **-6.60** | ≤-6.6 |  |  |  |  | 0 |
@@ -1048,16 +1040,13 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | pell-gradient{"D":1,"k":1}/pell-c | steady-gradient/gcd-c | neither | **-6.60** | ≤-6.6 |  |  |  |  | 0 |
 | pell-gradient{"D":7,"k":0}/share-den | prime-gradient{"ends":9,"side":-1}/shared-factor | one | **-6.59** | ≤-6.6 |  |  |  |  | 0 |
 | crossing-check{"k":2,"q":2}/size | steady-gradient/gcd-c | neither | **-6.59** | ≤-6.6 |  |  |  |  | 0 |
-| m-meets-c/size | same-on-both-rulers{"d":1}/shared-factor | one | **-6.59** | ≤-6.6 |  |  |  |  | 3 |
 | crossing-check{"k":1,"q":6}/size | near-point/gcd-x | neither | **-6.59** | ≤-6.6 |  |  |  |  | 0 |
 | pythagorean-area{"ends":1}/shared-factor | triangle-area{"A":6}/legs | one | **-6.59** | ≤-6.6 |  |  |  |  | 0 |
-| near-point/gcd-x | same-on-both-rulers{"d":1,"side":-1}/shared-factor | one | **-6.59** | ≤-6.6 |  |  |  |  | 1 |
 | crossing-check{"k":2,"q":2}/whole | steady-gradient/divisors | neither | **-6.59** | ≤-6.6 |  |  |  |  | 15 |
 | exact-change/big-bill | prime-landing{"ends":9,"side":-1}/shared-factor | one | **-6.59** | ≤-6.6 |  |  |  |  | 0 |
 | pell-gradient{"D":1,"k":1}/difference | whole-intercept/gcd-floor-m | neither | **-6.59** | ≤-6.6 |  |  |  |  | 0 |
 | pell-gradient{"D":1,"k":1}/share-den | whole-intercept/gcd-floor-m | neither | **-6.59** | ≤-6.6 |  |  |  |  | 0 |
 | crossing-check{"k":2,"q":2}/whole | steady-gradient/gcd-c | neither | **-6.59** | ≤-6.6 |  |  |  |  | 0 |
-| exact-change/big-bill | same-on-both-rulers{"d":2,"side":-1}/shared-factor | one | **-6.59** | ≤-6.6 |  |  |  |  | 0 |
 | crossing-check{"k":3,"q":6}/whole | steady-gradient/divisors | neither | **-6.58** | ≤-6.6 |  |  |  |  | 26 |
 | pythagorean-area{"ends":9}/shared-factor | triangle-area{"A":6}/legs | one | **-6.58** | ≤-6.6 |  |  |  |  | 0 |
 | m-meets-c/size | prime-landing{"ends":9,"side":-1}/shared-factor | one | **-6.58** | ≤-6.6 |  |  |  |  | 0 |
@@ -1078,12 +1067,12 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":3,"q":6}/size | steady-gradient/divisors | neither | **-6.57** | ≤-6.6 |  |  |  |  | 26 |
 | pell-gradient{"D":1,"k":1}/pell-c | prime-gradient{"ends":9,"side":-1}/shared-factor | one | **-6.57** | ≤-6.6 |  |  |  |  | 0 |
 | near-point/lattice | steep-and-tall/shared | neither | **-6.56** | ≤-6.6 |  |  |  |  | 0 |
-| exact-change/prime-coins | same-on-both-rulers{"d":1,"side":-1}/shared-factor | one | **-6.56** | ≤-6.6 |  |  |  |  | 0 |
 | pell-gradient{"D":5,"k":0}/pell-c | prime-gradient{"ends":1}/shared-factor | one | **-6.56** | ≤-6.6 |  |  |  |  | 0 |
 | prime-gradient{"ends":1,"side":-1}/shared-factor | steep-and-tall/shared | one | **-6.55** | ≤-6.6 |  |  |  |  | 0 |
 | exact-change/big-bill | steep-and-tall/shared | neither | **-6.55** | ≤-6.6 |  |  |  |  | 0 |
 | steep-and-tall/shared | sunken-intercept/shared | neither | **-6.55** | ≤-6.6 |  |  |  |  | 0 |
 | pell-gradient{"D":5,"k":0}/pell-c | prime-gradient{"ends":1,"side":-1}/shared-factor | one | **-6.55** | ≤-6.6 |  |  |  |  | 0 |
+| exact-change/big-bill | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-6.55** | ≤-6.6 |  |  |  |  | 0 |
 | crossing-check{"k":2,"q":6}/size | steep-and-tall/shared | neither | **-6.55** | ≤-6.6 |  |  |  |  | 0 |
 | pell-gradient{"D":6,"k":0}/pell-c | prime-gradient{"ends":9}/shared-factor | one | **-6.55** | ≤-6.5 |  |  |  |  | 0 |
 | crossing-check{"k":1,"q":2}/size | steep-and-tall/shared | neither | **-6.55** | ≤-6.5 |  |  |  |  | 0 |
@@ -1098,7 +1087,6 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | exact-change/prime-coins | prime-landing{"ends":9,"side":-1}/shared-factor | one | **-6.55** | ≤-6.5 |  |  |  |  | 0 |
 | crossing-check{"k":2,"q":2}/size | steep-and-tall/shared | neither | **-6.55** | ≤-6.5 |  |  |  |  | 0 |
 | prime-gradient{"ends":1}/shared-factor | target-gradient/same-den | one | **-6.55** | ≤-6.5 |  |  |  |  | 0 |
-| exact-change/prime-coins | same-on-both-rulers{"d":2,"side":-1}/shared-factor | one | **-6.54** | ≤-6.5 |  |  |  |  | 0 |
 | near-point/gcd-x | steep-and-tall/shared | neither | **-6.54** | ≤-6.5 |  |  |  |  | 0 |
 | pell-gradient{"D":3,"k":0}/pell-c | prime-gradient{"ends":1,"side":-1}/shared-factor | one | **-6.54** | ≤-6.5 |  |  |  |  | 0 |
 | pythagorean-area{"ends":7}/shared-factor | triangle-area{"A":4}/legs | one | **-6.54** | ≤-6.5 |  |  |  |  | 0 |
@@ -1116,7 +1104,6 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | exact-change/prime-coins | prime-gradient{"ends":9}/shared-factor | one | **-6.53** | ≤-6.5 |  |  |  |  | 0 |
 | target-gradient/same-den | whole-intercept/gcd-floor-m | neither | **-6.53** | ≤-6.5 |  |  |  |  | 0 |
 | steep-and-tall/shared | treasure{"k":3,"side":-1}/shared-factor | one | **-6.53** | ≤-6.5 |  |  |  |  | 0 |
-| same-on-both-rulers{"d":1}/shared-factor | steep-and-tall/shared | one | **-6.53** | ≤-6.5 |  |  |  |  | 0 |
 | crossing-check{"k":2,"q":4}/whole | steep-and-tall/shared | neither | **-6.53** | ≤-6.5 |  |  |  |  | 0 |
 | pell-gradient{"D":3,"k":0}/pell-c | steady-gradient/divisors | neither | **-6.52** | ≤-6.5 |  |  |  |  | 0 |
 | prime-gradient{"ends":1}/shared-factor | target-gradient/gcd-tops | one | **-6.52** | ≤-6.5 |  |  |  |  | 0 |
@@ -1131,10 +1118,10 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | exact-change/big-bill | target-gradient/gcd-tops | neither | **-6.52** | ≤-6.5 |  |  |  |  | 0 |
 | pell-gradient{"D":5,"k":0}/share-den | prime-gradient{"ends":1,"side":-1}/shared-factor | one | **-6.52** | ≤-6.5 |  |  |  |  | 0 |
 | pell-gradient{"D":5,"k":0}/difference | prime-gradient{"ends":1,"side":-1}/shared-factor | one | **-6.52** | ≤-6.5 |  |  |  |  | 0 |
-| same-on-both-rulers{"d":2}/shared-factor | steep-and-tall/shared | one | **-6.52** | ≤-6.5 |  |  |  |  | 0 |
 | crossing-check{"k":3,"q":6}/size | steep-and-tall/shared | neither | **-6.52** | ≤-6.5 |  |  |  |  | 0 |
 | crossing-check{"k":2,"q":2}/whole | prime-gradient{"ends":9}/shared-factor | one | **-6.52** | -6.5 |  |  |  |  | 56 |
 | exact-change/prime-coins | steep-and-tall/shared | neither | **-6.51** | ≤-6.5 |  |  |  |  | 0 |
+| exact-change/prime-coins | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-6.51** | ≤-6.5 |  |  |  |  | 0 |
 | target-gradient/gcd-tops | whole-intercept/gcd-floor-m | neither | **-6.51** | ≤-6.5 |  |  |  |  | 0 |
 | prime-staircase{"ends":7}/step-back | smooth-intercept{"primes":[3,11]}/shared-factor | both | **-6.51** | ≤-6.5 |  |  |  |  | 0 |
 | prime-gradient{"ends":9,"side":-1}/shared-factor | steep-and-tall/shared | one | **-6.51** | ≤-6.5 |  |  |  |  | 0 |
@@ -1160,6 +1147,7 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | pell-gradient{"D":3,"k":0}/pell-c | prime-gradient{"ends":9,"side":-1}/shared-factor | one | **-6.49** | ≤-6.5 |  |  |  |  | 0 |
 | prime-gradient{"ends":9}/shared-factor | target-gradient/same-den | one | **-6.49** | ≤-6.5 |  |  |  |  | 0 |
 | prime-gradient{"ends":9,"side":-1}/shared-factor | target-gradient/same-den | one | **-6.49** | ≤-6.5 |  |  |  |  | 0 |
+| same-on-both-rulers{"digits":"even"}/shared-factor | steep-and-tall/shared | one | **-6.49** | ≤-6.5 |  |  |  |  | 0 |
 | crossing-check{"k":3,"q":2}/size | steady-gradient/divisors | neither | **-6.49** | ≤-6.5 |  |  |  |  | 11 |
 | pell-gradient{"D":2,"k":0}/share-den | whole-intercept/gcd-floor-m | neither | **-6.49** | ≤-6.5 |  |  |  |  | 0 |
 | pell-gradient{"D":2,"k":0}/difference | whole-intercept/gcd-floor-m | neither | **-6.49** | ≤-6.5 |  |  |  |  | 0 |
@@ -1179,7 +1167,6 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | exact-change/big-bill | prime-landing{"ends":1,"side":-1}/shared-factor | one | **-6.48** | ≤-6.5 |  |  |  |  | 0 |
 | crossing-check{"k":1,"q":2}/size | sunken-intercept/shared | neither | **-6.48** | -6.5 |  |  |  |  | 78 |
 | m-meets-c/size | prime-landing{"ends":1}/shared-factor | one | **-6.47** | ≤-6.5 |  |  |  |  | 0 |
-| farey-neighbours/mediant-x | same-on-both-rulers{"d":1}/shared-factor | one | **-6.47** | ≤-6.5 |  |  |  |  | 1 |
 | m-meets-c/size | prime-landing{"ends":1,"side":-1}/shared-factor | one | **-6.47** | ≤-6.5 |  |  |  |  | 0 |
 | prime-gradient{"ends":9}/shared-factor | target-gradient/gcd-tops | one | **-6.47** | ≤-6.5 |  |  |  |  | 0 |
 | prime-gradient{"ends":9,"side":-1}/shared-factor | target-gradient/gcd-tops | one | **-6.47** | ≤-6.5 |  |  |  |  | 0 |
@@ -1196,20 +1183,26 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | pell-gradient{"D":2,"k":0}/share-den | prime-gradient{"ends":9,"side":-1}/shared-factor | one | **-6.45** | ≤-6.4 |  |  |  |  | 0 |
 | pell-gradient{"D":2,"k":0}/difference | prime-gradient{"ends":9,"side":-1}/shared-factor | one | **-6.45** | ≤-6.4 |  |  |  |  | 0 |
 | pell-gradient{"D":2,"k":0}/pell-c | prime-gradient{"ends":9,"side":-1}/shared-factor | one | **-6.45** | ≤-6.4 |  |  |  |  | 0 |
+| exact-change/big-bill | same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | one | **-6.44** | ≤-6.4 |  |  |  |  | 0 |
 | crossing-check{"k":3,"q":2}/size | steep-and-tall/shared | neither | **-6.44** | ≤-6.4 |  |  |  |  | 0 |
+| farey-neighbours/mediant-x | same-on-both-rulers{"digits":"even"}/shared-factor | one | **-6.43** | ≤-6.4 |  |  |  |  | 15 |
 | exact-change/prime-coins | prime-landing{"ends":1,"side":-1}/shared-factor | one | **-6.43** | ≤-6.4 |  |  |  |  | 0 |
+| farey-neighbours/mediant-x | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-6.43** | ≤-6.4 |  |  |  |  | 18 |
 | prime-landing{"ends":1}/shared-factor | steep-and-tall/shared | one | **-6.41** | ≤-6.4 |  |  |  |  | 0 |
 | prime-staircase{"ends":1}/shared-factor | smooth-intercept{"primes":[3,7]}/shared-factor | both | **-6.40** | ≤-6.4 |  |  |  |  | 0 |
 | prime-slope/matching-c | smooth-square/shared | neither | **-6.40** | ≤-6.4 |  |  |  |  | 1 |
+| exact-change/prime-coins | same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | one | **-6.40** | ≤-6.4 |  |  |  |  | 0 |
 | euclid-steps/largest-quotient | whole-at-t/gcd-c | neither | **-6.40** | -6.4 |  |  |  |  | 61 |
 | m-meets-c/meetPrime | steady-gradient/divisors | neither | **-6.39** | -6.4 |  |  |  |  | 71 |
 | prime-slope/matching-c | whole-intercept/gcd-floor-m | neither | **-6.38** | ≤-6.4 |  |  |  |  | 0 |
 | m-meets-c/size | steady-gradient/divisors | neither | **-6.38** | -6.4 |  |  |  |  | 71 |
 | crossing-check{"k":3,"q":4}/size | steady-gradient/divisors | neither | **-6.38** | ≤-6.4 |  |  |  |  | 12 |
+| near-point/lattice | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-6.37** | -6.4 |  |  |  |  | 65 |
 | prime-slope/matching-c | steady-gradient/divisors | neither | **-6.37** | ≤-6.4 |  |  |  |  | 0 |
 | prime-slope/matching-c | whole-area/gcd-x | neither | **-6.37** | ≤-6.4 |  |  |  |  | 0 |
 | prime-slope/matching-c | steady-gradient/gcd-c | neither | **-6.37** | ≤-6.4 |  |  |  |  | 0 |
 | prime-slope/matching-c | square-area/omega | neither | **-6.37** | ≤-6.4 |  |  |  |  | 1 |
+| same-on-both-rulers{"digits":"odd"}/shared-factor | steep-and-tall/shared | one | **-6.37** | ≤-6.4 |  |  |  |  | 0 |
 | divisibility-ladder/next-rung | smooth-intercept{"primes":[3,11]}/shared-factor | both | **-6.37** | ≤-6.4 |  |  |  |  | 0 |
 | crossing-check{"k":1,"q":4}/whole | steep-and-tall/shared | neither | **-6.37** | ≤-6.4 |  |  |  |  | 0 |
 | prime-slope/matching-c | square-area/lpf | one | **-6.37** | ≤-6.4 |  |  |  |  | 1 |
@@ -1234,11 +1227,9 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":3,"q":4}/size | steep-and-tall/shared | neither | **-6.33** | ≤-6.3 |  |  |  |  | 0 |
 | divisibility-ladder/next-rung | smooth-intercept{"primes":[3,17]}/shared-factor | both | **-6.32** | ≤-6.3 |  |  |  |  | 0 |
 | divisibility-ladder/next-rung | smooth-intercept{"primes":[3,7]}/shared-factor | both | **-6.32** | ≤-6.3 |  |  |  |  | 0 |
-| exact-change/big-piles | same-on-both-rulers{"d":1,"side":-1}/shared-factor | one | **-6.32** | ≤-6.3 |  |  |  |  | 0 |
 | m-meets-c/meetPrime | sunken-intercept/shared | neither | **-6.31** | -6.3 |  |  |  |  | 75 |
 | crossing-check{"k":1,"q":6}/whole | whole-intercept/omega | neither | **-6.31** | -6.3 |  |  |  |  | 49 |
 | exact-change/big-piles | prime-landing{"ends":9,"side":-1}/shared-factor | one | **-6.30** | ≤-6.3 |  |  |  |  | 0 |
-| exact-change/big-piles | same-on-both-rulers{"d":2,"side":-1}/shared-factor | one | **-6.30** | ≤-6.3 |  |  |  |  | 0 |
 | m-meets-c/size | sunken-intercept/shared | neither | **-6.30** | -6.3 |  |  |  |  | 76 |
 | exact-change/big-piles | prime-gradient{"ends":9}/shared-factor | one | **-6.29** | ≤-6.3 |  |  |  |  | 0 |
 | divisibility-ladder/next-rung | pell-gradient{"D":3,"k":0}/pell-c | one | **-6.29** | ≤-6.3 |  |  |  |  | 0 |
@@ -1250,6 +1241,7 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | long-division/c-period | steady-gradient/gcd-c | neither | **-6.29** | ≤-6.3 |  |  |  |  | 0 |
 | crossing-check{"k":1,"q":6}/size | whole-intercept/omega | neither | **-6.27** | -6.3 |  |  |  |  | 49 |
 | exact-change/big-piles | steep-and-tall/shared | neither | **-6.27** | ≤-6.3 |  |  |  |  | 0 |
+| exact-change/big-piles | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-6.27** | ≤-6.3 |  |  |  |  | 0 |
 | farey-neighbours/mediant-x | prime-slope/matching-c | neither | **-6.27** | ≤-6.3 |  |  |  |  | 0 |
 | crossing-check{"k":2,"q":2}/size | whole-at-t/gcd-c | neither | **-6.26** | -6.3 |  |  |  |  | 40 |
 | crossing-check{"k":2,"q":2}/whole | whole-at-t/gcd-c | neither | **-6.26** | -6.3 |  |  |  |  | 40 |
@@ -1269,6 +1261,7 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | pell-gradient{"D":5,"k":0}/pell-c | whole-at-t/gcd-c | neither | **-6.17** | ≤-6.2 |  |  |  |  | 22 |
 | pell-gradient{"D":3,"k":0}/pell-c | whole-at-t/gcd-c | neither | **-6.16** | ≤-6.2 |  |  |  |  | 0 |
 | target-gradient/same-den | whole-at-t/gcd-c | neither | **-6.16** | ≤-6.2 |  |  |  |  | 0 |
+| exact-change/big-piles | same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | one | **-6.16** | ≤-6.2 |  |  |  |  | 0 |
 | m-meets-c/meetPrime | whole-intercept/gcd-den-m | neither | **-6.15** | ≤-6.2 |  |  |  |  | 29 |
 | target-gradient/gcd-tops | whole-at-t/gcd-c | neither | **-6.14** | ≤-6.1 |  |  |  |  | 0 |
 | pell-gradient{"D":5,"k":0}/share-den | whole-at-t/gcd-c | neither | **-6.14** | ≤-6.1 |  |  |  |  | 22 |
@@ -1280,6 +1273,8 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | pell-gradient{"D":2,"k":0}/share-den | whole-at-t/gcd-c | neither | **-6.12** | ≤-6.1 |  |  |  |  | 0 |
 | pell-gradient{"D":2,"k":0}/difference | whole-at-t/gcd-c | neither | **-6.12** | ≤-6.1 |  |  |  |  | 0 |
 | pell-gradient{"D":2,"k":0}/pell-c | whole-at-t/gcd-c | neither | **-6.12** | ≤-6.1 |  |  |  |  | 0 |
+| crossing-check{"k":1,"q":2}/size | same-on-both-rulers{"digits":"even"}/shared-factor | one | **-6.12** | -6.1 |  |  |  |  | 87 |
+| crossing-check{"k":1,"q":2}/whole | same-on-both-rulers{"digits":"even"}/shared-factor | one | **-6.11** | -6.1 |  |  |  |  | 91 |
 | divisibility-ladder/next-rung | prime-staircase{"ends":3}/shared-factor | both | **-6.11** | ≤-6.1 |  |  |  |  | 0 |
 | divisibility-ladder/next-rung | prime-staircase{"ends":3,"side":-1}/shared-factor | one | **-6.11** | ≤-6.1 |  |  |  |  | 0 |
 | prime-gradient{"ends":1}/shared-factor | prime-slope/matching-c | one | **-6.08** | -6.1 |  |  |  |  | 79 |
@@ -1377,21 +1372,17 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":3,"q":6}/whole | egyptian-line/bottom | neither | **-5.89** | ≤-5.9 |  |  |  |  | 0 |
 | crossing-check{"k":1,"q":6}/size | egyptian-line/bottom | neither | **-5.89** | ≤-5.9 |  |  |  |  | 0 |
 | egyptian-line/bottom | prime-landing{"ends":9}/shared-factor | one | **-5.89** | ≤-5.9 |  |  |  |  | 0 |
-| egyptian-line/bottom | same-on-both-rulers{"d":1,"side":-1}/shared-factor | one | **-5.89** | ≤-5.9 |  |  |  |  | 0 |
 | divisibility-ladder/next-rung | whole-intercept/gcd-den-m | one | **-5.89** | ≤-5.9 |  |  |  |  | 0 |
 | egyptian-line/bottom | treasure{"k":3,"side":-1}/shared-factor | one | **-5.89** | ≤-5.9 |  |  |  |  | 0 |
 | egyptian-line/bottom | pell-gradient{"D":6,"k":0}/pell-c | neither | **-5.89** | ≤-5.9 |  |  |  |  | 0 |
 | egyptian-line/bottom | pell-gradient{"D":1,"k":1}/difference | neither | **-5.89** | ≤-5.9 |  |  |  |  | 0 |
 | egyptian-line/bottom | pell-gradient{"D":1,"k":1}/share-den | neither | **-5.89** | ≤-5.9 |  |  |  |  | 0 |
-| egyptian-line/bottom | same-on-both-rulers{"d":1}/shared-factor | one | **-5.89** | ≤-5.9 |  |  |  |  | 0 |
 | egyptian-line/bottom | pell-gradient{"D":7,"k":0}/difference | neither | **-5.89** | ≤-5.9 |  |  |  |  | 0 |
 | egyptian-line/bottom | triangle-area{"A":6}/legs | neither | **-5.88** | ≤-5.9 |  |  |  |  | 1 |
 | crossing-check{"k":2,"q":4}/whole | egyptian-line/bottom | neither | **-5.88** | ≤-5.9 |  |  |  |  | 0 |
 | egyptian-line/bottom | triangle-area{"A":18}/legs | neither | **-5.88** | ≤-5.9 |  |  |  |  | 0 |
 | egyptian-line/bottom | prime-landing{"ends":9,"side":-1}/shared-factor | one | **-5.88** | ≤-5.9 |  |  |  |  | 3 |
 | crossing-check{"k":1,"q":4}/size | egyptian-line/bottom | neither | **-5.88** | ≤-5.9 |  |  |  |  | 0 |
-| egyptian-line/bottom | same-on-both-rulers{"d":2,"side":-1}/shared-factor | one | **-5.88** | ≤-5.9 |  |  |  |  | 0 |
-| egyptian-line/bottom | same-on-both-rulers{"d":2}/shared-factor | one | **-5.87** | ≤-5.9 |  |  |  |  | 0 |
 | crossing-check{"k":3,"q":6}/size | egyptian-line/bottom | neither | **-5.87** | ≤-5.9 |  |  |  |  | 0 |
 | crossing-check{"k":3,"q":6}/whole | prime-gradient{"ends":9,"side":-1}/shared-factor | one | **-5.87** | -5.9 |  |  |  |  | 110 |
 | egyptian-line/bottom | prime-staircase{"ends":3}/step-back | one | **-5.87** | ≤-5.9 |  |  |  |  | 0 |
@@ -1409,7 +1400,9 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | m-meets-c/meetPrime | whole-area/gcd-den-m | neither | **-5.86** | ≤-5.9 |  |  |  |  | 0 |
 | egyptian-line/bottom | prime-staircase{"ends":1}/step-back | one | **-5.85** | ≤-5.9 |  |  |  |  | 0 |
 | m-meets-c/size | whole-area/gcd-den-m | neither | **-5.85** | ≤-5.8 |  |  |  |  | 0 |
+| egyptian-line/bottom | same-on-both-rulers{"digits":"even"}/shared-factor | one | **-5.85** | ≤-5.8 |  |  |  |  | 0 |
 | egyptian-line/bottom | steep-and-tall/shared | neither | **-5.84** | ≤-5.8 |  |  |  |  | 0 |
+| egyptian-line/bottom | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-5.84** | ≤-5.8 |  |  |  |  | 0 |
 | egyptian-line/bottom | pell-gradient{"D":5,"k":0}/pell-c | neither | **-5.84** | ≤-5.8 |  |  |  |  | 0 |
 | steady-gradient/divisors | whole-area/gcd-den-m | neither | **-5.84** | ≤-5.8 |  |  |  |  | 0 |
 | steady-gradient/gcd-c | whole-area/gcd-den-m | neither | **-5.83** | ≤-5.8 |  |  |  |  | 0 |
@@ -1447,7 +1440,9 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | egyptian-line/bottom | prime-staircase{"ends":1}/shared-factor | one | **-5.74** | ≤-5.7 |  |  |  |  | 0 |
 | prime-staircase{"ends":3}/step-back | whole-intercept/omega | one | **-5.74** | ≤-5.7 |  |  |  |  | 0 |
 | prime-staircase{"ends":3,"side":-1}/step-back | whole-intercept/omega | neither | **-5.74** | ≤-5.7 |  |  |  |  | 0 |
+| egyptian-line/bottom | same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | one | **-5.73** | ≤-5.7 |  |  |  |  | 0 |
 | farey-neighbours/mediant-x | whole-area/gcd-den-m | neither | **-5.73** | ≤-5.7 |  |  |  |  | 0 |
+| egyptian-line/bottom | same-on-both-rulers{"digits":"odd"}/shared-factor | one | **-5.73** | ≤-5.7 |  |  |  |  | 0 |
 | crossing-check{"k":1,"q":4}/whole | egyptian-line/bottom | neither | **-5.72** | ≤-5.7 |  |  |  |  | 0 |
 | crossing-check{"k":1,"q":6}/whole | steady-gradient/divisors | neither | **-5.72** | -5.7 |  |  |  |  | 121 |
 | egyptian-line/bottom | treasure{"k":4}/shared-factor | one | **-5.72** | ≤-5.7 |  |  |  |  | 0 |
@@ -1456,6 +1451,7 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | m-meets-c/meetPrime | prime-staircase{"ends":9}/step-back | one | **-5.71** | -5.7 |  |  |  |  | 93 |
 | crossing-check{"k":1,"q":2}/whole | prime-staircase{"ends":9}/shared-factor | one | **-5.71** | -5.7 |  |  |  |  | 124 |
 | crossing-check{"k":3,"q":2}/whole | steep-and-tall/shared | neither | **-5.71** | ≤-5.7 |  |  |  |  | 0 |
+| crossing-check{"k":3,"q":2}/whole | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-5.71** | ≤-5.7 |  |  |  |  | 23 |
 | egyptian-line/bottom | treasure{"k":4,"side":-1}/shared-factor | one | **-5.70** | ≤-5.7 |  |  |  |  | 0 |
 | m-meets-c/size | prime-staircase{"ends":9}/step-back | one | **-5.70** | -5.7 |  |  |  |  | 93 |
 | egyptian-line/bottom | pythagorean-area{"ends":3}/shared-factor | one | **-5.70** | ≤-5.7 |  |  |  |  | 2 |
@@ -1567,6 +1563,7 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":2,"q":6}/whole | prime-gradient{"ends":9,"side":-1}/shared-factor | one | **-5.24** | -5.2 |  |  |  |  | 144 |
 | crossing-check{"k":2,"q":6}/size | prime-gradient{"ends":9,"side":-1}/shared-factor | one | **-5.24** | -5.2 |  |  |  |  | 146 |
 | crossing-check{"k":3,"q":4}/whole | steep-and-tall/shared | neither | **-5.24** | ≤-5.2 |  |  |  |  | 0 |
+| crossing-check{"k":3,"q":4}/whole | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-5.24** | ≤-5.2 |  |  |  |  | 26 |
 | pell-gradient{"D":3,"k":0}/share-den | smooth-square/shared | neither | **-5.23** | -5.2 |  |  |  |  | 134 |
 | pell-gradient{"D":3,"k":0}/difference | smooth-square/shared | neither | **-5.23** | -5.2 |  |  |  |  | 134 |
 | crossing-check{"k":2,"q":4}/size | prime-gradient{"ends":9}/shared-factor | one | **-5.23** | -5.2 |  |  |  |  | 148 |
@@ -1609,7 +1606,9 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | pell-gradient{"D":7,"k":0}/share-den | square-area/spf | one | **-5.07** | -5.1 |  |  |  |  | 249 |
 | smooth-gradient/shared | whole-intercept/gcd-den-m | neither | **-5.06** | ≤-5.1 |  |  |  |  | 0 |
 | crossing-check{"k":3,"q":2}/whole | egyptian-line/bottom | neither | **-5.06** | ≤-5.1 |  |  |  |  | 0 |
+| m-meets-c/meetPrime | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-5.05** | -5.1 |  |  |  |  | 116 |
 | pell-gradient{"D":7,"k":0}/pell-c | smooth-square/shared | neither | **-5.05** | -5.1 |  |  |  |  | 219 |
+| m-meets-c/size | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-5.04** | -5.0 |  |  |  |  | 116 |
 | pell-gradient{"D":2,"k":0}/share-den | square-area/omega | neither | **-5.04** | -5.0 |  |  |  |  | 228 |
 | pell-gradient{"D":2,"k":0}/difference | square-area/omega | neither | **-5.04** | -5.0 |  |  |  |  | 228 |
 | pell-gradient{"D":2,"k":0}/pell-c | square-area/omega | neither | **-5.04** | -5.0 |  |  |  |  | 228 |
@@ -1631,6 +1630,7 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":3,"q":4}/size | whole-intercept/mc-spf | neither | **-4.88** | -4.9 |  |  |  |  | 30 |
 | pell-gradient{"D":1,"k":1}/pell-c | whole-intercept/mc-spf | neither | **-4.87** | ≤-4.9 |  |  |  |  | 0 |
 | crossing-check{"k":2,"q":2}/size | whole-intercept/mc-spf | neither | **-4.87** | ≤-4.9 |  |  |  |  | 0 |
+| near-point/gcd-x | same-on-both-rulers{"digits":"even"}/shared-factor | one | **-4.87** | -4.9 |  |  |  |  | 150 |
 | crossing-check{"k":2,"q":2}/whole | whole-intercept/mc-spf | neither | **-4.87** | ≤-4.9 |  |  |  |  | 0 |
 | pell-gradient{"D":2,"k":0}/share-den | smooth-square/shared | neither | **-4.86** | -4.9 |  |  |  |  | 261 |
 | pell-gradient{"D":2,"k":0}/difference | smooth-square/shared | neither | **-4.86** | -4.9 |  |  |  |  | 261 |
@@ -1641,6 +1641,7 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | pell-gradient{"D":1,"k":1}/difference | whole-intercept/mc-spf | neither | **-4.86** | ≤-4.9 |  |  |  |  | 0 |
 | pell-gradient{"D":1,"k":1}/share-den | whole-intercept/mc-spf | neither | **-4.86** | ≤-4.9 |  |  |  |  | 0 |
 | pell-gradient{"D":7,"k":0}/share-den | square-area/omega | neither | **-4.85** | -4.9 |  |  |  |  | 276 |
+| crossing-check{"k":3,"q":2}/whole | same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | one | **-4.85** | -4.9 |  |  |  |  | 100 |
 | pell-gradient{"D":7,"k":0}/share-den | square-area/lpf | one | **-4.85** | -4.8 |  |  |  |  | 276 |
 | crossing-check{"k":2,"q":4}/size | sunken-intercept/shared | neither | **-4.83** | -4.8 |  |  |  |  | 205 |
 | pell-gradient{"D":3,"k":0}/share-den | smooth-gradient/shared | neither | **-4.83** | ≤-4.8 |  |  |  |  | 0 |
@@ -1685,6 +1686,7 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | pell-gradient{"D":7,"k":0}/pell-c | prime-slope/twins | neither | **-4.69** | ≤-4.7 |  |  |  |  | 0 |
 | egyptian-line/bottom | prime-staircase{"ends":7}/shared-factor | one | **-4.68** | ≤-4.7 |  |  |  |  | 0 |
 | prime-slope/twins | whole-intercept/gcd-floor-m | neither | **-4.68** | ≤-4.7 |  |  |  |  | 0 |
+| near-point/lattice | same-on-both-rulers{"digits":"even"}/shared-factor | one | **-4.68** | -4.7 |  |  |  |  | 174 |
 | m-meets-c/meetPrime | prime-staircase{"ends":1}/step-back | one | **-4.68** | -4.7 |  |  |  |  | 144 |
 | prime-slope/twins | steady-gradient/divisors | neither | **-4.67** | ≤-4.7 |  |  |  |  | 0 |
 | prime-slope/twins | steady-gradient/gcd-c | neither | **-4.67** | ≤-4.7 |  |  |  |  | 0 |
@@ -1720,9 +1722,11 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":1,"q":2}/size | prime-landing{"ends":9,"side":-1}/shared-factor | one | **-4.53** | -4.5 |  |  |  |  | 150 |
 | near-point/lattice | prime-gradient{"ends":1,"side":-1}/shared-factor | one | **-4.53** | -4.5 |  |  |  |  | 191 |
 | near-point/gcd-x | prime-gradient{"ends":1,"side":-1}/shared-factor | one | **-4.52** | -4.5 |  |  |  |  | 190 |
+| crossing-check{"k":2,"q":4}/size | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-4.50** | -4.5 |  |  |  |  | 203 |
 | whole-at-t/gcd-c | whole-intercept/mc-spf | neither | **-4.50** | ≤-4.5 |  |  |  |  | 0 |
 | crossing-check{"k":1,"q":2}/whole | whole-at-t/gcd-c | neither | **-4.50** | -4.5 |  |  |  |  | 118 |
 | crossing-check{"k":3,"q":2}/whole | sunken-intercept/shared | neither | **-4.50** | -4.5 |  |  |  |  | 112 |
+| crossing-check{"k":2,"q":4}/whole | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-4.49** | -4.5 |  |  |  |  | 203 |
 | prime-staircase{"ends":3}/shared-factor | whole-at-t/gcd-c | one | **-4.47** | -4.5 |  |  |  |  | 95 |
 | prime-staircase{"ends":3,"side":-1}/shared-factor | whole-at-t/gcd-c | neither | **-4.47** | -4.5 |  |  |  |  | 95 |
 | prime-slope/matching-c | whole-at-t/gcd-c | neither | **-4.47** | -4.5 |  |  |  |  | 177 |
@@ -1786,7 +1790,6 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":3,"q":4}/whole | prime-gradient{"ends":1,"side":-1}/shared-factor | one | **-4.10** | -4.1 |  |  |  |  | 104 |
 | prime-gradient{"ends":9}/shared-factor | prime-slope/square-sum | one | **-4.10** | ≤-4.1 |  |  |  |  | 0 |
 | prime-gradient{"ends":9,"side":-1}/shared-factor | prime-slope/square-sum | one | **-4.10** | ≤-4.1 |  |  |  |  | 1 |
-| crossing-check{"k":1,"q":6}/size | same-on-both-rulers{"d":2}/shared-factor | one | **-4.09** | -4.1 |  |  |  |  | 365 |
 | crossing-check{"k":1,"q":4}/size | prime-gradient{"ends":9,"side":-1}/shared-factor | one | **-4.07** | -4.1 |  |  |  |  | 265 |
 | crossing-check{"k":1,"q":6}/size | prime-gradient{"ends":9}/shared-factor | one | **-4.07** | -4.1 |  |  |  |  | 292 |
 | pell-gradient{"D":3,"k":0}/pell-c | prime-slope/square-sum | neither | **-4.06** | ≤-4.1 |  |  |  |  | 7 |
@@ -1819,14 +1822,18 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":1,"q":6}/whole | prime-gradient{"ends":9}/shared-factor | one | **-3.94** | -3.9 |  |  |  |  | 329 |
 | crossing-check{"k":1,"q":6}/size | prime-gradient{"ends":9,"side":-1}/shared-factor | one | **-3.94** | -3.9 |  |  |  |  | 302 |
 | crossing-check{"k":1,"q":4}/whole | prime-gradient{"ends":9,"side":-1}/shared-factor | one | **-3.92** | -3.9 |  |  |  |  | 265 |
+| farey-neighbours/mediant-x | same-on-both-rulers{"digits":"odd"}/shared-factor | one | **-3.92** | -3.9 |  |  |  |  | 154 |
 | m-meets-c/size | prime-gradient{"ends":9}/shared-factor | one | **-3.92** | -5.0 | -2.9 |  |  |  | 136 |
 | crossing-check{"k":3,"q":6}/whole | prime-gradient{"ends":1}/shared-factor | one | **-3.91** | -3.9 |  |  |  |  | 283 |
+| same-on-both-rulers{"digits":"even","side":-1}/shared-factor | steady-gradient/divisors | one | **-3.89** | -2.9 | -4.9 |  |  |  | 2067 |
 | divisibility-ladder/next-rung | prime-slope/square-sum | one | **-3.89** | ≤-3.9 |  |  |  |  | 0 |
 | triangle-area{"A":8}/even | whole-intercept/omega | neither | **-3.88** | -2.4 | -5.3 |  |  |  | 1040 |
 | triangle-area{"A":8}/legs | whole-intercept/omega | neither | **-3.87** | -2.4 | -5.3 |  |  |  | 1028 |
 | crossing-check{"k":1,"q":6}/whole | prime-gradient{"ends":9,"side":-1}/shared-factor | one | **-3.86** | -3.9 |  |  |  |  | 325 |
 | prime-gradient{"ends":9,"side":-1}/shared-factor | treasure{"k":4}/shared-factor | both | **-3.86** | -4.6 | -3.1 |  |  |  | 286 |
 | crossing-check{"k":1,"q":4}/whole | prime-staircase{"ends":9}/shared-factor | one | **-3.85** | -3.9 |  |  |  |  | 334 |
+| same-on-both-rulers{"digits":"even"}/shared-factor | steady-gradient/divisors | one | **-3.85** | -2.9 | -4.8 |  |  |  | 2201 |
+| crossing-check{"k":1,"q":4}/size | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-3.85** | -3.8 |  |  |  |  | 293 |
 | crossing-check{"k":1,"q":4}/whole | prime-staircase{"ends":9}/step-back | one | **-3.84** | -3.8 |  |  |  |  | 334 |
 | crossing-check{"k":1,"q":4}/whole | smooth-crossing/shared | neither | **-3.84** | -3.8 |  |  |  |  | 105 |
 | crossing-check{"k":3,"q":6}/whole | whole-at-t/gcd-c | neither | **-3.83** | -3.8 |  |  |  |  | 184 |
@@ -1838,39 +1845,44 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | near-point/gcd-x | prime-staircase{"ends":9}/step-back | one | **-3.80** | -3.8 |  |  |  |  | 291 |
 | sunken-intercept/shared | triangle-area{"A":4}/legs | neither | **-3.80** | -1.7 | -5.8 |  |  |  | 2764 |
 | crossing-check{"k":3,"q":4}/whole | whole-intercept/mc-spf | neither | **-3.79** | -3.8 |  |  |  |  | 30 |
-| crossing-check{"k":1,"q":4}/size | same-on-both-rulers{"d":2}/shared-factor | one | **-3.79** | -3.8 |  |  |  |  | 401 |
+| near-point/gcd-x | same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | one | **-3.79** | -3.8 |  |  |  |  | 248 |
 | crossing-check{"k":1,"q":6}/size | smooth-crossing/shared | neither | **-3.78** | -3.8 |  |  |  |  | 137 |
 | pell-gradient{"D":6,"k":0}/share-den | whole-intercept/mc-spf | neither | **-3.77** | ≤-3.8 |  |  |  |  | 0 |
 | pell-gradient{"D":6,"k":0}/difference | whole-intercept/mc-spf | neither | **-3.77** | ≤-3.8 |  |  |  |  | 0 |
 | near-point/lattice | prime-gradient{"ends":1}/shared-factor | one | **-3.77** | -3.8 |  |  |  |  | 289 |
+| m-meets-c/meetPrime | same-on-both-rulers{"digits":"odd"}/shared-factor | one | **-3.76** | -3.8 |  |  |  |  | 231 |
 | near-point/gcd-x | prime-gradient{"ends":1}/shared-factor | one | **-3.75** | -3.8 |  |  |  |  | 288 |
+| m-meets-c/size | same-on-both-rulers{"digits":"odd"}/shared-factor | one | **-3.75** | -3.7 |  |  |  |  | 231 |
 | prime-landing{"ends":9,"side":-1}/shared-factor | triangle-area{"A":4}/even | one | **-3.75** | -3.7 |  |  |  |  | 281 |
 | prime-landing{"ends":9,"side":-1}/shared-factor | triangle-area{"A":4}/legs | one | **-3.75** | -3.7 |  |  |  |  | 284 |
 | m-meets-c/meetPrime | prime-staircase{"ends":7}/step-back | one | **-3.73** | -4.9 | -2.5 |  |  |  | 121 |
 | crossing-check{"k":1,"q":2}/size | prime-staircase{"ends":1}/step-back | one | **-3.72** | -3.7 |  |  |  |  | 364 |
 | crossing-check{"k":2,"q":2}/whole | whole-intercept/gcd-den-m | neither | **-3.71** | -3.7 |  |  |  |  | 173 |
-| crossing-check{"k":1,"q":6}/whole | same-on-both-rulers{"d":2}/shared-factor | one | **-3.70** | -3.7 |  |  |  |  | 455 |
+| crossing-check{"k":1,"q":4}/whole | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-3.70** | -3.7 |  |  |  |  | 293 |
 | crossing-check{"k":3,"q":2}/whole | prime-landing{"ends":9,"side":-1}/shared-factor | one | **-3.70** | -3.7 |  |  |  |  | 149 |
 | prime-gradient{"ends":9}/shared-factor | treasure{"k":3,"side":-1}/shared-factor | both | **-3.69** | -4.3 | -3.1 |  |  |  | 362 |
 | crossing-check{"k":2,"q":4}/size | smooth-gradient/shared | neither | **-3.68** | -3.7 |  |  |  |  | 101 |
 | crossing-check{"k":1,"q":2}/size | prime-staircase{"ends":1}/shared-factor | one | **-3.68** | -3.7 |  |  |  |  | 346 |
 | crossing-check{"k":2,"q":4}/whole | smooth-gradient/shared | neither | **-3.67** | -3.7 |  |  |  |  | 101 |
+| near-point/lattice | same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | one | **-3.66** | -3.7 |  |  |  |  | 280 |
 | crossing-check{"k":2,"q":2}/size | whole-intercept/gcd-den-m | neither | **-3.65** | -3.6 |  |  |  |  | 186 |
-| crossing-check{"k":1,"q":4}/whole | same-on-both-rulers{"d":2}/shared-factor | one | **-3.64** | -3.6 |  |  |  |  | 401 |
 | crossing-check{"k":1,"q":2}/whole | prime-landing{"ends":1,"side":-1}/shared-factor | one | **-3.63** | -3.6 |  |  |  |  | 249 |
 | crossing-check{"k":1,"q":2}/size | prime-landing{"ends":1,"side":-1}/shared-factor | one | **-3.61** | -3.6 |  |  |  |  | 245 |
 | prime-landing{"ends":9}/shared-factor | triangle-area{"A":4}/legs | one | **-3.61** | -3.6 |  |  |  |  | 314 |
 | crossing-check{"k":1,"q":2}/whole | prime-staircase{"ends":1}/step-back | one | **-3.61** | -3.6 |  |  |  |  | 389 |
 | prime-slope/twins | smooth-gradient/shared | neither | **-3.61** | ≤-3.6 |  |  |  |  | 0 |
 | prime-landing{"ends":9}/shared-factor | triangle-area{"A":4}/even | one | **-3.61** | -3.6 |  |  |  |  | 312 |
+| crossing-check{"k":3,"q":6}/size | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-3.60** | -3.6 |  |  |  |  | 367 |
 | farey-neighbours/mediant-x | smooth-gradient/shared | neither | **-3.59** | -3.6 |  |  |  |  | 146 |
 | pell-gradient{"D":6,"k":0}/share-den | prime-slope/twins | neither | **-3.58** | ≤-3.6 |  |  |  |  | 0 |
 | pell-gradient{"D":6,"k":0}/difference | prime-slope/twins | neither | **-3.58** | ≤-3.6 |  |  |  |  | 0 |
 | crossing-check{"k":1,"q":2}/whole | prime-staircase{"ends":1}/shared-factor | one | **-3.56** | -3.6 |  |  |  |  | 370 |
 | crossing-check{"k":3,"q":2}/whole | smooth-gradient/shared | neither | **-3.55** | -3.6 |  |  |  |  | 72 |
 | m-meets-c/meetPrime | whole-at-t/gcd-den-m | neither | **-3.54** | ≤-3.5 |  |  |  |  | 18 |
+| same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | steady-gradient/divisors | one | **-3.53** | -2.3 | -4.7 |  |  |  | 1962 |
 | m-meets-c/size | whole-at-t/gcd-den-m | neither | **-3.53** | ≤-3.5 |  |  |  |  | 18 |
 | crossing-check{"k":2,"q":2}/whole | whole-at-t/gcd-den-m | neither | **-3.52** | ≤-3.5 |  |  |  |  | 28 |
+| crossing-check{"k":3,"q":6}/whole | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-3.52** | -3.5 |  |  |  |  | 388 |
 | steady-gradient/divisors | whole-at-t/gcd-den-m | neither | **-3.51** | ≤-3.5 |  |  |  |  | 0 |
 | steady-gradient/gcd-c | whole-at-t/gcd-den-m | neither | **-3.51** | ≤-3.5 |  |  |  |  | 0 |
 | crossing-check{"k":2,"q":6}/size | prime-gradient{"ends":1,"side":-1}/shared-factor | one | **-3.51** | -3.5 | -3.5 |  |  |  | 373 |
@@ -1886,13 +1898,15 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | euclid-steps/largest-quotient | pell-gradient{"D":5,"k":0}/difference | neither | **-3.42** | -4.2 | -2.7 |  |  |  | 261 |
 | euclid-steps/largest-quotient | pell-gradient{"D":5,"k":0}/share-den | neither | **-3.42** | -4.2 | -2.7 |  |  |  | 261 |
 | divisibility-ladder/next-rung | m-meets-c/meetPrime | one | **-3.42** | -3.4 |  |  |  |  | 236 |
+| same-on-both-rulers{"digits":"odd"}/shared-factor | steady-gradient/divisors | one | **-3.42** | -2.4 | -4.5 |  |  |  | 1946 |
 | sunken-intercept/shared | triangle-area{"A":6}/even | neither | **-3.42** | -1.3 | -5.5 |  |  |  | 3184 |
 | sunken-intercept/shared | triangle-area{"A":6}/legs | neither | **-3.41** | -1.3 | -5.5 |  |  |  | 3147 |
 | divisibility-ladder/next-rung | m-meets-c/size | one | **-3.41** | -3.4 |  |  |  |  | 236 |
 | crossing-check{"k":1,"q":4}/size | whole-at-t/gcd-c | neither | **-3.41** | -3.4 |  |  |  |  | 241 |
-| near-point/gcd-x | same-on-both-rulers{"d":2,"side":-1}/shared-factor | one | **-3.40** | -3.4 |  |  |  |  | 302 |
+| crossing-check{"k":3,"q":4}/whole | same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | one | **-3.39** | -3.4 |  |  |  |  | 176 |
 | m-meets-c/size | triangle-area{"A":12}/legs | neither | **-3.39** | -4.3 | -2.5 |  |  |  | 204 |
 | crossing-check{"k":1,"q":6}/size | prime-staircase{"ends":9}/shared-factor | one | **-3.38** | -3.4 |  |  |  |  | 473 |
+| crossing-check{"k":1,"q":2}/size | same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | one | **-3.38** | -3.4 |  |  |  |  | 367 |
 | crossing-check{"k":1,"q":6}/size | prime-staircase{"ends":9}/step-back | one | **-3.37** | -3.4 |  |  |  |  | 473 |
 | m-meets-c/meetPrime | triangle-area{"A":8}/even | neither | **-3.37** | -3.4 |  |  |  |  | 347 |
 | crossing-check{"k":1,"q":2}/size | divisibility-ladder/next-rung | one | **-3.37** | -3.4 |  |  |  |  | 229 |
@@ -1903,6 +1917,7 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":2,"q":6}/whole | prime-landing{"ends":1}/shared-factor | one | **-3.35** | -3.4 |  |  |  |  | 324 |
 | crossing-check{"k":3,"q":6}/whole | smooth-crossing/shared | neither | **-3.35** | -3.3 |  |  |  |  | 183 |
 | m-meets-c/meetPrime | triangle-area{"A":8}/legs | neither | **-3.35** | -3.3 |  |  |  |  | 346 |
+| crossing-check{"k":1,"q":2}/whole | same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | one | **-3.34** | -3.3 |  |  |  |  | 386 |
 | crossing-check{"k":2,"q":6}/size | smooth-crossing/shared | neither | **-3.34** | -3.3 |  |  |  |  | 188 |
 | crossing-check{"k":3,"q":6}/size | smooth-crossing/shared | neither | **-3.33** | -3.3 |  |  |  |  | 183 |
 | crossing-check{"k":2,"q":6}/whole | smooth-crossing/shared | neither | **-3.32** | -3.3 |  |  |  |  | 188 |
@@ -1910,7 +1925,6 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":2,"q":4}/size | prime-staircase{"ends":9}/shared-factor | one | **-3.30** | -3.3 |  |  |  |  | 471 |
 | crossing-check{"k":1,"q":2}/whole | divisibility-ladder/next-rung | one | **-3.30** | -3.3 |  |  |  |  | 247 |
 | crossing-check{"k":2,"q":4}/whole | prime-staircase{"ends":9}/shared-factor | one | **-3.29** | -3.3 |  |  |  |  | 471 |
-| near-point/lattice | same-on-both-rulers{"d":2,"side":-1}/shared-factor | one | **-3.29** | -3.3 |  |  |  |  | 336 |
 | pell-gradient{"D":6,"k":0}/pell-c | whole-at-t/gcd-c | neither | **-3.28** | -3.3 |  |  |  |  | 429 |
 | crossing-check{"k":3,"q":6}/whole | prime-landing{"ends":1}/shared-factor | one | **-3.28** | -3.3 |  |  |  |  | 339 |
 | crossing-check{"k":1,"q":2}/size | whole-area/gcd-x | neither | **-3.27** | -3.3 |  |  |  |  | 260 |
@@ -1932,9 +1946,12 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | prime-gradient{"ends":1}/shared-factor | treasure{"k":4,"side":-1}/shared-factor | both | **-3.18** | -3.9 | -2.5 |  |  |  | 361 |
 | m-meets-c/meetPrime | prime-staircase{"ends":7}/shared-factor | one | **-3.17** | -3.8 | -2.5 |  |  |  | 121 |
 | triangle-area{"A":4}/even | whole-intercept/omega | neither | **-3.17** | -3.2 |  |  |  |  | 728 |
+| crossing-check{"k":3,"q":2}/whole | same-on-both-rulers{"digits":"even"}/shared-factor | one | **-3.17** | -3.2 |  |  |  |  | 263 |
 | farey-neighbours/mediant-x | triangle-area{"A":12}/even | neither | **-3.17** | -3.9 | -2.4 |  |  |  | 297 |
 | prime-gradient{"ends":9,"side":-1}/shared-factor | whole-crossing{"q":5,"r":1}/shared-factor | both | **-3.16** | -2.9 | -3.4 |  |  |  | 525 |
+| crossing-check{"k":2,"q":6}/size | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-3.14** | -3.1 |  |  |  |  | 481 |
 | triangle-area{"A":4}/legs | whole-intercept/omega | neither | **-3.14** | -3.1 |  |  |  |  | 749 |
+| crossing-check{"k":2,"q":6}/whole | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-3.14** | -3.1 |  |  |  |  | 479 |
 | smooth-intercept{"primes":[3,17]}/shared-factor | whole-intercept/spf | one | **-3.12** | -3.1 |  |  |  |  | 391 |
 | crossing-check{"k":3,"q":2}/whole | treasure{"k":4,"side":-1}/shared-factor | one | **-3.12** | -3.1 |  |  |  |  | 249 |
 | crossing-check{"k":2,"q":4}/size | prime-gradient{"ends":1}/shared-factor | one | **-3.12** | -3.5 | -2.7 |  |  |  | 359 |
@@ -1962,11 +1979,14 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | sunken-intercept/shared | triangle-area{"A":8}/even | neither | **-2.99** | -1.0 | -4.9 |  |  |  | 3782 |
 | farey-neighbours/mediant-x | prime-slope/twins | neither | **-2.99** | -3.0 |  |  |  |  | 95 |
 | sunken-intercept/shared | triangle-area{"A":8}/legs | neither | **-2.98** | -1.0 | -4.9 |  |  |  | 3729 |
+| crossing-check{"k":1,"q":6}/size | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-2.98** | -2.8 | -3.2 |  |  |  | 541 |
 | long-division/m-bottom-spf | whole-intercept/gcd-den-m | neither | **-2.95** | -3.0 |  |  |  |  | 852 |
 | long-division/c-period | whole-intercept/gcd-den-m | neither | **-2.95** | -3.0 |  |  |  |  | 852 |
 | crossing-check{"k":1,"q":6}/size | prime-landing{"ends":9,"side":-1}/shared-factor | one | **-2.95** | -2.9 |  |  |  |  | 499 |
 | farey-neighbours/mediant-x | prime-staircase{"ends":1}/shared-factor | one | **-2.93** | -4.0 | -1.9 |  |  |  | 203 |
+| crossing-check{"k":1,"q":4}/size | same-on-both-rulers{"digits":"even"}/shared-factor | one | **-2.91** | -2.4 | -3.4 |  |  |  | 694 |
 | crossing-check{"k":1,"q":2}/whole | prime-gradient{"ends":1}/shared-factor | one | **-2.91** | -3.4 | -2.4 |  |  |  | 377 |
+| crossing-check{"k":3,"q":4}/whole | same-on-both-rulers{"digits":"even"}/shared-factor | one | **-2.90** | -2.9 |  |  |  |  | 255 |
 | m-meets-c/size | whole-at-t/gcd-c | neither | **-2.90** | -3.1 | -2.7 |  |  |  | 308 |
 | crossing-check{"k":1,"q":6}/whole | prime-landing{"ends":1}/shared-factor | one | **-2.90** | -3.4 | -2.4 |  |  |  | 325 |
 | prime-staircase{"ends":3}/shared-factor | whole-area/gcd-x | one | **-2.89** | -2.9 |  |  |  |  | 429 |
@@ -1981,19 +2001,20 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":1,"q":6}/size | prime-gradient{"ends":1}/shared-factor | one | **-2.87** | -2.6 | -3.2 |  |  |  | 628 |
 | prime-staircase{"ends":3}/step-back | whole-area/gcd-x | one | **-2.87** | -2.9 |  |  |  |  | 533 |
 | prime-staircase{"ends":3,"side":-1}/step-back | whole-area/gcd-x | neither | **-2.87** | -2.9 |  |  |  |  | 533 |
+| crossing-check{"k":2,"q":4}/size | same-on-both-rulers{"digits":"even"}/shared-factor | one | **-2.86** | -2.3 | -3.4 |  |  |  | 742 |
 | near-point/lattice | prime-staircase{"ends":1}/shared-factor | one | **-2.86** | -3.0 | -2.7 |  |  |  | 412 |
 | prime-gradient{"ends":9}/shared-factor | whole-crossing{"q":5,"r":3}/shared-factor | both | **-2.86** | -3.0 | -2.8 |  |  |  | 435 |
 | near-point/gcd-x | prime-staircase{"ends":1}/shared-factor | one | **-2.86** | -3.0 | -2.7 |  |  |  | 408 |
-| same-on-both-rulers{"d":1}/shared-factor | steady-gradient/divisors | one | **-2.85** | -1.3 | -4.4 |  |  |  | 2914 |
 | m-meets-c/size | prime-gradient{"ends":1,"side":-1}/shared-factor | one | **-2.85** | -4.0 | -1.7 |  |  |  | 210 |
 | m-meets-c/meetPrime | prime-gradient{"ends":1}/shared-factor | one | **-2.85** | -4.0 | -1.7 |  |  |  | 219 |
+| crossing-check{"k":2,"q":4}/whole | same-on-both-rulers{"digits":"even"}/shared-factor | one | **-2.85** | -2.3 | -3.4 |  |  |  | 741 |
+| crossing-check{"k":1,"q":6}/whole | same-on-both-rulers{"digits":"even","side":-1}/shared-factor | one | **-2.85** | -2.7 | -3.0 |  |  |  | 582 |
 | farey-neighbours/mediant-x | steady-gradient/gcd-c | neither | **-2.84** | -2.8 |  |  |  |  | 459 |
 | long-division/m-top | smooth-intercept{"primes":[3,7]}/shared-factor | one | **-2.84** | -2.8 |  |  |  |  | 730 |
 | long-division/m-bottom-spf | smooth-intercept{"primes":[3,7]}/shared-factor | one | **-2.84** | -2.8 |  |  |  |  | 730 |
 | long-division/c-period | smooth-intercept{"primes":[3,7]}/shared-factor | one | **-2.84** | -2.8 |  |  |  |  | 730 |
 | egyptian-line/bottom | euclid-steps/largest-quotient | neither | **-2.82** | -2.8 |  |  |  |  | 148 |
 | m-meets-c/size | prime-gradient{"ends":1}/shared-factor | one | **-2.82** | -4.0 | -1.7 |  |  |  | 219 |
-| same-on-both-rulers{"d":1,"side":-1}/shared-factor | steady-gradient/divisors | one | **-2.81** | -1.3 | -4.4 |  |  |  | 2926 |
 | crossing-check{"k":2,"q":2}/whole | pell-gradient{"D":6,"k":0}/share-den | neither | **-2.81** | -2.8 |  |  |  |  | 239 |
 | crossing-check{"k":2,"q":2}/whole | pell-gradient{"D":6,"k":0}/difference | neither | **-2.81** | -2.8 |  |  |  |  | 239 |
 | long-division/m-bottom-spf | smooth-crossing/shared | neither | **-2.79** | -2.8 |  |  |  |  | 682 |
@@ -2013,6 +2034,7 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | m-meets-c/meetPrime | treasure{"k":3,"side":-1}/shared-factor | one | **-2.76** | -2.8 |  |  |  |  | 404 |
 | crossing-check{"k":1,"q":6}/whole | prime-gradient{"ends":1}/shared-factor | one | **-2.76** | -2.5 | -3.0 |  |  |  | 659 |
 | crossing-check{"k":2,"q":4}/whole | prime-staircase{"ends":9}/step-back | one | **-2.76** | -3.3 | -2.2 |  |  |  | 471 |
+| crossing-check{"k":1,"q":4}/whole | same-on-both-rulers{"digits":"even"}/shared-factor | one | **-2.76** | -2.2 | -3.3 |  |  |  | 687 |
 | crossing-check{"k":3,"q":4}/size | steady-gradient/gcd-c | neither | **-2.76** | -2.8 |  |  |  |  | 356 |
 | crossing-check{"k":3,"q":2}/whole | prime-landing{"ends":1,"side":-1}/shared-factor | one | **-2.76** | -2.8 |  |  |  |  | 246 |
 | m-meets-c/meetPrime | whole-intercept/spf | neither | **-2.75** | -2.8 |  |  |  |  | 246 |
@@ -2069,21 +2091,18 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | prime-gradient{"ends":9}/shared-factor | whole-crossing{"q":5,"r":2}/shared-factor | both | **-2.55** | -2.8 | -2.3 |  |  |  | 481 |
 | crossing-check{"k":1,"q":4}/whole | prime-gradient{"ends":1,"side":-1}/shared-factor | one | **-2.55** | -2.5 |  |  |  |  | 579 |
 | long-division/m-top | whole-intercept/spf | neither | **-2.54** | -2.8 | -2.3 |  |  |  | 543 |
-| same-on-both-rulers{"d":2}/shared-factor | steady-gradient/divisors | one | **-2.53** | -1.8 | -3.2 |  |  |  | 2299 |
 | long-division/m-top | whole-intercept/omega | neither | **-2.53** | -2.8 | -2.3 |  |  |  | 1253 |
 | m-meets-c/size | triangle-area{"A":8}/even | neither | **-2.52** | -3.4 | -1.7 |  |  |  | 349 |
 | farey-neighbours/mediant-x | prime-gradient{"ends":1}/shared-factor | one | **-2.51** | -3.0 | -2.0 |  |  |  | 386 |
 | prime-gradient{"ends":1,"side":-1}/shared-factor | treasure{"k":3}/shared-factor | both | **-2.51** | -3.2 | -1.8 |  |  |  | 558 |
 | m-meets-c/size | triangle-area{"A":8}/legs | neither | **-2.51** | -3.3 | -1.7 |  |  |  | 348 |
 | crossing-check{"k":1,"q":4}/whole | whole-area/gcd-x | neither | **-2.51** | -2.5 |  |  |  |  | 439 |
-| same-on-both-rulers{"d":2,"side":-1}/shared-factor | smooth-crossing/shared | one | **-2.51** | -2.4 | -2.6 |  |  |  | 490 |
 | prime-gradient{"ends":9,"side":-1}/shared-factor | smooth-crossing/shared | one | **-2.50** | -2.9 | -3.1 | -1.5 |  |  | 894 |
 | prime-gradient{"ends":1}/shared-factor | treasure{"k":3,"side":-1}/shared-factor | both | **-2.49** | -3.2 | -1.8 |  |  |  | 589 |
 | crossing-check{"k":3,"q":4}/whole | prime-staircase{"ends":9}/shared-factor | one | **-2.49** | -2.5 |  |  |  |  | 305 |
 | sunken-intercept/shared | triangle-area{"A":12}/legs | neither | **-2.49** | -0.6 | -4.4 |  |  |  | 4294 |
 | crossing-check{"k":1,"q":6}/size | whole-area/gcd-x | neither | **-2.48** | -2.5 |  |  |  |  | 486 |
 | crossing-check{"k":3,"q":4}/whole | prime-staircase{"ends":9}/step-back | one | **-2.48** | -2.5 |  |  |  |  | 305 |
-| same-on-both-rulers{"d":2,"side":-1}/shared-factor | steady-gradient/divisors | one | **-2.48** | -1.8 | -3.1 |  |  |  | 2346 |
 | pell-gradient{"D":1,"k":1}/pell-c | treasure{"k":3,"side":-1}/shared-factor | one | **-2.47** | -1.0 | -3.9 |  |  |  | 1423 |
 | crossing-check{"k":3,"q":2}/whole | prime-staircase{"ends":7}/step-back | one | **-2.47** | -1.4 | -3.6 |  |  |  | 680 |
 | euclid-steps/largest-quotient | whole-intercept/spf | neither | **-2.47** | -2.2 | -2.8 |  |  |  | 546 |
@@ -2118,19 +2137,16 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":2,"q":2}/size | pell-gradient{"D":7,"k":0}/difference | neither | **-2.36** | -2.4 |  |  |  |  | 527 |
 | divisibility-ladder/next-rung | near-point/gcd-x | one | **-2.36** | -2.4 |  |  |  |  | 435 |
 | crossing-check{"k":1,"q":6}/whole | whole-area/gcd-x | neither | **-2.36** | -2.4 |  |  |  |  | 550 |
-| crossing-check{"k":3,"q":4}/whole | same-on-both-rulers{"d":2,"side":-1}/shared-factor | one | **-2.35** | -2.3 |  |  |  |  | 354 |
 | near-point/lattice | prime-staircase{"ends":7}/step-back | one | **-2.34** | -2.0 | -2.7 |  |  |  | 695 |
 | pell-gradient{"D":7,"k":0}/share-den | whole-area/gcd-den-m | neither | **-2.33** | -1.2 | -3.5 |  |  |  | 1368 |
 | near-point/gcd-x | prime-staircase{"ends":7}/step-back | one | **-2.33** | -2.0 | -2.7 |  |  |  | 691 |
 | crossing-check{"k":1,"q":2}/whole | prime-landing{"ends":9}/shared-factor | one | **-2.32** | -2.1 | -2.5 |  |  |  | 740 |
-| crossing-check{"k":3,"q":2}/whole | same-on-both-rulers{"d":2,"side":-1}/shared-factor | one | **-2.32** | -2.3 |  |  |  |  | 459 |
 | whole-area/gcd-den-m | whole-intercept/gcd-floor-m | neither | **-2.31** | -1.5 | -3.1 |  |  |  | 1511 |
 | prime-slope/square-sum | smooth-crossing/shared | neither | **-2.31** | -2.3 | -2.3 |  |  |  | 244 |
 | pell-gradient{"D":1,"k":1}/pell-c | treasure{"k":4,"side":-1}/shared-factor | one | **-2.31** | -0.7 | -3.9 |  |  |  | 1563 |
 | crossing-check{"k":1,"q":4}/size | prime-staircase{"ends":1}/step-back | one | **-2.30** | -2.5 | -2.1 |  |  |  | 724 |
 | pell-gradient{"D":7,"k":0}/pell-c | whole-area/gcd-den-m | neither | **-2.30** | -1.2 | -3.4 |  |  |  | 1355 |
 | crossing-check{"k":2,"q":6}/size | prime-landing{"ends":9,"side":-1}/shared-factor | one | **-2.28** | -2.3 |  |  |  |  | 693 |
-| same-on-both-rulers{"d":2}/shared-factor | smooth-crossing/shared | one | **-2.28** | -2.2 | -2.3 |  |  |  | 534 |
 | crossing-check{"k":2,"q":6}/whole | prime-landing{"ends":9,"side":-1}/shared-factor | one | **-2.27** | -2.3 |  |  |  |  | 690 |
 | crossing-check{"k":1,"q":2}/size | prime-landing{"ends":9}/shared-factor | one | **-2.27** | -2.1 | -2.4 |  |  |  | 729 |
 | prime-slope/matching-c | whole-at-t/gcd-den-m | neither | **-2.27** | -2.3 |  |  |  |  | 101 |
@@ -2170,10 +2186,14 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | crossing-check{"k":2,"q":4}/whole | whole-area/gcd-x | neither | **-2.15** | -2.1 |  |  |  |  | 612 |
 | near-point/lattice | steady-gradient/gcd-c | neither | **-2.14** | -2.1 |  |  |  |  | 596 |
 | prime-gradient{"ends":1}/shared-factor | whole-crossing{"q":5,"r":1}/shared-factor | both | **-2.14** | -2.1 | -2.2 |  |  |  | 728 |
+| crossing-check{"k":1,"q":2}/whole | same-on-both-rulers{"digits":"odd"}/shared-factor | one | **-2.13** | -2.1 |  |  |  |  | 760 |
 | crossing-check{"k":1,"q":4}/size | prime-staircase{"ends":1}/shared-factor | one | **-2.13** | -2.4 | -1.8 |  |  |  | 694 |
 | near-point/gcd-x | steady-gradient/gcd-c | neither | **-2.13** | -2.1 |  |  |  |  | 594 |
 | m-meets-c/size | whole-intercept/spf | neither | **-2.11** | -2.7 | -1.5 |  |  |  | 249 |
+| m-meets-c/meetPrime | same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | one | **-2.11** | -2.1 |  |  |  |  | 601 |
 | whole-at-t/gcd-den-m | whole-crossing{"q":5,"r":1}/shared-factor | one | **-2.11** | -1.9 | -2.3 |  |  |  | 101 |
+| crossing-check{"k":1,"q":2}/size | same-on-both-rulers{"digits":"odd"}/shared-factor | one | **-2.10** | -2.1 |  |  |  |  | 755 |
+| m-meets-c/size | same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | one | **-2.10** | -2.1 |  |  |  |  | 601 |
 | crossing-check{"k":1,"q":4}/whole | pythagorean-area{"ends":9}/shared-factor | one | **-2.09** | -2.1 |  |  |  |  | 722 |
 | crossing-check{"k":3,"q":4}/whole | whole-crossing{"q":5,"r":3}/shared-factor | one | **-2.09** | -1.5 | -2.7 |  |  |  | 253 |
 | ruler/square-area | steady-gradient/divisors | one | **-2.09** | -2.1 |  |  |  |  | 1955 |
@@ -2230,7 +2250,7 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | prime-staircase | 45 | -0.97 | -6.58 | 8.45 |
 | pythagorean-area | 6 | -1.69 | -6.52 | 1.69 |
 | ruler | 3 | 6.02 | 5.25 | 7.39 |
-| same-on-both-rulers | 6 | -3.72 | -6.58 | 1.95 |
+| same-on-both-rulers | 6 | -3.43 | -6.49 | 2.45 |
 | smooth-intercept | 6 | 8.05 | 7.94 | 8.15 |
 | square-area | 3 | 5.46 | 3.87 | 7.32 |
 | steady-gradient | 1 | 4.64 | 4.64 | 4.64 |
@@ -2325,10 +2345,10 @@ Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read
 | ruler/far | yes | 4.0 | 6.3 | 8.0 | 10.0 | 12.0 | 45683 | 705 |
 | ruler/prime-gradient | yes | 4.0 | 8.5 | 8.5 | 10.5 |  | 45646 | 0 |
 | ruler/square-area | yes | 4.0 | 8.5 | 8.5 | 10.5 |  | 45683 | 0 |
-| same-on-both-rulers{"d":1,"side":-1}/shared-factor | yes | 4.0 | 8.5 | 8.5 |  |  | 44049 | 0 |
-| same-on-both-rulers{"d":1}/shared-factor | yes | 4.0 | 8.5 | 8.5 | 35.3 |  | 43907 | 0 |
-| same-on-both-rulers{"d":2,"side":-1}/shared-factor | yes | 4.0 | 6.0 | 10.5 | 10.5 |  | 46502 | 0 |
-| same-on-both-rulers{"d":2}/shared-factor | yes | 4.0 | 6.0 | 10.4 | 10.4 |  | 46501 | 0 |
+| same-on-both-rulers{"digits":"even","side":-1}/shared-factor | yes | 4.1 | 6.0 | 8.4 | 10.1 | 11.6 | 55992 | 496 |
+| same-on-both-rulers{"digits":"even"}/shared-factor | yes | 4.1 | 6.0 | 8.3 | 10.0 | 11.4 | 56116 | 551 |
+| same-on-both-rulers{"digits":"odd","side":-1}/shared-factor | yes | 4.2 | 6.0 | 8.6 | 10.2 | 11.6 | 44415 | 673 |
+| same-on-both-rulers{"digits":"odd"}/shared-factor | yes | 4.2 | 6.0 | 8.7 | 10.1 | 11.7 | 44307 | 684 |
 | smooth-crossing/shared |  | 4.6 | 6.3 | 8.2 | 10.1 | 12.0 | 37973 | 830 |
 | smooth-gradient/shared |  | 5.1 | 7.0 | 9.0 | 11.0 | 13.0 | 35692 | 694 |
 | smooth-intercept{"primes":[3,11]}/shared-factor | yes | 4.0 | 6.4 | 8.2 | 10.2 | 12.2 | 48646 | 472 |
