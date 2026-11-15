@@ -129,6 +129,14 @@ export const playOps = [
     contexts: ["live", "paused"], caller: "seated", effect: "write", confirm: "inline", runs: "server",
   }),
   affordance({
+    id: "object.whatIf", title: "What if, for the others", group: "objects", scope: "game",
+    description: "What the others' sum on one object would read after each of up to 4 candidate moves from the state the caller knows: one look's price per candidate, paid from the caller's own store (free where the game reads free). Each quote is a fresh blurred reading, never exact while the game runs. A candidate onto a state another object holds says which object holds it.",
+    tooltip: "Price what a move would do for the others.", keywords: ["what if", "quote", "preview", "others"],
+    params: obj({ objectId: id, calls: z.array(call).min(1).max(4), requestId: requestId.optional() }),
+    result: z.object({ state: z.string(), price: z.number(), after: z.array(z.object({ state: z.string(), want: z.number(), taken: z.number().int().nullable() }).nullable()) }),
+    contexts: ["live", "paused"], caller: "seated", effect: "write", confirm: "inline", runs: "server",
+  }),
+  affordance({
     id: "moves.list", title: "List moves that concern me", group: "objects", scope: "game",
     description: "Pages through the moves that changed the caller's points or were made by the caller's agents: calls, states before and after, points before and after, charge.",
     tooltip: "What happened to your objects.", keywords: ["log", "moves", "history", "what happened"],
