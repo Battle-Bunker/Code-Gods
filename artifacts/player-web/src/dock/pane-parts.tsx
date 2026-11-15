@@ -2,7 +2,8 @@
  * What both docks draw around a pane: its name, its menu (move, close, open another: the same view affordances an
  * assistant uses), its error boundary (ux-lessons 4.1: a failed pane takes down only itself) and its scrolling body.
  */
-import { createContext, useCallback, useContext, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, type ReactNode } from "react";
+import type { FunctionReference } from "convex/server";
 import { MoreHorizontal, X } from "lucide-react";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { PANES, PANE_IDS, isPaneId, paneTitle, storedSlugOf, type GamePhase, type OpenPane } from "@workspace/v2-client";
@@ -13,7 +14,7 @@ import { api, useLive } from "@/site/lib/convex";
 import { objectWord, useGame } from "@/sdk";
 import { useRuntime } from "@/core/affordance-runtime";
 import { usePaneOps } from "./open-pane";
-import { paneErrorWords } from "./pane-error";
+import { liveSourceOf, paneErrorWords } from "./pane-error";
 
 export type PaneComponents = Partial<Record<string, () => ReactNode>>;
 /** A stored panel's pane (`panel:<slug>`). */
@@ -47,10 +48,22 @@ export function usePaneName(): (pane: string) => string {
     return paneTitle(pane);
   }, [panels, word]);
 }
+/**
+ * Keeps the failed read's own subscription open while the pane shows its error, and shows the pane again on that
+ * read's next answer (round 24: panes stayed broken until a reload). One live subscription, no retry or timer.
+ */
+function WatchBack({ query, args, onBack }: { query: unknown; args: unknown; onBack: () => void }) {
+  const r = useLive(query as FunctionReference<"query">, args as never);
+  useEffect(() => { if (r.data !== undefined && !r.error) onBack(); }, [r.data, r.error]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 function PaneError({ error, resetError }: ErrorFallbackProps) {
   const w = paneErrorWords(error);
+  const source = liveSourceOf(error);
   return (
     <div className="p-4 text-sm space-y-2" data-testid="pane-error" role="alert">
+      {source && <WatchBack query={source.query} args={source.args} onBack={resetError} />}
       <p className="text-destructive">{w.text}</p>
       <button type="button" className="underline underline-offset-4" data-testid="button-pane-retry" onClick={() => (w.reload ? window.location.reload() : resetError())}>
         {w.reload ? "Try again (reloads the page)" : "Try again"}
