@@ -128,6 +128,8 @@ export const fortyFive = family({
   ],
   evaluate: ctx => {
     const off = read(ctx, OFF45)!, d = read(ctx, D)!, g = read(ctx, YGAP);
+    // Parallel lines never cross, so they have no angle (as in every other family that reads the crossing or the angle).
+    if (d.n === 0n) return void (ctx.term("forty-five", "how far from 45°", PARALLEL, [OFF45]), allUndefined(ctx, ["smooth-divisor", "divisor-gap"], PARALLEL, [D]));
     ctx.term("forty-five", "how far from 45° (the gap between |D| and |dot|, over their total)", off, [OFF45]);
     ctx.term("smooth-divisor", "how many prime factors the number you divide by has", omega(d.n), [D]);
     ctx.term("divisor-gap", "the common factor of D and the y-intercepts' gap", g === null ? U("a vertical line has no y-intercept") : shared(d.n, near(g)), [D, YGAP]);

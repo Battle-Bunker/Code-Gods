@@ -28,7 +28,7 @@ for (const family of families) for (const params of args.includes("--all-params"
   for (const tieBreaker of choices) {
     const t = Date.now();
     const vf = type.id === "pair"
-      ? pairValueFunction(family, params, variant, { tieBreaker, ...(opt("draws") ? { config: { drawsPerTilt: Number(opt("draws")) } } : {}) })
+      ? pairValueFunction(family, params, variant, { tieBreaker, ...(opt("seed") ? { seed: opt("seed")! } : {}), ...(opt("draws") ? { config: { drawsPerTilt: Number(opt("draws")) } } : {}) })
       : type.id === "grid"
       ? gridValueFunction(type as never, family, params, variant, { tieBreaker, ...(opt("seed") ? { seed: opt("seed")! } : {}), ...(opt("draws") ? { draws: Number(opt("draws")) } : {}) })
       : lineValueFunction(family, params, variant, { tieBreaker, config: opt("draws") ? { drawsPerTilt: Number(opt("draws")) } : {} });

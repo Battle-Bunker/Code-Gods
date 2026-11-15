@@ -1,6 +1,7 @@
 /**
  * The system's representations (docs/engine-v2/two-line-systems.md §1.2). The system is one site; its two lines are
- * "line 1" and "line 2" in canonical order (the views keep each line's colour across moves). Each lens is a way a
+ * "line 1" and "line 2" in canonical order (the views keep each line's colour across moves by matching lines; matchLines
+ * in pair.ts is the same rule for callers outside the views). Each lens is a way a
  * 12-year-old meets two lines at school: the stacked equations, the graph with the crossing, the worked elimination,
  * the angle between the lines, the four intercepts.
  */
@@ -77,9 +78,9 @@ export const si: Representation<PairState> = {
   id: "si", title: "each line as y = mx + c", scene: "equation", perSite: false,
   elements: [
     ...[0, 1].flatMap(i => [
-      el(`m${i + 1}`, `line ${i + 1}'s gradient`, "number", "coordinate", s => orUndef(gradient(L(s, i)), L(s, i).b === 0n ? upright(s, i) : VERTICAL)),
-      el(`c${i + 1}`, `line ${i + 1}'s y-intercept`, "number", "coordinate", s => orUndef(yIntercept(L(s, i)), L(s, i).b === 0n ? upright(s, i) : VERTICAL)),
-      el(`r${i + 1}`, `line ${i + 1}'s x-intercept`, "number", "derived", s => orUndef(xIntercept(L(s, i)), L(s, i).a === 0n ? flat(s, i) : HORIZONTAL)),
+      el(`m${i + 1}`, `line ${i + 1}'s gradient`, "number", "coordinate", s => orUndef(gradient(L(s, i)), upright(s, i))),
+      el(`c${i + 1}`, `line ${i + 1}'s y-intercept`, "number", "coordinate", s => orUndef(yIntercept(L(s, i)), upright(s, i))),
+      el(`r${i + 1}`, `line ${i + 1}'s x-intercept`, "number", "derived", s => orUndef(xIntercept(L(s, i)), flat(s, i))),
     ]),
     el("ms", "the steeper line's gradient", "number", "derived", s => orUndef(gradient(steeper(s)), VERTICAL)),
     el("cs", "the steeper line's y-intercept", "number", "derived", s => orUndef(yIntercept(steeper(s)), VERTICAL)),

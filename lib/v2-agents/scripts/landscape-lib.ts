@@ -178,8 +178,9 @@ export function spaceOf(id: VariantId): Space<any> {
         return "invalid" in s || encodePair(s) !== `${x.slice(0, 3).join(",")};${x.slice(3).join(",")}` ? null : s;
       },
       call: (d, k) => ({ mutator: "gen.nudge", args: { line: d < 3 ? "1" : "2", which: COEF[d % 3]!, k: String(k) } }),
-      // The other line far away in the sort order (a = ±200), so the probed line keeps its place.
-      probes: (d, k) => LINE_Q_PROBES(d % 3, k).map(p => (d < 3 ? [...p, 200, 1, 1] : [-200, 1, 1, ...p])) as [number[], number[]],
+      // The other line far away in the sort order (a = ±2^50), so the probed line keeps its place for any value the
+      // reach search can afford.
+      probes: (d, k) => LINE_Q_PROBES(d % 3, k).map(p => (d < 3 ? [...p, 2 ** 50, 1, 1] : [-(2 ** 50), 1, 1, ...p])) as [number[], number[]],
     });
   }
   return makeSpace<GridState>(id, gridType, grid4, {

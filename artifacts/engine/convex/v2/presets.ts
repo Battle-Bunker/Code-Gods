@@ -125,7 +125,7 @@ export const PRESETS: readonly Preset[] = [
   GRIDS,
   // Two lines as one object (docs/engine-v2/two-line-systems.md): not the default. Withheld until its rules have value
   // functions and shipped starters (deal.ts playable).
-  fromPool("lines-pairs"),
+  fromPool("lines-pairs", V1_DEFAULT_BOARD),
   { ...GRIDS, id: "grids-beginner-bidding", title: "Grids · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
   fromPool("grids-more-rules", { ...V1_DEFAULT_BOARD, startingEnergy: GRIDS_BEGINNER_ECONOMY.startingEnergy }),
 ];

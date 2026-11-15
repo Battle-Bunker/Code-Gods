@@ -30,7 +30,7 @@ test("Whole Answer on 2x + 3y = 12, x − y = 1: whole answer, |X| + |Y| = 5 sha
 
 test("parallel lines have no answer: the crossing families score worst", () => {
   const par = sys(Y(2, 1), Y(2, -3));
-  for (const id of ["whole-answer", "no-fractions", "right-angle", "on-the-diagonal"]) assert.equal(score(id, null, par), null, id);
+  for (const id of ["whole-answer", "no-fractions", "right-angle", "forty-five", "on-the-diagonal"]) assert.equal(score(id, null, par), null, id);
 });
 
 test("the axes are the centre: Right Angle at its top, its tie-breakers at the bottom (the trivial anchor earns nothing)", () => {
