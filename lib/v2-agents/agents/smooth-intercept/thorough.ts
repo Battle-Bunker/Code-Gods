@@ -19,11 +19,13 @@ function score(m, c, p, tie) {
     main = Q.add(level, Q.div(Q.add(omega - (level * (level + 1)) / 2, Q.div(1, Q.add(2, s))), level + 1));
   }
   // main: how many of the rule's primes the y-intercept (ignoring sign) is made of, in levels that each need one more than the last (more is better: a ladder with no top; of two with as many, the smaller), else minus how far it is from the nearest such number
-  if (tie === "shared-factor") {   // take the number just after that number: a bigger number dividing both it and the gradient's whole part is better
-    const wm = whole(Q.div(Q.sub(Q.mul(2, m), 1), 2));   // the gradient's whole part (rounded down)
-    return [main, common(Q.add(s, 1), wm)];
-  }
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+    if (t === "shared-factor") {   // take the number just after that number: a bigger number dividing both it and the gradient's whole part is better
+      const wm = whole(Q.div(Q.sub(Q.mul(2, m), 1), 2));   // the gradient's whole part (rounded down)
+      return common(Q.add(s, 1), wm);
+    }
+    return null;
+  })];
 }
 
 const FAR = 3;      // how far one change may go

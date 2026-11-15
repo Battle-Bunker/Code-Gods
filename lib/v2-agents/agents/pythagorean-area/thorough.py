@@ -22,11 +22,12 @@ def score(m, c, p, tie):
     level = lambda p: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(p, 10 ** D)) / (L + 1))(len(str(p)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(p))))   # levels of digits: level L needs L(L + 1)/2
     main = level(rung) if 2 * gap < 1 or rung - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
     # main: the prime ending in the rule's digit that the triangle's area rounds down to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far the area is from rounding to one
-    if tie == "shared-factor":   # that prime minus 1 and the slanted side squared (rounded down): a bigger factor shared is better
-        side2 = legX * legX + legY * legY            # the slanted side, squared (Pythagoras)
-        ws = whole((2 * side2 - 1) / 2)              # its whole part (rounded down)
-        return [main, common(rung - 1, ws)]
-    return [main]
+    def tier(t):   # each tie-breaker, in order (None: ranks last)
+        if t == "shared-factor":   # that prime minus 1 and the slanted side squared (rounded down): a bigger factor shared is better
+            side2 = legX * legX + legY * legY            # the slanted side, squared (Pythagoras)
+            ws = whole((2 * side2 - 1) / 2)              # its whole part (rounded down)
+            return common(rung - 1, ws)
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 3      # how far one change may go

@@ -19,7 +19,7 @@ def score(m, c, p, tie):
         gap = abs(x - rung)
         level = lambda p: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(p, 10 ** D)) / (L + 1))(len(str(p)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(p))))   # levels of digits: level L needs L(L + 1)/2
         main = level(rung) if 2 * gap < 1 or rung - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
-        return [main, None]
+        return [main] + [None for t in (tie.split(">") if tie else [])]
     d2 = c * c / (m * m + 1)                        # the distance from (0, 0), squared
     x = d2 - Fraction(1, 2)                         # d2 rounds down to n when x rounds to n (ties up)
     rung = near(x, prime, p["ends"])                # the prime ending in p["ends"] nearest there: the rung
@@ -27,10 +27,11 @@ def score(m, c, p, tie):
     level = lambda p: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(p, 10 ** D)) / (L + 1))(len(str(p)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(p))))   # levels of digits: level L needs L(L + 1)/2
     main = level(rung) if 2 * gap < 1 or rung - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
     # main: the prime ending in the rule's digit that the distance from (0, 0), squared, rounds down to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far it is from rounding down to one
-    if tie == "shared-factor":   # that prime minus 1 and the y-intercept's whole part: a bigger factor shared is better
-        wc = whole((2 * abs(c) - 1) / 2)          # the y-intercept's whole part, ignoring its sign
-        return [main, common(rung - 1, wc)]
-    return [main]
+    def tier(t):   # each tie-breaker, in order (None: ranks last)
+        if t == "shared-factor":   # that prime minus 1 and the y-intercept's whole part: a bigger factor shared is better
+            wc = whole((2 * abs(c) - 1) / 2)          # the y-intercept's whole part, ignoring its sign
+            return common(rung - 1, wc)
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 3      # how far one change may go

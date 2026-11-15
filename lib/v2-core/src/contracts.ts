@@ -258,7 +258,12 @@ export interface RuleFamily<S, P> {
   witness?(params: P, n: number): readonly S[];
 }
 
-/** Which tie-breaker a dealt rule uses: an id of the family's, or null for the main layer alone. */
+/**
+ * Which tie-breakers a dealt rule uses, in order (owner decision 14 and principle 3a: a repertoire of secondary
+ * preferences, and room for tertiary and deeper ones): one id of the family's, several joined by ">" ("a>b" ranks by the
+ * main layer, then a, then b), or null for the main layer alone. A string, so every key, value file and wire field that
+ * carries it is unchanged at any depth; read it with tieBreakerIds (evaluate.ts).
+ */
 export type TieBreaker = string | null;
 
 // ---------------------------------------------------------------- mutators (§5)

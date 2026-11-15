@@ -18,17 +18,18 @@ def score(m, c, p, tie):
     ways = [x for x in range(X // 1 + 1) if (m * x + c).denominator == 1]   # the line's whole points with x, y >= 0
     main = -abs(len(ways) - p["ways"])
     # main: how far the number of ways to pay is from the target (closer is better)
-    if tie == "big-piles":   # a bigger smaller pile, in every way to pay, is better
-        if not ways:                               # no way to pay: no piles
-            return [main, None]
-        y = m * ways[-1] + c                       # the fewest coins of b
-        return [main, min(ways[0], y)]
-    if tie == "big-bill":   # a bigger bill N = b·c is better
-        return [main, c * b]
-    if tie == "prime-coins":   # both coins (a = -b·m and b) close to primes is better
-        off = lambda x: abs(x - near(x, prime))    # how far x is from the nearest prime
-        return [main, -(off(-m * b) + off(b))]
-    return [main]
+    def tier(t):   # each tie-breaker, in order (None: ranks last)
+        if t == "big-piles":   # a bigger smaller pile, in every way to pay, is better
+            if not ways:                               # no way to pay: no piles
+                return None
+            y = m * ways[-1] + c                       # the fewest coins of b
+            return min(ways[0], y)
+        if t == "big-bill":   # a bigger bill N = b·c is better
+            return c * b
+        if t == "prime-coins":   # both coins (a = -b·m and b) close to primes is better
+            off = lambda x: abs(x - near(x, prime))    # how far x is from the nearest prime
+            return -(off(-m * b) + off(b))
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 3      # how far one change may go

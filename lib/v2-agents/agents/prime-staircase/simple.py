@@ -23,12 +23,13 @@ def score(m, c, p, tie):
     d = abs(miss - near(miss, prime, p["ends"]))
     main = len(run) + Fraction(1) / (2 + d)        # a longer run always wins; a near miss beats a far one
     # main: how many different primes ending in the rule's digit the pattern y(0), y(1), ... starts with (more is better: a ladder with no top), plus a little for the term that breaks the run being near such a prime
-    if tie == "shared-factor":   # the run's last prime minus 1 sharing a bigger factor with its first prime minus 1 is better (it starts again when the run grows)
-        return [main, common(run[-1] - 1, run[0] - 1) if len(run) >= 2 else 0]
-    if tie == "step-back":   # y(-1) (ignoring sign) close to such a prime is better
-        back = abs(c - m)                          # y(-1), ignoring its sign
-        return [main, -abs(back - near(back, prime, p["ends"]))]
-    return [main]
+    def tier(t):   # each tie-breaker, in order (None: ranks last)
+        if t == "shared-factor":   # the run's last prime minus 1 sharing a bigger factor with its first prime minus 1 is better (it starts again when the run grows)
+            return common(run[-1] - 1, run[0] - 1) if len(run) >= 2 else 0
+        if t == "step-back":   # y(-1) (ignoring sign) close to such a prime is better
+            back = abs(c - m)                          # y(-1), ignoring its sign
+            return -abs(back - near(back, prime, p["ends"]))
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 2      # how far one change may go

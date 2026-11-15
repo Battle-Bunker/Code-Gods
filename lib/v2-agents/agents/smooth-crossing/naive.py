@@ -15,7 +15,7 @@ def score(m, c, p, tie):
             return None
         s = -s0 if c < 0 else s0                # the sign kept
         main = -abs(c - s)
-        return [main, None]
+        return [main] + [None for t in (tie.split(">") if tie else [])]
     if m == 0:                                      # a flat line never crosses: the worst score
         return None
     x = -c / m                                      # where y = mx + c crosses the x-axis
@@ -25,9 +25,10 @@ def score(m, c, p, tie):
     s = -s0 if x < 0 else s0                # the sign kept
     main = -abs(x - s)
     # main: how far the x-axis crossing is from a 7-smooth number (closer is better)
-    if tie == "shared":   # that smooth number sharing many prime factors with the whole number nearest the y-intercept is better
-        return [main, shared(s, whole(c))]
-    return [main]
+    def tier(t):   # each tie-breaker, in order (None: ranks last)
+        if t == "shared":   # that smooth number sharing many prime factors with the whole number nearest the y-intercept is better
+            return shared(s, whole(c))
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 3      # how far one change may go

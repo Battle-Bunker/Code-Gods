@@ -18,11 +18,12 @@ def score(m, c, p, tie):
     x = (p["q"] - c) / m                            # x(q): where the line reaches height q
     main = -abs(y - x)
     # main: how far apart y(k) and x(q) are (closer is better)
-    if tie == "size":   # a bigger x(q) is better
-        return [main, abs(x)]
-    if tie == "whole":   # x(q) a whole number is best
-        return [main, -(x.denominator - 1)]
-    return [main]
+    def tier(t):   # each tie-breaker, in order (None: ranks last)
+        if t == "size":   # a bigger x(q) is better
+            return abs(x)
+        if t == "whole":   # x(q) a whole number is best
+            return -(x.denominator - 1)
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 2      # how far one change may go

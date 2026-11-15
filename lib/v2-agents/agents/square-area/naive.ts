@@ -15,10 +15,12 @@ function score(m, c, p, tie) {
   const main = Q.neg(Q.abs(Q.sub(area, sq)));
   const f = factors(root(sq));                    // the prime factors of that square's root
   // main: how far the triangle's area is from a square number (closer is better)
-  if (tie === "spf") return [main, f[0] ?? 1];   // a root whose smallest prime factor is big is better
-  if (tie === "lpf") return [main, f.at(-1) ?? 1];   // a root whose largest prime factor is big is better
-  if (tie === "omega") return [main, f.length];   // more prime factors in the root are better
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+    if (t === "spf") return f[0] ?? 1;   // a root whose smallest prime factor is big is better
+    if (t === "lpf") return f.at(-1) ?? 1;   // a root whose largest prime factor is big is better
+    if (t === "omega") return f.length;   // more prime factors in the root are better
+    return null;
+  })];
 }
 
 const FAR = 3;      // how far one change may go

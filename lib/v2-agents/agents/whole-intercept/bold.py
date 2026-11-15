@@ -19,11 +19,12 @@ def score(m, c, p, tie):
     main = -abs(c - n)
     f = factors(n)                                  # its prime factors, smallest first
     # main: how far the y-intercept is from a whole number (closer is better)
-    if tie == "spf":   # a bigger smallest prime factor is better (a big prime is best)
-        return [main, spf(n)]
-    if tie == "omega":   # more prime factors are better
-        return [main, len(f)]
-    return [main]
+    def tier(t):   # each tie-breaker, in order (None: ranks last)
+        if t == "spf":   # a bigger smallest prime factor is better (a big prime is best)
+            return spf(n)
+        if t == "omega":   # more prime factors are better
+            return len(f)
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 4      # how far one change may go

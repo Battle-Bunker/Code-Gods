@@ -33,17 +33,19 @@ function onRung(y, r) {   // on the rung when y rounds to it: its levels of digi
 function score(m, c, p, tie) {
   if (m === null) {               // the vertical line x = c
     const y = Q.abs(c), main = onRung(y, rungOf(y, p.digits === "odd"));   // x = c meets y = x and y = -x at x = c
-    return [main, null];
+    return [main, ...(tie ? tie.split(">") : []).map(t => null)];
   }
   if (Q.eq(m, p.meets)) return null;              // parallel to y = x (or y = -x): it never meets it
   const y = Q.abs(Q.div(c, Q.sub(p.meets, m)));   // mx + c = meets*x where x = c/(meets - m); its size (a minus sign does not matter)
   const rung = rungOf(y, p.digits === "odd"), main = onRung(y, rung);
   // main: the palindrome with an odd (or even) number of digits that the line's meeting point with y = x (or y = -x) rounds to, ignoring its sign, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one
-  if (tie === "shared-factor") {   // a bigger number dividing both the palindrome's digit sum and the gradient's whole part is better
-    const sum = [...rung.toString()].reduce((a, ch) => a + Number(ch), 0), wm = whole(Q.sub(Q.abs(m), Q.div(1, 2)));   // the palindrome's digits added up; the whole part of |m|
-    return [main, common(sum, wm)];
-  }
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+    if (t === "shared-factor") {   // a bigger number dividing both the palindrome's digit sum and the gradient's whole part is better
+      const sum = [...rung.toString()].reduce((a, ch) => a + Number(ch), 0), wm = whole(Q.sub(Q.abs(m), Q.div(1, 2)));   // the palindrome's digits added up; the whole part of |m|
+      return common(sum, wm);
+    }
+    return null;
+  })];
 }
 
 const FAR = 4;      // how far one change may go

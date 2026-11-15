@@ -3,7 +3,7 @@
  * a distance (smaller is better) or a count or size (bigger is better), never a ladder of thresholds. Internal to
  * v2-linear (not exported from the package root).
  */
-import { Qn, q, ref, type ElementRef, type ElementValue, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
+import { cardText, Qn, q, ref, type ElementRef, type ElementValue, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
 import { lineParams, type LineState } from "./line.ts";
 import { nearestSquareRoot } from "./numbers.ts";
 
@@ -41,8 +41,7 @@ export function allUndefined<P>(ctx: Ctx, f: Shape<P>, why: ElementValue, from: 
 }
 /** The card: the main layer's sentence, then the dealt tie-breaker's. */
 export function card<P>(f: Shape<P>, p: P, tb: TieBreaker): string {
-  const t = tb === null ? undefined : f.tieBreakers.find(x => x.id === tb);
-  return t ? `${f.main.sentence(p)} Tie-breaker: ${t.sentence(p)}` : f.main.sentence(p);
+  return cardText(f.main, f.tieBreakers, p, tb);
 }
 /** A family: its dealable parameter sets on every variant, or `dealable` to choose them per variant. */
 export function family<P extends object>(id: string, title: string, depends: string[], shape: Shape<P>, params: P[] | ((v: Parameters<RuleFamily<LineState, P>["dealable"]>[0]) => P[]), evaluate: (ctx: Ctx, p: P) => void): RuleFamily<LineState, P> {

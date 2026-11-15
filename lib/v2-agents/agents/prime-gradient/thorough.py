@@ -21,10 +21,11 @@ def score(m, c, p, tie):
     gap = abs(x - rung)                             # on the rung when it rounds there (within 1/2, ties up)
     main = level(rung) if 2 * gap < 1 or rung - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
     # main: the prime ending in the rule's digit the gradient rounds to, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one
-    if tie == "shared-factor":   # take the number just after that prime: a bigger number dividing both it and the y-intercept's whole part is better
-        wc = whole(abs(c) - Fraction(1, 2))           # the y-intercept's whole part, ignoring sign
-        return [main, common(rung + 1, wc)]
-    return [main]
+    def tier(t):   # each tie-breaker, in order (None: ranks last)
+        if t == "shared-factor":   # take the number just after that prime: a bigger number dividing both it and the y-intercept's whole part is better
+            wc = whole(abs(c) - Fraction(1, 2))           # the y-intercept's whole part, ignoring sign
+            return common(rung + 1, wc)
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 3      # how far one change may go
