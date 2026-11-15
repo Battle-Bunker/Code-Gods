@@ -30,8 +30,14 @@ function Card({ rule, parts, value }: { rule: GameRule; parts: number; value: ((
   const note = partsNote(parts, word.one, word.many);
   return (
     <div className="space-y-2 p-3" data-testid="goal-card">
-      {note && <p className="text-xs text-muted-foreground" data-testid="text-rule-parts">{note}</p>}
-      <GoalCard rule={rule} example={example} mine={mine} value={value ?? undefined} />
+      <GoalCard rule={rule} example={example} mine={mine} value={value ?? undefined} exampleOpen={false} />
+      {/* How the parts rank, behind "more" (round 27: the card read 52 words before anything else). */}
+      {note && (
+        <details className="text-xs text-muted-foreground" data-testid="details-rule-parts">
+          <summary className="cursor-pointer">More about your rule</summary>
+          <p className="mt-1" data-testid="text-rule-parts">{note}</p>
+        </details>
+      )}
     </div>
   );
 }

@@ -5,7 +5,7 @@
 import type { ReactElement } from "react";
 import { compareScores, representation, type ObjectType, type Score, type Variant } from "@workspace/v2-core";
 import { annotate, type RuleRef } from "./annotate.ts";
-import { changesBetween } from "./contributors.ts";
+import { changesBetween, withParams } from "./contributors.ts";
 import { ExpandedFace } from "./faces.tsx";
 import { chanceText, fmtBits, fmtNum, fmtValue } from "./format.ts";
 import { nounOf } from "./refs.ts";
@@ -19,20 +19,41 @@ export interface GoalCardProps<S, P> {
   readonly value?: (u: Score) => number;
   /** The player's own object to explain first (the one in focus, or their best), with its name: "Line 7". */
   readonly mine?: { readonly state: S; readonly name: string } | null;
+  /** Whether the worked example starts open: by default when there is no object of the player's own to explain (a
+   *  gallery); the game's card keeps it folded so the rule's two lines come first (round 27). */
+  readonly exampleOpen?: boolean;
+}
+
+/** The main part's sentence and the dealt tie-breaker's, from the layers (null when the family has no main sentence). */
+function cardLines<S, P>(rule: RuleRef<S, P>, tbId: string | null): { main: string; tb: string | null } | null {
+  const f = rule.family as unknown as { main?: { sentence?(p: P): string }; tieBreakers: readonly { id: string; sentence?(p: P): string }[] };
+  try {
+    const main = f.main?.sentence?.(rule.params);
+    if (!main) return null;
+    const t = tbId ? f.tieBreakers.find(x => x.id === tbId)?.sentence?.(rule.params) : undefined;
+    return { main: withParams(main, rule.params), tb: t ? withParams(t, rule.params).replace(/^Tie-breaker: /, "") : null };
+  } catch { return null; }
 }
 
 /**
  * The rule's card: its name and sentence; the player's own object explained (its parts on their rulers, its bits, the
  * moves that would make it rarer), when there is one; then the worked example. No steps (owner decision 23).
  */
-export function GoalCard<S, P>({ rule, example, value, mine }: GoalCardProps<S, P>): ReactElement {
+export function GoalCard<S, P>({ rule, example, value, mine, exampleOpen }: GoalCardProps<S, P>): ReactElement {
   const f = rule.family;
   const noun = nounOf(rule.type);
+  const tbId = rule.tieBreaker === undefined ? (f.tieBreakers[0]?.id ?? null) : rule.tieBreaker;
+  const lines = cardLines(rule, tbId);
   return (
     <article className="v2v v2v-goal">
       <header>
         <h3 className="v2v-goal-title">{f.title}</h3>
-        <p className="v2v-goal-card">{f.card(rule.params, rule.tieBreaker === undefined ? (f.tieBreakers[0]?.id ?? null) : rule.tieBreaker)}</p>
+        {/* What a player needs first (round 27: a 52-word card): the main sentence and one tie-breaker line, each on its
+            own; the family's whole card only when it has no layer sentences. */}
+        {lines ? (<>
+          <p className="v2v-goal-card" data-testid="text-goal-main">{lines.main}</p>
+          {lines.tb && <p className="v2v-goal-card v2v-goal-tb" data-testid="text-goal-tie-breaker"><b>Tie-breaker:</b> {lines.tb}</p>}
+        </>) : <p className="v2v-goal-card">{f.card(rule.params, tbId)}</p>}
       </header>
       {mine && (
         <section className="v2v-goal-mine" aria-label={mine.name}>
@@ -40,7 +61,7 @@ export function GoalCard<S, P>({ rule, example, value, mine }: GoalCardProps<S, 
           <ExpandedFace rule={rule} state={mine.state} value={value} />
         </section>
       )}
-      <details className="v2v-goal-example" open={!mine}>
+      <details className="v2v-goal-example" open={exampleOpen ?? !mine}>
         <summary className="v2v-goal-sub">A worked example</summary>
         <p className="v2v-goal-hint">Tap a part to see only its marks; point at a number to find it in every view.</p>
         <ExpandedFace rule={rule} state={example} value={value} improvement={!mine} />

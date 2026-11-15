@@ -198,6 +198,9 @@ try {
     // The goal card (decision 23): a worked example and the rule's parts, no steps.
     const goal = page.getByTestId("pane-my-card");
     await goal.getByText(/A worked example/).first().waitFor();
+    // The card says its main part and one tie-breaker first; the worked example opens when asked for (round 27).
+    await goal.getByTestId("text-goal-main").waitFor();
+    if (!await goal.locator(".v2v-part").first().isVisible()) await goal.getByText(/A worked example/).first().click();
     await goal.locator(".v2v-part").first().waitFor();
     assert.equal(await goal.getByText(/Steps to the top|step \d+ of \d+/).count(), 0, "no steps on the goal card");
     if (label === "phone") await goal.screenshot({ path: path.join(shots, "grid-phone-goal-card.png") });
