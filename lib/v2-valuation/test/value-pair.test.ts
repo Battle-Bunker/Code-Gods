@@ -68,3 +68,16 @@ test("one far act climbs a pair ladder by about one rung's rarity, not to the ca
     }
   }
 });
+
+test("a ladder's tie-breaker past its measured range rises by doublings of its climb, not of the step (Steep Ratio)", async () => {
+  // Found when the per-level tie-breaker went in (two-line-systems.md §12.2): extrapolated along the step past the last
+  // measured point, a stretch by 11 (tie-breaker 12 → 132 at level 2) took Steep Ratio {5, 2} from 12.7 to 28.3 bits.
+  // On the axis the rate was fitted on, the tie-breaker at 132 is worth about what level 1 measures there (10 bits).
+  const { readdirSync, readFileSync } = await import("node:fs");
+  const { steepRatio } = await import("@workspace/v2-pair");
+  const dir = new URL("../values/pair-q/steep-ratio/", import.meta.url);
+  const vf = readdirSync(dir).map(f => JSON.parse(readFileSync(new URL(f, dir), "utf8")))
+    .find(v => JSON.stringify(v.params) === '{"q":5,"r":2}' && v.tieBreaker === "ratio-gap");
+  const bits = valueLookup(vf)(evaluateObject(pairType, steepRatio, vf.params, pairType.decode("1,2,-528;8250,1,0"), pairQ, vf.tieBreaker).score).bits;
+  assert.ok(bits < 25, `${bits} bits after the stretch`);
+});
