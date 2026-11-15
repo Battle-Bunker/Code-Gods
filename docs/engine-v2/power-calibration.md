@@ -5,7 +5,13 @@ Analysis and options only, 15 November 2026: no preset or economy constant is ch
 experiment knob on the in-memory table: `summonScale` in `lib/v2-agents/src/table.ts`, which multiplies summon and edit
 prices so that scaled prices can be tried.
 
-The owner's targets:
+**Outcome.** Owner decision 42 replaced the target heights below with two virtues, balance (fairness across rules and
+dealt values) and dynamism (no early standstill, no dominant strategy, no settled optimum), with hundreds of bits as a
+sanity bound. The coordinator chose **4 ⚡/s, 300 start (grids 450), 240 s store, summon and edit prices × power/8**
+(coordinator's call 17 in `owner-decisions.md`). The numbers below predate #687 (code C3 and prime tails) and are
+re-run on the new values, with and without parameter drift (call 18) and with the prime filters.
+
+The owner's targets as first read (superseded by decision 42):
 
 - Decision 38: it should be really hard to reach 20 or 30 bits on an object, and hundreds should be out of reach.
 - Decision 40: one player with no opposition may fairly easily get past 20 bits. A state worth at least 20 bits to each
