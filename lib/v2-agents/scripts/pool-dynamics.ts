@@ -54,6 +54,8 @@ const setup = ((): { type: ObjectType<unknown>; variant: Variant; pool: readonly
 })();
 const { type, variant, pool, economy: E } = setup;
 const seconds = Number(o.seconds), drift = Number(o.drift);
+/** Row 2 (design-principles.md): no seat should sit on a main-part level it reached this early. */
+const EARLY_SECONDS = 120;
 const boxes = sandboxes();
 const mean = (x: number[]) => (x.length ? x.reduce((a, b) => a + b, 0) / x.length : NaN);
 const median = (x: number[]) => { const y = [...x].sort((a, b) => a - b); return y.length ? y[Math.floor(y.length / 2)]! : NaN; };
@@ -61,7 +63,7 @@ const pct = (a: number, b: number) => (b ? `${((100 * a) / b).toFixed(0)}%` : "-
 
 interface Stat {
   games: number; gained: number[]; lastThird: number[]; latency: number[]; redraws: number; answered: number; grids: number; cur: number[]; alt: number[];
-  levels: number[]; endBits: number[]; seats: number; climbingLate: number;
+  levels: number[]; endBits: number[]; seats: number; climbingLate: number; plateauEarly: number;
   mainSteps: number; valleys: number; tbLost: number; recovered: number; recovery: number[];
   energyEnd: number[]; spentShare: number[]; perMinute: number[];
   own: number[]; others: number[]; moves: number[]; trueGain: number[]; flips: number[]; reversal: number[];
@@ -69,7 +71,7 @@ interface Stat {
 const stats = new Map<string, Stat>();
 const stat = (f: string) => stats.get(f) ?? (stats.set(f, {
   games: 0, gained: [], lastThird: [], latency: [], redraws: 0, answered: 0, grids: 0, cur: [], alt: [],
-  levels: [], endBits: [], seats: 0, climbingLate: 0, mainSteps: 0, valleys: 0, tbLost: 0, recovered: 0, recovery: [],
+  levels: [], endBits: [], seats: 0, climbingLate: 0, plateauEarly: 0, mainSteps: 0, valleys: 0, tbLost: 0, recovered: 0, recovery: [],
   energyEnd: [], spentShare: [], perMinute: [],
   own: [], others: [], moves: [], trueGain: [], flips: [], reversal: [],
 }), stats.get(f)!);
@@ -100,6 +102,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   interface Climb { best: Score; levels: number; lastUp: number; pending: { tb: Score; main: Score; at: number } | null }
   const climbs = seats.map(() => new Map<number, Climb>());
   const levelsDone = seats.map(() => [] as number[]);
+  const lastStep = seats.map(() => -Infinity);   // each seat's last new best main part, on any object
   let live = Number(o.objects);
   const lastBalance = seats.map(() => NaN), income = seats.map(() => 0), spent = seats.map(() => 0);
   const rep = await runTable(boxes, {
@@ -117,7 +120,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
       if (compareScores(head(after), head(before)) > 0) {
         st.mainSteps++;
         if (before !== null && before[0] !== null && before[0]!.n >= 0n) st.valleys++;
-        if (compareScores(head(after), head(c.best)) > 0) { c.best = after; c.levels++; c.lastUp = e.at; }
+        if (compareScores(head(after), head(c.best)) > 0) { c.best = after; c.levels++; c.lastUp = e.at; lastStep[i] = e.at; }
         if (compareScores(tail(after), tail(before)) < 0) { st.tbLost++; c.pending = { tb: tail(before), main: head(after), at: e.at }; }
         else c.pending = null;
       } else if (c.pending && compareScores(head(after), c.pending.main) >= 0 && compareScores(tail(after), c.pending.tb) >= 0) {
@@ -147,6 +150,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
     st.levels.push(...levelsDone[i]!, ...climbed.map(([, c]) => c.levels));
     st.endBits.push(...climbed.map(([k]) => now(rep.final[k])));
     if (climbed.some(([, c]) => c.lastUp >= (2 * seconds) / 3)) st.climbingLate++;
+    if (lastStep[i]! < EARLY_SECONDS) st.plateauEarly++;   // row 2: sits on a level reached in the first two minutes
     const grid = fam.dealable(variant) as Record<string, unknown>[];
     if (grid.length > 1) {
       st.grids++;
@@ -164,14 +168,14 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
 await boxes.close();
 
 console.log(`${variant.id} pool, ${o.kind} starters, ${o.games} games of ${seconds} s, ${drift > 0 ? `drift every ${drift} s` : "no drift"}, power ${E.powerPerSecond}, ${E.opportunitiesPerSecond}/s`);
-console.log("| family | games | mean points gained | moves a minute | energy at end | spent / income | own bits at end | others' bits at end | moves | share raising points | flips | energy taken back | objects moving in the last third | main-part levels per object climbed: median / max | end bits on those objects | seats still climbing the main part in the last third | valleys crossed (rung to higher rung) | main-part steps that lowered the tie-breaker | recovered, median s | redraws answered, median s | end bits under current / other params |");
-console.log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+console.log("| family | games | mean points gained | moves a minute | energy at end | spent / income | own bits at end | others' bits at end | moves | share raising points | flips | energy taken back | objects moving in the last third | main-part levels per object climbed: median / max | end bits on those objects | seats still climbing the main part in the last third | seats whose last main-part step came in the first 120 s | valleys crossed (rung to higher rung) | main-part steps that lowered the tie-breaker | recovered, median s | redraws answered, median s | end bits under current / other params |");
+console.log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
 const rows = [...stats.entries()].sort((a, b) => mean(b[1].gained) - mean(a[1].gained));
 for (const [f, s] of rows) console.log([
   f, s.games, mean(s.gained).toFixed(0), mean(s.perMinute).toFixed(1), mean(s.energyEnd).toFixed(0), `${(100 * mean(s.spentShare)).toFixed(0)}%`, mean(s.own).toFixed(1), mean(s.others).toFixed(1), mean(s.moves).toFixed(0),
   `${(100 * mean(s.trueGain)).toFixed(0)}%`, mean(s.flips).toFixed(1), mean(s.reversal).toFixed(0), `${(100 * mean(s.lastThird)).toFixed(0)}%`,
   s.levels.length ? `${median(s.levels)} / ${Math.max(...s.levels)}` : "-", s.endBits.length ? mean(s.endBits).toFixed(1) : "-",
-  pct(s.climbingLate, s.seats), s.valleys, `${pct(s.tbLost, s.mainSteps)} of ${s.mainSteps}`,
+  pct(s.climbingLate, s.seats), pct(s.plateauEarly, s.seats), s.valleys, `${pct(s.tbLost, s.mainSteps)} of ${s.mainSteps}`,
   s.tbLost ? `${pct(s.recovered, s.tbLost)}, ${s.recovery.length ? median(s.recovery).toFixed(0) : "-"}` : "-",
   s.redraws ? `${s.answered}/${s.redraws}, ${s.latency.length ? median(s.latency).toFixed(1) : "-"}` : "-",
   s.cur.length ? `${mean(s.cur).toFixed(1)} / ${mean(s.alt).toFixed(1)}` : "-",
