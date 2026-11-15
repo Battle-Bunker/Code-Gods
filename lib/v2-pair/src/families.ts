@@ -29,8 +29,27 @@ const main = (id: string, title: string, sentence: string | ((p: P) => string), 
  * −9x + 14y + 5 = 0 with −2x + 3y − 104 = 0 has D = 1 and |x| + |y| = 2417, a prime, for about 60 bits of φ. The
  * size tail (a log ramp) is used instead. The collapse check on pair-q found it (two-line-systems.md §7).
  */
-const tb = (id: string, title: string, sentence: string, rep: string, hill: Sense): PairLayer =>
-  ({ id, title, sentence: () => sentence, rep, sense: hill === "small" ? "min" : "max", hill });
+const tb = (id: string, title: string, sentence: string | ((p: P) => string), rep: string, hill: Sense): PairLayer =>
+  ({ id, title, sentence: typeof sentence === "string" ? () => sentence : sentence, rep, sense: hill === "small" ? "min" : "max", hill });
+/**
+ * How far v is from the nearest non-zero whole multiple of m (m ≥ 1). 0 is no multiple: two lines through one point of
+ * an axis would otherwise meet every level's target at once (a top the climb never leaves; the review of §10).
+ */
+export function offMultiple(v: Q, m: bigint): Q {
+  const t = Qn.div(v, q(m)), f = t.n / t.d - (t.n % t.d < 0n ? 1n : 0n);   // ⌊v / m⌋, rounding down for negatives too
+  const lo = f === 0n ? -1n : f, hi = f + 1n === 0n ? 1n : f + 1n;
+  const below = Qn.abs(Qn.sub(v, q(lo * m))), above = Qn.abs(Qn.sub(q(hi * m), v));
+  return Qn.cmp(below, above) <= 0 ? below : above;
+}
+/**
+ * A tie-breaker that reads the level the main part reached (design-principles.md row 3; the coordinator, 15 Nov):
+ * a number should be a multiple of q^(L+1), L the level (q⁰ = 1 below level 0), so each step up the ladder makes the
+ * target q times coarser and restarts the tie-breaker's climb.
+ */
+const levelTarget = (qq: number, level: number): bigint => BigInt(qq) ** BigInt(Math.max(0, level + 1));
+const targetWords = (qq: number, below = false) => below
+  ? `a whole number other than 0; once your number is on your ladder, a whole multiple of ${qq}; a level up, of ${qq * qq}; then of ${qq ** 3}, and so on`
+  : `a whole multiple of ${qq} other than 0; once your number climbs a level, of ${qq * qq}; then of ${qq ** 3}, and so on`;
 
 /**
  * The ladder with no top (docs/engine-v2/design-principles.md row 1, the coordinator's call applying the owner's
@@ -91,30 +110,32 @@ export function valuationLadder(v: Q, p: P, other: Q = q(0), minAbs = 0n): { lev
 /** "a whole number leaving 2 when divided by 7; better still 7 times such a number, then 343 times, then 117,649 times, and so on". */
 export const valuationWords = (p: P) => `a whole number leaving ${p.r} when divided by ${p.q}; better still ${p.q} times such a number, then ${(p.q! ** 3).toLocaleString("en")} times, then ${(p.q! ** 6).toLocaleString("en")} times, and so on`;
 /**
- * The power ladder: off(t) is the distance from the level whose number is t (with `other` added), V-shaped in t. Its
- * levels are not nested (k² is not k), so level L is met at an exact k^L (off 0; the highest such, L ≥ 1), and d is the
- * distance to k^(L+1); a state on no level (L 0) takes d to the nearest power, so a climber near k³ is rewarded as near
- * k. The scan stops where off stops falling, past the state's size.
+ * The power ladder: off(t) is the distance from the rung whose number is t (with `other` added), V-shaped in t. Its
+ * rungs are triangular, as the valuation ladder's: level L at k^T(L), T(L) = L(L + 1)/2 (k, k³, k⁶, …), so each level
+ * takes one more multiplication by k than the last (with a rung at every power, one stretch or turn a level, a Divide By
+ * object climbed 40 levels and 84 bits in a game). The rungs are not nested (k³ is not k), so level L is met at an exact
+ * k^T(L) (off 0), and d is the distance to the next rung; a state on no rung (L 0) takes d to the nearest rung. The scan
+ * stops where off stops falling, past the state's size.
  */
 export function powerLadder(k: number, off: (target: bigint) => Q): { level: number; u: Q } {
-  const kb = BigInt(k);
+  const kb = BigInt(k), rung = (L: number) => kb ** BigInt(triangle(L));
   let level = 0, best: Q | null = null, prev: Q | null = null;
   for (let j = 1; j <= 4096; j++) {
-    const o = off(kb ** BigInt(j));
+    const o = off(rung(j));
     if (Qn.isZero(o)) level = j;
     if (best === null || Qn.cmp(o, best) < 0) best = o;
     if (prev !== null && Qn.cmp(o, prev) >= 0) break;
     prev = o;
   }
-  return { level, u: ladderScore(kb, level, level > 0 ? off(kb ** BigInt(level + 1)) : best!) };
+  return { level, u: ladderScore(kb, level, level > 0 ? off(rung(level + 1)) : best!) };
 }
 /** "leaves 3 when divided by 7; better still, leaves 24 when divided by 49, then 171 when divided by 343, and so on". */
 export function ladderWords(p: P): string {
   const qq = BigInt(p.q!), r = BigInt(p.r!);
   return `leaves ${r} when divided by ${qq}; better still, leaves ${rungRemainder(qq, r, 2)} when divided by ${qq ** 2n}, then ${rungRemainder(qq, r, 3)} when divided by ${qq ** 3n}, and so on`;
 }
-/** "4 (or −4); better still 16, then 64, and so on". */
-const powerWords = (k: number, sign = true) => `${k}${sign ? ` (or −${k})` : ""}; better still ${k * k}, then ${k ** 3}, and so on`;
+/** "4 (or −4); better still 64, then 4,096, and so on" (the rungs k, k³, k⁶, …). */
+const powerWords = (k: number, sign = true) => `${k}${sign ? ` (or −${k})` : ""}; better still ${(k ** 3).toLocaleString("en")}, then ${(k ** 6).toLocaleString("en")}, and so on`;
 /**
  * The valuation ladders dealt: q 5 or 7 and every r from 1 to q − 1 (a level never meets 0). q 3 was measured and is not
  * dealt: a stretch by 3 is so cheap a move that a climber blind to cost reached 34–51 bits on Steep Ratio in 30 moves
@@ -128,20 +149,21 @@ export const LADDERS: readonly P[] = [5, 7, 11].flatMap(q => Array.from({ length
  * The dealt numbers (two-line-systems.md §9.2, lib/v2-agents scripts/pair-reach.ts). Measured over LADDERS, VALUATIONS,
  * k 2–11 (Divide By) and 2–7 (Gap Ratio). Dealt: per family, the largest set where for every tie-breaker
  *  - a greedy climber from 40 births reaches within 1 bit of the family's median;
- *  - and whose value functions pass the engine's equal-opportunity audit (test/unit/v2-params-equal.test.ts: top and
- *    median knots within 1 bit as intervals, the band under drift).
- * High Start passes the audit on only three numbers (row 4 wants four; the nearest four miss by 0.09 bits).
+ *  - and whose value functions pass the engine's equal-opportunity audit (test/unit/v2-params-equal.test.ts): for the
+ *    valuation ladders (Whole Answer, High Start, Steep Ratio) the ladder audit, each level's least bits less the code
+ *    cost of its cheapest number within 0.5 bits (the coordinator's call 19); for the others top and median knots
+ *    within 1 bit as intervals (the band under drift).
  */
 const R = (q: number, ...rs: number[]) => rs.map(r => ({ q, r }));
 export const DEALT_NUMBERS: Readonly<Record<string, readonly P[]>> = {
-  "whole-answer": [...R(5, 1, 2, 3, 4), ...R(7, 2, 3, 4, 5)],
-  "no-fractions": [4, 5, 8, 9].map(k => ({ k })),
+  "whole-answer": [...R(5, 1, 4), ...R(7, 2, 4, 5)],
+  "no-fractions": [5, 6, 10, 11].map(k => ({ k })),
   "right-angle": [...R(5, 1, 2, 3), ...R(7, 1, 2, 3, 5), ...R(11, 1, 2, 9)],
   "forty-five": [...R(5, 1, 2, 3), ...R(7, 1, 2, 3, 4, 5), ...R(11, 1, 2, 3, 4, 5, 6, 7, 9)],
   "double-gap": [3, 4, 5, 6].map(k => ({ k })),
-  "far-crossing": [...R(7, 4), ...R(11, 2, 3, 4, 5, 6, 8, 9)],
-  "high-start": [...R(5, 2, 3), ...R(7, 3)],
-  "steep-ratio": [...R(5, 1, 4), ...R(7, 2, 3, 4, 5)],
+  "far-crossing": [...R(7, 4), ...R(11, 2, 3, 4, 5, 6, 8)],
+  "high-start": [...R(5, 1, 4), ...R(7, 2, 3, 4)],
+  "steep-ratio": [...R(5, 2, 3), ...R(7, 3, 4)],
 };
 /**
  * The whole number n leaving r when divided by q (n − r a multiple of q, negatives included: −2 leaves 1 when divided
@@ -320,7 +342,7 @@ export const onTheDiagonal = family({
 
 export const doubleGap = family({
   id: "double-gap", title: "Gap Ratio", depends: ["si", "solve"],
-  main: main("gaps", "the gap on the y-axis a whole number, the dealt powers times the gap on the x-axis", p => `The gap between the lines' y-intercepts should be a whole number and ${p.k} times the gap between their x-intercepts; better still ${p.k! * p.k!} times, then ${p.k! ** 3} times, and so on. Neither line may pass through (0, 0). The closer, the better.`, "si", "max"),
+  main: main("gaps", "the gap on the y-axis a whole number, the dealt powers times the gap on the x-axis", p => `The gap between the lines' y-intercepts should be a whole number and ${p.k} times the gap between their x-intercepts; better still ${(p.k! ** 3).toLocaleString("en")} times, then ${(p.k! ** 6).toLocaleString("en")} times, and so on. Neither line may pass through (0, 0). The closer, the better.`, "si", "max"),
   tieBreakers: [
     tb("gap-divisor", "the gap shares a factor with the number you divide by", "The gap between the y-intercepts (to the nearest whole number) should share as big a factor as possible with the number you divide by when you solve.", "solve", "shared"),
     tb("gap-prime", "the gap is a big prime", "The gap between the y-intercepts (to the nearest whole number) should have as big a smallest prime factor as possible.", "si", "prime"),
@@ -334,27 +356,27 @@ export const doubleGap = family({
       return void (ctx.term("gaps", "the gaps' level", why, [YGAP, XGAP]), allUndefined(ctx, ["gap-divisor", "gap-prime"], why, [YGAP]));
     }
     const whole = distanceToWhole(yg);
-    ctx.term("gaps", `the gaps' level: the y-intercepts' gap whole and ${p.k}, ${p.k! * p.k!}, … times the x-intercepts' gap`, powerLadder(p.k!, t => Qn.add(whole, Qn.abs(Qn.sub(yg, Qn.mul(q(t), xg))))).u, [YGAP, XGAP]);
+    ctx.term("gaps", `the gaps' level: the y-intercepts' gap whole and ${p.k}, ${p.k! ** 3}, ${p.k! ** 6}, … times the x-intercepts' gap`, powerLadder(p.k!, t => Qn.add(whole, Qn.abs(Qn.sub(yg, Qn.mul(q(t), xg))))).u, [YGAP, XGAP]);
     ctx.term("gap-divisor", "the common factor of the y-intercepts' gap and D", shared(near(yg), read(ctx, D)!.n), [YGAP, D]);
     ctx.term("gap-prime", "the smallest prime factor of the y-intercepts' gap", spf(near(yg)), [YGAP]);
   },
 });
 
 export const farCrossing = family({
-  id: "far-crossing", title: "Far Crossing", depends: ["si"],
+  id: "far-crossing", title: "Far Crossing", depends: ["si", "pair"],
   main: main("far", "the steeper line crosses the x-axis at a whole number on the dealt ladder", p => `The steeper line should cross the x-axis at a whole number that ${ladderWords(p)}. The closer, the better.`, "si", "max"),
   tieBreakers: [
-    tb("far-right", "the steeper line crosses the x-axis far to the right", "That whole number should be as big as possible.", "si", "big"),
-    tb("far-prime", "the steeper line's x-intercept is a big prime", "That whole number should have as big a smallest prime factor as possible.", "si", "prime"),
+    tb("far-gap", "the gap between the x-intercepts a multiple of q to your level", p => `The gap between the two lines' x-intercepts should be ${targetWords(p.q!)}. The closer, the better.`, "si", "small"),
+    tb("far-height", "the lines cross at a height that is a multiple of q to your level", p => `The two lines should cross at a height (y) that is ${targetWords(p.q!)}. The closer, the better.`, "pair", "small"),
   ],
   params: DEALT_NUMBERS["far-crossing"],
   evaluate: (ctx, p) => {
     const r = read(ctx, RS);
-    if (r === null) { const why = U("the steeper line is flat: it never meets the x-axis"); return void (ctx.term("far", "x-intercept", why, [RS]), allUndefined(ctx, ["far-right", "far-prime"], why, [RS])); }
-    const l = residueLadder(r, p);
+    if (r === null) { const why = U("the steeper line is flat: it never meets the x-axis"); return void (ctx.term("far", "x-intercept", why, [RS]), allUndefined(ctx, ["far-gap", "far-height"], why, [RS])); }
+    const l = residueLadder(r, p), m = levelTarget(p.q!, l.level), xg = read(ctx, XGAP), y = read(ctx, PY);
     ctx.term("far", `the steeper line's x-intercept's level: a whole number that ${ladderWords(p)}`, l.u, [RS]);
-    ctx.term("far-right", "that whole number", q(l.n), [RS]);
-    ctx.term("far-prime", "the smallest prime factor of that whole number", spf(l.n), [RS]);
+    ctx.term("far-gap", `how far the x-intercepts' gap is from a multiple of ${m}`, xg === null ? U("a flat line has no x-intercept") : offMultiple(xg, m), [RS, XGAP]);
+    ctx.term("far-height", `how far the crossing's height is from a multiple of ${m}`, y === null ? PARALLEL : offMultiple(y, m), [RS, PY]);
   },
 });
 
@@ -364,21 +386,20 @@ export const farCrossing = family({
  * gradients, so the two pull against each other.
  */
 export const highStart = family({
-  id: "high-start", title: "High Start", depends: ["si", "solve"],
+  id: "high-start", title: "High Start", depends: ["si", "pair"],
   main: main("start", "the gentler line crosses the y-axis on the dealt ladder", p => `The gentler line should cross the y-axis at ${valuationWords(p)}. The closer, the better.`, "si", "max"),
   tieBreakers: [
-    tb("high-and-rising", "the gentler line high and rising", "The smaller of that y-intercept and the gentler gradient's whole part should be as big as possible.", "si", "big"),
-    tb("start-factors", "that y-intercept shares many prime factors with the number you divide by", "The common factor of that y-intercept and the number you divide by should have as many prime factors as possible.", "solve", "smooth"),
+    tb("start-echo", "the gap between the y-intercepts a multiple of q to your level", p => `The gap between the two lines' y-intercepts should be ${targetWords(p.q!, true)}. The closer, the better.`, "si", "small"),
+    tb("start-crossing", "the lines cross at an x that is a multiple of q to your level", p => `The two lines should cross at an x that is ${targetWords(p.q!, true)}. The closer, the better.`, "pair", "small"),
   ],
   params: DEALT_NUMBERS["high-start"],
   evaluate: (ctx, p) => {
-    const c = read(ctx, CG), m = read(ctx, MG), d = read(ctx, D)!;
-    if (c === null || m === null) { const why = U("the gentler line is vertical: it has no y-intercept"); return void (ctx.term("start", "y-intercept", why, [CG]), allUndefined(ctx, ["high-and-rising", "start-factors"], why, [CG])); }
-    const l = valuationLadder(c, p);
+    const c = read(ctx, CG), m = read(ctx, MG);
+    if (c === null || m === null) { const why = U("the gentler line is vertical: it has no y-intercept"); return void (ctx.term("start", "y-intercept", why, [CG]), allUndefined(ctx, ["start-echo", "start-crossing"], why, [CG])); }
+    const l = valuationLadder(c, p), t = levelTarget(p.q!, l.level), yg = read(ctx, YGAP), x = read(ctx, PX);
     ctx.term("start", `the gentler line's y-intercept's level: ${valuationWords(p)}`, l.u, [CG]);
-    const h = l.n, mf = Qn.floor(m);
-    ctx.term("high-and-rising", "the smaller of the y-intercept and the gradient's whole part", q(h < mf ? h : mf), [CG, MG]);
-    ctx.term("start-factors", "how many prime factors the y-intercept shares with D", omega(h === 0n || d.n === 0n ? 0n : gcdB(h, d.n)), [CG, D]);
+    ctx.term("start-echo", `how far the gap between the y-intercepts is from a multiple of ${t}`, yg === null ? U("a vertical line has no y-intercept") : offMultiple(yg, t), [CG, YGAP]);
+    ctx.term("start-crossing", `how far the crossing's x is from a multiple of ${t}`, x === null ? PARALLEL : offMultiple(x, t), [CG, PX]);
   },
 });
 

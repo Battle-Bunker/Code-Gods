@@ -12,7 +12,7 @@ function score(L, p, tie) {
   const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
   if (f.ygap === null || f.xgap === null || f.origin) return null;   // no gaps, or a line through (0, 0): no score
   const main = powerLadder(p.k, t => Q.add(dist(f.ygap), Q.abs(Q.sub(f.ygap, Q.mul(t, f.xgap)))));
-  // main: the gaps' level: the y-intercepts' gap whole and k, k², … times the x-intercepts' gap (higher is better)
+  // main: the gaps' level: the y-intercepts' gap whole and k, k³, k⁶, … times the x-intercepts' gap (higher is better)
   if (tie === "gap-divisor") return [main, common(whole(f.ygap), f.D)];   // the gap sharing a big factor with the number you divide by is better
   if (tie === "gap-prime") return [main, spf(whole(f.ygap))];   // a gap with a big smallest prime factor is better
   return [main];

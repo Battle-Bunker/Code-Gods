@@ -102,8 +102,10 @@
 #                                q (and other 0) is at level L, the highest with L(L + 1)/2 <= t (a stretch by q adds 1
 #                                to t); score = q^L * (1 + 1/(1 + d)), d how far from level L + 1 (off the ladder: below).
 #   power_ladder(k, off)         the same over k, k^2, k^3, ...: off(t) is how far the state is from the level whose
-#                                number is t; level L at an exact k^L, d to k^(L+1) (on no level: to the nearest
-#                                power); returns the score.
+#                                number is t; level L at an exact k^T(L), T(L) = L(L + 1)/2 (k, k^3, k^6, ...), d to
+#                                the next rung (on no rung: to the nearest); returns the score.
+#   level_of(score, q)           the level a ladder's score stands for: the largest L with q^L <= score (-1 below 1).
+#   off_multiple(v, m)           how far v is from the nearest whole multiple of m other than 0.
 #
 # These run in the trusted prelude, outside the step count, so each does a bounded amount of work.
 from fractions import Fraction
@@ -298,6 +300,24 @@ def _climb(base, off):
     return base ** level * (1 + Fraction(1) / (1 + d))
 
 
+def level_of(score, q):
+    s = Fraction(score)
+    if s < 1:
+        return -1
+    L = 0
+    while Fraction(q) ** (L + 1) <= s:
+        L += 1
+    return L
+
+
+def off_multiple(v, m):
+    x = Fraction(v)
+    f = (x / m) // 1
+    lo, hi = (-1 if f == 0 else f), (1 if f + 1 == 0 else f + 1)   # 0 is no multiple
+    below, above = abs(x - lo * m), abs(hi * m - x)
+    return below if below <= above else above
+
+
 def nearest_leaving(x, q, r, at_least=0):
     return _anchor(Fraction(x), q, r, at_least)[0]
 
@@ -332,10 +352,12 @@ def valuation_ladder(x, q, r, other=0, at_least=0):
 
 
 def power_ladder(k, off):
-    # Levels are not nested: L at an exact k^L (d: the distance to k^(L+1)); on no level, d to the nearest power.
+    # Triangular rungs, not nested: L at an exact k^(L(L+1)/2) (d: to the next rung); on no rung, d to the nearest.
+    def rung(j):
+        return k ** (j * (j + 1) // 2)
     level, best, prev = 0, None, None
     for j in range(1, 4097):
-        o = Fraction(off(k ** j))
+        o = Fraction(off(rung(j)))
         if o == 0:
             level = j
         if best is None or o < best:
@@ -343,7 +365,7 @@ def power_ladder(k, off):
         if prev is not None and o >= prev:
             break
         prev = o
-    d = Fraction(off(k ** (level + 1))) if level > 0 else best
+    d = Fraction(off(rung(level + 1))) if level > 0 else best
     return Fraction(k) ** level * (1 + Fraction(1) / (1 + d))
 
 

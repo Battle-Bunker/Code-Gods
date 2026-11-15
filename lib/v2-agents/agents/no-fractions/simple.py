@@ -12,9 +12,9 @@ def score(L, p, tie):
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     if f.x is None:   # parallel lines never cross: no score
         return None
-    main = power_ladder(p["k"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^2, k^3, ...
+    main = power_ladder(p["k"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^3, k^6, ...
     nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators
-    # main: the level of the number you divide by on k, k², k³, … (higher is better)
+    # main: the level of the number you divide by on k, k³, k⁶, … (higher is better)
     if tie == "numerator-smooth":   # numerators adding up to a number with many prime factors are better
         return [main, omega(abs(nx) + abs(ny))]
     if tie == "numerator-shared":   # numerators sharing a big factor are better

@@ -9,9 +9,9 @@
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   if (f.x === null) return null;   // parallel lines never cross: no score
-  const main = powerLadder(p.k, t => Q.abs(Q.sub(Q.abs(f.D), t)));   // the number you divide by on k, k², k³, …
+  const main = powerLadder(p.k, t => Q.abs(Q.sub(Q.abs(f.D), t)));   // the number you divide by on k, k³, k⁶, …
   const nx = Q.mul(f.x, f.D), ny = Q.mul(f.y, f.D);   // the answer's numerators
-  return [main, omega(Q.add(Q.abs(nx), Q.abs(ny)))];   // main: the level of the number you divide by on k, k², k³, … (higher is better); tie-breaker: numerators adding up to a number with many prime factors are better
+  return [main, omega(Q.add(Q.abs(nx), Q.abs(ny)))];   // main: the level of the number you divide by on k, k³, k⁶, … (higher is better); tie-breaker: numerators adding up to a number with many prime factors are better
 }
 
 const FAR = 3;      // how far one move may go

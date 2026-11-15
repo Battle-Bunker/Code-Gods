@@ -1,5 +1,5 @@
 // Far Crossing · Naive (for learning)
-// Main part: the steeper line crosses the x-axis at a whole number on the dealt ladder. Tie-breaker: whichever you were dealt (the steeper line crosses the x-axis far to the right; the steeper line's x-intercept is a big prime).
+// Main part: the steeper line crosses the x-axis at a whole number on the dealt ladder. Tie-breaker: whichever you were dealt (the gap between the x-intercepts a multiple of q to your level; the lines cross at a height that is a multiple of q to your level).
 // What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 // pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 // player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -11,8 +11,8 @@ function score(L, p, tie) {
   if (f.rs === null) return null;   // the steeper line is flat: no score
   const { score: main, n: R } = ladder(f.rs, p.q, p.r);   // the x-intercept on your ladder
   // main: the level of the steeper line's x-intercept on your ladder (higher is better)
-  if (tie === "far-right") return [main, R];   // an x-intercept far to the right is better
-  if (tie === "far-prime") return [main, spf(R)];   // an x-intercept with a big smallest prime factor is better
+  if (tie === "far-gap") return [main, f.xgap === null ? null : Q.neg(offMultiple(f.xgap, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))];   // the gap between the x-intercepts near a multiple of q to the power one above your level is better
+  if (tie === "far-height") return [main, f.y === null ? null : Q.neg(offMultiple(f.y, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))];   // a crossing height near a multiple of q to the power one above your level is better
   return [main];
 }
 

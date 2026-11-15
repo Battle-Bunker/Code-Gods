@@ -1,5 +1,5 @@
 // High Start · Thorough
-// Main part: the gentler line crosses the y-axis on the dealt ladder. Tie-breaker: whichever you were dealt (the gentler line high and rising; that y-intercept shares many prime factors with the number you divide by).
+// Main part: the gentler line crosses the y-axis on the dealt ladder. Tie-breaker: whichever you were dealt (the gap between the y-intercepts a multiple of q to your level; the lines cross at an x that is a multiple of q to your level).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -13,8 +13,8 @@ function score(L, p, tie) {
   if (f.cg === null || f.mg === null) return null;   // the gentler line is upright: no score
   const { score: main, n: H } = valuationLadder(f.cg, p.q, p.r);   // the y-intercept on your ladder
   // main: the level of the gentler line's y-intercept on your ladder (higher is better)
-  if (tie === "high-and-rising") return [main, Q.cmp(H, floor(f.mg)) < 0 ? H : floor(f.mg)];   // the smaller of the gentler line's y-intercept and its gradient's whole part big is better
-  if (tie === "start-factors") return [main, omega(common(H, f.D))];   // a y-intercept sharing many prime factors with the number you divide by is better
+  if (tie === "start-echo") return [main, f.ygap === null ? null : Q.neg(offMultiple(f.ygap, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))];   // the gap between the y-intercepts near a multiple of q to the power one above your level is better
+  if (tie === "start-crossing") return [main, f.x === null ? null : Q.neg(offMultiple(f.x, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))];   // a crossing whose x is near a multiple of q to the power one above your level is better
   return [main];
 }
 
