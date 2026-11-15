@@ -4,9 +4,10 @@
  * 23: no steps); then a worked example (the family's own, else the most legible from a seeded walk: lib/v2-views example.ts); and the rule's
  * parts named "(main part, tie-breaker)" (ux-lessons 2.6).
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { DriftOnCard } from "./drift";
-import { GoalCard, workedExample } from "@workspace/v2-views";
+import { GoalCard, randomExample, rarityScale, workedExample } from "@workspace/v2-views";
+import { lineFromInputs, stateFromWire } from "./example-edit";
 import type { Score } from "@workspace/v2-core";
 import { decodeState, objectWord, useGame, useGameScope, useMyObject, useMyRule, type GameRule } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
@@ -23,14 +24,55 @@ function useFocusedMine(): { state: unknown; name: string } | null {
   return { state, name: `${word.One} ${o.number}` };
 }
 
+/** v1's ✏️ Edit: a line by its gradient and intercept; any other object by its rows as written. */
+function ExampleEditor({ rule, onChange }: { rule: GameRule; onChange: (s: unknown) => void }) {
+  const isLine = rule.type.id === "line";
+  const [m, setM] = useState("1"), [c, setC] = useState("0");
+  const [text, setText] = useState("");
+  const [bad, setBad] = useState(false);
+  const apply = () => {
+    const s = isLine ? lineFromInputs(m, c) : stateFromWire(rule.type as never, rule.variant, text);
+    setBad(s === null);
+    if (s !== null) onChange(s);
+  };
+  const field = "w-20 rounded border bg-background px-1 py-0.5 text-foreground";
+  return (
+    <form className="flex flex-wrap items-center gap-2 text-xs" onSubmit={e => { e.preventDefault(); apply(); }} data-testid="form-edit-example">
+      {isLine ? (<>
+        <label>y = <input className={field} value={m} onChange={e => setM(e.target.value)} aria-label="Gradient" data-testid="input-example-m" /></label>
+        <label>x + <input className={field} value={c} onChange={e => setC(e.target.value)} aria-label="Intercept" data-testid="input-example-c" /></label>
+      </>) : (
+        <label>Rows <input className="w-48 rounded border bg-background px-1 py-0.5 font-mono text-foreground" value={text} placeholder={rule.type.encode(rule.type.origin(rule.variant))} onChange={e => setText(e.target.value)} data-testid="input-example-wire" /></label>
+      )}
+      <button type="submit" className="border px-2 py-0.5" data-testid="button-apply-example">Show it</button>
+      {bad && <span className="text-destructive" role="alert">{isLine ? "Write whole numbers or fractions, like −2 or 1/2." : "Write it as the placeholder shows, one digit a cell."}</span>}
+    </form>
+  );
+}
+
 function Card({ rule, parts, value }: { rule: GameRule; parts: number; value: ((u: Score) => number) | null }) {
-  const example = useMemo(() => workedExample(rule, value), [rule, value]);
+  const worked = useMemo(() => workedExample(rule, value), [rule, value]);
+  // v1's example: randomised or edited by the player, the worked one until then.
+  const [own, setOwn] = useState<unknown>(null);
+  const [editing, setEditing] = useState(false);
+  const example = own ?? worked;
+  const scale = useMemo(() => rarityScale(rule, value, 6), [rule, value]);
+  const tools = (
+    <div className="space-y-1.5" data-testid="example-tools">
+      <div className="flex gap-2 text-xs">
+        <button type="button" className="border px-2 py-0.5 hover:bg-muted" data-testid="button-randomise-example" onClick={() => setOwn(randomExample(rule, Math.floor(Math.random() * 2 ** 31)))}>🎲 Randomise</button>
+        <button type="button" className="border px-2 py-0.5 hover:bg-muted" aria-expanded={editing} data-testid="button-edit-example" onClick={() => setEditing(e => !e)}>{editing ? "Done editing" : "✏️ Edit"}</button>
+        {own !== null && <button type="button" className="px-1 underline underline-offset-4" onClick={() => setOwn(null)} data-testid="button-reset-example">Back to the worked example</button>}
+      </div>
+      {editing && <ExampleEditor rule={rule} onChange={setOwn} />}
+    </div>
+  );
   const mine = useFocusedMine();
   const word = objectWord(rule.variant.id);
   const note = partsNote(parts, word.one, word.many);
   return (
     <div className="space-y-2 p-3" data-testid="goal-card">
-      <GoalCard rule={rule} example={example} mine={mine} value={value ?? undefined} exampleOpen={false} />
+      <GoalCard rule={rule} example={example} mine={mine} value={value ?? undefined} exampleOpen={false} exampleTools={tools} scale={scale} />
       {/* How the parts rank, behind "more" (round 27: the card read 52 words before anything else). */}
       {note && (
         <details className="text-xs text-muted-foreground" data-testid="details-rule-parts">
