@@ -8,7 +8,7 @@ import {
   amountCode, applyCall, applyPriced, cycleDiagnostic, factorCode, isInvalid, mixedIntBits, nonzeroRatBits, Qn, q, ratBits, rng, stepsRatBits,
   drawMutator, variantMutators, walkStep, type Q,
 } from "@workspace/v2-core";
-import { describeLine, LINE_Q_CODES, lensMutators, lineQ, lineQLenses, lineType, normalise, preset, type Line, type LineState } from "../src/index.ts";
+import { describeLine, LINE_Q_CODES, lensMutators, lineBits, lineParams, lineQ, lineQLenses, lineType, normalise, preset, shortcutFactor, type Line, type LineState } from "../src/index.ts";
 import { abc, mc } from "./helpers.ts";
 
 const v = lineQLenses;
@@ -132,7 +132,14 @@ const fromMCr = (m: R, c: R): Line => {
 };
 const through = (x0: R, y0: R, m: R) => fromMCr(m, Qn.sub(y0, Qn.mul(m, x0)));
 /** The lenses study's formulas (lib/v2-agents/scripts/lenses.ts), written independently of the engine's geometry. */
+/** The model's fee with the shortcut floor (mutators.ts shortcutFloor): turn and zoom pay more on a bigger line. */
 function model(l: Line, id: string, a: Record<string, string>): { line: Line | null; fee: number } {
+  const r = model0(l, id, a);
+  if (!["rot.turn", "basis.zoom"].includes(id) || !r.line || "invalid" in r.line) return r;
+  const phis = [l, r.line].map(x => lineBits(x, lineParams(v))).filter(Number.isFinite);
+  return { ...r, fee: r.fee * (phis.length ? shortcutFactor(Math.max(...phis)) : 1) };
+}
+function model0(l: Line, id: string, a: Record<string, string>): { line: Line | null; fee: number } {
   const m = l.b === 0n ? null : q(-l.a, l.b), c = l.b === 0n ? null : q(-l.c, l.b);
   const bad = { line: null, fee: 0 }, which = W(id);
   switch (id) {

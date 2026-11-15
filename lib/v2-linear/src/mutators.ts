@@ -5,7 +5,7 @@ import {
   type ArgCode, type Invalid, type Mutator, type Q, type Rng, type Variant,
 } from "@workspace/v2-core";
 import { isqrt as isqrtBig } from "./numbers.ts";
-import { decodeLine, describeLine, encodeLine, fromMC, inDomain, LINE_Q_CODES, intercept, isVertical, lineParams, normalise, slope, yAt, type Domain, type Line, type LineState } from "./line.ts";
+import { decodeLine, describeLine, encodeLine, fromMC, inDomain, LINE_Q_CODES, intercept, isVertical, lineBits, lineParams, normalise, slope, yAt, type Domain, type Line, type LineState } from "./line.ts";
 
 export type Args = Readonly<Record<string, Q | string>>;
 
@@ -208,6 +208,32 @@ const viaMC = (f: (m: Q, c: Q, a: Args) => [Q, Q]) =>
   };
 
 type M = Mutator<LineState, Args>;
+
+/**
+ * The price of a shortcut grows with the size of the line it rewrites (the coordinator's declared trial, 15 Nov). A
+ * multiplying or representation shortcut (stretch, zoom, turn) is still priced as a choice, by its factor's digits
+ * (decision 25), but never below that fee times 2^((Φ − SHORTCUT_PHI)/SHORTCUT_DOUBLING), where Φ is the code length of
+ * the larger of the line before and after the call (so a call and its inverse pay alike and the prices stay an exact
+ * potential, decision 19). Below Φ = 20 bits (about the 90th percentile of line-q's law draws, median 14.7) nothing
+ * changes; past it the fee doubles every 3.5 bits of Φ. So the k-th step of a multiplicative climb costs more than the
+ * last, and a ladder's bits grow far more slowly than the energy spent: relabelling a main part into levels could never
+ * do that, since bits are rarity (design-principles.md principle 1). Calibrated so that one seat spending a whole
+ * game's income (about 2,500⚡) on one ladder ends near 30 bits. Additive moves keep their prices (their size is
+ * already priced, unit by unit).
+ */
+export const SHORTCUT_PHI = 20, SHORTCUT_DOUBLING = 3.5;
+/** The floor's multiple at code length φ, held at 2^60 (unaffordable, but finite, so prices stay numbers). */
+export const shortcutFactor = (phi: number): number => Math.min(2 ** 60, Math.max(1, 2 ** ((phi - SHORTCUT_PHI) / SHORTCUT_DOUBLING)));
+function shortcutFloor(m: M): M {
+  return {
+    ...m,
+    floor: (before, after, site, a, v) => {
+      // A line the code cannot write (a vertical one on line-q) is priced by its surcharge; it sets no floor here.
+      const p = lineParams(v), phis = [before, after].map(s => lineBits(s.lines[site]!, p)).filter(Number.isFinite);
+      return (baseBits(v, true, m.id) + m.args(v).bits(a)) * (phis.length ? shortcutFactor(Math.max(...phis)) : 1);
+    },
+  };
+}
 const k = (a: Args) => Qa(a, "k");
 const w = (x: Q) => Qn.toWire(x);
 
@@ -323,7 +349,7 @@ export const stretch: M = {
   inverse: { kind: "partial", id: "mach.stretch", args: a => ({ f: Qn.inv(Qa(a, "f")) }), note: "undone by the reciprocal factor, at the same price, wherever it keeps the line on the board" },
 };
 
-export const mutators: readonly M[] = [shift, tilt, step, pivot, slide, mirror, nudge, move, stretch];
+export const mutators: readonly M[] = [shift, tilt, step, pivot, slide, mirror, nudge, move, shortcutFloor(stretch)];
 
 // ---------------------------------------------------------------- the lens mutators (lenses-and-mutators.md §5)
 //
@@ -588,6 +614,6 @@ export const fold: M = {
 };
 
 /** The five lens mutators, offered by line-q-lenses. */
-export const lensMutators: readonly M[] = [turn, swap, lean, zoom, fold];
+export const lensMutators: readonly M[] = [shortcutFloor(turn), swap, lean, shortcutFloor(zoom), fold];
 /** Every mutator of the line type. */
 export const allMutators: readonly M[] = [...mutators, ...lensMutators];

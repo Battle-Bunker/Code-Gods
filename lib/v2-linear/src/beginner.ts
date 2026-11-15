@@ -8,6 +8,7 @@ import { gcd, Qn, q, ref, type ElementRef, type Q } from "@workspace/v2-core";
 import { lineParams } from "./line.ts";
 import { allUndefined, distance, factorLabel, family, gap, more, notOnWhole, num, prime, undef, undealt, type Ctx, type L, type Shape, ladder } from "./layers.ts";
 import { pythagoreanArea, ruler, squareArea } from "./beginner-areas.ts";
+import { crossingWitness, divisibilityWitness, landingWitness, staircaseWitness } from "./witnesses.ts";
 import { sameOnBothRulers, treasure } from "./beginner-rulers.ts";
 
 export { factorLabel } from "./layers.ts";
@@ -89,7 +90,7 @@ export const primeStaircase = ladder(family<Ends>("prime-staircase", "Prime Stai
   const vb = num(ctx.read(back))!;
   ctx.term("step-back", `distance from y(−1) to ${primeEnding(pr)}`, distanceToPrimeEnding(Qn.abs(vb), pr.ends), [back]);
   if (brk) ctx.mark({ kind: "note", ref: brk.ref, text: "the run stops here" });
-}));
+}), staircaseWitness);
 
 // ---------------------------------------------------------------- 6. Prime Landing (the owner's example 1, regraded)
 
@@ -148,7 +149,7 @@ export const primeLanding = ladder(family<Ends>("prime-landing", "Prime Landing"
     c === null ? undef(cv) : q(aw === 0n ? 0n : gcd(p - 1n, aw)), [xRef, cRef]);
   ctx.mark({ kind: "focus", ref: xRef });
   ctx.mark({ kind: "candidate", ref: mark, term: "landing" });
-}));
+}), landingWitness);
 
 // ---------------------------------------------------------------- 8. Whole Crossing (the curator's §10.5)
 
@@ -193,7 +194,7 @@ export const wholeCrossing = ladder(family<QR>("whole-crossing", "Whole Crossing
     m === null ? undef(mv) : q(w === 0n ? 0n : gcd(t1, w)), [xRef, mRef]);
   ctx.mark({ kind: "focus", ref: xRef });
   ctx.mark({ kind: "candidate", ref: kRef, term: "ladder" });   // the target on the x-axis, for the plane to draw
-}));
+}), crossingWitness);
 
 // ---------------------------------------------------------------- 9. Divisibility Ladder (the curator's §10.5; D §11)
 
@@ -234,7 +235,7 @@ export const divisibilityLadder = ladder(family("divisibility-ladder", "Divisibi
   ctx.term("ladder", `the run of n dividing y(n): ${stepNote(run, "number", "numbers")}`, triangularLevel(run), cols.length ? cols : [cRef]);
   const share = stop.d === 1n ? gcd(stop.n < 0n ? -stop.n : stop.n, BigInt(at)) : 0n;
   ctx.term("next-rung", stop.d === 1n ? `the run stops at ${at}: y(${at}) = ${stop.n}, and the biggest number dividing both is ${share}` : `the run stops at ${at}: y(${at}) = ${Qn.toWire(stop)} is not whole`, q(share), at <= 12 ? [ref("table", "q", { x: at })] : [mRef, cRef]);
-}));
+}), divisibilityWitness);
 
 // ---------------------------------------------------------------- Exact Change (restored, decision 22)
 
