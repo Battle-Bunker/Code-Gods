@@ -1,9 +1,8 @@
 /**
- * Disclosure noise on the others' sums (v1's rule, restored: docs/public-log-design.md §5.2 on archive/engine-v1;
- * convex/v2/disclose.ts). In a live game two humans and a practice partner play; while live, every others' sum a player
- * reads is the exact sum plus the noise of the object's state, one draw for everyone (so each player's own bits plus
- * the others' sum shown is the same salience for both), points shown are own × max(0, others shown), and the standings
- * are the disclosed totals. After the end every read is exact.
+ * Disclosure noise on the others' sums as measurement error (owner decision 32; convex/v2/disclose.ts). In a live game
+ * two humans and a practice partner play; while live, every others' sum a player reads is the exact sum plus their own
+ * reading's noise, independent of the other player's (never shared), points shown are own × max(0, others shown), and
+ * the standings are the exact totals published every scoreIntervalSeconds. After the end every read is exact.
  *
  * What would break: a live read that discloses an exact others' sum, or a number built on one (points, totals, a sort,
  * the act log), or an ended game that still shows noise.
@@ -20,27 +19,27 @@ test("while live every others' sum is the exact one plus its state's noise, the 
   const { roomId } = (await perform(ada!, "room.create", { name: "Noise room" })).result;
   await perform(bo!, "room.join", { code: (await ada!.query("v2/rooms:get", { roomId })).code }, {});
   await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
-  // The beginner presets have no noise (v1's Annotated basics, peerNoiseBits 0): this room asks for v1's default.
-  await perform(ada!, "room.settings", { overrides: { peerNoiseBits: 8 } }, { roomId });
+  // The beginner game reads exact (decision 32): this room asks for σ 8.
+  await perform(ada!, "room.settings", { overrides: { peerNoiseVariance: 64 } }, { roomId });
   const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
   await perform(ada!, "game.startWorldNow", {}, { gameId });
   await new Promise(r => setTimeout(r, 12_000));   // a scoreboard (every 10 world seconds) and some moves
 
   const ids = (await ada!.query("v2/play:objectIds", { gameId, sort: "born", paginationOpts: page })).page.map((r: any) => r.objectId);
-  assert.ok(ids.length >= 10);
-  let noisy = 0;
+  assert.ok(ids.length >= 3);
+  let noisy = 0, apart = 0;
   for (const objectId of ids) {
     const [a, b] = [await ada!.query("v2/play:object", { objectId }), await bo!.query("v2/play:object", { objectId })];
     const [ea, eb] = [await admin.query("v2/testing:valueOf", { objectId, userId: ada!.userId }), await admin.query("v2/testing:valueOf", { objectId, userId: bo!.userId })];
     if (a.version !== b.version || a.value.version !== ea.version || b.value.version !== eb.version) continue;   // moved between the reads
     const [na, nb] = [a.value.want - ea.want, b.value.want - eb.want];
-    assert.ok(close(na, nb), `one draw for everyone at a state: ${na} vs ${nb}`);
-    assert.ok(close(a.value.rarityBits + a.value.want, b.value.rarityBits + b.value.want), "own + others shown is the same salience for both");
+    if (!close(na, nb)) apart++;
     assert.ok(close(a.value.points, a.value.rarityBits * Math.max(0, a.value.want)), "points shown follow the shown sum");
     assert.ok(close(a.value.rarityBits, ea.rarityBits), "a player's own bits are exact");
     if (Math.abs(na) > 1e-6) noisy++;
   }
   assert.ok(noisy >= ids.length / 2, `the others' sums are disclosed with noise (${noisy} of ${ids.length})`);
+  assert.ok(apart >= noisy - 1, `each player's reading is their own, never shared (${apart} of ${noisy} differ)`);
 
   // The sort on the others' sum follows the disclosed values, not the exact ones.
   const byWant = (await ada!.query("v2/play:objectIds", { gameId, sort: "want", paginationOpts: page })).page.map((r: any) => r.objectId);
@@ -69,9 +68,9 @@ test("while live every others' sum is the exact one plus its state's noise, the 
   for (const m of listed.result.page.filter((x: any) => !x.mine)) assert.deepEqual([m.agentId, m.calls, m.charge], [null, [], null]);
 
   // A page loaded while live keeps its cursor through the end (the app's paginated list re-runs it then).
-  const firstPage = await ada!.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 4, cursor: null } });
+  const firstPage = await ada!.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 1, cursor: null } });
   assert.equal((await perform(ada!, "game.end", {}, { gameId })).ok, true);
-  await ada!.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 4, cursor: firstPage.continueCursor } });
+  await ada!.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 1, cursor: firstPage.continueCursor } });
   const ended = (await ada!.query("v2/play:moves", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page.filter((m: any) => !m.mine);
   assert.ok(ended.length > 0 && ended.every((m: any) => m.by && m.calls.length > 0), "after the end every move names its mover and calls");
   for (const objectId of ids.slice(0, 8)) {

@@ -135,9 +135,9 @@ try {
     await next.getByTestId("select-setting-durationMode").selectOption("halfLife");
     await next.getByText("Half-life (minutes)").waitFor();
     await next.getByTestId("input-setting-scoreIntervalSeconds").fill("5");
-    await next.getByTestId("select-setting-peerNoiseBits").selectOption("4");
+    await next.getByTestId("select-setting-peerNoiseVariance").selectOption("16");
     await next.getByTestId("button-save-settings").click();
-    await next.getByTestId("text-next-game-summary").getByText(/5 s to plan · ends at a hidden moment, half of games within 1\.5 min · 777 ⚡ to start · others' sums blurred \(4 bits\) · totals every 5 s/).waitFor({ timeout: 15_000 });
+    await next.getByTestId("text-next-game-summary").getByText(/5 s to plan · ends at a hidden moment, half of games within 1\.5 min · 777 ⚡ to start · others' sums blurred \(about ±4 bits each reading\) · totals every 5 s/).waitFor({ timeout: 15_000 });
     // Back to a public end, so the steps below play a game of known length.
     await next.getByTestId("select-setting-durationMode").selectOption("fixed");
     await next.getByTestId("button-save-settings").click();

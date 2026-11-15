@@ -35,10 +35,10 @@ export interface Preset {
   /** How its games end (duration.ts): v1's Annotated basics was fixed, 300 s (archive settings.ts ANNOTATED_BASICS_PATCH). */
   durationMode: "fixed" | "halfLife";
   /**
-   * The disclosure noise (disclose.ts): 8 bits, the owner's ruling of 1 Nov. v1's Annotated basics had 0 because its
-   * totals were built on the noisy sums and read high; v2 publishes exact totals (the coordinator's call 15).
+   * The variance, bits², of each reading of the others' sums while live (disclose.ts, owner decision 32): 0 on the
+   * beginner presets (the owner); 64 (σ 8, v1's default) elsewhere.
    */
-  peerNoiseBits: number;
+  peerNoiseVariance: number;
   economy: PresetEconomy;
   bid?: PresetBid;
 }
@@ -63,19 +63,25 @@ function fromPool(id: string, extra: Partial<Preset> & { id?: string; title?: st
     minPlayers: 3, planningSeconds: 60, worldSeconds: 300, startingEnergy: LINES_BEGINNER_ECONOMY.startingEnergy,
     // Owner decision 31: "Let's shrink object quantity for the beginner game to 3 ... I want to concentrate human
     // attention more on specific battlefields for the beginner game."
-    // peerNoiseBits 8 (the owner's 1 Nov ruling; the coordinator's call 15 with exact published totals).
-    startingObjects: 3, durationMode: "fixed", peerNoiseBits: 8,
+    // Owner decision 32: each reading of the others' sums is an independent draw of this variance; σ 8 (v1's default)
+    // outside the beginner game.
+    startingObjects: 3, durationMode: "fixed", peerNoiseVariance: 64,
     economy: ECONOMY, ...extra,
   };
 }
 
-const BEGINNER = fromPool("lines-beginner");
+/**
+ * The beginner games: ten minutes (owner decision 34, "The beginner game should be 10m long"), so with decision 31's
+ * births 5 objects by the end; exact readings (decision 32, "it should be zero for the beginner game").
+ */
+const BEGINNER_WORLD = { worldSeconds: 600, peerNoiseVariance: 0 };
+const BEGINNER = fromPool("lines-beginner", BEGINNER_WORLD);
 /**
  * The beginner grid (docs/engine-v2/grids.md): the 4×4 board of digits. A board's agents read 16 cells, not y = mx + c,
  * so they are longer and dearer to summon (grid starters cost about 400 to 590 ⚡, line starters 300 to 500): grids
  * start with 900 ⚡ so that a starter takes about the share of the starting energy a line starter takes of 600.
  */
-const GRIDS = fromPool("grids-beginner", { startingEnergy: GRIDS_BEGINNER_ECONOMY.startingEnergy });
+const GRIDS = fromPool("grids-beginner", { ...BEGINNER_WORLD, startingEnergy: GRIDS_BEGINNER_ECONOMY.startingEnergy });
 
 export const PRESETS: readonly Preset[] = [
   BEGINNER,

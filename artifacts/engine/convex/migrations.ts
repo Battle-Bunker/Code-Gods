@@ -15,7 +15,7 @@ import { Migrations } from "@convex-dev/migrations";
 import type { FunctionReference } from "convex/server";
 import { components, internal } from "./_generated/api";
 import { v } from "convex/values";
-import { newNoiseKey, noiseAt, shownAt } from "./v2/disclose";
+import { newNoiseKey, objectReading, readingNoise, shownAt } from "./v2/disclose";
 import type { DataModel } from "./_generated/dataModel";
 import { internalMutation, internalQuery } from "./_generated/server";
 
@@ -49,7 +49,7 @@ export const noiseKeys = migrations.define({
   migrateOne: (_ctx, g) => (g.phase === "ended" || g.noiseKey ? undefined : { noiseKey: newNoiseKey() }),
 });
 /**
- * A value row of a game not yet ended gets its disclosed fields (the others' sum at its state's noise), so the live
+ * A value row of a game not yet ended gets its disclosed fields (its player's reading of the others' sum), so the live
  * sorts and reads disclose. Ended games' rows are read exact and keep none (the fields stay optional).
  */
 export const shownValues = migrations.define({
@@ -60,7 +60,7 @@ export const shownValues = migrations.define({
     if (!game || game.phase === "ended") return;
     const state = await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", r.objectId)).unique();
     if (!state) return;
-    return shownAt(r, noiseAt(game, state.state));
+    return shownAt(r, readingNoise(game, r.memberId, objectReading(r.objectId, state.version)));
   },
 });
 

@@ -1,8 +1,9 @@
 /**
- * The disclosure noise stays unbiased where agents go (the coordinator's call B1, after playtest round 10: shown
- * figures read 1.5–2.5× high because agents climbed on the shown draw and chose its peaks). A 60-second game of three
- * practice partners at peerNoiseBits 8: over the states the agents moved to, the shown others' sum averages the exact
- * one, and every published total is the exact record's (the coordinator's call 15).
+ * The disclosure noise stays unbiased where agents go (owner decision 32, after playtest round 10: shown figures read
+ * 1.5–2.5× high because agents climbed on a shared draw and chose its peaks; now every reading is an independent
+ * measurement, never shared and never accumulated). A 60-second game of three practice partners at variance 64 (σ 8):
+ * over the states the agents moved to, the shown others' sum averages the exact one, and every published total is the
+ * exact record's (call 15).
  *
  * What would break: agents selecting on the draw the display shows (the shown figures run high), or totals that do
  * not track the game.
@@ -16,7 +17,7 @@ test("where agents go, the shown others' sum is centred, and live totals track t
   const { roomId } = (await perform(host!, "room.create", { name: "Bias room" })).result;
   await perform(host!, "room.setSpectator", { spectator: true }, { roomId });
   await perform(host!, "seats.fillPracticePartners", {}, { roomId });
-  await perform(host!, "room.settings", { overrides: { peerNoiseBits: 8, worldSeconds: 60, planningSeconds: 5 } }, { roomId });
+  await perform(host!, "room.settings", { overrides: { peerNoiseVariance: 64, worldSeconds: 60, planningSeconds: 5 } }, { roomId });
   const { gameId } = (await perform(host!, "game.start", {}, { roomId })).result;
   for (let i = 0; (await host!.query("v2/games:header", { gameId })).phase !== "ended"; i++) {
     assert.ok(i < 400, "the game ends");
@@ -26,7 +27,7 @@ test("where agents go, the shown others' sum is centred, and live totals track t
   assert.ok(offsets.length >= 30, `enough moves: ${offsets.length}`);
   const mean = offsets.reduce((a, b) => a + b, 0) / offsets.length;
   console.log(`# moves ${offsets.length}, mean shown − exact others' sum ${mean.toFixed(2)} bits`);
-  assert.ok(Math.abs(mean) < 2.5, `centred where agents went: ${mean.toFixed(2)} bits (σ 8; it was +12.8 before B1)`);
+  assert.ok(Math.abs(mean) < 2.5, `centred where agents went: ${mean.toFixed(2)} bits (σ 8; it was +12.8 on the shared draw)`);
 
   const history = await host!.query("v2/games:standingsHistory", { gameId, after: -1 });
   const final = await host!.query("v2/games:standings", { gameId });
