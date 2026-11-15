@@ -6,6 +6,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { grid4, gridType } from "@workspace/v2-grid";
 import { lineQ, lineType, lineZ } from "@workspace/v2-linear";
+import { pairQ, pairType } from "@workspace/v2-pair";
 import { births, runAct, sandboxes, summonBits, watcherFor, type WatcherType } from "../src/index.ts";
 
 const boxes = sandboxes();
@@ -15,6 +16,7 @@ const CASES = [
   { type: "lines" as WatcherType, objectType: lineType, variant: lineQ, rule: { family: "m-meets-c", params: {} } },
   { type: "lines" as WatcherType, objectType: lineType, variant: lineZ, rule: { family: "m-meets-c", params: {} } },
   { type: "grids" as WatcherType, objectType: gridType, variant: grid4, rule: { family: gridType.families[0]!.id, params: {} } },
+  { type: "pairs" as WatcherType, objectType: pairType, variant: pairQ, rule: { family: "whole-answer", params: {} } },
 ];
 
 test("a Watcher reads the whole object it is offered (a full read: its owner is told it) and changes nothing", async () => {
@@ -34,7 +36,7 @@ test("a Watcher reads the whole object it is offered (a full read: its owner is 
 });
 
 test("a Watcher is cheap to summon: well under a tenth of a line starter's 600 energy", () => {
-  for (const type of ["lines", "grids"] as const) for (const language of ["typescript", "python"] as const) {
+  for (const type of ["lines", "grids", "pairs"] as const) for (const language of ["typescript", "python"] as const) {
     const w = watcherFor(type, language);
     assert.ok(summonBits(language, w.source).energy < 60, `${type} ${language}: ${summonBits(language, w.source).energy}`);
   }

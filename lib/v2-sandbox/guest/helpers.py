@@ -63,6 +63,22 @@
 #   contested(offer, times)      True when pushback(offer) has reached times; it then leaves your owner a note naming
 #                                the tug-of-war and suggesting a deal with the other player.
 #
+# Two lines (an object of two lines, "pairs"):
+#   pair_of(offer)               the two lines as [[a, b, c], [a, b, c]] (a*x + b*y + c = 0, whole numbers, in the
+#                                game's order), from the eqs view (one full read).
+#   solved(L)                    what the two lines give together, each part a number or None where it does not exist:
+#                                D (the number you divide by), dot, x and y (the answer), X and Y (the whole numbers
+#                                nearest it), ms, cs, rs (the steeper line's gradient, y-intercept and x-intercept),
+#                                ratio (steeper gradient over the other), ygap, xgap (the gaps between the intercepts),
+#                                off_right, off45 (how far from a right angle, from 45 degrees), origin (a line through
+#                                (0, 0)).
+#   pair_steps(L, far, kinds)    the steps of the given kinds ("shift", "tilt", "stretch", "turn", "slide", "combine",
+#                                "reflect", "quarter") on either line, each (plan, lines after); steps the game would
+#                                refuse are left out.
+#   spf(n), omega(n), common(a, b)  a whole number's smallest prime factor (1 for 0 and +-1), its number of prime
+#                                factors counting repeats (0 for 0 and +-1), and the biggest factor a and b share (0 if
+#                                either is 0).
+#
 # These run in the trusted prelude, outside the step count, so each does a bounded amount of work.
 from fractions import Fraction
 import functools as _functools
@@ -298,6 +314,153 @@ def vertical(offer, far):
     w = whole(x) - x
     if w != 0:
         out.append((call("cart.slide", u=w, v=0), None, x + w))
+    return out
+
+
+def spf(n):
+    x = _whole(n)
+    if x is None:
+        return None
+    x = abs(x)
+    if x < 2:
+        return 1
+    d = 2
+    while d * d <= x and d <= 100000:
+        if x % d == 0:
+            return d
+        d += 1 if d == 2 else 2
+    return x
+
+
+def omega(n):
+    x = _whole(n)
+    if x is None:
+        return None
+    x = abs(x)
+    if x < 2:
+        return 0
+    k, d = 0, 2
+    while d * d <= x and d <= 100000:
+        while x % d == 0:
+            x //= d
+            k += 1
+        d += 1 if d == 2 else 2
+    return k + 1 if x > 1 else k
+
+
+def common(a, b):
+    x, y = _whole(a), _whole(b)
+    if x is None or y is None or x == 0 or y == 0:
+        return 0
+    return _gcd(x, y)
+
+
+def _gcd(x, y):
+    x, y = abs(x), abs(y)
+    while y:
+        x, y = y, x % y
+    return x
+
+
+def pair_of(offer):
+    v = offer.view("eqs")
+    n = lambda k: _whole(getattr(v, k))
+    return [[Fraction(n("a1")), Fraction(n("b1")), Fraction(-n("e1"))], [Fraction(n("a2")), Fraction(n("b2")), Fraction(-n("e2"))]]
+
+
+class _Solved:
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+
+
+def solved(L):
+    (a1, b1, c1), (a2, b2, c2) = [[int(x) for x in l] for l in L]
+    D, dot, nx, ny = a1 * b2 - a2 * b1, a1 * a2 + b1 * b2, b1 * c2 - b2 * c1, c1 * a2 - c2 * a1
+    s = 1 if (b1 != 0 if b2 == 0 else b1 != 0 and abs(a2) * b1 > abs(a1) * b2) else 0
+    ln = [(a1, b1, c1), (a2, b2, c2)]
+    grad = lambda l: None if l[1] == 0 else Fraction(-l[0], l[1])
+    yint = lambda l: None if l[1] == 0 else Fraction(-l[2], l[1])
+    xint = lambda l: None if l[0] == 0 else Fraction(-l[2], l[0])
+    gap = lambda p, r: None if p is None or r is None else abs(p - r)
+    ms, mo = grad(ln[s]), grad(ln[1 - s])
+    x = None if D == 0 else Fraction(nx, D)
+    y = None if D == 0 else Fraction(ny, D)
+    near = lambda v: None if v is None else Fraction((v + Fraction(1, 2)) // 1)
+    ad, at = abs(D), abs(dot)
+    return _Solved(
+        D=Fraction(D), dot=Fraction(dot), x=x, y=y, X=near(x), Y=near(y), ms=ms, cs=yint(ln[s]), rs=xint(ln[s]),
+        ratio=None if ms is None or mo is None or mo == 0 else ms / mo,
+        ygap=gap(yint(ln[0]), yint(ln[1])), xgap=gap(xint(ln[0]), xint(ln[1])),
+        off_right=None if D == 0 else abs(Fraction(dot, D)), off45=Fraction(abs(ad - at), ad + at),
+        origin=c1 == 0 or c2 == 0)
+
+
+def pair_steps(L, far, kinds):
+    ln = [[int(x) for x in l] for l in L]
+
+    def norm(a, b, c):
+        if a == 0 and b == 0:
+            return None
+        g = _gcd(_gcd(a, b), c)
+        r = [a // g, b // g, c // g]
+        if r[1] < 0 or (r[1] == 0 and r[0] < 0):
+            r = [-t for t in r]
+        return r
+
+    def from_mc(m, k):   # y = m*x + k as a line: -m*x + y - k = 0, cleared of fractions
+        m, k = Fraction(m), Fraction(k)
+        d = m.denominator * k.denominator // _gcd(m.denominator, k.denominator)
+        return norm(-m.numerator * (d // m.denominator), d, -k.numerator * (d // k.denominator))
+
+    def pair(i, l):
+        if l is None:
+            return None
+        two = [l, ln[1]] if i == 0 else [ln[0], l]
+        if two[0] == two[1]:
+            return None   # the two lines of a pair must be different
+        r = sorted(two)
+        if r == sorted(ln):
+            return None   # no change: the game refuses it
+        return [[Fraction(x) for x in t] for t in r]
+
+    D = ln[0][0] * ln[1][1] - ln[1][0] * ln[0][1]
+    nx, ny = ln[0][1] * ln[1][2] - ln[1][1] * ln[0][2], ln[0][2] * ln[1][0] - ln[1][2] * ln[0][0]
+    out = []
+    for i in (0, 1):
+        (a, b, c), (ja, jb, jc), line = ln[i], ln[1 - i], str(i + 1)
+
+        def add(plan, l):
+            r = pair(i, l)
+            if r:
+                out.append((plan, r))
+        m = None if b == 0 else Fraction(-a, b)
+        k0 = None if b == 0 else Fraction(-c, b)
+        if "reflect" in kinds:
+            n2, d = ja * ja + jb * jb, a * ja + b * jb
+            add(call("pair.reflect", line=line), norm(n2 * a - 2 * d * ja, n2 * b - 2 * d * jb, n2 * c - 2 * d * jc))
+        if "quarter" in kinds and D != 0:
+            add(call("pair.quarter", line=line), norm(-b * D, a * D, b * nx - a * ny))
+        for k in range(-far, far + 1):
+            if k == 0:
+                continue
+            if m is not None:
+                if "shift" in kinds:
+                    add(call("si.shift", line=line, k=k), from_mc(m, k0 + k))
+                if "tilt" in kinds:
+                    add(call("si.tilt", line=line, k=k), from_mc(m + k, k0))
+                if "stretch" in kinds:
+                    f = k + 1 if k > 0 else k - 1
+                    add(call("mach.stretch", line=line, f=f), from_mc(m * f, k0 * f))
+                if "turn" in kinds and D != 0:
+                    m2 = m + k
+                    add(call("pair.turn", line=line, k=k), from_mc(m2, Fraction(ny, D) - m2 * Fraction(nx, D)))
+            if "slide" in kinds and D != 0:
+                g = _gcd(ja, jb)
+                add(call("pair.slide", line=line, k=k), norm(a, b, c - a * (k * jb // g) - b * (-k * ja // g)))
+            if "combine" in kinds:
+                A, B, C = a + k * ja, b + k * jb, c + k * jc
+                if (A != 0 or B != 0) and _gcd(_gcd(A, B), C) == 1:
+                    add(call("pair.combine", line=line, k=k), norm(A, B, C))
     return out
 
 
