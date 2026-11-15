@@ -810,3 +810,58 @@ if (want("params")) {
   }
   say(`\nExample cards: ${rows.slice(0, 4).map(x => `"${x.a.card}"`).join(" ")}`);
 }
+
+if (want("parambalance")) {
+  // Balance (v1's equal opportunity): best bits a rule reaches from births within its share of the cheapest reach,
+  // by lens and by qualifier. Mutator moves recommended (--moves mutators).
+  say("\n## Balance of the parameterised pool: best bits in reach, by lens and by qualifier\n");
+  const r = rng("param-balance");
+  const reaches = BIRTHS.slice(0, 3).map(b => reach(b, LINE_SHARE, Number(process.env.REACH ?? 60_000)));
+  say(`Reach from 3 births: ${reaches.map(x => `${x.states.length} lines up to ${x.spent.toFixed(0)} ⚡`).join(", ")}`);
+  const best = (pr: PRule) => { const v = valuers([pr], smp)[0]!; return median(reaches.map(x => x.states.reduce((m, l) => Math.max(m, v.bits(l)), 0))); };
+  const other = (l: Lens) => (l.id === "c" ? LENSES[1]! : LENSES[0]!);
+  say("| lens | median best bits over 6 random qualifiers | range |"); say("|---|---|---|");
+  for (const l of LENSES) {
+    const bs = Array.from({ length: 6 }, () => best(paramRule(l, QUALS[r.below(QUALS.length)]!, other(l), 10)));
+    say(`| ${l.id} | ${f1(median(bs))} | ${f1(Math.min(...bs))}–${f1(Math.max(...bs))} |`);
+  }
+  say("\n| qualifier | median best bits over 4 random lenses | range |"); say("|---|---|---|");
+  for (const q of QUALS) {
+    const bs = Array.from({ length: 4 }, () => { const l = LENSES[r.below(LENSES.length)]!; return best(paramRule(l, q, other(l), 10)); });
+    say(`| ${q.id} | ${f1(median(bs))} | ${f1(Math.min(...bs))}–${f1(Math.max(...bs))} |`);
+  }
+}
+
+if (want("paramdyn")) {
+  // Dynamism: random tables of 3 and 4 parameterised rules, scripted seats, mutator moves (--moves mutators).
+  say("\n## Dynamism: random tables of parameterised rules\n");
+  const r = rng("param-dyn", process.env.SEED ?? "1");
+  const draw = (): PRule => { const l = LENSES[r.below(LENSES.length)]!; let l2 = l; while (l2.id === l.id) l2 = LENSES[r.below(LENSES.length)]!; return paramRule(l, QUALS[r.below(QUALS.length)]!, l2, BASES[r.below(BASES.length)]!); };
+  for (const seats of [3, 4]) for (let t = 0; t < Number(process.env.TABLES ?? 4); t++) {
+    const rules: PRule[] = []; while (rules.length < seats) { const x = draw(); if (!rules.some(y => y.lens.id === x.lens.id && y.qual.id === x.qual.id)) rules.push(x); }
+    const vs = valuers(rules, smp); const dy = dynamicsTest(vs, `pd-${seats}-${t}`);
+    const sb = dy.seatBits; const spread = Math.max(...sb) / Math.max(1e-9, Math.min(...sb));
+    say(`**${seats} seats, table ${t + 1}**: ${rules.map(x => x.id).join(" + ")}`);
+    say(`  F ${dy.Ft.map(x => x.toFixed(0)).join("→")}; objects moved in the last 100 s ${f2(dy.changedLate)}; ever moved ${dy.touched}/24; moves ${dy.moves} (by seat ${dy.movesBy.join(", ")}); seat bits at the end ${sb.map(f1).join(", ")} (max/min ${f1(spread)}); largest coefficient ${dy.maxH}`);
+  }
+}
+
+if (want("paramdrift")) {
+  // The same random tables, but each seat's dealt qualifier value is redrawn within its family every 50 s
+  // (e.g. "a prime ending in 7" becomes "a prime ending in 3"): the §A8 drifting target, built from decision 41's params.
+  say("\n## Dynamism with drifting parameters (each qualifier redrawn within its family every 50 s)\n");
+  const r = rng("param-dyn", process.env.SEED ?? "1");
+  const draw = (): PRule => { const l = LENSES[r.below(LENSES.length)]!; let l2 = l; while (l2.id === l.id) l2 = LENSES[r.below(LENSES.length)]!; return paramRule(l, QUALS[r.below(QUALS.length)]!, l2, BASES[r.below(BASES.length)]!); };
+  const familyOf = (q: Qual) => q.id.replace(/[0-9]+/g, "#");
+  for (const seats of [3, 4]) for (let t = 0; t < Number(process.env.TABLES ?? 4); t++) {
+    const rules: PRule[] = []; while (rules.length < seats) { const x = draw(); if (!rules.some(y => y.lens.id === x.lens.id && y.qual.id === x.qual.id)) rules.push(x); }
+    const rr = rng("drift", seats, t);
+    const phases = Array.from({ length: 6 }, (_, k) => valuers(rules.map(x => {
+      if (k === 0) return x;
+      const fam = QUALS.filter(q => familyOf(q) === familyOf(x.qual));
+      return paramRule(x.lens, fam[rr.below(fam.length)]!, x.lens2, x.base);
+    }), smp));
+    const dy = dynamicsTest(phases[0]!, `pd-${seats}-${t}`, { phase: s => phases[Math.min(5, Math.floor(s / 50))]! });
+    say(`**${seats} seats, table ${t + 1}** (same tables as --part paramdyn): F ${dy.Ft.map(x => x.toFixed(0)).join("→")}; objects moved in the last 100 s ${f2(dy.changedLate)}; ever moved ${dy.touched}/24; seat bits at the end ${dy.seatBits.map(f1).join(", ")}`);
+  }
+}

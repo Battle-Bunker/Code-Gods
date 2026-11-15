@@ -7,6 +7,7 @@ Status: proposals and measurements only. Nothing here changes the dealt rule poo
 - the rational pool: `node --max-old-space-size=10000 --experimental-strip-types scripts/line-rules-v3.ts --pool rational --moves mutators --part rules,tables,ident,entangle` (about an hour);
 - adversaries, contests, unfreezing and the flatter law: `--part adversary`, `--moves mutators --part contest`,
   `--pool rational --moves mutators --part unfreeze`, `--part flatlaw`, `--part pmi [--set channels]` (minutes each);
+- balance and dynamism: `--moves mutators --part parambalance`, `--part paramdyn`, `--part paramdrift` (SEED, TABLES env);
 - parameterised families: `PAIRS=40 WIN=30 T=20 node --max-old-space-size=6000 --experimental-strip-types scripts/line-rules-v3.ts --part params` (about 15 minutes).
 
 It follows [landscape-analysis.md](landscape-analysis.md), whose five collapse tests (§4) are applied here. Part A is the
@@ -73,8 +74,9 @@ prime's exponent measure as near-perpendicular (0–1.5 bits).
 
 **Parameterised families (§A11, decisions 40, 41).** Lens × qualifier × second lens × base gives 8,250 rules. Random pairs
 are near-perpendicular (median PMI 0.8 bits). In the window |coefficients| ≤ 30, 39 of 40 random pairs have no line worth
-12 bits to both, while a single rule's 12-bit lines are common. A single rule still rarely reaches 20 in that window;
-the reach-based measurement is next.
+12 bits to both, while a single rule's 12-bit lines are common. Judged by balance and dynamism (§A12): reach varies 2–3× by lens and
+qualifier, so it needs par-normalising. Fixed-parameter tables freeze (4–13% of objects move late), and tables whose
+qualifiers drift every 50 s keep 54–100% moving.
 
 The audit of all 46 current tie-breakers against the "tied" rule is §A3: 6 are tied, 22 read the anchor alone, 18 are
 independent, and all 24 ramps are among the untied ones.
@@ -579,6 +581,61 @@ a product of named, typed parts:
   Proposal: drop 5- and 7-smooth, or deal them with base 2 tie-breakers; and either equalise qualifier families by
   calibrating dealt values within a family to ±1 bit, or deal one qualifier family per seat type. Lenses differ more
   than qualifiers: the gradient and the area reach less, and heights at x = t and crossings reach more.
+
+
+## A12. The parameterised pool judged by balance and dynamism
+
+The coordinator relayed the owner's criterion: "the most important virtues to design for are game balance (fairness
+across rules) and dynamism (metagame doesn't settle into static optima)". No par level is required, so the earlier "a
+single rule rarely reaches 20" gap is withdrawn. Measured with mutator moves (shortcuts included), `--moves mutators
+--part parambalance | paramdyn | paramdrift`; raw output in `scripts/line-params-dynamics-results.md`.
+
+**Balance: best bits a rule reaches from a birth** (the cheapest 60,000 lines, up to about 75 ⚡; median of 3 births):
+
+| By lens (6 random qualifiers each) | Median | Range |
+|---|---|---|
+| y-intercept | 9.7 | 9.4–16.1 |
+| x-crossing | 14.4 | 9.8–16.1 |
+| gradient | **17.2** | 13.4–18.8 |
+| heights at x = 2, 3, 5, 7 | 10.9–13.3 | 7.4–14.7 |
+| where y = 1, 2 | 12.2–12.7 | 8.5–15.8 |
+
+Over 4 random lenses, qualifier medians run from 8.1 (repdigit base 5, 2-primes 9.4) to 23.5 (primes ≡ 3 mod 7). The
+spread within one qualifier across lenses is as large as between qualifiers.
+
+- **Not balanced as it stands.** A randomly dealt rule's reach varies about 2–3× between lenses, qualifiers and their
+  combinations. With shortcuts the gradient reaches the most (a stretch or tilt changes it cheaply), reversing the
+  window result in §A11. So balance must be measured on the real moves, not in a fixed window.
+- **Proposal (a scoring decision for the coordinator and the owner):**
+  - *par-normalise* each dealt (lens, qualifier, parameter) combination: measure the median best bits it reaches from
+    births on the real moves and prices, and scale its bits by par ÷ that median, so every dealt rule offers the same
+    reachable value;
+  - or deal only combinations within ±1 bit of a common par and exclude the rest.
+
+  The spec lead's offline valuation per declared grid is where either fits.
+
+**Dynamism: random tables** (scripted seats, 24 objects, 300 s, mutator moves; 6 tables of 3 and 6 of 4 seats, random
+lenses, qualifiers, second lenses and bases):
+
+| | Table total F | Objects moved in the last 100 s | Seats' bits at the end, max ÷ min |
+|---|---|---|---|
+| fixed parameters (12 tables) | flat from 50–100 s in all 12 | **4–13%** | 1.1–2.5 (median about 1.4) |
+| **each seat's qualifier redrawn within its family every 50 s** (the same 12 tables) | keeps changing in all 12, rising and falling | **54–100%** (median about 90%) | 1.2–3.7 |
+
+- **Perpendicular, parameterised rules do not by themselves stop play from settling.** With fixed parameters every
+  table froze: the seats keep spending energy but shuffle a few objects (§A8's structural reason).
+- **Drifting dealt parameters do stop it.** A drifting value, for example "a prime ending in 7" becoming "a prime ending
+  in 3", sends every seat climbing again. These families make that cheap: each family already has a declared grid of
+  values, valued offline. It is the §A8 drifting target, built out of decision 41's parameters. It is a game-rule change
+  (rules change during a game), for the coordinator to put to the owner, with how a 12-year-old would read it: "your
+  rule's number changes every few minutes".
+- **No one-sentence strategy** was apparent in the random tables: the random tables' best states were not one family,
+  and pairs are near-perpendicular (§A11). That was judged from the tables, not measured by a test.
+
+**Limits.**
+- My scripted seats and prices are the harness's (§A2), not the server's. The time-dilation helper is not on develop
+  yet, so these results are to be re-run on the real engine.
+- Balance used 3 births and 4–6 random partners per lens or qualifier, so individual numbers are noisy (±2 bits).
 
 
 ---
