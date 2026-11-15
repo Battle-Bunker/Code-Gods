@@ -358,6 +358,17 @@ back) or TRIAL (a declared experiment, measured and reported).
     (convex/v2/duration.ts). v1 had no floor: 7% of its half-life games ended within h/10, 0.7% within h/100. Motive:
     "a game that ends before anyone can act is no game."
 
+17. **TRIAL** (declared 15 Nov, following decisions 39–42): the grid anchors' solved mains leave the dealt values.
+    Opposite Nines' "every cell and its opposite add up to 9" (37 bits) and Magic Eighteen's "every row adds up to 18"
+    (26 bits) are reached exactly by a 100-move climber (±1 and swaps) from every π start, a fixed point; kept as
+    values they also keep the old cluster (their PMI ≈ +7 bits). Opposite Nines keeps its card shape in the new family
+    Pair Sums over its 22.6–23.6-bit band of relations; Magic Eighteen folds into the residue family Magic Totals. The old
+    values stay in code, undealt, until the beginner grid pool is switched (grid-params.md §8).
+18. **TRIAL** (declared 15 Nov, with parameter drift): on grids a drifting parameter moves only within its
+    neighbourhood (the same modulus with the remainder drifting, or the family's equivalent), so that a moderate share
+    of a board's bits survives a redraw. Drawn from a whole family, only 5–15 % survives for the new families (a reset,
+    though 30 moves recover it); the target is a shift, not a reset (grid-params.md §8).
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.
