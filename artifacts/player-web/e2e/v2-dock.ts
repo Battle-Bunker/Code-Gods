@@ -73,7 +73,7 @@ const inside = (inner: Box, outer: Box, slack = 1) =>
 /** The key element of each pane: what a player must see without scrolling. */
 const KEY: Record<string, string | string[]> = {
   overview: "[data-testid=text-next-step]",
-  "my-card": "[data-testid=text-rule-parts]",
+  "my-card": "[data-testid=text-goal-main], [data-testid=goal-card] .v2v-goal-card",
   forge: "[data-testid=select-forge-language]",
   objects: "[data-testid=lines-sort]",
   object: "[data-testid=text-line-points]",
