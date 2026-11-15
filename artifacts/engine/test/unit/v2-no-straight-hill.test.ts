@@ -17,7 +17,7 @@ import assert from "node:assert/strict";
 import { applyCall, evaluateSite, isInvalid, rng, variantMutators, type ObjectType } from "@workspace/v2-core";
 import { lineLaw, type LineState } from "@workspace/v2-linear";
 import { pairLaw, type PairState } from "@workspace/v2-pair";
-import { findVariant, valueLookup } from "@workspace/v2-valuation";
+import { findVariant, ruleKey, valueLookup } from "@workspace/v2-valuation";
 import { dealablePool, familyOf } from "../../convex/v2/deal.ts";
 import { PRESETS } from "../../convex/v2/presets.ts";
 import { valueRecord } from "../../convex/v2/values.ts";
@@ -32,6 +32,11 @@ const OPEN: Record<string, string> = {
   "square-area/lpf": "grids session, reported 15 Nov",
   "square-area/spf": "grids session, reported 15 Nov",
 };
+/**
+ * Families whose undealt tie-breaker candidates (design-principles.md row 3a) face the gate too, with their own value
+ * files, before any is dealt (the coordinator, 16 Nov: Ruler's repertoire).
+ */
+const CANDIDATES = new Set(["ruler"]);
 const FACTORS = ["2", "3", "5", "7", "11", "13", "17", "10", "1/2", "1/3", "1/5", "1/10"];
 const AMOUNTS = ["1", "-1", "2", "-2", "10", "-10", "100", "-100", "1000", "-1000", "1/2", "-1/2"];
 const CALLS: Record<string, readonly Record<string, string>[]> = {
@@ -75,7 +80,10 @@ test(`no dealt line or pair rule passes ${LIMIT} bits on one seat's whole-game i
       return isInvalid(a) ? null : { s: a.result, fee: a.price.total };
     };
     const law = pair ? pairLaw(variant) : lineLaw(variant);
-    for (const rule of dealablePool(preset)) {
+    const candidates = dealablePool(preset).flatMap(r => CANDIDATES.has(r.family)
+      ? familyOf(r.family).tieBreakers.filter(t => t.dealtOn && !t.dealtOn(variant)).map(t => ({ ...r, tieBreaker: t.id, ruleKey: ruleKey(type, variant, r.family, r.params, t.id) }))
+      : []);
+    for (const rule of [...dealablePool(preset), ...candidates]) {
       // One run per variant, rule and income (the bidding preset shares the beginner's).
       const key = `${variant.id}|${rule.ruleKey}|${income}|${[...offered].sort().join()}`;
       if (seen.has(key)) continue;
