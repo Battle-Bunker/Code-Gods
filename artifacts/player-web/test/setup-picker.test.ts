@@ -41,7 +41,7 @@ test("each setup says in words what it plays", () => {
 });
 
 test("the form starts from the overrides, else the preset's own values, with the game length in minutes", () => {
-  const rest = { durationMode: "fixed", scoreIntervalSeconds: "10", peerNoiseBits: "8" };
+  const rest = { durationMode: "fixed", scoreIntervalSeconds: "10", peerNoiseBits: "8", observation: "free" };
   assert.deepEqual(formOf(beginner, {}), { planningSeconds: "60", worldMinutes: "5", startingEnergy: String(beginner.startingEnergy), ...rest });
   assert.deepEqual(formOf(beginner, { worldSeconds: 90, planningSeconds: 20 }), { planningSeconds: "20", worldMinutes: "1.5", startingEnergy: String(beginner.startingEnergy), ...rest });
 });
@@ -89,4 +89,12 @@ test("the app's default noise is the engine's", async () => {
   const { DEFAULT_PEER_NOISE_BITS } = await import("@workspace/engine/convex/v2/disclose.ts");
   const { DEFAULT_NOISE_BITS } = await import("../src/site/lib/setup-picker.ts");
   assert.equal(DEFAULT_NOISE_BITS, DEFAULT_PEER_NOISE_BITS);
+});
+
+test("paid looks are a room setting (v1's paid observation): free by default, sent only when paid", () => {
+  const f = formOf(beginner, {});
+  assert.equal(f.observation, "free");
+  assert.deepEqual(overridesOf({ ...f, observation: "paid" }, beginner), { ok: true, overrides: { observation: "paid" } });
+  assert.match(nextGameSummary(beginner, { observation: "paid" }), /pay to look/);
+  assert.doesNotMatch(nextGameSummary(beginner, {}), /look/);
 });

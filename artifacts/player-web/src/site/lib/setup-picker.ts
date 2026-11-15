@@ -11,6 +11,8 @@ import { BOARDS } from "./rule-gallery.ts";
 export interface Overrides {
   planningSeconds?: number; worldSeconds?: number; startingEnergy?: number;
   durationMode?: DurationMode; scoreIntervalSeconds?: number; peerNoiseBits?: number;
+  /** v1's paid observation: each object shows as last seen, and a look costs energy (W3 #643). */
+  observation?: "free" | "paid";
 }
 
 /** v1's default noise on the others' sums while live (the engine's DEFAULT_PEER_NOISE_BITS; a test keeps them equal). */
@@ -40,7 +42,7 @@ export function setupBlurb(p: Preset): string {
 
 export interface SettingsForm {
   planningSeconds: string; worldMinutes: string; startingEnergy: string;
-  durationMode: DurationMode; scoreIntervalSeconds: string; peerNoiseBits: string;
+  durationMode: DurationMode; scoreIntervalSeconds: string; peerNoiseBits: string; observation: "free" | "paid";
 }
 export type FormField = keyof SettingsForm;
 
@@ -54,6 +56,7 @@ export function formOf(p: Preset, o: Overrides): SettingsForm {
     durationMode: o.durationMode ?? p.durationMode,
     scoreIntervalSeconds: String(o.scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS),
     peerNoiseBits: String(o.peerNoiseBits ?? DEFAULT_NOISE_BITS),
+    observation: o.observation ?? "free",
   };
 }
 
@@ -86,6 +89,7 @@ export function overridesOf(f: SettingsForm, p: Preset): { ok: true; overrides: 
   if (f.durationMode !== p.durationMode) o.durationMode = f.durationMode;
   if (interval !== DEFAULT_SCORE_INTERVAL_SECONDS) o.scoreIntervalSeconds = interval!;
   if (noise !== DEFAULT_NOISE_BITS) o.peerNoiseBits = noise!;
+  if (f.observation === "paid") o.observation = "paid";
   return { ok: true, overrides: o };
 }
 
@@ -100,6 +104,7 @@ export function nextGameSummary(p: Preset, o: Overrides): string {
     `${o.startingEnergy ?? p.startingEnergy} ⚡ to start`,
     noise === 0 ? "others' sums exact" : `others' sums blurred (${noise} bits)`,
     `totals every ${o.scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS} s`,
+    ...(o.observation === "paid" ? ["players pay to look at the world"] : []),
   ];
   return `${parts.join(" · ")}.`;
 }

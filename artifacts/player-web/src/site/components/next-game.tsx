@@ -110,6 +110,15 @@ function SettingsEditor({ room, preset, locked }: { room: Room; preset: Preset; 
           </select>
           <span className="text-xs text-muted-foreground">Exact after the game ends, whichever you pick.</span>
         </label>
+        <label className="flex min-w-0 flex-col gap-1 text-sm">
+          <span>Seeing the world</span>
+          <select value={form.observation} onChange={e => setForm({ ...form, observation: e.target.value as SettingsForm["observation"] })} disabled={!!locked || busy}
+            className="h-9 border bg-background px-2" data-testid="select-setting-observation">
+            <option value="free">Free: everyone sees every change</option>
+            <option value="paid">Paid: you see what you last looked at</option>
+          </select>
+          <span className="text-xs text-muted-foreground">{form.observation === "paid" ? "A look at the world costs energy; your own agents' moves you see for free." : "Every change is shown as it happens."}</span>
+        </label>
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <button type="submit" disabled={!!locked || busy || !changed || !checked.ok} className={`px-4 py-2 text-sm font-medium disabled:opacity-50 ${changed ? "bg-primary text-primary-foreground" : "border text-muted-foreground"}`} data-testid="button-save-settings">

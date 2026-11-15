@@ -7,6 +7,7 @@
  * and "Why?" from the rule's main part. Clicking a row opens it in One line (`view.openObject`). The order is the human's
  * view state (`view.sortObjects`), so an assistant can sort it for them. A spectator sees every line by number, as text.
  */
+import { isPaid, seenShort, seenWords } from "./seen";
 import { bitsText, num, othersNote, pointsText, scoreFormula, BLURRED_NOTE } from "@/core/words";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { stableOrder } from "./stable-order";
@@ -23,6 +24,7 @@ import { BitsHelp } from "@/core/score-help";
 import { listMaxHeight } from "@/lib/virtual-window";
 import { contestedLines, foldTugs } from "./tug-of-war";
 import { toast } from "@/hooks/use-toast";
+import { AffordanceButton } from "@/site/components/action";
 import { digestScale, payoffRect, serverSort, SORTS, whyLine, widen, type PayoffScale } from "./lines";
 
 /** The rectangle's box: the side the largest value fills, and room for its two edge labels. */
@@ -97,6 +99,7 @@ function LineRow({ objectId, number, rule, value, rep, scale, focused, contested
       {body}
     </div>
   );
+  if (o && isPaid(o) && o.knownAt === null) return shell(<span className="text-xs text-muted-foreground" data-testid={`text-seen-line-${number}`}>{word.One} {number}: {seenShort(o)}</span>);
   if (!o || !state || !variant) return shell(<span className="text-xs text-muted-foreground">{word.One} {number} …</span>);
   const v = o.value;
   const main = a?.sites[0]?.parts[0];
@@ -110,6 +113,7 @@ function LineRow({ objectId, number, rule, value, rep, scale, focused, contested
         {contested && <span className="border border-destructive/60 px-1 text-[10px] font-medium uppercase text-destructive" data-testid={`badge-contested-line-${number}`}
           title={`Your agent and another player's keep moving this ${word.one} back and forth: both of you burn energy. Talk to them.`}>tug-of-war</span>}
         {v && <span data-testid={`text-points-line-${number}`}>{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
+        {isPaid(o) && <span className="text-muted-foreground" data-testid={`text-seen-line-${number}`} title={seenWords(o) ?? undefined}>{seenShort(o)}</span>}
       </p>
       {v && <PointsRectangle number={number} rarity={v.rarityBits} want={v.want} scale={widen(scale, v.rarityBits, v.want)} approx={blurred} />}
       {v && (
@@ -119,6 +123,18 @@ function LineRow({ objectId, number, rule, value, rep, scale, focused, contested
       )}
     </div>
   </>);
+}
+
+/** In a game with paid looks: what you see is as last seen; one press pays to see every one as it is now. */
+function LookAll({ firstId, many }: { firstId: string | null; many: string }) {
+  const first = useMyObject(firstId);   // the first row's own subscription: a paid game's reads carry knownAt
+  if (!isPaid(first)) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 text-xs text-muted-foreground" data-testid="look-all">
+      <span>You see the {many} as you last saw them. Looking costs energy.</span>
+      <AffordanceButton id="object.look" args={{}} label={`Look at every ${many.replace(/s$/, "")} now`} busyLabel="Looking…" tone="quiet" className="px-2 py-1 text-xs" testId="button-look-all" />
+    </div>
+  );
 }
 
 function SeatedLines() {
@@ -168,6 +184,7 @@ function SeatedLines() {
         <SortControl />
         <PointsKey />
       </div>
+      <LookAll firstId={results[0]?.objectId ?? null} many={objectWord(header?.variant).many} />
       <VirtualRows rows={results} rowHeight={ROW_H} maxHeight={maxHeight} keyOf={r => r.objectId} onNearEnd={onNearEnd} testId="lines-list"
         render={r => <LineRow objectId={r.objectId} number={r.number} rule={rule} value={my?.bits ?? null} rep={rep} scale={scale} focused={view.focus?.objectId === r.objectId} contested={contested.has(r.objectId)} onOpen={onOpen} variant={header?.variant ?? ""} />} />
     </div>
