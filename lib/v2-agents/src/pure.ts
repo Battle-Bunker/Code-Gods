@@ -16,3 +16,4 @@ export { TENSION, type TensionTable } from "./tension.gen.ts";
 export { pairPmi, pmiClass, INDEPENDENT_WITHIN, ALIGNED_ABOVE, type PmiClass, type PmiTable } from "./pmi.ts";
 export { readLeave, setLeave } from "./leave.ts";
 export { watcherFor, type WatcherAgent, type WatcherType } from "./watcher.ts";
+export { agentPrimer, HELPERS } from "./primer.ts";

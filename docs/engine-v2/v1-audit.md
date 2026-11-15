@@ -398,7 +398,7 @@ owner question.
 | A9 | Phone assistant bottom sheet; pane maximise | Maximise **restored** (desktop, this screen only); bottom sheet absent | 2 | — |
 | A10 | Chat filters: Humans, AI, Mentions | **Restored** in the game's chat (#881) | — | — |
 | A11 | Grid as coloured tiles (a per-viewer renderer choice) | Numbers in ink only: the owner took colour off the beginner board (`lib/v2-views/src/render/grid.tsx`) | 2 | Q: tiles bring colour back |
-| A12 | "Copy game rules for an AI"; "Connect a player app" sheet | The CLI and MCP exist; no sheet in the app | 1 | — |
+| A12 | "Copy game rules for an AI"; "Connect a player app" sheet | **Restored**: How to play copies the rules and the agent primer; connecting is the /connect page | — | — |
 | A13 | Header: overdrawn warning, retry-uncertain banner | Absent | 1 | W3 (check the field) |
 | A14 | "Who am I" and "Server info" sheets | Absent | 1 | — |
 | A15 | run_code tool and Code results pane | Absent | 2 | W3 (sandbox op); Q (wanted?) |
