@@ -251,6 +251,8 @@ export async function rematchDeal(ctx: QueryCtx, room: Doc<"v2Rooms">): Promise<
  * A practice game is one person's (one human seat): starting another ends the unfinished one they left (playtest round
  * 24: each re-deal left a world running its full length with its AI turns, about 28 at once, and the backend timed out).
  * A game with another human in it is never ended for them; nor is a game in this room (the start refuses a running one).
+ * The ending is scheduled, not done here: a failure to end an old game (round 24 follow-up: a seeded game without an
+ * engine made endGame throw, and the new game never started) can never block the new start.
  */
 async function endAbandonedPractice(ctx: MutationCtx, human: Doc<"v2Members">, roomId: Id<"v2Rooms">) {
   if (!human.userId) return;
@@ -259,9 +261,20 @@ async function endAbandonedPractice(ctx: MutationCtx, human: Doc<"v2Members">, r
     if (m.roomId === roomId) continue;
     const room = await ctx.db.get(m.roomId);
     const game = room?.gameId ? await ctx.db.get(room.gameId) : null;
-    if (game && game.phase !== "ended" && isPracticeGame(game.roster.map(s => s.kind)) && game.roster.some(s => s.memberId === m._id)) await endGame(ctx, game);
+    // Ended in its own mutation, after this start commits: whatever the old game's state, ending it never blocks this start.
+    if (game && game.phase !== "ended" && isPracticeGame(game.roster.map(s => s.kind)) && game.roster.some(s => s.memberId === m._id))
+      await ctx.scheduler.runAfter(0, END_ABANDONED, { gameId: game._id });
   }
 }
+const END_ABANDONED = makeFunctionReference<"mutation", { gameId: Id<"v2Games"> }>("v2/lobby:endAbandoned");
+/** Ends a practice game its human left for a new one (`endAbandonedPractice`), unless it has ended meanwhile. */
+export const endAbandoned = internalMutation({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => {
+    const game = await ctx.db.get(gameId);
+    if (game && game.phase !== "ended") await endGame(ctx, game);
+  },
+});
 
 /**
  * Starts a game in the room: deals every seated member a rule (rotated, fresh, or with the bid phase's wins), opens
