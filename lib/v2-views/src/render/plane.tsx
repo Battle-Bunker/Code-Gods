@@ -125,7 +125,8 @@ export function insetBox(box: { w: number; h: number }, compact: boolean): Rect 
 function lineCoeffs(p: Pick<P, "values" | "scene">): { a: number; b: number; c: number; ref: ElementRef | null } | null {
   const item = p.scene.items.find(i => i.draw === "line");
   const gen = (name: string) => p.values({ rep: "gen", name });
-  try {
+  // A system of several lines: the first item is the main line (the general form, if any, is one line's).
+  if (p.scene.items.filter(i => i.draw === "line").length <= 1) try {
     const a = gen("a"), b = gen("b"), c = gen("c");
     if (a.kind === "number" && b.kind === "number" && c.kind === "number") return { a: N(a.q), b: N(b.q), c: N(c.q), ref: item?.el ?? null };
   } catch { /* an object type without a general form */ }
@@ -380,7 +381,9 @@ const lineThrough = (v: Viewport, s: [XY, XY]) => {
 /**
  * Each line item's colour (0, 1, …) on a plane of several lines: by item order, except across a move (`before`), where
  * a line keeps the colour it had although the canonical order of a system's lines may have flipped: an unchanged line
- * keeps its colour, then a line parallel to one before (a slide) takes that one's, then the rest in order.
+ * keeps its colour, then a line parallel to one before (a slide) takes that one's, then the rest in order. The colours
+ * hold within one drawing of a move (before and after); a stored state is canonical and remembers no colours, so a
+ * drawing of one state alone colours by item order.
  */
 export function lineColours(now: readonly ElementValue[], before?: readonly ElementValue[]): number[] {
   const n = now.length;
