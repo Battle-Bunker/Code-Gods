@@ -4,7 +4,10 @@
  */
 import assert from "node:assert/strict";
 
-export const STEP_WORDS = /\bstep \d+|\bsteps to the top\b|\brung\b|\blevel \d+|\d+\/\d+ (main|tie)/i;
+// The calibration ladder decision 23 removed: "step 3", "steps to the top", "2/5 main". A ladder family's own rungs
+// and levels (Prime Landing's "levels of digits", Smooth Intercept's "1 makes level 1"; "rounds to 11: on the rung")
+// are its rule's words since the ladder trial, so they are not steps.
+export const STEP_WORDS = /\bstep \d+|\bsteps to the top\b|\d+\/\d+ (main|tie)/i;
 
 /** Fails with the offending text and where it was when any visible text on the page speaks of steps. */
 export async function assertNoSteps(page: { locator(selector: string): { innerText(): Promise<string> } }, label: string): Promise<void> {
