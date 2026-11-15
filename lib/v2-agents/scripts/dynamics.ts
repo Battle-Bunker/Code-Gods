@@ -24,7 +24,7 @@ const TABLES: Record<string, string[]> = {
   mixed: ["prime-landing/big-prime", "treasure/prime-terms", "whole-crossing/k-spf"],
   conflict: ["prime-landing/big-prime", "square-area/spf", "whole-crossing/k-spf"],
   compatible: ["prime-landing/m-spf", "treasure/m-spf", "prime-gradient/prime"],
-  ruler: ["ruler/far", "same-on-both-rulers/steep", "prime-gradient/c-spf"],
+  ruler: ["ruler/far", "same-on-both-rulers/shared-factor", "prime-gradient/c-spf"],
   drift: ["triangle-area/legs", "crossing-check/size", "whole-crossing/k-spf"],   // two families whose parameters drift on line-q
 };
 const variant = o.variant === "line-z" ? lineZ : lineQ;

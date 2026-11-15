@@ -117,6 +117,7 @@ function verticalTie(e: FamilyEntry, tieBreaker: string | null, language: Shippe
 function scoreTs(e: FamilyEntry, tieBreaker: string | null): string[] {
   const f = familyOf(e.family);
   const out = [
+    ...(e.helpers ? [...e.helpers.ts, ""] : []),
     "// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.",
     `function score(m, c, p${tieBreaker === null ? ", tie" : ""}) {`,
     ...(e.vertical ? [
@@ -260,6 +261,7 @@ function verticalBranch(out: string[], language: ShippedLanguage): string[] {
 function scorePy(e: FamilyEntry, tieBreaker: string | null): string[] {
   const f = familyOf(e.family);
   const out = [
+    ...(e.helpers ? [...e.helpers.py, ""] : []),
     `def score(m, c, p${tieBreaker === null ? ", tie" : ""}):`,
     "    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.",
     ...(e.vertical ? [
