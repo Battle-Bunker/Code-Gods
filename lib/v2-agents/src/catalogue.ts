@@ -801,6 +801,26 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   },
   {
     family: "smooth-intercept",
+    rungs: {
+      ts: [
+        "// The next rung up (the ladder has no top): one jump away from 0 through the valley between, priced by its size.",
+        "const rung = Q.abs(c), up = Q.cmp(c, 0) < 0 ? -1 : 1, onRung = n => factors(n).every(f => p.primes.includes(Number(f)));",
+        "const below = near(rung, n => n >= 2 && onRung(n));",
+        "if (below !== null) for (let t = Q.add(below, 1), i = 0; i < 3000; t = Q.add(t, 1), i++) if (onRung(t)) { tries.push([move(\"si.shift\", { k: Q.sub(Q.mul(up, t), c) }), m, Q.mul(up, t)]); break; }",
+      ],
+      py: [
+        "# The next rung up (the ladder has no top): one jump away from 0 through the valley between, priced by its size.",
+        "up = -1 if c < 0 else 1",
+        "below = near(abs(c), lambda n: n >= 2 and all(f in p[\"primes\"] for f in factors(n)))",
+        "if below is not None:",
+        "    t = below + 1",
+        "    for _ in range(3000):",
+        "        if all(f in p[\"primes\"] for f in factors(t)):",
+        "            tries.append((move(\"si.shift\", k=up * t - c), m, up * t))",
+        "            break",
+        "        t += 1",
+      ],
+    },
     mainSays: "the y-intercept's size itself when it is made only of the rule's primes (bigger is better: a ladder with no top), else minus how far it is from the nearest such number",
     main: {
       ts: [
