@@ -10,8 +10,9 @@ function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
   if (f.x === null) return null;   // parallel lines never cross: no score
-  const main = Q.neg(Q.add(dist(f.x), dist(f.y)));
-  return [main, Q.neg(Q.add(f.X, f.Y))];   // main: how far the answer (x, y) is from whole numbers (closer is better); tie-breaker: an answer far down and to the left is better
+  const X = nearestLeaving(f.x, p.q, p.r);   // x's whole number that leaves your remainder
+  const main = Q.neg(Q.add(Q.abs(Q.sub(f.x, X)), dist(f.y)));
+  return [main, Q.neg(Q.add(X, f.Y))];   // main: how far the answer (x, y) is from whole numbers, x with your remainder (closer is better); tie-breaker: an answer far down and to the left is better
 }
 
 const FAR = 3;      // how far one move may go

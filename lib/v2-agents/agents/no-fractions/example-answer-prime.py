@@ -1,5 +1,5 @@
 # No Fractions · Example: the answer's distance is a big prime
-# Main part: the number you divide by is 1. Tie-breaker: the answer's distance is a big prime.
+# Main part: the number you divide by is the dealt one. Tie-breaker: the answer's distance is a big prime.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
@@ -11,8 +11,8 @@ def score(L, p):
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     if f.x is None:   # parallel lines never cross: no score
         return None
-    main = -(abs(f.D) - 1)
-    return [main, spf(abs(f.X) + abs(f.Y))]   # main: how far the number you divide by is from 1 (closer is better); tie-breaker: |X| + |Y| with a big smallest prime factor is better
+    main = -abs(abs(f.D) - p["k"])
+    return [main, spf(abs(f.X) + abs(f.Y))]   # main: how far the number you divide by is from your number k (closer is better); tie-breaker: |X| + |Y| with a big smallest prime factor is better
 
 
 FAR = 3      # how far one move may go

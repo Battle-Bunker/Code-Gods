@@ -1,5 +1,5 @@
 // Steep Ratio · Example: that number is a big prime
-// Main part: one line a whole number of times as steep as the other. Tie-breaker: that number is a big prime.
+// Main part: one line a whole number of times as steep as the other, with the dealt remainder. Tie-breaker: that number is a big prime.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
@@ -9,10 +9,9 @@
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   if (f.ratio === null) return null;   // no ratio of gradients: no score
-  let k = whole(f.ratio);   // the whole number of times nearest (at least 2 either way)
-  if (Q.cmp(Q.abs(k), 2) < 0) k = Q.cmp(f.ratio, 0) < 0 ? -2 : 2;
+  const k = nearestLeaving(f.ratio, p.q, p.r, 2);   // the whole number of times with your remainder (at least 2 either way)
   const main = Q.neg(Q.abs(Q.sub(f.ratio, k)));
-  return [main, spf(k)];   // main: how far the steeper line is from a whole number of times as steep as the other (closer is better); tie-breaker: that number with a big smallest prime factor is better
+  return [main, spf(k)];   // main: how far the steeper line is from a whole number of times as steep as the other, with your remainder (closer is better); tie-breaker: that number with a big smallest prime factor is better
 }
 
 const FAR = 3;      // how far one move may go

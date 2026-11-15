@@ -1,5 +1,5 @@
 // Double Gap · Thorough
-// Main part: the gap on the y-axis is a whole number, twice the gap on the x-axis. Tie-breaker: whichever you were dealt (the gap shares a factor with the number you divide by; the gap is a big prime).
+// Main part: the gap on the y-axis is a whole number, the dealt number of times the gap on the x-axis. Tie-breaker: whichever you were dealt (the gap shares a factor with the number you divide by; the gap is a big prime).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -11,8 +11,8 @@ function score(L, p, tie) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
   if (f.ygap === null || f.xgap === null || f.origin) return null;   // no gaps, or a line through (0, 0): no score
-  const main = Q.neg(Q.add(Q.abs(Q.sub(f.ygap, Q.mul(2, f.xgap))), dist(f.ygap)));
-  // main: how far the y-intercepts' gap is from a whole number twice the x-intercepts' gap (closer is better)
+  const main = Q.neg(Q.add(Q.abs(Q.sub(f.ygap, Q.mul(p.k, f.xgap))), dist(f.ygap)));
+  // main: how far the y-intercepts' gap is from a whole number k times the x-intercepts' gap (closer is better)
   if (tie === "gap-divisor") return [main, common(whole(f.ygap), f.D)];   // the gap sharing a big factor with the number you divide by is better
   if (tie === "gap-prime") return [main, spf(whole(f.ygap))];   // a gap with a big smallest prime factor is better
   return [main];
