@@ -1,5 +1,5 @@
-# Prime Gradient · Example: the y-intercept's largest prime factor
-# Main part: gradient close to the dealt prime. Tie-breaker: the y-intercept's largest prime factor.
+# Prime Gradient · Example: the biggest number dividing both that prime plus 1 and the y-intercept's whole part
+# Main part: the gradient rounding to as big a dealt prime as possible. Tie-breaker: the biggest number dividing both that prime plus 1 and the y-intercept's whole part.
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -7,18 +7,21 @@
 # with that player and put the line in LEAVE to keep it.
 # Changing it later costs only what you change. To summon another agent, first move power from your agents to your
 # own store (energy moves with it), pay, then share the power out again.
-# Try this: change FAR = 3 to 2: shorter steps cost less; does it still reach a y-intercept with a bigger prime in it?
+# Try this: remove the "tilt" line: moving the line up and down never changes the gradient, only the factor.
 
 
 def score(m, c, p):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
-    s = p.get("side", 1)                           # 1, or -1 on the mirror: minus a prime
-    nearest = near(s * m, prime, p["ends"])         # the prime ending in p["ends"] nearest the gradient (times s)
-    if nearest is None:                             # none within 10,000: hopeless
+    level = lambda r: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(r, 10 ** D)) / (L + 1))(len(str(r)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(r))))   # levels of digits: level L needs L(L + 1)/2
+    s = p.get("side", 1)
+    x = s * m                                       # the gradient, or minus it on the mirror
+    rung = near(x, prime, p["ends"])                # the prime ending in p["ends"] nearest: the rung
+    if rung is None:                                # none within 10,000: hopeless
         return None
-    main = -abs(s * m - nearest)
-    fc = factors(c) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)
-    return [main, fc[-1] if fc else 1]   # main: how far the gradient is from the nearest prime ending in the rule's digit (closer is better); tie-breaker: the y-intercept's largest prime factor big is better
+    gap = abs(x - rung)                             # on the rung when it rounds there (within 1/2, ties up)
+    main = level(rung) if 2 * gap < 1 or rung - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
+    wc = whole(abs(c) - Fraction(1, 2))           # the y-intercept's whole part, ignoring sign
+    return [main, common(rung + 1, wc)]   # main: the prime ending in the rule's digit the gradient rounds to, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one; tie-breaker: take the number just after that prime: a bigger number dividing both it and the y-intercept's whole part is better
 
 
 FAR = 3      # how far one change may go
@@ -45,8 +48,16 @@ def agent(offer):
     for k in range(-FAR, FAR + 1):
         if k == 0:
             continue
-        tries.append((move("si.tilt", k=k), m + k, c))   # make it steeper or flatter
         tries.append((move("si.shift", k=k), m, c + k))   # move the line up or down
+        tries.append((move("si.tilt", k=k), m + k, c))   # make it steeper or flatter
+    # The next rung up (the ladder has no top): the next prime ending in p["ends"] above the gradient, by a tilt.
+    s = p.get("side", 1)
+    t = (near(s * m, prime, p["ends"]) or p["ends"]) + 10
+    for _ in range(100):
+        if prime(t):
+            tries.append((move("si.tilt", k=s * t - m), s * t, c))
+            break
+        t += 10
     tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
     options = [(plan, score(m2, c2, p)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.

@@ -19,7 +19,7 @@ test("the beginner pool: the curator's eight families and two restored ones (Exa
   assert.deepEqual(beginnerPool.map(f => f.id), ["prime-landing", "smooth-intercept", "square-area", "whole-crossing", "divisibility-ladder", "treasure", "same-on-both-rulers", "prime-gradient", "prime-staircase", "ruler", "pythagorean-area"]);
   for (const f of beginnerPool) {
     // The ladder families have one or two secondaries, each read from the rung; the rest two to six.
-    assert.ok(f.tieBreakers.length >= (["prime-staircase", "smooth-intercept", "prime-landing", "whole-crossing"].includes(f.id) ? 1 : 2) && f.tieBreakers.length <= 6, f.id);
+    assert.ok(f.tieBreakers.length >= (["prime-staircase", "smooth-intercept", "prime-landing", "whole-crossing", "prime-gradient"].includes(f.id) ? 1 : 2) && f.tieBreakers.length <= 6, f.id);
   }
 });
 
@@ -175,9 +175,9 @@ test("Prime Gradient's mirror (side −1) is an exact peer: it scores the reflec
       assert.deepEqual(terms(f as never, { ...p, side: -1 }, mc(-mm, -cc), lineQ), terms(f as never, p, mc(mm, cc), lineQ), `${f.id}: y = ${mm}x + ${cc}`);
     }
     for (const [a, c] of [[2n, -25n], [1n, 13n]] as const) assert.deepEqual(terms(f as never, { ...p, side: -1 }, x(a, c), lineQ), terms(f as never, p, x(a, c), lineQ));
-    assert.deepEqual(f.dealable(lineQ), [p, { ...p, side: -1 }]);
+    assert.deepEqual(f.dealable(lineQ), [1, 9].flatMap(ends => [{ ends }, { ends, side: -1 }]));
   }
-  assert.match(primeGradient.card({ ends: 1, side: -1 }, "cPrime"), /as close as possible to minus a prime ending in 1\..*minus a prime ending in 1 too/);
+  assert.match(primeGradient.card({ ends: 1, side: -1 }, "shared-factor"), /round to minus a prime ending in 1/);
 });
 
 test("Whole Crossing's residues r and 5 − r are exact peers: r scores the line reflected x → −x as 5 − r scores the line", () => {

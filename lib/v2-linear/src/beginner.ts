@@ -12,7 +12,7 @@ import { pythagoreanArea, ruler, squareArea } from "./beginner-areas.ts";
 export { factorLabel } from "./layers.ts";
 export { pythagoreanArea, ruler, squareArea } from "./beginner-areas.ts";
 import { gcdTerm } from "./rational.ts";
-import { ladderLevel, nearestOnLadder, nearestResidue, distanceToPrime, distanceToPrimeEnding, distanceToWhole, isPrimeEnding, nearestPrimeEnding, PRIME_ENDINGS, isPrime, largestPrimeFactor, nearbyPrimes, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
+import { digitLevel, ladderLevel, nearestOnLadder, nearestResidue, distanceToPrime, distanceToPrimeEnding, distanceToWhole, isPrimeEnding, nearestPrimeEnding, PRIME_ENDINGS, isPrime, largestPrimeFactor, nearbyPrimes, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
 
 /** The smallest and largest prime factor of a whole number (|n|); 1 for 0, ±1 and fractions. */
 const spfQ = (x: Q): Q => q(x.d === 1n ? smallestPrimeFactor(x.n) : 1n);
@@ -173,19 +173,8 @@ const landingShape: Shape<Ends> = {
       "Take the number just before that prime. The biggest number that divides both it and the y-intercept's whole part should be as big as possible (a whole part of 0 shares nothing).", "si"),
   ],
 };
-/**
- * A rung's place on the ladder, in triangular levels of digits (the coordinator's "each further level dearer than the
- * last", 15 Nov: by size, 30 zooms by 7 reached a landing worth 227 bits, a straight hill in the number of digits): level
- * ℓ needs ℓ(ℓ + 1)/2 digits (1, 3, 6, 10, … digits), and within a level the bigger prime is higher:
- * u = ℓ + (D − ℓ(ℓ + 1)/2 + p/10^D) / (ℓ + 1) for p of D digits. It rises with p, so a bigger prime is still better.
- */
-export function landingLevel(p: bigint): Q {
-  const D = p.toString().length;
-  let level = 0;
-  while (((level + 1) * (level + 2)) / 2 <= D) level++;
-  const rest = Qn.add(q(D - (level * (level + 1)) / 2), q(p, 10n ** BigInt(D)));
-  return Qn.add(q(level), Qn.div(rest, q(level + 1)));
-}
+/** A rung's place on Prime Landing's ladder: levels of digits (numbers.ts digitLevel). */
+export const landingLevel = digitLevel;
 /**
  * The ladder's value: the prime p ending in k that x rounds to (|x − p| ≤ ½, ties up), else minus how far x is from
  * rounding to the nearest one (|x − p| − ½). A rung is a window, not a point: under C3 an exact prime p costs the code

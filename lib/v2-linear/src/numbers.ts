@@ -195,3 +195,17 @@ export function nearestOnLadder(x: Q, p: { q: number; r: number }): { j: number;
   }
   return best!;
 }
+
+/**
+ * A whole number's place on a ladder in triangular levels of digits (Prime Landing, Prime Gradient) (the coordinator's "each further level dearer than the
+ * last", 15 Nov: by size, 30 zooms by 7 reached a landing worth 227 bits, a straight hill in the number of digits): level
+ * ℓ needs ℓ(ℓ + 1)/2 digits (1, 3, 6, 10, … digits), and within a level the bigger prime is higher:
+ * u = ℓ + (D − ℓ(ℓ + 1)/2 + p/10^D) / (ℓ + 1) for p of D digits. It rises with p, so a bigger prime is still better.
+ */
+export function digitLevel(p: bigint): Q {
+  const D = p.toString().length;
+  let level = 0;
+  while (((level + 1) * (level + 2)) / 2 <= D) level++;
+  const rest = Qn.add(q(D - (level * (level + 1)) / 2), q(p, 10n ** BigInt(D)));
+  return Qn.add(q(level), Qn.div(rest, q(level + 1)));
+}
