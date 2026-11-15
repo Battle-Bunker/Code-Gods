@@ -12,136 +12,136 @@
  */
 export const LINE_OPPONENT_SHARES: Readonly<Record<string, Readonly<Record<string, number>>>> = {
   "prime-landing": {
-    "smooth-intercept": 0.349,
-    "square-area": 0.398,
-    "whole-crossing": 0.564,
-    "divisibility-ladder": 0.303,
-    "treasure": 0.622,
-    "same-on-both-rulers": 0.502,
-    "prime-gradient": 0.324,
-    "prime-staircase": 0.441,
+    "smooth-intercept": 0.331,
+    "square-area": 0.382,
+    "whole-crossing": 0.546,
+    "divisibility-ladder": 0.311,
+    "treasure": 0.611,
+    "same-on-both-rulers": 0.432,
+    "prime-gradient": 0.306,
+    "prime-staircase": 0.426,
     "ruler": 0.658,
-    "pythagorean-area": 0.325
+    "pythagorean-area": 0.568
   },
   "smooth-intercept": {
-    "prime-landing": 0.339,
-    "square-area": 0.454,
-    "whole-crossing": 0.317,
-    "divisibility-ladder": 0.289,
-    "treasure": 0.345,
-    "same-on-both-rulers": 0.275,
-    "prime-gradient": 0.225,
-    "prime-staircase": 0.324,
-    "ruler": 0.316,
-    "pythagorean-area": 0.026
+    "prime-landing": 0.311,
+    "square-area": 0.429,
+    "whole-crossing": 0.288,
+    "divisibility-ladder": 0.257,
+    "treasure": 0.316,
+    "same-on-both-rulers": 0.214,
+    "prime-gradient": 0.188,
+    "prime-staircase": 0.295,
+    "ruler": 0.286,
+    "pythagorean-area": 0.293
   },
   "square-area": {
-    "prime-landing": 0.539,
-    "smooth-intercept": 0.414,
-    "whole-crossing": 0.441,
-    "divisibility-ladder": 0.197,
-    "treasure": 0.576,
-    "same-on-both-rulers": 0.603,
-    "prime-gradient": 0.329,
-    "prime-staircase": 0.405,
-    "ruler": 0.404,
-    "pythagorean-area": 0.557
+    "prime-landing": 0.563,
+    "smooth-intercept": 0.415,
+    "whole-crossing": 0.458,
+    "divisibility-ladder": 0.211,
+    "treasure": 0.602,
+    "same-on-both-rulers": 0.444,
+    "prime-gradient": 0.352,
+    "prime-staircase": 0.408,
+    "ruler": 0.432,
+    "pythagorean-area": 0.518
   },
   "whole-crossing": {
-    "prime-landing": 0.443,
-    "smooth-intercept": 0.252,
-    "square-area": 0.331,
-    "divisibility-ladder": 0.108,
-    "treasure": 0.49,
-    "same-on-both-rulers": 0.419,
-    "prime-gradient": 0.132,
-    "prime-staircase": 0.22,
-    "ruler": 0.259,
-    "pythagorean-area": 0.223
+    "prime-landing": 0.42,
+    "smooth-intercept": 0.236,
+    "square-area": 0.323,
+    "divisibility-ladder": 0.111,
+    "treasure": 0.462,
+    "same-on-both-rulers": 0.271,
+    "prime-gradient": 0.135,
+    "prime-staircase": 0.215,
+    "ruler": 0.25,
+    "pythagorean-area": 0.278
   },
   "divisibility-ladder": {
-    "prime-landing": 0.04,
-    "smooth-intercept": 0.06,
-    "square-area": 0.02,
-    "whole-crossing": 0.03,
-    "treasure": 0.08,
-    "same-on-both-rulers": 0.04,
-    "prime-gradient": 0.06,
-    "prime-staircase": 0.03,
+    "prime-landing": 0.042,
+    "smooth-intercept": 0.052,
+    "square-area": 0,
+    "whole-crossing": 0.021,
+    "treasure": 0.073,
+    "same-on-both-rulers": 0.01,
+    "prime-gradient": 0.052,
+    "prime-staircase": 0.031,
     "ruler": 0,
     "pythagorean-area": 0
   },
   "treasure": {
-    "prime-landing": 0.68,
-    "smooth-intercept": 0.23,
-    "square-area": 0.449,
-    "whole-crossing": 0.406,
-    "divisibility-ladder": 0.162,
-    "same-on-both-rulers": 0.708,
-    "prime-gradient": 0.382,
-    "prime-staircase": 0.346,
-    "ruler": 0.647,
-    "pythagorean-area": 0.326
+    "prime-landing": 0.676,
+    "smooth-intercept": 0.242,
+    "square-area": 0.477,
+    "whole-crossing": 0.432,
+    "divisibility-ladder": 0.172,
+    "same-on-both-rulers": 0.377,
+    "prime-gradient": 0.406,
+    "prime-staircase": 0.32,
+    "ruler": 0.625,
+    "pythagorean-area": 0.414
   },
   "same-on-both-rulers": {
     "prime-landing": 0.699,
-    "smooth-intercept": 0.469,
-    "square-area": 0.433,
-    "whole-crossing": 0.533,
-    "divisibility-ladder": 0.377,
-    "treasure": 0.737,
-    "prime-gradient": 0.489,
-    "prime-staircase": 0.517,
-    "ruler": 0.496,
-    "pythagorean-area": 0.356
+    "smooth-intercept": 0.331,
+    "square-area": 0.439,
+    "whole-crossing": 0.466,
+    "divisibility-ladder": 0.243,
+    "treasure": 0.74,
+    "prime-gradient": 0.409,
+    "prime-staircase": 0.41,
+    "ruler": 0.432,
+    "pythagorean-area": 0.588
   },
   "prime-gradient": {
-    "prime-landing": 0.603,
-    "smooth-intercept": 0.441,
-    "square-area": 0.381,
-    "whole-crossing": 0.408,
-    "divisibility-ladder": 0.425,
-    "treasure": 0.614,
-    "same-on-both-rulers": 0.467,
-    "prime-staircase": 0.4,
-    "ruler": 0.54,
-    "pythagorean-area": 0.448
+    "prime-landing": 0.598,
+    "smooth-intercept": 0.422,
+    "square-area": 0.405,
+    "whole-crossing": 0.387,
+    "divisibility-ladder": 0.405,
+    "treasure": 0.608,
+    "same-on-both-rulers": 0.409,
+    "prime-staircase": 0.378,
+    "ruler": 0.529,
+    "pythagorean-area": 0.542
   },
   "prime-staircase": {
-    "prime-landing": 0.226,
-    "smooth-intercept": 0.206,
-    "square-area": 0.232,
-    "whole-crossing": 0.209,
-    "divisibility-ladder": 0.232,
-    "treasure": 0.257,
-    "same-on-both-rulers": 0.225,
-    "prime-gradient": 0.182,
-    "ruler": 0.23,
-    "pythagorean-area": 0.151
+    "prime-landing": 0.259,
+    "smooth-intercept": 0.213,
+    "square-area": 0.237,
+    "whole-crossing": 0.205,
+    "divisibility-ladder": 0.22,
+    "treasure": 0.284,
+    "same-on-both-rulers": 0.202,
+    "prime-gradient": 0.188,
+    "ruler": 0.269,
+    "pythagorean-area": 0.231
   },
   "ruler": {
-    "prime-landing": 0.393,
-    "smooth-intercept": 0.212,
-    "square-area": 0.601,
-    "whole-crossing": 0.273,
-    "divisibility-ladder": 0.227,
-    "treasure": 0.55,
-    "same-on-both-rulers": 0.427,
-    "prime-gradient": 0.313,
-    "prime-staircase": 0.295,
-    "pythagorean-area": 0.199
+    "prime-landing": 0.364,
+    "smooth-intercept": 0.189,
+    "square-area": 0.573,
+    "whole-crossing": 0.25,
+    "divisibility-ladder": 0.191,
+    "treasure": 0.514,
+    "same-on-both-rulers": 0.266,
+    "prime-gradient": 0.316,
+    "prime-staircase": 0.25,
+    "pythagorean-area": 0.314
   },
   "pythagorean-area": {
-    "prime-landing": 0.25,
-    "smooth-intercept": 0.152,
-    "square-area": 0.613,
-    "whole-crossing": 0.185,
-    "divisibility-ladder": 0.174,
-    "treasure": 0.272,
-    "same-on-both-rulers": 0.232,
-    "prime-gradient": 0.183,
-    "prime-staircase": 0.226,
-    "ruler": 0.212
+    "prime-landing": 0.341,
+    "smooth-intercept": 0.027,
+    "square-area": 0.108,
+    "whole-crossing": 0.135,
+    "divisibility-ladder": 0.054,
+    "treasure": 0.304,
+    "same-on-both-rulers": 0.037,
+    "prime-gradient": 0.076,
+    "prime-staircase": 0.132,
+    "ruler": 0.126
   }
 };
 
@@ -150,8 +150,8 @@ export const LINE_CONTEST_OPPONENTS: Readonly<Record<string, readonly string[]>>
   "prime-landing": [
     "ruler",
     "treasure",
-    "whole-crossing",
-    "same-on-both-rulers"
+    "pythagorean-area",
+    "whole-crossing"
   ],
   "smooth-intercept": [
     "square-area",
@@ -159,47 +159,45 @@ export const LINE_CONTEST_OPPONENTS: Readonly<Record<string, readonly string[]>>
     "prime-landing"
   ],
   "square-area": [
-    "same-on-both-rulers",
     "treasure",
-    "pythagorean-area",
-    "prime-landing"
+    "prime-landing",
+    "pythagorean-area"
   ],
   "whole-crossing": [
     "treasure",
     "prime-landing",
-    "same-on-both-rulers"
+    "square-area"
   ],
   "divisibility-ladder": [],
   "treasure": [
-    "same-on-both-rulers",
     "prime-landing",
-    "ruler"
+    "ruler",
+    "square-area"
   ],
   "same-on-both-rulers": [
     "treasure",
     "prime-landing",
-    "whole-crossing",
-    "prime-staircase"
+    "pythagorean-area"
   ],
   "prime-gradient": [
     "treasure",
     "prime-landing",
+    "pythagorean-area",
     "ruler"
   ],
   "prime-staircase": [
     "treasure",
-    "divisibility-ladder",
-    "square-area"
+    "ruler",
+    "prime-landing"
   ],
   "ruler": [
     "square-area",
     "treasure",
-    "same-on-both-rulers"
+    "prime-landing"
   ],
   "pythagorean-area": [
-    "square-area",
-    "treasure",
-    "prime-landing"
+    "prime-landing",
+    "treasure"
   ]
 };
 
@@ -212,26 +210,26 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
   "prime-landing": {
     "smooth-intercept": 0,
     "square-area": 0.5,
-    "whole-crossing": 0.313,
+    "whole-crossing": 0.375,
     "divisibility-ladder": 0.25,
     "treasure": 0,
-    "same-on-both-rulers": 0.125,
-    "prime-gradient": 0,
+    "same-on-both-rulers": 0.438,
+    "prime-gradient": 0.125,
     "prime-staircase": 0,
     "ruler": 0,
-    "pythagorean-area": 0.5
+    "pythagorean-area": 0
   },
   "smooth-intercept": {
     "prime-landing": 0,
-    "square-area": 0,
+    "square-area": 0.25,
     "whole-crossing": 0,
     "divisibility-ladder": 0,
     "treasure": 0,
-    "same-on-both-rulers": 0.25,
+    "same-on-both-rulers": 0.125,
     "prime-gradient": 0,
-    "prime-staircase": 0.5,
+    "prime-staircase": 0.563,
     "ruler": 0,
-    "pythagorean-area": 1
+    "pythagorean-area": 0
   },
   "square-area": {
     "prime-landing": 0,
@@ -239,23 +237,23 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
     "whole-crossing": 0,
     "divisibility-ladder": 0,
     "treasure": 0,
-    "same-on-both-rulers": 0.5,
+    "same-on-both-rulers": 0.75,
     "prime-gradient": 0.375,
     "prime-staircase": 0.125,
     "ruler": 1,
-    "pythagorean-area": 1
+    "pythagorean-area": 0.25
   },
   "whole-crossing": {
     "prime-landing": 0.5,
     "smooth-intercept": 0.25,
-    "square-area": 0.75,
-    "divisibility-ladder": 0.25,
-    "treasure": 0.125,
-    "same-on-both-rulers": 0.375,
-    "prime-gradient": 0,
-    "prime-staircase": 0,
-    "ruler": 0,
-    "pythagorean-area": 1
+    "square-area": 1,
+    "divisibility-ladder": 0,
+    "treasure": 0.25,
+    "same-on-both-rulers": 0.5,
+    "prime-gradient": 0.125,
+    "prime-staircase": 0.063,
+    "ruler": 0.167,
+    "pythagorean-area": 0.063
   },
   "divisibility-ladder": {},
   "treasure": {
@@ -264,28 +262,28 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
     "square-area": 1,
     "whole-crossing": 0.75,
     "divisibility-ladder": 0,
-    "same-on-both-rulers": 0.5,
+    "same-on-both-rulers": 0.25,
     "prime-gradient": 0.5,
     "prime-staircase": 0.25,
     "ruler": 1,
-    "pythagorean-area": 0
+    "pythagorean-area": 1
   },
   "same-on-both-rulers": {
-    "prime-landing": 0.333,
-    "smooth-intercept": 0.542,
+    "prime-landing": 0,
+    "smooth-intercept": 0.75,
     "square-area": 1,
-    "whole-crossing": 0.313,
+    "whole-crossing": 0.25,
     "divisibility-ladder": 0,
-    "treasure": 0.625,
-    "prime-gradient": 0.667,
-    "prime-staircase": 0.167,
-    "ruler": 0.667,
-    "pythagorean-area": 1
+    "treasure": 0.5,
+    "prime-gradient": 0.5,
+    "prime-staircase": 0,
+    "ruler": 0,
+    "pythagorean-area": 0
   },
   "prime-gradient": {
     "prime-landing": 0,
     "smooth-intercept": 0,
-    "square-area": 0.25,
+    "square-area": 0,
     "whole-crossing": 0,
     "divisibility-ladder": 0,
     "treasure": 0.5,
@@ -297,14 +295,14 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
   "prime-staircase": {
     "prime-landing": 0.063,
     "smooth-intercept": 0.594,
-    "square-area": 0.875,
+    "square-area": 1,
     "whole-crossing": 0,
     "divisibility-ladder": 0.25,
-    "treasure": 0.094,
+    "treasure": 0.156,
     "same-on-both-rulers": 0.125,
-    "prime-gradient": 0.188,
+    "prime-gradient": 0.219,
     "ruler": 0.125,
-    "pythagorean-area": 0.375
+    "pythagorean-area": 0
   },
   "ruler": {
     "prime-landing": 0,
@@ -316,19 +314,19 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
     "same-on-both-rulers": 0.333,
     "prime-gradient": 0.667,
     "prime-staircase": 0.458,
-    "pythagorean-area": 0.333
+    "pythagorean-area": 0.5
   },
   "pythagorean-area": {
     "prime-landing": 0,
-    "smooth-intercept": 0,
+    "smooth-intercept": 0.375,
     "square-area": 1,
     "whole-crossing": 0,
-    "divisibility-ladder": 0,
+    "divisibility-ladder": 0.25,
     "treasure": 0,
-    "same-on-both-rulers": 0,
+    "same-on-both-rulers": 0.25,
     "prime-gradient": 0,
-    "prime-staircase": 0,
-    "ruler": 0
+    "prime-staircase": 0.125,
+    "ruler": 0.75
   }
 };
 
@@ -337,39 +335,36 @@ export const LINE_OPPONENTS: Readonly<Record<string, readonly string[]>> = {
   "prime-landing": [
     "ruler",
     "treasure",
-    "whole-crossing",
-    "same-on-both-rulers",
     "pythagorean-area",
+    "whole-crossing",
     "square-area"
   ],
   "smooth-intercept": [
     "square-area",
     "treasure",
     "prime-landing",
-    "pythagorean-area",
     "prime-staircase"
   ],
   "square-area": [
-    "same-on-both-rulers",
     "treasure",
-    "pythagorean-area",
     "prime-landing",
+    "pythagorean-area",
     "ruler",
+    "same-on-both-rulers",
     "smooth-intercept"
   ],
   "whole-crossing": [
     "treasure",
     "prime-landing",
-    "same-on-both-rulers",
-    "pythagorean-area",
-    "square-area"
+    "square-area",
+    "same-on-both-rulers"
   ],
   "divisibility-ladder": [],
   "treasure": [
-    "same-on-both-rulers",
     "prime-landing",
     "ruler",
     "square-area",
+    "pythagorean-area",
     "smooth-intercept",
     "whole-crossing",
     "prime-gradient"
@@ -377,34 +372,35 @@ export const LINE_OPPONENTS: Readonly<Record<string, readonly string[]>> = {
   "same-on-both-rulers": [
     "treasure",
     "prime-landing",
-    "whole-crossing",
-    "prime-staircase",
     "pythagorean-area",
     "square-area",
-    "prime-gradient",
-    "ruler",
-    "smooth-intercept"
+    "smooth-intercept",
+    "prime-gradient"
   ],
   "prime-gradient": [
     "treasure",
     "prime-landing",
+    "pythagorean-area",
     "ruler"
   ],
   "prime-staircase": [
     "treasure",
-    "divisibility-ladder",
+    "ruler",
+    "prime-landing",
     "square-area",
     "smooth-intercept"
   ],
   "ruler": [
     "square-area",
     "treasure",
-    "same-on-both-rulers",
-    "prime-gradient"
+    "prime-landing",
+    "prime-gradient",
+    "pythagorean-area"
   ],
   "pythagorean-area": [
-    "square-area",
+    "prime-landing",
     "treasure",
-    "prime-landing"
+    "square-area",
+    "ruler"
   ]
 };

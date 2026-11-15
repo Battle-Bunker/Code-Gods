@@ -18,13 +18,13 @@ export interface Economy {
  * `Lines · beginner`. Owner decision 37: 3 opportunities a second (room-wide). The coordinator's call 17 (15 Nov, from
  * the spec lead's power study: nothing climbs past about 40 bits, about three moves per seat-minute): power 4 a second
  * and a 240 s store. The start buys about three typical starters at the scaled summon price (bits × power ÷ 64): 3 ×
- * the median line starter's 601 bits ÷ 16 ≈ 110 (the server derives it, artifacts/engine convex/v2/presets.ts, and a
+ * the median line starter's 663 bits ÷ 16 ≈ 120 (the server derives it, artifacts/engine convex/v2/presets.ts, and a
  * test holds the two equal).
  */
 export const LINES_BEGINNER_ECONOMY: Economy = Object.freeze({
   powerPerSecond: 4,
   fullChargeSeconds: 240,
-  startingEnergy: 110,
+  startingEnergy: 120,
   opportunitiesPerSecond: 3,
 });
 
