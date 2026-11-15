@@ -50,6 +50,8 @@ def agent(offer):
             continue
         tries.append((move("si.shift", k=k), m, c + k))   # move the line up or down
         tries.append((move("si.tilt", k=k), m + k, c))   # make it steeper or flatter
+        f = k + 1 if k > 0 else k - 1
+        tries.append((move("mach.stretch", f=f), m * f, c * f))   # multiply every output by f (m and c both)
     # The next rung up (the ladder has no top): one jump away from 0 through the valley between, priced by its size.
     up = -1 if c < 0 else 1
     below = near(abs(c), lambda n: n >= 2 and all(f in p["primes"] for f in factors(n)))

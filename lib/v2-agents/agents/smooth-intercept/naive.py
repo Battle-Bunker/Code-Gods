@@ -37,6 +37,8 @@ def agent(offer):
             continue
         tries.append((move("si.shift", k=k), m, c + k))   # move the line up or down
         tries.append((move("si.tilt", k=k), m + k, c))   # make it steeper or flatter
+        f = k + 1 if k > 0 else k - 1
+        tries.append((move("mach.stretch", f=f), m * f, c * f))   # multiply every output by f (m and c both)
     top, plans = score(m, c, p, tie), []
     for plan, m2, c2 in tries:
         s = score(m2, c2, p, tie)

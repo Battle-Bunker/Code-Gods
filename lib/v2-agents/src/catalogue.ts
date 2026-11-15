@@ -814,6 +814,8 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   },
   {
     family: "smooth-intercept",
+    // A stretch by a factor in the dealt primes takes a smooth intercept to another smooth rung (decision 25's shortcut).
+    simple: ["shift", "tilt", "stretch"],
     rungs: {
       ts: [
         "// The next rung up (the ladder has no top): one jump away from 0 through the valley between, priced by its size.",
