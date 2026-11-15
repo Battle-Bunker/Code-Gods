@@ -113,7 +113,7 @@ interface Stat {
   mainSteps: number; valleys: number; tbLost: number; recovered: number; recovery: number[];
   energyEnd: number[]; spentShare: number[]; perMinute: number[];
   own: number[]; others: number[]; moves: number[]; trueGain: number[]; flips: number[]; reversal: number[];
-  committed: number; raisedOther: number; bestJoint: number[]; thirds: number[]; peak: number[]; skipsLate: number; actsLate: number;
+  committed: number; raisedOther: number; bestJoint: number[]; thirds: number[]; upThirds: number[]; upOthers: number[]; peak: number[]; skipsLate: number; actsLate: number;
   /** Contest: episodes where another seat's move lowered this seat's main part on an object it had climbed; those it climbed back. */
   taken: number; reclimbed: number;
 }
@@ -124,7 +124,7 @@ const stat = (f: string) => stats.get(f) ?? (stats.set(f, {
   levels: [], endBits: [], seats: 0, climbingLate: 0, plateauEarly: 0, mainSteps: 0, valleys: 0, tbLost: 0, recovered: 0, recovery: [],
   energyEnd: [], spentShare: [], perMinute: [],
   own: [], others: [], moves: [], trueGain: [], flips: [], reversal: [], taken: 0, reclimbed: 0,
-  committed: 0, raisedOther: 0, bestJoint: [], thirds: [0, 0, 0], peak: [], skipsLate: 0, actsLate: 0,
+  committed: 0, raisedOther: 0, bestJoint: [], thirds: [0, 0, 0], upThirds: [0, 0, 0], upOthers: [], peak: [], skipsLate: 0, actsLate: 0,
 }), stats.get(f)!);
 // --seed line-q on line-q-lenses deals the same seats as line-q, game for game.
 const R = rng("pool-dynamics", o.seed ?? variant.id, o.from);
@@ -163,7 +163,7 @@ const peakBy = new Map<string, { bits: number; game: number }>();
 for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   const choices = o.only ? pool.filter(r => o.only!.split(",").includes(r.family)) : pool;
   const picks: PoolRule[] = [];
-  if (o.focus) { const mine = pool.filter(r => r.family === o.focus); if (!mine.length) throw new Error(`no ${o.focus} in the pool`); picks.push(mine[g % mine.length]!); }
+  if (o.focus && !o.practice) { const mine = pool.filter(r => r.family === o.focus); if (!mine.length) throw new Error(`no ${o.focus} in the pool`); picks.push(mine[g % mine.length]!); }
   // --instances: three seats of distinct dealt rules (a family may sit twice with other params), counted per rule; a pool
   // of fewer than three families (Grids · arithmetic) seats that way.
   const same = (a: PoolRule, b: PoolRule) => a.family === b.family && (!o.instances || JSON.stringify(a.params) === JSON.stringify(b.params));
@@ -180,7 +180,9 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   // partners that share the human's goal where they can), seat 0 the human's.
   if (o.practice) {
     const preset = presetOf(o.type === "grids" ? "grids-beginner" : o.type === "pairs" ? "lines-pairs" : "lines-beginner");
-    const dealt = practiceDeal(preset.pool as never, ["human", "practice", "practice"], `pool-dynamics:${g}`, preset.variant) as { family: string; params: unknown; tieBreaker?: string }[];
+    let dealt = practiceDeal(preset.pool as never, ["human", "practice", "practice"], `pool-dynamics:${g}`, preset.variant) as { family: string; params: unknown; tieBreaker?: string }[];
+    // --focus with --practice: the human's seat holds the focus family (re-dealt until it does).
+    for (let t = 0; o.focus && dealt[0]!.family !== o.focus && t < 2000; t++) dealt = practiceDeal(preset.pool as never, ["human", "practice", "practice"], `pool-dynamics:${g}:${t}`, preset.variant) as never;
     picks.length = 0;
     for (const d of dealt) { const pr = pool.find(x => x.family === d.family && JSON.stringify(x.params) === JSON.stringify(d.params)) ?? pool.find(x => x.family === d.family)!;
       picks.push({ family: d.family, params: d.params, tieBreakers: d.tieBreaker ? [d.tieBreaker] : pr.tieBreakers }); }
@@ -253,7 +255,12 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
       if (compareScores(head(after), head(before)) > 0) {
         st.mainSteps++;
         if (before !== null && before[0] !== null && before[0]!.n >= 0n) st.valleys++;
-        if (compareScores(head(after), head(c.best)) > 0) { c.best = after; c.levels++; c.lastUp = e.at; lastStep[i] = e.at; }
+        if (compareScores(head(after), head(c.best)) > 0) {
+          c.best = after; c.levels++; c.lastUp = e.at; lastStep[i] = e.at;
+          // A rung stepped up: when, and how many of the others' bits the object held before the step (fresh or contested).
+          st.upThirds[Math.min(2, Math.floor((3 * e.at) / seconds))]!++;
+          st.upOthers.push(seats.reduce((a2, _s, j) => (j === i ? a2 : a2 + seatBits(j, e.before)), 0));
+        }
         if (compareScores(tail(after), tail(before)) < 0) { st.tbLost++; c.pending = { tb: tail(before), main: head(after), at: e.at }; }
         else c.pending = null;
       } else if (c.pending && compareScores(head(after), c.pending.main) >= 0 && compareScores(tail(after), c.pending.tb) >= 0) {
