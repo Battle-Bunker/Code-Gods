@@ -53,7 +53,9 @@ knots are certified a little less far (the tail rule takes over sooner).
 **Evaluation stays bounded** for any size (lib/v2-linear no-box.test.ts runs every family and tie-breaker on lines with
 coefficients of 10^30 and 10^200 and fractions with 2^64 denominators, each under a second): trial division stops at
 10^5; nearbyPrimes walks to the nearest number with no factor below 10^5, and such numbers are never far apart (the
-gaps of a sieve by the primes below 10^5 are bounded); Exact Change is now closed form (item 4). Factoring numbers
+gaps of a sieve by the primes below 10^5 are bounded); Exact Change is now closed form (item 4); the nearest 7-smooth
+number (Smooth Crossing, Intercept, Gradient, Square) is found by walking the odd parts 3^b·5^c·7^d in log space, not
+by stepping through the gap (which hung on a crossing near 3·10^29). Factoring numbers
 below 2^53 now runs in floating point (the same divisors and results, checked against the bigint loop), which keeps the
 value builds fast now that the enumerations include large smooth numbers.
 
@@ -114,10 +116,15 @@ under-values a further count (the safe direction: a count's next unit can cost m
 was available from the knots alone). Giving a layer its own ceiling (a count's cheapest next unit) would remove that
 under-valuation; it needs the family to declare the layer's kind.
 
-The ramp default also under-values some prime magnitudes whose knots are too few or too noisy for a line to win: line-q
-square-area + spf now takes a ramp from spf 11 (2.6 bits per doubling), about 26 bits at spf 367 against the witness's
-φ of 197.8. Safe (never over-paid), but far too cheap; the same fix (a family declaring "this layer is a prime", so the
-tail is a line at the code's ½ bit per unit) would make it right.
+**Prime-valued layers declare it** (`Layer.measure: "prime"`, the `prime()` helper in lib/v2-linear layers.ts): a
+layer whose value is a prime or a prime factor (big-prime, first-prime, last-prime, prime-gradient's prime, every spf,
+gpf and lpf: m-, c-, k-, square-area's, whole-intercept's, mc-spf, m-bottom-spf). Its tail is a straight line at the
+code's own cost of a prime, STEP = ½ bit per unit: the true rate, not only a ceiling, so these "bigger is better" hills
+(owner decision 30) stay steep past the measured knots. A straight-line fit over three or more knots that rises more
+slowly is taken instead, never below half that rate. Without the declaration the ramp default under-valued them badly
+(line-q square-area + spf: about 26 bits at spf 367 against the witness y = −2x + 734's φ of 197.8); with it the
+lookup lands within a few bits below φ (tested in value.test.ts). Plain magnitudes (|m|, |c|, the bill, piles, steep,
+min(m, c), −c) keep the ramp; counts (Ω, runs, prime-terms) keep the clamp.
 
 ## 3. The best knot and `sampledMaxBits` (reworded)
 

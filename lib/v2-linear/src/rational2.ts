@@ -172,16 +172,42 @@ const isSmooth = (n: bigint): boolean => {
 };
 /**
  * The 7-smooth whole number (only 2s, 3s, 5s and 7s multiplied, 1 included) nearest x, sign kept, size at least 1:
- * x = 0 gives 1. Halfway between two, the smaller in size. Searches outward from |x|; a power of 2 lies in every
- * [n, 2n], so the search ends.
+ * x = 0 gives 1. Halfway between two, the smaller in size. The neighbours either side are found by walking the odd
+ * parts 3^b·5^c·7^d up to 2|x| and scaling each by the power of 2 that brings it nearest, so the time grows with the
+ * number of digits, not with the gap between smooth numbers (owner decision 26: any size evaluates quickly).
  */
 export function nearestSmooth(x: Q): bigint {
   const t = Qn.abs(x), sign = Qn.sign(x) < 0 ? -1n : 1n;
-  let lo = Qn.floor(t);
-  while (lo >= 1n && !isSmooth(lo)) lo--;
-  let hi = Qn.ceil(t);
-  if (hi < 1n) hi = 1n;
-  while (!isSmooth(hi)) hi++;
+  const floor = Qn.floor(t), ceil = Qn.ceil(t) < 1n ? 1n : Qn.ceil(t);
+  // log2 of a positive bigint, to about 1e−12 relative: the search runs in floats, and the few nearest candidates
+  // either side are then checked exactly.
+  const log2 = (n: bigint) => { const s = n.toString(16); const head = s.slice(0, 12); return Math.log2(parseInt(head, 16)) + 4 * (s.length - head.length); };
+  const lf = floor >= 1n ? log2(floor) : -1, lc = log2(ceil), L3 = Math.log2(3), L5 = Math.log2(5), L7 = Math.log2(7), EPS = 1e-6;
+  // Each odd part k = 3^b·5^c·7^d is scaled by 2^a: below floor, the gap in log2 is frac(lf − log2 k); above ceil,
+  // ceil(lc − log2 k) − (lc − log2 k) (or log2 k − lc when k is already past ceil).
+  const below: [number, number, number, number][] = [], above: [number, number, number, number][] = [];
+  let bestBelow = Infinity, bestAbove = Infinity;
+  for (let i = 0, l3 = 0; l3 <= lc + 1 + EPS; i++, l3 += L3) for (let j = 0, l5 = l3; l5 <= lc + 1 + EPS; j++, l5 += L5) for (let k = 0, lk = l5; lk <= lc + 1 + EPS; k++, lk += L7) {
+    if (lk <= lf + EPS) { const g = (lf - lk) - Math.floor(lf - lk + EPS); if (g <= bestBelow + EPS) { below.push([i, j, k, g]); bestBelow = Math.min(bestBelow, g); } }
+    const g = lk >= lc - EPS ? lk - lc : Math.ceil(lc - lk - EPS) - (lc - lk);
+    if (g <= bestAbove + EPS) { above.push([i, j, k, g]); bestAbove = Math.min(bestAbove, g); }
+  }
+  const odd = (i: number, j: number, k: number) => 3n ** BigInt(i) * 5n ** BigInt(j) * 7n ** BigInt(k);
+  let lo = 0n, hi = 0n;
+  for (const [i, j, k, g] of below) {
+    if (g > bestBelow + EPS) continue;
+    const o = odd(i, j, k);
+    if (o > floor) continue;
+    let v = o;
+    while (v << 1n <= floor) v <<= 1n;
+    if (v > lo) lo = v;
+  }
+  for (const [i, j, k, g] of above) {
+    if (g > bestAbove + EPS) continue;
+    let w = odd(i, j, k);
+    while (w < ceil) w <<= 1n;
+    if (hi === 0n || w < hi) hi = w;
+  }
   if (lo < 1n) return sign * hi;
   return sign * (Qn.cmp(Qn.sub(t, q(lo)), Qn.sub(q(hi), t)) <= 0 ? lo : hi);
 }

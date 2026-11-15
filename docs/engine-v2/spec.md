@@ -649,6 +649,8 @@ marked `beyond`, with the best knot's lo as its certified floor and no ceiling. 
 stops, not a top: the tail fits the last knots along the secondary utility at the same primary, else along the primary,
 as a straight line (distances, and sizes whose knots rise at least STEP/4 bits per unit and fit a line no worse) or a
 magnitude ramp, bits on log2(1 + u) (the default for sizes: a line through a magnitude would over-value far scores).
+A layer whose value is a prime or a prime factor declares `measure: "prime"`; its tail is a line at STEP = ½ bit per
+unit, the code's own cost of a prime (a slower straight-line fit is taken, never below half that).
 Its slope is never below the law's floor (TAIL_FLOOR ≈ 0.38 bits per doubling, one coordinate doubling from 1 to 2) and,
 on lines, never above the law's ceiling (TAIL_CEILING = STEP = 0.5 bits per unit, what the code charges per unit of a
 prime, so a tail never pays more than the cheapest state with that score costs; a ramp is held to it at its start).

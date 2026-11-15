@@ -36,13 +36,13 @@ const pg = {
     rep: "si", sense: "min" } as L<object>,
   tieBreakers: [
     { id: "prime", title: "the size of that prime", sentence: () => "Tie-breaker: the bigger that prime, the better.",
-      rep: "si", sense: "max" },
+      rep: "si", sense: "max", measure: "prime" },
     { id: "cPrime", title: "the y-intercept close to a prime too", sentence: () => "Tie-breaker: make the y-intercept as close as possible to a prime too.",
       rep: "si", sense: "min" },
     { id: "c-spf", title: "the y-intercept's smallest prime factor", sentence: () => "Tie-breaker: the bigger the y-intercept's smallest prime factor, the better.",
-      rep: "si", sense: "max" },
+      rep: "si", sense: "max", measure: "prime" },
     { id: "c-gpf", title: "the y-intercept's largest prime factor", sentence: () => "Tie-breaker: the bigger the y-intercept's largest prime factor, the better.",
-      rep: "si", sense: "max" },
+      rep: "si", sense: "max", measure: "prime" },
   ] as L<object>[],
 };
 export const primeGradient: RuleFamily<LineState, object> = {

@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { applyCall, evaluateObject, isInvalid, mixedIntBits, q, tieBreakersOn, type Variant } from "@workspace/v2-core";
-import { lineType, lineQ, lineZ, normalise, type Line, type LineState } from "../src/index.ts";
+import { LINE_Q_CODES, lineType, lineQ, lineZ, normalise, type Line, type LineState } from "../src/index.ts";
 import { mc } from "./helpers.ts";
 
 const BIG = 10n ** 30n + 7n;
@@ -18,7 +18,7 @@ test("a line past 10^6 is on the board, read at its φ, and reached by an ordina
     assert.ok(!isInvalid(lineType.canonical(s, v)), `${v.id}: accepted`);
     assert.deepEqual(lineType.decode(lineType.encode(s)), s);
     const phi = lineType.readLength(s, v);
-    const want = v === lineZ ? mixedIntBits(3n) + mixedIntBits(BIG) : mixedIntBits(-3n) + mixedIntBits(1n) + mixedIntBits(-BIG);
+    const want = v === lineZ ? mixedIntBits(3n) + mixedIntBits(BIG) : LINE_Q_CODES.a.bits(-3n) + LINE_Q_CODES.b.bits(1n) + LINE_Q_CODES.c.bits(-BIG);
     assert.equal(phi, want);
     assert.ok(phi > lineType.readLength(mc(3, 1_000_000), v), "bigger numbers are dearer, never refused");
   }
@@ -58,19 +58,20 @@ test("every family and tie-breaker evaluates huge lines quickly (bounded trial d
 });
 
 test("line-q's law needs no box to be normalised: the canonical triples hold at most the product code's mass, 1", () => {
-  // π on line-q is p(a)·p(b)·p(c) conditioned on canonical triples. Over |a|, |b|, |c| ≤ R the canonical mass plus
-  // the rest is exactly (Σ_{|n| ≤ R} p(n))³ < 1, for every R: nothing needs a cap to keep the total finite.
-  const p = (n: bigint) => 2 ** -mixedIntBits(n);
+  // π on line-q is p_a(a)·p_b(b)·p_c(c) (LINE_Q_CODES) conditioned on canonical triples. Over |a|, |b|, |c| ≤ R the
+  // canonical mass plus the rest is exactly the product of the three partial sums, each < 1, for every R: nothing
+  // needs a cap to keep the total finite.
+  const pa = (n: bigint) => 2 ** -LINE_Q_CODES.a.bits(n), pb = (n: bigint) => 2 ** -LINE_Q_CODES.b.bits(n), pc = (n: bigint) => 2 ** -LINE_Q_CODES.c.bits(n);
   const R = 24n;
-  let canonical = 0, all = 0, one = 0;
-  for (let n = -R; n <= R; n++) one += p(n);
+  let canonical = 0, all = 0, sa = 0, sb = 0, sc = 0;
+  for (let n = -R; n <= R; n++) { sa += pa(n); sb += pb(n); sc += pc(n); }
   for (let a = -R; a <= R; a++) for (let b = -R; b <= R; b++) for (let c = -R; c <= R; c++) {
-    const w = p(a) * p(b) * p(c);
+    const w = pa(a) * pb(b) * pc(c);
     all += w;
     const l = normalise(a, b, c);
     if (!isInvalid(l) && l.a === a && l.b === b && l.c === c) canonical += w;
   }
-  assert.ok(Math.abs(all - one ** 3) < 1e-12 && one < 1);
+  assert.ok(Math.abs(all - sa * sb * sc) < 1e-12 && sa < 1 && sb < 1 && sc < 1);
   assert.ok(canonical > 0.1 && canonical < all, `canonical mass ${canonical} of ${all}`);
 });
 

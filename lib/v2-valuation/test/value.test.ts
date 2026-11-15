@@ -5,9 +5,9 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { compareScores, q, rng, scoreToWire, type Q, type Score } from "@workspace/v2-core";
+import { compareScores, q, rng, scoreToWire, type Q, type RuleFamily, type Score } from "@workspace/v2-core";
 import { lineZ, primeLanding } from "@workspace/v2-linear";
-import { knotsFrom, lineValueFunction, massOracle, sampledOracle, tailOf, TAIL_CEILING, TAIL_FLOOR, valueLookup, VALUE_CONFIG } from "../src/index.ts";
+import { findVariant, knotsFrom, layerMeasures, lineValueFunction, massOracle, sampledOracle, tailOf, TAIL_CEILING, TAIL_FLOOR, valueLookup, VALUE_CONFIG } from "../src/index.ts";
 
 /** A finite law over random scores (some components null), every state's true value by brute force. */
 function finiteLaw(seed: string, n: number) {
@@ -169,7 +169,9 @@ test("committed value functions are intact: each content hash matches, knots ris
     for (let i = 1; i < body.knots.length; i++) assert.ok(body.knots[i].bits >= body.knots[i - 1].bits, `${v}/${f}/${x}: knots rise`);
     for (const k of body.knots) if (k.source === "sampled") assert.ok(k.bits <= body.config.sampledMaxBits, `${v}/${f}/${x}: ${k.bits}`);
     assert.equal(body.schema, 7, `${v}/${f}/${x}: schema`);
-    assert.deepEqual(body.tail, tailOf(body.knots, body.objectType === "line" ? TAIL_CEILING : Infinity), `${v}/${f}/${x}: the tail is the one its knots imply`);
+    const family = (findVariant(v).type.families as RuleFamily<unknown, unknown>[]).find(y => y.id === body.family)!;
+    const measures = layerMeasures(family, body.tieBreaker === "none" ? null : body.tieBreaker);
+    assert.deepEqual(body.tail, tailOf(body.knots, body.objectType === "line" ? TAIL_CEILING : Infinity, measures), `${v}/${f}/${x}: the tail is the one its knots and layers imply`);
     for (const t of [body.tail.secondary, body.tail.primary]) assert.ok(t.slope > 0 && Number.isFinite(t.slope), `${v}/${f}/${x}: tail ${JSON.stringify(t)}`);
     n++;
   }
@@ -196,4 +198,12 @@ test("the tail never over-pays the law: on lines it rises at most STEP bits per 
   assert.deepEqual(score, [q(0), q(367)]);
   const bits = valueLookup(vf)(score).bits, phi = lineType.readLength(witness, lineQ);
   assert.ok(bits <= phi, `spf 367: ${bits} bits against the witness's φ ${phi}`);
+  // spf is a prime: its tail is the code's own ½ bit per unit (Layer.measure), so 367 is worth nearly its witness's φ,
+  // not the ~26 bits a magnitude ramp gave (owner decision 30: an unbounded hill to climb).
+  assert.equal(vf.tail.secondary.measure, "prime");
+  assert.ok(bits >= phi - 12, `spf 367: ${bits} bits, within a few bits of the witness's φ ${phi}`);
+  const t2 = tailOf(knots, TAIL_CEILING, { secondary: "prime" });
+  assert.deepEqual([t2.secondary.form, t2.secondary.slope], ["linear", TAIL_CEILING]);
+  assert.equal(tailOf([{ u: null, bits: 0 }, { u: ["0", "5"], bits: 4 }], TAIL_CEILING, { secondary: "prime" }).secondary.slope, TAIL_CEILING,
+    "one knot: the code's rate");
 });

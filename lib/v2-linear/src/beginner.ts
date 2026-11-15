@@ -6,7 +6,7 @@
  */
 import { Qn, q, ref, type ElementRef, type Q } from "@workspace/v2-core";
 import { lineParams } from "./line.ts";
-import { allUndefined, distance, family, gap, more, num, undef, undealt, type Ctx, type L, type Shape } from "./layers.ts";
+import { allUndefined, distance, family, gap, more, num, prime, undef, undealt, type Ctx, type L, type Shape } from "./layers.ts";
 import { gcdTerm } from "./rational.ts";
 import { distanceToPrime, distanceToWhole, isPrime, largestPrimeFactor, nearbyPrimes, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
 
@@ -24,8 +24,8 @@ export function factorLabel(which: "smallest" | "largest", what: string, x: Q): 
 }
 /** Tie-breakers on the prime factors of a coefficient (the curator's §10.5: graded, an exact Euler-type sum). */
 const factorTies = <P,>(of: "m" | "c", what: string): L<P>[] => [
-  more(`${of}-spf`, `${what}'s smallest prime factor`, `${what[0]!.toUpperCase()}${what.slice(1)}'s smallest prime factor should be as big as possible.`, "si"),
-  more(`${of}-gpf`, `${what}'s largest prime factor`, `${what[0]!.toUpperCase()}${what.slice(1)}'s largest prime factor should be as big as possible.`, "si"),
+  prime(more(`${of}-spf`, `${what}'s smallest prime factor`, `${what[0]!.toUpperCase()}${what.slice(1)}'s smallest prime factor should be as big as possible.`, "si")),
+  prime(more(`${of}-gpf`, `${what}'s largest prime factor`, `${what[0]!.toUpperCase()}${what.slice(1)}'s largest prime factor should be as big as possible.`, "si")),
 ];
 
 const squareGap = (x: Q): { root: bigint; d: Q } => { const r = nearestSquareRoot(x); return { root: r, d: gap(x, q(r * r)) }; };
@@ -56,8 +56,8 @@ const staircase: Shape<object> = {
   main: more("run", "a run of different primes from y(0)", "The pattern y(0), y(1), y(2), … should start with as long a run of different primes as possible.", "seq"),
   // The old game's four tie-breakers, restored (coordinator's call under the owner's delegation, 14 Nov).
   tieBreakers: [
-    more("first-prime", "the first prime", "The first prime should be as big as possible.", "seq"),
-    more("last-prime", "the last prime of the run", "The last prime of the run should be as big as possible.", "seq"),
+    prime(more("first-prime", "the first prime", "The first prime should be as big as possible.", "seq")),
+    prime(more("last-prime", "the last prime of the run", "The last prime of the run should be as big as possible.", "seq")),
     distance("near-miss", "the first non-prime term close to a prime", "The first term that is not prime should be as close as possible to a prime.", "seq"),
     distance("step-back", "y(−1) close to a prime", "The term before the start, y(−1), should be as close as possible to a prime.", "seq"),
   ],
@@ -97,8 +97,8 @@ export const primeStaircase = family("prime-staircase", "Prime Staircase", ["seq
 const squareShape: Shape<object> = {
   main: distance("square", "area close to a square number", "The triangle the line cuts off the axes should have an area as close as possible to a square number.", "tri"),
   tieBreakers: [
-    more("spf", "that square's root's smallest prime factor", "The smallest prime factor of that square's root should be as big as possible.", "tri"),
-    more("lpf", "that square's root's largest prime factor", "The largest prime factor of that square's root should be as big as possible.", "tri"),
+    prime(more("spf", "that square's root's smallest prime factor", "The smallest prime factor of that square's root should be as big as possible.", "tri")),
+    prime(more("lpf", "that square's root's largest prime factor", "The largest prime factor of that square's root should be as big as possible.", "tri")),
     more("omega", "prime factors of that square's root", "That square's root should have as many prime factors as possible (12 = 2·2·3 has three).", "tri"),
   ],
 };
@@ -167,7 +167,7 @@ export const treasure = family<KT>("treasure", "Treasure", ["table", "si", "cart
 const landingShape: Shape<object> = {
   main: distance("landing", "the y-intercept close to a prime", "The y-intercept should be as close as possible to a prime number.", "si"),
   tieBreakers: [
-    more("big-prime", "that prime", "That prime should be as big as possible.", "si"),
+    prime(more("big-prime", "that prime", "That prime should be as big as possible.", "si")),
     distance("prime-gradient", "the gradient close to a prime too", "The gradient should be as close as possible to a prime too.", "si"),
     distance("next-prime", "y(1) close to a prime too", "y(1) = m + c should be as close as possible to a prime too.", "table"),
     ...factorTies<object>("m", "the gradient"),
@@ -244,8 +244,8 @@ export const sameOnBothRulers = family<T>("same-on-both-rulers", "Same on Both R
 const crossingShape: Shape<object> = {
   main: distance("crossing", "the x-axis crossing close to a whole number", "The line should cross the x-axis as close as possible to a whole number.", "crossing"),
   tieBreakers: [
-    more("k-spf", "that whole number's smallest prime factor", "That whole number's smallest prime factor should be as big as possible.", "crossing"),
-    more("k-gpf", "that whole number's largest prime factor", "That whole number's largest prime factor should be as big as possible.", "crossing"),
+    prime(more("k-spf", "that whole number's smallest prime factor", "That whole number's smallest prime factor should be as big as possible.", "crossing")),
+    prime(more("k-gpf", "that whole number's largest prime factor", "That whole number's largest prime factor should be as big as possible.", "crossing")),
     factorTies<object>("m", "the gradient")[0]!,
     // §A2 (line-rules-v3-proposals.md): the anchor tied to another aspect of the line. Whole Crossing is in the beginner
     // pool, so these two are undealt until they pass the collapse check (§A5).

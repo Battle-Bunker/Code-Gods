@@ -221,6 +221,14 @@ export interface TailFit {
   readonly slope: number;
   /** The fitted slope when the law's ceiling (TAIL_CEILING) cut it: a record that the knots alone would over-pay. */
   readonly unclamped?: number;
+  /** "prime": the layer declares a prime-valued measure, so the tail is the code's own cost of a prime (Layer.measure). */
+  readonly measure?: "prime";
+}
+
+/** What the rule's layers declare they measure (Layer.measure), per component of the score. */
+export interface TailMeasures {
+  readonly primary?: "prime";
+  readonly secondary?: "prime";
 }
 
 export interface ValueTail {
@@ -371,8 +379,19 @@ export const TAIL_CEILING = STEP;
  * floor, or not at all (too few knots, noise), takes the floor: a ramp of TAIL_FLOOR bits per doubling, or for a
  * distance a line on which closing the rest of the gap to 0 is worth TAIL_FLOOR bits. The ceiling wins over the floor.
  */
-function fitTail(pts: readonly { u: Q; y: number }[], ceiling: number): TailFit {
+function fitTail(pts: readonly { u: Q; y: number }[], ceiling: number, measure?: "prime"): TailFit {
   const best = pts[pts.length - 1];
+  if (measure === "prime" && (!best || best.u.n >= 0n)) {
+    // A prime or a prime factor: the cheapest state whose value is the prime p pays about p/2 bits for it, so past the
+    // measured knots the value rises at the code's own STEP bits per unit (the true rate, not only a ceiling). A
+    // straight-line fit through three or more knots that rises more slowly is taken instead, but never below half that
+    // rate; nothing rises faster than the ceiling.
+    const rate = Math.min(STEP, ceiling);
+    const pos = (pts ?? []).filter(p => p.u.n >= 0n);
+    const lin = pos.length >= 3 ? leastSquares(pos.map(p => ({ x: toNumber(p.u), y: p.y }))) : null;
+    const slope = lin !== null && lin.slope < rate ? Math.max(lin.slope, rate / 2) : rate;
+    return lin !== null && lin.slope > ceiling ? { form: "linear", slope, unclamped: lin.slope, measure } : { form: "linear", slope, measure };
+  }
   if (!best) return { form: "log", slope: TAIL_FLOOR };
   if (best.u.n > 0n || pts.every(p => p.u.n >= 0n)) {
     // A size (a magnitude, primary or secondary: −c on a sunken intercept, min(m, c), a prime): fitted on the knots at
@@ -395,17 +414,18 @@ function fitTail(pts: readonly { u: Q; y: number }[], ceiling: number): TailFit 
  * The tail rule: fits through the last knots (at most six), along the secondary utility and along the primary, held
  * under `ceiling` bits per unit (TAIL_CEILING on lines, whose coordinates take the mixed integer code; none elsewhere).
  */
-export function tailOf(knots: readonly Pick<ValueKnot, "u" | "bits">[], ceiling = Infinity): ValueTail {
+export function tailOf(knots: readonly Pick<ValueKnot, "u" | "bits">[], ceiling = Infinity, measures: TailMeasures = {}): ValueTail {
   const parsed = knots.map(k => ({ u: scoreFromWire(k.u), bits: k.bits })).filter(k => k.u !== null);
   const best = parsed[parsed.length - 1];
-  if (!best) return { secondary: fitTail([], ceiling), primary: fitTail([], ceiling) };
+  if (!best) return { secondary: fitTail([], ceiling, measures.secondary), primary: fitTail([], ceiling, measures.primary) };
   const b = best.u!;
   const same = b.length > 1 && b[1] !== null
     ? parsed.filter(k => compareScores([k.u![0]!], [b[0]!]) === 0 && k.u!.length > 1 && k.u![1] !== null).slice(-6) : [];
   // Along the primary: the first (worst) knot at each primary, the survival of "primary at least this".
   const firsts: { u: Q; y: number }[] = [];
   for (const k of parsed) if (!firsts.length || compareScores([firsts[firsts.length - 1]!.u], [k.u![0]!]) !== 0) firsts.push({ u: k.u![0]!, y: k.bits });
-  return { secondary: fitTail(same.map(k => ({ u: k.u![1]!, y: k.bits })), ceiling), primary: fitTail(firsts.slice(-6), ceiling) };
+  return { secondary: fitTail(same.map(k => ({ u: k.u![1]!, y: k.bits })), ceiling, measures.secondary),
+    primary: fitTail(firsts.slice(-6), ceiling, measures.primary) };
 }
 
 export interface Lookup {
@@ -415,6 +435,12 @@ export interface Lookup {
   readonly hi: number;
   /** "knot": the score is a knot; "between": bracketed by two knots; "beyond": better than every knot (extrapolated). */
   readonly at: "knot" | "between" | "beyond";
+}
+
+/** What a rule's main layer and dealt tie-breaker declare they measure: the tail's measures. */
+export function layerMeasures(family: RuleFamily<any, any>, tb: TieBreaker): TailMeasures {
+  const [main, second] = ruleLayers(family, tb);
+  return { ...(main?.measure ? { primary: main.measure } : {}), ...(second?.measure ? { secondary: second.measure } : {}) };
 }
 
 /**
@@ -589,7 +615,7 @@ export function lineValueFunction<P>(family: RuleFamily<LineState, P>, params: P
     schema: 7 as const, kind: "value-function" as const,
     ruleKey: ruleKey(lineType as ObjectType<unknown>, variant, family.id, params, tieBreaker),
     objectType: lineType.id, objectTypeVersion: lineType.version, variant: variant.id, variantHash: hashHex(canonicalJson(variant)),
-    family: family.id, params, tieBreaker, seed, config: cfg, knots, tail: tailOf(knots, TAIL_CEILING),
+    family: family.id, params, tieBreaker, seed, config: cfg, knots, tail: tailOf(knots, TAIL_CEILING, layerMeasures(family, tb)),
     diagnostics: { exact: exact.map(o => ({ name: o.name, outside: o.outside ?? 0 })), sampled, candidates },
   };
   return { ...body, contentHash: hashHex(canonicalJson(body)) };
