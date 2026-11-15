@@ -878,7 +878,7 @@ export const CATALOGUE: readonly FamilyEntry[] = [
         "        t += 10",
       ],
     },
-    mainSays: "the prime ending in the rule's digit that the triangle's area rounds down to (bigger is better: a ladder with no top), else minus how far the area is from rounding down to one",
+    mainSays: "the prime ending in the rule's digit that the triangle's area rounds down to, in levels of digits each needing more than the last (bigger is better: a ladder with no top), else minus how far the area is from rounding down to one",
     main: {
       ts: [
         "if (Q.isZero(m) || Q.isZero(c)) return null;    // no triangle: the worst score",
@@ -887,7 +887,8 @@ export const CATALOGUE: readonly FamilyEntry[] = [
         "const x = Q.sub(area, Q.div(1, 2));             // the area rounds down to n when x rounds to n (ties up)",
         "const rung = near(x, prime, p.ends);            // the prime ending in p.ends nearest there: the rung",
         "const gap = Q.abs(Q.sub(x, rung));              // on the rung when the area rounds down to it",
-        "const main = Q.cmp(Q.mul(2, gap), 1) < 0 || Q.eq(Q.sub(rung, x), Q.div(1, 2)) ? rung : Q.neg(Q.sub(gap, Q.div(1, 2)));",
+        "const level = p => { const D = Q.toString(p).length; let L = 0; while (((L + 1) * (L + 2)) / 2 <= D) L++; return Q.add(L, Q.div(Q.add(D - (L * (L + 1)) / 2, Q.div(p, Q.of(10n ** BigInt(D)))), L + 1)); };   // levels of digits: level L needs L(L + 1)/2",
+        "const main = Q.cmp(Q.mul(2, gap), 1) < 0 || Q.eq(Q.sub(rung, x), Q.div(1, 2)) ? level(rung) : Q.neg(Q.sub(gap, Q.div(1, 2)));",
       ],
       py: [
         "if m == 0 or c == 0:                            # no triangle: the worst score",
@@ -897,7 +898,8 @@ export const CATALOGUE: readonly FamilyEntry[] = [
         "x = area - Fraction(1, 2)                       # the area rounds down to n when x rounds to n (ties up)",
         "rung = near(x, prime, p[\"ends\"])                # the prime ending in p[\"ends\"] nearest there: the rung",
         "gap = abs(x - rung)                             # on the rung when the area rounds down to it",
-        "main = rung if 2 * gap < 1 or rung - x == Fraction(1, 2) else -(gap - Fraction(1, 2))",
+        "level = lambda p: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(p, 10 ** D)) / (L + 1))(len(str(p)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(p))))   # levels of digits: level L needs L(L + 1)/2",
+        "main = level(rung) if 2 * gap < 1 or rung - x == Fraction(1, 2) else -(gap - Fraction(1, 2))",
       ],
     },
     tieBreakers: {

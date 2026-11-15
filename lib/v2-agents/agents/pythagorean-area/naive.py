@@ -16,8 +16,9 @@ def score(m, c, p, tie):
     x = area - Fraction(1, 2)                       # the area rounds down to n when x rounds to n (ties up)
     rung = near(x, prime, p["ends"])                # the prime ending in p["ends"] nearest there: the rung
     gap = abs(x - rung)                             # on the rung when the area rounds down to it
-    main = rung if 2 * gap < 1 or rung - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
-    # main: the prime ending in the rule's digit that the triangle's area rounds down to (bigger is better: a ladder with no top), else minus how far the area is from rounding down to one
+    level = lambda p: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(p, 10 ** D)) / (L + 1))(len(str(p)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(p))))   # levels of digits: level L needs L(L + 1)/2
+    main = level(rung) if 2 * gap < 1 or rung - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
+    # main: the prime ending in the rule's digit that the triangle's area rounds down to, in levels of digits each needing more than the last (bigger is better: a ladder with no top), else minus how far the area is from rounding down to one
     if tie == "shared-factor":   # that prime minus 1 and the slanted side squared (rounded down): a bigger factor shared is better
         side2 = legX * legX + legY * legY            # the slanted side, squared (Pythagoras)
         ws = whole((2 * side2 - 1) / 2)              # its whole part (rounded down)

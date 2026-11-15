@@ -3,8 +3,8 @@
  * beginner.ts unchanged, 15 Nov, so their redesign against design-principles.md does not collide with the others').
  */
 import { gcd, Qn, q, ref, type Q } from "@workspace/v2-core";
-import { allUndefined, distance, factorLabel, family, gap, more, notOnWhole, num, prime, squareGap, undef, undealt, verticalAt, VERTICAL_NO, type Shape } from "./layers.ts";
-import { distanceToPrime, isPrimeEnding, largestPrimeFactor, nearestInteger, nearestPrimeEnding, nearestSquareRoot, PRIME_ENDINGS, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
+import { allUndefined, distance, factorLabel, family, gap, ladder, more, notOnWhole, num, prime, squareGap, undef, undealt, verticalAt, VERTICAL_NO, type Shape } from "./layers.ts";
+import { digitLevel, distanceToPrime, isPrimeEnding, largestPrimeFactor, nearestInteger, nearestPrimeEnding, nearestSquareRoot, PRIME_ENDINGS, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
 
 // ---------------------------------------------------------------- Square Area (the owner's example 2)
 
@@ -80,7 +80,9 @@ export const ruler = family("ruler", "Ruler", ["norm", "si", "tri", "gen"], rule
 /**
  * Pythagorean Area as a ladder (design-principles.md; the redesign of beginner-line-redesign.md §4.6). Main part,
  * unbounded: the area of the triangle the line cuts off the axes, rounded down, should be a prime ending in k, the bigger
- * the better (u = p); any other line scores below every rung, minus how far its area is from the nearest window [p, p + 1).
+ * the better, in levels of digits (u = digitLevel(p): level ℓ needs ℓ(ℓ + 1)/2 digits; with u = p, thirty stretches by
+ * 7 landed a 25-digit prime worth 38 bits, a straight hill); any other line scores below every rung, minus how far its
+ * area is from the nearest window [p, p + 1).
  * A rung is a window, as on Prime Landing: the next rung is a small tilt or shift away, and no repeated shortcut keeps the
  * area on a prime. The §4.6 draft (how many times q divides the area) was climbed by a formula: zooming y = −x/2 + 9 by 3
  * forty times paid 48 bits for 469 energy, a bit a zoom with no search and no end. Rounded down, not to the nearest:
@@ -91,7 +93,7 @@ export const ruler = family("ruler", "Ruler", ["norm", "si", "tri", "gen"], rule
  * base² + height²). A new rung changes p − 1, so the side that shared most no longer does, and the climb starts again.
  * Dealt: k = 1, 3, 7, 9. Ending 9's rungs are rarer at equal area (about a bit and a half), and dearer to reach by as
  * much: the median over rungs of a rung's bits less the code cost of the cheapest line found on it is −10.1 to −10.5
- * bits for all four endings (15 Nov). Like Prime Landing's, the params-equal audit compares them by top and median.
+ * bits for all four endings (15 Nov), so the params-equal audit compares them as a ladder by bits less that cost.
  * Square Area is its named adversary on the same number: a square is never a prime, so an area near a square is off
  * this ladder (the tension matrix, 15 Nov: all 12 pairs of their tie-breakers in tension; climbing either lowers the other
  * 50–65% of the time). Prime Landing shares a climb only on lines whose y-intercept is 2 (area = crossing), whose
@@ -101,26 +103,28 @@ type Ends = { ends: number };
 const AREA_ENDS: Ends[] = PRIME_ENDINGS.map(ends => ({ ends }));
 const pythShape: Shape<Ends> = {
   main: { ...more<Ends>("area", "the triangle's area on as big a dealt prime as possible", "", "tri"),
-    // The card stays under 30 words (the coordinator's ask): "the triangle" is the one the line cuts off the axes.
-    sentence: p => `The triangle's area, rounded down: a prime ending in ${p.ends}, the bigger the better.` },
+    // The card stays within 30 words without its level sentence (the coordinator's ask): "the triangle" is the one the line
+    // cuts off the axes.
+    sentence: p => `Triangle area, rounded down: a prime ending in ${p.ends}, in levels of digits, each needing more than the last. Level 1 needs 1 digit, level 2 needs 3, level 3 needs 6, level 4 needs 10.` },
   tieBreakers: [
     more<Ends>("shared-factor", "the factor that prime minus 1 shares with the slanted side squared",
-      "That prime minus 1 and the slanted side², rounded down, share a big factor.", "tri"),
+      "Prime minus 1 and slanted side² share a big factor.", "tri"),
   ],
 };
 /**
- * The ladder's value: the prime p ending in k that the area rounds down to, else minus how far the area is from the
- * nearest window [p, p + 1) (on a tie the lower one). The windows of x = area − ½ rounded to the nearest (ties up) are
+ * The ladder's value: on a rung, digitLevel(p) of the prime p ending in k that the area rounds down to (levels of
+ * digits, each needing more digits than the last, as Prime Landing's); else minus how far the area is from the nearest
+ * window [p, p + 1) (on a tie the lower one), below every rung. The windows of x = area − ½ rounded to the nearest (ties up) are
  * exactly these, so the rung reads as Prime Landing's does.
  */
 export function areaRung(area: Q, k: number): { p: bigint; u: Q } {
   const x = Qn.sub(area, q(1, 2));
   const n = nearestInteger(x);
-  if (n > 0n && isPrimeEnding(n, k)) return { p: n, u: q(n) };
+  if (n > 0n && isPrimeEnding(n, k)) return { p: n, u: digitLevel(n) };
   const p = nearestPrimeEnding(x, k);
   return { p, u: Qn.neg(Qn.sub(Qn.abs(Qn.sub(x, q(p))), q(1, 2))) };
 }
-export const pythagoreanArea = family<Ends>("pythagorean-area", "Pythagorean Area", ["tri"], pythShape, AREA_ENDS, (ctx, pr) => {
+export const pythagoreanArea = ladder(family<Ends>("pythagorean-area", "Pythagorean Area", ["tri"], pythShape, AREA_ENDS, (ctx, pr) => {
   const area = ref("tri", "area");
   const av = ctx.read(area);
   const a = num(av);
@@ -133,4 +137,4 @@ export const pythagoreanArea = family<Ends>("pythagorean-area", "Pythagorean Are
   ctx.term("shared-factor", `the factor ${p - 1n} shares with the slanted side squared's whole part ${w}`, q(w === 0n ? 0n : gcd(p - 1n, w)), [area, hyp]);
   ctx.mark({ kind: "focus", ref: area });
   ctx.mark({ kind: "focus", ref: hyp });
-});
+}));

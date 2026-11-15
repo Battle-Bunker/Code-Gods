@@ -78,7 +78,7 @@ export function medianLookBits(variant: string): number {
  * buys STARTERS_AT_START of them at the scaled price (the coordinator's call 17), so it follows the power like the read
  * weight.
  */
-export const MEDIAN_STARTER_BITS: Readonly<Record<string, number>> = { "line-q": 573, "line-q-lenses": 573, "grid-4-d10": 701 };
+export const MEDIAN_STARTER_BITS: Readonly<Record<string, number>> = { "line-q": 579, "line-q-lenses": 579, "grid-4-d10": 701 };
 export const STARTERS_AT_START = 3;
 /** The beginner start at this power: STARTERS_AT_START typical starters at the scaled summon price, to the nearest 10. */
 export function beginnerStart(variant: string, powerPerSecond: number): number {
