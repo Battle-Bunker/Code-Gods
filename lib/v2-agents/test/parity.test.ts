@@ -142,7 +142,7 @@ test("price() of the plan cheapest() just returned is answered without a second 
 });
 
 test("fair: true when a plan keeps the others' rarity, added up; the same in both languages; a small read each time", async () => {
-  const other = { family: "prime-gradient", params: { ends: 1 }, tieBreaker: "prime" };
+  const other = { family: "prime-gradient", params: { ends: 1 }, tieBreaker: "shared-factor" };
   const vf = findValues("line-q", other)!   /* the dealt ending is valued on line-q only */;
   const gradientOff = { lines: [fromMC(q(11), q(3))] };   // m = 11 is a prime ending in 1: the other player's rule likes it
   const ts = `function agent(offer) { return [move("probe", { r: [fair(offer, [move("si.shift", { k: 1 })]), fair(offer, [move("si.tilt", { k: 1 })]), fair(offer, [move("nope", {})])].join("|") })]; }`;
@@ -165,7 +165,7 @@ test("fair: true when a plan keeps the others' rarity, added up; the same in bot
 });
 
 test("climb: the step that raises my points most (rarity × the others' total), best for my rule first; null when none does; without values, my rule's best; the same in both languages", async () => {
-  const other = { family: "prime-gradient", params: { ends: 1 }, tieBreaker: "prime" };
+  const other = { family: "prime-gradient", params: { ends: 1 }, tieBreaker: "shared-factor" };
   const others = [{ rule: other, values: findValues("line-q", other)!   /* the dealt ending is valued on line-q only */ }];
   const at = { lines: [fromMC(q(11), q(3))] };   // m = 11 is a prime ending in 1: the other player's rule likes it, so tilting lowers the others
   const values = { knots: [[null, 0], [["1"], 3], [["2"], 7]].map(([u, bits]) => ({ u: u as string[] | null, bits: bits as number, lo: bits as number, hi: bits as number, source: "exact" as const })), tail: { secondary: { form: "linear" as const, slope: 1 }, primary: { form: "linear" as const, slope: 1 } } };
@@ -258,7 +258,7 @@ test("fractions and tips: steps into halves and thirds; on a vertical line, the 
 });
 
 test("climb: a step dearer than the allowance (15 s of income) is paid from energy saved in hand, never on credit; the same in both languages", async () => {
-  const other = { family: "prime-gradient", params: { ends: 1 }, tieBreaker: "prime" };
+  const other = { family: "prime-gradient", params: { ends: 1 }, tieBreaker: "shared-factor" };
   const others = [{ rule: other, values: findValues("line-q", other)! }];
   const at = { lines: [fromMC(q(11), q(3))] };   // shifting keeps m = 11, which the other rule likes
   const values = { knots: [[null, 0], [["1"], 3], [["2"], 7]].map(([u, bits]) => ({ u: u as string[] | null, bits: bits as number, lo: bits as number, hi: bits as number, source: "exact" as const })), tail: { secondary: { form: "linear" as const, slope: 1 }, primary: { form: "linear" as const, slope: 1 } } };
