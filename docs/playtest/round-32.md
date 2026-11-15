@@ -47,8 +47,7 @@ Each mirror helps the agent that makes it and undoes the last one. The end summa
 This is a two-state cycle, the cheapest possible tug. The "objects changed per minute" count, which I have reported
 since round 13, cannot tell it from real movement. From this round on I also report **distinct states per object**.
 
-The highest bits, **24.94**, were reached early (193 s) on line "97te" (y = −60x − 29). That line then stayed out of
-the flipping.
+The highest bits, **24.94**, were reached early (193 s) on line "97te" (y = −60x − 29).
 
 ## The agents' moves (committed changing moves)
 
@@ -71,7 +70,7 @@ the flipping.
 
 - **Smooth Intercept (carol)** reached 81 = 3⁴ on two lines ("on 81", "on −81"). Carol finished 2nd with **501.47**; her
   chart climbs in steps (02). Her own agent made only 2 last-third moves.
-- **Ticks:** 28–34 a minute, median 0.3–0.6 s. Each game had three to four slow ticks of 4.8–6.5 s, at the same moments
+- **Ticks:** 28–34 a minute, median 0.3–0.6 s. Each game had five slow ticks of 4.8–6.5 s, at the same moments
   in all three games, more than in rounds 29–31 (one or two).
 - **Bob's game:** line 4 took "49 pulls, 835.11 energy" (03), and his own agent's 14 last-third moves raised his points
   0 times.
@@ -83,5 +82,5 @@ the flipping.
 | 1 | **Two-state mirror cycles.** Alice's board was the liveliest by the per-minute count, but three of its four late-moving lines only flipped between two states (74 of 87 last-third moves); one line had 50 moves for no change in points. The mirror, now in the starters' search (#855), is the cheapest way to undo a rival |
 | 2 | **Two-state tugs on other moves too:** carol's line moved 25 times between 2 states in the last third |
 | 3 | **Your own agent helps you late in some games only** (alice 19 of 19, carol 2 of 2, bob 0 of 14) |
-| 4 | **The shared slow ticks are more frequent:** 3–4 per game of 4.8–6.5 s, against 1–2 in rounds 29–31 |
+| 4 | **The shared slow ticks are more frequent:** 5 per game of 4.8–6.5 s, against 1–2 in rounds 29–31 |
 | 5 | Prime Gradient (human seat) is still untested after 12 tries over two rounds |
