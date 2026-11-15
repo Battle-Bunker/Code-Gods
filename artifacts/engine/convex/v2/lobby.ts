@@ -285,6 +285,8 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     readPriceWeight: room.overrides.readPriceWeight ?? preset.readPriceWeight,
     // Parameter drift (drift.ts; the coordinator's trial, call 18): every seat's parameters redrawn every this many seconds.
     driftSeconds: room.overrides.driftSeconds ?? preset.driftSeconds,
+    // Births on a regular schedule on the beginner games (decision 31), else v1's stochastic births.
+    ...(preset.regularBirths ? { regularBirths: true } : {}),
     timeScale,
   };
   const number = room.games + 1;

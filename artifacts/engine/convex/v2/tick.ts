@@ -13,7 +13,7 @@ import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 import { MAX_DT } from "./loop";
-import { timeScaleOf } from "./duration";
+import { regularBirths, timeScaleOf } from "./duration";
 import { sandboxFor } from "./runtime";
 import { birthDraws, decode, scopeOf, typeOf, variantOf } from "./world";
 import { actReadings } from "./disclose";
@@ -25,7 +25,7 @@ type Snapshot = {
   /** The world second the game ends at (private in halfLife mode; the tick only follows it). */
   endWorld: number;
   held: { objectId: string; state: string }[]; noiseKey: string | null;
-  settings: { worldSeconds: number; startingObjects: number; peerNoiseVariance?: number; timeScale?: number; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
+  settings: { worldSeconds: number; startingObjects: number; peerNoiseVariance?: number; timeScale?: number; regularBirths?: boolean; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
   seats: { memberId: string; rule: { family: string; params: unknown; tieBreaker: string | null; ruleKey: string } }[];
   ready: ("typescript" | "python")[];
   agents: { agentId: string; memberId: string; language: "typescript" | "python"; source: string; version: number; share: number; energy: number; settledAt: number }[];
@@ -56,7 +56,8 @@ export const tick = internalAction({
       const variant = variantOf(snap.variant), econ = snap.settings.economy;
       const r = rng(snap.seed, "tick", snap.tick);
 
-      const nBorn = opportunities(econ.birthsPerSecond, dt, r);
+      // Births: on the preset's regular schedule (decision 31: the beginner games), else v1's stochastic rate.
+      const nBorn = snap.settings.regularBirths ? regularBirths(econ.birthsPerSecond, snap.worldSeconds, world) : opportunities(econ.birthsPerSecond, dt, r);
       // Each birth's first draws: the commit places the first that no object holds (decision 24).
       const born = Array.from({ length: nBorn }, (_, i) => birthDraws(snap.variant, `${snap.seed}:${snap.objects + i + 1}`));
       // Decision 24: who holds each state as this tick sees it, for the agents' `occupied`: the objects, this tick's
