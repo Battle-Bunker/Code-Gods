@@ -6,6 +6,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { toolName } from "@workspace/v2-affordances";
 import { Budget, mockProvider, type ChatProvider, type MockStep } from "@workspace/v2-ai";
+import { gridType, grid4 } from "@workspace/v2-grid";
 import { lineQ, lineType, lineZ, presets } from "@workspace/v2-linear";
 import { sandboxes, startersFor } from "../src/index.ts";
 import { deals, runTable, type TableSeat } from "../src/table.ts";
@@ -134,10 +135,16 @@ test("on the beginner economy (power 4) starters live within their income: no ag
 
 test("drift is staggered by seat, as on the server: seat i redraws at k·D + i·D/n, and nobody in the last 90 s", async () => {
   const D = 120, seconds = 400, at: { at: number; seat: number }[] = [];
-  const rules = [["prime-landing", "shared-factor"], ["treasure", "shared-factor"], ["same-on-both-rulers", "shared-factor"]] as const;
+  // Grid families: every line family with peers is a ladder since 15 Nov (never redrawn), so a line table never drifts.
+  const rules = [["divisibility", "leftover-digits"], ["leading-digits", "exponent-digits"], ["uphill", "rise-by-one"]] as const;
+  const gridSeat = (name: string, family: string, tieBreaker: string): TableSeat => {
+    const params = gridType.families.find(f => f.id === family)!.dealable(grid4)[0] as Record<string, unknown>;
+    const a = startersFor(family, "typescript", tieBreaker).find(x => x.kind === "simple")!;
+    return { name, kind: "starter", rule: { family, params, tieBreaker }, program: { language: a.language, source: a.source } };
+  };
   await runTable(boxes, {
-    type: lineType, variant: lineQ, lines: 3, seed: "stagger", seconds, unique: true, driftSeconds: D,
-    seats: rules.map(([f, t], k) => seat(`P${k}`, "starter", f, t)),
+    type: gridType, variant: grid4, lines: 3, seed: "stagger", seconds, unique: true, driftSeconds: D,
+    seats: rules.map(([f, t], k) => gridSeat(`P${k}`, f, t)),
     onDrift: e => at.push({ at: e.at, seat: e.seat }),
   });
   assert.ok(at.length > 0, "some seat redrew");

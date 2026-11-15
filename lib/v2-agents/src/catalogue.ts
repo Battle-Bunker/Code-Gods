@@ -104,51 +104,64 @@ export interface FamilyEntry {
    * jump through the valley between rungs, priced by its size. Every starter but the naive one takes them.
    */
   readonly rungs?: Lines;
+  /** Functions the score and the rungs share, written once above score() (top level: they take the rule's numbers as arguments). */
+  readonly helpers?: Lines;
 }
 
 const neg = (ts: string) => `Q.neg(${ts})`;
 
 /**
- * Same on Both Rulers' palindromes (the starters' copy of lib/v2-linear beginner-rulers.ts nearestPalindrome): the
- * palindromes starting and ending in p.d near y, of y's length and one digit either side; the nearest is among them.
+ * Same on Both Rulers' palindromes (the starters' copy of lib/v2-linear beginner-rulers.ts nearestPalindrome), shared by
+ * the score and the rungs: the palindromes starting and ending in d below and above y at its length, and one digit
+ * either side (the nearest is among them).
  */
-const PALS_TS = [
-  "const pals = y => {   // the palindromes starting and ending in p.d nearest y: below and above it at its length, and one digit either side",
-  "  const d = BigInt(p.d), w = Q.cmp(y, 0) <= 0 ? \"0\" : String(whole(Q.sub(y, Q.div(1, 2)))), L = w.length;   // w: y rounded down",
-  "  const pal = (h, n) => { const t = String(h); return BigInt(t + t.slice(0, n >> 1).split(\"\").reverse().join(\"\")); };   // n digits from the first (n + 1)/2, h",
-  "  const lo = n => d * 10n ** BigInt((n - 1) >> 1), hi = n => lo(n) + 10n ** BigInt((n - 1) >> 1) - 1n, h0 = BigInt(w.slice(0, (L + 1) >> 1));",
-  "  const out = [pal(lo(L + 1), L + 1), ...[h0 - 1n, h0, h0 + 1n].map(h => pal(h < lo(L) ? lo(L) : h > hi(L) ? hi(L) : h, L))];",
-  "  if (L > 1) out.push(pal(hi(L - 1), L - 1));",
-  "  return out;",
-  "};",
-];
-const PALS_PY = [
-  "def pals(y):   # the palindromes starting and ending in p[\"d\"] nearest y: below and above it at its length, and one digit either side",
-  "    w = str(0 if y <= 0 else whole(y - Fraction(1, 2)))   # y rounded down",
-  "    L, d = len(w), p[\"d\"]",
-  "    pal = lambda h, n: int(str(h) + str(h)[:n // 2][::-1])   # n digits from the first (n + 1) // 2, h",
-  "    lo = lambda n: d * 10 ** ((n - 1) // 2)",
-  "    hi = lambda n: lo(n) + 10 ** ((n - 1) // 2) - 1",
-  "    h0 = int(w[:(L + 1) // 2])",
-  "    out = [pal(lo(L + 1), L + 1)] + [pal(min(max(h, lo(L)), hi(L)), L) for h in (h0 - 1, h0, h0 + 1)]",
-  "    return out + ([pal(hi(L - 1), L - 1)] if L > 1 else [])",
-];
-const PAL_SCORE_TS = [
-  "const level = r => { const D = r.toString().length; let L = 0; while (((L + 1) * (L + 2)) / 2 <= D) L++; return Q.add(L, Q.div(Q.add(D - (L * (L + 1)) / 2, Q.div(Q.of(r), Q.of(10n ** BigInt(D)))), L + 1)); };   // levels of digits: level L needs L(L + 1)/2",
-  ...PALS_TS,
-  "const rungOf = y => {   // the nearest (the smaller on a tie): the nearest at or below y, or the nearest above",
-  "  const w = Q.cmp(y, 0) <= 0 ? -1n : BigInt(whole(Q.sub(y, Q.div(1, 2)))), ps = pals(y);   // whole numbers at or below y are those at or below w",
-  "  let a = null, b = null; for (const t of ps) { if (t <= w) { if (a === null || t > a) a = t; } else if (b === null || t < b) b = t; }",
-  "  return a === null || Q.cmp(Q.sub(Q.of(b), y), Q.sub(y, Q.of(a))) < 0 ? b : a;",
-  "};",
-  "const onRung = (y, r) => (BigInt(whole(y)) === r ? level(r) : Q.neg(Q.sub(Q.abs(Q.sub(y, Q.of(r))), Q.div(1, 2))));   // on the rung when y rounds to it, else how far from rounding to it",
-];
-const PAL_SCORE_PY = [
-  "level = lambda r: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(r, 10 ** D)) / (L + 1))(len(str(r)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(r))))   # levels of digits: level L needs L(L + 1)/2",
-  ...PALS_PY,
-  "rung_of = lambda y: min(pals(y), key=lambda t: (abs(y - t), t))   # the nearest (the smaller on a tie)",
-  "on_rung = lambda y, r: level(r) if whole(y) == r else -(abs(y - r) - Fraction(1, 2))   # on the rung when y rounds to it",
-];
+const PAL_HELPERS: Lines = {
+  ts: [
+    "// Palindromes starting and ending in the digit d (d, dd, d0d, d1d, ...): those nearest y, the nearest, and its level.",
+    "function pals(y, d) {",
+    "  const w = Q.cmp(y, 0) <= 0 ? \"0\" : String(whole(Q.sub(y, Q.div(1, 2)))), L = w.length, D = BigInt(d);   // w: y rounded down",
+    "  const pal = (h, n) => { const t = String(h); return BigInt(t + t.slice(0, n >> 1).split(\"\").reverse().join(\"\")); };   // n digits from the first (n + 1)/2, h",
+    "  const lo = n => D * 10n ** BigInt((n - 1) >> 1), hi = n => lo(n) + 10n ** BigInt((n - 1) >> 1) - 1n, h0 = BigInt(w.slice(0, (L + 1) >> 1));",
+    "  const out = [pal(lo(L + 1), L + 1), ...[h0 - 1n, h0, h0 + 1n].map(h => pal(h < lo(L) ? lo(L) : h > hi(L) ? hi(L) : h, L))];",
+    "  return L > 1 ? [...out, pal(hi(L - 1), L - 1)] : out;",
+    "}",
+    "function rungOf(y, d) {   // the nearest (the smaller on a tie)",
+    "  const w = Q.cmp(y, 0) <= 0 ? -1n : BigInt(whole(Q.sub(y, Q.div(1, 2))));   // whole numbers at or below y are those at or below w",
+    "  let a = null, b = null; for (const t of pals(y, d)) { if (t <= w) { if (a === null || t > a) a = t; } else if (b === null || t < b) b = t; }",
+    "  return a === null || Q.cmp(Q.sub(Q.of(b), y), Q.sub(y, Q.of(a))) < 0 ? b : a;",
+    "}",
+    "function onRung(y, r) {   // on the rung when y rounds to it: its levels of digits (level L needs L(L + 1)/2); else how far from rounding to it",
+    "  if (BigInt(whole(y)) !== r) return Q.neg(Q.sub(Q.abs(Q.sub(y, Q.of(r))), Q.div(1, 2)));",
+    "  const D = String(r).length; let L = 0; while (((L + 1) * (L + 2)) / 2 <= D) L++;",
+    "  return Q.add(L, Q.div(Q.add(D - (L * (L + 1)) / 2, Q.div(Q.of(r), Q.of(10n ** BigInt(D)))), L + 1));",
+    "}",
+  ],
+  py: [
+    "# Palindromes starting and ending in the digit d (d, dd, d0d, d1d, ...): those nearest y, the nearest, and its level.",
+    "def pals(y, d):",
+    "    w = str(0 if y <= 0 else whole(y - Fraction(1, 2)))   # y rounded down",
+    "    L = len(w)",
+    "    pal = lambda h, n: int(str(h) + str(h)[:n // 2][::-1])   # n digits from the first (n + 1) // 2, h",
+    "    lo = lambda n: d * 10 ** ((n - 1) // 2)",
+    "    hi = lambda n: lo(n) + 10 ** ((n - 1) // 2) - 1",
+    "    h0 = int(w[:(L + 1) // 2])",
+    "    out = [pal(lo(L + 1), L + 1)] + [pal(min(max(h, lo(L)), hi(L)), L) for h in (h0 - 1, h0, h0 + 1)]",
+    "    return out + [pal(hi(L - 1), L - 1)] if L > 1 else out",
+    "",
+    "def rung_of(y, d):   # the nearest (the smaller on a tie)",
+    "    w = -1 if y <= 0 else whole(y - Fraction(1, 2))   # whole numbers at or below y are those at or below w",
+    "    a = max((t for t in pals(y, d) if t <= w), default=None)",
+    "    b = min((t for t in pals(y, d) if t > w), default=None)",
+    "    return b if a is None or b - y < y - a else a",
+    "",
+    "def on_rung(y, r):   # on the rung when y rounds to it: its levels of digits (level L needs L(L + 1)/2); else how far from rounding to it",
+    "    if whole(y) != r:",
+    "        return -(abs(y - r) - Fraction(1, 2))",
+    "    D = len(str(r))",
+    "    L = next(L for L in range(99) if (L + 1) * (L + 2) // 2 > D)",
+    "    return L + (D - L * (L + 1) // 2 + Fraction(r, 10 ** D)) / (L + 1)",
+  ],
+};
 
 export const CATALOGUE: readonly FamilyEntry[] = [
   {
@@ -558,13 +571,13 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     family: "same-on-both-rulers",
     simple: ["shift", "tilt", "turn"],
     thorough: ["shift", "tilt", "step", "turn"],
+    helpers: PAL_HELPERS,
     rungs: {
       ts: [
         "// The next palindrome up (the ladder has no top): the smallest one above the unchanged number, by a shift or by a tilt.",
         "if (!Q.eq(m, 1)) {",
-        ...PALS_TS.map(l => `  ${l}`),
         "  const s = p.side ?? 1, y = Q.mul(s, Q.div(c, Q.sub(1, m)));   // the unchanged number (minus it on the mirror)",
-        "  const up = pals(y).filter(t => Q.cmp(Q.of(t), y) > 0).reduce((a, b) => (b < a ? b : a)), to = Q.mul(s, Q.of(up));",
+        "  const to = Q.mul(s, Q.of(pals(y, p.d).filter(t => Q.cmp(Q.of(t), y) > 0).reduce((a, b) => (b < a ? b : a))));",
         "  tries.push([move(\"si.shift\", { k: Q.sub(Q.mul(to, Q.sub(1, m)), c) }), m, Q.mul(to, Q.sub(1, m))]);   // keep m, move c",
         "  if (!Q.isZero(c)) tries.push([move(\"si.tilt\", { k: Q.sub(Q.sub(1, Q.div(c, to)), m) }), Q.sub(1, Q.div(c, to)), c]);   // keep c, move m",
         "}",
@@ -572,10 +585,9 @@ export const CATALOGUE: readonly FamilyEntry[] = [
       py: [
         "# The next palindrome up (the ladder has no top): the smallest one above the unchanged number, by a shift or by a tilt.",
         "if m != 1:",
-        ...PALS_PY.map(l => `    ${l}`),
         "    s = p.get(\"side\", 1)",
         "    y = s * c / (1 - m)                          # the unchanged number (minus it on the mirror)",
-        "    to = s * min(t for t in pals(y) if t > y)",
+        "    to = s * min(t for t in pals(y, p[\"d\"]) if t > y)",
         "    tries.append((move(\"si.shift\", k=to * (1 - m) - c), m, to * (1 - m)))   # keep m, move c",
         "    if c != 0:",
         "        tries.append((move(\"si.tilt\", k=1 - c / to - m), 1 - c / to, c))   # keep c, move m",
@@ -585,23 +597,21 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     main: {
       ts: [
         "if (Q.eq(m, 1)) return null;                    // parallel to y = x: no number stays unchanged",
-        ...PAL_SCORE_TS,
-        "const s = p.side ?? 1, y = Q.mul(s, Q.div(c, Q.sub(1, m)));   // the unchanged number c/(1 - m), where the line meets y = x (minus it on the mirror)",
-        "const rung = rungOf(y), main = onRung(y, rung);",
+        "const y = Q.mul(p.side ?? 1, Q.div(c, Q.sub(1, m)));   // the unchanged number c/(1 - m), where the line meets y = x (minus it on the mirror)",
+        "const rung = rungOf(y, p.d), main = onRung(y, rung);",
       ],
       py: [
         "if m == 1:                                      # parallel to y = x: no number stays unchanged",
         "    return None",
-        ...PAL_SCORE_PY,
         "y = p.get(\"side\", 1) * c / (1 - m)              # the unchanged number c/(1 - m), where the line meets y = x (minus it on the mirror)",
-        "rung = rung_of(y)",
+        "rung = rung_of(y, p[\"d\"])",
         "main = on_rung(y, rung)",
       ],
     },
     vertical: {
       main: {
-        ts: [...PAL_SCORE_TS, "const y = Q.mul(p.side ?? 1, c), main = onRung(y, rungOf(y));   // x = c meets y = x at c"],
-        py: [...PAL_SCORE_PY, "y = p.get(\"side\", 1) * c                        # x = c meets y = x at c", "main = on_rung(y, rung_of(y))"],
+        ts: ["const y = Q.mul(p.side ?? 1, c), main = onRung(y, rungOf(y, p.d));   // x = c meets y = x at c"],
+        py: ["y = p.get(\"side\", 1) * c                        # x = c meets y = x at c", "main = on_rung(y, rung_of(y, p[\"d\"]))"],
       },
     },
     tieBreakers: {
