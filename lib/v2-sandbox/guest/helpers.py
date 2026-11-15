@@ -73,6 +73,7 @@
 #   solved(L)                    what the two lines give together, each part a number or None where it does not exist:
 #                                D (the number you divide by), dot, x and y (the answer), X and Y (the whole numbers
 #                                nearest it), ms, cs, rs (the steeper line's gradient, y-intercept and x-intercept),
+#                                mg, cg (the gentler line's gradient and y-intercept),
 #                                ratio (steeper gradient over the other), ygap, xgap (the gaps between the intercepts),
 #                                off_right, off45 (how far from a right angle, from 45 degrees), origin (a line through
 #                                (0, 0)).
@@ -82,6 +83,9 @@
 #   spf(n), omega(n), common(a, b)  a whole number's smallest prime factor (1 for 0 and +-1), its number of prime
 #                                factors counting repeats (0 for 0 and +-1), and the biggest factor a and b share (0 if
 #                                either is 0).
+#   nearest_leaving(v, q, r, at_least)  the whole number nearest v that leaves r when divided by q (negatives too:
+#                                -2 leaves 1 when divided by 3), the smaller on a tie; with at_least, only numbers at
+#                                least that far from 0 (a pair rule's dealt remainder).
 #
 # These run in the trusted prelude, outside the step count, so each does a bounded amount of work.
 from fractions import Fraction
@@ -223,6 +227,18 @@ def shared(a, b):
 
 def whole(x):
     return int((Fraction(x) + Fraction(1, 2)) // 1)
+
+
+def nearest_leaving(x, q, r, at_least=0):
+    v = Fraction(x)
+    t0 = int((v - r) // q)
+    best, off = None, None
+    for t in range(t0 - 2, t0 + 4):
+        n = r + q * t
+        o = abs(v - n)
+        if abs(n) >= at_least and (best is None or o < off):
+            best, off = n, o
+    return best
 
 
 def root(n):
@@ -392,7 +408,7 @@ def solved(L):
     near = lambda v: None if v is None else Fraction((v + Fraction(1, 2)) // 1)
     ad, at = abs(D), abs(dot)
     return _Solved(
-        D=Fraction(D), dot=Fraction(dot), x=x, y=y, X=near(x), Y=near(y), ms=ms, cs=yint(ln[s]), rs=xint(ln[s]),
+        D=Fraction(D), dot=Fraction(dot), x=x, y=y, X=near(x), Y=near(y), ms=ms, cs=yint(ln[s]), rs=xint(ln[s]), mg=mo, cg=yint(ln[1 - s]),
         ratio=None if ms is None or mo is None or mo == 0 else ms / mo,
         ygap=gap(yint(ln[0]), yint(ln[1])), xgap=gap(xint(ln[0]), xint(ln[1])),
         off_right=None if D == 0 else abs(Fraction(dot, D)), off45=Fraction(abs(ad - at), ad + at),

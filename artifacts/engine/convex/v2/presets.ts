@@ -138,9 +138,9 @@ export const PRESETS: readonly Preset[] = [
   // A trial (docs/engine-v2/lenses-and-mutators.md §5): the beginner pool with five more ways to move a line. Not the default.
   fromPool("lines-lenses", V1_DEFAULT_BOARD),
   GRIDS,
-  // Two lines as one object (docs/engine-v2/two-line-systems.md): not the default. Withheld until its rules have value
-  // functions and shipped starters (deal.ts playable).
-  fromPool("lines-pairs", V1_DEFAULT_BOARD),
+  // Two lines as one object (docs/engine-v2/two-line-systems.md): not the default. Its families carry dealt numbers
+  // (a remainder, a divisor, a ratio: §8.3), redrawn every 120 s as the beginner presets' (the coordinator's call 18).
+  fromPool("lines-pairs", { ...V1_DEFAULT_BOARD, driftSeconds: 120 }),
   { ...GRIDS, id: "grids-beginner-bidding", title: "Grids · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
   // Grid starters are dearer: 900 to start, so a starter takes about the share of it a line starter takes of 600.
   fromPool("grids-more-rules", { ...V1_DEFAULT_BOARD, startingEnergy: 900 }),
