@@ -596,6 +596,44 @@ back) or TRIAL (a declared experiment, measured and reported).
       15.6 (20.5), Prime Landing and Prime Gradient at most 20, Prime Staircase at most 25, every other family under
       21. Open: Square Area's spf and lpf (58.5 bits; 141–316 with the lens moves), reported to its owner.
 
+30. **CALL** (the coordinator's, declared 15 Nov): a practice game is dealt exactly like a real game for the same
+    seats. The practice deal's goal-sharing fit (a partner whose goal fits the human's) and its "no two partners
+    against the human" preference are removed, from the practice deal and from the logging-only policy dealer. On
+    lines the practice deal is #816's anchored deal with the human's seat as the anchor: families uniform, the seating
+    rules, the anchor sitting with a named opponent. Elsewhere it is the fresh deal itself. One protection is kept:
+    never a table where every partner excludes the human's family outright (lib/v2-linear LINE_EXCLUSION_SHARES at 1,
+    either way; `shutOut` in convex/v2/deal.ts).
+    - **Argument.** The fit dealt the settle failure: tables where greedy seats on three to five objects reach a shared
+      optimum within a minute or two and sit there. That is a dealer that helps players reach and hold a fixed point,
+      against the standing rule (CLAUDE.md). Rounds 26–27's quiet practice games were these tables, not the engine:
+      round 27's ticks were healthy (32–36 a minute at 0.3 s).
+    - **Evidence** (the agents session: lib/v2-agents runTable on develop, about 16:50 UTC 15 Nov). Setup: the Lines ·
+      beginner economy (power 4, 3 opportunities/s, start 100, 3 objects plus a birth every 240 s, 600 world seconds);
+      drift every 120 s for non-ladder seats; Simple starters in every seat (seat 0 the human's rule in TypeScript,
+      partner 1 TypeScript, partner 2 Python, as the server seats practice partners); practiceDeal with
+      [human, practice, practice], redrawn until the human held Whole Crossing for the Whole Crossing rows. One game
+      per row; the rows vary a lot.
+
+      | practiceDeal table (human's rule first) | objects changed per minute, 0–9 | changing moves per third | skips |
+      |---|---|---|---|
+      | Whole Crossing, Divisibility Ladder, Prime Landing | 3, 0, 1, 0, 0, 0, 0, 0, 0, 0 | 22 / 0 / 0 | 99% |
+      | Whole Crossing, Pythagorean Area, Ruler | 3, 0, 0, 0, 1, 0, 0, 0, 2, 1 | 9 / 4 / 12 | 99% |
+      | Whole Crossing, Prime Gradient, Square Area | 4, 1, 0, 0, 0, 0, 1, 1, 2, 3 | 13 / 12 / 77 | 94% |
+      | Whole Crossing, Pythagorean Area, Square Area | 3, 3, 3, 2, 3, 3, 3, 3, 3, 3 | 53 / 53 / 49 | 91% |
+      | Same on Both Rulers, Square Area, Ruler | 3, 1, 1, 1, 3, 3, 2, 2, 3, 1 | 21 / 68 / 49 | 92% |
+      | Treasure, Ruler, Prime Gradient | 3, 3, 2, 1, 1, 1, 2, 1, 4, 3 | 68 / 61 / 74 | 89% |
+
+      Three of the four Whole Crossing practice tables froze from minute 1 or 2. Round 27 on the engine (Whole
+      Crossing human): alice 3, 1, 0, 1, 2, 2, 1, 2, 1, 1 objects a minute (28 / 65 / 42 moves per third); bob 3, 2,
+      1, 0, 1, 0, 0, 2, 2, 0 (35 / 6 / 17). Random tables (three families uniform, the fresh deal's stand-in, 24 games,
+      same economy and languages): about 52 / 43 / 48 changing moves per third, 92% skips in the last third.
+    - **Effects** (measured on the deal, 2000 seeds, three seats): each family's frequency in practice deals matches
+      fresh deals within sampling noise on every preset (lines ≤ 12% of uniform, where two fresh samples differ by up
+      to 15%; grids and two-line systems identical). On grids the practice deal is now the real grid deal, whose
+      seating rule shapes which families sit together, so the human's family there is no longer uniform (the round-21
+      test now covers lines and two-line systems). The dynamics of the new practice tables: the agents session will
+      re-measure with the objects-changed column.
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.
