@@ -13,11 +13,11 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { decode, distinctBirths, heldReason, scopeOf, valuesOf, type SeatRule, type Value as ExactValue } from "./world.ts";
 import { measured, objectReading, readingNoise, shownAt } from "./disclose.ts";
-import { endWorldOf, scoreIntervalOf, timeScaleOf } from "./duration.ts";
+import { durationModeOf, endWorldOf, scoreIntervalOf, timeScaleOf } from "./duration.ts";
 import { shouldPark } from "./activity.ts";
 import { allReady, ensureWarm, isReady, LANGUAGES } from "./readiness.ts";
 import { paysToRead, tell } from "./knowledge.ts";
-import { driftDue, driftSecondsOf, redrawParams } from "./drift.ts";
+import { driftEventsDue, driftSecondsOf, redrawParams } from "./drift.ts";
 import { ruleView } from "./deal.ts";
 
 /** Wall milliseconds between ticks; world time advances by the wall time that passed, at most MAX_DT a tick. */
@@ -197,25 +197,27 @@ async function applyToPlayers(ctx: MutationCtx, gameId: Id<"v2Games">, changes: 
 }
 
 /**
- * Drift k (drift.ts; the coordinator's trial, call 18): every seat whose rule has other parameter values redraws them on
- * this tick; their rule documents and cards update, every object's values are recomputed under the new rules (totals and
+ * Drift events (drift.ts; the coordinator's trials under call 18): each due event redraws one seat's parameters, if its
+ * rule has other values (events in the end guard are passed over); the rule documents and cards update, every object's values are recomputed under the new rules (totals and
  * scatters follow), and the record gets a `drift` event (each redrawn seat's new rule) and a `values` event per object.
  */
-async function driftRules(ctx: MutationCtx, game: Doc<"v2Games">, world: number, k: number) {
+async function driftRules(ctx: MutationCtx, game: Doc<"v2Games">, world: number, events: { e: number; seat: number; skip: boolean }[]) {
   const engine = await engineOf(ctx, game._id);
-  await ctx.db.patch(engine._id, { drifts: k });
+  await ctx.db.patch(engine._id, { drifts: events.at(-1)!.e });
   const drifted: { memberId: string; family: string; params: unknown; tieBreaker: string | null; ruleKey: string; contentHash: string; card: string }[] = [];
-  for (const [seat, s] of game.roster.entries()) {
+  for (const { e, seat, skip } of events) {
+    const s = game.roster[seat];
+    if (skip || !s) continue;
     const r = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", s.memberId)).unique();
     if (!r) continue;
-    const next = redrawParams(game.variant, r.family, r.tieBreaker, r.params, game.seed, seat, k);
+    const next = redrawParams(game.variant, r.family, r.tieBreaker, r.params, game.seed, seat, e);
     if (!next) continue;
     const view = ruleView({ family: r.family, params: next.params, tieBreaker: r.tieBreaker, ruleKey: next.ruleKey, contentHash: next.contentHash });
-    await ctx.db.patch(r._id, { params: next.params, ruleKey: next.ruleKey, contentHash: next.contentHash, ...view, drifts: k, driftedAt: world });
+    await ctx.db.patch(r._id, { params: next.params, ruleKey: next.ruleKey, contentHash: next.contentHash, ...view, drifts: (r.drifts ?? 0) + 1, driftedAt: world });
     drifted.push({ memberId: s.memberId, family: r.family, params: next.params, tieBreaker: r.tieBreaker, ruleKey: next.ruleKey, contentHash: next.contentHash, card: view.card });
   }
   if (drifted.length === 0) return;
-  await appendEvent(ctx, game._id, "drift", { worldSeconds: world, k, seats: drifted });
+  await appendEvent(ctx, game._id, "drift", { worldSeconds: world, k: events.at(-1)!.e, seats: drifted });
   // Every object's values under the new rules (the same object versions: each player's reading keeps its draw).
   const seats = await seatRules(ctx, game), changes: { number: number; values: Value[]; before: Map<string, Value> }[] = [];
   for await (const st of ctx.db.query("v2ObjectStates").withIndex("by_game_state", q => q.eq("gameId", game._id))) {
@@ -587,8 +589,8 @@ export const commit = internalMutation({
     await applyToPlayers(ctx, game._id, changes);
     await foldTugs(ctx, game._id, tugMoves);
     // Parameter drift on its schedule (drift.ts): before the scoreboard, so standings follow at the next interval.
-    const due = driftDue(driftSecondsOf(game), world, engine.drifts ?? 0);
-    if (due !== null) await driftRules(ctx, game, world, due);
+    const due = driftEventsDue(driftSecondsOf(game), game.roster.length, world, engine.drifts ?? 0, durationModeOf(game) === "fixed" ? endWorldOf(game) : null);
+    if (due.length) await driftRules(ctx, game, world, due);
 
     await ctx.db.patch(engine._id, { tick: engine.tick + 1, objects, acts, moves });
     await ctx.db.patch(clock._id, { tick: clock.tick + 1, worldSeconds: world, lastTickAt: a.now, objects, commits: clock.commits + 1 });

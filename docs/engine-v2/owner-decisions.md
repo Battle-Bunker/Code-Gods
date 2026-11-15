@@ -420,6 +420,13 @@ back) or TRIAL (a declared experiment, measured and reported).
     1.76 (it was 2.5–4 for the big-digit seat), the same as with the pause (1.10–1.98). Game to game the spread is wide,
     so the 1.5× target is not met on 6 of 8 tables; the parameterised pool remains the fix.
 
+20. **TRIAL** (declared 15 Nov, under call 18's drift, after playtest round 16): drift is staggered and kept off the
+    buzzer. Seat k of n is redrawn at world seconds k × driftSeconds / n + m × driftSeconds (a table of three at 120 s:
+    one seat's rule changes every 40 s, each seat's every 120 s), instead of every seat at the same instant, which made
+    the leaderboard a sawtooth (alice's game: about 85 to about 10 at 2:00). In a fixed-length game no redraw falls in
+    the last 90 world seconds: the redraw at 10:00 of a 600 s game collapsed the final scores (winner 69.86 after being
+    near 100). (convex/v2/drift.ts `driftEventsDue`, `nextDriftAt`.)
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.
