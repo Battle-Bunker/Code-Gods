@@ -60,7 +60,7 @@ const ECONOMY: PresetEconomy = {
  * A typical object's full read, in bits: the median over 1,000 births of each variant a preset plays (measured; the
  * unit test v2-presets keeps it within 10% of the births). The read-price weight is set from it.
  */
-export const MEDIAN_LOOK_BITS: Readonly<Record<string, number>> = { "line-q": 13.7, "line-q-lenses": 14.0, "grid-4-d10": 41.1, "pair-q": 30.4 };
+export const MEDIAN_LOOK_BITS: Readonly<Record<string, number>> = { "line-q": 13.7, "line-q-lenses": 14.0, "grid-4-d10": 41.1, "pair-q": 26.4 };
 export function medianLookBits(variant: string): number {
   const bits = MEDIAN_LOOK_BITS[variant];
   if (bits === undefined) throw new Error(`No median look for the variant ${variant}: measure it (MEDIAN_LOOK_BITS)`);
