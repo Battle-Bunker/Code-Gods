@@ -63,12 +63,14 @@ interface Stat {
   games: number; gained: number[]; lastThird: number[]; latency: number[]; redraws: number; answered: number; grids: number; cur: number[]; alt: number[];
   levels: number[]; endBits: number[]; seats: number; climbingLate: number;
   mainSteps: number; valleys: number; tbLost: number; recovered: number; recovery: number[];
+  energyEnd: number[]; spentShare: number[]; perMinute: number[];
   own: number[]; others: number[]; moves: number[]; trueGain: number[]; flips: number[]; reversal: number[];
 }
 const stats = new Map<string, Stat>();
 const stat = (f: string) => stats.get(f) ?? (stats.set(f, {
   games: 0, gained: [], lastThird: [], latency: [], redraws: 0, answered: 0, grids: 0, cur: [], alt: [],
   levels: [], endBits: [], seats: 0, climbingLate: 0, mainSteps: 0, valleys: 0, tbLost: 0, recovered: 0, recovery: [],
+  energyEnd: [], spentShare: [], perMinute: [],
   own: [], others: [], moves: [], trueGain: [], flips: [], reversal: [],
 }), stats.get(f)!);
 const R = rng("pool-dynamics", variant.id, o.from);
@@ -96,11 +98,13 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   const climbs = seats.map(() => new Map<number, Climb>());
   const levelsDone = seats.map(() => [] as number[]);
   let live = Number(o.objects);
+  const lastBalance = seats.map(() => NaN), income = seats.map(() => 0), spent = seats.map(() => 0);
   const rep = await runTable(boxes, {
     type, variant, lines: Number(o.objects), seed: `pool-${o.type}-${g}`, seconds, seats, unique: true, economy: E,
     birthsPerSecond: Number(o.births), summonCap: E.startingEnergy, ...(drift > 0 ? { driftSeconds: drift } : {}),
     onAct: e => {
       live = Math.max(live, e.objects);
+      lastBalance[e.seat] = e.balance; income[e.seat] = e.income; spent[e.seat]! += e.charge;
       if (!e.committed) return;
       moves.push({ at: e.at, seat: e.seat, object: e.object });
       const i = e.seat, st = stat(keys[i]!);
@@ -128,6 +132,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   seats.forEach((s, i) => {
     const st = stat(keys[i]!), fam = fams[i]!;
     st.games++; st.gained.push(rep.seats[i]!.gained); st.lastThird.push(late);
+    st.energyEnd.push(lastBalance[i]!); st.spentShare.push(spent[i]! / (income[i]! * seconds)); st.perMinute.push(moves.filter(m => m.seat === i).length / (seconds / 60));
     const sr = rep.seats[i]!;
     st.moves.push(sr.moves); st.trueGain.push(sr.trueGainShare); st.flips.push(sr.flips); st.reversal.push(sr.reversalEnergy);
     // Own bits and the others' bits on each final object, under each seat's final parameters.
@@ -156,11 +161,11 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
 await boxes.close();
 
 console.log(`${variant.id} pool, ${o.kind} starters, ${o.games} games of ${seconds} s, ${drift > 0 ? `drift every ${drift} s` : "no drift"}, power ${E.powerPerSecond}, ${E.opportunitiesPerSecond}/s`);
-console.log("| family | games | mean points gained | own bits at end | others' bits at end | moves | share raising points | flips | energy taken back | objects moving in the last third | main-part levels per object climbed: median / max | end bits on those objects | seats still climbing the main part in the last third | valleys crossed (rung to higher rung) | main-part steps that lowered the tie-breaker | recovered, median s | redraws answered, median s | end bits under current / other params |");
-console.log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+console.log("| family | games | mean points gained | moves a minute | energy at end | spent / income | own bits at end | others' bits at end | moves | share raising points | flips | energy taken back | objects moving in the last third | main-part levels per object climbed: median / max | end bits on those objects | seats still climbing the main part in the last third | valleys crossed (rung to higher rung) | main-part steps that lowered the tie-breaker | recovered, median s | redraws answered, median s | end bits under current / other params |");
+console.log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
 const rows = [...stats.entries()].sort((a, b) => mean(b[1].gained) - mean(a[1].gained));
 for (const [f, s] of rows) console.log([
-  f, s.games, mean(s.gained).toFixed(0), mean(s.own).toFixed(1), mean(s.others).toFixed(1), mean(s.moves).toFixed(0),
+  f, s.games, mean(s.gained).toFixed(0), mean(s.perMinute).toFixed(1), mean(s.energyEnd).toFixed(0), `${(100 * mean(s.spentShare)).toFixed(0)}%`, mean(s.own).toFixed(1), mean(s.others).toFixed(1), mean(s.moves).toFixed(0),
   `${(100 * mean(s.trueGain)).toFixed(0)}%`, mean(s.flips).toFixed(1), mean(s.reversal).toFixed(0), `${(100 * mean(s.lastThird)).toFixed(0)}%`,
   s.levels.length ? `${median(s.levels)} / ${Math.max(...s.levels)}` : "-", s.endBits.length ? mean(s.endBits).toFixed(1) : "-",
   pct(s.climbingLate, s.seats), s.valleys, `${pct(s.tbLost, s.mainSteps)} of ${s.mainSteps}`,
