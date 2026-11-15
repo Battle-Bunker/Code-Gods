@@ -5,7 +5,7 @@ import { OpFailure } from "@workspace/v2-affordances";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { MAX_MEMBERS, MAX_PLAYERS, normaliseCode, userById } from "./access";
-import { bidDealer, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, practiceDeal, rotatedDeal, ruleView, type DealtRule, type PastDeal } from "./deal.ts";
+import { bidDealer, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, practiceDeal, rotatedDeal, ruleView, hasSeatingRule, seatingClashes, type DealtRule, type PastDeal } from "./deal.ts";
 import { dealWithBids, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
 import { isPreset, presetOf } from "./presets.ts";
 import { summonPracticePartners } from "./agents.ts";
@@ -164,7 +164,7 @@ export async function nextDeal(ctx: QueryCtx, room: Doc<"v2Rooms">, seats: reado
   if (rotated) return { rules: rotated.rules, dealKey, rotation: { round: rotated.round, of: rotated.of } };
   const kinds = seats.map(s => s.kind);
   if (isPracticeGame(kinds)) return { rules: practiceDeal(pool, kinds, seed, presetOf(room.preset).variant), dealKey, rotation: null };
-  return { rules: freshDeal(pool, seats.length, seed), dealKey, rotation: null };
+  return { rules: freshDeal(pool, seats.length, seed, presetOf(room.preset).variant), dealKey, rotation: null };
 }
 
 // ---------------------------------------------------------------- the bid phase (integration plan §5.9)
@@ -250,7 +250,7 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
   if (auction && auction.bids.length) {
     // A won bid voids the rotation (the auction is the fairness instrument); with no counted bid this is the plain deal.
     const pool = dealablePool(preset);
-    const dealt = dealWithBids(seats.map(s => s._id), [...new Set(pool.map(r => r.family))], auction.bids, dealRng(seed), bidDealer(pool), auction.pricing);
+    const dealt = dealWithBids(seats.map(s => s._id), [...new Set(pool.map(r => r.family))], auction.bids, dealRng(seed), bidDealer(pool, preset.variant), auction.pricing);
     wins = dealt.wins;
     if (wins.length) { rules = dealt.deal; rotation = null; }
   }
@@ -277,6 +277,8 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     endAtWorld: drawEnd(settings.durationMode, settings.worldSeconds),
     // The dealing trial, step 1: what this table could climb together unopposed (private; deal.ts will use it later).
     unopposed: unopposedDirections(preset.variant, rules.map(r => `${r.family}/${r.tieBreaker}`)),
+    // The seating rule's clashes this deal left (grids; deal.ts): none unless the table has more seats than clusters allow.
+    ...(hasSeatingRule(preset.variant) ? { seating: { clashes: seatingClashes(preset.variant, rules.map(r => r.family)) } } : {}),
     ...(rotation ? { rotation } : {}),
     artefacts: seats.map((m, i) => ({ memberId: m._id, ruleKey: rules[i]!.ruleKey, contentHash: rules[i]!.contentHash })),
   });
