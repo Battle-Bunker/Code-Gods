@@ -78,21 +78,29 @@ test("empty, one-rule, repeated-rule and unknown tables have no shared rise", ()
   assert.deepEqual(unopposedDirections("line-q", ["square-area/spf"]), []);
 });
 
-test("the weak threshold is under a tenth of the stretch-to-367 reference", () => {
+// The stretch-to-367 reference (the 247k case) set WEAK_BELOW when Whole Crossing's k-spf rose about 1 bit per energy
+// along the prime ladder. Since Whole Crossing deals a residue (decision 41) it rises 0.16 there: the case is weaker but
+// still flagged, and a third seated rule such as Prime Landing's opposes it.
+test("the stretch-to-367 reference is still flagged strong, and WEAK_BELOW is under it", () => {
   const ref = TENSION["line-q"]!.reference;
   assert.deepEqual(ref.rules, ["square-area/spf", "whole-crossing/k-spf"]);
-  assert.ok(ref.gainPerEnergy >= 0.9, `reference ${ref.gainPerEnergy}`);
-  assert.ok(WEAK_BELOW <= ref.gainPerEnergy / 10);
+  assert.ok(ref.gainPerEnergy > WEAK_BELOW, `reference ${ref.gainPerEnergy}`);
 });
 
 test("the 247k table holds a strong unopposed rise: the prime ladder for Square Area and Whole Crossing", () => {
-  const un = unopposedDirections("line-q", ["prime-landing/shared-factor", "square-area/spf", "whole-crossing/k-spf"]);
-  const top = un[0]!;
+  const top = unopposedDirections("line-q", ["square-area/spf", "whole-crossing/k-spf"])[0]!;
   assert.equal(top.direction, "ladder (p, 2p)");
   assert.equal(top.kind, "ladder");
   assert.deepEqual(top.rules, ["square-area/spf", "whole-crossing/k-spf"]);
   assert.equal(top.strength, "strong");
-  assert.ok(top.gainPerEnergy >= 10 * WEAK_BELOW);
+  // A third rule that pays for the climb opposes it: Prime Landing's shared-factor seat.
+  assert.deepEqual(unopposedDirections("line-q", ["prime-landing/shared-factor", "square-area/spf", "whole-crossing/k-spf"]), []);
+});
+
+test("no cheap move (the turn and the zoom included) is a strong unopposed rise for any two dealt rules", () => {
+  const rules = [...new Set(TENSION["line-q"]!.rules)];
+  for (let i = 0; i < rules.length; i++) for (let j = i + 1; j < rules.length; j++)
+    for (const u of unopposedDirections("line-q", [rules[i]!, rules[j]!])) assert.ok(u.kind === "ladder" || u.strength === "weak", JSON.stringify(u));
 });
 
 test("Square Area against Pythagorean Area (the pool's real tension) has no strong shared rise", () => {
