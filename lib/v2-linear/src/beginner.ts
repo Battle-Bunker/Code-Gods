@@ -197,38 +197,44 @@ export const wholeCrossing = ladder(family<QR>("whole-crossing", "Whole Crossing
 
 // ---------------------------------------------------------------- 9. Divisibility Ladder (the curator's §10.5; D §11)
 
+/**
+ * Divisibility Ladder as a ladder (design-principles.md rows 1 to 3; redesigned 15 Nov under the coordinator's
+ * delegation, declared): the run of n dividing y(n) = m·n + c from n = 1, with no top (for a whole gradient, n divides
+ * y(n) exactly when n divides c, so a run of k needs lcm(1, …, k) to divide c), in triangular levels (u =
+ * triangularLevel(run): each extra n counts for less, so a stretch chain bends; the old run stopped at 12 and a greedy
+ * stretch chain on "steep" reached 77.6 bits). Tie-breaker, tied to the run (decision 29): where the run stops, at n,
+ * the factor y(n) shares with n (0 when y(n) is not whole): how near the next rung is, never more than n, so no stretch
+ * inflates it (a first try, gcd(c / lcm(1, …, run) + 1, the gradient's whole part), grew with every stretch, which
+ * multiplies both: 75 bits in 8 greedy stretches). The tie-breakers m-spf, m-gpf, steep and m-prime (wishes about the
+ * gradient alone) leave it.
+ */
 const ladderShape: Shape<object> = {
-  main: more("ladder", "a run of y-values each divisible by its position: y(1) by 1, y(2) by 2, …", "y(1) should be a multiple of 1, y(2) a multiple of 2, y(3) of 3, and so on (the line not through (0, 0)): the run should be as long as possible.", "table"),
+  main: more("ladder", "a run of y-values each divisible by its position: y(1) by 1, y(2) by 2, …", "y(1), y(2), y(3), … should be multiples of 1, 2, 3, … for as long as possible, not through (0, 0). Longer is better, though each extra counts less.", "table"),
   tieBreakers: [
-    ...factorTies<object>("m", "the gradient"),
-    // Undealt (the coordinator, 15 Nov): a straight hill, 72–76 bits by stretches whose factor changes each step (the
-    // gate's greedy chain); the spec lead redesigns the family and re-deals it then.
-    undealt(more("steep", "how steep the line is", "The gradient should be as steep as possible.", "si")),
-    distance("m-prime", "the gradient close to a prime", "The gradient should be as close as possible to a prime.", "si"),
+    more("next-rung", "the factor y(n) shares with n where the run stops",
+      "Where the run stops, at n, the biggest number dividing both n and y(n) should be as big as possible (0 if y(n) is not whole).", "table"),
   ],
 };
-export const divisibilityLadder = family("divisibility-ladder", "Divisibility Ladder", ["table", "si"], ladderShape, [{}], ctx => {
+export const divisibilityLadder = ladder(family("divisibility-ladder", "Divisibility Ladder", ["table", "si"], ladderShape, [{}], ctx => {
   const mRef = ref("si", "m"), cRef = ref("si", "c");
   const cv = ctx.read(cRef), c = num(cv);
   if (c === null) return allUndefined(ctx, ladderShape, cv, cRef);   // a vertical line has no y(n)
   if (Qn.isZero(c)) return allUndefined(ctx, ladderShape, { kind: "undefined", reason: "the line goes through (0, 0), where every n divides y(n): the rule wants a line that does not" }, cRef);
   const m = num(ctx.read(mRef))!;
-  let run = 0;
+  let run = 0, stop = q(0), at = 1;
   const cols: ElementRef[] = [];
-  for (let n = 1; n <= 12; n++) {
-    const r = ref("table", "q", { x: n }); // y(n) ÷ n
-    const yn = num(ctx.read(r))!;
-    if (yn.d !== 1n) { ctx.mark({ kind: "note", ref: r, text: `${n} does not divide y(${n}): the run stops here` }); break; }
+  // The table shows x = 0 … 12; beyond it the run is read from m and c (n divides y(n) = m·n + c). It ends by |c| at
+  // the latest for a whole gradient, and at the first n where y(n) is not whole otherwise.
+  for (let n = 1; ; n++) {
+    const yn = n <= 12 ? num(ctx.read(ref("table", "q", { x: n })))! : Qn.div(Qn.add(Qn.mul(m, q(n)), c), q(n));
+    if (yn.d !== 1n) { at = n; stop = Qn.add(Qn.mul(m, q(n)), c); if (n <= 12) ctx.mark({ kind: "note", ref: ref("table", "q", { x: n }), text: `${n} does not divide y(${n}): the run stops here` }); break; }
     run++;
-    cols.push(r);
-    ctx.mark({ kind: "focus", ref: r });
+    if (n <= 12) { const r = ref("table", "q", { x: n }); cols.push(r); ctx.mark({ kind: "focus", ref: r }); }
   }
-  ctx.term("ladder", "the run of n dividing y(n)", q(run), cols.length ? cols : [cRef]);
-  ctx.term("m-spf", factorLabel("smallest", "the gradient", m), spfQ(m), [mRef]);
-  ctx.term("m-gpf", factorLabel("largest", "the gradient", m), gpfQ(m), [mRef]);
-  ctx.term("steep", "|m|", Qn.abs(m), [mRef]);
-  ctx.term("m-prime", "distance from the gradient to a prime", distanceToPrime(m), [mRef]);
-});
+  ctx.term("ladder", `the run of n dividing y(n): ${stepNote(run, "number", "numbers")}`, triangularLevel(run), cols.length ? cols : [cRef]);
+  const share = stop.d === 1n ? gcd(stop.n < 0n ? -stop.n : stop.n, BigInt(at)) : 0n;
+  ctx.term("next-rung", stop.d === 1n ? `the run stops at ${at}: y(${at}) = ${stop.n}, and the biggest number dividing both is ${share}` : `the run stops at ${at}: y(${at}) = ${Qn.toWire(stop)} is not whole`, q(share), at <= 12 ? [ref("table", "q", { x: at })] : [mRef, cRef]);
+}));
 
 // ---------------------------------------------------------------- Exact Change (restored, decision 22)
 

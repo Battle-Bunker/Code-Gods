@@ -21,9 +21,19 @@ test("the opponent table names, for each family, the dealt families opposing at 
   }
 });
 
-test("every dealt ladder family (a hill with no top) has a named opponent in the pool", () => {
+/**
+ * Open fails of design-principles.md row 6, each a coordinator's ruling to deal the family unopposed for now. An entry
+ * whose family gains an opponent fails the test below: remove it then.
+ */
+const OPEN_ROW_6: Record<string, string> = {
+  "divisibility-ladder": "coordinator, 15 Nov (#817): merged dealt; its climbs barely move any other rule (at most 7% opposed). Prime Staircase is to be made to contest its heights.",
+};
+
+test("every dealt ladder family (a hill with no top) has a named opponent in the pool, but for the recorded open fails", () => {
   for (const f of beginnerPool.filter(f => f.keepsParams)) {
     if (!(f.id in LINE_OPPONENTS)) continue;   // not yet measured (the table may be partial while families are redesigned)
-    assert.ok(LINE_OPPONENTS[f.id]!.length > 0, `${f.id} has no opponent: ${JSON.stringify(LINE_OPPONENT_SHARES[f.id])}`);
+    const opposed = LINE_OPPONENTS[f.id]!.length > 0;
+    if (f.id in OPEN_ROW_6) assert.ok(!opposed, `${f.id} now has opponents (${LINE_OPPONENTS[f.id]!.join(", ")}): remove it from OPEN_ROW_6`);
+    else assert.ok(opposed, `${f.id} has no opponent: ${JSON.stringify(LINE_OPPONENT_SHARES[f.id])}`);
   }
 });

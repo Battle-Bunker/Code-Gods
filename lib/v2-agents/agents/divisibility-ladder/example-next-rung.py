@@ -1,5 +1,5 @@
-# Divisibility Ladder · Example: the gradient's largest prime factor
-# Main part: a run of y-values each divisible by its position: y(1) by 1, y(2) by 2, …. Tie-breaker: the gradient's largest prime factor.
+# Divisibility Ladder · Example: the factor y(n) shares with n where the run stops
+# Main part: a run of y-values each divisible by its position: y(1) by 1, y(2) by 2, …. Tie-breaker: the factor y(n) shares with n where the run stops.
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -7,21 +7,22 @@
 # with that player and put the line in LEAVE to keep it.
 # Changing it later costs only what you change. To summon another agent, first move power from your agents to your
 # own store (energy moves with it), pay, then share the power out again.
-# Try this: change FAR = 3 to 2: shorter steps cost less (a step of n costs more than n steps of 1); does it still climb?
+# Try this: change FAR = 3 to 2: a shift by a multiple of the factor y(n) shares with n keeps it; does it reach the next rung?
 
 
 def score(m, c, p):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     if c == 0:                                      # through (0, 0): the rule wants a line that is not
         return None
-    main = 0
-    for n in range(1, 13):                          # the run of n dividing y(n)
+    run, n, y = 0, 1, m + c                         # the run of n dividing y(n); it stops at n, with y = y(n)
+    while y.denominator == 1 and y.numerator % n == 0:
+        run, n = run + 1, n + 1
         y = m * n + c
-        if y.denominator != 1 or y.numerator % n != 0:
-            break
-        main += 1
-    fm = factors(m) or []                           # the gradient's prime factors ([] for 0, 1, -1)
-    return [main, fm[-1] if fm else 1]   # main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better); tie-breaker: the gradient's largest prime factor big is better
+    lv = 0
+    while (lv + 1) * (lv + 2) // 2 <= run:          # level L needs L(L + 1)/2 of the run (1, 3, 6, 10, ...)
+        lv += 1
+    main = lv + Fraction(run - lv * (lv + 1) // 2, lv + 1)
+    return [main, common(y, n) if y.denominator == 1 else 0]   # main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better, a ladder with no top; each extra counts for less: level L needs L(L + 1)/2); tie-breaker: where the run stops, at n: a bigger number dividing both n and y(n) is better (0 if y(n) is not whole)
 
 
 FAR = 3      # how far one change may go

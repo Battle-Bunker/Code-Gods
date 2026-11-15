@@ -66,7 +66,7 @@ test("wording: no parameter letters, no 'distance …: 0', no steps or threshold
     [rule(primeLanding, "shared-factor", { ends: 1 }), mc(6, 25)], [rule(primeLanding, "shared-factor", { ends: 9, side: -1 }), mc(290, 59)],
     [rule(squareArea, "spf"), mc(-1, 7)], [rule(squareArea, "lpf"), mc(290, 59)],
     [rule(wholeCrossing, "shared-factor", { q: 5, r: 3 }), mc(3, 7)], [rule(treasure, "m-spf"), mc(15, 6)], [rule(treasure, "m-spf"), mc(15, 7)],
-    [rule(divisibilityLadder, "m-spf"), mc(12, 12)],
+    [rule(divisibilityLadder, "next-rung"), mc(12, 12)],
   ];
   for (const [r, s] of cases) {
     const letters = r.family.params.map(p => p.name);
