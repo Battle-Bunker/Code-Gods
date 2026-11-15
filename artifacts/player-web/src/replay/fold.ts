@@ -80,7 +80,7 @@ function ruleRow(r: RawRule, variant: string | undefined): MyRuleRow {
   const f = familyOf(r.family);
   return {
     family: r.family, title: f?.title ?? r.family, params: r.params, layers: r.layers, tieBreaker: r.tieBreaker, card: r.card,
-    depends: f ? [...f.depends] : [], primary: f?.main.rep ?? defaultRepOf(variant), ruleKey: r.ruleKey, contentHash: r.contentHash, drifts: 0, driftedAt: null, value: r.value ?? { knots: [], tail: null }, bid: null, handicap: r.handicap ?? null,
+    depends: f ? [...f.depends] : [], primary: f?.main.rep ?? defaultRepOf(variant), ruleKey: r.ruleKey, contentHash: r.contentHash, drifts: 0, driftedAt: null, previous: null, value: r.value ?? { knots: [], tail: null }, bid: null, handicap: r.handicap ?? null,
   };
 }
 

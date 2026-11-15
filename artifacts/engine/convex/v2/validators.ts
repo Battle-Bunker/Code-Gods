@@ -85,6 +85,8 @@ export const myRuleV = v.object({
   depends: v.array(v.string()), primary: v.string(), ruleKey: v.string(),
   /** Parameter drift (drift.ts): times this rule's parameters were redrawn (0: never), and the world second of the last. */
   drifts: v.number(), driftedAt: v.union(v.number(), v.null()),
+  /** The rule before its last redraw (params and card), or null when it never drifted. */
+  previous: v.union(v.object({ params: v.any(), card: v.string() }), v.null()),
   /** The rule's value function (decision 23), as `valueLookup` takes it: what any utility is worth, in bits. */
   value: v.object({
     knots: v.array(v.object({ u: scoreWireV, bits: v.number(), lo: v.number(), hi: v.number() })), tail: v.any(),
