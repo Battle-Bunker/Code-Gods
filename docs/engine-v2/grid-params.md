@@ -292,7 +292,7 @@ each reading and its power (for example "12345678 = 3² × 1371742").
 | 1 | Unbounded main part? | Powers of 3: bound 64 levels, best found 28–34 (14 annealing runs of 10⁵–10⁶ moves and 8 seeded with known high multiples; at most 2 runs reach the best, the long runs had not converged). Matching: bound ≈ 52, best 28. Writing 3¹⁴ = 04782969 into one half gives 14 from that reading but leaves the other three at random; seeded runs end below annealing. | Pass on halves (operational reading: a long search still improves); alternate layouts not yet searched |
 | 2 | Ladder length? | Each level costs about log2 q bits (1.6 for 3, 1 for 2). A starter-like climber (150 tries of ±1 or a swap, 400 climbs, three seeds) passes a median of 4 levels and stops at 9.0–9.1 bits (powers, both layouts), 8.3 (matching, halves), 7.3 (matching, alternate); p90 11–14. | Pass; the four instances span 1.8 bits |
 | 3 | Tie-breaker defined by the main part's value? | It reads what is left of each number after dividing out its power. Prototype: it fell at 55–70% of main-part steps, and the best tie-breaker differs at two capped main-part levels (powers 165 vs 64, matching 71 vs 46). Test: swapping two cells lifts one reading from 3² to 3⁴ and changes what is left of it. | Pass |
-| 4 | Dealable instances? | 4 (two lenses × two layouts); a test requires at least 4. | Pass |
+| 4 | Dealable instances? | 8 (two lenses × two q's × two layouts, §14); a test requires at least 4. | Pass |
 | 5 | Perpendicular? | Depth-averaged PMI against the beginner eight's mains within ±0.48; between the four divisibility lenses near 0 (−0.50 at most). Measured on halves only. | Pass on halves; alternate to measure |
 | 6 | Opponents? | Roughness ("smallest prime factor as big as possible", PMI −2.47 against powers of 3, the weaker rule keeps 0.38) is the natural opponent but its balance is 2.8 and its reach 13.5 bits; distinct primes (−1.07) fails its own row 1. | Open: no balanced opponent yet |
 | 8 | What does it reach? | Starters 7–9 bits median, p90 up to 14; the top (64 levels) would be about 100 bits but is not found; nothing reachable near the hundreds. | Pass |
@@ -342,3 +342,59 @@ short powers):
 | 5 | Perpendicular? | Maximum depth-averaged \|PMI\| against the beginner eight's mains 1.32. | Pass |
 | 6 | Opponents? | None yet. | Open |
 | 9 | Balanced, keeps moving? | Not measured in seated play: this preset is how it gets measured. | Open |
+
+## 14. Closing finding (15 November): what a 4×4 digit board can carry
+
+**In short.** On a finite board of digits, every goal a child can read at a glance (sums, mirrors, pairs, spreads,
+patterns) has a small top that search, or a known design, reaches. A ladder long enough to pass the rule design check
+(`design-principles.md`) needs numbers read across several cells, and then the card leans on arithmetic the view must
+do. One family passes on all three counts so far: **Divisibility**.
+
+**What passes.** Divisibility (§12): the board's halves read as 8-digit numbers, each divisible by as high a power of q
+as possible (or the two row numbers, and the two column numbers, differing by one). It deals two lenses × two q's × two
+layouts (powers of 3 or 7; differences by 2 or 3; halves or odd and even rows and columns); a redraw changes only q.
+Search finds 28–40 of a bound of 52–64; starters stop at 6.7–9.2 bits; the tie-breaker (what is left after dividing
+out the power) restarts at 16–81% of main steps; seated play keeps 79% of seats stepping up in the last third and 9%
+on a level reached in the first two minutes (drift off; powers of 3 on halves is the weakest at 60% and 20%); balance
+1.2–1.3 with drift off. Its card is one sentence and its view shows each reading, its power and "one more 3: add 18 or
+take away 9". It has no opponent with balance under 2 (row 6 open).
+
+**Every goal tried, and why it failed.**
+
+| Goal | Failure |
+|---|---|
+| The beginner eight, the more-rules seven, the parameterised four (§1–11) | exact tops found; one dealt instance; tie-breakers not read from the attained value |
+| Rows, columns or 8-digit readings as close as possible to a prime, square, semiprime, prime ending in d | small top: π favours small digits, leading zeros make qualifying numbers dense, the whole board qualifies at 17–30 bits |
+| Largest prime among the row numbers | top (9973) found every run |
+| One reading divisible by a high power | formula top (2²⁶ = 67108864) |
+| Powers of 2 or 5 on readings | trailing zeros make them cheap |
+| Common factor of readings, shared modulus | boards of zeros; aligned with Divisibility |
+| Distinct primes of the readings | plateau found; aligned with the big-digit rules; cannot be shown |
+| Smoothness | formula top (2²⁶ then 2²⁵) |
+| Roughness (smallest prime factor big) | passes row 1 but reach 13 bits at any reading count; balance 2.8–348 |
+| Golden ratio, residues in several bases, residues mod 7, 11, 13 | top found; two rungs; formula (1001 = 7·11·13) |
+| Neighbour gcds | formula top (7777 / 8888 / 9999 / 1111) |
+| Sum of two squares | formula top (48612265 = 5·13·17·29·37·41) |
+| Ends like a power, near a multiple of 9973, mirror divisibility | formula top; top found; the same goal (digit sums ignore order) |
+| Shared leading digits, palindrome sums, repdigit sums, trailing 9s | small top found (the readable digit patterns) |
+| Count goals over 19 overlapping units on 4×4 | all 19 reached (by search and a Klein-square seed) |
+| Leading Digits (readings starting like powers of 2 or 7) | passes rows 1–3, but rejected on its card (round 19): not something a child can check or aim at |
+| Graded main parts (progress toward the next power) | a no-op for q = 2, 3: a number with exactly v factors is always q^v from the next multiple |
+
+**Uncapped cells** (any whole number, the lines' number code; old lenses made unbounded): every variant failed. Sharing
+a total is a coordination constraint, so single moves stall after a level or two and the only way up is a formula
+(double every cell, then nudge to the next prime), linear and endless into the hundreds of bits; zeros cheapened the
+sums; balance 2.4–8. A rescue with all four fixes (the shared value scored by its smallest prime factor, zero counting
+as no unit, multiplying moves priced by size, the C3 code) failed rows 1–3 the same way. Dropped.
+
+**5×5 board** (shared totals over 28 rows, columns, squares and diagonals): a magic-square construction from two
+orthogonal Knut Vik squares scores 22 without search, the best search finds; the card needs two totals (5-cell lines
+and 4-cell squares cannot share one); tie-breakers restart at 4–25% of steps; reach 12–15 bits. Dropped. Palindrome
+sums on 6×6: top found.
+
+**The structural reason.** Sixteen digits hold about 53 bits. A goal a child reads at a glance is a local pattern over
+a few cells; its levels are few, each level is coarse, and the full pattern is a small set a search or a known design
+(magic and Latin squares, repeating rows) reaches. Unbounded-looking ladders need many digits read as one number, which
+gives each level a rarer, finer step and no formula that meets overlapping readings at once; but that number's
+property (a power, a factor, a prefix) is arithmetic a child cannot check, so the view must show it. Uncapped cells
+remove the board's ceiling but not the coordination problem.
