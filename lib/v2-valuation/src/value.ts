@@ -289,28 +289,28 @@ export function tieBreakerBits(lv: TieBreakerLevels, level: number, t: number): 
 }
 
 /**
- * The per-level tie-breaker curves from weighted draws of the law (TieBreakerLevels): for each level with at least
- * `minDraws` draws, the survival of the tie-breaker among them, thinned to rises of a quarter bit, kept while at least
- * `minDraws` draws lie at or above the point (the rest is noise), and the rate past it fitted on log₂(1 + t − t₀) over the
- * kept points on its axis (tieBreakerAxis; at least TAIL_FLOOR). A level with fewer than three kept points is left out.
+ * A distance's rate past its measured range: 1 bit a halving. Near its target a distance with a smooth density has
+ * P(d ≤ x) ∝ x, so each halving is exactly one bit. A rate fitted at the far end of a sparse level ran to 4 bits a
+ * halving, and 34 bits for a crossing 3 from a multiple of 1,331 (Far Crossing {11, 8} on the energy gate).
  */
+const DISTANCE_RATE = 1;
 /**
  * The axis a level's tie-breaker rate is measured on. A size (some value above 0): doublings of the climb from the
  * level's floor, log₂(1 + t − t₀). A distance to a target (every value at most 0, best 0): halvings of the distance,
  * −log₂(1 + |t|), so its climb ends at the target. On a size's axis a distance's floor (a sampled −10¹⁹) made every
  * ordinary state worth 25 bits.
  */
-/**
- * A distance's rate past its measured range: 1 bit a halving. Near its target a distance with a smooth density has
- * P(d ≤ x) ∝ x, so each halving is exactly one bit. A rate fitted at the far end of a sparse level ran to 4 bits a
- * halving, and 34 bits for a crossing 3 from a multiple of 1,331 (Far Crossing {11, 8} on the energy gate).
- */
-const DISTANCE_RATE = 1;
 function tieBreakerAxis(pts: readonly (readonly [number, number])[]): (t: number) => number {
   const t0 = pts[0]![0];
   return pts[pts.length - 1]![0] <= 0 ? t => -Math.log2(1 + Math.abs(Math.min(t, 0))) : t => Math.log2(1 + t - t0);
 }
 
+/**
+ * The per-level tie-breaker curves from weighted draws of the law (TieBreakerLevels): for each level with at least
+ * `minDraws` draws, the survival of the tie-breaker among them, thinned to rises of a quarter bit, kept while at least
+ * `minDraws` draws lie at or above the point (the rest is noise), and the rate past it fitted over the
+ * kept points on its axis (tieBreakerAxis; at least TAIL_FLOOR). A level with fewer than three kept points is left out.
+ */
 export function tieBreakerLevels(draws: readonly { u: Score; w: number }[], base: number, minDraws = 40): TieBreakerLevels {
   const by = new Map<number, { t: number; w: number }[]>();
   for (const d of draws) {
@@ -340,8 +340,7 @@ export function tieBreakerLevels(draws: readonly { u: Score; w: number }[], base
     // Fewer than three points is no curve: the level carries the one below.
     if (pts.length < 3) continue;
     const x = tieBreakerAxis(pts), fit = leastSquares(pts.map(([t, b]) => ({ x: x(t), y: b })));
-    const slope = Math.max(fit?.slope ?? 0, TAIL_FLOOR);
-    curves.push({ level: L, pts, slope: round6(pts[pts.length - 1]![0] <= 0 ? Math.min(slope, DISTANCE_RATE) : slope) });
+    curves.push({ level: L, pts, slope: round6(Math.max(fit?.slope ?? 0, TAIL_FLOOR)) });   // a distance's is held at lookup (DISTANCE_RATE)
   }
   return { base, curves };
 }

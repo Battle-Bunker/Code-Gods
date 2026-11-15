@@ -110,7 +110,6 @@ test(`no dealt line or pair rule passes ${LIMIT} bits on one seat's whole-game i
             if (g > 0 && (!pick || g > pick.g)) pick = { ...o, g, b };
           }
           if (!pick) break;
-          if (process.env.GATE_TRACE && rule.family === process.env.GATE_TRACE) console.error(`${rule.ruleKey} #${k}: ${b0.toFixed(1)} → ${pick.b.toFixed(1)} for ${pick.fee.toFixed(1)}⚡: ${T.encode(s)} → ${T.encode(pick.s)}`);
           s = pick.s; spent += pick.fee; visited.add(T.encode(s)); top = Math.max(top, pick.b);
         }
         chains++;

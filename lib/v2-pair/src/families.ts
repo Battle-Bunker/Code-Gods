@@ -7,7 +7,7 @@
  * picture, a big prime on an axis) does not climb most of a table at once (decision 30); §4 of the doc measures it.
  */
 import { Qn, q, ref, type ElementRef, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
-import { distanceToWhole, fromMC, nearestInteger, normalise, primeFactorCount, smallestPrimeFactor, type Line } from "@workspace/v2-linear";
+import { distanceToWhole, fromMC, normalise, smallestPrimeFactor, type Line } from "@workspace/v2-linear";
 import type { PairState } from "./pair.ts";
 
 type Ctx = EvalContext<PairState>;
@@ -66,6 +66,15 @@ const mod1 = (n: bigint): bigint => (absB(n) > 0n ? absB(n) : 1n);
 const levelTarget = (qq: number, level: number): bigint => BigInt(qq) ** BigInt(Math.max(0, level + 1));
 
 /**
+ * A rung is a window, not a point (trial 34, the coordinator's order after #856): level L is held while the state is
+ * within 1/(L + 2) of it (its distance to the level's number plus any exactness the main part asks, an angle or a whole
+ * x), so ½ at the first valuation level, ⅓ at the first residue or power level, narrower each level up. Exact rungs
+ * froze a seat on a rung: almost every single move broke the level (two-line-systems.md §13), so a seat there had no
+ * tie-breaker work and no next step. The tie-breakers read the rung's own number, rounded.
+ */
+export const rungWindow = (level: number): Q => q(1n, BigInt(level + 2));
+
+/**
  * The ladder with no top (docs/engine-v2/design-principles.md row 1, the coordinator's call applying the owner's
  * principles, 15 Nov): every dealt main part climbs levels 1, 2, 3, … without end, each level rarer and dearer than the
  * last. A residue ladder (q, r) asks for a whole number leaving r when divided by q, then leaving R₂ = r + rq when
@@ -74,20 +83,12 @@ const levelTarget = (qq: number, level: number): bigint => BigInt(qq) ** BigInt(
  * log₂ q more bits of φ. The remainder r is never 0 or q − 1, the two remainders a single number (0 or −1) meets at
  * every level, which would make a top. A power ladder (k) asks for k, then k³, then k⁶, … (powerLadder).
  *
- * The score is q^L × (1 + 1/(1 + d)) (or k^L × …), bigger better: L the highest level met, d how far the state is from
- * the next level (0 never, or that level would be met). So every met level beats every state below it, nearer the
+ * The score is q^L × (1 + 1/(1 + d)) (or k^L × …), bigger better: L the highest level held (within its window,
+ * rungWindow), d how far the state is from the next level (more than its window, or that level would be held). So every met level beats every state below it, nearer the
  * next level is better. Past the measured knots the value tail runs along the level at the rate measured between levels
  * ("ladder-log", trial 28 for pairs), capped at each level by the φ of a cheap system reaching it (`witness`): a level
  * never pays more than a state that reaches it costs.
  */
-/**
- * A rung is a window, not a point (trial 34, the coordinator's order after #856): level L is held while the state is
- * within 1/(L + 2) of it (its distance to the level's number plus any exactness the main part asks, an angle or a whole
- * x), so ½ at the first valuation level, ⅓ at the first residue or power level, narrower each level up. Exact rungs
- * froze a seat on a rung: almost every single move broke the level (two-line-systems.md §13), so a seat there had no
- * tie-breaker work and no next step. The tie-breakers read the rung's own number, rounded.
- */
-export const rungWindow = (level: number): Q => q(1n, BigInt(level + 2));
 const ladderScore = (base: bigint, level: number, next: Q): Q => Qn.mul(q(base ** BigInt(level)), Qn.add(q(1), Qn.inv(Qn.add(q(1), next))));
 /** The highest level met (off(j) = 0) and the score; off(j) is non-decreasing in j for a residue ladder. */
 function climb(base: bigint, off: (j: number) => Q): { level: number; u: Q } {
@@ -208,8 +209,6 @@ const gcdB = (x: bigint, y: bigint): bigint => { let a = absB(x), b = absB(y); w
 /** A common factor of two anchors; an anchor of 0 earns nothing (0), so the trivial anchor is the bottom. */
 const shared = (x: bigint, y: bigint): Q => q(x === 0n || y === 0n ? 0n : gcdB(x, y));
 const spf = (x: bigint): Q => q(smallestPrimeFactor(x));
-const omega = (x: bigint): Q => q(primeFactorCount(x));
-const near = nearestInteger;
 
 interface Spec {
   readonly id: string; readonly title: string; readonly depends: readonly string[];

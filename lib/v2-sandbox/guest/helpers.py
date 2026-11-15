@@ -88,7 +88,8 @@
 #                                off_right, off45 (how far from a right angle, from 45 degrees), origin (a line through
 #                                (0, 0)).
 #   pair_steps(L, far, kinds, factors)  the steps of the given kinds ("shift", "tilt", "stretch", "turn", "slide",
-#                                "combine", "reflect", "quarter" on either line; "translate", both lines slid together),
+#                                "combine", "reflect", "quarter" on either line; "translate", both lines slid together;
+#                                "zoom", both lines zoomed about (0, 0) by 2 ... far + 1 and each factor),
 #                                each (plan, lines after); steps the game would refuse are left out. factors: extra
 #                                stretch factors (a ladder's x q).
 #   spf(n), omega(n), common(a, b)  a whole number's smallest prime factor (1 for 0 and +-1), its number of prime
@@ -678,6 +679,16 @@ def pair_steps(L, far, kinds, factors=()):
                 if r == sorted(ln):
                     continue
                 out.append((call("sys.translate", u=u, v=v), [[Fraction(x) for x in t] for t in r]))
+    # Both lines zoomed about (0, 0) by a whole factor (trial 34: with a slide by r, the next rung of a residue ladder).
+    if "zoom" in kinds:
+        for f in sorted(set(list(range(2, far + 2)) + [x for x in factors if x > 1])):
+            moved = [norm(a, b, c * f) for a, b, c in ln]
+            if None in moved or moved[0] == moved[1]:
+                continue
+            r = sorted(moved)
+            if r == sorted(ln):
+                continue
+            out.append((call("sys.zoom", f=f), [[Fraction(x) for x in t] for t in r]))
     return out
 
 

@@ -193,7 +193,7 @@ const SEATING_TRIES = 200;
  * worker, 15 Nov), since the shuffles that seated it were rejected most. Redrawing its numbers first keeps the family
  * draw uniform. Lines and grids keep one draw per shuffle, so their seeded deals are unchanged.
  */
-const PAIR_ENTRY_TRIES = 40;
+const PAIR_ENTRY_TRIES = 12;
 const entryTriesOf = (variant: string | undefined): number => (variant && isPair(variant) ? PAIR_ENTRY_TRIES : 1);
 /** The deal's random stream for a game seed: the fresh deal and the bid dealer draw from the same one. */
 export const dealRng = (seed: string): Rng => rng(seed, "deal");

@@ -18,8 +18,8 @@ import { pairType } from "@workspace/v2-pair";
 import type { AgentKind, ShippedAgent, ShippedLanguage } from "./starters.ts";
 
 /** The moves a pair agent can try in its own head (pairSteps' kinds). */
-export type PairKind = "shift" | "tilt" | "stretch" | "turn" | "slide" | "combine" | "reflect" | "quarter" | "translate";
-const ALL_KINDS: readonly PairKind[] = ["shift", "tilt", "stretch", "turn", "slide", "combine", "reflect", "quarter", "translate"];
+export type PairKind = "shift" | "tilt" | "stretch" | "turn" | "slide" | "combine" | "reflect" | "quarter" | "translate" | "zoom";
+const ALL_KINDS: readonly PairKind[] = ["shift", "tilt", "stretch", "turn", "slide", "combine", "reflect", "quarter", "translate", "zoom"];
 
 interface Lines { readonly ts: readonly string[]; readonly py: readonly string[] }
 interface PairTieBreakerEntry { readonly ts: string; readonly py: string; readonly says: string; readonly tryThis: string }
@@ -53,7 +53,7 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
       py: [DIST.py, MOD1.py, ...PARALLEL.py, "main, Yv = valuation_ladder(f.y, p[\"q\"], p[\"r\"], dist(f.x))   # y on your ladder, x near a whole number"],
     },
     tieBreakers: {
-      "divisor-multiple": T("Q.neg(offMultiple(f.D, mod1(Yv)))", "-off_multiple(f.D, mod1(Yv))", "the number you divide by near a multiple of y's number on your ladder (not 0) is better", "add \"combine\" to KINDS: it keeps the answer and changes the number you divide by."),
+      "divisor-multiple": T("Q.neg(offMultiple(f.D, mod1(Yv)))", "-off_multiple(f.D, mod1(Yv))", "the number you divide by near a multiple of y's number on your ladder (not 0) is better", "add \"tilt\" to KINDS: a new gradient changes the number you divide by."),
       "x-multiple": T("Q.neg(offMultiple(f.x, mod1(Yv)))", "-off_multiple(f.x, mod1(Yv))", "an answer whose x is near a multiple of its y (not 0) is better", "add \"slide\" to KINDS: it moves x along the other line."),
     },
   },
@@ -86,7 +86,7 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
       py: [DIST.py, MOD1.py, "if f.D == 0:   # parallel lines never cross: no score", "    return None", "main, S = ladder(abs(f.x) + abs(f.y), p[\"q\"], p[\"r\"], f.off45 + dist(f.x))   # 45 degrees at a grid point, |x| + |y| on your ladder"],
     },
     tieBreakers: {
-      "corner-divisor": T("common(S, f.D)", "common(S, f.D)", "a corner whose |x| + |y| shares a big factor with the number you divide by is better", "add \"combine\" to KINDS: it keeps the corner and changes the number you divide by."),
+      "corner-divisor": T("common(S, f.D)", "common(S, f.D)", "a corner whose |x| + |y| shares a big factor with the number you divide by is better", "add \"tilt\" to KINDS: a new gradient changes the number you divide by."),
       "corner-gap": T("f.ygap === null ? null : Q.neg(offMultiple(f.ygap, mod1(S)))", "None if f.ygap is None else -off_multiple(f.ygap, mod1(S))", "a y-intercepts' gap near a multiple of the corner's |x| + |y| (not 0) is better", "add \"shift\" to KINDS: it changes the gap directly."),
     },
   },
@@ -97,7 +97,7 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
       py: [DIST.py, "if f.ygap is None or f.xgap is None or f.origin:   # no gaps, or a line through (0, 0): no score", "    return None", "main = power_ladder(p[\"k\"], lambda t: dist(f.ygap) + abs(f.ygap - t * f.xgap))", POWER_N.py],
     },
     tieBreakers: {
-      "gap-divisor": T("common(f.D, N)", "common(f.D, N)", "the number you divide by sharing a big factor with k times your power reached is better", "add \"combine\" to KINDS: it changes the number you divide by."),
+      "gap-divisor": T("common(f.D, N)", "common(f.D, N)", "the number you divide by sharing a big factor with k times your power reached is better", "add \"tilt\" to KINDS: a new gradient changes the number you divide by."),
       "gap-step": T("Q.neg(offMultiple(f.ygap, N))", "-off_multiple(f.ygap, N)", "a y-intercepts' gap near a multiple of k times your power reached (not 0) is better", "add \"stretch\" to KINDS: it scales a line's gap."),
     },
   },
@@ -131,7 +131,7 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     },
     tieBreakers: {
       "ratio-gap": T("f.ygap === null ? null : Q.neg(offMultiple(f.ygap, mod1(k)))", "None if f.ygap is None else -off_multiple(f.ygap, mod1(k))", "a y-intercepts' gap near a multiple of that number (not 0) is better", "add \"shift\" to KINDS: it changes the gap directly."),
-      "ratio-divisor": T("Q.neg(offMultiple(f.D, mod1(k)))", "-off_multiple(f.D, mod1(k))", "the number you divide by near a multiple of that number (not 0) is better", "add \"combine\" to KINDS: it changes the number you divide by."),
+      "ratio-divisor": T("Q.neg(offMultiple(f.D, mod1(k)))", "-off_multiple(f.D, mod1(k))", "the number you divide by near a multiple of that number (not 0) is better", "add \"tilt\" to KINDS: a new gradient changes the number you divide by."),
     },
   },
 ];
