@@ -17,9 +17,14 @@ export type Sense = "big" | "small" | "prime" | "smooth" | "shared";
 export interface PairLayer extends Layer<None> { readonly hill: Sense }
 
 const main = (id: string, title: string, sentence: string, rep: string): Layer<None> => ({ id, title, sentence: () => sentence, rep, sense: "min" });
-/** A "prime" hill's value is a prime factor, so its tail keeps rising past the knots (measure "prime", decision 26). */
+/**
+ * No layer here is marked measure "prime": that tail (½ bit per unit) is the cost of a prime WRITTEN as a coefficient,
+ * and every prime a pair's rules read is derived (Cramer's rule, an intercept, a gap, a ratio), so it can be big and cheap:
+ * −9x + 14y + 5 = 0 with −2x + 3y − 104 = 0 has D = 1 and |x| + |y| = 2417, a prime, for about 60 bits of φ. The
+ * size tail (a log ramp) is used instead. The collapse check on pair-q found it (two-line-systems.md §7).
+ */
 const tb = (id: string, title: string, sentence: string, rep: string, hill: Sense): PairLayer =>
-  ({ id, title, sentence: () => sentence, rep, sense: hill === "small" ? "min" : "max", hill, ...(hill === "prime" ? { measure: "prime" as const } : {}) });
+  ({ id, title, sentence: () => sentence, rep, sense: hill === "small" ? "min" : "max", hill });
 
 /** The value of a number element, or null when it is undefined. */
 function read(ctx: Ctx, r: ElementRef): Q | null {

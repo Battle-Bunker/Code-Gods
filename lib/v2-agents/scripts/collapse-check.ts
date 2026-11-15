@@ -279,7 +279,8 @@ function togetherTest(v: VariantId, space: Space<any>, tables: readonly Rule[][]
     if (un[0] && un[0].gainPerEnergy > logged.strongest) { logged.strongest = un[0].gainPerEnergy; logged.strongestAt = `${un[0].direction}, table ${t}`; }
     const unNote = `unopposed directions (logged): ${un.length}${un[0] ? `, strongest ${f2(un[0].gainPerEnergy)} bits/energy (${un[0].direction}: ${un[0].rules.join(" + ")}), ${strong} strong / ${un.length - strong} weak` : ""}`;
     const keys = new Set(base.map(c => `${c.mutator} ${JSON.stringify(c.args)}`));
-    const calls = (s: any) => (grid ? base : [...base, ...lineShortcutMoves(space.variant, table[0]!, s).filter(c => !keys.has(`${c.mutator} ${JSON.stringify(c.args)}`))]);
+    // The line shortcut climber's moves are line-q's; grids and pairs of lines climb by their own calls alone.
+    const calls = (s: any) => (grid || v === "pair-q" ? base : [...base, ...lineShortcutMoves(space.variant, table[0]!, s).filter(c => !keys.has(`${c.mutator} ${JSON.stringify(c.args)}`))]);
     const found = directions({ type: space.type, variant: space.variant, rules: table, bits: r => space.bits(r), starts, calls });
     const worst = found[0];
     const fails = !!worst && togetherFails(worst.unopposed, starts.length);
