@@ -7,7 +7,7 @@ Status: proposals and measurements only. Nothing here changes the dealt rule poo
 - the rational pool: `node --max-old-space-size=10000 --experimental-strip-types scripts/line-rules-v3.ts --pool rational --moves mutators --part rules,tables,ident,entangle` (about an hour);
 - adversaries, contests, unfreezing and the flatter law: `--part adversary`, `--moves mutators --part contest`,
   `--pool rational --moves mutators --part unfreeze`, `--part flatlaw`, `--part pmi [--set channels]` (minutes each);
-- balance and dynamism: `--moves mutators --part parambalance`, `--part paramdyn`, `--part paramdrift` (SEED, TABLES env);
+- balance and dynamism: `--moves mutators --part parambalance`, `--part paramdyn`, `--part paramdrift`, `--part drifttrial`, `--part lensfix` (SEED, TABLES env);
 - parameterised families: `PAIRS=40 WIN=30 T=20 node --max-old-space-size=6000 --experimental-strip-types scripts/line-rules-v3.ts --part params` (about 15 minutes).
 
 It follows [landscape-analysis.md](landscape-analysis.md), whose five collapse tests (§4) are applied here. Part A is the
@@ -636,6 +636,61 @@ lenses, qualifiers, second lenses and bases):
 - My scripted seats and prices are the harness's (§A2), not the server's. The time-dilation helper is not on develop
   yet, so these results are to be re-run on the real engine.
 - Balance used 3 births and 4–6 random partners per lens or qualifier, so individual numbers are noisy (±2 bits).
+
+
+## A13. The drift trial and the gradient lens (coordinator's calls, 15 November)
+
+The coordinator's calls:
+- **No par-normalisation.** Deal only combinations whose reach is within a band of par, and fix causes.
+- **Parameter drift is a declared TRIAL game setting**, off by default until measured. Two measurements were asked for
+  before choosing its default. Raw output is in `scripts/line-drift-results.md`; the script parts are `--part drifttrial`
+  and `--part lensfix`, both with mutator moves.
+
+**The gradient lens, a balance fault, fixed by a lens change.** Best bits in reach, median over 8 random qualifiers, on
+the same births and reach as §A12:
+
+| Lens | Median | Range |
+|---|---|---|
+| the gradient | 16.9 | 12.0–20.6 |
+| how much the line climbs from x = 0 to x = 10 | 17.1 | 9.3–19.7 |
+| the gradient's top number (in lowest terms) | 14.9 | 11.5–19.4 |
+| **the gradient's bottom number (in lowest terms)** | **12.5** | 9.2–13.8 |
+| the y-intercept | 11.8 | 7.7–14.2 |
+| the height at x = 1 | 11.1 | 8.6–12.0 |
+
+Recommendation: replace "the gradient" as a primary lens with "the bottom number of the gradient as a fraction in
+lowest terms". It is rational-native and within about 1 bit of the y-intercept. Keep the gradient as a tie-breaker lens.
+Scaling the gradient (×10) does not help.
+
+**(1) Fixed parameters under the beginner economy** (8 ⚡/s, 600 at the start, cap 1,920, 24 objects; 12 random tables at
+300 s and at 600 s):
+
+- Play still settles. The table total is flat for most of the game in 9 of 12 tables at 300 s, and 4–17% of objects
+  move in the last third, with a few exceptions (33–75%) when one late climb finishes.
+- At 600 s the picture is the same: scarce energy slows the first climb, but it does not keep the board moving.
+- Seats' end bits differ by max/min 1.1–2.9.
+
+**(2) Drift intervals on a 600 s game** (8 ⚡/s; 3 and 5 objects; 12 tables × 2 object counts × 4 settings):
+
+| Interval | Objects moved in the last 200 s | Table total over time | Share of the board's bits a redraw takes | Seats' end bits, max/min |
+|---|---|---|---|---|
+| off | 0–100%, median about 33% | flat from 100–200 s in most tables | – | median about 2.5 (1.3–12.7) |
+| 50 s | about 100% | changes at every 100 s step; a redraw lands before most climbs finish | 15–59% (mean about 35%) | median about 2.3 (1.2–7.5) |
+| **120 s** | about 100% | climbs usually finish shortly before the next redraw, then the board is shaken up | 18–62% (mean about 38%) | median about 2.5 (1.1–3.5) |
+| 240 s | 33–100% | the board settles within about 100 s of a redraw, then sits | 12–71% (mean about 40%) | median about 2.5 (1.4–10.5) |
+
+- **Drift keeps play moving at every interval**, against off.
+- **"Can seats still plan"**, judged by whether a climb finishes before the next redraw:
+  - at 240 s, climbs finish and the board then sits for half the interval (settling returns within each interval);
+  - at 50 s, most climbs are cut short;
+  - **120 s** is the interval at which a climb usually completes and is then disturbed.
+- **Fairness across seats is not changed by drift.** The max/min spread is about 2.5 with or without drift, and it is
+  noisy with only 3–5 objects (single runs reach 7–13).
+- **The redraw cliff** takes about 35–40% of the board's bits on average. The design note to the spec lead offers an
+  unmeasured softener: show the next value one interval ahead.
+
+**Recommendation to the coordinator:** a default of 120 s on a 10-minute game, about 4 redraws. Re-measure on the
+server's engine and prices with the time-dilation helper when it lands.
 
 
 ---
