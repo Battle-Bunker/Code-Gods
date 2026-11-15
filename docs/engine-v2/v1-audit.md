@@ -103,7 +103,7 @@ delegation"; a call number below means the one whose subject is named.
 | §2.5 Step budget 500,000 | kept (owner 6) | lib/v2-sandbox limits.ts |
 | §2.5 Agent sees only its object | owner 6 | lib/v2-agents host.ts |
 | §2.5 At most 200 agents | **STILL MISSING** (20) | as §1.15 |
-| §2.5 One pause per player, 180 s | **STILL MISSING** (the length: a v2 pause lasts until the owner resumes) | convex/v2/ops/game.ts:76-82; loop.ts pauseGame; v1 archive convex/game/commands.ts:240 |
+| §2.5 One pause per player, 180 s | restored (this PR): a pause ends by itself after the room's pauseSeconds (default 180), or earlier when the owner resumes; only a running game pauses | loop.ts pauseGame, pauseEnds; header pauseEndsAt |
 | §2.5 Planning holds until sandboxes are warm | restored (#635) | readiness.ts; loop.ts allReady |
 | §2.6 At least 3 players | kept | presets.ts minPlayers |
 | §2.6 At most 8 players | restored (#629) | access.ts MAX_PLAYERS |
