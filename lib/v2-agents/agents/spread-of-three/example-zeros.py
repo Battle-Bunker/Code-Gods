@@ -1,5 +1,5 @@
 # Spread of Three · Example: 0s on the board
-# Main part: every 2×2 square spreads by 3. Tie-breaker: 0s on the board.
+# Main part: every 2×2 square spreads by 3. Secondary preference: 0s on the board.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -9,12 +9,12 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     main = 0
     for i in [0, 1, 2, 4, 5, 6, 8, 9, 10]:   # each 2×2 square, by its top-left cell (they overlap)
         v = [b[i], b[i + 1], b[i + 4], b[i + 5]]
         main -= abs(max(v) - min(v) - 3)   # its spread: biggest minus smallest
-    return [main, b.count(0)]   # main: how far each 2×2 square's spread is from 3, added up (closer is better); tie-breaker: more 0s is better
+    return [main, b.count(0)]   # main: how far each 2×2 square's spread is from 3, added up (closer is better); secondary: more 0s is better
 
 
 FAR = 2      # how far one change may go

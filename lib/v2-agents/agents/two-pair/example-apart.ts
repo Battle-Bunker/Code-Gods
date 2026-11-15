@@ -1,5 +1,5 @@
 // Two Pair · Example: how far apart each box's pairs are
-// Main part: every corner box holds two different pairs. Tie-breaker: how far apart each box's pairs are.
+// Main part: every corner box holds two different pairs. Secondary preference: how far apart each box's pairs are.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 // (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -7,7 +7,7 @@
 // raises your points most (your rarity times the other players').
 // Try this: remove the "twin" line: can single cells push the pairs apart?
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const x of BOXES) {
@@ -16,7 +16,7 @@ function score(b, p) {
   }
   let apart = 0;
   for (const x of BOXES) { const v = x.map(i => b[i]); apart += Math.max(...v) - Math.min(...v); }   // each box: biggest minus smallest
-  return [main, apart];   // main: how far each corner box is from holding two different pairs, added up (closer is better); tie-breaker: pairs further apart in each box are better
+  return [main, apart];   // main: how far each corner box is from holding two different pairs, added up (closer is better); secondary: pairs further apart in each box are better
 }
 
 const FAR = 2;      // how far one change may go

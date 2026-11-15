@@ -1,5 +1,5 @@
 # Magic Accountant · Example: both diagonals add up to the magic number
-# Main part: every row (or column) adds up to the magic number. Tie-breaker: both diagonals add up to the magic number.
+# Main part: every row (or column) adds up to the magic number. Secondary preference: both diagonals add up to the magic number.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -9,12 +9,12 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     main = 0
     for k in range(4):   # each line: how far its total is from T
         t = sum(b[4 * k + j] if p["axis"] == "rows" else b[4 * j + k] for j in range(4))
         main -= abs(t - p["T"])
-    return [main, -abs(b[0] + b[5] + b[10] + b[15] - p["T"]) - abs(b[3] + b[6] + b[9] + b[12] - p["T"])]   # main: how far each row's (or column's) total is from T, added up (closer is better); tie-breaker: both diagonals closer to T too is better
+    return [main, -abs(b[0] + b[5] + b[10] + b[15] - p["T"]) - abs(b[3] + b[6] + b[9] + b[12] - p["T"])]   # main: how far each row's (or column's) total is from T, added up (closer is better); secondary: both diagonals closer to T too is better
 
 
 FAR = 2      # how far one change may go

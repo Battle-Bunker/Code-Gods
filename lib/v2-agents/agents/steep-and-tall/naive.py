@@ -1,5 +1,5 @@
 # Steep and Tall · Naive (for learning)
-# Main part: the smaller of the gradient and the y-intercept. Tie-breaker: whichever you were dealt (prime factors shared by the whole parts of the gradient and the y-intercept).
+# Main part: the smaller of the gradient and the y-intercept. Secondary preference: whichever you were dealt (prime factors shared by the whole parts of the gradient and the y-intercept).
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -8,11 +8,11 @@
 
 
 def score(m, c, p, tie):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     main = min(m, c)                                # the smaller of the two
     fm, fc = m // 1, c // 1                         # each rounded down
     # main: the smaller of the gradient and the y-intercept (bigger is better)
-    def tier(t):   # each tie-breaker, in order (None: ranks last)
+    def tier(t):   # each secondary, in order (None: ranks last)
         if t == "shared":   # those two rounded down sharing many prime factors is better
             return shared(fm, fc)
     return [main] + [tier(t) for t in (tie.split(">") if tie else [])]

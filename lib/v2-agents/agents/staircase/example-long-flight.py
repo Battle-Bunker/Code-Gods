@@ -1,5 +1,5 @@
 # Staircase · Example: cells in the longest flight of stairs
-# Main part: numbers one more than the one before. Tie-breaker: cells in the longest flight of stairs.
+# Main part: numbers one more than the one before. Secondary preference: cells in the longest flight of stairs.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -9,7 +9,7 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     step = 1 if p["direction"] == "right" else 4   # the number before: to the left, or above
     main = 0
     for i in range(16):
@@ -22,7 +22,7 @@ def score(b, p):
             i = 4 * k + j if step == 1 else 4 * j + k
             run = run + 1 if b[i] == b[i - step] + 1 else 1
             flight = max(flight, run)
-    return [main, flight]   # main: the numbers exactly 1 more than the number before them (more is better); tie-breaker: a longer flight of stairs is better
+    return [main, flight]   # main: the numbers exactly 1 more than the number before them (more is better); secondary: a longer flight of stairs is better
 
 
 FAR = 2      # how far one change may go

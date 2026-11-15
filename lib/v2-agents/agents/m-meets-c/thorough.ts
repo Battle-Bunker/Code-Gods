@@ -1,5 +1,5 @@
 // m Meets c · Thorough
-// Main part: gradient close to the y-intercept. Tie-breaker: whichever you were dealt (they meet at a big number; they meet at a prime).
+// Main part: gradient close to the y-intercept. Secondary preference: whichever you were dealt (they meet at a big number; they meet at a prime).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,11 +9,11 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: change QUOTES = 20 to 6: fewer prices asked, but it may miss a cheaper plan.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   const main = Q.neg(Q.abs(Q.sub(m, c)));
   // main: how far apart the gradient and the y-intercept are (closer is better)
-  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     if (t === "size") return Q.abs(c);   // a bigger y-intercept is better
     if (t === "meetPrime") {   // meeting at a prime is best
       const cp = near(c, prime);

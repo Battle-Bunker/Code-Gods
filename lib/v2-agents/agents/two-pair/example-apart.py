@@ -1,5 +1,5 @@
 # Two Pair · Example: how far apart each box's pairs are
-# Main part: every corner box holds two different pairs. Tie-breaker: how far apart each box's pairs are.
+# Main part: every corner box holds two different pairs. Secondary preference: how far apart each box's pairs are.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -9,13 +9,13 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     main = 0
     for x in BOXES:
         w, y, z, u = sorted(b[i] for i in x)   # the box's four numbers, smallest first
         main -= y - w + u - z + (2 if w == u else 0)   # pair the two smallest and the two biggest; four of a kind: two cells must move by 1
     apart = sum(max(b[i] for i in x) - min(b[i] for i in x) for x in BOXES)   # each box: biggest minus smallest
-    return [main, apart]   # main: how far each corner box is from holding two different pairs, added up (closer is better); tie-breaker: pairs further apart in each box are better
+    return [main, apart]   # main: how far each corner box is from holding two different pairs, added up (closer is better); secondary: pairs further apart in each box are better
 
 
 FAR = 2      # how far one change may go

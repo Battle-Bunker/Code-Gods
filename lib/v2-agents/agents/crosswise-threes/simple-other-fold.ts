@@ -1,16 +1,16 @@
 // Crosswise Threes · Simple
-// Main part: folded cells three apart. Tie-breaker: cells folded on the other diagonal three apart.
+// Main part: folded cells three apart. Secondary preference: cells folded on the other diagonal three apart.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: add the "trade" line from the Thorough starter: moving an amount from one cell to another keeps their total.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const [i, j] of [[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]]) main -= Math.abs(Math.abs(b[i] - b[j]) - 3);   // each cell and its fold partner
-  return [main, -[[1, 4], [2, 8], [3, 12], [6, 9], [7, 13], [11, 14]].reduce((t, [i, j]) => t + Math.abs(Math.abs(b[i] - b[j]) - 3), 0)];   // main: how far each number and the number it folds onto are from 3 apart, added up (closer is better); tie-breaker: cells folded on the other diagonal closer to 3 apart is better
+  return [main, -[[1, 4], [2, 8], [3, 12], [6, 9], [7, 13], [11, 14]].reduce((t, [i, j]) => t + Math.abs(Math.abs(b[i] - b[j]) - 3), 0)];   // main: how far each number and the number it folds onto are from 3 apart, added up (closer is better); secondary: cells folded on the other diagonal closer to 3 apart is better
 }
 
 const FAR = 1;      // how far one change may go

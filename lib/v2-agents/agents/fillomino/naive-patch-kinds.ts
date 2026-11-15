@@ -1,12 +1,12 @@
 // Fillomino · Naive (for learning)
-// Main part: cells in patches of the right size. Tie-breaker: different numbers in right-size patches.
+// Main part: cells in patches of the right size. Secondary preference: different numbers in right-size patches.
 // What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 // board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 // board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
 // from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   const near = i => [i - 4, i + 4, i % 4 ? i - 1 : -1, i % 4 < 3 ? i + 1 : -1].filter(j => j >= 0 && j < 16);   // the cells touching cell i
   let main = 0;
@@ -20,7 +20,7 @@ function score(b, p) {
     for (const i of patch) for (const j of near(i)) if (!seen.has(j) && b[j] === b[i]) { seen.add(j); patch.push(j); }   // touching cells holding the same number
     if (b[s] > 0 && patch.length === b[s]) main += patch.length;   // a patch of the right size
   }
-  return [main, new Set(patches.filter(x => b[x[0]] > 0 && x.length === b[x[0]]).map(x => b[x[0]])).size];   // main: the cells in patches of equal numbers whose size is their number (more is better); tie-breaker: right-size patches of more different numbers is better
+  return [main, new Set(patches.filter(x => b[x[0]] > 0 && x.length === b[x[0]]).map(x => b[x[0]])).size];   // main: the cells in patches of equal numbers whose size is their number (more is better); secondary: right-size patches of more different numbers is better
 }
 
 const FAR = 1;      // how far one change may go

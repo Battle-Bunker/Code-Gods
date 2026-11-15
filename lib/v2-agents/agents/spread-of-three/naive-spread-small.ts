@@ -1,19 +1,19 @@
 // Spread of Three · Naive (for learning)
-// Main part: every 2×2 square spreads by 3. Tie-breaker: each square's smallest number.
+// Main part: every 2×2 square spreads by 3. Secondary preference: each square's smallest number.
 // What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 // board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 // board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
 // from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const i of [0, 1, 2, 4, 5, 6, 8, 9, 10]) {    // each 2×2 square, by its top-left cell (they overlap)
     const v = [b[i], b[i + 1], b[i + 4], b[i + 5]];
     main -= Math.abs(Math.max(...v) - Math.min(...v) - 3);   // its spread: biggest minus smallest
   }
-  return [main, -[0, 1, 2, 4, 5, 6, 8, 9, 10].reduce((t, i) => t + Math.min(b[i], b[i + 1], b[i + 4], b[i + 5]), 0)];   // main: how far each 2×2 square's spread is from 3, added up (closer is better); tie-breaker: smaller smallest numbers in the squares are better
+  return [main, -[0, 1, 2, 4, 5, 6, 8, 9, 10].reduce((t, i) => t + Math.min(b[i], b[i + 1], b[i + 4], b[i + 5]), 0)];   // main: how far each 2×2 square's spread is from 3, added up (closer is better); secondary: smaller smallest numbers in the squares are better
 }
 
 const FAR = 1;      // how far one change may go

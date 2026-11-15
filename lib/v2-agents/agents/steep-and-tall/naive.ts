@@ -1,17 +1,17 @@
 // Steep and Tall · Naive (for learning)
-// Main part: the smaller of the gradient and the y-intercept. Tie-breaker: whichever you were dealt (prime factors shared by the whole parts of the gradient and the y-intercept).
+// Main part: the smaller of the gradient and the y-intercept. Secondary preference: whichever you were dealt (prime factors shared by the whole parts of the gradient and the y-intercept).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
 // It is here to learn from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same lines and watch your points: then switch to Simple.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   const main = Q.cmp(m, c) <= 0 ? m : c;          // the smaller of the two
   const fm = whole(Q.sub(m, Q.of(1, 2))), fc = whole(Q.sub(c, Q.of(1, 2)));   // each rounded down
   // main: the smaller of the gradient and the y-intercept (bigger is better)
-  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     if (t === "shared") return shared(fm, fc);   // those two rounded down sharing many prime factors is better
     return null;
   })];

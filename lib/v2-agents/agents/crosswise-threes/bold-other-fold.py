@@ -1,5 +1,5 @@
 # Crosswise Threes · Bold
-# Main part: folded cells three apart. Tie-breaker: cells folded on the other diagonal three apart.
+# Main part: folded cells three apart. Secondary preference: cells folded on the other diagonal three apart.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 # other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
@@ -8,11 +8,11 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     main = 0
     for i, j in [[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]]:   # each cell and its fold partner
         main -= abs(abs(b[i] - b[j]) - 3)
-    return [main, -sum(abs(abs(b[i] - b[j]) - 3) for i, j in [[1, 4], [2, 8], [3, 12], [6, 9], [7, 13], [11, 14]])]   # main: how far each number and the number it folds onto are from 3 apart, added up (closer is better); tie-breaker: cells folded on the other diagonal closer to 3 apart is better
+    return [main, -sum(abs(abs(b[i] - b[j]) - 3) for i, j in [[1, 4], [2, 8], [3, 12], [6, 9], [7, 13], [11, 14]])]   # main: how far each number and the number it folds onto are from 3 apart, added up (closer is better); secondary: cells folded on the other diagonal closer to 3 apart is better
 
 
 FAR = 2      # how far one change may go

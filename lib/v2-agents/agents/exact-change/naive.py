@@ -1,5 +1,5 @@
 # Exact Change · Naive (for learning)
-# Main part: ways to pay close to the target. Tie-breaker: whichever you were dealt (the smaller pile in every way; the bill; both coins close to primes).
+# Main part: ways to pay close to the target. Secondary preference: whichever you were dealt (the smaller pile in every way; the bill; both coins close to primes).
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -8,7 +8,7 @@
 
 
 def score(m, c, p, tie):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m >= 0:                                      # a coin worth -m*b: the line must go downhill
         return None
     X = -c / m                                      # where the line meets y = 0: x goes no further
@@ -18,7 +18,7 @@ def score(m, c, p, tie):
     ways = [x for x in range(X // 1 + 1) if (m * x + c).denominator == 1]   # the line's whole points with x, y >= 0
     main = -abs(len(ways) - p["ways"])
     # main: how far the number of ways to pay is from the target (closer is better)
-    def tier(t):   # each tie-breaker, in order (None: ranks last)
+    def tier(t):   # each secondary, in order (None: ranks last)
         if t == "big-piles":   # a bigger smaller pile, in every way to pay, is better
             if not ways:                               # no way to pay: no piles
                 return None

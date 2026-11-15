@@ -1,12 +1,12 @@
 // Prime Landing · Naive (for learning)
-// Main part: where the line lands on the x-axis, on as big a dealt prime as possible. Tie-breaker: whichever you were dealt (the factor that prime minus 1 shares with the y-intercept's whole part).
+// Main part: where the line lands on the x-axis, on as big a dealt prime as possible. Secondary preference: whichever you were dealt (the factor that prime minus 1 shares with the y-intercept's whole part).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
 // It is here to learn from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same lines and watch your points: then switch to Simple.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (m === null) {               // the vertical line x = c
     const level = p => { const D = Q.toString(p).length; let L = 0; while (((L + 1) * (L + 2)) / 2 <= D) L++; return Q.add(L, Q.div(Q.add(D - (L * (L + 1)) / 2, Q.div(p, Q.of(10n ** BigInt(D)))), L + 1)); };   // levels of digits: level L needs L(L + 1)/2
@@ -23,7 +23,7 @@ function score(m, c, p, tie) {
   const gap = Q.abs(Q.sub(x, landing));            // on the rung when it rounds there (within 1/2, ties up)
   const main = Q.cmp(Q.mul(2, gap), 1) < 0 || Q.eq(Q.sub(landing, x), Q.div(1, 2)) ? level(landing) : Q.neg(Q.sub(gap, Q.div(1, 2)));
   // main: the prime ending in the rule's digit that where the line lands on the x-axis rounds to (bigger is better: a ladder with no top), else minus how far it is from rounding to one
-  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     if (t === "shared-factor") {   // take the number just before that prime: a bigger number dividing both it and the y-intercept's whole part is better
       const wc = whole(Q.div(Q.sub(Q.mul(2, c), 1), 2));   // the y-intercept's whole part (rounded down)
       return common(Q.sub(landing, 1), wc);

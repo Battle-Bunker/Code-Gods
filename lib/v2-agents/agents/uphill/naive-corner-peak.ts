@@ -1,18 +1,18 @@
 // Uphill · Naive (for learning)
-// Main part: rising steps toward the corner. Tie-breaker: numbers smaller than the number in the corner you walk toward.
+// Main part: rising steps toward the corner. Secondary preference: numbers smaller than the number in the corner you walk toward.
 // What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 // board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 // board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
 // from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   const right = p.corner[1] === "R", down = p.corner[0] === "B";   // which way to walk
   const rises = [];   // each step toward the corner, along the rows and down the columns: how much it rises
   for (let i = 0; i < 16; i++) { if (i % 4 < 3) rises.push(right ? b[i + 1] - b[i] : b[i] - b[i + 1]); if (i < 12) rises.push(down ? b[i + 4] - b[i] : b[i] - b[i + 4]); }
   let main = rises.filter(d => d > 0).length;
-  return [main, b.filter(x => x < b[(down ? 12 : 0) + (right ? 3 : 0)]).length];   // main: the steps along every row and column toward the corner that reach a bigger number (more is better); tie-breaker: more numbers smaller than the one in the corner you walk toward is better
+  return [main, b.filter(x => x < b[(down ? 12 : 0) + (right ? 3 : 0)]).length];   // main: the steps along every row and column toward the corner that reach a bigger number (more is better); secondary: more numbers smaller than the one in the corner you walk toward is better
 }
 
 const FAR = 1;      // how far one change may go

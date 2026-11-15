@@ -92,6 +92,6 @@ test("every family evaluates every tie-breaker on random boards, its marks citin
 
 test("cards read as sentences", () => {
   for (const f of gridType.families) for (const p of f.dealable(grid4)) {
-    for (const tb of f.tieBreakers) assert.match(f.card(p, tb.id), /^[A-Z].*\. Tie-breaker: [A-Z].*\.$/);
+    for (const tb of f.tieBreakers) assert.match(f.card(p, tb.id), /^[A-Z].*\. Secondary: [A-Z].*\.$/);
   }
 });

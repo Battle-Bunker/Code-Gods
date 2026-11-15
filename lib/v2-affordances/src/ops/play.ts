@@ -50,7 +50,7 @@ export const playOps = [
 
   affordance({
     id: "rule.explain", title: "Explain my rule", group: "play", scope: "game",
-    description: "The caller's private rule: family, parameters, its layers (main part, tie-breakers), the card sentence, which representations it reads, and the handicap if it was won by bid. Its value curve is rule.values. Never reveals other players' rules.",
+    description: "The caller's private rule: family, parameters, its layers (main goal, then secondary preferences in order), the card sentence, which representations it reads, and the handicap if it was won by bid. Its value curve is rule.values. Never reveals other players' rules.",
     tooltip: "What your rule wants.", keywords: ["my rule", "goal", "card", "what do I want"],
     params: none,
     result: z.object({

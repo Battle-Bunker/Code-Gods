@@ -1,5 +1,5 @@
 // Steep and Tall · Thorough
-// Main part: the smaller of the gradient and the y-intercept. Tie-breaker: whichever you were dealt (prime factors shared by the whole parts of the gradient and the y-intercept).
+// Main part: the smaller of the gradient and the y-intercept. Secondary preference: whichever you were dealt (prime factors shared by the whole parts of the gradient and the y-intercept).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,12 +9,12 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: change QUOTES = 20 to 6: fewer prices asked, but it may miss a cheaper plan.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   const main = Q.cmp(m, c) <= 0 ? m : c;          // the smaller of the two
   const fm = whole(Q.sub(m, Q.of(1, 2))), fc = whole(Q.sub(c, Q.of(1, 2)));   // each rounded down
   // main: the smaller of the gradient and the y-intercept (bigger is better)
-  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     if (t === "shared") return shared(fm, fc);   // those two rounded down sharing many prime factors is better
     return null;
   })];

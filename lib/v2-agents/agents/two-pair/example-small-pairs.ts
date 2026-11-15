@@ -1,5 +1,5 @@
 // Two Pair · Example: the smaller pair in each box
-// Main part: every corner box holds two different pairs. Tie-breaker: the smaller pair in each box.
+// Main part: every corner box holds two different pairs. Secondary preference: the smaller pair in each box.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 // (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -7,14 +7,14 @@
 // raises your points most (your rarity times the other players').
 // Try this: remove the "twin" line: can it lower a pair one cell at a time?
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const x of BOXES) {
     const [w, y, z, u] = x.map(i => b[i]).sort((s, t) => s - t);   // the box's four numbers, smallest first
     main -= y - w + u - z + (w === u ? 2 : 0);   // pair the two smallest and the two biggest; four of a kind: two cells must move by 1
   }
-  return [main, -BOXES.reduce((t, x) => t + Math.min(...x.map(i => b[i])), 0)];   // main: how far each corner box is from holding two different pairs, added up (closer is better); tie-breaker: a smaller small pair in each box is better
+  return [main, -BOXES.reduce((t, x) => t + Math.min(...x.map(i => b[i])), 0)];   // main: how far each corner box is from holding two different pairs, added up (closer is better); secondary: a smaller small pair in each box is better
 }
 
 const FAR = 2;      // how far one change may go

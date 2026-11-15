@@ -1,5 +1,5 @@
 // Stepping Stones · Example: the cells outside the biggest group, added up
-// Main part: the biggest group you can hop between. Tie-breaker: the cells outside the biggest group, added up.
+// Main part: the biggest group you can hop between. Secondary preference: the cells outside the biggest group, added up.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 // (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -7,7 +7,7 @@
 // raises your points most (your rarity times the other players').
 // Try this: change FAR = 2 to 1: single steps only; can it still shrink the numbers around the group?
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   const near = i => [i - 4, i + 4, i % 4 ? i - 1 : -1, i % 4 < 3 ? i + 1 : -1].filter(j => j >= 0 && j < 16);   // the cells touching cell i
   let best = [];   // the biggest group (the first found on a tie)
@@ -20,7 +20,7 @@ function score(b, p) {
     if (group.length > best.length) best = group;
   }
   const main = best.length;
-  return [main, -b.reduce((t, x, i) => (best.includes(i) ? t : t + x), 0)];   // main: the cells in the biggest group you can hop between, touching cells 2 apart (more is better); tie-breaker: smaller numbers outside the biggest group are better
+  return [main, -b.reduce((t, x, i) => (best.includes(i) ? t : t + x), 0)];   // main: the cells in the biggest group you can hop between, touching cells 2 apart (more is better); secondary: smaller numbers outside the biggest group are better
 }
 
 const FAR = 2;      // how far one change may go

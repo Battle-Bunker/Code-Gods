@@ -1,17 +1,17 @@
 // Crosswise Threes · Bold
-// Main part: folded cells three apart. Tie-breaker: folded pairs sharing a factor.
+// Main part: folded cells three apart. Secondary preference: folded pairs sharing a factor.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: change FAR = 2 to 1: single steps, the same price per step, but more turns to get there.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const [i, j] of [[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]]) main -= Math.abs(Math.abs(b[i] - b[j]) - 3);   // each cell and its fold partner
   const gcd = (x, y) => (y ? gcd(y, x % y) : x);   // the greatest common divisor (gcd(0, x) is x)
-  return [main, [[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]].filter(([i, j]) => gcd(b[i], b[j]) > 1).length];   // main: how far each number and the number it folds onto are from 3 apart, added up (closer is better); tie-breaker: more fold pairs sharing a factor is better
+  return [main, [[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]].filter(([i, j]) => gcd(b[i], b[j]) > 1).length];   // main: how far each number and the number it folds onto are from 3 apart, added up (closer is better); secondary: more fold pairs sharing a factor is better
 }
 
 const FAR = 2;      // how far one change may go

@@ -1,12 +1,12 @@
 // Stepping Stones · Thorough
-// Main part: the biggest group you can hop between. Tie-breaker: board corners in the biggest group.
+// Main part: the biggest group you can hop between. Secondary preference: board corners in the biggest group.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: change QUOTES = 6 to 2: fewer prices asked, but it may miss a cheaper plan.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   const near = i => [i - 4, i + 4, i % 4 ? i - 1 : -1, i % 4 < 3 ? i + 1 : -1].filter(j => j >= 0 && j < 16);   // the cells touching cell i
   let best = [];   // the biggest group (the first found on a tie)
@@ -19,7 +19,7 @@ function score(b, p) {
     if (group.length > best.length) best = group;
   }
   const main = best.length;
-  return [main, best.filter(i => [0, 3, 12, 15].includes(i)).length];   // main: the cells in the biggest group you can hop between, touching cells 2 apart (more is better); tie-breaker: more of the board's corners in the biggest group is better
+  return [main, best.filter(i => [0, 3, 12, 15].includes(i)).length];   // main: the cells in the biggest group you can hop between, touching cells 2 apart (more is better); secondary: more of the board's corners in the biggest group is better
 }
 
 const FAR = 1;      // how far one change may go

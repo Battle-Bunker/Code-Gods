@@ -1,12 +1,12 @@
 // Divisibility · Bold
-// Main part: the powers counted. Tie-breaker: the digits of what is left, added up.
+// Main part: the powers counted. Secondary preference: the digits of what is left, added up.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: change FAR = 2 to 1: single steps, the same price per step, but more turns to get there.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   const R = p.layout === "halves" ? [0, 1, 2, 3] : [0, 2, 1, 3];   // the rows (and columns) in reading order: the first two, then the other two
   const read = (k, byRow) => [R[2 * k], R[2 * k + 1]].flatMap(r => [0, 1, 2, 3].map(j => (byRow ? b[4 * r + j] : b[4 * j + r]))).reduce((t, x) => t * 10 + x, 0);   // two rows (or two columns) as one number
@@ -16,7 +16,7 @@ function score(b, p) {
   for (let y of nums) { if (!y) continue; let v = 0; while (y % p.q === 0) { y /= p.q; v++; } main += v; for (const d of String(Math.abs(y))) leftover += +d; }   // count the q's dividing it; what is left: its digits
   const seen = new Set();
   for (let i = 0; i < 8; i++) { const k = (i < 4 ? "r" : "c") + [0, 1, 2, 3].map(j => (i < 4 ? b[4 * i + j] : b[4 * j + i - 4])).sort(); if (seen.has(k)) main--; else seen.add(k); }   // a row (or column) holding the same numbers as an earlier one: one off
-  return [main, leftover];   // main: the q's dividing the four readings (or the two differences), added up, less the repeated rows and columns (more is better); tie-breaker: what is left after dividing out the q's, its digits added up, bigger is better
+  return [main, leftover];   // main: the q's dividing the four readings (or the two differences), added up, less the repeated rows and columns (more is better); secondary: what is left after dividing out the q's, its digits added up, bigger is better
 }
 
 const FAR = 2;      // how far one change may go

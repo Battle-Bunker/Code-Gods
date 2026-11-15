@@ -1,17 +1,17 @@
 // Whole Answer · Example: the answer's |x| + |y| and the number you divide by share a factor
-// Main part: the answer's y on your pattern. Tie-breaker: the answer's |x| + |y| and the number you divide by share a factor.
+// Main part: the answer's y on your pattern. Secondary preference: the answer's |x| + |y| and the number you divide by share a factor.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
 // Try this: add "combine" to KINDS: it keeps the answer and the number you divide by.
 
-// How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good are the two lines L for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
   if (f.x === null) return null;   // parallel lines never cross: no score
   const { score: main, n: Yv } = valuationLadder(f.y, p.q, p.r, dist(f.x));   // y on your ladder, x a whole number
-  return [main, common(Q.add(Q.abs(f.X), Q.abs(Yv)), f.D)];   // main: the answer's level: whole numbers, y on your ladder (higher is better); tie-breaker: |X| + |Y| sharing a big factor with the number you divide by is better
+  return [main, common(Q.add(Q.abs(f.X), Q.abs(Yv)), f.D)];   // main: the answer's level: whole numbers, y on your ladder (higher is better); secondary: |X| + |Y| sharing a big factor with the number you divide by is better
 }
 
 const FAR = 3;      // how far one move may go

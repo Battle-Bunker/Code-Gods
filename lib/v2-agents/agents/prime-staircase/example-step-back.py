@@ -1,5 +1,5 @@
 # Prime Staircase · Example: y(−1) close to such a prime
-# Main part: a run of different dealt primes from y(0). Tie-breaker: y(−1) close to such a prime.
+# Main part: a run of different dealt primes from y(0). Secondary preference: y(−1) close to such a prime.
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,7 +11,7 @@
 
 
 def score(m, c, p):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     run, t = [], c                                  # run: the different primes ending in p["ends"] it starts with
     for n in range(256):                            # y(0), y(1), ...
         t = m * n + c
@@ -23,7 +23,7 @@ def score(m, c, p):
     d = abs(miss - near(miss, prime, p["ends"]))
     main = len(run) + Fraction(1) / (2 + d)        # a longer run always wins; a near miss beats a far one
     back = abs(c - m)                          # y(-1), ignoring its sign
-    return [main, -abs(back - near(back, prime, p["ends"]))]   # main: how many different primes ending in the rule's digit the pattern y(0), y(1), ... starts with (more is better: a ladder with no top), plus a little for the term that breaks the run being near such a prime; tie-breaker: y(-1) (ignoring sign) close to such a prime is better
+    return [main, -abs(back - near(back, prime, p["ends"]))]   # main: how many different primes ending in the rule's digit the pattern y(0), y(1), ... starts with (more is better: a ladder with no top), plus a little for the term that breaks the run being near such a prime; secondary: y(-1) (ignoring sign) close to such a prime is better
 
 
 FAR = 3      # how far one change may go

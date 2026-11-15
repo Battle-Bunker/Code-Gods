@@ -63,7 +63,7 @@ test("Pell Gradient: |m² − D|, the convergents of √2 and the golden ratio",
   assert.equal(score(ev(pellGradient, { D: 3, k: 0 }, mc(f(7, 4), 0))), "-1/16,-1");   // 49/16 − 3 = 1/16; 49 − 48 = 1
   assert.equal(score(ev(pellGradient, golden, mc(f(8, 5), 0))), "-1/25,-1");  // 64/25 − 8/5 − 1 = −1/25; |64 − 40 − 25| = 1
   assert.match(pellGradient.card(two, null), /times itself should be as close as possible to 2\./);
-  assert.match(pellGradient.card(golden, "difference"), /take away the gradient, should be as close as possible to 1\. Tie-breaker:/);
+  assert.match(pellGradient.card(golden, "difference"), /take away the gradient, should be as close as possible to 1\. Secondary:/);
 });
 
 test("Euclid's Long Way: the divisions of Euclid's algorithm, then the largest quotient (smaller is better)", () => {

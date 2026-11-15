@@ -1,16 +1,16 @@
 // Crosswise Threes · Thorough
-// Main part: folded cells three apart. Tie-breaker: prime numbers on the board.
+// Main part: folded cells three apart. Secondary preference: prime numbers on the board.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: change QUOTES = 6 to 2: fewer prices asked, but it may miss a cheaper plan.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const [i, j] of [[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]]) main -= Math.abs(Math.abs(b[i] - b[j]) - 3);   // each cell and its fold partner
-  return [main, b.filter(x => [2, 3, 5, 7].includes(x)).length];   // main: how far each number and the number it folds onto are from 3 apart, added up (closer is better); tie-breaker: more cells holding 2, 3, 5 or 7 is better
+  return [main, b.filter(x => [2, 3, 5, 7].includes(x)).length];   // main: how far each number and the number it folds onto are from 3 apart, added up (closer is better); secondary: more cells holding 2, 3, 5 or 7 is better
 }
 
 const FAR = 1;      // how far one change may go

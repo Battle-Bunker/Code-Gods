@@ -1,5 +1,5 @@
 // Exact Change · Example: both coins close to primes
-// Main part: ways to pay close to the target. Tie-breaker: both coins close to primes.
+// Main part: ways to pay close to the target. Secondary preference: both coins close to primes.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,7 +9,7 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: change FAR = 4 to 6 so the coins can jump to primes further away.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p) {
   if (Q.cmp(m, 0) >= 0) return null;              // a coin worth -m·b: the line must go downhill
   const X = Q.neg(Q.div(c, m));                   // where the line meets y = 0: x goes no further
@@ -19,7 +19,7 @@ function score(m, c, p) {
   for (let x = 0; Q.cmp(x, X) <= 0; x++) if (Q.isInteger(Q.add(Q.mul(m, x), c))) ways.push(x);
   const main = Q.neg(Q.abs(ways.length - p.ways));
   const off = x => Q.abs(Q.sub(x, near(x, prime)));   // how far x is from the nearest prime
-  return [main, Q.neg(Q.add(off(Q.mul(m, -b)), off(b)))];   // main: how far the number of ways to pay is from the target (closer is better); tie-breaker: both coins (a = -b·m and b) close to primes is better
+  return [main, Q.neg(Q.add(off(Q.mul(m, -b)), off(b)))];   // main: how far the number of ways to pay is from the target (closer is better); secondary: both coins (a = -b·m and b) close to primes is better
 }
 
 const FAR = 4;      // how far one change may go

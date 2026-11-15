@@ -1,16 +1,16 @@
 // Leapfrog · Simple
-// Main part: each number one apart from the number two cells along. Tie-breaker: rows whose leaps all go the same way.
+// Main part: each number one apart from the number two cells along. Secondary preference: rows whose leaps all go the same way.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: add the "trade" line from the Thorough starter: moving an amount from one cell to another keeps their total.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const i of [0, 1, 4, 5, 8, 9, 12, 13]) main -= Math.abs(Math.abs(b[i] - b[i + 2]) - 1);   // cell i and the cell two along
-  return [main, [0, 4, 8, 12].filter(r => (b[r + 2] - b[r]) * (b[r + 3] - b[r + 1]) > 0).length];   // main: how far each number and the number two cells along its row are from one apart, added up (closer is better); tie-breaker: more rows whose two leaps go the same way (both up or both down) is better
+  return [main, [0, 4, 8, 12].filter(r => (b[r + 2] - b[r]) * (b[r + 3] - b[r + 1]) > 0).length];   // main: how far each number and the number two cells along its row are from one apart, added up (closer is better); secondary: more rows whose two leaps go the same way (both up or both down) is better
 }
 
 const FAR = 1;      // how far one change may go
