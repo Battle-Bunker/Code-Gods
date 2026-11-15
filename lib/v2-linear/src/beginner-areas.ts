@@ -2,9 +2,9 @@
  * Ruler, Square Area and Pythagorean Area: the beginner families that read the line's distances and areas (moved out of
  * beginner.ts unchanged, 15 Nov, so their redesign against design-principles.md does not collide with the others').
  */
-import { Qn, q, ref } from "@workspace/v2-core";
+import { gcd, Qn, q, ref, type Q } from "@workspace/v2-core";
 import { allUndefined, distance, factorLabel, family, gap, more, notOnWhole, num, prime, squareGap, undef, undealt, verticalAt, VERTICAL_NO, type Shape } from "./layers.ts";
-import { distanceToPrime, distanceToWhole, largestPrimeFactor, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
+import { distanceToPrime, isPrimeEnding, largestPrimeFactor, nearestInteger, nearestPrimeEnding, nearestSquareRoot, PRIME_ENDINGS, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
 
 // ---------------------------------------------------------------- Square Area (the owner's example 2)
 
@@ -77,27 +77,58 @@ export const ruler = family("ruler", "Ruler", ["norm", "si", "tri", "gen"], rule
   ctx.mark({ kind: "note", ref: d2Ref, text: `distance² ${Qn.toWire(d2)}, nearest square ${k * k}` });
 });
 
-type A = { A: number };
-const pythShape: Shape<A> = {
-  main: { ...distance<A>("area", "the area close to A", "", "tri"),
-    sentence: p => `The triangle the line cuts off the axes should have an area as close as possible to ${p.A}.` },
+/**
+ * Pythagorean Area as a ladder (design-principles.md; the redesign of beginner-line-redesign.md §4.6). Main part,
+ * unbounded: the area of the triangle the line cuts off the axes, rounded down, should be a prime ending in k, the bigger
+ * the better (u = p); any other line scores below every rung, minus how far its area is from the nearest window [p, p + 1).
+ * A rung is a window, as on Prime Landing: the next rung is a small tilt or shift away, and no repeated shortcut keeps the
+ * area on a prime. The §4.6 draft (how many times q divides the area) was climbed by a formula: zooming y = −x/2 + 9 by 3
+ * forty times paid 48 bits for 469 energy, a bit a zoom with no search and no end. Rounded down, not to the nearest:
+ * rounding to the nearest put the plainest triangles on the ladder (y = −x + c: c²/2 = k + ½ rounds up to (c² + 1)/2,
+ * which ends in 1, 3 or 5 and never in 7 or 9), so ending 3 paid about a bit and a half less than 7 and 9 at equal area;
+ * rounded down, (c² − 1)/2 is even and none of them is a rung.
+ * Tie-breaker, read from that prime p: the factor p − 1 shares with the slanted side squared, rounded down (Pythagoras:
+ * base² + height²). A new rung changes p − 1, so the side that shared most no longer does, and the climb starts again.
+ * Dealt: k = 1, 3, 7, 9. Ending 9's rungs are rarer at equal area (about a bit and a half), and dearer to reach by as
+ * much: the median over rungs of a rung's bits less the code cost of the cheapest line found on it is −10.1 to −10.5
+ * bits for all four endings (15 Nov). Like Prime Landing's, the params-equal audit compares them by top and median.
+ * Prime Gradient is its named adversary: a steep gradient on a prime shrinks the area (c²/2|m|), and the area grows by
+ * flattening the line.
+ */
+type Ends = { ends: number };
+const AREA_ENDS: Ends[] = PRIME_ENDINGS.map(ends => ({ ends }));
+const pythShape: Shape<Ends> = {
+  main: { ...more<Ends>("area", "the triangle's area on as big a dealt prime as possible", "", "tri"),
+    // The card stays under 30 words (the coordinator's ask): "the triangle" is the one the line cuts off the axes.
+    sentence: p => `The triangle's area, rounded down: a prime ending in ${p.ends}, the bigger the better.` },
   tieBreakers: [
-    distance("slanted-square", "the slanted side squared close to a square", "The slanted side, squared, should be as close as possible to a square number.", "tri"),
-    distance("prime-height", "|c| close to a prime", "The y-intercept should be as close as possible to a prime (ignoring sign).", "si"),
-    distance("whole-legs", "both legs close to whole numbers", "Both legs should be as close as possible to whole numbers (distances added).", "tri"),
+    more<Ends>("shared-factor", "the factor that prime minus 1 shares with the slanted side squared",
+      "That prime minus 1 and the slanted side², rounded down, share a big factor.", "tri"),
   ],
 };
-export const pythagoreanArea = family<A>("pythagorean-area", "Pythagorean Area", ["tri", "si"], pythShape, [{ A: 6 }], (ctx, p) => {
+/**
+ * The ladder's value: the prime p ending in k that the area rounds down to, else minus how far the area is from the
+ * nearest window [p, p + 1) (on a tie the lower one). The windows of x = area − ½ rounded to the nearest (ties up) are
+ * exactly these, so the rung reads as Prime Landing's does.
+ */
+export function areaRung(area: Q, k: number): { p: bigint; u: Q } {
+  const x = Qn.sub(area, q(1, 2));
+  const n = nearestInteger(x);
+  if (n > 0n && isPrimeEnding(n, k)) return { p: n, u: q(n) };
+  const p = nearestPrimeEnding(x, k);
+  return { p, u: Qn.neg(Qn.sub(Qn.abs(Qn.sub(x, q(p))), q(1, 2))) };
+}
+export const pythagoreanArea = family<Ends>("pythagorean-area", "Pythagorean Area", ["tri"], pythShape, AREA_ENDS, (ctx, pr) => {
   const area = ref("tri", "area");
   const av = ctx.read(area);
   const a = num(av);
-  if (a === null) return allUndefined(ctx, pythShape, av, area);
-  const hyp = ref("tri", "hyp2"), lx = ref("tri", "legX"), ly = ref("tri", "legY"), cRef = ref("si", "c");
-  const h = num(ctx.read(hyp))!, x = num(ctx.read(lx))!, y = num(ctx.read(ly))!, c = num(ctx.read(cRef))!;
-  ctx.term("area", `distance from the area to ${p.A}`, gap(a, q(p.A)), [area]);
-  ctx.term("slanted-square", "distance from side² to a square", squareGap(h).d, [hyp]);
-  ctx.term("prime-height", "distance from |c| to a prime", distanceToPrime(Qn.abs(c)), [cRef]);
-  ctx.term("whole-legs", "distance of the legs from whole numbers", Qn.add(distanceToWhole(x), distanceToWhole(y)), [lx, ly]);
-  ctx.mark({ kind: "focus", ref: lx });
-  ctx.mark({ kind: "focus", ref: ly });
+  if (a === null) return allUndefined(ctx, pythShape, av, area);   // no triangle: a level or vertical line, or one through (0, 0)
+  const hyp = ref("tri", "hyp2");
+  const h = num(ctx.read(hyp))!;
+  const { p, u } = areaRung(a, pr.ends);
+  ctx.term("area", Qn.sign(u) > 0 ? `area ${Qn.toWire(a)}, which rounds down to the prime ${p}` : `area ${Qn.toWire(a)}, ${Qn.toWire(Qn.neg(u))} from the window of the prime ${p}`, u, [area]);
+  const w = Qn.floor(h);   // 0 only on a tiny triangle (side² < 1): it shares nothing
+  ctx.term("shared-factor", `the factor ${p - 1n} shares with the slanted side squared's whole part ${w}`, q(w === 0n ? 0n : gcd(p - 1n, w)), [area, hyp]);
+  ctx.mark({ kind: "focus", ref: area });
+  ctx.mark({ kind: "focus", ref: hyp });
 });

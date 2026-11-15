@@ -1,5 +1,5 @@
 // Pythagorean Area · Naive (for learning)
-// Main part: the area close to A. Tie-breaker: whichever you were dealt (the slanted side squared close to a square; |c| close to a prime; both legs close to whole numbers).
+// Main part: the triangle's area on as big a dealt prime as possible. Tie-breaker: whichever you were dealt (the factor that prime minus 1 shares with the slanted side squared).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -11,14 +11,16 @@ function score(m, c, p, tie) {
   if (Q.isZero(m) || Q.isZero(c)) return null;    // no triangle: the worst score
   const legX = Q.abs(Q.div(c, m)), legY = Q.abs(c); // the triangle's base and height
   const area = Q.div(Q.mul(legX, legY), 2);
-  const main = Q.neg(Q.abs(Q.sub(area, p.A)));
-  // main: how far the triangle's area is from A (closer is better)
-  if (tie === "slanted-square") {   // a slanted side whose square is close to a square number is best
+  const x = Q.sub(area, Q.div(1, 2));             // the area rounds down to n when x rounds to n (ties up)
+  const rung = near(x, prime, p.ends);            // the prime ending in p.ends nearest there: the rung
+  const gap = Q.abs(Q.sub(x, rung));              // on the rung when the area rounds down to it
+  const main = Q.cmp(Q.mul(2, gap), 1) < 0 || Q.eq(Q.sub(rung, x), Q.div(1, 2)) ? rung : Q.neg(Q.sub(gap, Q.div(1, 2)));
+  // main: the prime ending in the rule's digit that the triangle's area rounds down to (bigger is better: a ladder with no top), else minus how far the area is from rounding down to one
+  if (tie === "shared-factor") {   // that prime minus 1 and the slanted side squared (rounded down): a bigger factor shared is better
     const side2 = Q.add(Q.mul(legX, legX), Q.mul(legY, legY));   // the slanted side, squared (Pythagoras)
-    return [main, Q.neg(Q.abs(Q.sub(side2, near(side2, square))))];
+    const ws = whole(Q.div(Q.sub(Q.mul(2, side2), 1), 2));   // its whole part (rounded down)
+    return [main, common(Q.sub(rung, 1), ws)];
   }
-  if (tie === "prime-height") return [main, Q.neg(Q.abs(Q.sub(legY, near(legY, prime))))];   // a height close to a prime is better
-  if (tie === "whole-legs") return [main, Q.neg(Q.add(Q.abs(Q.sub(legX, whole(legX))), Q.abs(Q.sub(legY, whole(legY)))))];   // legs close to whole numbers are best
   return [main];
 }
 
