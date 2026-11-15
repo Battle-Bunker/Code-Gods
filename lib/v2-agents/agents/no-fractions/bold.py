@@ -1,5 +1,5 @@
 # Divide By · Bold
-# Main part: the number you divide by on your powers. Secondary preference: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor; the answer's numerators add up to a number with a big smallest prime factor; the answer's numerators small).
+# Main part: the number you divide by on your powers. Secondary preference: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor; the answer's numerators small).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -19,8 +19,6 @@ def score(L, p, tie):
         return [main, omega(abs(nx) + abs(ny))]
     if tie == "numerator-shared":   # numerators sharing a big factor are better
         return [main, common(nx, ny)]
-    if tie == "numerator-prime":   # numerators adding up to a number with a big smallest prime factor are better
-        return [main, spf(abs(nx) + abs(ny))]
     if tie == "numerator-small":   # small numerators are better
         return [main, -(abs(nx) + abs(ny))]
     return [main]

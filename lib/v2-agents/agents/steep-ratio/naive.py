@@ -1,5 +1,5 @@
 # Steep Ratio · Naive (for learning)
-# Main part: one line a whole number of times as steep, on your pattern. Secondary preference: whichever you were dealt (the y-intercepts' gap near a multiple of that number; that number has a big smallest prime factor; that number, without its factors of your number, shares a factor with the gentler line's y-intercept).
+# Main part: one line a whole number of times as steep, on your pattern. Secondary preference: whichever you were dealt (the y-intercepts' gap near a multiple of that number; that number has a big smallest prime factor; that number, without its factors of your number, has many prime factors).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -19,8 +19,8 @@ def score(L, p, tie):
         return [main, None if f.ygap is None else -off_multiple(f.ygap, mod1(k))]
     if tie == "ratio-prime":   # that number with a big smallest prime factor is better
         return [main, spf(k)]
-    if tie == "ratio-start":   # that number (without its factors of q) sharing a big factor with the gentler line's y-intercept is better
-        return [main, 0 if f.cg is None else common(core(k), whole(f.cg))]
+    if tie == "ratio-smooth":   # that number (without its factors of q) with many prime factors is better
+        return [main, omega(core(k))]
     return [main]
 
 

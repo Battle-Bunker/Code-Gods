@@ -68,7 +68,6 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     tieBreakers: {
       "numerator-smooth": T("omega(Q.add(Q.abs(nx), Q.abs(ny)))", "omega(abs(nx) + abs(ny))", "numerators adding up to a number with many prime factors are better", "add \"slide\" to KINDS: it moves the answer, and so the numerators."),
       "numerator-shared": T("common(nx, ny)", "common(nx, ny)", "numerators sharing a big factor are better", "add \"stretch\" to KINDS and compare."),
-      "numerator-prime": T("spf(Q.add(Q.abs(nx), Q.abs(ny)))", "spf(abs(nx) + abs(ny))", "numerators adding up to a number with a big smallest prime factor are better", "add \"slide\" to KINDS: it moves the answer, and so the numerators."),
       "numerator-small": T("Q.neg(Q.add(Q.abs(nx), Q.abs(ny)))", "-(abs(nx) + abs(ny))", "small numerators are better", "add \"slide\" to KINDS: it moves the answer, and so the numerators."),
     },
   },
@@ -117,8 +116,6 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     tieBreakers: {
       "far-gap": T("f.xgap === null ? null : Q.neg(offMultiple(f.xgap, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))", "None if f.xgap is None else -off_multiple(f.xgap, p[\"q\"] ** (level_of(main, p[\"q\"]) + 1))", "the gap between the x-intercepts near a multiple of q to the power one above your level is better", "add \"shift\" to KINDS: it moves one x-intercept alone."),
       "far-height": T("f.y === null ? null : Q.neg(offMultiple(f.y, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))", "None if f.y is None else -off_multiple(f.y, p[\"q\"] ** (level_of(main, p[\"q\"]) + 1))", "a crossing height near a multiple of q to the power one above your level is better", "add \"slide\" to KINDS: it moves the crossing along a line."),
-      "far-prime": T("f.y === null ? null : spf(Q.add(Q.abs(R), Q.abs(whole(f.y))))", "None if f.y is None else spf(abs(R) + abs(whole(f.y)))", "that x-intercept plus the crossing's height with a big smallest prime factor is better", "add \"slide\" to KINDS: it moves the crossing along a line."),
-      "far-smooth": T("omega(R)", "omega(R)", "that x-intercept with many prime factors is better", "add \"shift\" to KINDS: it moves the x-intercept directly."),
       "far-steep": T("f.ms === null ? 0 : common(R, floor(Q.abs(f.ms)))", "0 if f.ms is None else common(R, abs(f.ms) // 1)", "that x-intercept sharing a big factor with the steeper gradient is better", "add \"tilt\" to KINDS: it changes a gradient directly."),
     },
   },
@@ -144,7 +141,7 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     tieBreakers: {
       "ratio-gap": T("f.ygap === null ? null : Q.neg(offMultiple(f.ygap, mod1(k)))", "None if f.ygap is None else -off_multiple(f.ygap, mod1(k))", "a y-intercepts' gap near a multiple of that number (not 0) is better", "add \"shift\" to KINDS: it changes the gap directly."),
       "ratio-prime": T("spf(k)", "spf(k)", "that number with a big smallest prime factor is better", "change FAR = 3 to 5 so the ratio can jump to a bigger prime."),
-      "ratio-start": T("f.cg === null ? 0 : common(core(k), whole(f.cg))", "0 if f.cg is None else common(core(k), whole(f.cg))", "that number (without its factors of q) sharing a big factor with the gentler line's y-intercept is better", "add \"shift\" to KINDS: it moves a y-intercept directly."),
+      "ratio-smooth": T("omega(core(k))", "omega(core(k))", "that number (without its factors of q) with many prime factors is better", "add \"stretch\" to KINDS: a new factor changes it."),
     },
   },
 ];

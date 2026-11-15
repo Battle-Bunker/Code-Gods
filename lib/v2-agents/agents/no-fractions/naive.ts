@@ -1,5 +1,5 @@
 // Divide By · Naive (for learning)
-// Main part: the number you divide by on your powers. Secondary preference: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor; the answer's numerators add up to a number with a big smallest prime factor; the answer's numerators small).
+// Main part: the number you divide by on your powers. Secondary preference: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor; the answer's numerators small).
 // What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 // pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 // player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -14,7 +14,6 @@ function score(L, p, tie) {
   // main: the level of the number you divide by on k, k³, k⁶, … (higher is better)
   if (tie === "numerator-smooth") return [main, omega(Q.add(Q.abs(nx), Q.abs(ny)))];   // numerators adding up to a number with many prime factors are better
   if (tie === "numerator-shared") return [main, common(nx, ny)];   // numerators sharing a big factor are better
-  if (tie === "numerator-prime") return [main, spf(Q.add(Q.abs(nx), Q.abs(ny)))];   // numerators adding up to a number with a big smallest prime factor are better
   if (tie === "numerator-small") return [main, Q.neg(Q.add(Q.abs(nx), Q.abs(ny)))];   // small numerators are better
   return [main];
 }

@@ -1,5 +1,5 @@
 // Steep Ratio · Bold
-// Main part: one line a whole number of times as steep, on your pattern. Secondary preference: whichever you were dealt (the y-intercepts' gap near a multiple of that number; that number has a big smallest prime factor; that number, without its factors of your number, shares a factor with the gentler line's y-intercept).
+// Main part: one line a whole number of times as steep, on your pattern. Secondary preference: whichever you were dealt (the y-intercepts' gap near a multiple of that number; that number has a big smallest prime factor; that number, without its factors of your number, has many prime factors).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -16,7 +16,7 @@ function score(L, p, tie) {
   // main: the level of the whole number of times as steep on your ladder (higher is better)
   if (tie === "ratio-gap") return [main, f.ygap === null ? null : Q.neg(offMultiple(f.ygap, mod1(k)))];   // a y-intercepts' gap near a multiple of that number (not 0) is better
   if (tie === "ratio-prime") return [main, spf(k)];   // that number with a big smallest prime factor is better
-  if (tie === "ratio-start") return [main, f.cg === null ? 0 : common(core(k), whole(f.cg))];   // that number (without its factors of q) sharing a big factor with the gentler line's y-intercept is better
+  if (tie === "ratio-smooth") return [main, omega(core(k))];   // that number (without its factors of q) with many prime factors is better
   return [main];
 }
 
