@@ -43,6 +43,24 @@ export const LENSES = {
     pre: { ts: "const f = k > 0 ? k + 1 : k - 1;", py: "f = k + 1 if k > 0 else k - 1" },
     ts: `[move("mach.stretch", { f }), Q.mul(m, f), Q.mul(c, f)]`, py: `(move("mach.stretch", f=f), m * f, c * f)`,
   },
+  // The beginner lenses (coordinator's call 23, 15 Nov): offered only where they serve the main part, so the other
+  // families' Thorough starters keep their QUOTES for their own moves.
+  zoom: {
+    comment: "zoom from the origin by z: the y-intercept times z, the same gradient",
+    pre: { ts: "const z = k > 0 ? k + 1 : k - 1;", py: "z = k + 1 if k > 0 else k - 1" },
+    // Through the origin a zoom changes nothing (the engine refuses it): the shift stands in.
+    ts: `Q.isZero(c) ? [move("si.shift", { k }), m, Q.add(c, k)] : [move("basis.zoom", { f: z }), m, Q.mul(c, z)]`,
+    py: `(move("si.shift", k=k), m, c + k) if c == 0 else (move("basis.zoom", f=z), m, c * z)`,
+    only: ["smooth-intercept", "divisibility-ladder"],
+  },
+  turn: {
+    comment: "turn the line about its y-intercept by the angle of a gradient k (the y-intercept stays put)",
+    pre: { ts: "const den = Q.sub(1, Q.mul(m, k));", py: "den = 1 - m * k" },
+    // A turn that would stand the line upright (den = 0) is refused: the tilt stands in.
+    ts: `Q.isZero(den) ? [move("si.tilt", { k }), Q.add(m, k), c] : [move("rot.turn", { centre: 0, turn: k }), Q.div(Q.add(m, k), den), c]`,
+    py: `(move("si.tilt", k=k), m + k, c) if den == 0 else (move("rot.turn", centre=0, turn=k), (m + k) / den, c)`,
+    only: ["prime-gradient", "same-on-both-rulers"],
+  },
 } satisfies Record<string, Lens>;
 export type LensId = keyof typeof LENSES;
 
@@ -95,6 +113,7 @@ const neg = (ts: string) => `Q.neg(${ts})`;
 export const CATALOGUE: readonly FamilyEntry[] = [
   {
     family: "prime-gradient",
+    simple: ["shift", "tilt", "turn"],
     mainSays: "how far the gradient is from the nearest prime ending in the rule's digit (closer is better)",
     main: {
       ts: [
@@ -458,6 +477,7 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   },
   {
     family: "same-on-both-rulers",
+    simple: ["shift", "tilt", "turn"],
     thorough: ["shift", "tilt", "step", "turnAtT"],   // all of them would not fit the starting energy beside these tie-breakers
     mainSays: "how far the number the machine leaves unchanged is from T (closer is better)",
     main: {
@@ -579,6 +599,7 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   },
   {
     family: "divisibility-ladder",
+    simple: ["shift", "tilt", "zoom"],
     mainSays: "how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better)",
     main: {
       ts: [
@@ -815,7 +836,7 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   {
     family: "smooth-intercept",
     // A stretch by a factor in the dealt primes takes a smooth intercept to another smooth rung (decision 25's shortcut).
-    simple: ["shift", "tilt", "stretch"],
+    simple: ["shift", "tilt", "stretch", "zoom"],
     rungs: {
       ts: [
         "// The next rung up (the ladder has no top): one jump away from 0 through the valley between, priced by its size.",

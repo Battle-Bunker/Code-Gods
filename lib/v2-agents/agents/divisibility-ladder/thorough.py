@@ -64,6 +64,8 @@ def agent(offer):
         tries.append((move("cart.pivot", x0=-1, k=k), m + k, c + k))   # turn the line about its point at x = -1 (m and c both change by k)
         f = k + 1 if k > 0 else k - 1
         tries.append((move("mach.stretch", f=f), m * f, c * f))   # multiply every output by f (m and c both)
+        z = k + 1 if k > 0 else k - 1
+        tries.append((move("si.shift", k=k), m, c + k) if c == 0 else (move("basis.zoom", f=z), m, c * z))   # zoom from the origin by z: the y-intercept times z, the same gradient
     tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
     options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.

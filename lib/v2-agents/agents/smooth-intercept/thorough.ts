@@ -47,6 +47,8 @@ function agent(offer) {
     tries.push([move("cart.pivot", { x0: -1, k }), Q.add(m, k), Q.add(c, k)]);   // turn the line about its point at x = -1 (m and c both change by k)
     const f = k > 0 ? k + 1 : k - 1;
     tries.push([move("mach.stretch", { f }), Q.mul(m, f), Q.mul(c, f)]);   // multiply every output by f (m and c both)
+    const z = k > 0 ? k + 1 : k - 1;
+    tries.push(Q.isZero(c) ? [move("si.shift", { k }), m, Q.add(c, k)] : [move("basis.zoom", { f: z }), m, Q.mul(c, z)]);   // zoom from the origin by z: the y-intercept times z, the same gradient
   }
   // The next rung up (the ladder has no top): one jump away from 0 through the valley between, priced by its size.
   const rung = Q.abs(c), up = Q.cmp(c, 0) < 0 ? -1 : 1, onRung = n => factors(n).every(f => p.primes.includes(Number(f)));

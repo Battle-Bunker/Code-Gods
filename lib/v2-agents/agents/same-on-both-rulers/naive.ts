@@ -53,6 +53,8 @@ function agent(offer) {
     if (k === 0) continue;
     tries.push([move("si.shift", { k }), m, Q.add(c, k)]);   // move the line up or down
     tries.push([move("si.tilt", { k }), Q.add(m, k), c]);   // make it steeper or flatter
+    const den = Q.sub(1, Q.mul(m, k));
+    tries.push(Q.isZero(den) ? [move("si.tilt", { k }), Q.add(m, k), c] : [move("rot.turn", { centre: 0, turn: k }), Q.div(Q.add(m, k), den), c]);   // turn the line about its y-intercept by the angle of a gradient k (the y-intercept stays put)
   }
   let top = score(m, c, p, tie), plans = [];
   for (const [plan, m2, c2] of tries) {

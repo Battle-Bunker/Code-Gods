@@ -45,6 +45,8 @@ def agent(offer):
             continue
         tries.append((move("si.shift", k=k), m, c + k))   # move the line up or down
         tries.append((move("si.tilt", k=k), m + k, c))   # make it steeper or flatter
+        den = 1 - m * k
+        tries.append((move("si.tilt", k=k), m + k, c) if den == 0 else (move("rot.turn", centre=0, turn=k), (m + k) / den, c))   # turn the line about its y-intercept by the angle of a gradient k (the y-intercept stays put)
     top, plans = score(m, c, p, tie), []
     for plan, m2, c2 in tries:
         s = score(m2, c2, p, tie)

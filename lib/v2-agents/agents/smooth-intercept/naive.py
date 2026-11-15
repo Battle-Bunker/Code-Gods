@@ -39,6 +39,8 @@ def agent(offer):
         tries.append((move("si.tilt", k=k), m + k, c))   # make it steeper or flatter
         f = k + 1 if k > 0 else k - 1
         tries.append((move("mach.stretch", f=f), m * f, c * f))   # multiply every output by f (m and c both)
+        z = k + 1 if k > 0 else k - 1
+        tries.append((move("si.shift", k=k), m, c + k) if c == 0 else (move("basis.zoom", f=z), m, c * z))   # zoom from the origin by z: the y-intercept times z, the same gradient
     top, plans = score(m, c, p, tie), []
     for plan, m2, c2 in tries:
         s = score(m2, c2, p, tie)

@@ -40,6 +40,8 @@ function agent(offer) {
     if (k === 0) continue;
     tries.push([move("si.shift", { k }), m, Q.add(c, k)]);   // move the line up or down
     tries.push([move("si.tilt", { k }), Q.add(m, k), c]);   // make it steeper or flatter
+    const z = k > 0 ? k + 1 : k - 1;
+    tries.push(Q.isZero(c) ? [move("si.shift", { k }), m, Q.add(c, k)] : [move("basis.zoom", { f: z }), m, Q.mul(c, z)]);   // zoom from the origin by z: the y-intercept times z, the same gradient
   }
   let top = score(m, c, p, tie), plans = [];
   for (const [plan, m2, c2] of tries) {
