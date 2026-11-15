@@ -3,9 +3,9 @@
  * of values) and a list of alternative tie-breakers (owner decisions 12–14): a dealt rule is the main layer plus one
  * of them. Every layer is a distance, a count or a size, never a yes/no test (decision 13).
  */
-import { Qn, q, ref, type ElementRef, type ElementValue, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
+import { gcd, Qn, q, ref, type ElementRef, type ElementValue, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
 import type { LineState } from "./line.ts";
-import { largestPrimeFactor, nearbyPrimes, nearestPrimeEnding, smallestPrimeFactor } from "./numbers.ts";
+import { digitLevel, isPrimeEnding, largestPrimeFactor, nearbyPrimes, nearestPrimeEnding, smallestPrimeFactor } from "./numbers.ts";
 import { beginnerFamilies, factorLabel } from "./beginner.ts";
 import { rationalFamilies } from "./rational.ts";
 import { rational2Families } from "./rational2.ts";
@@ -34,47 +34,47 @@ function card<P>(f: { main: L<P>; tieBreakers: readonly L<P>[] }, p: P, tb: TieB
 
 // ---------------------------------------------------------------- 1. Prime Gradient (owner)
 
+/**
+ * Prime Gradient as a ladder (design-principles.md; redesigned 15 Nov, declared to the coordinator), on the gradient as
+ * Prime Landing is on the x-axis crossing. Main part, unbounded: the gradient should round to a prime p ending in k (or
+ * minus one, on the mirror), the bigger the better, in levels of digits that each need more than the last (u =
+ * digitLevel(p), numbers.ts); any other gradient scores below every rung, −(its distance to the nearest − ½). Tie-breaker,
+ * read from p: the biggest number dividing both p + 1 and the y-intercept's whole part (ignoring signs); a new rung
+ * changes p + 1, so the climb starts again. The old tie-breakers leave: the size of that prime (now the main part
+ * itself), the y-intercept near such a prime (an independent wish, decision 29), and its smallest and largest prime
+ * factors (hills a shift climbs at every size: the pool's 40-bit seats). Dealt: endings 1 and 9, each with its mirror
+ * (the reflection y → −y keeps the law and |c|). A tilt moves the gradient and Prime Landing's crossing together, so
+ * the two contest one move; a shift serves Prime Landing alone.
+ */
 const pg = {
-  main: { id: "near", title: "gradient close to the dealt prime", sentence: (p: Ends) => `Make the gradient as close as possible to ${p.side === -1 ? "minus " : ""}a prime ending in ${p.ends}.`,
-    rep: "si", sense: "min" } as L<Ends>,
+  main: { id: "gradient", title: "the gradient rounding to as big a dealt prime as possible", rep: "si", sense: "max",
+    sentence: (p: Ends) => `The gradient should round to ${p.side === -1 ? "minus " : ""}a prime ending in ${p.ends}, the bigger the better, in levels of digits that each need more than the last (1, 3, 6, 10 digits …); any other gradient scores below them all, the closer to one the better.` } as L<Ends>,
   tieBreakers: [
-    { id: "prime", title: "the size of that prime", sentence: () => "Tie-breaker: the bigger that prime, the better.",
-      rep: "si", sense: "max", measure: "prime" },
-    { id: "cPrime", title: "the y-intercept close to such a prime too", sentence: (p: Ends) => `Tie-breaker: make the y-intercept as close as possible to ${p.side === -1 ? "minus " : ""}a prime ending in ${p.ends} too.`,
-      rep: "si", sense: "min" },
-    { id: "c-spf", title: "the y-intercept's smallest prime factor", sentence: () => "Tie-breaker: the bigger the y-intercept's smallest prime factor, the better.",
-      rep: "si", sense: "max", measure: "prime" },
-    { id: "c-gpf", title: "the y-intercept's largest prime factor", sentence: () => "Tie-breaker: the bigger the y-intercept's largest prime factor, the better.",
-      rep: "si", sense: "max", measure: "prime" },
+    { id: "shared-factor", title: "the biggest number dividing both that prime plus 1 and the y-intercept's whole part", rep: "si", sense: "max",
+      sentence: () => "Tie-breaker: take the number just after that prime. The biggest number that divides both it and the y-intercept's whole part (ignoring sign) should be as big as possible (a whole part of 0 shares nothing)." },
   ] as L<Ends>[],
 };
 export const primeGradient: RuleFamily<LineState, Ends> = {
-  id: "prime-gradient", title: "Prime Gradient", card: (p, tb) => card(pg, p, tb),
-  // One ending dealt (equal opportunity), and its mirror (side −1: minus a prime; y → −y), an exact peer so parameter
-  // drift has a value to redraw: see ENDS_LANDING in beginner.ts.
-  params: [], dealable: () => [{ ends: 1 }, { ends: 1, side: -1 }], depends: ["si", "cart"], ...pg,
+  id: "prime-gradient", title: "Prime Gradient", card: (p, tb) => card(pg, p, tb), keepsParams: true,
+  params: [], dealable: () => [1, 9].flatMap(ends => [{ ends }, { ends, side: -1 as const }]), depends: ["si", "cart"], ...pg,
   evaluate(ctx, pr) {
     const mRef = ref("si", "m"), cRef = ref("si", "c");
     const mv = ctx.read(mRef), cv = ctx.read(cRef);
     const m = num(mv), c = num(cv);
     if (m === null || c === null) return allUndefined(ctx, pg, m === null ? mv : cv, m === null ? mRef : cRef);
-    // On the mirror (side −1) the gradient and the y-intercept are read reflected: near minus a prime.
-    const s = pr.side === -1 ? -1n : 1n, sd = (x: Q): Q => (s === 1n ? x : Qn.neg(x));
-    for (const p of [s * nearestPrimeEnding(sd(m), pr.ends)]) {
-      const g = ref("cart", "ghost", { g: p });
-      ctx.read(g);
-      ctx.term(`d${p}`, `distance to ${p}`, gap(m, q(p)), [mRef]);
-      ctx.mark({ kind: "candidate", ref: g, term: `d${p}` });
-    }
-    const near = primeGapEnding(sd(m), pr.ends);
-    const whole = c.d === 1n;
-    ctx.term("near", `distance from the gradient to the nearest ${s === 1n ? "" : "minus "}prime ending in ${pr.ends}`, near.d, [mRef]);
-    ctx.term("prime", "that prime", q(near.p), [mRef]);
-    ctx.term("cPrime", `distance from the y-intercept to ${s * primeGapEnding(sd(c), pr.ends).p}`, primeGapEnding(sd(c), pr.ends).d, [cRef]);
-    ctx.term("c-spf", factorLabel("smallest", "the y-intercept", c), q(whole ? smallestPrimeFactor(c.n) : 1n), [cRef]);
-    ctx.term("c-gpf", factorLabel("largest", "the y-intercept", c), q(whole ? largestPrimeFactor(c.n) : 1n), [cRef]);
+    // On the mirror (side −1) the gradient is read reflected: rounding to minus a prime.
+    const s = pr.side === -1 ? -1n : 1n, x = s === 1n ? m : Qn.neg(m);
+    const n = Qn.floor(Qn.add(x, q(1, 2)));
+    const on = n > 0n && isPrimeEnding(n, pr.ends);
+    const p = on ? n : nearestPrimeEnding(x, pr.ends);
+    const g = ref("cart", "ghost", { g: s * p });
+    ctx.read(g);
+    ctx.term("gradient", on ? `the gradient ${Qn.toWire(m)} rounds to ${s === 1n ? "" : "minus "}the prime ${p}` : `${Qn.toWire(Qn.abs(Qn.sub(x, q(p))))} from ${s === 1n ? "" : "minus "}the prime ${p}`,
+      on ? digitLevel(p) : Qn.neg(Qn.sub(gap(x, q(p)), q(1, 2))), [mRef]);
+    const w = Qn.floor(Qn.abs(c));
+    ctx.term("shared-factor", `${p + 1n} and the y-intercept's whole part ${w}: the biggest number dividing both is ${w === 0n ? 0n : gcd(p + 1n, w)}`, q(w === 0n ? 0n : gcd(p + 1n, w)), [mRef, cRef]);
     ctx.mark({ kind: "focus", ref: mRef });
-    ctx.mark({ kind: "note", ref: mRef, text: `nearest ${s === 1n ? "" : "minus "}prime ${s * near.p}` });
+    ctx.mark({ kind: "candidate", ref: g, term: "gradient" });
   },
 };
 

@@ -56,7 +56,7 @@ test("a vertical line in a view that cannot show it: the view names it (x = 3) b
   const v = abc(1n, 0n, -3n);
   const si = text(renderToStaticMarkup(<RepView type={lineType} state={v} rep="si" size="compact" />));
   assert.match(si, /^x = 3\b.*a vertical line has no gradient or y-intercept/, si);
-  const rule = { type: lineType, family: primeGradient, params: primeGradient.dealable(lineQ)[0], variant: lineQ, tieBreaker: "prime" } as never;
+  const rule = { type: lineType, family: primeGradient, params: primeGradient.dealable(lineQ)[0], variant: lineQ, tieBreaker: "shared-factor" } as never;
   const face = text(renderToStaticMarkup(<CompactFace rule={rule} state={v} toScore />));
   assert.match(face, /x = 3/, face);
   assert.match(face, /not scoring/, face);

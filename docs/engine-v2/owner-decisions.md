@@ -528,6 +528,16 @@ back) or TRIAL (a declared experiment, measured and reported).
     - **Views**: a ladder family's main part on a rung is said in the family's words ("on 75: 3 of the dealt primes
       multiplied, level 2"), not as its level number.
 
+26. **TRIAL** (the spec lead's redesign under the coordinator's delegation, 15 Nov; declared to the coordinator):
+    Prime Gradient is a ladder on the gradient, as Prime Landing is on the x-axis crossing. Its main part is the prime p
+    ending in k the gradient rounds to (minus one on the mirror), in levels of digits (u = digitLevel(p), each level
+    dearer than the last); off the ladder −(distance − ½). Its tie-breaker is gcd(p + 1, the y-intercept's whole part
+    ignoring sign), which a new rung restarts. The tie-breakers "prime" (the size of that prime: now the main part),
+    cPrime (the y-intercept near such a prime: an independent wish, decision 29), c-spf and c-gpf (the y-intercept's
+    prime factors: hills a shift climbs at every size, the pool's 40-bit seats) leave it. Dealt: endings 1 and 9 with
+    their mirrors; never redrawn (a ladder family). A tilt moves the gradient and Prime Landing's crossing together, so
+    the two contest one move. Values reach 18.0 and 17.8 bits at the sampled top; the params-equal audit compares levels.
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.

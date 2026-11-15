@@ -49,6 +49,12 @@ const LADDER_COST: Readonly<Record<string, (u: string, params: Record<string, un
     const level = BigInt(n!) / BigInt(d);
     return !u.startsWith("-") && level >= 1n ? [String(level), 0] : null;
   },
+  // Prime Gradient: the rung is the level of digits (the whole part of u on a rung, u ≥ 1), compared level by level.
+  "prime-gradient": u => {
+    const [n, d = "1"] = u.split("/");
+    const level = BigInt(n!) / BigInt(d);
+    return !u.startsWith("-") && level >= 1n ? [String(level), 0] : null;
+  },
   "whole-crossing": u => (/^\d+$/.test(u) ? [u, 0] : null),
   "prime-staircase": (u, p) => {
     const [n, d = "1"] = u.split("/"), L = Number(BigInt(n!) / BigInt(d));
