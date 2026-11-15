@@ -76,7 +76,7 @@ same prime class, for example Pythagorean Area with q = 3 and Square Area with r
 | Whole Crossing | yes (v_q(N − r)) | about log2 q | yes (§4.7) | ~15 | Pythagorean and Square Area, Same on Both Rulers, Ruler |
 | Ruler | yes (v_q) | about q/2 | yes (§4.8) | 12 | Prime Landing, Pythagorean Area, Same on Both Rulers |
 | Square Area | yes (exponent k) | about ½·sopfr(root) | yes (§4.9) | ~8 | Pythagorean Area (other q), Whole Crossing, Prime Landing |
-| Divisibility Ladder | yes (run) | 1–3 (lcm growth) | yes (§4.10) | 8 | **open fail** (measured 15 Nov, #817: no family opposes more than 7% of its climbs; merged dealt by the coordinator; Prime Staircase is to be made to contest its heights) |
+| Divisibility Ladder | yes (run) | 1–3 (lcm growth) | yes (§4.10) | 8 | Prime Landing, Pythagorean Area, Ruler, Treasure (by exclusion: they cannot be high on its high ground; measured 15 Nov). Smooth Intercept and Prime Staircase exclude it both ways on the same numbers (an odd c or an odd prime y(2) stops a run at 1) |
 
 - **Row 5 (perpendicular).** Argued in §1. The pairwise PMI table is the spec lead's.
 - **Row 8 (reach).** Log ramps keep values out of the hundreds. 20 bits needs about 6–15 rungs.
