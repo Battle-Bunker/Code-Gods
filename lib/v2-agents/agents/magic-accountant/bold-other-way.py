@@ -1,5 +1,5 @@
 # Magic Accountant · Bold
-# Main part: every row (or column) adds up to the magic number. Tie-breaker: the other way adds up to the magic number too.
+# Main part: every row (or column) adds up to the magic number. Secondary preference: the other way adds up to the magic number too.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 # other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
@@ -8,7 +8,7 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     main = 0
     for k in range(4):   # each line: how far its total is from T
         t = sum(b[4 * k + j] if p["axis"] == "rows" else b[4 * j + k] for j in range(4))
@@ -16,7 +16,7 @@ def score(b, p):
     other = 0
     for k in range(4):   # the other way: each column (or row) against T
         other -= abs(sum(b[4 * j + k] if p["axis"] == "rows" else b[4 * k + j] for j in range(4)) - p["T"])
-    return [main, other]   # main: how far each row's (or column's) total is from T, added up (closer is better); tie-breaker: the columns (or rows, the other way) closer to T too is better
+    return [main, other]   # main: how far each row's (or column's) total is from T, added up (closer is better); secondary: the columns (or rows, the other way) closer to T too is better
 
 
 FAR = 2      # how far one change may go

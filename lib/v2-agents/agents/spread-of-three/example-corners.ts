@@ -1,5 +1,5 @@
 // Spread of Three · Example: the board's four corners
-// Main part: every 2×2 square spreads by 3. Tie-breaker: the board's four corners.
+// Main part: every 2×2 square spreads by 3. Secondary preference: the board's four corners.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 // (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -7,14 +7,14 @@
 // raises your points most (your rarity times the other players').
 // Try this: remove the "swap" line: a corner is in only one square, so can single steps raise it?
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const i of [0, 1, 2, 4, 5, 6, 8, 9, 10]) {    // each 2×2 square, by its top-left cell (they overlap)
     const v = [b[i], b[i + 1], b[i + 4], b[i + 5]];
     main -= Math.abs(Math.max(...v) - Math.min(...v) - 3);   // its spread: biggest minus smallest
   }
-  return [main, b[0] + b[3] + b[12] + b[15]];   // main: how far each 2×2 square's spread is from 3, added up (closer is better); tie-breaker: bigger corners of the board are better
+  return [main, b[0] + b[3] + b[12] + b[15]];   // main: how far each 2×2 square's spread is from 3, added up (closer is better); secondary: bigger corners of the board are better
 }
 
 const FAR = 2;      // how far one change may go

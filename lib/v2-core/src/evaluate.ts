@@ -128,14 +128,18 @@ export function ruleLayers<P>(family: RuleFamily<any, P>, tieBreaker?: TieBreake
   })];
 }
 
+/** How a card names each preference after the main goal, in order. */
+export const PREFERENCE_LABELS: readonly string[] = ["Secondary", "Third", "Fourth", "Fifth"];
+
 /**
- * A goal card for a dealt rule: the main layer's sentence, then each tie-breaker's in order ("Tie-breaker: …", then
- * "Then: …" for a tertiary and deeper). Shared by the line, grid and pair families.
+ * A goal card for a dealt rule: the main goal's sentence, then each secondary preference's in order ("Secondary: …",
+ * "Third: …", "Fourth: …"; the owner's term: player text never says "tie-breaker"). Shared by the line, grid and pair
+ * families.
  */
 export function cardText<P>(main: { sentence(p: P): string }, tieBreakers: readonly { id: string; sentence(p: P): string }[], p: P, tieBreaker: TieBreaker): string {
   // An id the family does not have adds nothing (the main layer's own id, e.g.), as the cards always did.
   const ts = (tieBreakerIds(tieBreaker) ?? []).flatMap(id => tieBreakers.filter(x => x.id === id));
-  const parts = ts.map((t, i) => `${i === 0 ? "Tie-breaker" : "Then"}: ${t.sentence(p)}`);
+  const parts = ts.map((t, i) => `${PREFERENCE_LABELS[i] ?? `${i + 2}th`}: ${t.sentence(p)}`);
   return [main.sentence(p), ...parts].join(" ");
 }
 

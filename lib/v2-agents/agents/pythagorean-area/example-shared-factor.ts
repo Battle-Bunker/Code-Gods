@@ -1,5 +1,5 @@
 // Pythagorean Area · Example: the factor that prime minus 1 shares with the slanted side squared
-// Main part: the triangle's area on as big a dealt prime as possible. Tie-breaker: the factor that prime minus 1 shares with the slanted side squared.
+// Main part: the triangle's area on as big a dealt prime as possible. Secondary preference: the factor that prime minus 1 shares with the slanted side squared.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,7 +9,7 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: change FAR = 3 to 2: a smaller shift keeps the area on its prime more often, and still moves the slanted side.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p) {
   if (Q.isZero(m) || Q.isZero(c)) return null;    // no triangle: the worst score
   const legX = Q.abs(Q.div(c, m)), legY = Q.abs(c); // the triangle's base and height
@@ -21,7 +21,7 @@ function score(m, c, p) {
   const main = Q.cmp(Q.mul(2, gap), 1) < 0 || Q.eq(Q.sub(rung, x), Q.div(1, 2)) ? level(rung) : Q.neg(Q.sub(gap, Q.div(1, 2)));
   const side2 = Q.add(Q.mul(legX, legX), Q.mul(legY, legY));   // the slanted side, squared (Pythagoras)
   const ws = whole(Q.div(Q.sub(Q.mul(2, side2), 1), 2));   // its whole part (rounded down)
-  return [main, common(Q.sub(rung, 1), ws)];   // main: the prime ending in the rule's digit that the triangle's area rounds down to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far the area is from rounding to one; tie-breaker: that prime minus 1 and the slanted side squared (rounded down): a bigger factor shared is better
+  return [main, common(Q.sub(rung, 1), ws)];   // main: the prime ending in the rule's digit that the triangle's area rounds down to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far the area is from rounding to one; secondary: that prime minus 1 and the slanted side squared (rounded down): a bigger factor shared is better
 }
 
 const FAR = 3;      // how far one change may go

@@ -1,5 +1,5 @@
 # Crosswise Threes · Naive (for learning)
-# Main part: folded cells three apart. Tie-breaker: the fold line's total.
+# Main part: folded cells three apart. Secondary preference: the fold line's total.
 # What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 # board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 # board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
@@ -8,11 +8,11 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     main = 0
     for i, j in [[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]]:   # each cell and its fold partner
         main -= abs(abs(b[i] - b[j]) - 3)
-    return [main, b[3] + b[6] + b[9] + b[12]]   # main: how far each number and the number it folds onto are from 3 apart, added up (closer is better); tie-breaker: a bigger fold line (top-right to bottom-left) is better
+    return [main, b[3] + b[6] + b[9] + b[12]]   # main: how far each number and the number it folds onto are from 3 apart, added up (closer is better); secondary: a bigger fold line (top-right to bottom-left) is better
 
 
 FAR = 1      # how far one change may go

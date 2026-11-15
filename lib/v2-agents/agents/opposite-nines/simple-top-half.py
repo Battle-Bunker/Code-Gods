@@ -1,5 +1,5 @@
 # Opposite Nines · Simple
-# Main part: every cell and its opposite add up to the target. Tie-breaker: the top half's total.
+# Main part: every cell and its opposite add up to the target. Secondary preference: the top half's total.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 # other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
@@ -8,11 +8,11 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     main = 0
     for i in range(8):   # cell i and its opposite, 15 - i
         main -= abs(b[i] + b[15 - i] - p["T"])
-    return [main, sum(b[:8])]   # main: how far each cell and its opposite are from adding up to T, added up (closer is better); tie-breaker: a bigger top half is better
+    return [main, sum(b[:8])]   # main: how far each cell and its opposite are from adding up to T, added up (closer is better); secondary: a bigger top half is better
 
 
 FAR = 1      # how far one change may go

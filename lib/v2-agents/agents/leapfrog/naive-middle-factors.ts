@@ -1,17 +1,17 @@
 // Leapfrog · Naive (for learning)
-// Main part: each number one apart from the number two cells along. Tie-breaker: numbers between leap partners sharing a factor with both.
+// Main part: each number one apart from the number two cells along. Secondary preference: numbers between leap partners sharing a factor with both.
 // What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 // board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 // board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
 // from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const i of [0, 1, 4, 5, 8, 9, 12, 13]) main -= Math.abs(Math.abs(b[i] - b[i + 2]) - 1);   // cell i and the cell two along
   const gcd = (x, y) => (y ? gcd(y, x % y) : x);   // the greatest common divisor (gcd(0, x) is x)
-  return [main, [0, 1, 4, 5, 8, 9, 12, 13].filter(i => gcd(b[i + 1], b[i]) > 1 && gcd(b[i + 1], b[i + 2]) > 1).length];   // main: how far each number and the number two cells along its row are from one apart, added up (closer is better); tie-breaker: more numbers between leap partners that share a factor with both is better
+  return [main, [0, 1, 4, 5, 8, 9, 12, 13].filter(i => gcd(b[i + 1], b[i]) > 1 && gcd(b[i + 1], b[i + 2]) > 1).length];   // main: how far each number and the number two cells along its row are from one apart, added up (closer is better); secondary: more numbers between leap partners that share a factor with both is better
 }
 
 const FAR = 1;      // how far one change may go

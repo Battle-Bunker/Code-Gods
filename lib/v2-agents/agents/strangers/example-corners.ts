@@ -1,5 +1,5 @@
 // Strangers · Example: the board's four corners
-// Main part: touching strangers in the corner boxes. Tie-breaker: the board's four corners.
+// Main part: touching strangers in the corner boxes. Secondary preference: the board's four corners.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 // (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -7,7 +7,7 @@
 // raises your points most (your rarity times the other players').
 // Try this: remove the "swap" line: can single steps raise the corners?
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   const gcd = (x, y) => (y ? gcd(y, x % y) : x);   // the greatest common divisor
   let main = 0, ones = 0;
@@ -16,7 +16,7 @@ function score(b, p) {
     if (u > 1 && w > 1 && gcd(u, w) === 1 && Math.abs(u - w) >= 2) main++;   // strangers: like 2 and 5
     if ((u === 1 && w > 1) || (w === 1 && u > 1)) ones++;                    // a 1 touching a bigger number
   }
-  return [main, b[0] + b[3] + b[12] + b[15]];   // main: how many touching pairs in the corner boxes are strangers (more is better); tie-breaker: bigger corners of the board are better
+  return [main, b[0] + b[3] + b[12] + b[15]];   // main: how many touching pairs in the corner boxes are strangers (more is better); secondary: bigger corners of the board are better
 }
 
 const FAR = 2;      // how far one change may go

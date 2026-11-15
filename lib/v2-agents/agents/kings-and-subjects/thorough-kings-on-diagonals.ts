@@ -1,12 +1,12 @@
 // Kings and Subjects · Thorough
-// Main part: every corner box's king equals his subjects. Tie-breaker: kings on the board's diagonals.
+// Main part: every corner box's king equals his subjects. Secondary preference: kings on the board's diagonals.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: change QUOTES = 6 to 2: fewer prices asked, but it may miss a cheaper plan.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   const kings = [];
@@ -15,7 +15,7 @@ function score(b, p) {
     main -= v.filter(y => y === m).length > 1 ? 20 : Math.abs(2 * m - v.reduce((t, y) => t + y, 0));   // the king against his subjects added up; a tied biggest is no king, 20 off
     if (v.filter(y => y === m).length === 1) kings.push([x[v.indexOf(m)], m, Math.min(...v)]);   // a king: his cell, his number, the smallest in his box
   }
-  return [main, kings.filter(([i]) => Math.floor(i / 4) === i % 4 || Math.floor(i / 4) + i % 4 === 3).length];   // main: how far each corner box's biggest number is from the other three added up, added up (closer is better); tie-breaker: more kings on the board's two diagonals is better
+  return [main, kings.filter(([i]) => Math.floor(i / 4) === i % 4 || Math.floor(i / 4) + i % 4 === 3).length];   // main: how far each corner box's biggest number is from the other three added up, added up (closer is better); secondary: more kings on the board's two diagonals is better
 }
 
 const FAR = 1;      // how far one change may go

@@ -1,16 +1,16 @@
 // Crosswise Threes · Naive (for learning)
-// Main part: folded cells three apart. Tie-breaker: folded pairs with the bigger number on the top-left side.
+// Main part: folded cells three apart. Secondary preference: folded pairs with the bigger number on the top-left side.
 // What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 // board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 // board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
 // from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const [i, j] of [[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]]) main -= Math.abs(Math.abs(b[i] - b[j]) - 3);   // each cell and its fold partner
-  return [main, [[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]].filter(([i, j]) => b[i] > b[j]).length];   // main: how far each number and the number it folds onto are from 3 apart, added up (closer is better); tie-breaker: more fold pairs with the bigger number on the top-left side is better
+  return [main, [[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]].filter(([i, j]) => b[i] > b[j]).length];   // main: how far each number and the number it folds onto are from 3 apart, added up (closer is better); secondary: more fold pairs with the bigger number on the top-left side is better
 }
 
 const FAR = 1;      // how far one change may go

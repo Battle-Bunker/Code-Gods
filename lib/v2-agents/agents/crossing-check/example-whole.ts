@@ -1,5 +1,5 @@
 // Crossing Check · Example: x(q) nearly whole
-// Main part: y(k) close to x(q). Tie-breaker: x(q) nearly whole.
+// Main part: y(k) close to x(q). Secondary preference: x(q) nearly whole.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,13 +9,13 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: change FAR = 3 to 2 to make every move cheaper.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p) {
   if (Q.isZero(m)) return null;                   // a flat line never reaches height q
   const y = Q.add(Q.mul(m, p.k), c);              // y(k): the height at x = k
   const x = Q.div(Q.sub(p.q, c), m);              // x(q): where the line reaches height q
   const main = Q.neg(Q.abs(Q.sub(y, x)));
-  return [main, -(x.d - 1n)];   // main: how far apart y(k) and x(q) are (closer is better); tie-breaker: x(q) a whole number is best
+  return [main, -(x.d - 1n)];   // main: how far apart y(k) and x(q) are (closer is better); secondary: x(q) a whole number is best
 }
 
 const FAR = 3;      // how far one change may go

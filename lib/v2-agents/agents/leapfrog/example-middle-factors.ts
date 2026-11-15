@@ -1,5 +1,5 @@
 // Leapfrog · Example: numbers between leap partners sharing a factor with both
-// Main part: each number one apart from the number two cells along. Tie-breaker: numbers between leap partners sharing a factor with both.
+// Main part: each number one apart from the number two cells along. Secondary preference: numbers between leap partners sharing a factor with both.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 // (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -7,12 +7,12 @@
 // raises your points most (your rarity times the other players').
 // Try this: change FAR = 2 to 1: single steps only; does it still find shared factors?
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const i of [0, 1, 4, 5, 8, 9, 12, 13]) main -= Math.abs(Math.abs(b[i] - b[i + 2]) - 1);   // cell i and the cell two along
   const gcd = (x, y) => (y ? gcd(y, x % y) : x);   // the greatest common divisor (gcd(0, x) is x)
-  return [main, [0, 1, 4, 5, 8, 9, 12, 13].filter(i => gcd(b[i + 1], b[i]) > 1 && gcd(b[i + 1], b[i + 2]) > 1).length];   // main: how far each number and the number two cells along its row are from one apart, added up (closer is better); tie-breaker: more numbers between leap partners that share a factor with both is better
+  return [main, [0, 1, 4, 5, 8, 9, 12, 13].filter(i => gcd(b[i + 1], b[i]) > 1 && gcd(b[i + 1], b[i + 2]) > 1).length];   // main: how far each number and the number two cells along its row are from one apart, added up (closer is better); secondary: more numbers between leap partners that share a factor with both is better
 }
 
 const FAR = 2;      // how far one change may go

@@ -1,5 +1,5 @@
 # Crossing Check · Bold
-# Main part: y(k) close to x(q). Tie-breaker: whichever you were dealt (they cross at a big number; x(q) nearly whole).
+# Main part: y(k) close to x(q). Secondary preference: whichever you were dealt (they cross at a big number; x(q) nearly whole).
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,14 +11,14 @@
 
 
 def score(m, c, p, tie):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m == 0:                                      # a flat line never reaches height q
         return None
     y = m * p["k"] + c                              # y(k): the height at x = k
     x = (p["q"] - c) / m                            # x(q): where the line reaches height q
     main = -abs(y - x)
     # main: how far apart y(k) and x(q) are (closer is better)
-    def tier(t):   # each tie-breaker, in order (None: ranks last)
+    def tier(t):   # each secondary, in order (None: ranks last)
         if t == "size":   # a bigger x(q) is better
             return abs(x)
         if t == "whole":   # x(q) a whole number is best

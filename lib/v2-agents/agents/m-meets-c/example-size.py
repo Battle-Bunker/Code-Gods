@@ -1,5 +1,5 @@
 # m Meets c · Example: they meet at a big number
-# Main part: gradient close to the y-intercept. Tie-breaker: they meet at a big number.
+# Main part: gradient close to the y-intercept. Secondary preference: they meet at a big number.
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,9 +11,9 @@
 
 
 def score(m, c, p):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     main = -abs(m - c)
-    return [main, abs(c)]   # main: how far apart the gradient and the y-intercept are (closer is better); tie-breaker: a bigger y-intercept is better
+    return [main, abs(c)]   # main: how far apart the gradient and the y-intercept are (closer is better); secondary: a bigger y-intercept is better
 
 
 FAR = 3      # how far one change may go

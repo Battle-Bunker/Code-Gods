@@ -12,7 +12,7 @@ test("every owner family: a textbook main layer and at least two alternative tie
     assert.ok(f.tieBreakers.length >= (f.keepsParams ? 1 : 2), f.id);
     assert.ok(f.depends.includes(f.main.rep), f.id);
     const p = f.dealable(lineQ)[0]!;
-    for (const tb of f.tieBreakers) assert.match(f.card(p as never, tb.id), /Tie-breaker/);
+    for (const tb of f.tieBreakers) assert.match(f.card(p as never, tb.id), /Secondary: /);
   }
 });
 

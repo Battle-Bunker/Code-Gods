@@ -1,5 +1,5 @@
 # Leading Digits · Naive (for learning)
-# Main part: the leading digits matched. Tie-breaker: the digits of the powers' exponents, added up.
+# Main part: the leading digits matched. Secondary preference: the digits of the powers' exponents, added up.
 # What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 # board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 # board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
@@ -8,7 +8,7 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     R = [0, 1, 2, 3] if p["layout"] == "halves" else [0, 2, 1, 3]   # the rows (and columns) in reading order: the first two, then the other two
     x = []   # the four readings: two rows (or two columns) as one number
     for by_row in (True, False):
@@ -33,7 +33,7 @@ def score(b, p):
         if k in seen:
             main -= 1
         seen.add(k)
-    return [main, exponents]   # main: the leading digits each reading shares with a power of b, added up, less the repeated rows and columns (more is better); tie-breaker: the matched powers' exponents, their digits added up, bigger is better
+    return [main, exponents]   # main: the leading digits each reading shares with a power of b, added up, less the repeated rows and columns (more is better); secondary: the matched powers' exponents, their digits added up, bigger is better
 
 
 FAR = 1      # how far one change may go

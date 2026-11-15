@@ -1,16 +1,16 @@
 // Opposite Nines · Naive (for learning)
-// Main part: every cell and its opposite add up to the target. Tie-breaker: pairs with the bigger number in the top half.
+// Main part: every cell and its opposite add up to the target. Secondary preference: pairs with the bigger number in the top half.
 // What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 // board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 // board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
 // from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (let i = 0; i < 8; i++) main -= Math.abs(b[i] + b[15 - i] - p.T);   // cell i and its opposite, 15 - i
-  return [main, [0, 1, 2, 3, 4, 5, 6, 7].filter(i => b[i] > b[15 - i]).length];   // main: how far each cell and its opposite are from adding up to T, added up (closer is better); tie-breaker: more pairs with the bigger number in the top half is better
+  return [main, [0, 1, 2, 3, 4, 5, 6, 7].filter(i => b[i] > b[15 - i]).length];   // main: how far each cell and its opposite are from adding up to T, added up (closer is better); secondary: more pairs with the bigger number in the top half is better
 }
 
 const FAR = 1;      // how far one change may go

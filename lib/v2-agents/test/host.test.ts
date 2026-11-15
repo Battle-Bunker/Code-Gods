@@ -53,7 +53,7 @@ test("myScore charges the rule's views and reports each layer; myRule and budget
   const r = ask(h, { op: "myRule" }).result;
   assert.equal(r.tieBreaker, "size");
   assert.deepEqual(r.layers.map((l: { id: string }) => l.id), ["gap", "size"]);
-  assert.match(r.card, /Tie-breaker/);
+  assert.match(r.card, /Secondary/);
   assert.equal(ask(h, { op: "budget" }).result.energy, 50);
   assert.equal(h.readBits, PHI);
   const alone = new EngineHost({ type: lineType, variant: lineZ, state, rule: { ...rule, tieBreaker: null }, energy: 50 });

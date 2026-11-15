@@ -1,16 +1,16 @@
 // Box Totals · Simple
-// Main part: every corner box adds up to the target. Tie-breaker: 0s on the board.
+// Main part: every corner box adds up to the target. Secondary preference: 0s on the board.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: add the "trade" line from the Thorough starter: moving an amount from one cell to another keeps their total.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const x of BOXES) main -= Math.abs(x.reduce((t, i) => t + b[i], 0) - p.T);   // each box: how far its total is from T
-  return [main, b.filter(x => x === 0).length];   // main: how far the corner boxes' totals are from T, added up (closer is better); tie-breaker: more 0s is better
+  return [main, b.filter(x => x === 0).length];   // main: how far the corner boxes' totals are from T, added up (closer is better); secondary: more 0s is better
 }
 
 const FAR = 1;      // how far one change may go

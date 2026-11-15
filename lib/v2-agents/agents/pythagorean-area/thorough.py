@@ -1,5 +1,5 @@
 # Pythagorean Area · Thorough
-# Main part: the triangle's area on as big a dealt prime as possible. Tie-breaker: whichever you were dealt (the factor that prime minus 1 shares with the slanted side squared).
+# Main part: the triangle's area on as big a dealt prime as possible. Secondary preference: whichever you were dealt (the factor that prime minus 1 shares with the slanted side squared).
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,7 +11,7 @@
 
 
 def score(m, c, p, tie):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m == 0 or c == 0:                            # no triangle: the worst score
         return None
     legX, legY = abs(c / m), abs(c)                 # the triangle's base and height
@@ -22,7 +22,7 @@ def score(m, c, p, tie):
     level = lambda p: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(p, 10 ** D)) / (L + 1))(len(str(p)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(p))))   # levels of digits: level L needs L(L + 1)/2
     main = level(rung) if 2 * gap < 1 or rung - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
     # main: the prime ending in the rule's digit that the triangle's area rounds down to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far the area is from rounding to one
-    def tier(t):   # each tie-breaker, in order (None: ranks last)
+    def tier(t):   # each secondary, in order (None: ranks last)
         if t == "shared-factor":   # that prime minus 1 and the slanted side squared (rounded down): a bigger factor shared is better
             side2 = legX * legX + legY * legY            # the slanted side, squared (Pythagoras)
             ws = whole((2 * side2 - 1) / 2)              # its whole part (rounded down)

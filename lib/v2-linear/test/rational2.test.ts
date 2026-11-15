@@ -50,7 +50,7 @@ test("Whole at x = 3/2: y(3/2)'s distance from whole Y; gcd(Y, c's whole number)
   assert.equal(score(ev(wholeAtT, p, mc(f(4, 3), 4), "gcd-c")), "0,2");             // y = 2 + 4 = 6; gcd(6, 4)
   assert.equal(score(ev(wholeAtT, p, mc(f(1, 2), 9), "gcd-den-m")), "-1/4,2");      // y = 39/4 → 10; gcd(10, 2)
   assert.equal(score(ev(wholeAtT, p, mc(1, 0), "gcd-c")), "-1/2,_");                // y = 3/2 → 2; c = 0
-  assert.match(wholeAtT.card(p, "gcd-c"), /^When x is 3\/2, y should be as close as possible to a whole number\. Tie-breaker:/);
+  assert.match(wholeAtT.card(p, "gcd-c"), /^When x is 3\/2, y should be as close as possible to a whole number\. Secondary:/);
 });
 
 test("Target Gradient (T = 5/3): |m − T|; gcd of the tops or of the bottoms", () => {
