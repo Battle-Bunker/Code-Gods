@@ -1,5 +1,5 @@
 # Ruler · Thorough
-# Main part: distance² from (0, 0) on as big a product of two same-length primes as possible. Tie-breaker: whichever you were dealt (the smaller prime times the gradient squared close to the bigger prime).
+# Main part: distance² from (0, 0) on as big a product of two same-length primes as possible. Tie-breaker: whichever you were dealt (the smaller prime times the gradient squared close to the bigger prime; the first non-prime stepping from the smaller prime by the y-intercept's whole part, as nearly prime as possible; the height at x = the smaller prime, rounded down, divisible by the bigger prime many times).
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -92,6 +92,40 @@ def rung_of(d2, ends):
                 hi += 10
     return n, pq(n), -(abs(x - n) - Fraction(1, 2))
 
+# The smallest prime factor of n (n itself when prime), as the game finds it: rho splits n until every part is prime.
+def smallest(n):
+    for d in range(2, 2000):
+        if n % d == 0:
+            return d
+    if prime(n):
+        return n
+    exact = len(str(n)) <= 20
+    for c in range(1, 65 if exact else 2):
+        g = rho(n, c, float("inf") if exact else 16384)
+        if g is not None:
+            return min(smallest(g), smallest(n // g))
+    return n
+
+# p, p + w, p + 2w, ... (p the smaller prime, w the y-intercept's whole part): the first that is not prime, its smallest
+# prime factor (0 when w is 0 or 256 steps stay prime); None without the two primes.
+def near_miss(two, c):
+    if two is None:
+        return None
+    w = whole(abs(c) - Fraction(1, 2))          # |c| rounded down
+    for j in range(1, 257 if w > 0 else 1):
+        if not prime(two[0] + j * w):
+            return smallest(two[0] + j * w)
+    return 0
+
+# The height at x = p, rounded down (its size): how many times q divides it (0 for 0); None without the two primes.
+def at_index(two, m, c):
+    if two is None:
+        return None
+    h, j = whole(abs(m * two[0] + c) - Fraction(1, 2)), 0
+    while h > 0 and h % two[1] == 0:
+        h, j = h // two[1], j + 1
+    return j
+
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     if m is None:              # the vertical line x = c
@@ -103,6 +137,10 @@ def score(m, c, p, tie):
     def tier(t):   # each tie-breaker, in order (None: ranks last)
         if t == "closeness":   # the smaller prime times the gradient squared, as close as possible to the bigger prime (never equal: the closer the better, without end)
             return None if two is None else -abs(two[0] * m * m - two[1])
+        if t == "near-miss":   # from the smaller prime, keep adding the y-intercept's whole part: the first number that is not prime should have as big a smallest prime factor as possible
+            return near_miss(two, c)
+        if t == "reading-at-index":   # the height at x = the smaller prime, rounded down: divisible by the bigger prime as many times as possible
+            return at_index(two, m, c)
     return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 

@@ -1,5 +1,5 @@
 // Ruler · Simple
-// Main part: distance² from (0, 0) on as big a product of two same-length primes as possible. Tie-breaker: whichever you were dealt (the smaller prime times the gradient squared close to the bigger prime).
+// Main part: distance² from (0, 0) on as big a product of two same-length primes as possible. Tie-breaker: whichever you were dealt (the smaller prime times the gradient squared close to the bigger prime; the first non-prime stepping from the smaller prime by the y-intercept's whole part, as nearly prime as possible; the height at x = the smaller prime, rounded down, divisible by the bigger prime many times).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -48,6 +48,31 @@ function rungOf(d2, ends) {
   else for (;;) { const below = lo >= 6n && nearer(lo, hi); n = below ? lo : hi; if (pq(n)) break; if (below) lo -= 10n; else hi += 10n; }
   return [n, pq(n), Q.neg(Q.sub(Q.abs(Q.sub(x, Q.of(n))), Q.div(1, 2)))];
 }
+// The smallest prime factor of n (n itself when prime), as the game finds it: rho splits n until every part is prime.
+function smallest(n) {
+  for (let d = 2n; d < 2000n; d++) if (n % d === 0n) return d;
+  if (prime(n)) return n;
+  for (let c = 1n, exact = String(n).length <= 20; c <= (exact ? 64n : 1n); c++) {
+    const g = rho(n, c, exact ? Infinity : 16384);
+    if (g !== null) { const a = smallest(g), b = smallest(n / g); return a < b ? a : b; }
+  }
+  return n;
+}
+// p, p + w, p + 2w, … (p the smaller prime, w the y-intercept's whole part): the first that is not prime, its smallest
+// prime factor (0 when w is 0 or 256 steps stay prime); null without the two primes.
+function nearMiss(two, c) {
+  if (two === null) return null;
+  const w = BigInt(whole(Q.sub(Q.abs(c), Q.div(1, 2))));   // |c| rounded down
+  if (w > 0n) for (let j = 1n; j <= 256n; j++) if (!prime(two[0] + j * w)) return Q.of(smallest(two[0] + j * w));
+  return 0;
+}
+// The height at x = p, rounded down (its size): how many times q divides it (0 for 0); null without the two primes.
+function atIndex(two, m, c) {
+  if (two === null) return null;
+  let h = BigInt(whole(Q.sub(Q.abs(Q.add(Q.mul(m, Q.of(two[0])), c)), Q.div(1, 2)))), j = 0;
+  while (h > 0n && h % two[1] === 0n) { h /= two[1]; j++; }
+  return j;
+}
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p, tie) {
@@ -60,6 +85,8 @@ function score(m, c, p, tie) {
   // main: the product of two different same-length primes ending in the rule's digit that the distance from (0, 0), squared, rounds down to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far it is from rounding down to one
   return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
     if (t === "closeness") return two === null ? null : Q.neg(Q.abs(Q.sub(Q.mul(Q.of(two[0]), Q.mul(m, m)), Q.of(two[1]))));   // the smaller prime times the gradient squared, as close as possible to the bigger prime (never equal: the closer the better, without end)
+    if (t === "near-miss") return nearMiss(two, c);   // from the smaller prime, keep adding the y-intercept's whole part: the first number that is not prime should have as big a smallest prime factor as possible
+    if (t === "reading-at-index") return atIndex(two, m, c);   // the height at x = the smaller prime, rounded down: divisible by the bigger prime as many times as possible
     return null;
   })];
 }

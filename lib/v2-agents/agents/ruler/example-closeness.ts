@@ -48,6 +48,31 @@ function rungOf(d2, ends) {
   else for (;;) { const below = lo >= 6n && nearer(lo, hi); n = below ? lo : hi; if (pq(n)) break; if (below) lo -= 10n; else hi += 10n; }
   return [n, pq(n), Q.neg(Q.sub(Q.abs(Q.sub(x, Q.of(n))), Q.div(1, 2)))];
 }
+// The smallest prime factor of n (n itself when prime), as the game finds it: rho splits n until every part is prime.
+function smallest(n) {
+  for (let d = 2n; d < 2000n; d++) if (n % d === 0n) return d;
+  if (prime(n)) return n;
+  for (let c = 1n, exact = String(n).length <= 20; c <= (exact ? 64n : 1n); c++) {
+    const g = rho(n, c, exact ? Infinity : 16384);
+    if (g !== null) { const a = smallest(g), b = smallest(n / g); return a < b ? a : b; }
+  }
+  return n;
+}
+// p, p + w, p + 2w, … (p the smaller prime, w the y-intercept's whole part): the first that is not prime, its smallest
+// prime factor (0 when w is 0 or 256 steps stay prime); null without the two primes.
+function nearMiss(two, c) {
+  if (two === null) return null;
+  const w = BigInt(whole(Q.sub(Q.abs(c), Q.div(1, 2))));   // |c| rounded down
+  if (w > 0n) for (let j = 1n; j <= 256n; j++) if (!prime(two[0] + j * w)) return Q.of(smallest(two[0] + j * w));
+  return 0;
+}
+// The height at x = p, rounded down (its size): how many times q divides it (0 for 0); null without the two primes.
+function atIndex(two, m, c) {
+  if (two === null) return null;
+  let h = BigInt(whole(Q.sub(Q.abs(Q.add(Q.mul(m, Q.of(two[0])), c)), Q.div(1, 2)))), j = 0;
+  while (h > 0n && h % two[1] === 0n) { h /= two[1]; j++; }
+  return j;
+}
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p) {
