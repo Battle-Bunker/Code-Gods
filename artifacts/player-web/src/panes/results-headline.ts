@@ -3,7 +3,7 @@
  * standings (the server's ranks, which equal totals share): "You finished 1st of 3 with 412.5 points." for a seated
  * player, "Ada won with 412.5 points." for a spectator.
  */
-import { isTied, ordinal, pointsText as points, sharedRanks } from "../core/words.ts";
+import { clock, isTied, ordinal, pointsText as points, sharedRanks } from "../core/words.ts";
 
 export interface StandingRow { memberId: string; name: string; net: number; handicap: number; rank: number }
 
@@ -53,4 +53,16 @@ export function rotationSummary(r: RotationRound | null | undefined, me: string 
     : `Game ${r.round} of ${r.of}: you get a different rule each game, and your totals add up over the ${r.of} games. Totals so far:`;
   const rows = sharedRanks(r.totals.map(t => ({ ...t, rank: 0 }))).map(t => ({ ...t, mine: t.memberId === me }));
   return { heading, rows };
+}
+
+/**
+ * Why a hidden-end game stopped when it did (round 13: a game ended at 70 s and Results said nothing): the end is a
+ * random moment past a floor of a tenth of the half-life; half of such games end within the floor plus the half-life.
+ * Null for a fixed game, whose end was on the clock.
+ */
+export function endNote(h: { durationMode?: string; worldSeconds: number; startedAt: number | null; endedAt: number | null }): string | null {
+  if (h.durationMode !== "halfLife") return null;
+  const half = clock(Math.round(h.worldSeconds * 1.1));
+  const when = h.startedAt != null && h.endedAt != null ? `, after ${clock(Math.round((h.endedAt - h.startedAt) / 1000))} of world time` : "";
+  return `This game ended at a hidden moment${when}: half of such games end within ${half}. Any second could have been the last.`;
 }

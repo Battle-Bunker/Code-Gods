@@ -80,3 +80,12 @@ test("an agent in debt says so, with the server's own explanation (energy-model 
   assert.match(DEBT_TEXT, /^An agent may borrow up to one full store of energy to finish a change; its own income repays the debt within a full-charge time, and while it owes it gets no new opportunities\. If you lower its power or remove it, the debt moves with the power to your own store\.$/);
   assert.equal(destroyConfirm("Tank", -326.4), "Tank stops for good and makes no more moves. It owes 326 energy: that debt moves to your own store.");
 });
+
+test("a game with a hidden end says so on Results, with when it ended (round 13: it stopped at 70 s, unexplained)", async () => {
+  const { endNote } = await import("../src/panes/results-headline.ts");
+  assert.equal(endNote({ durationMode: "halfLife", worldSeconds: 300, startedAt: 0, endedAt: 70_000 }),
+    "This game ended at a hidden moment, after 1:10 of world time: half of such games end within 5:30. Any second could have been the last.");
+  assert.equal(endNote({ durationMode: "fixed", worldSeconds: 300, startedAt: 0, endedAt: 300_000 }), null, "a fixed game's end was on the clock");
+  assert.equal(endNote({ durationMode: "halfLife", worldSeconds: 300, startedAt: null, endedAt: null }),
+    "This game ended at a hidden moment: half of such games end within 5:30. Any second could have been the last.");
+});
