@@ -13,6 +13,7 @@ export interface TimedSettings {
   readonly planningSeconds?: number;
   readonly worldSeconds?: number;
   readonly scoreIntervalSeconds?: number;
+  readonly driftSeconds?: number;
   readonly economy?: {
     readonly powerPerSecond?: number;
     readonly fullChargeSeconds?: number;
@@ -24,7 +25,7 @@ export interface TimedSettings {
 
 const RATES = ["powerPerSecond", "opportunitiesPerSecond", "birthsPerSecond"] as const;
 const ECONOMY_DURATIONS = ["fullChargeSeconds"] as const;
-const DURATIONS = ["planningSeconds", "worldSeconds", "scoreIntervalSeconds"] as const;
+const DURATIONS = ["planningSeconds", "worldSeconds", "scoreIntervalSeconds", "driftSeconds"] as const;
 
 /** Every rate × factor, every duration ÷ factor; everything else as it was. A factor of 1 returns the same values. */
 export function dilate<T extends TimedSettings>(settings: T, factor: number): T {

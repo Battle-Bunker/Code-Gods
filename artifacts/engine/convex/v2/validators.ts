@@ -63,6 +63,8 @@ export const headerV = v.object({
   readPriceWeight: v.number(),
   /** The factor on summon and edit prices: the game's power ÷ 64 (v2-economy summonPriceScale). */
   priceScale: v.number(),
+  /** Parameter drift's interval in world seconds (drift.ts; 0: off): drift k happens at world second k × it. */
+  driftSeconds: v.number(),
   /** The game's time dilation (decision 37): 1 unless a simulation or local playtest sped it up. */
   timeScale: v.number(),
   /** Paused because nobody acted for 30 minutes: any human activity (`account.touch`) resumes it. */
@@ -81,6 +83,8 @@ export const uniquenessV = v.object({ ns: v.array(v.number()), heldMass: v.array
 export const myRuleV = v.object({
   family: v.string(), title: v.string(), params: v.any(), layers: v.array(v.string()), tieBreaker: v.union(v.string(), v.null()), card: v.string(),
   depends: v.array(v.string()), primary: v.string(), ruleKey: v.string(),
+  /** Parameter drift (drift.ts): times this rule's parameters were redrawn (0: never), and the world second of the last. */
+  drifts: v.number(), driftedAt: v.union(v.number(), v.null()),
   /** The rule's value function (decision 23), as `valueLookup` takes it: what any utility is worth, in bits. */
   value: v.object({
     knots: v.array(v.object({ u: scoreWireV, bits: v.number(), lo: v.number(), hi: v.number() })), tail: v.any(),

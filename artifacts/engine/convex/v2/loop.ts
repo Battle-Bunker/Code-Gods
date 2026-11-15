@@ -17,6 +17,8 @@ import { endWorldOf, scoreIntervalOf } from "./duration.ts";
 import { shouldPark } from "./activity.ts";
 import { allReady, ensureWarm, isReady, LANGUAGES } from "./readiness.ts";
 import { paysToRead, tell } from "./knowledge.ts";
+import { driftDue, driftSecondsOf, redrawParams } from "./drift.ts";
+import { ruleView } from "./deal.ts";
 
 /** Wall milliseconds between ticks; world time advances by the wall time that passed, at most MAX_DT a tick. */
 export const TICK_MS = 1500;
@@ -192,6 +194,44 @@ async function applyToPlayers(ctx: MutationCtx, gameId: Id<"v2Games">, changes: 
     else await ctx.db.insert("v2Digests", { gameId, memberId: p.memberId, packed, version: 1 });
   }
   await ctx.db.patch(engine._id, { totals, shownTotals });
+}
+
+/**
+ * Drift k (drift.ts; the coordinator's trial, call 18): every seat whose rule has other parameter values redraws them on
+ * this tick; their rule documents and cards update, every object's values are recomputed under the new rules (totals and
+ * scatters follow), and the record gets a `drift` event (each redrawn seat's new rule) and a `values` event per object.
+ */
+async function driftRules(ctx: MutationCtx, game: Doc<"v2Games">, world: number, k: number) {
+  const engine = await engineOf(ctx, game._id);
+  await ctx.db.patch(engine._id, { drifts: k });
+  const drifted: { memberId: string; family: string; params: unknown; tieBreaker: string | null; ruleKey: string; contentHash: string; card: string }[] = [];
+  for (const [seat, s] of game.roster.entries()) {
+    const r = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", s.memberId)).unique();
+    if (!r) continue;
+    const next = redrawParams(game.variant, r.family, r.tieBreaker, r.params, game.seed, seat, k);
+    if (!next) continue;
+    const view = ruleView({ family: r.family, params: next.params, tieBreaker: r.tieBreaker, ruleKey: next.ruleKey, contentHash: next.contentHash });
+    await ctx.db.patch(r._id, { params: next.params, ruleKey: next.ruleKey, contentHash: next.contentHash, ...view, drifts: k, driftedAt: world });
+    drifted.push({ memberId: s.memberId, family: r.family, params: next.params, tieBreaker: r.tieBreaker, ruleKey: next.ruleKey, contentHash: next.contentHash, card: view.card });
+  }
+  if (drifted.length === 0) return;
+  await appendEvent(ctx, game._id, "drift", { worldSeconds: world, k, seats: drifted });
+  // Every object's values under the new rules (the same object versions: each player's reading keeps its draw).
+  const seats = await seatRules(ctx, game), changes: { number: number; values: Value[]; before: Map<string, Value> }[] = [];
+  for await (const st of ctx.db.query("v2ObjectStates").withIndex("by_game_state", q => q.eq("gameId", game._id))) {
+    const object = await ctx.db.get(st.objectId);
+    if (!object) continue;
+    const after = valuesAt(game, seats, st.state, st.objectId, st.version), before = new Map<string, Value>();
+    for (const val of after) {
+      const row = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", st.objectId).eq("memberId", val.memberId as Id<"v2Members">)).unique();
+      if (!row) continue;
+      before.set(val.memberId, { memberId: val.memberId, score: row.score, rarityBits: row.rarityBits, want: row.want, points: row.points, shownWant: row.shownWant ?? row.want, shownPoints: row.shownPoints ?? row.points });
+      await ctx.db.patch(row._id, { score: val.score, rarityBits: val.rarityBits, want: val.want, points: val.points, ...shownOf(val) });
+    }
+    changes.push({ number: object.number, values: after, before });
+    await appendEvent(ctx, game._id, "values", { objectId: st.objectId, number: object.number, values: after.map(({ memberId, score, rarityBits }) => ({ memberId, score, rarityBits })) });
+  }
+  await applyToPlayers(ctx, game._id, changes);
 }
 
 /**
@@ -524,6 +564,9 @@ export const commit = internalMutation({
     }
     await applyToPlayers(ctx, game._id, changes);
     await foldTugs(ctx, game._id, tugMoves);
+    // Parameter drift on its schedule (drift.ts): before the scoreboard, so standings follow at the next interval.
+    const due = driftDue(driftSecondsOf(game), world, engine.drifts ?? 0);
+    if (due !== null) await driftRules(ctx, game, world, due);
 
     await ctx.db.patch(engine._id, { tick: engine.tick + 1, objects, acts, moves });
     await ctx.db.patch(clock._id, { tick: clock.tick + 1, worldSeconds: world, lastTickAt: a.now, objects, commits: clock.commits + 1 });
