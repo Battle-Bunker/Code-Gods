@@ -6,13 +6,16 @@
 import { useMemo } from "react";
 import { useConvexAuth, useQueries, type PaginatedQueryArgs, type PaginatedQueryReference } from "convex/react";
 import { useLive, useLivePages } from "@/site/lib/convex";
+import { LiveError } from "@/dock/pane-error";
 import { getFunctionName, type FunctionArgs, type FunctionReference, type FunctionReturnType } from "convex/server";
 import { convexToJson, type Value } from "convex/values";
 
 /** A live query's value (undefined while loading or skipped); its error throws to the pane's boundary. */
 export function useLiveValue<Q extends FunctionReference<"query">>(query: Q, args: FunctionArgs<Q> | "skip"): FunctionReturnType<Q> | undefined {
   const r = useLive(query, args);
-  if (r.error) throw r.error;
+  // Thrown with its source, so the pane's error panel keeps this one read live and shows the pane again on its next
+  // answer (dock/pane-error.ts; round 24): no retry.
+  if (r.error) throw new LiveError(r.error, query, args);
   return r.data;
 }
 
@@ -28,7 +31,7 @@ export function useLiveValues<Q extends FunctionReference<"query">>(query: Q, ar
   const answers = useQueries(request);
   return argsList.map((_, i) => {
     const a = answers[`q${i}`] as FunctionReturnType<Q> | Error | undefined;
-    if (a instanceof Error) throw a;
+    if (a instanceof Error) throw new LiveError(a, query, argsList[i]);
     return a;
   });
 }

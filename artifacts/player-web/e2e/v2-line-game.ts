@@ -295,7 +295,7 @@ try {
     await shot(page, `game-${label}-line`);
 
 
-    await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
+    await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 }).catch(async (e: Error) => { await page.screenshot({ path: path.join(shots, `not-ended-${label}.png`) }); console.log("PHASE", await page.getByTestId("text-phase").innerText().catch(() => "?"), "ERRORS", JSON.stringify(await page.getByTestId("pane-error").allInnerTexts())); throw e; });
     const results = page.getByTestId("pane-results");
     await results.getByText(/You finished (tied for )?\S+ of 3 with/).waitFor({ timeout: 20_000 });
     await assertNoSteps(page, `${label}: the results`);
