@@ -68,7 +68,7 @@ test("the table plays the engine's beginner game at the engine's pace: objects c
     await runTable(boxes, {
       type: lineType, variant: lineQ, lines: s.startingObjects, seed, seconds, seats, unique: true,
       economy: { ...s.economy, startingEnergy: s.startingEnergy ?? 100 }, birthsPerSecond: s.economy.birthsPerSecond, summonCap: s.startingEnergy ?? 100,
-      ...(s.driftSeconds ? { driftSeconds: s.driftSeconds } : {}),
+      ...(s.driftSeconds ? { driftSeconds: s.driftSeconds } : {}), ...(s.regularBirths ? { regularBirths: true } : {}),
       onAct: e => { if (e.committed) moves.push({ at: e.at, object: e.object + 1 }); },
     });
     tables.push(pace(moves, seconds));
