@@ -737,6 +737,11 @@ back) or TRIAL (a declared experiment, measured and reported).
     the beginner game's noise is 0, where the fit would hand over the others' rules in minutes ("high peaks easy to find
     … by being told the rules"). Before it ships, a check: with a fitted rule set at σ 8, can a search find joint peaks
     cheaply? If yes, it is held and reported. Order: the series and the board, then the candidates, then the fit.
+    **The check, and the coordinator's ruling (15 Nov):** collapse-check tests 2 and 5 at β 0.05. On line-q, identifying
+    the others' rules from sums blurred at σ 8 takes a median of 1,284 probes (14 of 40 tables unidentified at 3,000;
+    exact sums: one probe), and with the rules known only 1 of 8 tables has a cheaply found best (test 2 passes). On
+    grid-4-d10 no table is identified within 3,000 probes at σ 8, but with the rules known 2 of 3 tables are cheap
+    (test 2 fails). The fit ships with the σ 8 guard on lines and is refused on grids until grid test 2 passes.
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
