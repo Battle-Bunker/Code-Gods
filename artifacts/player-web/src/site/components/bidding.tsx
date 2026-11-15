@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import { useLive } from "@/site/lib/convex";
-import { failureText } from "@/site/components/action";
+import { AffordanceButton, failureText } from "@/site/components/action";
 import { useNow } from "@/core/game-timer";
 import { bitsText, chanceText, clock } from "@/core/words";
 import { ErrorLine } from "@/site/components/page-parts";
@@ -86,6 +86,9 @@ export function Bidding({ roomId }: { roomId: string }) {
             {s.mine.length ? "Done bidding" : "Pass"}
           </button>
         )}
+        {/* The owner's cancel (v1; W3 #888): every bid forgotten, the phase closed without dealing them. */}
+        <AffordanceButton id="bid.cancel" args={{}} label="Cancel bidding" busyLabel="Cancelling…" tone="quiet" className="px-2 py-1 text-xs" testId="button-bidding-cancel"
+          confirmText="Cancel the bidding? Every bid is forgotten and nobody's bid is dealt: the rules are dealt as usual." />
         <span className="text-muted-foreground" data-testid="text-bidding-players">{s.players.map(p => `${p.name}${p.done ? " ✓" : ""}`).join(" · ")}</span>
       </footer>
     </section>

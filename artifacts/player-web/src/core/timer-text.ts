@@ -45,8 +45,17 @@ export function timerText(h: Header, now: number): { label: string; value: strin
     // World time stands still while paused: no countdown (the end moves out by the pause's length).
     case "paused": return h.parked
       ? { label: "Game", value: "paused", note: PARKED_NOTE, tip: "Nobody acted in this game for 30 minutes, so it was paused to save the engine. Any press or key resumes it; world time stood still meanwhile." }
-      : { label: "Game", value: "paused", note: "", tip: "World time stands still while the game is paused." };
+      : { label: "Game", value: "paused", note: pauseNote(h, now), tip: "World time stands still while the game is paused. A player's pause ends by itself after the room's pause length, or sooner when the owner resumes." };
     case "ended": return { label: "Game over", value: "0:00", note: "", tip: "This game has ended. Nothing changes any more." };
   }
 }
 
+
+/** "Paused by Bo · resumes in 2:41" (W3 #873: a player's pause ends by itself at `pauseEndsAt`). */
+function pauseNote(h: Header, now: number): string {
+  const who = h.pausedBy ? h.roster.find(r => r.memberId === h.pausedBy)?.name ?? null : null;
+  const by = who ? `Paused by ${who}` : "";
+  if (h.pauseEndsAt == null) return by;
+  const left = Math.ceil((h.pauseEndsAt - now) / 1000);
+  return [by, left > 0 ? `resumes in ${clock(left)}` : "resuming…"].filter(Boolean).join(" · ");
+}

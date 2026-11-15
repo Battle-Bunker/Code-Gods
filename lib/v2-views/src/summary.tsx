@@ -120,9 +120,11 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
     ? `${best.length === 1 ? `This ${noun}` : `These ${best.length} ${noun}s`} earned ${fmtNum(sum)} of your ${fmtNum(input.total)} points.`
     : `No ${noun} scored for you this game: a ${noun} scores when it is rare for your rule and for someone else's at the same time.`;
 
-  // What cost: each tug-of-war, dearest first, said as what happened.
-  const tugs = [...input.tugs].sort((a, b) => b.mySpend - a.mySpend);
-  const costs = tugs.map(t => ({ number: t.number, text: `${youAnd(t.withNames)} pulled ${noun} ${t.number} back and forth (${t.flips} pulls, ${fmtEnergy(t.mySpend)}).` }));
+  // What cost: each tug-of-war, the one that changed hands most first (round 33: ranked by energy, the advice named a
+  // 3-pull line over a 40-move cycle), said as what happened, in the same count as Contested lines.
+  const tugs = [...input.tugs].sort((a, b) => b.flips - a.flips || b.mySpend - a.mySpend);
+  const tugText = (t: (typeof tugs)[number]) => `pulled ${noun} ${t.number} back and forth: it changed hands ${t.flips} times (${fmtEnergy(t.mySpend)} of yours)`;
+  const costs = tugs.map(t => ({ number: t.number, text: `${youAnd(t.withNames)} ${tugText(t)}.` }));
   const spent = tugs.reduce((t, x) => t + x.mySpend, 0);
   const partial = input.movesRead ? ` (from your last ${input.movesRead.toLocaleString("en-US")} moves)` : "";
   const costNote = tugs.length > 1 ? `Tug-of-wars cost you ${fmtEnergy(spent)} in all${partial}: energy that moved no ${noun} for good.` : partial ? `Counted${partial}.` : null;
@@ -130,7 +132,8 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
   // Each contested object: whether the players climbed together or undid each other.
   const contested = (input.climbs ?? []).flatMap(c => {
     const climb = climbOf(c.moves);
-    return climb.kind === "alone" || !climb.steps.length ? [] : [{ number: c.number, kind: climb.kind, text: climbSentence(climb, noun, c.number) }];
+    const changes = tugs.find(t => t.number === c.number)?.flips;
+    return climb.kind === "alone" || !climb.steps.length ? [] : [{ number: c.number, kind: climb.kind, text: climbSentence(climb, noun, c.number, changes) }];
   });
 
   // One thing to try, from what happened this game, pointing only at what the player can find on screen (playtest round
@@ -142,7 +145,7 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
   const pace = input.pace ? paceFacts(input.pace) : null;
   // The facts of this game first, then one thing to try that follows from them (rounds 26 and 28: the same words every
   // game, even across a rotation's games).
-  const tugFact = top ? `This game ${youAnd(top.withNames).replace(/^You/, "you")} pulled ${noun} ${top.number} back and forth (${top.flips} pulls, ${fmtEnergy(top.mySpend)}).` : "";
+  const tugFact = top ? `This game ${youAnd(top.withNames).replace(/^You/, "you")} ${tugText(top)}.` : "";
   const stallFact = pace?.stalledAt != null
     ? `Your points stopped rising at ${clockOf(pace.stalledAt)}${pace.full ? `, and your energy sat full (${fmtEnergy(input.pace!.energyLeft)} unspent) for the rest of the game` : ""}.`
     : "";
