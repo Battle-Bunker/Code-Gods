@@ -54,18 +54,19 @@ test("Square Area on y = −x + 7: the area 24½ against the square 25 = 5 × 5;
   // The tie-breaker reads the ladder number the crossing is measured to (−2: |−2| + 1 = 3) and the gradient 3: 3.
   const wtb = contributors(rule(wholeCrossing, "shared-factor", { q: 5, r: 3 }), mc(3, 7)).parts[1]!;
   assert.equal(wtb.valueText, "3");
-  const tr = contributors(rule(treasure, "m-spf", { k: 2, T: 37 }), mc(15, 6)).parts[0]!;
-  assert.equal(tr.source[0]!.text, "36");
-  assert.equal(tr.source[0]!.label, "y(2)");
-  assert.equal(tr.reference?.value, 37);
-  assert.equal(tr.distance, "1 below 37");
+  // Treasure: y(3) = 51 is nearest the coin pile 55 (10 coins high).
+  const tr = contributors(rule(treasure, "shared-factor", { k: 3 }), mc(15, 6)).parts[0]!;
+  assert.equal(tr.source[0]!.text, "51");
+  assert.equal(tr.source[0]!.label, "y(3)");
+  assert.equal(tr.reference?.value, 55);
+  assert.equal(tr.distance, "4 below 55");
 });
 
 test("wording: no parameter letters, no 'distance …: 0', no steps or thresholds, in any generated sentence", () => {
   const cases: [RuleRef<LineState, unknown>, LineState][] = [
     [rule(primeLanding, "shared-factor", { ends: 1 }), mc(6, 25)], [rule(primeLanding, "shared-factor", { ends: 9, side: -1 }), mc(290, 59)],
     [rule(squareArea, "spf"), mc(-1, 7)], [rule(squareArea, "lpf"), mc(290, 59)],
-    [rule(wholeCrossing, "shared-factor", { q: 5, r: 3 }), mc(3, 7)], [rule(treasure, "m-spf"), mc(15, 6)], [rule(treasure, "m-spf"), mc(15, 7)],
+    [rule(wholeCrossing, "shared-factor", { q: 5, r: 3 }), mc(3, 7)], [rule(treasure, "shared-factor"), mc(15, 6)], [rule(treasure, "shared-factor"), mc(15, 10)],
     [rule(divisibilityLadder, "m-spf"), mc(12, 12)],
   ];
   for (const [r, s] of cases) {

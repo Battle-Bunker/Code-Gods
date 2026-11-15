@@ -376,50 +376,54 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   },
   {
     family: "treasure",
-    thorough: ["shift", "tilt", "step", "turnAtK"],   // all of them would not fit the starting energy beside these tie-breakers
-    mainSays: "how far y(k) is from T (closer is better)",
-    main: {
-      ts: [`const main = ${neg("Q.abs(Q.sub(Q.add(Q.mul(m, p.k), c), p.T))")};   // y(k) = m·k + c`],
-      py: ["main = -abs(m * p[\"k\"] + c - p[\"T\"])           # y(k) = m*k + c"],
+    simple: ["shift", "tilt"],
+    rungs: {
+      ts: [
+        "// The next pile up (the ladder has no top): the coin pile just above y(k), by a shift or by a tilt.",
+        "{ const s = p.side ?? 1, yk = Q.add(Q.mul(m, p.k), c), w = Q.mul(s, yk);",
+        "  const h = Q.cmp(w, 1) < 0 ? 0 : whole(Q.sub(Q.div(Q.sub(root(Q.add(Q.mul(8, whole(w)), 1)), 1), 2), Q.div(1, 2)));   // the biggest pile's height up to y(k)",
+        "  const d = Q.sub(Q.mul(s, Q.div(Q.mul(Q.add(h, 1), Q.add(h, 2)), 2)), yk);   // how far y(k) must move to the next pile",
+        "  tries.push([move(\"si.shift\", { k: d }), m, Q.add(c, d)], [move(\"si.tilt\", { k: Q.div(d, p.k) }), Q.add(m, Q.div(d, p.k)), c]); }",
+      ],
+      py: [
+        "# The next pile up (the ladder has no top): the coin pile just above y(k), by a shift or by a tilt.",
+        "s = p.get(\"side\", 1)",
+        "yk = m * p[\"k\"] + c",
+        "h = 0 if s * yk < 1 else (root(8 * whole(s * yk) + 1) - 1) // 2   # the biggest pile's height up to y(k)",
+        "d = s * Fraction((h + 1) * (h + 2), 2) - yk      # how far y(k) must move to the next pile",
+        "tries.append((move(\"si.shift\", k=d), m, c + d))",
+        "tries.append((move(\"si.tilt\", k=d / p[\"k\"]), m + d / p[\"k\"], c))",
+      ],
     },
-    vertical: {
-      main: {
-        ts: [
-          "const main = Q.neg(Q.abs(Q.sub(c, p.k)));      // how far across from (k, T) it passes",
-        ],
-        py: [
-          "main = -abs(c - p[\"k\"])                        # how far across from (k, T) it passes",
-        ],
-      },
+    mainSays: "the coin pile (1, 3, 6, 10, ...) y(k) rounds to, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one",
+    main: {
+      ts: [
+        "const level = r => { const D = Q.toString(r).length; let L = 0; while (((L + 1) * (L + 2)) / 2 <= D) L++; return Q.add(L, Q.div(Q.add(D - (L * (L + 1)) / 2, Q.div(r, Q.of(10n ** BigInt(D)))), L + 1)); };   // levels of digits: level L needs L(L + 1)/2",
+        "const s = p.side ?? 1, y = Q.mul(s, Q.add(Q.mul(m, p.k), c));   // y(k) = m·k + c, or minus it on the mirror",
+        "const T = h => Q.div(Q.mul(h, Q.add(h, 1)), 2);   // the coin pile h coins high: h(h + 1)/2",
+        "const hf = Q.cmp(y, 1) < 0 ? 1 : whole(Q.sub(Q.div(Q.sub(root(Q.add(Q.mul(8, whole(Q.sub(y, Q.div(1, 2)))), 1)), 1), 2), Q.div(1, 2)));   // the biggest pile's height up to y(k)",
+        "const lo = T(hf), hi = T(Q.add(hf, 1)), up = Q.cmp(Q.sub(hi, y), Q.sub(y, lo)) < 0;",
+        "const rung = up ? hi : lo, height = up ? Q.add(hf, 1) : hf;   // the coin pile nearest y(k) (the smaller on a tie): the rung",
+        "const gap = Q.abs(Q.sub(y, rung));               // on the rung when it rounds there (within 1/2, ties up)",
+        "const main = Q.cmp(Q.mul(2, gap), 1) < 0 || Q.eq(Q.sub(rung, y), Q.div(1, 2)) ? level(rung) : Q.neg(Q.sub(gap, Q.div(1, 2)));",
+      ],
+      py: [
+        "level = lambda r: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(r, 10 ** D)) / (L + 1))(len(str(r)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(r))))   # levels of digits: level L needs L(L + 1)/2",
+        "s = p.get(\"side\", 1)",
+        "y = s * (m * p[\"k\"] + c)                         # y(k) = m*k + c, or minus it on the mirror",
+        "T = lambda h: h * (h + 1) // 2                   # the coin pile h coins high: h(h + 1)/2",
+        "hf = 1 if y < 1 else (root(8 * whole(y - Fraction(1, 2)) + 1) - 1) // 2   # the biggest pile's height up to y(k)",
+        "lo, hi = T(hf), T(hf + 1)",
+        "rung, height = (hi, hf + 1) if hi - y < y - lo else (lo, hf)   # the coin pile nearest y(k) (the smaller on a tie): the rung",
+        "gap = abs(y - rung)                              # on the rung when it rounds there (within 1/2, ties up)",
+        "main = level(rung) if 2 * gap < 1 or rung - y == Fraction(1, 2) else -(gap - Fraction(1, 2))",
+      ],
     },
     tieBreakers: {
-      "prime-terms": {
-        pre: {
-          ts: ["const primes = new Set([1, 2, 3, 4, 5, 6, 7, 8].map(x => Q.mul(p.T < 0 ? -1 : 1, Q.add(Q.mul(m, x), c))).filter(prime).map(Q.toString));   // y(1) ... y(8), minus them when T is below zero"],
-          py: ["sg = -1 if p[\"T\"] < 0 else 1", "primes = {sg * (m * x + c) for x in range(1, 9) if prime(sg * (m * x + c))}   # y(1) ... y(8), minus them when T is below zero"],
-        },
-        ts: "primes.size", py: "len(primes)", says: "more different primes among y(1) ... y(8) is better",
-        lenses: ["shift", "tilt", "turnAtK"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less (a step of n costs more than n steps of 1); does it still climb?",
-      },
-      "prime-gradient": {
-        pre: { ts: ["const mp = Q.mul(p.T < 0 ? -1 : 1, near(Q.mul(p.T < 0 ? -1 : 1, m), prime));   // the prime (minus a prime when T is below zero) nearest the gradient"], py: ["sg = -1 if p[\"T\"] < 0 else 1", "mp = sg * near(sg * m, prime)               # the prime (minus a prime when T is below zero) nearest the gradient"] },
-        ts: neg("Q.abs(Q.sub(m, mp))"), py: "-abs(m - mp)", says: "a gradient close to a prime is better",
-        lenses: ["turnAtK", "tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: turning about x = k keeps the treasure and only changes the gradient.",
-      },
-      "square-start": {
-        pre: { ts: ["const sq = Q.mul(p.T < 0 ? -1 : 1, near(Q.mul(p.T < 0 ? -1 : 1, c), square));   // the square (minus a square when T is below zero) nearest the y-intercept"], py: ["sg = -1 if p[\"T\"] < 0 else 1", "sq = sg * near(sg * c, square)              # the square (minus a square when T is below zero) nearest the y-intercept"] },
-        ts: neg("Q.abs(Q.sub(c, sq))"), py: "-abs(c - sq)", says: "a y-intercept close to a square number is better",
-        lenses: ["turnAtK", "shift", "tilt"], steps: 3, tryThis: "remove the \"shift\" line: turning about x = k moves the y-intercept by k at a time and keeps the treasure.",
-      },
-      "m-spf": {
-        pre: { ts: ["const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
-        ts: "fm[0] ?? 1", py: "fm[0] if fm else 1", says: "the gradient's smallest prime factor big is better",
-        lenses: ["turnAtK", "tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: turning about x = k keeps the treasure and only changes the gradient.",
-      },
-      "m-gpf": {
-        pre: { ts: ["const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
-        ts: "fm.at(-1) ?? 1", py: "fm[-1] if fm else 1", says: "the gradient's largest prime factor big is better",
-        lenses: ["turnAtK", "tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: turning about x = k keeps the treasure and only changes the gradient.",
+      "shared-factor": {
+        pre: { ts: ["const wm = whole(Q.sub(Q.abs(m), Q.div(1, 2)));   // the whole part of the gradient's size"], py: ["wm = whole(abs(m) - Fraction(1, 2))             # the whole part of the gradient's size"] },
+        ts: "common(height, wm)", py: "common(height, wm)", says: "the pile is n coins high: a bigger number dividing both n and the gradient's whole part is better",
+        lenses: ["tilt", "shift"], steps: 3, tryThis: "remove the \"shift\" line: a tilt changes the gradient and y(k) together; can it still find a pile?",
       },
     },
   },

@@ -59,17 +59,7 @@ export const lineSums: Readonly<Record<string, LineSums<any>>> = {
   // n | y(n) = mn + c exactly when n | c on whole-number lines: the run depends on c alone.
   "divisibility-ladder": { separable: { ladder: "c", "m-spf": "m", "m-gpf": "m", steep: "m", "m-prime": "m" } },
   "m-meets-c": { bands: [{ atLeast: () => q(-1), ranges: m => [{ lo: m - 1n, hi: m + 1n }] }] },        // |m − c| ≤ 1
-  "treasure": { bands: [
-    { atLeast: () => q(-4), ranges: (m, p: { k: number; T: number }) => {                     // |c + km − T| ≤ 4
-      const c0 = BigInt(p.T) - BigInt(p.k) * m;
-      return [{ lo: c0 - 4n, hi: c0 + 4n }];
-    } },
-    // y(k) = T exactly (distance 0): c = T − km, one c for each m, summed at any size.
-    { atLeast: () => q(0), points: "one-per-m", ranges: (m, p: { k: number; T: number }) => {
-      const c0 = BigInt(p.T) - BigInt(p.k) * m;
-      return [{ lo: c0, hi: c0 }];
-    } },
-  ] },
+  // Treasure is a ladder with an entangled tie-breaker since 15 Nov (design-principles.md): valued by sampling.
   "triangle-area": { bands: [{ atLeast: () => q(-2), ranges: (m, p: { A: number }) => areaBand(m, p.A, 2) }] },   // within 2
   "same-on-both-rulers": { bands: [
     { atLeast: () => q(-2), ranges: (m, p: { T: number }) => {                                 // |c/(1 − m) − T| ≤ 2

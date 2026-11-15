@@ -2,9 +2,9 @@
  * Treasure and Same on Both Rulers: the beginner families that read where the line passes a target (moved out of
  * beginner.ts unchanged, 15 Nov, so their redesign against design-principles.md does not collide with the others').
  */
-import { Qn, q, ref, type ElementRef, type Q } from "@workspace/v2-core";
-import { allUndefined, distance, factorLabel, family, gap, more, num, prime, squareGap, verticalAt, verticalMain, type L, type Shape } from "./layers.ts";
-import { distanceToPrime, distanceToWhole, isPrime, largestPrimeFactor, smallestPrimeFactor } from "./numbers.ts";
+import { gcd, Qn, q, ref, type ElementRef, type Q } from "@workspace/v2-core";
+import { allUndefined, distance, factorLabel, family, gap, more, num, prime, verticalAt, verticalMain, ladder, type L, type Shape } from "./layers.ts";
+import { digitLevel, distanceToPrime, distanceToWhole, isqrt, largestPrimeFactor, nearestInteger, smallestPrimeFactor } from "./numbers.ts";
 
 /** The smallest and largest prime factor of a whole number (|n|); 1 for 0, ±1 and fractions. */
 const spfQ = (x: Q): Q => q(x.d === 1n ? smallestPrimeFactor(x.n) : 1n);
@@ -17,60 +17,64 @@ const factorTies = <P,>(of: "m" | "c", what: string): L<P>[] => [
 
 // ---------------------------------------------------------------- Treasure
 
-type KT = { k: number; T: number };
 /**
- * T = ±11 and ±13 are dealt, so parameter drift (the coordinator's trial call 18) has peers to redraw within reach:
- * at ±37 a starter needed longer than the 120 s interval to cross the 74 units between a target and its mirror and
- * parked midway (agents' pool-dynamics, #739). An exact main is worth 7.6–7.7 bits at ±11 and 7.9–8.0 at ±13, within
- * v1's 0.5 bits (±17 is 8.2–8.3, so it is not dealt). A target and its mirror are exact peers: the reflection y → −y keeps the law (its codes are even in a and c) and sends y(k) to −y(k), and
- * on the mirror every tie-breaker reads the reflected numbers (minus primes, a gradient near minus a prime, a y-intercept
- * near minus a square); lib/v2-linear test beginner.test.ts holds score(−T, reflected) = score(T, line).
+ * Treasure as a ladder (design-principles.md; redesigned 15 Nov by the lens worker, declared to the coordinator as a
+ * trial). Main part, unbounded: when x is k, y should round to a coin pile, a triangular number 1, 3, 6, 10, 15, … (a pile
+ * n coins high holds n(n + 1)/2), the bigger the better, in triangular levels of digits that each need more than the last
+ * (u = digitLevel(pile), numbers.ts); any other y(k) scores below every pile, −(its distance to the nearest − ½). The
+ * next pile is a shift of y(k) by about √(2·pile): a small move, growing slowly, so each level is dearer than the last.
+ * Tie-breaker, read from the pile: the biggest number dividing both its height n and the whole part of the
+ * gradient's size (|m|); a new pile changes n, so the climb starts again. Dealt: k = 3 and 4 (their levels within 0.02
+ * bits; k = 2 is 0.5 bits above k = 3), each with its mirror (minus a
+ * pile: the reflection y → −y keeps the law, so mirrors are exact peers). The old main part (y(k) close to T) had a top.
  */
-const TREASURES: KT[] = [11, 13].flatMap(T => [{ k: 2, T }, { k: 2, T: -T }]);
-/** x, or −x on the mirror (T below zero). */
-const flipT = (p: KT, x: Q): Q => (p.T < 0 ? Qn.neg(x) : x);
+type KT = { k: number; side?: 1 | -1 };
+const TREASURES: KT[] = [3, 4].flatMap(k => [{ k }, { k, side: -1 as const }]);
+/** x, or −x on the mirror. */
+const flipT = (p: KT, x: Q): Q => (p.side === -1 ? Qn.neg(x) : x);
+/** The height n of a coin pile t = n(n + 1)/2, or null when t is not one (t ≥ 1). */
+export function pileHeight(t: bigint): bigint | null {
+  if (t < 1n) return null;
+  const r = isqrt(8n * t + 1n);
+  return r * r === 8n * t + 1n ? (r - 1n) / 2n : null;
+}
+/** The coin pile nearest x (the smaller on a tie, as the agents' near() takes it), and its height. */
+export function nearestPile(x: Q): { t: bigint; n: bigint } {
+  const w = x.n <= 0n ? 0n : Qn.floor(x);
+  const n0 = w < 1n ? 1n : (isqrt(8n * w + 1n) - 1n) / 2n, cands = [n0, n0 + 1n].filter(n => n >= 1n);
+  const at = (n: bigint) => (n * (n + 1n)) / 2n;
+  return cands.map(n => ({ t: at(n), n })).reduce((a, b) => (Qn.cmp(Qn.abs(Qn.sub(x, q(b.t))), Qn.abs(Qn.sub(x, q(a.t)))) < 0 ? b : a));
+}
+/** Treasure's rung: the pile y rounds to (u = digitLevel), else minus how far y is from rounding to the nearest pile. */
+const pileRung = (y: Q): { t: bigint; n: bigint; u: Q } => {
+  const w = nearestInteger(y), h = pileHeight(w);
+  if (h !== null) return { t: w, n: h, u: digitLevel(w) };
+  const { t, n } = nearestPile(y);
+  return { t, n, u: Qn.neg(Qn.sub(Qn.abs(Qn.sub(y, q(t))), q(1, 2))) };
+};
+const piles = (p: KT) => `${p.side === -1 ? "minus " : ""}a coin pile (1, 3, 6, 10, 15, …)`;
 const treasureShape: Shape<KT> = {
-  main: { ...distance<KT>("treasure", "y(k) close to T", "", "table"),
-    sentence: p => `When x is ${p.k}, y should be as close as possible to ${p.T}.` },
+  main: { ...more<KT>("pile", "y(k) on as big a coin pile as possible", "", "table"),
+    sentence: p => `When x is ${p.k}, y should land on ${piles(p)}, the bigger the better; any other y scores below them all, the closer to a pile the better.` },
   tieBreakers: [
-    { ...more<KT>("prime-terms", "different primes among y(1) … y(8)", "", "table"),
-      sentence: p => (p.T < 0 ? "As many as possible of y(1) … y(8) should be minus different primes." : "As many as possible of y(1) … y(8) should be different primes.") },
-    { ...distance<KT>("prime-gradient", "the gradient close to a prime", "", "si"),
-      sentence: p => `The gradient should be as close as possible to ${p.T < 0 ? "minus " : ""}a prime.` },
-    { ...distance<KT>("square-start", "the y-intercept close to a square", "", "si"),
-      sentence: p => `The y-intercept should be as close as possible to ${p.T < 0 ? "minus " : ""}a square number.` },
-    ...factorTies<KT>("m", "the gradient"),
+    more<KT>("shared-factor", "the biggest number dividing both the pile's height and the gradient's whole part",
+      "Tie-breaker: the pile is n coins high. The biggest number dividing both n and the gradient's whole part (ignoring sign) should be as big as possible.", "si"),
   ],
 };
-export const treasure = family<KT>("treasure", "Treasure", ["table", "si", "cart", "gen"], treasureShape, TREASURES, (ctx, p) => {
-  // A vertical line x = k passes the height T somewhere: how far across from the treasure (k, T) it does.
-  const vx = verticalAt(ctx);
-  if (vx) return verticalMain(ctx, treasureShape, `a vertical line: how far across from (${p.k}, ${p.T}) it passes`, gap(vx.x, q(p.k)), vx.from);
-  const at = ref("table", "y", { x: p.k });
-  const v = ctx.read(at);
-  const y = num(v);
-  if (y === null) return allUndefined(ctx, treasureShape, v, at);
-  const m = num(ctx.read(ref("si", "m")))!, c = num(ctx.read(ref("si", "c")))!;
-  const primes = new Set<bigint>();
-  const cols: ElementRef[] = [];
-  for (let x = 1; x <= 8; x++) {
-    const r = ref("table", "y", { x });
-    const t = flipT(p, num(ctx.read(r))!);
-    cols.push(r);
-    if (t.d === 1n && isPrime(t.n) && !primes.has(t.n)) { primes.add(t.n); ctx.mark({ kind: "focus", ref: r }); }
-  }
-  ctx.term("treasure", `distance from y(${p.k}) to ${p.T}`, gap(y, q(p.T)), [at]);
-  ctx.term("prime-terms", "different primes among y(1) … y(8)", q(primes.size), cols);
-  ctx.term("prime-gradient", `distance from the gradient to ${p.T < 0 ? "minus " : ""}a prime`, distanceToPrime(flipT(p, m)), [ref("si", "m")]);
-  ctx.term("square-start", `distance from the y-intercept to ${p.T < 0 ? "minus " : ""}a square`, squareGap(flipT(p, c)).d, [ref("si", "c")]);
-  ctx.term("m-spf", factorLabel("smallest", "the gradient", m), spfQ(m), [ref("si", "m")]);
-  ctx.term("m-gpf", factorLabel("largest", "the gradient", m), gpfQ(m), [ref("si", "m")]);
+export const treasure = ladder(family<KT>("treasure", "Treasure", ["table", "si", "cart"], treasureShape, TREASURES, (ctx, p) => {
+  const at = ref("table", "y", { x: p.k }), mRef = ref("si", "m");
+  const v = ctx.read(at), y = num(v);
+  if (y === null) return allUndefined(ctx, treasureShape, v, at);   // a vertical line has no y(k)
+  const { t, n, u } = pileRung(flipT(p, y));
+  // The whole part of |m| (not ⌊m⌋), so the mirror y → −y, which turns m to −m, reads the same number.
+  const m = num(ctx.read(mRef))!, aw = Qn.floor(Qn.abs(m)), w = aw;
+  ctx.term("pile", Qn.sign(u) > 0 ? `y(${p.k}) = ${Qn.toWire(y)} rounds to ${p.side === -1 ? "minus " : ""}the pile of ${t} (${n} coins high)` : `y(${p.k}) is ${Qn.toWire(Qn.abs(Qn.sub(flipT(p, y), q(t))))} from ${p.side === -1 ? "minus " : ""}the pile of ${t}`, u, [at]);
+  ctx.term("shared-factor", `${n} and the gradient's whole part ${w}: the biggest number dividing both is ${aw === 0n ? 0n : gcd(n, aw)}`, q(aw === 0n ? 0n : gcd(n, aw)), [at, mRef]);
   ctx.mark({ kind: "focus", ref: at });
-  // The target T on the y-axis, so the plane can draw where y(k) should land (marks only).
-  const tm = ref("cart", "yAxisMark", { y: p.T });
+  const tm = ref("cart", "yAxisMark", { y: flipT(p, q(t)) });
   ctx.read(tm);
-  ctx.mark({ kind: "candidate", ref: tm, term: "treasure" });
-});
+  ctx.mark({ kind: "candidate", ref: tm, term: "pile" });
+}));
 
 // ---------------------------------------------------------------- Same on Both Rulers
 

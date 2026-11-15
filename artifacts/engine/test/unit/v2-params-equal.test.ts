@@ -55,6 +55,12 @@ const LADDER_COST: Readonly<Record<string, (u: string, params: Record<string, un
     const level = BigInt(n!) / BigInt(d);
     return !u.startsWith("-") && level >= 1n ? [String(level), 0] : null;
   },
+  // Treasure: the rung is the level of digits of the coin pile y(k) rounds to (the whole part of u, u ≥ 1), as Prime Gradient.
+  "treasure": u => {
+    const [n, d = "1"] = u.split("/");
+    const level = BigInt(n!) / BigInt(d);
+    return !u.startsWith("-") && level >= 1n ? [String(level), 0] : null;
+  },
   "whole-crossing": u => (/^\d+$/.test(u) ? [u, 0] : null),
   "prime-staircase": (u, p) => {
     const [n, d = "1"] = u.split("/"), L = Number(BigInt(n!) / BigInt(d));

@@ -15,7 +15,7 @@ const player = (name: string, family: string, tieBreaker: string, params?: Recor
 test("two players on shared lines spend their budget, by view, and both rules are measured", async () => {
   const r = await runHarness(boxes, {
     type: lineType, variant: lineZ, lines: 3, seed: "t", budget: 60,
-    players: [player("A", "m-meets-c", "meetPrime"), player("B", "treasure", "prime-terms", { k: 2, T: 37 })]   // T = 37: valued on line-z (retired from play), the dealt ±11, ±13 on line-q only,
+    players: [player("A", "m-meets-c", "meetPrime"), player("B", "treasure", "shared-factor", { k: 3 })]   // the coin-pile ladder, valued on line-z too
   });
   assert.equal(r.rules.length, 2);
   for (const s of r.spend) {
