@@ -1,5 +1,5 @@
 /** Live game queries every member reads: the header, the scoreboard and its history (integration plan §2.2). */
-import { durationModeOf, scoreIntervalOf } from "./duration";
+import { durationModeOf, scoreIntervalOf, timeScaleOf } from "./duration";
 import { peerNoiseSigmaOf, peerNoiseVarianceOf } from "./disclose";
 import { readPriceWeightOf } from "./knowledge";
 import { priceScaleOf } from "./pricing";
@@ -27,6 +27,8 @@ export function headerView(game: Doc<"v2Games">, me: Doc<"v2Members">["_id"] | n
     readPriceWeight: readPriceWeightOf(game),
     // The factor on summon and edit prices (power ÷ 64): the app scales the prices it quotes by it.
     priceScale: priceScaleOf(game),
+    // Time dilation (decision 37): the game's settings are already dilated by it (simulations and local playtests).
+    timeScale: timeScaleOf(game.settings),
   };
 }
 

@@ -45,6 +45,12 @@ export function drawEnd(mode: DurationMode, worldSeconds: number, uniform: () =>
   return mode === "fixed" ? worldSeconds : MIN_LIFETIME_FRACTION * worldSeconds + lifetimeSeconds(worldSeconds, uniform());
 }
 
+/**
+ * A room's or a game's time dilation (owner decision 37; v2-economy dilate): 1 unless set. A game's settings are
+ * already dilated; what paces it in wall time (AI turns, idle parking, the bid phase) divides by it.
+ */
+export const timeScaleOf = (x: { timeScale?: number }) => x.timeScale ?? 1;
+
 /** The world second a game ends at (PRIVATE in halfLife mode). */
 export const endWorldOf = (game: { endAtWorld?: number; settings: { worldSeconds: number } }) => game.endAtWorld ?? game.settings.worldSeconds;
 export const durationModeOf = (game: { settings: { durationMode?: DurationMode } }): DurationMode => game.settings.durationMode ?? "fixed";

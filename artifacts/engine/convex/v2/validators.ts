@@ -63,6 +63,8 @@ export const headerV = v.object({
   readPriceWeight: v.number(),
   /** The factor on summon and edit prices: the game's power ÷ 64 (v2-economy summonPriceScale). */
   priceScale: v.number(),
+  /** The game's time dilation (decision 37): 1 unless a simulation or local playtest sped it up. */
+  timeScale: v.number(),
   /** Paused because nobody acted for 30 minutes: any human activity (`account.touch`) resumes it. */
   parked: v.boolean(),
 });
