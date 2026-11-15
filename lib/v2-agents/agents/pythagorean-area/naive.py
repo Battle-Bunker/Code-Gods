@@ -1,5 +1,5 @@
 # Pythagorean Area · Naive (for learning)
-# Main part: the area close to A. Tie-breaker: whichever you were dealt (the slanted side squared close to a square; |c| close to a prime; both legs close to whole numbers).
+# Main part: the triangle's area on as big a dealt prime as possible. Tie-breaker: whichever you were dealt (the factor that prime minus 1 shares with the slanted side squared).
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -13,15 +13,16 @@ def score(m, c, p, tie):
         return None
     legX, legY = abs(c / m), abs(c)                 # the triangle's base and height
     area = legX * legY / 2
-    main = -abs(area - p["A"])
-    # main: how far the triangle's area is from A (closer is better)
-    if tie == "slanted-square":   # a slanted side whose square is close to a square number is best
+    x = area - Fraction(1, 2)                       # the area rounds down to n when x rounds to n (ties up)
+    rung = near(x, prime, p["ends"])                # the prime ending in p["ends"] nearest there: the rung
+    gap = abs(x - rung)                             # on the rung when the area rounds down to it
+    level = lambda p: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(p, 10 ** D)) / (L + 1))(len(str(p)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(p))))   # levels of digits: level L needs L(L + 1)/2
+    main = level(rung) if 2 * gap < 1 or rung - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
+    # main: the prime ending in the rule's digit that the triangle's area rounds down to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far the area is from rounding to one
+    if tie == "shared-factor":   # that prime minus 1 and the slanted side squared (rounded down): a bigger factor shared is better
         side2 = legX * legX + legY * legY            # the slanted side, squared (Pythagoras)
-        return [main, -abs(side2 - near(side2, square))]
-    if tie == "prime-height":   # a height close to a prime is better
-        return [main, -abs(legY - near(legY, prime))]
-    if tie == "whole-legs":   # legs close to whole numbers are best
-        return [main, -(abs(legX - whole(legX)) + abs(legY - whole(legY)))]
+        ws = whole((2 * side2 - 1) / 2)              # its whole part (rounded down)
+        return [main, common(rung - 1, ws)]
     return [main]
 
 

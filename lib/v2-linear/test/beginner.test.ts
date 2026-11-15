@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateSite, Qn, q, rng, walkStep, type Evaluation, type Q, type RuleFamily } from "@workspace/v2-core";
-import { LINE_Q_CODES, primeGradient, beginnerFamilies, beginnerPool, presets, divisibilityLadder, exactChange, lineQ, lineType, lineZ, primeLanding, primeStaircase, pythagoreanArea, ruler, sameOnBothRulers, squareArea, treasure, wholeCrossing, type LineState } from "../src/index.ts";
+import { LINE_Q_CODES, primeGradient, beginnerFamilies, beginnerPool, presets, divisibilityLadder, exactChange, lineQ, lineType, lineZ, primeLanding, primeStaircase, ruler, sameOnBothRulers, squareArea, treasure, wholeCrossing, type LineState } from "../src/index.ts";
 import { mc } from "./helpers.ts";
 
 /** Every layer's term, as wire strings, for one evaluation. */
@@ -19,7 +19,7 @@ test("the beginner pool: the curator's eight families and two restored ones (Exa
   assert.deepEqual(beginnerPool.map(f => f.id), ["prime-landing", "smooth-intercept", "square-area", "whole-crossing", "divisibility-ladder", "treasure", "same-on-both-rulers", "prime-gradient", "prime-staircase", "ruler", "pythagorean-area"]);
   for (const f of beginnerPool) {
     // The ladder families have one or two secondaries, each read from the rung; the rest two to six.
-    assert.ok(f.tieBreakers.length >= (["prime-staircase", "smooth-intercept", "prime-landing", "whole-crossing", "prime-gradient", "divisibility-ladder", "treasure"].includes(f.id) ? 1 : 2) && f.tieBreakers.length <= 6, f.id);
+    assert.ok(f.tieBreakers.length >= (["prime-staircase", "smooth-intercept", "prime-landing", "whole-crossing", "prime-gradient", "divisibility-ladder", "pythagorean-area", "treasure"].includes(f.id) ? 1 : 2) && f.tieBreakers.length <= 6, f.id);
   }
 });
 
@@ -32,10 +32,7 @@ test("restored families (decision 22), worked by hand", () => {
   assert.deepEqual(terms(exactChange, { ways: 6 }, mc(-2, 12), lineQ), { change: "1", "big-piles": "0", "big-bill": "12", "prime-coins": "1" });
   // A rising line reads as a negative coin: not coins at all.
   assert.deepEqual(terms(exactChange, { ways: 6 }, mc(2, 12), lineQ), { change: "—", "big-piles": "—", "big-bill": "—", "prime-coins": "—" });
-  // y = −4x + 4: legs 1 and 4, area 2; side² 17, nearest square 16; |c| = 4 is 1 from a prime.
-  assert.deepEqual(terms(pythagoreanArea, { A: 6 }, mc(-4, 4), lineQ), { area: "4", "slanted-square": "1", "prime-height": "1", "whole-legs": "0" });
-  // y = −3x + 6: legs 2 and 6, area 6 exactly; side² 40, nearest square 36.
-  assert.deepEqual(terms(pythagoreanArea, { A: 6 }, mc(-3, 6), lineQ), { area: "0", "slanted-square": "4", "prime-height": "1", "whole-legs": "0" });
+  // Pythagorean Area's worked lines: test/pythagorean-area.test.ts.
 });
 
 test("worked examples, one line per family", () => {

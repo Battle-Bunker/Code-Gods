@@ -73,12 +73,12 @@ export function medianLookBits(variant: string): number {
 
 /**
  * The starter a newcomer summons, its summon price before the power scale, in bits: the median over the beginner
- * pool's Simple starters of each variant, both languages (measured; the unit test v2-presets keeps it within 5%: 600
+ * pool's Simple starters of each variant, both languages (measured; the unit test v2-presets keeps it within 5%: 575
  * on lines, 729 on grids, 15 Nov). Thorough and Bold are dearer and say so on their cards. The beginner game's start
  * buys STARTERS_AT_START of them at the scaled price (the coordinator's call 17), so it follows the power like the read
  * weight.
  */
-export const MEDIAN_STARTER_BITS: Readonly<Record<string, number>> = { "line-q": 600, "line-q-lenses": 600, "grid-4-d10": 701 };
+export const MEDIAN_STARTER_BITS: Readonly<Record<string, number>> = { "line-q": 601, "line-q-lenses": 601, "grid-4-d10": 701 };
 export const STARTERS_AT_START = 3;
 /** The beginner start at this power: STARTERS_AT_START typical starters at the scaled summon price, to the nearest 10. */
 export function beginnerStart(variant: string, powerPerSecond: number): number {

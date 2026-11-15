@@ -631,8 +631,10 @@ back) or TRIAL (a declared experiment, measured and reported).
       fresh deals within sampling noise on every preset (lines ≤ 12% of uniform, where two fresh samples differ by up
       to 15%; grids and two-line systems identical). On grids the practice deal is now the real grid deal, whose
       seating rule shapes which families sit together, so the human's family there is no longer uniform (the round-21
-      test now covers lines and two-line systems). The dynamics of the new practice tables: the agents session will
-      re-measure with the objects-changed column.
+      test now covers lines and two-line systems). The dynamics of the new practice tables (the agents session, server
+      pacing, 24 games per row): lines 2.00 / 2.08 / 2.07 objects changed a minute by third, 10% of minutes with no
+      change; grids 2.74 / 2.24 / 2.25, 8% of minutes with no change. The boards no longer freeze (the old practice
+      deal's Whole Crossing tables changed 0–1 objects in most minutes).
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
