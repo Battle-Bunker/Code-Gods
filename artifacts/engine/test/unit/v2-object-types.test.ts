@@ -41,7 +41,7 @@ test("a grid representation's mutators name their arguments, with choices for ce
   assert.deepEqual(ms.map(m => m.id), ["cells.add", "cells.swap"]);
   assert.deepEqual(ms[0]!.args, [{ name: "cell", code: "choice" }, { name: "k", code: "integer" }]);
 });
-test("Grids · beginner deals every grid family, each a main layer plus one tie-breaker, on the grid board (once grids have value functions)", async () => {
+test("Grids · beginner deals every grid family of its pool (the big-digit ones paused), each a main layer plus one tie-breaker, on the grid board (once grids have value functions)", async () => {
   const { presetOf } = await import("../../convex/v2/presets.ts");
   const { dealablePool, playable } = await import("../../convex/v2/deal.ts");
   const { VALUE_RECORDS } = await import("../../convex/v2/values.gen.ts");
@@ -52,8 +52,10 @@ test("Grids · beginner deals every grid family, each a main layer plus one tie-
     assert.equal(p.variant, "grid-4-d10");
     const pool = dealablePool(p);
     if (gridValues) {
-      assert.deepEqual([...new Set(pool.map(r => r.family))].sort(), [...p.families].sort(), "every grid family deals");
-      assert.equal(pool.length, 24);
+      assert.deepEqual([...new Set(pool.map(r => r.family))].sort(), [...p.families].sort(), "every grid family of the pool deals");
+      // The big-digit families are paused from the beginner deal (lib/v2-grid BEGINNER_PAUSED, the coordinator's call 19).
+      assert.equal(pool.length, 15);
+      for (const f of ["magic-eighteen", "opposite-nines", "strangers"]) assert.ok(!p.families.includes(f), `${f} is paused`);
     } else {
       // Decision 23: only rules with a value function deal; until grid value functions land the preset is withheld.
       assert.equal(pool.length, 0);
