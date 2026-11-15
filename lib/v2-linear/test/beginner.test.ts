@@ -162,7 +162,7 @@ test("Same on Both Rulers' mirror is an exact peer: it scores the line reflected
     assert.deepEqual(terms(sameOnBothRulers, { d, side: -1 }, mc(mm, neg(cc)), lineQ), terms(sameOnBothRulers, { d }, mc(mm, cc), lineQ), `d = ${d}: y = ${mm}x + ${cc}`);
   }
   for (const [a, c] of [[2n, -25n], [1n, 13n], [3n, 7n]] as const) assert.deepEqual(terms(sameOnBothRulers, { d: 1, side: -1 }, x(a, -c), lineQ), terms(sameOnBothRulers, { d: 1 }, x(a, c), lineQ));
-  assert.match(sameOnBothRulers.card({ d: 2, side: -1 }, "shared-factor"), /minus a number reading the same backwards, starting and ending in 2/);
+  assert.match(sameOnBothRulers.card({ d: 2, side: -1 }, "shared-factor"), /minus a number that reads the same backwards and starts with 2, like −2, −22 or −212\. Bigger is better\./);
   assert.deepEqual(sameOnBothRulers.dealable(lineQ), [{ d: 1 }, { d: 1, side: -1 }, { d: 2 }, { d: 2, side: -1 }]);
 });
 
