@@ -94,6 +94,9 @@ try {
     if (label === "phone") await overview.screenshot({ path: path.join(shots, "score-words-phone-where-am-i.png") });
 
     // The planning line's button summons in one press (ux-lessons 1.3); it is the first a walker presses.
+    // One next step in planning (round 26): the planning line's button; Where am I points to it; the code is folded.
+    assert.equal(await page.getByTestId("button-overview-summon").count(), 0, `${label}: Where am I has no second summon button in planning`);
+    assert.equal(await page.getByTestId("input-forge-code").count(), 0, `${label}: the code is folded`);
     await page.getByTestId("button-summon-first").click();
     const status = page.getByTestId("text-forge-status");
     await status.getByText(/is summoned/).waitFor({ timeout: 60_000 });
@@ -111,6 +114,8 @@ try {
       await leave.getByTestId("text-leave-alone").getByText(/leaves line 3 alone\./).waitFor({ timeout: 10_000 });
       console.log(`${label}: ${(await leave.getByTestId("text-leave-alone-done").innerText()).trim()}`);
       // Editing the agent's code prices only the change (owner decision 21), beside the whole program's price.
+      // The code is folded on every screen (round 26): open it to edit.
+      if (!await page.getByTestId("input-forge-code").count()) await page.getByTestId("button-forge-show-code").click();
       const box = page.getByTestId("input-forge-code");
       await box.fill((await box.inputValue()) + "\nconst extra = 1;\n");
       // The price line follows the edit once the forge has re-rendered (reading it at once raced the render).
@@ -123,8 +128,7 @@ try {
       await box.fill(await box.inputValue().then(v => v.replace("\nconst extra = 1;\n", "")));
     }
     // The agent's code is folded behind "Show the code" on every screen (round 26: 40 lines of comments opened the pane).
-    assert.equal(await page.getByTestId("input-forge-code").count(), 0, `${label}: the code is folded`);
-    await page.getByTestId("button-forge-show-code").click();
+    if (!await page.getByTestId("input-forge-code").count()) await page.getByTestId("button-forge-show-code").click();
     await page.getByTestId("input-forge-code").waitFor();
 
     const startNow = page.getByTestId("button-start-world");
