@@ -252,3 +252,68 @@ Families: a triangle with corners on pegs (|x|, |y| ≤ 5): 141908 states; three
 | right-corner/spf, six-units/omega, balance-peg/omega, all-meet/ladder | 337 | 323 | 0.96 | -1x+6y+28=0 ; 1x+0y+2=0 ; 1x+6y+20=0 (a triangle with corners on pegs; bits 1.4, 13.9, 7.2, 1.5) |
 | pegged-triangle/ladder, five-pegs/spf, area-is-pegs/gcd, six-units/omega | 519 | 514 | 0.99 | -1x+4y-11=0 ; 1x+2y-7=0 ; 1x+8y-37=0 (a triangle with corners on pegs; bits 5.1, 7.2, 1.9, 13.9) |
 
+
+## Alignment and tension, 2 lines: when a move raises A (row), the share of those moves that raise / lower / leave B (column), as up/down/same %
+| A \ B | whole-answer | right-angle | meet-on-floor | treasure-crossing | wall-triangle | forty-five | no-fractions | mirror-pair | gradient-point |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| whole-answer | — | 39/30/31 | 46/44/9 | 51/45/4 | 40/41/19 | 40/29/31 | 35/47/18 | 33/43/24 | 40/41/19 |
+| right-angle | 47/40/13 | — | 51/28/20 | 61/24/14 | 55/32/14 | 57/42/2 | 18/73/9 | 28/55/17 | 54/34/11 |
+| meet-on-floor | 52/36/12 | 48/19/33 | — | 71/24/5 | 47/35/19 | 41/25/33 | 22/59/19 | 41/35/24 | 53/27/19 |
+| treasure-crossing | 42/42/16 | 42/21/37 | 52/33/15 | — | 51/25/24 | 41/22/37 | 25/49/26 | 32/39/29 | 51/29/20 |
+| wall-triangle | 33/49/17 | 38/34/28 | 35/46/19 | 52/33/15 | — | 43/29/29 | 31/43/26 | 38/55/7 | 53/43/4 |
+| forty-five | 38/43/19 | 45/55/0 | 35/43/22 | 48/35/17 | 49/30/21 | — | 35/47/18 | 31/43/26 | 47/34/19 |
+| no-fractions | 41/47/12 | 17/56/26 | 23/68/9 | 36/58/6 | 44/34/22 | 43/30/27 | — | 27/46/27 | 36/44/20 |
+| mirror-pair | 36/34/30 | 26/44/30 | 40/29/31 | 43/31/27 | 50/43/8 | 36/33/31 | 25/39/36 | — | 62/31/6 |
+| gradient-point | 37/38/25 | 41/29/30 | 43/31/26 | 57/26/17 | 59/32/9 | 45/24/31 | 28/42/30 | 52/37/12 | — |
+Pairs (A before B): 20 mixed, 11 aligned, 5 tension (aligned: up > 1.5 × down and up > 30%; tension: the reverse; neutral: fewer than 40% change B).
+
+Per mutator, over all ordered pairs (a move that raises A: share that raises / lowers / leaves B):
+| Mutator | up | down | same | moves that raised some rule |
+|---|--:|--:|--:|--:|
+| cart.mirror | 45% | 39% | 16% | 251728 |
+| cart.pivot | 49% | 44% | 7% | 634984 |
+| gen.nudge | 43% | 35% | 22% | 311296 |
+| mach.stretch | 46% | 44% | 9% | 415072 |
+| pair.perpendicular | 25% | 28% | 47% | 17592 |
+| pair.reflect | 18% | 19% | 63% | 9512 |
+| pencil.turn | 21% | 35% | 44% | 33320 |
+| row.add | 23% | 23% | 54% | 152472 |
+| seq.step | 48% | 44% | 8% | 314232 |
+| si.shift | 32% | 30% | 38% | 194272 |
+| si.tilt | 49% | 45% | 7% | 303752 |
+| sys.mirror | 17% | 8% | 75% | 48672 |
+| sys.slide | 22% | 21% | 57% | 158904 |
+| sys.zoom | 33% | 30% | 37% | 121464 |
+
+## Alignment and tension, 3 lines: when a move raises A (row), the share of those moves that raise / lower / leave B (column), as up/down/same %
+| A \ B | pegged-triangle | six-units | right-corner | all-meet | balance-peg | two-equal-sides | square-triangle | five-pegs | area-is-pegs |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| pegged-triangle | — | 52/46/2 | 34/29/37 | 59/39/2 | 57/43/1 | 46/38/16 | 51/48/1 | 43/30/27 | 57/41/1 |
+| six-units | 45/54/2 | — | 32/31/37 | 61/39/0 | 50/50/0 | 43/43/14 | 66/34/0 | 72/5/23 | 53/46/1 |
+| right-corner | 52/42/7 | 56/36/8 | — | 58/35/7 | 54/41/5 | 58/33/9 | 53/40/6 | 47/24/29 | 59/35/7 |
+| all-meet | 50/48/2 | 60/39/1 | 33/32/36 | — | 55/44/1 | 44/43/13 | 40/59/1 | 58/17/26 | 79/20/1 |
+| balance-peg | 51/47/2 | 52/45/3 | 32/31/37 | 58/39/3 | — | 45/40/16 | 52/47/1 | 43/30/27 | 59/39/2 |
+| two-equal-sides | 51/47/3 | 55/43/3 | 42/30/28 | 57/41/2 | 55/44/1 | — | 54/45/2 | 45/29/26 | 58/40/2 |
+| square-triangle | 45/53/2 | 68/31/2 | 31/31/38 | 41/57/2 | 50/49/0 | 43/41/17 | — | 48/27/25 | 46/53/1 |
+| five-pegs | 48/51/2 | 92/7/1 | 34/30/36 | 74/25/1 | 53/46/0 | 45/42/13 | 61/39/0 | — | 63/37/0 |
+| area-is-pegs | 48/51/2 | 51/47/2 | 32/32/36 | 77/21/2 | 55/45/0 | 44/42/14 | 43/56/0 | 48/26/26 | — |
+Pairs (A before B): 22 mixed, 14 aligned (aligned: up > 1.5 × down and up > 30%; tension: the reverse; neutral: fewer than 40% change B).
+
+Per mutator, over all ordered pairs (a move that raises A: share that raises / lowers / leaves B):
+| Mutator | up | down | same | moves that raised some rule |
+|---|--:|--:|--:|--:|
+| cart.mirror | 50% | 39% | 11% | 418816 |
+| cart.pivot | 54% | 40% | 5% | 980176 |
+| gen.nudge | 47% | 36% | 17% | 482496 |
+| mach.stretch | 48% | 43% | 9% | 625968 |
+| pair.perpendicular | 57% | 37% | 6% | 91872 |
+| pair.reflect | 55% | 34% | 11% | 78224 |
+| pencil.turn | 52% | 40% | 8% | 179232 |
+| row.add | 56% | 38% | 6% | 951504 |
+| seq.step | 55% | 40% | 5% | 495528 |
+| si.shift | 40% | 37% | 23% | 357200 |
+| si.tilt | 54% | 38% | 7% | 481376 |
+| sys.mirror | 4% | 3% | 93% | 1032 |
+| sys.slide | 10% | 5% | 84% | 31496 |
+| sys.zoom | 42% | 35% | 23% | 126152 |
+
