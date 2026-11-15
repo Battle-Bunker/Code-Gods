@@ -124,6 +124,8 @@ interface MoveStat { moves: number; own: number; fee: number; aboveFee: number; 
 const byMove = new Map<string, MoveStat>();
 const answers = new Map<string, { n: number; won: number }>();
 const peaks: { seat: number; table: number; stretchRun: number }[] = [];
+/** Per family (the stats key): the largest bits its seat held on any object, and in which game. */
+const peakBy = new Map<string, { bits: number; game: number }>();
 
 for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   const choices = o.only ? pool.filter(r => o.only!.split(",").includes(r.family)) : pool;
@@ -184,6 +186,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
         seats.forEach((_, j) => { if (j === e.seat) return; m.others += a[j]! - b[j]!; if (a[j]! >= b[j]! + 1) shared = true; if (b[j]! >= 2) { m.exposed++; if (a[j]! < b[j]! / 2) m.halved++; } });
         if (shared) m.shared++;
         const tot = a.reduce((t, x) => t + x, 0);
+        a.forEach((x, j) => { const k = keys[j]!, p = peakBy.get(k); if (!p || x > p.bits) peakBy.set(k, { bits: x, game: g }); });
         peakSeat = Math.max(peakSeat, ...a); peakTable = Math.max(peakTable, a.reduce((t, x) => t + x * (tot - x), 0));
         const rk = `${e.seat}:${e.object}`, run = key === "mach.stretch" ? (runs.get(rk) ?? 0) + 1 : 0;
         runs.set(rk, run); stretchRun = Math.max(stretchRun, run);
@@ -272,6 +275,7 @@ if (answers.size) {
   console.log("|---|--:|--:|");
   for (const [k, w] of [...answers.entries()].sort((x, y) => y[1].n - x[1].n)) console.log(`| ${k} | ${w.n} | ${fmt(w.won / w.n)} |`);
 }
+console.log(`\npeak bits by family (game): ${[...peakBy.entries()].sort((x, y) => y[1].bits - x[1].bits).map(([k, p]) => `${k} ${fmt(p.bits)} (${p.game + 1})`).join("; ")}`);
 const ps = peaks.map(p => p.seat), pt = peaks.map(p => p.table), pr = peaks.map(p => p.stretchRun);
 console.log(`\npeaks per game: a seat's bits median ${fmt(median(ps))}, max ${fmt(Math.max(...ps))}; an object's table total median ${fmt(median(pt))}, max ${fmt(Math.max(...pt))}; longest run of one seat's stretches on one object median ${median(pr)}, max ${Math.max(...pr)}`);
 if (o.json) (await import("node:fs")).writeFileSync(o.json, JSON.stringify(Object.fromEntries(stats)));
