@@ -111,13 +111,13 @@ function SettingsEditor({ room, preset, locked }: { room: Room; preset: Preset; 
           <span className="text-xs text-muted-foreground">Exact after the game ends, whichever you pick.</span>
         </label>
         <label className="flex min-w-0 flex-col gap-1 text-sm">
-          <span>Seeing the world</span>
-          <select value={form.observation} onChange={e => setForm({ ...form, observation: e.target.value as SettingsForm["observation"] })} disabled={!!locked || busy}
-            className="h-9 border bg-background px-2" data-testid="select-setting-observation">
-            <option value="free">Free: everyone sees every change</option>
-            <option value="paid">Paid: you see what you last looked at</option>
+          <span>Price of a look (times the read price)</span>
+          <select value={form.readPriceWeight} onChange={e => setForm({ ...form, readPriceWeight: e.target.value })} disabled={!!locked || busy}
+            className="h-9 border bg-background px-2" data-testid="select-setting-readPriceWeight">
+            {[...new Set([0, 0.5, 1, 2, 3, 4, Number(form.readPriceWeight)])].filter(n => Number.isFinite(n)).sort((a, b) => a - b)
+              .map(n => <option key={n} value={String(n)}>{n === 0 ? "Free: see everything as it is" : `${n}×`}</option>)}
           </select>
-          <span className="text-xs text-muted-foreground">{form.observation === "paid" ? "A look at the world costs energy; your own agents' moves you see for free." : "Every change is shown as it happens."}</span>
+          <span className="text-xs text-muted-foreground">Everyone sees each line or grid as they last looked; a look costs this much energy.</span>
         </label>
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">

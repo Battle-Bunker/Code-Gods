@@ -13,12 +13,14 @@ export interface Overrides {
   durationMode?: DurationMode; scoreIntervalSeconds?: number;
   /** The variance, bits², of each reading of the others' sums while live (owner decision 32). */
   peerNoiseVariance?: number;
-  /** v1's paid observation: each object shows as last seen, and a look costs energy (W3 #643). */
-  observation?: "free" | "paid";
+  /** Looks are always paid (owner decision 35): the read price's weight, 0 to 4 in quarters (0: looking is free). */
+  readPriceWeight?: number;
 }
 
 export { PEER_NOISE_VARIANCE_OPTIONS };
 /** A noise variance in words: its σ, the "about ±" a reading carries. */
+/** The price of a look in the next game's summary: "looking is free" or "a look costs 3× the read price". */
+export const lookWords = (weight: number) => (weight === 0 ? "looking is free" : `a look costs ${weight}× the read price`);
 export const noiseWords = (variance: number) => (variance === 0 ? "Exact" : `Blurred by about ${Math.round(Math.sqrt(variance) * 10) / 10} bits`);
 
 /** A preset under trial: the Lab's (`lab-…`) and the local test presets (`test-…`). */
@@ -50,7 +52,7 @@ export function setupBlurb(p: Preset): string {
 
 export interface SettingsForm {
   planningSeconds: string; worldMinutes: string; startingEnergy: string;
-  durationMode: DurationMode; scoreIntervalSeconds: string; peerNoiseVariance: string; observation: "free" | "paid";
+  durationMode: DurationMode; scoreIntervalSeconds: string; peerNoiseVariance: string; readPriceWeight: string;
 }
 export type FormField = keyof SettingsForm;
 
@@ -64,7 +66,7 @@ export function formOf(p: Preset, o: Overrides): SettingsForm {
     durationMode: o.durationMode ?? p.durationMode,
     scoreIntervalSeconds: String(o.scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS),
     peerNoiseVariance: String(o.peerNoiseVariance ?? p.peerNoiseVariance),
-    observation: o.observation ?? "free",
+    readPriceWeight: String(o.readPriceWeight ?? p.readPriceWeight),
   };
 }
 
@@ -88,6 +90,8 @@ export function overridesOf(f: SettingsForm, p: Preset): { ok: true; overrides: 
   if (energy === null || energy < 0) errors.startingEnergy = "Starting energy is 0 or more.";
   const interval = num(f.scoreIntervalSeconds), noise = num(f.peerNoiseVariance);
   if (interval === null || !Number.isInteger(interval) || interval < 1 || interval > 3600) errors.scoreIntervalSeconds = "Totals are counted every 1 to 3,600 whole seconds.";
+  const weight = num(f.readPriceWeight);
+  if (weight === null || weight < 0 || weight > 4 || !Number.isInteger(weight * 4)) errors.readPriceWeight = "The price of a look is 0 to 4 times the read price, in quarters.";
   if (noise === null || !PEER_NOISE_VARIANCE_OPTIONS.includes(noise)) errors.peerNoiseVariance = "The noise's variance is 0, 4, 16, 64 or 256 bits².";
   if (Object.keys(errors).length) return { ok: false, errors };
   const o: Overrides = {};
@@ -97,7 +101,7 @@ export function overridesOf(f: SettingsForm, p: Preset): { ok: true; overrides: 
   if (f.durationMode !== p.durationMode) o.durationMode = f.durationMode;
   if (interval !== DEFAULT_SCORE_INTERVAL_SECONDS) o.scoreIntervalSeconds = interval!;
   if (noise !== p.peerNoiseVariance) o.peerNoiseVariance = noise!;
-  if (f.observation === "paid") o.observation = "paid";
+  if (weight !== p.readPriceWeight) o.readPriceWeight = weight!;
   return { ok: true, overrides: o };
 }
 
@@ -112,7 +116,7 @@ export function nextGameSummary(p: Preset, o: Overrides): string {
     `${o.startingEnergy ?? p.startingEnergy} energy to start`,
     noise === 0 ? "others' sums exact" : `others' sums blurred (about ±${Math.round(Math.sqrt(noise) * 10) / 10} bits each reading)`,
     `totals every ${o.scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS} s`,
-    ...(o.observation === "paid" ? ["players pay to look at the world"] : []),
+    lookWords(o.readPriceWeight ?? p.readPriceWeight),
   ];
   return `${parts.join(" · ")}.`;
 }
