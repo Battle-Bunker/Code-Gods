@@ -11,20 +11,23 @@ import { digitLevel, digitNote, distanceToPrime, isPrime, isPrimeEnding, isqrt, 
 
 /**
  * Square Area as a ladder (design-principles.md; the redesign of beginner-line-redesign.md §4.9, on Prime Landing's and
- * Pythagorean Area's pattern). Main part, unbounded: the area of the triangle the line cuts off the axes, rounded down,
- * (or rounded to the nearest, by the dealt parameter) should be a square number r² ending in d, the bigger the better, in levels of digits (u = digitLevel(r²)); any other
- * line scores below every rung, minus how far its area is from the nearest window [r², r² + 1). A rung is a window: the
- * next one is a small shift or tilt away (y = −2x + 2r has area r², so a shift by 2 moves r by 1). The old main part (the
- * area close to any square) had a top at 0; its tie-breakers, the root's smallest and largest prime factor, had
- * prime-valued tails that shifts climbed to 58–316 bits (the energy gate), and the root's number of prime factors was a
- * straight hill (a stretch by 2, 3 or 5 adds one at every size). Here a stretch by f multiplies the area by f, so only a
- * square f keeps a rung, and only some squares keep its last digit: repeated, those are priced as shortcuts on a big line.
- * Dealt: d = 1 and 9, the endings of odd squares (roots ending 1 or 9, and 3 or 7), each with the area rounded down and
- * rounded to the nearest whole number: bits less the cheapest line's code cost, median over rungs, −8.1 to −8.5 (800k
- * draws, 15 Nov). Not dealt, measured the same way: the even endings 4 and 6 (roots with 2s, which the code makes cheap:
- * −9.5 and −9.8), 5 (−9.2), the area rounded up (ending 1: −8.7, every tiny triangle rounds up to 1 = 1²), and the roots'
- * own last digit (a root ending in 1 has the rung 1, one ending in 9 starts at 81: medians 2.1 bits apart). One ending
- * both ways shares every exact square (y = −2x + 2r has area r²), so that pair is forbidden (seating.ts).
+ * Pythagorean Area's pattern). Main part, unbounded: the area of the triangle the line cuts off the axes, rounded down
+ * (or rounded off, to the nearest, by the dealt parameter), should be a square r² above 1 ending in d, the bigger the
+ * better, in levels of digits (u = digitLevel(r²)); any other line scores below every rung, minus how far its area is
+ * from the window of the root nearest it (squareRung). A rung is a window: the next is a small shift or tilt away
+ * (y = −2x + 2r has area r², so a shift by 2 moves r by 1). A stretch by f multiplies the area by f, so only a square f
+ * keeps a rung, and only some squares keep its last digit: repeated, those are priced as shortcuts on a big line.
+ * The ladder starts above 1 (the coordinator's ruling, 15 Nov, stated on the card): births are small triangles, and with
+ * 1 = 1² a rung, 80% of ending 1's births had it as their nearest window and 7–13% sat on it, a common rung worth almost
+ * nothing with the next at 81; ending 1 gained half of ending 9 in play (balance 2.0). From 2² up, the same 48 deals gave
+ * a balance of 1.12.
+ * The old main part (the area close to any square) had a top at 0; its tie-breakers, the root's smallest and largest
+ * prime factor, had prime-valued tails that shifts climbed to 58–316 bits (the energy gate), and the root's number of
+ * prime factors was a straight hill (a stretch by 2, 3 or 5 adds one at every size).
+ * Dealt: d = 1 and 9, the endings of odd squares (roots ending 1 or 9, and 3 or 7), each rounded down and rounded off.
+ * Not dealt, by the params-equal audit (bits less the cheapest line's code cost, median over rungs): the even endings 4
+ * and 6 (roots with 2s, which the code makes cheap), 5, the area rounded up, and the roots' own last digit. One ending
+ * both ways shares every exact square, so that pair is forbidden (seating.ts).
  * Tie-breaker, read from that square's root r: the factor r + 1 shares with the x-crossing's whole part (ignoring its
  * sign). A new rung changes r + 1, so the crossing that shared most no longer does and the climb starts again.
  * Adversary: Pythagorean Area reads the same number and wants it rounded down to a prime: a square is never a prime, so
