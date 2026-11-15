@@ -11,13 +11,20 @@ every other rule's bits. It is analysis only. No game logic changed.
 
 - Script: `lib/v2-agents/scripts/tension.ts`. Run it with `pnpm --filter @workspace/v2-agents tension -- --json
   docs/engine-v2/scripts/tension-results.json` from the repository root, or from `lib/v2-agents` with
-  `--json ../../docs/engine-v2/scripts/tension-results.json`. It takes about 3 minutes.
+  `--json ../../docs/engine-v2/scripts/tension-results.json`. It takes about 4 minutes.
 - Full printed output: [`scripts/tension-results.md`](scripts/tension-results.md). That file holds every table below
   plus the per-rule state counts, the per-direction table with the rules that like each direction, every basic strategy
   at k = 1, 2, 4 and 8, the flag detail and the per-direction signatures.
 - Every pair's numbers: [`scripts/tension-results.json`](scripts/tension-results.json). For each unordered pair it
   gives the class, the pooled up/down/same in both orders, and a one-character-per-direction signature in both orders.
-  It also gives every strategy's per-rule climb counts.
+  It also gives every strategy's per-rule climb counts, and per rule and direction the one-step climbs and the climbs
+  of the direction repeated 8 times (`climbs`, `repeats`), and along those climbs every other rule's opportunity cost
+  as a share of the climber's gain (`opportunity`).
+- Unopposed shared directions per table (the coordinator's adversary-aware dealing trial, step 1: logged, not acted
+  on): `pnpm --filter @workspace/v2-agents gen-tension` turns the JSON into `lib/v2-agents/src/tension.gen.ts`, read by
+  `unopposedDirections` (`lib/v2-agents/src/unopposed.ts`, exported from the package's `pure` entry). The strength
+  threshold `WEAK_BELOW`, the opposition threshold `OPPORTUNITY_FRACTION` and their justifications are documented
+  there; the collapse check's test 1 logs each table's.
 
 ## Method
 
