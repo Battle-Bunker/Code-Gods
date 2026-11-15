@@ -140,6 +140,13 @@ export function factorWeight(n: bigint): number {
   let m = n < 0n ? -n : n;
   if (m < 1n) throw new RangeError("factorWeight needs n ≥ 1");
   let w = 0;
+  if (m <= BigInt(Number.MAX_SAFE_INTEGER)) {
+    // The same trial division in floating point (exact below 2^53): the same weight, much faster.
+    let x = Number(m);
+    for (let d = 2; d * d <= x && d <= 100_000; d += d === 2 ? 1 : 2) while (x % d === 0) { w += d; x /= d; }
+    if (x > 1) w += x;
+    return STEP * w;
+  }
   for (let d = 2n; d * d <= m && d <= FACTOR_LIMIT; d += d === 2n ? 1n : 2n) while (m % d === 0n) { w += Number(d); m /= d; }
   if (m > 1n) w += Number(m);
   return STEP * w;

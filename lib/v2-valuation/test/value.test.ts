@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { compareScores, q, rng, scoreToWire, type Q, type Score } from "@workspace/v2-core";
 import { lineZ, primeLanding } from "@workspace/v2-linear";
-import { knotsFrom, lineValueFunction, massOracle, sampledOracle, valueLookup, VALUE_CONFIG } from "../src/index.ts";
+import { knotsFrom, lineValueFunction, massOracle, sampledOracle, tailOf, TAIL_CEILING, TAIL_FLOOR, valueLookup, VALUE_CONFIG } from "../src/index.ts";
 
 /** A finite law over random scores (some components null), every state's true value by brute force. */
 function finiteLaw(seed: string, n: number) {
@@ -29,7 +29,7 @@ test("brute force: on a finite law, every state's bits are −log2 of the mass o
   for (const seed of ["a", "b", "c"]) {
     const { states, truth } = finiteLaw(seed, 300);
     const { knots } = knotsFrom([massOracle("all", states, 0)], tight);
-    const look = valueLookup({ knots, tail: { secondary: 0, primary: 0 } });
+    const look = valueLookup({ knots });
     for (const s of states) {
       const v = look(s.u);
       assert.equal(v.at, "knot");
@@ -43,7 +43,7 @@ test("thinned knots: a lookup between knots is bracketed by them and within delt
   const delta = 0.3;
   const { knots } = knotsFrom([massOracle("all", states, 0)], { ...tight, delta });
   assert.ok(knots.length < 2000);
-  const look = valueLookup({ knots, tail: { secondary: 0, primary: 0 } });
+  const look = valueLookup({ knots });
   let prev = -1;
   for (const s of [...states].sort((a, b) => compareScores(a.u, b.u))) {
     const v = look(s.u), t = truth(s.u);
@@ -84,7 +84,7 @@ const parse = (w: string): Q => { const [n, d] = w.split("/"); return { n: BigIn
 test("a lookup beyond the best knot is extrapolated upward and never below the best knot's certified floor", () => {
   const { states } = finiteLaw("tail", 400);
   const { knots } = knotsFrom([massOracle("all", states, 0)], tight);
-  const look = valueLookup({ knots, tail: { secondary: 0.5, primary: 0.5 } });
+  const look = valueLookup({ knots, tail: { secondary: { form: "linear", slope: 0.5 }, primary: { form: "linear", slope: 0.5 } } });
   const best = knots[knots.length - 1]!;
   const beyond = look([parse(best.u![0]!), q(1000)]);
   assert.equal(beyond.at, "beyond");
@@ -92,6 +92,54 @@ test("a lookup beyond the best knot is extrapolated upward and never below the b
   // A sampled oracle with no draws above a score certifies nothing there.
   const so = sampledOracle("draws", [{ u: [q(0), q(1)], w: 1 }]);
   assert.equal(so.survival([q(0), q(2)]).support, 0);
+});
+
+test("no maximum (owner decision 26): past the best knot the value keeps rising without bound, on either form", () => {
+  // A magnitude ramp: bits rise 0.8 per doubling of the secondary, measured up to 2^16.
+  const knots = [{ u: null, bits: 0, lo: 0, hi: 0, source: "exact" as const },
+    ...Array.from({ length: 8 }, (_, i) => { const s = 2 ** (9 + i); const bits = 20 + 0.8 * Math.log2(1 + s); return { u: ["0", String(s)], bits, lo: bits - 0.1, hi: bits + 0.1, source: "exact" as const }; })];
+  const tail = tailOf(knots);
+  assert.equal(tail.secondary.form, "log", "a magnitude takes a ramp, not a line that would over-value far scores");
+  assert.ok(Math.abs(tail.secondary.slope - 0.8) < 1e-6);
+  const look = valueLookup({ knots, tail });
+  let prev = knots[knots.length - 1]!.bits;
+  for (const s of [10n ** 6n, 10n ** 12n, 10n ** 30n, 10n ** 400n]) {
+    const v = look([q(0), q(s)]);
+    assert.equal(v.at, "beyond");
+    assert.ok(v.bits > prev && Number.isFinite(v.bits), `${s}: ${v.bits} after ${prev}`);
+    prev = v.bits;
+  }
+  // 10^30 is about 80 doublings past 2^16: about 64 bits more, not the 10^25 a straight line through the ramp would give.
+  assert.ok(Math.abs(look([q(0), q(10n ** 30n)]).bits - (20 + 0.8 * Math.log2(1 + 1e30))) < 1e-6);
+  // A flat run of knots (a fit of slope 0) still rises past the best knot: at the law's floor, never saturated.
+  const flat = knots.map(k => ({ ...k, bits: k.u === null ? 0 : 20 }));
+  const ft = tailOf(flat);
+  assert.ok(ft.secondary.slope >= TAIL_FLOOR && ft.primary.slope >= TAIL_FLOOR);
+  assert.ok(valueLookup({ knots: flat })([q(0), q(10n ** 9n)]).bits > 20 + TAIL_FLOOR * 10);
+  // A count past the best primary rises too; a distance's tail reaches its top 0 at a finite, higher value.
+  const best = knots[knots.length - 1]!.bits;
+  assert.ok(look([q(3), q(0)]).bits > look([q(1), q(0)]).bits && look([q(1), q(0)]).bits > best);
+  const dist = [{ u: null, bits: 0, lo: 0, hi: 0, source: "exact" as const },
+    ...[-8, -4, -2, -1].map((d, i) => ({ u: ["0", String(d)], bits: 5 + i, lo: 5 + i, hi: 5 + i, source: "exact" as const }))];
+  const dt = tailOf(dist);
+  assert.equal(dt.secondary.form, "linear");
+  assert.ok(valueLookup({ knots: dist })([q(0), q(0)]).bits > 8);
+  // A magnitude primary (Sunken Intercept's −c: an unbounded hill as c goes down), measured to −c = 181500 at 15.6
+  // bits with a straight-line slope of almost 0: past it the value keeps rising, along a ramp in the size.
+  const sunk = [{ u: null, bits: 0, lo: 0, hi: 0, source: "sampled" as const },
+    ...[-40, -3, 20000, 60000, 120000, 181500].map((c, i) => ({ u: [String(c)], bits: 2 * i, lo: 2 * i, hi: 2 * i, source: "sampled" as const }))];
+  sunk[sunk.length - 1]!.bits = 15.6;
+  const st = tailOf(sunk, TAIL_CEILING);
+  assert.equal(st.primary.form, "log");
+  const sl = valueLookup({ knots: sunk, tail: st });
+  let last = 15.6;
+  for (const c of [10n ** 6n, 10n ** 9n, 10n ** 30n]) {
+    const v = sl([q(c)]);
+    assert.ok(v.at === "beyond" && v.bits > last && Number.isFinite(v.bits), `−c = ${c}: ${v.bits} after ${last}`);
+    last = v.bits;
+  }
+  // TAIL_FLOOR is the law's own: one coordinate's magnitude doubling from 1 to 2 under the mixed code.
+  assert.ok(TAIL_FLOOR > 0.38 && TAIL_FLOOR < 0.39);
 });
 
 test("a sampled estimate never moves an exact knot's certified interval; no oracle still gives the worst knot", () => {
@@ -107,10 +155,10 @@ test("a sampled estimate never moves an exact knot's certified interval; no orac
   }
   const none = knotsFrom([], tight).knots;
   assert.deepEqual(none.map(k => [k.u, k.bits]), [[null, 0]]);
-  assert.equal(valueLookup({ knots: none, tail: { secondary: 0, primary: 0 } })([q(0), q(1)]).at, "beyond");
+  assert.equal(valueLookup({ knots: none })([q(0), q(1)]).at, "beyond");
 });
 
-test("committed value functions are intact: each content hash matches, knots rise, and no sampled knot passes sampledMaxBits", async () => {
+test("committed value functions are intact: each content hash matches, knots rise, no sampled knot passes sampledMaxBits, and no tail saturates", async () => {
   const { canonicalJson, hashHex } = await import("@workspace/v2-core");
   const { readdirSync: ls, readFileSync: read } = await import("node:fs");
   const root = new URL("../values/", import.meta.url);
@@ -120,7 +168,32 @@ test("committed value functions are intact: each content hash matches, knots ris
     assert.equal(hashHex(canonicalJson(body)), contentHash, `${v}/${f}/${x}`);
     for (let i = 1; i < body.knots.length; i++) assert.ok(body.knots[i].bits >= body.knots[i - 1].bits, `${v}/${f}/${x}: knots rise`);
     for (const k of body.knots) if (k.source === "sampled") assert.ok(k.bits <= body.config.sampledMaxBits, `${v}/${f}/${x}: ${k.bits}`);
+    assert.equal(body.schema, 7, `${v}/${f}/${x}: schema`);
+    assert.deepEqual(body.tail, tailOf(body.knots, body.objectType === "line" ? TAIL_CEILING : Infinity), `${v}/${f}/${x}: the tail is the one its knots imply`);
+    for (const t of [body.tail.secondary, body.tail.primary]) assert.ok(t.slope > 0 && Number.isFinite(t.slope), `${v}/${f}/${x}: tail ${JSON.stringify(t)}`);
     n++;
   }
   assert.ok(n >= 60, `${n} value functions`);
+});
+
+test("the tail never over-pays the law: on lines it rises at most STEP bits per unit (a prime p costs p/2 bits)", async () => {
+  // Knots rising 0.66 bits per prime unit (a fit the sampler's noise can give): held to 0.5, the fitted slope kept.
+  const ps = [29, 31, 37, 41, 43, 47];
+  const knots = [{ u: null, bits: 0, lo: 0, hi: 0, source: "exact" as const },
+    ...ps.map(p => ({ u: ["0", String(p)], bits: 0.66 * p, lo: 0.66 * p, hi: 0.66 * p, source: "exact" as const }))];
+  const t = tailOf(knots, TAIL_CEILING);
+  assert.deepEqual([t.secondary.form, t.secondary.slope], ["linear", TAIL_CEILING]);
+  assert.ok(Math.abs(t.secondary.unclamped! - 0.66) < 1e-9);
+  assert.equal(tailOf(knots).secondary.slope, t.secondary.unclamped, "no ceiling off lines");
+  // The case found in play: line-q Square Area + spf at spf 367, whose witness y = −2x + 734 has φ ≈ 197.8.
+  const { readdirSync: ls, readFileSync: read } = await import("node:fs");
+  const { evaluateObject } = await import("@workspace/v2-core");
+  const { lineType, lineQ, squareArea, fromMC } = await import("@workspace/v2-linear");
+  const dir = new URL("../values/line-q/square-area/", import.meta.url);
+  const vf = JSON.parse(read(new URL(ls(dir).find(x => x.endsWith("-spf.json"))!, dir), "utf8"));
+  const witness = { lines: [fromMC(q(-2), q(734))] };
+  const score = evaluateObject(lineType, squareArea, {}, witness, lineQ, "spf").score;
+  assert.deepEqual(score, [q(0), q(367)]);
+  const bits = valueLookup(vf)(score).bits, phi = lineType.readLength(witness, lineQ);
+  assert.ok(bits <= phi, `spf 367: ${bits} bits against the witness's φ ${phi}`);
 });

@@ -84,3 +84,18 @@ test("size samplers draw each value with probability 2^−bits", () => {
   const f = factorCode(o);
   agrees<Q>(() => sampleFactor(r, o), toWire, x => f.bits(factorSize(x)));
 });
+
+test("the mixed integer code normalises the law with no box (owner decision 26): Kraft sum 1 over every integer", async () => {
+  const { mixedIntBits, mixedIntLog2Norm } = await import("../src/codes.ts");
+  // Z_1 = 2^−1 + 2·2^−(2 + log2 Z)·Π_p 1/(1 − 2^−p/2) = 1/2 + 1/2: the Euler product of the factorisation code.
+  assert.ok(Math.abs(mixedIntLog2Norm(1)) < 1e-9, `log2 Z_1 = ${mixedIntLog2Norm(1)}`);
+  // The partial sums over |n| ≤ N rise towards 1 from below: what lies past any box is only the code's tail, never
+  // refused mass (|n| ≤ 10^6 held all but about 3.4·10^−5 of it).
+  let sum = 2 ** -mixedIntBits(0n), last = 0;
+  for (let n = 1n, N = 10n; N <= 100_000n; N *= 10n) {
+    for (; n <= N; n++) sum += 2 * 2 ** -mixedIntBits(n);
+    assert.ok(sum > last && sum < 1, `|n| ≤ ${N}: ${sum}`);
+    last = sum;
+  }
+  assert.ok(1 - sum < 3e-4 && 1 - sum > 0, `tail past 10^5: ${1 - sum}`);
+});

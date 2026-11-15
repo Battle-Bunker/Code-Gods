@@ -9,11 +9,11 @@ const ALL_MUTATORS = mutators.map(m => m.id);
 
 export const lineZ: Variant = {
   id: "line-z", objectType: "line", mutators: ALL_MUTATORS, birthMixSteps: 64,
-  params: { domain: "Z", linesPerObject: 1, argDomain: "Z", heightCap: 1_000_000 },
+  params: { domain: "Z", linesPerObject: 1, argDomain: "Z" },
 };
 export const lineQ: Variant = {
   id: "line-q", objectType: "line", mutators: ALL_MUTATORS, birthMixSteps: 64,
-  params: { domain: "Q", linesPerObject: 1, argDomain: "Q", heightCap: 1_000_000 },
+  params: { domain: "Q", linesPerObject: 1, argDomain: "Q" },
 };
 /**
  * line-q with the five lens mutators (lenses-and-mutators.md §5: a turn, a swap, a lean, a zoom, a fold) beside the nine.
@@ -29,7 +29,7 @@ export const lineQLenses: Variant = {
 };
 export const lineZ4: Variant = {
   id: "line-z4", objectType: "line", mutators: ALL_MUTATORS, birthMixSteps: 64,
-  params: { domain: "Z", linesPerObject: 4, argDomain: "Z", heightCap: 1_000_000 },
+  params: { domain: "Z", linesPerObject: 4, argDomain: "Z" },
 };
 
 export const lineType: ObjectType<LineState> = {

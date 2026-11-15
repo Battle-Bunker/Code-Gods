@@ -247,7 +247,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     const r = roomOf(e), b = r.bid!;
     return {
       deadline: b.deadline, pricing: "first",
-      families: FAMILIES.map(family => ({ family, card: `The ${family} rule.`, top: bitsAt(0) })),
+      families: FAMILIES.map(family => ({ family, card: `The ${family} rule.`, measuredTo: bitsAt(0) })),
       mine: Object.entries(b.bids[e.userId] ?? {}).map(([family, percent]) => ({ family, percent })),
       done: r.members.filter(m => m.userId && b.done.includes(m.userId)).map(m => ({ memberId: m.memberId, name: m.name })),
     };

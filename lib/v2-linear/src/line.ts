@@ -18,7 +18,6 @@ export interface LineParams {
   readonly domain: Domain;
   readonly linesPerObject: number;
   readonly argDomain: Domain;
-  readonly heightCap: bigint;
 }
 
 export function lineParams(v: Variant): LineParams {
@@ -28,11 +27,8 @@ export function lineParams(v: Variant): LineParams {
     domain,
     linesPerObject: typeof p.linesPerObject === "number" ? p.linesPerObject : 1,
     argDomain: p.argDomain === "Q" || p.argDomain === "Z" ? p.argDomain : domain,
-    heightCap: typeof p.heightCap === "bigint" ? p.heightCap : BigInt((p.heightCap as number | undefined) ?? 1_000_000),
   };
 }
-
-const absB = (x: bigint): bigint => (x < 0n ? -x : x);
 
 /** The primitive, sign-normalised triple, or why there is no line. */
 export function normalise(a: bigint, b: bigint, c: bigint): Line | Invalid {
@@ -43,14 +39,15 @@ export function normalise(a: bigint, b: bigint, c: bigint): Line | Invalid {
   return { a: na, b: nb, c: nc };
 }
 
-/** The line in the variant's domain, or why not. */
+/**
+ * The line in the variant's domain, or why not. There is no box on the coefficients (owner decision 26): a bigger
+ * number is only dearer, through φ (the mixed number code), never refused.
+ */
 export function inDomain(line: Line | Invalid, p: LineParams): Line | Invalid {
   if ("invalid" in line) return line;
   if (p.domain === "Z" && line.b !== 1n) {
     return { invalid: line.b === 0n ? "a vertical line is not on this board" : "this board only has whole-number gradients and intercepts" };
   }
-  const cap = p.heightCap;
-  if (absB(line.a) > cap || absB(line.b) > cap || absB(line.c) > cap) return { invalid: "those numbers are past the board's limit" };
   return line;
 }
 

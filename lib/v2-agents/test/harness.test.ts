@@ -28,7 +28,7 @@ test("two players on shared lines spend their budget, by view, and both rules ar
   assert.equal(a.utilities.start.length, 2, "main part and tie-breaker");
   assert.equal(a.utilities.end.length, 2);
   const vf = findValues("line-z", { family: "m-meets-c", params: {}, tieBreaker: "meetPrime" })!;
-  assert.equal(a.bits!.top, vf.knots.at(-1)!.bits, "the rule's top is its best knot's bits");
+  assert.equal(a.bits!.measuredTo, vf.knots.at(-1)!.bits, "measured to: the furthest knot's bits");
   assert.ok(Math.abs(a.bitsGained! - 3 * (a.bits!.end - a.bits!.start)) < 1e-9, "bits gained is the sum over the lines");
   assert.match(formatReport(r), /\| A \| m-meets-c\/meetPrime \|/);
 });

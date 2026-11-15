@@ -4,8 +4,9 @@
  * Under the potential the law is π ∝ 2^−φ, and φ is a sum of independent mixed-integer codes: (m, c) on whole-number
  * lines, the primitive triple (a, b, c) on fraction lines, and one such code per line on a tuple of lines. The code is
  * complete (its Kraft sum is 1), so each coordinate is drawn exactly from p(n) = 2^−mixedInt(n) (sampleMixedInt), and a
- * fraction line is a triple drawn this way and kept only when it is canonical (primitive, b > 0 or b = 0 < a, in the
- * board's range): the law conditioned on lines, which is π.
+ * fraction line is a triple drawn this way and kept only when it is canonical (primitive, b > 0 or b = 0 < a): the law
+ * conditioned on lines, which is π. There is no box on the coefficients (owner decision 26): the code alone normalises
+ * the law (Σ over all integers of 2^−mixedInt(n) is 1, so the canonical triples hold mass at most 1).
  *
  * A tilt t < 1 draws each coordinate from q_t(n) = 2^(−t·mixedInt(n))/Z_t instead: heavier tails, for importance
  * sampling of rare scores. A draw reports φ (its total bits) and how many coordinates it drew, so a caller can weigh it

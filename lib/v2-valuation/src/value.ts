@@ -7,8 +7,13 @@
  * with a certified interval [lo, hi] for its bits. Survival is monotone in the score, so for a score between two knots
  * k_i ≤ s ≤ k_j the value lies in [lo(k_i), hi(k_j)] whatever happens between them: that bracket is the only
  * interpolation. Knots are kept wherever the value moves by more than `delta` bits, so a lookup between knots is within
- * delta/2 of its midpoint. A score better than the best knot is extrapolated from the last knots (marked, with the best
- * knot's lower bound as its certified floor).
+ * delta/2 of its midpoint. A score better than the best knot is extrapolated from the last knots by the tail rule
+ * (marked, with the best knot's lower bound as its certified floor). The best knot is where the measurement stops, not
+ * a maximum: the tail keeps rising without bound wherever the score can keep improving (owner decision 26), so the
+ * energy a state can be worth has no ceiling. The tail is the rule; the knots below it are where it is measured.
+ *
+ * The law has no box on the coefficients either: p(n) = 2^−mixedInt(n) is a complete code over all integers (its Kraft
+ * sum is 1), so π is normalised by the code alone and the exact sums below need no conditioning.
  *
  * Knots come from survival "oracles": exact sums where a family declares them (lib/v2-linear sums.ts: separable, bands,
  * or the generic enumeration of the cheapest lines), and direct draws from π (owner decision 22) with a mixture of tilted
@@ -193,7 +198,8 @@ export interface ValueConfig {
    * No sampled knot is certified past this many bits: the rarity to which the direct-draw sampler stayed calibrated in
    * independent replicates against the exact sums on line-z (sampler-check --replicates: 16 seeds, 6 pairings, |z| > 2 in
    * 4.2% of checks at 6–12 bits and 2.8% at 12–18; above 18 bits too few checks). Rarer scores are left to the tail rule,
-   * marked "beyond", with the last certified knot as their floor.
+   * marked "beyond", with the last certified knot as their floor. A limit on measurement, not on value: past it the
+   * tail keeps rising without bound.
    */
   readonly sampledMaxBits: number;
 }
@@ -204,18 +210,29 @@ export const VALUE_CONFIG: ValueConfig = {
   sampledRel: 0.05, sampledAbs: 0.2, sampledMaxBits: 18,
 };
 
+/**
+ * How one utility past the best knot is worth more (owner decision 26: no maximum, a cost that makes larger numbers
+ * harder to reach). "linear": `slope` bits per unit of the utility; "log": `slope` bits per doubling of 1 + the utility
+ * (a magnitude ramp, for utilities ≥ 0, where each doubling of a coordinate costs about the same). The slope is always
+ * positive, so the extrapolation keeps rising without bound wherever the utility can keep improving.
+ */
+export interface TailFit {
+  readonly form: "linear" | "log";
+  readonly slope: number;
+  /** The fitted slope when the law's ceiling (TAIL_CEILING) cut it: a record that the knots alone would over-pay. */
+  readonly unclamped?: number;
+}
+
 export interface ValueTail {
-  /**
-   * How a score better than the best knot is extrapolated: bits per unit (≥ 0) of the secondary utility at the best
-   * knot's primary, and of the primary utility; each a straight line through the last knots (0: flat).
-   */
-  readonly secondary: number;
-  readonly primary: number;
+  /** Along the secondary utility at the best knot's primary. */
+  readonly secondary: TailFit;
+  /** Along the primary utility. */
+  readonly primary: TailFit;
 }
 
 export interface ValueFunction {
-  /** 6: value functions (owner decision 23). */
-  readonly schema: 6;
+  /** 7: value functions (owner decision 23) whose tails have a form and never saturate (owner decision 26). */
+  readonly schema: 7;
   readonly kind: "value-function";
   readonly ruleKey: string;
   readonly objectType: string;
@@ -293,25 +310,102 @@ export function knotsFrom(oracles: readonly Oracle[], cfg: Pick<ValueConfig, "de
   };
 }
 
-/** The tail rule: straight lines through the last knots, along the secondary utility and along the primary. */
-export function tailOf(knots: readonly ValueKnot[]): ValueTail {
+/** A rational as a float; a ratio of numbers too big for floats by bigint division. */
+function toNumber(x: Q): number {
+  const v = Number(x.n) / Number(x.d);
+  return Number.isNaN(v) ? Number(x.n / x.d) : v;
+}
+/** log2 of a positive bigint, at any size. */
+function log2Big(n: bigint): number {
+  const len = n.toString(2).length;
+  return len <= 1000 ? Math.log2(Number(n)) : Math.log2(Number(n >> BigInt(len - 64))) + (len - 64);
+}
+/** log2(1 + x) for x ≥ 0 (negative x counts as 0), at any size. */
+function log2OnePlus(x: Q): number {
+  if (x.n <= 0n) return 0;
+  const v = toNumber(x);
+  return Number.isFinite(v) ? Math.log2(1 + v) : log2Big(x.d + x.n) - log2Big(x.d);
+}
+/** Where a utility sits along a tail's form. */
+const along = (form: TailFit["form"], x: Q): number => (form === "log" ? log2OnePlus(x) : toNumber(x));
+
+/**
+ * The law's floor for a tail (bits per doubling): how much rarer one coordinate's magnitude gets when it doubles from 1
+ * to 2 under p(n) = 2^−mixedInt(n), −log2 P(|n| ≥ 2) + log2 P(|n| ≥ 1) ≈ 0.38, the slowest it ever decays (it rises
+ * towards 1 bit per doubling for large numbers). A tail never rises more slowly than this.
+ */
+export const TAIL_FLOOR = (() => {
+  const p = (n: bigint) => 2 ** -mixedIntBits(n);
+  const atLeast1 = 1 - p(0n), atLeast2 = atLeast1 - 2 * p(1n);
+  return Math.log2(atLeast1 / atLeast2);
+})();
+
+/** The least-squares slope of y on x and its residual sum of squares, or null with fewer than two distinct x. */
+function leastSquares(pts: readonly { x: number; y: number }[]): { slope: number; sse: number } | null {
+  if (pts.length < 2) return null;
+  const mx = pts.reduce((a, p) => a + p.x, 0) / pts.length, my = pts.reduce((a, p) => a + p.y, 0) / pts.length;
+  let sxx = 0, sxy = 0;
+  for (const p of pts) { sxx += (p.x - mx) ** 2; sxy += (p.x - mx) * (p.y - my); }
+  if (!(sxx > 0) || !Number.isFinite(sxy / sxx)) return null;
+  const slope = sxy / sxx;
+  return { slope, sse: pts.reduce((a, p) => a + (p.y - my - slope * (p.x - mx)) ** 2, 0) };
+}
+
+/**
+ * The law's ceiling for a tail on a utility ≥ 0 (bits per unit): STEP, what the mixed code charges per unit of a prime
+ * (a prime p costs p/2 bits). bits(score) ≤ φ of the cheapest state with that score, and the dearest way a size,
+ * prime or count can grow is through a new prime factor, so a tail never rises faster than this per unit: y = −2x + 734
+ * (spf 367) has φ 197.8, which a fitted 0.66 bits per unit would over-pay by 50 bits. A ramp's steepest point is its
+ * start, so a ramp is held to STEP per unit there: slope ≤ STEP·(1 + u_best)·ln 2 per doubling.
+ */
+export const TAIL_CEILING = STEP;
+
+/**
+ * One component's tail from the last knots along it (worst first; the last is the best knot). Utilities ≥ 0 (sizes,
+ * counts, primes) take a straight line where one fits the knots at least as well as a magnitude ramp (bits on
+ * log2(1 + u)) over three knots or more, at a per-unit cost on the code's scale (≥ STEP/4: a prime's p/2 bits, a
+ * count's steps); otherwise the ramp. A line through a magnitude would over-value far scores without bound (2^30 is
+ * cheap under the code, 2^30 units of a shallow line are not), so shallow lines are ramps. Either is held under the
+ * law's ceiling (`ceiling`, TAIL_CEILING on lines); `unclamped` keeps the fitted slope when the ceiling cut it. Utilities that are distances
+ * (≤ 0, best 0) take a straight line: their tail ends at 0, a finite top. A fit that rises more slowly than the law's
+ * floor, or not at all (too few knots, noise), takes the floor: a ramp of TAIL_FLOOR bits per doubling, or for a
+ * distance a line on which closing the rest of the gap to 0 is worth TAIL_FLOOR bits. The ceiling wins over the floor.
+ */
+function fitTail(pts: readonly { u: Q; y: number }[], ceiling: number): TailFit {
+  const best = pts[pts.length - 1];
+  if (!best) return { form: "log", slope: TAIL_FLOOR };
+  if (best.u.n > 0n || pts.every(p => p.u.n >= 0n)) {
+    // A size (a magnitude, primary or secondary: −c on a sunken intercept, min(m, c), a prime): fitted on the knots at
+    // or above 0, whatever lies below them.
+    const pos = pts.filter(p => p.u.n >= 0n);
+    const lin = leastSquares(pos.map(p => ({ x: toNumber(p.u), y: p.y })));
+    const ramp = leastSquares(pos.map(p => ({ x: log2OnePlus(p.u), y: p.y })));
+    const lineFits = pos.length >= 3 && lin !== null && lin.slope >= TAIL_CEILING / 4
+      && (ramp === null || ramp.slope <= 0 || lin.sse <= ramp.sse);
+    const fit: TailFit = lineFits ? { form: "linear", slope: lin!.slope } : { form: "log", slope: Math.max(ramp?.slope ?? 0, TAIL_FLOOR) };
+    const most = fit.form === "linear" ? ceiling : ceiling * (1 + toNumber(best.u)) * Math.LN2;
+    return fit.slope > most ? { form: fit.form, slope: most, unclamped: fit.slope } : fit;
+  }
+  const gap = Math.max(-toNumber(best.u), 0) || 1;
+  const lin = leastSquares(pts.map(p => ({ x: toNumber(p.u), y: p.y })));
+  return { form: "linear", slope: Math.max(lin?.slope ?? 0, TAIL_FLOOR / gap) };
+}
+
+/**
+ * The tail rule: fits through the last knots (at most six), along the secondary utility and along the primary, held
+ * under `ceiling` bits per unit (TAIL_CEILING on lines, whose coordinates take the mixed integer code; none elsewhere).
+ */
+export function tailOf(knots: readonly Pick<ValueKnot, "u" | "bits">[], ceiling = Infinity): ValueTail {
   const parsed = knots.map(k => ({ u: scoreFromWire(k.u), bits: k.bits })).filter(k => k.u !== null);
   const best = parsed[parsed.length - 1];
-  if (!best) return { secondary: 0, primary: 0 };
-  const num = (x: Q) => Number(x.n) / Number(x.d);
-  const fit = (pts: { x: number; y: number }[]) => {
-    if (pts.length < 2) return 0;
-    const mx = pts.reduce((a, p) => a + p.x, 0) / pts.length, my = pts.reduce((a, p) => a + p.y, 0) / pts.length;
-    let sxx = 0, sxy = 0;
-    for (const p of pts) { sxx += (p.x - mx) ** 2; sxy += (p.x - mx) * (p.y - my); }
-    return sxx > 0 && Number.isFinite(sxy / sxx) ? Math.max(0, sxy / sxx) : 0;
-  };
+  if (!best) return { secondary: fitTail([], ceiling), primary: fitTail([], ceiling) };
   const b = best.u!;
   const same = b.length > 1 && b[1] !== null
     ? parsed.filter(k => compareScores([k.u![0]!], [b[0]!]) === 0 && k.u!.length > 1 && k.u![1] !== null).slice(-6) : [];
-  const firsts: { x: number; y: number }[] = [];
-  for (const k of parsed) if (!firsts.length || firsts[firsts.length - 1]!.x !== num(k.u![0]!)) firsts.push({ x: num(k.u![0]!), y: k.bits });
-  return { secondary: fit(same.map(k => ({ x: num(k.u![1]!), y: k.bits }))), primary: fit(firsts.slice(-6)) };
+  // Along the primary: the first (worst) knot at each primary, the survival of "primary at least this".
+  const firsts: { u: Q; y: number }[] = [];
+  for (const k of parsed) if (!firsts.length || compareScores([firsts[firsts.length - 1]!.u], [k.u![0]!]) !== 0) firsts.push({ u: k.u![0]!, y: k.bits });
+  return { secondary: fitTail(same.map(k => ({ u: k.u![1]!, y: k.bits })), ceiling), primary: fitTail(firsts.slice(-6), ceiling) };
 }
 
 export interface Lookup {
@@ -323,10 +417,13 @@ export interface Lookup {
   readonly at: "knot" | "between" | "beyond";
 }
 
-/** A lookup function for a value function: bits at any score. */
-export function valueLookup(vf: Pick<ValueFunction, "knots" | "tail">): (u: Score) => Lookup {
+/**
+ * A lookup function for a value function: bits at any score. Past the best knot the tail rule extrapolates without
+ * bound (owner decision 26); a value function given without its tail takes the tail its knots imply (tailOf).
+ */
+export function valueLookup(vf: { readonly knots: readonly Pick<ValueKnot, "u" | "bits" | "lo" | "hi">[]; readonly tail?: ValueTail | null }): (u: Score) => Lookup {
   const ks = vf.knots.map(k => ({ ...k, s: scoreFromWire(k.u) }));
-  const num = (x: Q) => Number(x.n) / Number(x.d);
+  const tail = vf.tail ?? tailOf(vf.knots);
   return (u: Score) => {
     if (u === null) return { bits: 0, lo: 0, hi: 0, at: "knot" };
     // The last knot at most u.
@@ -341,10 +438,11 @@ export function valueLookup(vf: Pick<ValueFunction, "knots" | "tail">): (u: Scor
     let bits = k.bits;
     const s = k.s;
     if (s !== null && u[0] && s[0]) {
-      if (compareScores([u[0]], [s[0]]) === 0) { if (u[1] && s[1]) bits += vf.tail.secondary * (num(u[1]) - num(s[1])); }
-      else bits += vf.tail.primary * (num(u[0]) - num(s[0]));
+      const t = compareScores([u[0]], [s[0]]) === 0 ? (u[1] && s[1] ? { fit: tail.secondary, from: s[1], to: u[1] } : null) : { fit: tail.primary, from: s[0], to: u[0] };
+      if (t) bits += t.fit.slope * (along(t.fit.form, t.to) - along(t.fit.form, t.from));
     }
-    return { bits: Math.max(bits, k.bits), lo: k.lo, hi: Infinity, at: "beyond" };
+    // Floats end somewhere: a score past them is worth the largest finite number of bits, never Infinity or NaN.
+    return { bits: Math.min(Number.isNaN(bits) ? k.bits : Math.max(bits, k.bits), Number.MAX_VALUE), lo: k.lo, hi: Infinity, at: "beyond" };
   };
 }
 
@@ -355,39 +453,14 @@ function utilityOf<P>(family: RuleFamily<LineState, P>, params: P, variant: Vari
   return evaluateObject(lineType, family, params, state, variant, tb).score;
 }
 
-const capCache = new Map<bigint, number>();
-/**
- * P(|n| ≤ cap) under p(n) = 2^−mixedInt(n): the board refuses numbers past its height cap, so the walk's law is p
- * conditioned on every coordinate within the cap, and the exact sums divide by this per coordinate. By a sieve.
- */
-export function capMass(cap: bigint): number {
-  const hit = capCache.get(cap);
-  if (hit !== undefined) return hit;
-  const N = Number(cap);
-  if (!Number.isSafeInteger(N) || N > 50_000_000) throw new RangeError(`a height cap of ${cap} is too large to sum`);
-  const spf = new Uint32Array(N + 1);
-  for (let i = 2; i <= N; i++) if (spf[i] === 0) for (let j = i; j <= N; j += i) if (spf[j] === 0) spf[j] = i;
-  const base = mixedIntBits(1n);   // 2 + log2 Z: the bits of ±1
-  const fw = new Float64Array(N + 1);   // STEP · Σ e·p, by the smallest prime factor
-  let sum = 0;
-  for (let n = 1; n <= N; n++) {
-    if (n > 1) fw[n] = fw[n / spf[n]!]! + STEP * spf[n]!;
-    sum += 2 ** -(base + fw[n]!);
-  }
-  const mass = 2 ** -mixedIntBits(0n) + 2 * sum;
-  capCache.set(cap, mass);
-  return mass;
-}
-
 /** Exact oracles for a rule on one whole-number line per object: its declared plan, and the cheapest lines. */
 export function exactLineOracles<P>(family: RuleFamily<LineState, P>, params: P, variant: Variant, tb: TieBreaker, cfg: ValueConfig): Oracle[] {
   const lp = lineParams(variant);
   if (lp.domain !== "Z" || lp.linesPerObject !== 1) return [];
   const plan = lineSums[family.id] as LineSums<P> | undefined;
   const line = (m: bigint, c: bigint): LineState => ({ lines: [fromMC(q(m), q(c))] });
-  // The law is conditioned on |m|, |c| ≤ the height cap: enumerations keep in-cap numbers, and masses are per Z1 = P(in cap).
-  const cap = lp.heightCap, Z1 = capMass(cap);
-  const within = (budget: number) => integersWithin(budget).filter(n => (n.n < 0n ? -n.n : n.n) <= cap);
+  // The law is the product of the mixed code on m and c, over every integer (no box, owner decision 26): its Kraft sum is 1.
+  const within = integersWithin;
   const out: Oracle[] = [];
   // 1. The generic enumeration of every line with φ(m) + φ(c) ≤ triangleBits.
   {
@@ -396,7 +469,7 @@ export function exactLineOracles<P>(family: RuleFamily<LineState, P>, params: P,
     let inside = 0;
     for (const m of ints) for (const c of ints) {
       if (m.bits + c.bits > cfg.triangleBits) break;
-      const w = 2 ** -(m.bits + c.bits) / (Z1 * Z1);
+      const w = 2 ** -(m.bits + c.bits);
       inside += w;
       entries.add(utilityOf(family, params, variant, tb, line(m.n, c.n)), w);
     }
@@ -406,7 +479,7 @@ export function exactLineOracles<P>(family: RuleFamily<LineState, P>, params: P,
   const layers = ruleLayers(family, tb).map(l => l.id);
   const on = layers.map(id => plan?.separable?.[id]);
   if (on.every(x => x !== undefined)) {
-    const ints = within(cfg.separableBits).map(n => ({ n: n.n, bits: n.bits + Math.log2(Z1) }));   // the capped 1D law
+    const ints = within(cfg.separableBits);
     const T = Math.max(0, 1 - ints.reduce((a, n) => a + 2 ** -n.bits, 0));
     const REF = 7n;
     const at = (coord: "m" | "c", n: bigint) => utilityOf(family, params, variant, tb, coord === "m" ? line(n, REF) : line(REF, n));
@@ -423,43 +496,38 @@ export function exactLineOracles<P>(family: RuleFamily<LineState, P>, params: P,
     }
   }
   // 3. Bands: every line at or above a main utility lies in the band's ranges.
-  for (const band of plan?.bands ?? []) out.push(bandOracle(family, params, variant, tb, band, cfg, cap, Z1));
+  for (const band of plan?.bands ?? []) out.push(bandOracle(family, params, variant, tb, band, cfg));
   return out;
 }
 
-function bandOracle<P>(family: RuleFamily<LineState, P>, params: P, variant: Variant, tb: TieBreaker, band: Band<P>, cfg: ValueConfig,
-  cap: bigint, Z1: number): Oracle {
+function bandOracle<P>(family: RuleFamily<LineState, P>, params: P, variant: Variant, tb: TieBreaker, band: Band<P>, cfg: ValueConfig): Oracle {
   const atLeast: Q = band.atLeast(params);
-  const abs = (x: bigint) => (x < 0n ? -x : x);
-  // The capped 1D law: in-cap numbers, each mass divided by Z1 (its bits raised by log2 Z1).
-  const lz = Math.log2(Z1);
-  const ints = integersWithin(cfg.bandBits).filter(n => abs(n.n) <= cap).map(n => ({ n: n.n, bits: n.bits + lz }));
+  const ints = integersWithin(cfg.bandBits);
   const byValue = [...ints].sort((a, b) => (a.n < b.n ? -1 : a.n > b.n ? 1 : 0));
   const prefix = [0];
   for (const x of byValue) prefix.push(prefix[prefix.length - 1]! + 2 ** -x.bits);
   const T1 = Math.max(0, 1 - prefix[prefix.length - 1]!);
   const lower = (v: bigint) => { let a = 0, b = byValue.length; while (a < b) { const h = (a + b) >> 1; if (byValue[h]!.n < v) a = h + 1; else b = h; } return a; };
-  const one = mixedIntBits(1n) + lz;   // bits(t·k) = bits(t) + bits(k) − bits(1), all three on the capped law
+  const one = mixedIntBits(1n);   // bits(t·k) = bits(t) + bits(k) − bits(1)
   const entries = new MassMap();
   let slack = 0, pointMass = 0;
   const add = (pm: number, m: bigint, c: bigint, bits: number) =>
     entries.add(utilityOf(family, params, variant, tb, { lines: [fromMC(q(m), q(c))] }), pm * 2 ** -bits);
-  const capped = (n: bigint) => mixedIntBits(n) + lz;
-  if (band.points === "same") for (const r of band.ranges(0n, params)) if (abs(r.lo) <= cap) pointMass += 2 ** -capped(r.lo);
+  if (band.points === "same") for (const r of band.ranges(0n, params)) pointMass += 2 ** -mixedIntBits(r.lo);
   if (band.points === "one-per-m") pointMass = 2 ** -Math.min(...ints.map(x => x.bits));
   for (const m of ints) {
     const pm = 2 ** -m.bits;
     const seen = new Set<bigint>();
     for (const r of band.ranges(m.n, params)) {
-      if (band.points) { if (!seen.has(r.lo) && abs(r.lo) <= cap) { seen.add(r.lo); add(pm, m.n, r.lo, capped(r.lo)); } continue; }
+      if (band.points) { if (!seen.has(r.lo)) { seen.add(r.lo); add(pm, m.n, r.lo, mixedIntBits(r.lo)); } continue; }
       if (r.step) {
-        const tBits = capped(r.step);
+        const tBits = mixedIntBits(r.step);
         for (const k of ints) {
           if (k.n !== 0n && tBits + k.bits - one > cfg.bandBits) { if (k.bits > cfg.bandBits - tBits + one) break; continue; }
           const c = r.step * k.n;
-          if (c < r.lo || c > r.hi || abs(c) > cap || seen.has(c)) continue;
+          if (c < r.lo || c > r.hi || seen.has(c)) continue;
           seen.add(c);
-          add(pm, m.n, c, k.n === 0n ? capped(0n) : tBits + k.bits - one);
+          add(pm, m.n, c, k.n === 0n ? mixedIntBits(0n) : tBits + k.bits - one);
         }
         continue;
       }
@@ -518,10 +586,10 @@ export function lineValueFunction<P>(family: RuleFamily<LineState, P>, params: P
   }
   const { knots, candidates } = knotsFrom(oracles, cfg);
   const body = {
-    schema: 6 as const, kind: "value-function" as const,
+    schema: 7 as const, kind: "value-function" as const,
     ruleKey: ruleKey(lineType as ObjectType<unknown>, variant, family.id, params, tieBreaker),
     objectType: lineType.id, objectTypeVersion: lineType.version, variant: variant.id, variantHash: hashHex(canonicalJson(variant)),
-    family: family.id, params, tieBreaker, seed, config: cfg, knots, tail: tailOf(knots),
+    family: family.id, params, tieBreaker, seed, config: cfg, knots, tail: tailOf(knots, TAIL_CEILING),
     diagnostics: { exact: exact.map(o => ({ name: o.name, outside: o.outside ?? 0 })), sampled, candidates },
   };
   return { ...body, contentHash: hashHex(canonicalJson(body)) };
