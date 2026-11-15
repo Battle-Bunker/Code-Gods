@@ -59,6 +59,8 @@
 #                                do not raise your own rarity it prices only the best two, so an act with nothing to
 #                                gain costs little. now is your score here; without the game's values it takes the step
 #                                best for your rule instead.
+#   allowance(offer)             the most one move should cost now: the agent's energy (no debt), and at most 15 seconds
+#                                of its income where the game says what it earns. climb never takes a dearer move.
 #   note(offer, text)            leave your owner a short note (they read it in the act log). At most 3 a turn.
 #   contested(offer, times)      True when pushback(offer) has reached times; it then leaves your owner a note naming
 #                                the tug-of-war and suggesting a deal with the other player.
@@ -464,20 +466,31 @@ def pair_steps(L, far, kinds):
     return out
 
 
+_ALLOWANCE_SECONDS = 15   # a move may cost at most this many seconds of the agent's income
+
+
+def allowance(offer):
+    b = offer.budget()
+    cap = max(0, b.energy)
+    income = getattr(b, "income", None)
+    return min(cap, _ALLOWANCE_SECONDS * income) if isinstance(income, (int, float)) and income > 0 else cap
+
+
 def climb(offer, options, now, most=None):
     options = sorted(options, key=_functools.cmp_to_key(lambda a, b: -1 if better(a[1], b[1]) else 1 if better(b[1], a[1]) else 0))
     if most is not None:
         options = options[:most]
     w = worth(offer)
-    best = None
     if w is None:   # the best step for your rule that beats now and is allowed
+        cap = allowance(offer)
         for plan, s in options:
             if not better(s, now):
                 break
-            if price(offer, plan) is not None:
+            p = price(offer, plan)
+            if p is not None and p <= cap:
                 return _as_plan(plan)
         return None
-    value, spare = w.mine * w.others, 2
+    value, spare, ranked = w.mine * w.others, 2, []
     for plan, s in options:
         r = rarity(offer, s)   # free
         if r <= 0:   # sorted best first: the rest score no points for you either
@@ -494,8 +507,15 @@ def climb(offer, options, now, most=None):
             continue
         v = r * o.after
         if v > value + 1e-9:
-            value, best = v, plan
-    return None if best is None else _as_plan(best)
+            ranked.append((v, plan))
+    # The best step it can pay for within its allowance (its energy, and a few seconds of its income).
+    ranked.sort(key=lambda x: -x[0])
+    cap = allowance(offer)
+    for _, plan in ranked[:4]:
+        p = price(offer, plan)
+        if p is not None and p <= cap:
+            return _as_plan(plan)
+    return None
 
 
 def fair(offer, plan):

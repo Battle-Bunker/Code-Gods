@@ -23,6 +23,8 @@ export interface ActInput<S> {
   readonly seed: string | bigint;
   /** The agent's energy, as `budget()` reports it. */
   readonly energy: number;
+  /** The energy the agent earns a second, as `budget()` reports it (absent: unknown). */
+  readonly income?: number;
   /** Which object was offered, and how many were live (the offer costs log2 of that, read bits; §6.1). */
   readonly object?: number;
   readonly liveObjects?: number;
@@ -80,7 +82,7 @@ export async function runAct<S>(sandbox: Sandbox, input: ActInput<S>): Promise<{
   if (sandbox.language !== input.program.language) throw new Error(`a ${sandbox.language} sandbox cannot run a ${input.program.language} program`);
   const economy = input.economy ?? SPEC_ECONOMY;
   const host = new EngineHost({
-    type: input.type, variant: input.variant, state: input.state, rule: input.rule, energy: input.energy, economy,
+    type: input.type, variant: input.variant, state: input.state, rule: input.rule, energy: input.energy, ...(input.income === undefined ? {} : { income: input.income }), economy,
     value: input.value, history: input.history, values: input.values, others: input.others, occupied: input.occupied, disclosed: input.disclosed,
   });
   const offerBits = Math.log2(Math.max(1, input.liveObjects ?? 1));

@@ -61,6 +61,8 @@ export interface HostInput<S> {
   readonly rule: RuleRef;
   /** The agent's energy, as `budget()` reports it. */
   readonly energy: number;
+  /** The energy the agent earns a second (its share of its player's power), as `budget()` reports it; absent: unknown. */
+  readonly income?: number;
   readonly economy?: Economy;
   /** What the offered line is worth to the player now (spec §8, what they see): n_i, Σ n_j and π_i, in bits. */
   readonly value?: { readonly mine: number; readonly others: number; readonly points: number };
@@ -189,7 +191,7 @@ export class EngineHost<S> implements AgentHost {
       }, 0);
       case "myScore": return this.score();
       case "quote": return this.quote(request.calls);
-      case "budget": return ok({ energy: this.energy, readPrice: 1 / this.economy.kappa, beta: this.economy.beta, hostCallsLeft: context.hostCallsLeft }, 0);
+      case "budget": return ok({ energy: this.energy, income: this.input.income ?? null, readPrice: 1 / this.economy.kappa, beta: this.economy.beta, hostCallsLeft: context.hostCallsLeft }, 0);
       case "worth": {
         const v = this.input.values ? this.input.value : undefined;   // worth comes with rarity, or not at all
         return v ? ok({ mine: v.mine, others: v.others, points: v.points }, this.charged("worth", WORTH_BITS)) : err("this game does not say what lines are worth to agents");
