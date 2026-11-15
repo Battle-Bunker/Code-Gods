@@ -122,8 +122,9 @@ test("contributors never throw, and say no steps, on a walk of lines under every
 
 test("a change from or to an undefined quantity says 'none', not the reason sentence", async () => {
   const { changesBetween, contributors } = await import("../src/index.ts");
-  const { sameOnBothRulers, normalise } = await import("@workspace/v2-linear");
-  const rule = { type: lineType, family: sameOnBothRulers, params: sameOnBothRulers.dealable(lineQ)[0], variant: lineQ, tieBreaker: "m-spf" } as never;
+  // Square Area has no reading of a vertical line (no triangle with the axes); some families do (they score it).
+  const { squareArea, normalise } = await import("@workspace/v2-linear");
+  const rule = { type: lineType, family: squareArea, params: squareArea.dealable(lineQ)[0], variant: lineQ, tieBreaker: "spf" } as never;
   const vertical = { lines: [normalise(1n, 0n, -1n) as never] } as LineState, sloped = mc(q(2, 3), q(7, 4));
   const up = changesBetween(contributors(rule, vertical).parts, contributors(rule, sloped).parts);
   assert.ok(up.length > 0, "the parts changed");
