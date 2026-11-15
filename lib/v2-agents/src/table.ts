@@ -189,7 +189,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     if (!sandboxOf.has(language)) sandboxOf.set(language, await boxes.get(language));
     return sandboxOf.get(language)!;
   };
-  const log: { seq: number; object: number; by: number; agentId: string; before: number[]; after: number[]; record: ActRecord; charge: number; at: number; from: string; to: string }[] = [];
+  const log: { seq: number; object: number; by: number; agentId: string; before: number[]; after: number[]; record: ActRecord; charge: number; at: number }[] = [];
   const byLine = new Map<number, typeof log>();   // each line's moves, for the history an act sees
   const gains = new Map<number, Map<number, { charge: number; pointsAfter: number }>>();
   const reversal = seats.map(() => 0);
@@ -267,11 +267,8 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     if (!a) return;
     const i = a.seat, energy = balance.get(a)!;
     const n = bitsAll(lines[object]!), total = n.reduce((x, y) => x + y, 0);
-    // A move of the seat's own is undone when a later move by someone else put the line back where it was (public log).
-    const seen = byLine.get(object) ?? [];
-    const history = seen.filter(m => m.by === i || m.before[i] !== m.after[i]).slice(-8)
-      .map(m => ({ mine: m.by === i, pointsBefore: m.before[i]!, pointsAfter: m.after[i]!,
-        ...(m.by === i ? { calls: m.record.calls, undone: seen.some(l => l.seq > m.seq && l.by !== i && l.to === m.from) } : {}) }));
+    const history = (byLine.get(object) ?? []).filter(m => m.by === i || m.before[i] !== m.after[i]).slice(-8)
+      .map(m => ({ mine: m.by === i, pointsBefore: m.before[i]!, pointsAfter: m.after[i]! }));
     const actKey = `act:${actN}`;
     let reads = 0;
     const { record, state } = await runAct(await sandbox(a.program.language), {
@@ -300,7 +297,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     const before = points[object]!, after = pointsOf(state);
     stats[i]!.moves++; if (after[i]! > before[i]! + 1e-9) stats[i]!.trueGains++;
     points[object] = after;
-    const entry = { seq: log.length, object, by: i, agentId: a.id, before, after, record, charge, at: world, from, to };
+    const entry = { seq: log.length, object, by: i, agentId: a.id, before, after, record, charge, at: world };
     log.push(entry);
     byLine.set(object, [...(byLine.get(object) ?? []).slice(-31), entry]);
     const g = gains.get(object) ?? new Map<number, { charge: number; pointsAfter: number }>();
