@@ -6,7 +6,7 @@
  */
 import { useMemo } from "react";
 import { objectWord, useDigest, useGame, useGameScope, useOthersBlurred } from "@/sdk";
-import { BLURRED_NOTE } from "@/core/words";
+import { blurredNote } from "@/core/words";
 import { CareScatter, slotColour } from "@/components/charts";
 import { CARE_KINDS, careCounts, carePoints } from "./chart-model";
 
@@ -23,7 +23,7 @@ export function OthersCarePane() {
   return (
     <div className="space-y-3 p-3 text-sm" data-testid="others-care">
       <p className="text-xs text-muted-foreground">
-        How much the others want a {w.one} is their bits for it, added up (others' bits). You never see their rules, only that total: it shows what they care about.{blurred ? ` ${BLURRED_NOTE}` : ""}
+        How much the others want a {w.one} is their bits for it, added up (others' bits). You never see their rules, only that total: it shows what they care about.{blurred ? ` ${blurredNote(w.one)}` : ""}
       </p>
       <CareScatter points={points} word={w} approx={blurred} />
       <ul className="space-y-1 text-xs" data-testid="others-care-counts">

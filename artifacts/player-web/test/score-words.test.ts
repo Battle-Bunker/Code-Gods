@@ -97,3 +97,13 @@ test("a blurred others' sum below zero reads as what the server scores: none (ro
   const snap = (want: number) => ({ rarityBits: 5, want, points: 5 * Math.max(0, want) });
   assert.doesNotMatch(pointsText(snap(-3.5), snap(2), "line", true), /−|-\d/, "nor the others' bits before");
 });
+
+test("live, only each line's figures are estimates; the totals and standings are exact (call 15, W3 #662)", async () => {
+  const { blurredNote, blurredEndedNote } = await import("../src/core/words.ts");
+  const BLURRED_NOTE = blurredNote(), BLURRED_ENDED_NOTE = blurredEndedNote();
+  assert.match(blurredNote("grid"), /each grid's others' bits/, "in the game's own noun");
+  assert.match(BLURRED_NOTE, /each line's/);
+  assert.match(BLURRED_NOTE, /totals .* exact/i);
+  assert.doesNotMatch(BLURRED_NOTE, /your points are estimates/);
+  assert.match(BLURRED_ENDED_NOTE, /totals were exact throughout/i);
+});
