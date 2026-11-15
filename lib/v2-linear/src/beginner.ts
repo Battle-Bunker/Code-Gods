@@ -14,7 +14,7 @@ export { factorLabel } from "./layers.ts";
 export { pythagoreanArea, ruler, squareArea } from "./beginner-areas.ts";
 export { sameOnBothRulers, treasure } from "./beginner-rulers.ts";
 import { gcdTerm } from "./rational.ts";
-import { digitLevel, ladderLevel, nearestOnLadder, nearestResidue, distanceToPrime, distanceToPrimeEnding, isPrimeEnding, nearestPrimeEnding, PRIME_ENDINGS, largestPrimeFactor, nearbyPrimes, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
+import { digitLevel, digitNote, stepNote, triangularLevel, ladderLevel, nearestOnLadder, nearestResidue, distanceToPrime, distanceToPrimeEnding, isPrimeEnding, nearestPrimeEnding, PRIME_ENDINGS, largestPrimeFactor, nearbyPrimes, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
 
 /** The smallest and largest prime factor of a whole number (|n|); 1 for 0, ±1 and fractions. */
 const spfQ = (x: Q): Q => q(x.d === 1n ? smallestPrimeFactor(x.n) : 1n);
@@ -54,7 +54,7 @@ const withEnds = <X extends { sentence: (p: Ends) => string }>(l: X, sentence: (
 const ENDS_STAIRCASE: Ends[] = PRIME_ENDINGS.map(ends => ({ ends }));
 const staircase: Shape<Ends> = {
   main: withEnds(more<Ends>("run", "a run of different dealt primes from y(0)", "", "seq"),
-    p => `The pattern y(0), y(1), y(2), … should start with as long a run as possible of different primes ending in ${p.ends}; the term that breaks the run counts a little for being near such a prime.`),
+    p => `The values y(0), y(1), y(2), … should begin with as many different primes ending in ${p.ends} as possible. The first one that isn't counts a little if near one.`),
   tieBreakers: [
     more<Ends>("shared-factor", "the factor the run's last prime minus 1 shares with its first prime minus 1",
       "The run's last prime minus 1 and its first prime minus 1 should share as big a factor as possible.", "seq"),
@@ -112,7 +112,7 @@ export const primeStaircase = ladder(family<Ends>("prime-staircase", "Prime Stai
 const LANDING_ENDS: Ends[] = [1, 9].flatMap(ends => [{ ends }, { ends, side: -1 as const }]);
 const landingShape: Shape<Ends> = {
   main: withEnds(more<Ends>("landing", "where the line lands on the x-axis, on as big a dealt prime as possible", "", "crossing"),
-    p => `Where the line crosses the x-axis should round to ${minus(p)}a prime ending in ${p.ends}, the bigger the better, in levels of digits that each need more than the last (1, 3, 6, 10 digits …); any other line scores below them all, the closer to one the better.`),
+    p => `Where the line crosses the x-axis should round to ${minus(p)}a prime ending in ${p.ends}. Bigger primes are better, though each extra digit counts for less.`),
   tieBreakers: [
     more<Ends>("shared-factor", "the factor that prime minus 1 shares with the y-intercept's whole part",
       "Take the number just before that prime. The biggest number that divides both it and the y-intercept's whole part should be as big as possible (a whole part of 0 shares nothing).", "si"),
@@ -140,7 +140,7 @@ export const primeLanding = ladder(family<Ends>("prime-landing", "Prime Landing"
   const { p, u } = rung(sided(pr, x), pr.ends);   // on the mirror, −x climbs the ladder
   const mark = ref("cart", "xAxisMark", { x: sided(pr, q(p)) });
   ctx.read(mark);
-  ctx.term("landing", Qn.sign(u) > 0 ? `lands at ${Qn.toWire(x)}, which rounds to ${minus(pr)}the prime ${p}` : `lands ${Qn.toWire(Qn.abs(Qn.sub(sided(pr, x), q(p))))} from ${minus(pr)}the prime ${p}`, u, [xRef]);
+  ctx.term("landing", Qn.sign(u) > 0 ? `lands at ${Qn.toWire(x)}, which rounds to ${minus(pr)}the prime ${p}: ${digitNote(p)}` : `lands ${Qn.toWire(Qn.abs(Qn.sub(sided(pr, x), q(p))))} from ${minus(pr)}the prime ${p}`, u, [xRef]);
   // A vertical line has no y-intercept: its tie-breaker is undefined (it ranks last), not its landing.
   const cv = ctx.read(cRef), c = num(cv);
   const w = c === null ? 0n : Qn.floor(c), aw = w < 0n ? -w : w;
@@ -155,7 +155,8 @@ export const primeLanding = ladder(family<Ends>("prime-landing", "Prime Landing"
 /**
  * Whole Crossing as a ladder (design-principles.md; redesigned 15 Nov, declared to the coordinator). The line should
  * cross the x-axis on a whole number q^j × t with t leaving r when divided by q (q = 5): the more 5s it holds (j), the
- * better, a ladder with no top (u = j). Any other crossing scores below every level, graded by its distance to the
+ * better, a ladder with no top, in triangular levels (u = triangularLevel(j): level ℓ needs ℓ(ℓ + 1)/2 fives, so a zoom
+ * chain gains less at each level). Any other crossing scores below every level, graded by its distance to the
  * nearest such number (u = −d): the old rule (close to a whole number leaving r) is the ground floor. A stretch or zoom by
  * 5 takes level j to j + 1 in one priced choice (decision 25's shortcut); a prime is never on a level above 0, so Prime
  * Landing, which wants the crossing on a prime, is its adversary on the same number (the old tie-breakers, the whole
@@ -169,7 +170,7 @@ const CROSSINGS: QR[] = [1, 2, 3, 4].map(r => ({ q: 5, r }));
 const leaves = (p: QR) => `a whole number that leaves ${p.r} when divided by ${p.q}`;
 const crossingShape: Shape<QR> = {
   main: { ...more<QR>("ladder", "the x-axis crossing on a ladder of 5s", "", "crossing"),
-    sentence: p => `The line should cross the x-axis on ${leaves(p)}, times 5 as many times as possible (${p.r}, ${5 * p.r}, ${25 * p.r}, …): each 5 is a level up. Any other crossing scores below them all, the closer to one the better.` },
+    sentence: p => `Cross the x-axis on a whole number leaving ${p.r} when divided by 5, times 5 as often as possible. More 5s are better, though each extra counts less.` },
   tieBreakers: [
     more("shared-factor", "the biggest number dividing both that number after its 5s, plus 1, and the gradient's whole part",
       "Take that number with its 5s divided out, ignore its sign and add 1. The biggest number that divides both it and the gradient's whole part (ignoring sign) should be as big as possible (a whole part of 0 shares nothing).", "si"),
@@ -183,8 +184,8 @@ export const wholeCrossing = ladder(family<QR>("whole-crossing", "Whole Crossing
   const on = ladderLevel(x, p), near = on ? { ...on, at: x.n, d: Qn.ZERO } : nearestOnLadder(x, p);
   const kRef = ref("crossing", "dealt", { q: q(p.q), r: q(p.r) });
   ctx.read(kRef);
-  ctx.term("ladder", on ? `crosses at ${x.n} = ${p.q}^${on.j} × ${on.t}: level ${on.j}` : `${Qn.toWire(near.d)} from ${near.at} (level ${near.j})`,
-    on ? q(on.j) : Qn.neg(near.d), [xRef, kRef]);
+  ctx.term("ladder", on ? `crosses at ${x.n} = ${p.q}^${on.j} × ${on.t}: ${stepNote(on.j, "five", "fives")}` : `${Qn.toWire(near.d)} from ${near.at} (level ${near.j})`,
+    on ? triangularLevel(on.j) : Qn.neg(near.d), [xRef, kRef]);
   // A vertical line has no gradient: its tie-breaker is undefined (it ranks last), not its crossing.
   const mv = ctx.read(mRef), m = num(mv);
   const t1 = (near.t < 0n ? -near.t : near.t) + 1n, w = m === null ? 0n : Qn.floor(Qn.abs(m));

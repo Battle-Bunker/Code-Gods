@@ -108,7 +108,7 @@ test("Smooth Intercept is a ladder in triangular levels of the dealt primes mult
   assert.deepEqual(levels, [1, 1, 2, 2, 2, 3, 4, 5, 6]);
   assert.ok(Qn.cmp(smoothLevel(21n, [3, 7]).u, smoothLevel(49n, [3, 7]).u) > 0, "21 and 49 both hold 2; the smaller counts more");
   assert.deepEqual(smoothIntercept.dealable(lineQ), [[3, 7], [3, 11], [3, 13], [3, 17]].map(primes => ({ primes })));
-  assert.match(smoothIntercept.card(p, "shared-factor"), /made only by multiplying 2s and 3s, using as many of them as possible/);
+  assert.match(smoothIntercept.card(p, "shared-factor"), /made only by multiplying 2s and 3s\. More of them is better, though each extra one counts for less/);
 });
 
 test("Steep and Tall: min(m, c); Ω(gcd(⌊m⌋, ⌊c⌋)), 0 when either is 0", () => {

@@ -597,7 +597,7 @@ export const CATALOGUE: readonly FamilyEntry[] = [
         "    tries.append((move(\"si.shift\", k=-m * to - c), m, -m * to))",
       ],
     },
-    mainSays: "how many 5s the line's x-axis crossing holds when it is a whole number leaving r after its 5s are divided out (more is better: a ladder with no top), else minus how far it is from the nearest such number",
+    mainSays: "the level of 5s the line's x-axis crossing holds when it is a whole number leaving r after its 5s are divided out (level L needs L(L + 1)/2 fives; more is better: a ladder with no top), else minus how far it is from the nearest such number",
     main: {
       ts: [
         "if (Q.isZero(m)) return null;                   // a flat line never crosses: the worst score",
@@ -614,7 +614,8 @@ export const CATALOGUE: readonly FamilyEntry[] = [
         "  if (best === null || dist <= best.dist) best = { j, t, dist };",
         "  if (s * dd - ab(n) > best.dist) break;           // every further level is farther",
         "}",
-        "const main = best.dist === 0n ? best.j : Q.neg(Q.of(best.dist, dd));   // on a level: the level (the more 5s, the better); else below them all",
+        "let L = 0; while (((L + 1) * (L + 2)) / 2 <= best.j) L++;   // level L needs L(L + 1)/2 fives (1, 3, 6, 10, …)",
+        "const main = best.dist === 0n ? Q.add(L, Q.of(best.j - (L * (L + 1)) / 2, L + 1)) : Q.neg(Q.of(best.dist, dd));   // on the ladder: its level; else below them all",
       ],
       py: [
         "if m == 0:                                      # a flat line never crosses: the worst score",
@@ -635,7 +636,10 @@ export const CATALOGUE: readonly FamilyEntry[] = [
         "    if s * dd - abs(n) > best[2]:               # every further level is farther",
         "        break",
         "    j, s = j + 1, s * 5",
-        "main = best[0] if best[2] == 0 else -Fraction(best[2], dd)   # on a level: the level (the more 5s, the better); else below them all",
+        "L = 0",
+        "while (L + 1) * (L + 2) // 2 <= best[0]:      # level L needs L(L + 1)/2 fives (1, 3, 6, 10, ...)",
+        "    L += 1",
+        "main = L + Fraction(best[0] - L * (L + 1) // 2, L + 1) if best[2] == 0 else -Fraction(best[2], dd)   # on the ladder: its level; else below them all",
       ],
     },
     vertical: {
@@ -654,7 +658,8 @@ export const CATALOGUE: readonly FamilyEntry[] = [
           "  if (best === null || dist <= best.dist) best = { j, t, dist };",
           "  if (s * dd - ab(n) > best.dist) break;           // every further level is farther",
           "}",
-          "const main = best.dist === 0n ? best.j : Q.neg(Q.of(best.dist, dd));   // on a level: the level (the more 5s, the better); else below them all",
+          "let L = 0; while (((L + 1) * (L + 2)) / 2 <= best.j) L++;   // level L needs L(L + 1)/2 fives (1, 3, 6, 10, …)",
+          "const main = best.dist === 0n ? Q.add(L, Q.of(best.j - (L * (L + 1)) / 2, L + 1)) : Q.neg(Q.of(best.dist, dd));   // on the ladder: its level; else below them all",
         ],
         py: [
           "x = c                                          # it stands on the x-axis at x = c",
@@ -673,7 +678,10 @@ export const CATALOGUE: readonly FamilyEntry[] = [
           "    if s * dd - abs(n) > best[2]:               # every further level is farther",
           "        break",
           "    j, s = j + 1, s * 5",
-          "main = best[0] if best[2] == 0 else -Fraction(best[2], dd)   # on a level: the level (the more 5s, the better); else below them all",
+          "L = 0",
+          "while (L + 1) * (L + 2) // 2 <= best[0]:      # level L needs L(L + 1)/2 fives (1, 3, 6, 10, ...)",
+          "    L += 1",
+          "main = L + Fraction(best[0] - L * (L + 1) // 2, L + 1) if best[2] == 0 else -Fraction(best[2], dd)   # on the ladder: its level; else below them all",
         ],
       },
     },

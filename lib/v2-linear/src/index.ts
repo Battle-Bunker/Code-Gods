@@ -11,3 +11,4 @@ export * from "./presets.ts";
 export * from "./sums.ts";
 export * from "./law.ts";
 export * from "./seating.ts";
+export * from "./opponents.gen.ts";

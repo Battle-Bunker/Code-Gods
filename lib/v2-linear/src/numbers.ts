@@ -209,3 +209,27 @@ export function digitLevel(p: bigint): Q {
   const rest = Qn.add(q(D - (level * (level + 1)) / 2), q(p, 10n ** BigInt(D)));
   return Qn.add(q(level), Qn.div(rest, q(level + 1)));
 }
+
+/**
+ * A count's place in triangular levels (Whole Crossing's 5s): level ℓ needs ℓ(ℓ + 1)/2 of it (1, 3, 6, 10, …), and between
+ * levels each one more counts 1/(ℓ + 1) of a level: u = ℓ + (j − ℓ(ℓ + 1)/2)/(ℓ + 1). 0 for none.
+ */
+export function triangularLevel(j: number): Q {
+  let level = 0;
+  while (((level + 1) * (level + 2)) / 2 <= j) level++;
+  return Qn.add(q(level), Qn.div(q(j - (level * (level + 1)) / 2), q(level + 1)));
+}
+
+/**
+ * What a triangular ladder's count means to a player (the Why line; the card says only "bigger is better, though each
+ * extra counts for less"): "3 digits; the next big step is 6 digits". The big steps are the triangular numbers 1, 3, 6,
+ * 10, …, where each step counts as much as the last whole level.
+ */
+export function stepNote(n: number, one: string, many: string): string {
+  let level = 0;
+  while (((level + 1) * (level + 2)) / 2 <= n) level++;
+  const next = ((level + 1) * (level + 2)) / 2;
+  return `${n} ${n === 1 ? one : many}; the next big step is ${next} ${many}`;
+}
+/** stepNote for a prime's digits (Prime Landing, Prime Gradient). */
+export const digitNote = (p: bigint): string => stepNote((p < 0n ? -p : p).toString().length, "digit", "digits");
