@@ -6,6 +6,9 @@
  *
  * - row 9: the points it gained (balance: the best family's mean over the worst's), and the share of objects its games
  *   still changed in the last third;
+ * - balance diagnosis: its own bits on the final objects (mean over objects), the others' bits there (the sum it
+ *   multiplies), its committed moves and the share that raised its points, flips (another seat put an object back),
+ *   and the energy its gains cost that others took back;
  * - row 2, the ladder: per (seat, object) it raised, the main-part levels its own moves reached (each a new best main
  *   part on that object under its current parameters), the rule's bits on that object at the end, and the share of
  *   seats that still raised a main part in the last third;
@@ -18,6 +21,9 @@
  *
  *   node --experimental-strip-types scripts/pool-dynamics.ts [--type lines|grids|pairs] [--games 12] [--seconds 600]
  *     [--drift 120] [--kind simple] [--objects 3] [--births 0.0041667] [--variant line-q] [--only prime-landing,treasure]
+ *     [--from 0] [--json out.json]
+ *
+ * --from offsets the game seeds (parallel runs); --json writes the per-family numbers for merging.
  */
 import { parseArgs } from "node:util";
 import { compareScores, evaluateSite, rng, type ObjectType, type Score, type Variant } from "@workspace/v2-core";
@@ -33,7 +39,7 @@ const { values: o } = parseArgs({ options: {
   type: { type: "string", default: "lines" },
   games: { type: "string", default: "12" }, seconds: { type: "string", default: "600" }, drift: { type: "string", default: "120" },
   kind: { type: "string", default: "simple" }, objects: { type: "string", default: "3" }, births: { type: "string", default: String(1 / 240) },
-  variant: { type: "string", default: "line-q" }, only: { type: "string" },
+  variant: { type: "string", default: "line-q" }, only: { type: "string" }, from: { type: "string", default: "0" }, json: { type: "string" },
 } });
 
 interface PoolRule { readonly family: string; readonly params: unknown; readonly tieBreakers: readonly string[] }
@@ -54,17 +60,19 @@ interface Stat {
   games: number; gained: number[]; lastThird: number[]; latency: number[]; redraws: number; answered: number; grids: number; cur: number[]; alt: number[];
   levels: number[]; endBits: number[]; seats: number; climbingLate: number;
   mainSteps: number; tbLost: number; recovered: number; recovery: number[];
+  own: number[]; others: number[]; moves: number[]; trueGain: number[]; flips: number[]; reversal: number[];
 }
 const stats = new Map<string, Stat>();
 const stat = (f: string) => stats.get(f) ?? (stats.set(f, {
   games: 0, gained: [], lastThird: [], latency: [], redraws: 0, answered: 0, grids: 0, cur: [], alt: [],
   levels: [], endBits: [], seats: 0, climbingLate: 0, mainSteps: 0, tbLost: 0, recovered: 0, recovery: [],
+  own: [], others: [], moves: [], trueGain: [], flips: [], reversal: [],
 }), stats.get(f)!);
-const R = rng("pool-dynamics", variant.id);
+const R = rng("pool-dynamics", variant.id, o.from);
 const head = (s: Score) => (s === null ? null : s.slice(0, 1));
 const tail = (s: Score) => (s === null ? null : s.slice(1));
 
-for (let g = 0; g < Number(o.games); g++) {
+for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   const choices = o.only ? pool.filter(r => o.only!.split(",").includes(r.family)) : pool;
   const picks: PoolRule[] = [];
   while (picks.length < Math.min(3, new Set(choices.map(c => c.family)).size)) { const r = choices[R.below(choices.length)]!; if (!picks.some(x => x.family === r.family)) picks.push(r); }
@@ -108,10 +116,15 @@ for (let g = 0; g < Number(o.games); g++) {
       climbs[e.seat]!.clear();
     },
   });
+  const finalBits = seats.map((s, k) => { const v = valuer(type, variant, { ...s.rule, params: params[k]! }); return (x: unknown) => v.bits(x); });
   const late = new Set(moves.filter(m => m.at >= (2 * seconds) / 3).map(m => m.object)).size / live;
   seats.forEach((s, i) => {
     const st = stat(s.rule.family), fam = fams[i]!;
     st.games++; st.gained.push(rep.seats[i]!.gained); st.lastThird.push(late);
+    const sr = rep.seats[i]!;
+    st.moves.push(sr.moves); st.trueGain.push(sr.trueGainShare); st.flips.push(sr.flips); st.reversal.push(sr.reversalEnergy);
+    // Own bits and the others' bits on each final object, under each seat's final parameters.
+    for (const x of rep.final) { st.own.push(finalBits[i]!(x)); st.others.push(finalBits.reduce((a, b, k) => (k === i ? a : a + b(x)), 0)); }
     const bitsUnder = (p: Record<string, unknown>) => { const v = valuer(type, variant, { ...s.rule, params: p }); return (o2: unknown) => v.bits(o2); };
     const now = bitsUnder(params[i]!);
     st.seats++;
@@ -136,11 +149,12 @@ for (let g = 0; g < Number(o.games); g++) {
 await boxes.close();
 
 console.log(`${variant.id} pool, ${o.kind} starters, ${o.games} games of ${seconds} s, ${drift > 0 ? `drift every ${drift} s` : "no drift"}, power ${E.powerPerSecond}, ${E.opportunitiesPerSecond}/s`);
-console.log("| family | games | mean points gained | objects moving in the last third | main-part levels per object climbed: median / max | end bits on those objects | seats still climbing the main part in the last third | main-part steps that lowered the tie-breaker | recovered, median s | redraws answered, median s | end bits under current / other params |");
-console.log("|---|---|---|---|---|---|---|---|---|---|---|");
+console.log("| family | games | mean points gained | own bits at end | others' bits at end | moves | share raising points | flips | energy taken back | objects moving in the last third | main-part levels per object climbed: median / max | end bits on those objects | seats still climbing the main part in the last third | main-part steps that lowered the tie-breaker | recovered, median s | redraws answered, median s | end bits under current / other params |");
+console.log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
 const rows = [...stats.entries()].sort((a, b) => mean(b[1].gained) - mean(a[1].gained));
 for (const [f, s] of rows) console.log([
-  f, s.games, mean(s.gained).toFixed(0), `${(100 * mean(s.lastThird)).toFixed(0)}%`,
+  f, s.games, mean(s.gained).toFixed(0), mean(s.own).toFixed(1), mean(s.others).toFixed(1), mean(s.moves).toFixed(0),
+  `${(100 * mean(s.trueGain)).toFixed(0)}%`, mean(s.flips).toFixed(1), mean(s.reversal).toFixed(0), `${(100 * mean(s.lastThird)).toFixed(0)}%`,
   s.levels.length ? `${median(s.levels)} / ${Math.max(...s.levels)}` : "-", s.endBits.length ? mean(s.endBits).toFixed(1) : "-",
   pct(s.climbingLate, s.seats), `${pct(s.tbLost, s.mainSteps)} of ${s.mainSteps}`,
   s.tbLost ? `${pct(s.recovered, s.tbLost)}, ${s.recovery.length ? median(s.recovery).toFixed(0) : "-"}` : "-",
@@ -149,3 +163,4 @@ for (const [f, s] of rows) console.log([
 ].join(" | ").replace(/^/, "| ").concat(" |"));
 const means = rows.map(([, s]) => mean(s.gained)).filter(x => x > 0);
 console.log(`balance: best family's mean gain over the worst's: ${(Math.max(...means) / Math.min(...means)).toFixed(1)}`);
+if (o.json) (await import("node:fs")).writeFileSync(o.json, JSON.stringify(Object.fromEntries(stats)));

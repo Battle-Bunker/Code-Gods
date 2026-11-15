@@ -5,7 +5,7 @@
  * with different parameters (same tie-breaker) must reach the same top and have the same spread of worth: their value
  * functions' best knot and median knot agree within TOLERANCE bits.
  *
- * Where every peer's main part has an exact value, the audit compares the worth of an exact main part (the least bits
+ * Where the main part is a distance (sense "min": 0 is exact) and every peer's values reach it, the audit compares the worth of an exact main part (the least bits
  * of a knot whose main part is exact) rather than the best and median knots: for families with few knots (Prime
  * Staircase has three or four) or a sampled top those are sampling artefacts, several bits apart between exact peers
  * (the coordinator, 15 Nov). A preset whose parameters drift (driftSeconds > 0; the coordinator's declared TRIAL) may
@@ -15,7 +15,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { VALUE_RECORDS } from "../../convex/v2/values.gen.ts";
-import { dealablePool } from "../../convex/v2/deal.ts";
+import { dealablePool, familyOf } from "../../convex/v2/deal.ts";
 import { PRESETS } from "../../convex/v2/presets.ts";
 
 const TOLERANCE = 0.5;
@@ -37,7 +37,7 @@ test("a family's parameter peers in a dealable pool have the same top and spread
       const v = VALUE_RECORDS.find(x => x.ruleKey === r.ruleKey);
       if (!v) continue;
       const key = `${r.family}/${r.tieBreaker}`;
-      peers.set(key, [...(peers.get(key) ?? []), { params: JSON.stringify(r.params), top: top(v.knots), median: median(v.knots), exact: exactMain(v.knots as never) }]);
+      peers.set(key, [...(peers.get(key) ?? []), { params: JSON.stringify(r.params), top: top(v.knots), median: median(v.knots), exact: familyOf(r.family).main.sense === "min" ? exactMain(v.knots as never) : null }]);
     }
     for (const [family, rs] of peers) {
       if (rs.length < 2) continue;
