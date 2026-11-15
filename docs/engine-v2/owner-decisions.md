@@ -244,6 +244,19 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     exponents of factors more generally and that's just the properties on specific numbers we construct but we want lots
     of diversity in converting line properties into numbers we apply utility to as well."
 
+42. On bit levels, balance and dynamism (relayed by the coordinator, 15 November; it corrects the coordinator's reading
+    of decisions 38 and 40 as a target height): "The exact scores that end up being par aren't important. Game balance
+    and dynamism is. The only reason I anchored to energy levels of 20-30 being really high is because they were for
+    grids and maybe that was just a mistake. But 20 bits is 1 in a million and that feels consequentially surprising. I
+    don't want our energy levels to be able to reach hundreds when that's more surprising than one atom in the entire
+    universe being selected. I guess that's the intuitive frame I'm using but I do recognise that combinatorial dynamics
+    can produce extremely high surprise compared to physical reality so we can break that intuition if it's really
+    appropriate. Use your own judgement here. Remember that the most important virtues to design for are game balance
+    (fairness across rules) and dynamism (metagame doesn't settle into static optima)". So there is no target height
+    and no fixed par: options, families and dealt parameter values are judged by (1) balance (comparable points for
+    comparable play across rules and across a rule's dealt values) and (2) dynamism (play keeps moving, no dominant
+    one-line strategy, no settled optimum), with played objects not reaching hundreds of bits as a sanity bound.
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact
@@ -357,6 +370,21 @@ back) or TRIAL (a declared experiment, measured and reported).
     below h/10 is drawn again, which (the exponential being memoryless) is the floor plus one exponential draw
     (convex/v2/duration.ts). v1 had no floor: 7% of its half-life games ended within h/10, 0.7% within h/100. Motive:
     "a game that ends before anyone can act is no game."
+17. The beginner economy, following decision 42 (replaces call 13's numbers): power 4 ⚡/s, fullChargeSeconds 240,
+    summon and edit prices bits × power/64 (#695: a starter is about 9 s of full power, the owner's "seconds of full God
+    power"), startingEnergy derived as three median starters at the scaled price (3 × median starter bits × power/64, rounded to 10: 90 on lines, 130 on grids), the read-price weight derived
+    from power. Motive, on the owner's two
+    virtues (`power-calibration.md`): the long climb past about 40 bits stops at any power below 8 (at 8 a climber
+    reached 131.8 bits), and 4 keeps about three committed moves per seat-minute where 2 leaves the board looking dead.
+    To be re-run on the #687 values with and without parameter drift (call 18) and with the prime filters; if 4 lets a
+    climb past about 50 bits or seats' points diverge by rule, the coordinator drops to 2.
+18. **TRIAL** (declared 15 Nov, departing from v1, where a seat's dealt rule never changed): parameter drift, a game
+    setting `driftSeconds` (0 = off, the default for now). Every interval each seat's dealt qualifier value is redrawn
+    within its family's declared grid (never the family, lens or tie-breaker), seeded and reproducible; the card
+    updates, values come from the precomputed per-value records, and replays show each redraw. Only values within a
+    band of par are dealt (no normalisation of scores). Motive: rule design (#690, §A12) found tables of perpendicular,
+    parameterised rules settle with fixed parameters (flat from 50–100 s, 4–13% of objects moving late) and keep moving
+    when each seat's value is redrawn every 50 s (54–100% moving late); to be repeated under the scarce-power economy.
 
 17. **TRIAL** (declared 15 Nov, following decisions 39–42): the grid anchors' solved mains leave the dealt values.
     Opposite Nines' "every cell and its opposite add up to 9" (37 bits) and Magic Eighteen's "every row adds up to 18"
