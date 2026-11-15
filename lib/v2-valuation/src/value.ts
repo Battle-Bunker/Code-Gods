@@ -255,7 +255,7 @@ export interface ValueTail {
  * almost never tie on it and the lexicographic knots give the tie-breaker almost nothing: past the best knot it was
  * worth 0, a flat top. Measured instead given the level: per level L, points [t, bits] of −log₂ P(tie-breaker ≥ t |
  * level L) under the law, ascending in t, and past the last point the rate `slope` in bits per doubling of the climb
- * beyond it. A level with too few draws carries the curve of the highest measured level below it (or the lowest above).
+ * from the level's first point (the axis it was fitted on). A level with too few draws carries the curve of the highest measured level below it (or the lowest above).
  */
 export interface TieBreakerLevels {
   readonly base: number;
@@ -276,8 +276,11 @@ export function tieBreakerBits(lv: TieBreakerLevels, level: number, t: number): 
     const [t1, b1] = pts[i]!;
     if (t <= t1) { const [t0, b0] = pts[i - 1]!; return b0 + ((t - t0) / (t1 - t0)) * (b1 - b0); }
   }
-  const [tl, bl] = pts[pts.length - 1]!;
-  return bl + c.slope * Math.log2(1 + (t - tl));
+  // Past the measured range, on the axis the rate was fitted on (log₂(1 + t − t₀), t₀ the level's first point): a
+  // doubling of the climb from the floor, not of the step past the last point, which over-paid a far act (a stretch by
+  // 11 took Steep Ratio's tie-breaker from 12 to 132 and its seat from 12.7 to 28.3 bits).
+  const t0 = pts[0]![0], [tl, bl] = pts[pts.length - 1]!;
+  return bl + c.slope * (Math.log2(1 + t - t0) - Math.log2(1 + tl - t0));
 }
 
 /**

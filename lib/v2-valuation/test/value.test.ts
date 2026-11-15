@@ -177,7 +177,10 @@ test("committed value functions are intact: each content hash matches, knots ris
     const { type, variant } = findVariant(v);
     const caps = body.objectType === "line" || body.objectType === "pair" ? ladderCaps(type as never, family as never, body.params, variant) : undefined;
     const tail = body.objectType === "pair" ? pairTail(family, tb, body.knots, caps, body.params) : tailOf(body.knots, body.objectType === "line" ? TAIL_CEILING : Infinity, measures, undefined, caps);
-    assert.deepEqual(body.tail, tail, `${v}/${f}/${x}: the tail is the one its knots and layers imply`);
+    // A ladder's per-level tie-breaker (TieBreakerLevels) is measured from draws, not knots: checked for shape only.
+    const { levels, ...fromKnots } = body.tail;
+    assert.deepEqual(fromKnots, tail, `${v}/${f}/${x}: the tail is the one its knots and layers imply`);
+    if (levels) for (const c of levels.curves) assert.ok(c.pts.every((p: number[], i: number) => i === 0 || (p[0]! > c.pts[i - 1][0] && p[1]! > c.pts[i - 1][1])) && c.slope > 0, `${v}/${f}/${x}: level ${c.level}'s tie-breaker curve rises`);
     for (const t of [body.tail.secondary, body.tail.primary]) assert.ok(t.slope > 0 && Number.isFinite(t.slope), `${v}/${f}/${x}: tail ${JSON.stringify(t)}`);
     n++;
   }
