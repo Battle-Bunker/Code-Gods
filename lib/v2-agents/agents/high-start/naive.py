@@ -1,5 +1,5 @@
 # High Start · Naive (for learning)
-# Main part: the steeper line crosses the y-axis at a whole number. Tie-breaker: whichever you were dealt (the steeper line high and steep; that y-intercept shares many prime factors with the number you divide by).
+# Main part: the gentler line crosses the y-axis at a whole number with the dealt remainder. Tie-breaker: whichever you were dealt (the gentler line high and rising; that y-intercept shares many prime factors with the number you divide by).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -9,16 +9,16 @@
 def score(L, p, tie):
     # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
-    dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
     floor = lambda v: v // 1   # rounded down
-    if f.cs is None or f.ms is None:   # the steeper line is upright: no score
+    if f.cg is None or f.mg is None:   # the gentler line is upright: no score
         return None
-    main = -dist(f.cs)
-    # main: how far the steeper line's y-intercept is from a whole number (closer is better)
-    if tie == "steep-and-high":   # the smaller of the y-intercept and the gradient's whole part big is better
-        return [main, min(whole(f.cs), floor(f.ms))]
+    H = nearest_leaving(f.cg, p["q"], p["r"])   # the whole number that leaves your remainder
+    main = -abs(f.cg - H)
+    # main: how far the gentler line's y-intercept is from a whole number with your remainder (closer is better)
+    if tie == "high-and-rising":   # the smaller of the gentler line's y-intercept and its gradient's whole part big is better
+        return [main, min(H, floor(f.mg))]
     if tie == "start-factors":   # a y-intercept sharing many prime factors with the number you divide by is better
-        return [main, omega(common(whole(f.cs), f.D))]
+        return [main, omega(common(H, f.D))]
     return [main]
 
 

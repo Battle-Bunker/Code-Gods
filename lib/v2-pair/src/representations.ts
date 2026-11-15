@@ -85,6 +85,8 @@ export const si: Representation<PairState> = {
     el("ms", "the steeper line's gradient", "number", "derived", s => orUndef(gradient(steeper(s)), VERTICAL)),
     el("cs", "the steeper line's y-intercept", "number", "derived", s => orUndef(yIntercept(steeper(s)), VERTICAL)),
     el("rs", "the steeper line's x-intercept", "number", "derived", s => orUndef(xIntercept(steeper(s)), HORIZONTAL)),
+    el("mg", "the gentler line's gradient", "number", "derived", s => orUndef(gradient(gentler(s)), VERTICAL)),
+    el("cg", "the gentler line's y-intercept", "number", "derived", s => orUndef(yIntercept(gentler(s)), VERTICAL)),
     el("ratio", "how many times as steep the steeper line is", "number", "derived",
       s => orUndef(ratioOf(s), "a ratio needs two lines with gradients, the gentler not flat")),
     el("ygap", "the gap between the y-intercepts", "number", "derived", s => orUndef(gapOf(yIntercept(L(s, 0)), yIntercept(L(s, 1))), "a vertical line has no y-intercept")),

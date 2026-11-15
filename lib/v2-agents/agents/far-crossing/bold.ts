@@ -1,5 +1,5 @@
 // Far Crossing · Bold
-// Main part: the steeper line crosses the x-axis at a whole number. Tie-breaker: whichever you were dealt (the steeper line crosses the x-axis far to the right; the steeper line's x-intercept is a big prime).
+// Main part: the steeper line crosses the x-axis at a whole number with the dealt remainder. Tie-breaker: whichever you were dealt (the steeper line crosses the x-axis far to the right; the steeper line's x-intercept is a big prime).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -9,12 +9,12 @@
 // How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(L, p, tie) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
-  const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
   if (f.rs === null) return null;   // the steeper line is flat: no score
-  const main = Q.neg(dist(f.rs));
-  // main: how far the steeper line's x-intercept is from a whole number (closer is better)
-  if (tie === "far-right") return [main, whole(f.rs)];   // an x-intercept far to the right is better
-  if (tie === "far-prime") return [main, spf(whole(f.rs))];   // an x-intercept with a big smallest prime factor is better
+  const R = nearestLeaving(f.rs, p.q, p.r);   // the whole number that leaves your remainder
+  const main = Q.neg(Q.abs(Q.sub(f.rs, R)));
+  // main: how far the steeper line's x-intercept is from a whole number with your remainder (closer is better)
+  if (tie === "far-right") return [main, R];   // an x-intercept far to the right is better
+  if (tie === "far-prime") return [main, spf(R)];   // an x-intercept with a big smallest prime factor is better
   return [main];
 }
 

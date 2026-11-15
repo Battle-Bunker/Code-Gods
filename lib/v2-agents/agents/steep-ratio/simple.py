@@ -1,5 +1,5 @@
 # Steep Ratio · Simple
-# Main part: one line a whole number of times as steep as the other. Tie-breaker: whichever you were dealt (that number shares a factor with the y-intercepts' gap; that number is a big prime).
+# Main part: one line a whole number of times as steep as the other, with the dealt remainder. Tie-breaker: whichever you were dealt (that number shares a factor with the y-intercepts' gap; that number is a big prime).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -12,11 +12,9 @@ def score(L, p, tie):
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     if f.ratio is None:   # no ratio of gradients: no score
         return None
-    k = whole(f.ratio)   # the whole number of times nearest (at least 2 either way)
-    if abs(k) < 2:
-        k = -2 if f.ratio < 0 else 2
+    k = nearest_leaving(f.ratio, p["q"], p["r"], 2)   # the whole number of times with your remainder (at least 2 either way)
     main = -abs(f.ratio - k)
-    # main: how far the steeper line is from a whole number of times as steep as the other (closer is better)
+    # main: how far the steeper line is from a whole number of times as steep as the other, with your remainder (closer is better)
     if tie == "ratio-gap":   # that number sharing a big factor with the y-intercepts' gap is better
         return [main, None if f.ygap is None else common(k, whole(f.ygap))]
     if tie == "ratio-prime":   # that number with a big smallest prime factor is better

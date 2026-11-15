@@ -1,5 +1,5 @@
 // Far Crossing · Example: the steeper line crosses the x-axis far to the right
-// Main part: the steeper line crosses the x-axis at a whole number. Tie-breaker: the steeper line crosses the x-axis far to the right.
+// Main part: the steeper line crosses the x-axis at a whole number with the dealt remainder. Tie-breaker: the steeper line crosses the x-axis far to the right.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
@@ -8,10 +8,10 @@
 // How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
-  const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
   if (f.rs === null) return null;   // the steeper line is flat: no score
-  const main = Q.neg(dist(f.rs));
-  return [main, whole(f.rs)];   // main: how far the steeper line's x-intercept is from a whole number (closer is better); tie-breaker: an x-intercept far to the right is better
+  const R = nearestLeaving(f.rs, p.q, p.r);   // the whole number that leaves your remainder
+  const main = Q.neg(Q.abs(Q.sub(f.rs, R)));
+  return [main, R];   // main: how far the steeper line's x-intercept is from a whole number with your remainder (closer is better); tie-breaker: an x-intercept far to the right is better
 }
 
 const FAR = 3;      // how far one move may go

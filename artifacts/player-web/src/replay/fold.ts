@@ -80,7 +80,7 @@ function ruleRow(r: RawRule, variant: string | undefined): MyRuleRow {
   const f = familyOf(r.family);
   return {
     family: r.family, title: f?.title ?? r.family, params: r.params, layers: r.layers, tieBreaker: r.tieBreaker, card: r.card,
-    depends: f ? [...f.depends] : [], primary: f?.main.rep ?? defaultRepOf(variant), ruleKey: r.ruleKey, contentHash: r.contentHash, drifts: 0, driftedAt: null, value: r.value ?? { knots: [], tail: null }, bid: null, handicap: r.handicap ?? null,
+    depends: f ? [...f.depends] : [], primary: f?.main.rep ?? defaultRepOf(variant), ruleKey: r.ruleKey, contentHash: r.contentHash, drifts: 0, driftedAt: null, previous: null, value: r.value ?? { knots: [], tail: null }, bid: null, handicap: r.handicap ?? null,
   };
 }
 
@@ -132,7 +132,10 @@ export function indexReplay(file: unknown): ReplayIndex {
       case "drift": {
         for (const p of (d.seats as RawStart[] | undefined) ?? []) {
           const end = rules.get(p.memberId);
-          if (end) push(ix.ruleTimes, p.memberId, { at, row: drifted(end, p, p.card ?? null, Number(d.k ?? 0), world) });
+          if (!end) continue;
+          const before = ix.ruleTimes.get(p.memberId)?.at(-1)?.row;
+          const row = drifted(end, p, p.card ?? null, Number(d.k ?? 0), world);
+          push(ix.ruleTimes, p.memberId, { at, row: { ...row, previous: before ? { params: before.params, card: before.card } : null } });
         }
         break;
       }

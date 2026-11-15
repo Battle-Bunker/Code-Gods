@@ -199,5 +199,7 @@ test("parameter drift (call 18): the replay's rule card is the one in force at t
   assert.deepEqual(after.params, { A: "9" });
   assert.equal(after.card, "Ada's card after the drift");
   assert.deepEqual([after.drifts, after.driftedAt], [1, 120]);
+  assert.deepEqual(after.previous?.params, { A: "4" }, "what the drift changed from, as live (W3 #750)");
+  assert.equal(before.previous, null);
   assert.deepEqual(frameAt(x, 5).rule("m2")!.params, { A: "6" }, "a seat the drift did not redraw keeps its rule");
 });

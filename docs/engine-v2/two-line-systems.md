@@ -301,3 +301,97 @@ frozen share is over the pair's own calls (pairs have no line shortcut climber).
   34–44 objects, and three seats change about a quarter of them in any minute.
 - Not measured here: a shortcut climber for pairs, test 5 (disclosure), and more tables and seeds. Two games per β is
   a smoke test, not an estimate.
+
+### 8.2 Trial: High Start on the gentler line (owner-decisions trial 21)
+
+High Start now reads the gentler line's y-intercept, and its tie-breaker "high and rising" reads the gentler line's
+gradient. Re-run before the dealt numbers (§8.3), the tension matrix shows the climb shared with Steep Ratio gone.
+High Start's climbs raise Steep Ratio 28% of the time and lower it 38%; Steep Ratio's climbs raise High Start 21% and
+lower it 21%. The shared hill of §8.1 does not appear in the repeated strategies.
+
+### 8.3 Dealt numbers and drift (owner-decisions trial 22)
+
+**Families.** Six families carry a number from their card, redrawn every 120 s on `lines-pairs` (drift, call 18):
+
+- **A remainder.** Whole Answer's x, Far Crossing's x-intercept, High Start's y-intercept and Steep Ratio's whole
+  number of times aim at a whole number that leaves r when divided by q.
+- **No Fractions:** you divide by k.
+- **Double Gap:** the y-gap is k times the x-gap.
+
+Right Angle and Forty-Five have no natural number on the card and keep none. The kit gained
+`nearestLeaving(v, q, r, atLeast)` (Python `nearest_leaving`), and every starter reads its rule's numbers.
+
+**Which numbers are dealt.** The measured grid was q 3, 5 or 7 with every r coprime to q, plus k 1–6 and k 2–5:
+116 rules with value functions. Two checks pick the dealt set.
+
+- **Equal reach.** For each tie-breaker, a greedy climber from 40 births reaches within 1 bit of the family's median
+  (scripts/pair-reach.ts; [scripts/two-line-systems-reach.txt](scripts/two-line-systems-reach.txt)).
+- **Equal value.** The engine's equal-opportunity test: the value functions' top and median knots agree within 0.5
+  bits.
+
+Both checks together leave 16 numbers (lib/v2-pair families.ts `DEALT_NUMBERS`):
+
+| Family | Dealt numbers |
+|---|---|
+| Whole Answer | (5, 2), (5, 3), (5, 4), (7, 5) |
+| No Fractions | 1, 3 |
+| Double Gap | 2, 3, 4 |
+| Far Crossing | (5, 2), (5, 4) |
+| High Start | (7, 2), (7, 3), (7, 5) |
+| Steep Ratio | (5, 1), (5, 4) |
+
+- **Thin, and why (open).** A value function's top knot is sampled to about ±0.5 bits, the size of the test's
+  tolerance, so most of the grid fails on noise. More draws per pair value, or a tolerance against the knots'
+  intervals, would let more through.
+- **Unequal families (open).** Families' reach differs: a climber's median is about 5 bits on Far Crossing and High
+  Start and about 11 on No Fractions. That is balance across rules (decision 42), which dealing numbers within a family
+  does not fix.
+
+**Bug found and fixed (an easy really-high peak).**
+
+- **What happened.** On the dealt values the tension matrix found "stretch line 1 by 3", repeated, paying High Start
+  (high and rising, q 7) **8,238 bits** at y = 59049x + 52488 beside x = −12. Two value functions had fitted a LINEAR
+  tail on the intercept, 0.16 bits per unit.
+- **Why it is wrong.** The pair law charges exactly 1 bit of φ per doubling of a coefficient, so a derived number of
+  size N is reached for about log₂ N bits. Several other pair tails also rose 1.4–3 bits per doubling.
+- **The fix.** Every pair size tail is now a log ramp of at most 1 bit per doubling (lib/v2-valuation value-pair.ts
+  `PAIR_SIZE_RATE`). Tails were recomputed from the unchanged knots, and a regression test checks the found state
+  against its φ.
+
+**Measured on the dealt pool, after the fix.**
+
+Tension matrix ([scripts/two-line-systems-tension.txt](scripts/two-line-systems-tension.txt)):
+
+- In 26 of 56 ordered pairs the column rises more often than it falls, never by more than 50% / 40%.
+- No Fractions keeps the strongest adversaries: Right Angle's and Forty-Five's climbs lower it 66% and 54% of the
+  time.
+- A repeated basic strategy raises one family by more than 1 bit in 52% of runs, two in 33%, three or more in 16%.
+- The largest joint gain is 14.2 + 11.5 bits (High Start and No Fractions, "stretch line 1 by 2" eight times). That is
+  under decision 40's "20 energy each on the same object".
+
+Collapse check ([dynamics](scripts/two-line-systems-collapse-dynamics.txt),
+[tests 2 and 5](scripts/two-line-systems-collapse-dealt.txt)):
+
+| β | 2. no cheap optimum | 4. dynamics (v1 board) | 5. disclosure |
+|--:|---|---|---|
+| 0.02 | **FAIL** (3/8 tables cheap; search 87% of best) | PASS: 33% of objects change in the last minute, 43% of gains after the midpoint, 3% frozen | PASS (40/40 unidentified) |
+| 0.05 | **FAIL** (3/8; 91%) | PASS: 29%, 48%, 3% | PASS |
+| 0.1 | **FAIL** (5/8; 99%) | PASS: 28%, 44%, 1% | PASS |
+
+- **Dynamics.** Play keeps moving and nothing settles; the narrow check (a) failures of §8.1 are gone.
+- **Test 2 (open, reported).** It now fails at every β (before the dealt numbers: at 0.02 and 0.1). A 5,000-evaluation
+  search with a game's energy finds the best joint state of 3–5 tables in 8. Drift moves that best state every 120 s,
+  which test 2 does not model, so it measures one deal's landscape.
+
+**Review fixes, after these measurements.**
+
+- **Prime-factor counts.** The counts of prime factors (High Start's start-factors, Forty-Five's smooth-divisor) keep
+  the line tail of ½ bit per factor, because k factors need a number of at least 2^k and so cost about k bits. The
+  size rate would have flattened them. This touches 4 of the 38 value functions; the measurements above used the size
+  rate there.
+- **Titles.** No Fractions and Double Gap are titled "Divide By" and "Gap Ratio" (ids unchanged), since they are
+  dealt k other than 1 and 2.
+- **Not changed here, shared with lines, passed to the coordinator.**
+  - The dealer weights a family by its number of dealt (numbers, tie-breaker) entries, and can seat one family twice
+    with different numbers.
+  - A bid card shows a family's first dealt numbers.

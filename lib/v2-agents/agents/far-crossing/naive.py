@@ -1,5 +1,5 @@
 # Far Crossing · Naive (for learning)
-# Main part: the steeper line crosses the x-axis at a whole number. Tie-breaker: whichever you were dealt (the steeper line crosses the x-axis far to the right; the steeper line's x-intercept is a big prime).
+# Main part: the steeper line crosses the x-axis at a whole number with the dealt remainder. Tie-breaker: whichever you were dealt (the steeper line crosses the x-axis far to the right; the steeper line's x-intercept is a big prime).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -9,15 +9,15 @@
 def score(L, p, tie):
     # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
-    dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
     if f.rs is None:   # the steeper line is flat: no score
         return None
-    main = -dist(f.rs)
-    # main: how far the steeper line's x-intercept is from a whole number (closer is better)
+    R = nearest_leaving(f.rs, p["q"], p["r"])   # the whole number that leaves your remainder
+    main = -abs(f.rs - R)
+    # main: how far the steeper line's x-intercept is from a whole number with your remainder (closer is better)
     if tie == "far-right":   # an x-intercept far to the right is better
-        return [main, whole(f.rs)]
+        return [main, R]
     if tie == "far-prime":   # an x-intercept with a big smallest prime factor is better
-        return [main, spf(whole(f.rs))]
+        return [main, spf(R)]
     return [main]
 
 

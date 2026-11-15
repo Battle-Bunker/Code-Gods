@@ -1,5 +1,5 @@
-# Double Gap · Example: the gap is a big prime
-# Main part: the gap on the y-axis is a whole number, twice the gap on the x-axis. Tie-breaker: the gap is a big prime.
+# Gap Ratio · Example: the gap is a big prime
+# Main part: the gap on the y-axis is a whole number, the dealt number of times the gap on the x-axis. Tie-breaker: the gap is a big prime.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
@@ -12,8 +12,8 @@ def score(L, p):
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
     if f.ygap is None or f.xgap is None or f.origin:   # no gaps, or a line through (0, 0): no score
         return None
-    main = -(abs(f.ygap - 2 * f.xgap) + dist(f.ygap))
-    return [main, spf(whole(f.ygap))]   # main: how far the y-intercepts' gap is from a whole number twice the x-intercepts' gap (closer is better); tie-breaker: a gap with a big smallest prime factor is better
+    main = -(abs(f.ygap - p["k"] * f.xgap) + dist(f.ygap))
+    return [main, spf(whole(f.ygap))]   # main: how far the y-intercepts' gap is from a whole number k times the x-intercepts' gap (closer is better); tie-breaker: a gap with a big smallest prime factor is better
 
 
 FAR = 3      # how far one move may go

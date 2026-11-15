@@ -223,6 +223,8 @@ export const v2Tables = {
     primary: v.string(), ladder: legacyLadder,
     /** Parameter drift (drift.ts): how many times this rule's parameters were redrawn, and the world second of the last. */
     drifts: v.optional(v.number()), driftedAt: v.optional(v.number()),
+    /** The rule before its last redraw (its params and card), so a notice "changed from … to …" survives a reload. */
+    previous: v.optional(v.object({ params: v.any(), card: v.string() })),
     /** Won by a bid (the percent bid) and the handicap the winner pays, percent of totals. */
     bid: v.optional(v.number()), handicap: v.optional(v.number()),
   }).index("by_game_member", ["gameId", "memberId"]),

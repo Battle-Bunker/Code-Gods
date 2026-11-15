@@ -38,7 +38,7 @@ export const myRule = query({
     const { rule: r, game } = await requireSeat(ctx, gameId);
     return {
       family: r.family, title: r.title, params: r.params, layers: r.layers, tieBreaker: r.tieBreaker, card: r.card, depends: r.depends, primary: r.primary,
-      ruleKey: r.ruleKey, contentHash: r.contentHash, drifts: r.drifts ?? 0, driftedAt: r.driftedAt ?? null, value: valueFn(r.ruleKey, scopeOf(game)), bid: r.bid ?? null, handicap: r.handicap ?? null,
+      ruleKey: r.ruleKey, contentHash: r.contentHash, drifts: r.drifts ?? 0, driftedAt: r.driftedAt ?? null, previous: r.previous ?? null, value: valueFn(r.ruleKey, scopeOf(game)), bid: r.bid ?? null, handicap: r.handicap ?? null,
     };
   },
 });
