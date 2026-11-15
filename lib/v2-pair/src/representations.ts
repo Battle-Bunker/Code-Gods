@@ -5,7 +5,7 @@
  * the angle between the lines, the four intercepts.
  */
 import { Qn, q, ref, type ElementDecl, type ElementValue, type Q, type Representation } from "@workspace/v2-core";
-import { nearestInteger, through, type Line } from "@workspace/v2-linear";
+import { nearestInteger, through, type EquationScene, type Line } from "@workspace/v2-linear";
 import { facts, gradient, xIntercept, yIntercept, type PairState } from "./pair.ts";
 
 type Decl = ElementDecl<PairState>;
@@ -55,8 +55,8 @@ export const eqs: Representation<PairState> = {
   elements: [0, 1].flatMap(i => [coef(i, "a", "the number of x"), coef(i, "b", "the number of y"), coef(i, "e", "the right-hand side")]),
   layout: () => ({
     kind: "equation", template: [{ el: "a1" }, "x + ", { el: "b1" }, "y = ", { el: "e1" }],
-    steps: [[{ el: "a2" }, "x + ", { el: "b2" }, "y = ", { el: "e2" }]],
-  }) as never,
+    steps: [[{ el: "a2" }, "x + ", { el: "b2" }, "y = ", { el: "e2" }]], given: 2,
+  }) satisfies EquationScene,
 };
 
 // ---------------------------------------------------------------- si: y = mx + c for each line, and the steeper line
@@ -89,7 +89,7 @@ export const si: Representation<PairState> = {
     el("ygap", "the gap between the y-intercepts", "number", "derived", s => orUndef(gapOf(yIntercept(L(s, 0)), yIntercept(L(s, 1))), "a vertical line has no y-intercept")),
     el("xgap", "the gap between the x-intercepts", "number", "derived", s => orUndef(gapOf(xIntercept(L(s, 0)), xIntercept(L(s, 1))), "a horizontal line has no x-intercept")),
   ],
-  layout: () => ({ kind: "equation", template: ["y = ", { el: "m1" }, "x + ", { el: "c1" }], steps: [["y = ", { el: "m2" }, "x + ", { el: "c2" }]] }) as never,
+  layout: () => ({ kind: "equation", template: ["y = ", { el: "m1" }, "x + ", { el: "c1" }], steps: [["y = ", { el: "m2" }, "x + ", { el: "c2" }]], given: 2 }) satisfies EquationScene,
 };
 
 // ---------------------------------------------------------------- solve: elimination worked out (Cramer's rule)
@@ -105,8 +105,8 @@ export const solve: Representation<PairState> = {
   ],
   layout: () => ({
     kind: "equation", template: ["x = ", { el: "nx" }, " ÷ ", { el: "D" }, " = ", { el: "x" }],
-    steps: [["y = ", { el: "ny" }, " ÷ ", { el: "D" }, " = ", { el: "y" }]],
-  }) as never,
+    steps: [["y = ", { el: "ny" }, " ÷ ", { el: "D" }, " = ", { el: "y" }]], given: 2,
+  }) satisfies EquationScene,
 };
 
 // ---------------------------------------------------------------- angle: how the lines cross
