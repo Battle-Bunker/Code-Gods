@@ -67,7 +67,7 @@ test("a redraw never seats a pair the line seating rule forbids (Prime Landing b
 
 test("a ladder family is never redrawn (the coordinator's amendment of call 18): its seat keeps its dealt parameters", async () => {
   const { familyOf } = await import("../../convex/v2/deal.ts");
-  for (const [family, tb, params] of [["prime-landing", "shared-factor", { ends: 1 }], ["prime-staircase", "shared-factor", { ends: 3 }], ["whole-crossing", "shared-factor", { q: 5, r: 2 }], ["smooth-intercept", "shared-factor", { primes: [3, 7] }], ["treasure", "shared-factor", { k: 3 }], ["same-on-both-rulers", "shared-factor", { d: 2, side: -1 }]] as const) {
+  for (const [family, tb, params] of [["prime-landing", "shared-factor", { ends: 1 }], ["prime-staircase", "shared-factor", { ends: 3 }], ["whole-crossing", "shared-factor", { q: 5, r: 2 }], ["smooth-intercept", "shared-factor", { primes: [3, 7] }], ["treasure", "shared-factor", { k: 3 }], ["same-on-both-rulers", "shared-factor", { meets: -1, digits: "even" }]] as const) {
     assert.equal(familyOf(family).keepsParams, true, family);
     for (let tick = 1; tick <= 12; tick++) assert.equal(redrawParams("line-q", family, tb, params, "seed", 1, tick), null, `${family} tick ${tick}`);
   }

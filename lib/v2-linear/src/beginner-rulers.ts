@@ -82,73 +82,84 @@ export const treasure = ladder(family<KT>("treasure", "Treasure", ["table", "si"
 // ---------------------------------------------------------------- Same on Both Rulers
 
 /**
- * Same on Both Rulers as a ladder (design-principles.md; redesigned 15 Nov by the lens worker, declared to the
- * coordinator as a trial). Main part, unbounded: the number the machine leaves unchanged, f = c/(1 − m) (where the line
- * crosses y = x), should round to a palindrome starting and ending in d (d, dd, d0d, d1d, …, d00d, …), the bigger the
- * better, in triangular levels of digits that each need more than the last (u = digitLevel); any other f scores below
- * every palindrome, −(its distance to the nearest − ½). Palindromes of n digits are about 10^⌊n/2⌋ apart, so the next
- * rung is a small move of f that grows with the level; f moves by Δc/(1 − m), so a gradient near 1 (a far fixed point)
- * is the lever and its own price. Tie-breaker, read from the palindrome: the biggest number dividing both its digit sum
- * and the whole part of |c|; a new palindrome changes the digit sum, so the climb starts again. Dealt: d = 1 and 2, each
- * with its mirror (minus a palindrome: the reflection through the origin, (m, c) → (m, −c), sends f to −f and keeps |c|
- * and the law, so mirrors are exact peers). The old main part (f close to T = ±6) had a top.
+ * Same on Both Rulers as a ladder (design-principles.md; the lens worker's redesign, trial 34, replacing trial 33's
+ * palindromes starting with d). Main part, unbounded: where the line meets y = x (or y = −x), read without its sign
+ * (x = c/(±1 − m)), should round to a palindrome with an odd (or an even) number of digits (1–9, 101 … 999, 10001 …; or
+ * 11 … 99, 1001 … 9999, …), the bigger the better, in triangular levels of digits (u = digitLevel); anything else scores
+ * below every palindrome, −(its distance to the nearest − ½). Every palindrome of the parity is a rung: n-digit ones are
+ * 10^⌊n/2⌋ apart. Read without its sign, so a half turn (m, c) → (m, −c) pays nothing: the signed form's mirror
+ * instances made it a repeated repair whenever the pole at m = ±1 threw the meeting point across 0. The reflection in
+ * the x-axis maps y = x's meeting point to y = −x's, so the two are exact peers. Tie-breaker, read from the palindrome:
+ * the biggest number dividing both its digit sum and the whole part of |m| (a flat line scores 0; a tie-breaker read
+ * from c or the other meeting point is a multiple of a one-digit palindrome on whole lines, so it ignores the main
+ * part at the ladder's foot); a new palindrome changes the digit sum, so the climb starts again.
  */
-type PD = { d: number; side?: 1 | -1 };
-const RULERS: PD[] = [1, 2].flatMap(d => [{ d }, { d, side: -1 as const }]);
-const flipR = (p: PD, x: Q): Q => (p.side === -1 ? Qn.neg(x) : x);
+type PD = { meets: 1 | -1; digits: "odd" | "even" };
+const RULERS: PD[] = ([1, -1] as const).flatMap(meets => (["odd", "even"] as const).map(digits => ({ meets, digits })));
 /** The n-digit palindrome whose first ⌈n/2⌉ digits are h. */
 const mirrorHalf = (h: bigint, n: number): bigint => { const s = h.toString(); return BigInt(s + [...s.slice(0, n >> 1)].reverse().join("")); };
-/** The palindrome starting (and ending) in the digit d nearest x (the smaller on a tie, as the starters take it). */
-export function nearestPalindrome(x: Q, d: number): bigint {
-  const w = x.n <= 0n ? 0n : Qn.floor(x), L = w.toString().length, cands: bigint[] = [];
-  for (let n = Math.max(1, L - 1); n <= L + 1; n++) {
-    const k = (n + 1) >> 1, lo = BigInt(d) * 10n ** BigInt(k - 1), hi = lo + 10n ** BigInt(k - 1) - 1n;
+/**
+ * The palindrome (1 or more) with an odd, or an even, number of digits nearest x; on a tie the bigger, as x rounds (half
+ * up): 6½ rounds to 7, a rung, when 6 and 7 are both palindromes.
+ */
+export function nearestPalindrome(x: Q, digits: "odd" | "even"): bigint {
+  const w = x.n <= 0n ? 0n : Qn.floor(x), L = w.toString().length, cands: bigint[] = [], par = digits === "odd" ? 1 : 0;
+  for (let n = Math.max(1, L - 2); n <= L + 2; n++) {
+    if (n % 2 !== par) continue;
+    const k = (n + 1) >> 1, lo = 10n ** BigInt(k - 1), hi = 10n ** BigInt(k) - 1n;
     const h0 = n === L ? BigInt(w.toString().slice(0, k)) : lo;
     for (const h of [lo, hi, h0 - 1n, h0, h0 + 1n]) if (h >= lo && h <= hi) cands.push(mirrorHalf(h, n));
   }
   const far = (t: bigint) => Qn.abs(Qn.sub(x, q(t)));
-  return cands.reduce((a, b) => { const c = Qn.cmp(far(b), far(a)); return c < 0 || (c === 0 && b < a) ? b : a; });
+  return cands.reduce((a, b) => { const c = Qn.cmp(far(b), far(a)); return c < 0 || (c === 0 && b > a) ? b : a; });
 }
 /** The digits of a whole number added up. */
 export const digitSum = (t: bigint): bigint => [...(t < 0n ? -t : t).toString()].reduce((a, ch) => a + BigInt(ch), 0n);
 /** The rung f stands on: the palindrome it rounds to (u = digitLevel), else minus how far f is from rounding to the nearest. */
-const palindromeRung = (f: Q, d: number): { t: bigint; u: Q } => {
-  const t = nearestPalindrome(f, d);
+const palindromeRung = (f: Q, digits: "odd" | "even"): { t: bigint; u: Q } => {
+  const t = nearestPalindrome(f, digits);
   return { t, u: nearestInteger(f) === t ? digitLevel(t) : Qn.neg(Qn.sub(Qn.abs(Qn.sub(f, q(t))), q(1, 2))) };
 };
-/** The witnesses for the tail cap: the smallest n-digit palindrome in d (d, then d0…0d), on the lines y = P, y = 2P − x, y = 2x − P. */
+/**
+ * The witnesses for the tail cap: the smallest palindrome of the parity with at least n digits (1, 11, 101, 1001, …), P,
+ * and lines crossing y = meets·x at x = P: y = meets·P, and gradients 1 and 2 through (P, meets·P).
+ */
 export const rulersWitness = (p: PD, n: number): LineState[] => {
-  const P = n === 1 ? BigInt(p.d) : BigInt(p.d) * 10n ** BigInt(n - 1) + BigInt(p.d), s = p.side === -1 ? -1n : 1n;
-  return ([[0, s * P], [-1, 2n * s * P], [2, -s * P]] as const).map(([m, c]) => ({ lines: [fromMC(q(m), q(c))] }));
+  const len = n % 2 === (p.digits === "odd" ? 1 : 0) ? n : n + 1;
+  const P = len === 1 ? 1n : 10n ** BigInt(len - 1) + 1n, y = BigInt(p.meets) * P;
+  return ([0n, 1n, 2n] as const).map(m => ({ lines: [fromMC(q(m), q(y - m * P))] }));
 };
-const palindromes = (p: PD) => {
-  const [m, e] = p.side === -1 ? ["minus ", "−"] : ["", ""];
-  return `${m}a number that reads the same backwards and starts with ${p.d}, like ${e}${p.d}, ${e}${p.d}${p.d} or ${e}${p.d}1${p.d}`;
-};
+const palindromes = (p: PD) =>
+  `a number reading the same backwards with ${p.digits === "odd" ? "1, 3, 5…" : "2, 4, 6…"} digits, like ${p.digits === "odd" ? "7 or −343" : "44 or −1221"}`;
+const target = (p: PD) => (p.meets === 1 ? "y = x" : "y = −x");
 const rulersShape: Shape<PD> = {
-  main: { ...more<PD>("palindrome", "the unchanged number on as big a palindrome as possible", "", "mach"),
-    sentence: p => `Where the line meets y = x should round to ${palindromes(p)}. Bigger is better.` },
+  main: { ...more<PD>("palindrome", "where the line meets y = x or y = −x, on as big a number reading the same backwards as possible (ignoring a minus sign)", "", "si"),
+    sentence: p => `Where the line meets ${target(p)} should round to ${palindromes(p)}. Bigger is better.` },
   tieBreakers: [
-    more<PD>("shared-factor", "the biggest number dividing both the palindrome's digit sum and the y-intercept's whole part",
-      "That number's digits added up and the y-intercept's whole part should share the biggest factor possible.", "si"),
+    more<PD>("shared-factor", "the biggest number dividing both that number's digits added up and the gradient's whole part",
+      "That number's digits added up and the gradient's whole part should share the biggest factor possible.", "si"),
   ],
 };
-export const sameOnBothRulers = ladder(family<PD>("same-on-both-rulers", "Same on Both Rulers", ["mach", "si", "gen"], rulersShape, RULERS, (ctx, p) => {
-  // A vertical line x = k meets y = x at (k, k): k is the number it leaves unchanged.
+export const sameOnBothRulers = ladder(family<PD>("same-on-both-rulers", "Same on Both Rulers", ["si", "gen"], rulersShape, RULERS, (ctx, p) => {
+  // A vertical line x = k meets y = x at (k, k) and y = −x at (k, −k): k, read without its sign.
   const vx = verticalAt(ctx);
   if (vx) {
-    const { t, u } = palindromeRung(flipR(p, vx.x), p.d);
-    return verticalMain(ctx, rulersShape, `a vertical line meets y = x at ${Qn.toWire(vx.x)}: ${Qn.sign(u) > 0 ? "on" : "near"} ${p.side === -1 ? "minus " : ""}${t}`, u, vx.from);
+    const { t, u } = palindromeRung(Qn.abs(vx.x), p.digits);
+    return verticalMain(ctx, rulersShape, `a vertical line meets ${target(p)} at ${Qn.toWire(vx.x)}, ${Qn.sign(u) > 0 ? "which rounds to" : "nearest"} ${t} (reads the same backwards)`, u, vx.from);
   }
-  const fRef = ref("mach", "fixed");
-  const fv = ctx.read(fRef);
-  const f = num(fv);
-  if (f === null) return allUndefined(ctx, rulersShape, fv, fRef);   // parallel to y = x: no number stays unchanged
-  const cRef = ref("si", "c");
-  const c = num(ctx.read(cRef))!, wc = Qn.floor(Qn.abs(c));
-  const { t, u } = palindromeRung(flipR(p, f), p.d), sum = digitSum(t), g = wc === 0n ? 0n : gcd(sum, wc);
-  const minus = p.side === -1 ? "minus " : "";
-  ctx.term("palindrome", Qn.sign(u) > 0 ? `the unchanged number ${Qn.toWire(f)} rounds to ${minus}the palindrome ${t}` : `the unchanged number ${Qn.toWire(f)} is ${Qn.toWire(Qn.abs(Qn.sub(flipR(p, f), q(t))))} from ${minus}the palindrome ${t}`, u, [fRef]);
-  ctx.term("shared-factor", `${t}'s digits add up to ${sum}; the y-intercept's whole part is ${wc}: the biggest number dividing both is ${g}`, q(g), [fRef, cRef]);
-  ctx.mark({ kind: "focus", ref: fRef });
+  const mRef = ref("si", "m"), cRef = ref("si", "c");
+  const m = num(ctx.read(mRef))!, c = num(ctx.read(cRef))!;
+  // y = mx + c meets y = k·x where mx + c = kx: x = c/(k − m); none when the line is parallel to it.
+  const k = q(p.meets), den = Qn.sub(k, m);
+  if (Qn.sign(den) === 0) {
+    ctx.term("palindrome", `parallel to ${target(p)}: it never meets it`, { undefined: `parallel to ${target(p)}` }, [mRef]);
+    ctx.term("shared-factor", "parallel: no number to read", { undefined: `parallel to ${target(p)}` }, [mRef]);
+    return;
+  }
+  const x = Qn.div(c, den), wm = Qn.floor(Qn.abs(m));   // the whole part of |m|
+  const { t, u } = palindromeRung(Qn.abs(x), p.digits), sum = digitSum(t), g = wm === 0n ? 0n : gcd(sum, wm);
+  const near = `${t} (reads the same backwards)`;
+  ctx.term("palindrome", Qn.sign(u) > 0 ? `meets ${target(p)} at x = ${Qn.toWire(x)}, which rounds to ${Qn.sign(x) < 0 ? "−" : ""}${near}` : `meets ${target(p)} at x = ${Qn.toWire(x)}, ${Qn.toWire(Qn.abs(Qn.sub(Qn.abs(x), q(t))))} from ${Qn.sign(x) < 0 ? "−" : ""}${near}`, u, [mRef, cRef]);
+  ctx.term("shared-factor", `${t}'s digits add up to ${sum}; the gradient's whole part is ${wm}: the biggest number dividing both is ${g}`, q(g), [mRef, cRef]);
+  ctx.mark({ kind: "focus", ref: cRef });
 }), rulersWitness);

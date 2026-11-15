@@ -1,5 +1,5 @@
-// Same on Both Rulers · Example: the biggest number dividing both the palindrome's digit sum and the y-intercept's whole part
-// Main part: the unchanged number on as big a palindrome as possible. Tie-breaker: the biggest number dividing both the palindrome's digit sum and the y-intercept's whole part.
+// Same on Both Rulers · Example: the biggest number dividing both that number's digits added up and the gradient's whole part
+// Main part: where the line meets y = x or y = −x, on as big a number reading the same backwards as possible (ignoring a minus sign). Tie-breaker: the biggest number dividing both that number's digits added up and the gradient's whole part.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -7,20 +7,21 @@
 // with that player and put the line in LEAVE to keep it.
 // Changing it later costs only what you change. To summon another agent, first move power from your agents to your
 // own store (energy moves with it), pay, then share the power out again.
-// Try this: remove the "tilt" line: a turn keeps the y-intercept and moves the unchanged number; can it still find a palindrome?
+// Try this: remove the "shift" line: a tilt changes the gradient and the unchanged number together; can it still find a palindrome?
 
-// Palindromes starting and ending in the digit d (d, dd, d0d, d1d, ...): those nearest y, the nearest, and its level.
-function pals(y, d) {
-  const w = Q.cmp(y, 0) <= 0 ? "0" : String(whole(Q.sub(y, Q.div(1, 2)))), L = w.length, D = BigInt(d);   // w: y rounded down
+// Palindromes (1, 2 ... 9, 11, 22 ... 99, 101, 111 ...) with an odd, or an even, number of digits: those nearest y, the nearest, and its level.
+function pals(y, odd) {
+  const w = Q.cmp(y, 0) <= 0 ? "0" : String(whole(Q.sub(y, Q.div(1, 2)))), L = w.length, out = [];   // w: y rounded down
   const pal = (h, n) => { const t = String(h); return BigInt(t + t.slice(0, n >> 1).split("").reverse().join("")); };   // n digits from the first (n + 1)/2, h
-  const lo = n => D * 10n ** BigInt((n - 1) >> 1), hi = n => lo(n) + 10n ** BigInt((n - 1) >> 1) - 1n, h0 = BigInt(w.slice(0, (L + 1) >> 1));
-  const out = [pal(lo(L + 1), L + 1), ...[h0 - 1n, h0, h0 + 1n].map(h => pal(h < lo(L) ? lo(L) : h > hi(L) ? hi(L) : h, L))];
-  return L > 1 ? [...out, pal(hi(L - 1), L - 1)] : out;
+  const k = n => BigInt((n + 1) >> 1), lo = n => 10n ** (k(n) - 1n), hi = n => 10n ** k(n) - 1n, h0 = BigInt(w.slice(0, (L + 1) >> 1));
+  for (let n = Math.max(1, L - 2); n <= L + 2; n++) if (n % 2 === (odd ? 1 : 0))   // the longest shorter one, the shortest longer one, and those around y
+    out.push(...(n < L ? [pal(hi(n), n)] : n > L ? [pal(lo(n), n)] : [h0 - 1n, h0, h0 + 1n].map(h => pal(h < lo(n) ? lo(n) : h > hi(n) ? hi(n) : h, n))));
+  return out;
 }
-function rungOf(y, d) {   // the nearest (the smaller on a tie)
+function rungOf(y, odd) {   // the nearest (the bigger on a tie, as y rounds)
   const w = Q.cmp(y, 0) <= 0 ? -1n : BigInt(whole(Q.sub(y, Q.div(1, 2))));   // whole numbers at or below y are those at or below w
-  let a = null, b = null; for (const t of pals(y, d)) { if (t <= w) { if (a === null || t > a) a = t; } else if (b === null || t < b) b = t; }
-  return a === null || Q.cmp(Q.sub(Q.of(b), y), Q.sub(y, Q.of(a))) < 0 ? b : a;
+  let a = null, b = null; for (const t of pals(y, odd)) { if (t <= w) { if (a === null || t > a) a = t; } else if (b === null || t < b) b = t; }
+  return a === null || Q.cmp(Q.sub(Q.of(b), y), Q.sub(y, Q.of(a))) <= 0 ? b : a;
 }
 function onRung(y, r) {   // on the rung when y rounds to it: its levels of digits (level L needs L(L + 1)/2); else how far from rounding to it
   if (BigInt(whole(y)) !== r) return Q.neg(Q.sub(Q.abs(Q.sub(y, Q.of(r))), Q.div(1, 2)));
@@ -31,14 +32,14 @@ function onRung(y, r) {   // on the rung when y rounds to it: its levels of digi
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p) {
   if (m === null) {               // the vertical line x = c
-    const y = Q.mul(p.side ?? 1, c), main = onRung(y, rungOf(y, p.d));   // x = c meets y = x at c
+    const y = Q.abs(c), main = onRung(y, rungOf(y, p.digits === "odd"));   // x = c meets y = x and y = -x at x = c
     return [main, null];
   }
-  if (Q.eq(m, 1)) return null;                    // parallel to y = x: no number stays unchanged
-  const y = Q.mul(p.side ?? 1, Q.div(c, Q.sub(1, m)));   // the unchanged number c/(1 - m), where the line meets y = x (minus it on the mirror)
-  const rung = rungOf(y, p.d), main = onRung(y, rung);
-  const sum = [...rung.toString()].reduce((a, ch) => a + Number(ch), 0), wc = whole(Q.sub(Q.abs(c), Q.div(1, 2)));   // the palindrome's digits added up; the whole part of |c|
-  return [main, common(sum, wc)];   // main: the palindrome starting and ending in d (d, dd, d0d, ...) that the number the machine leaves unchanged rounds to, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one; tie-breaker: a bigger number dividing both the palindrome's digit sum and the y-intercept's whole part is better
+  if (Q.eq(m, p.meets)) return null;              // parallel to y = x (or y = -x): it never meets it
+  const y = Q.abs(Q.div(c, Q.sub(p.meets, m)));   // mx + c = meets*x where x = c/(meets - m); its size (a minus sign does not matter)
+  const rung = rungOf(y, p.digits === "odd"), main = onRung(y, rung);
+  const sum = [...rung.toString()].reduce((a, ch) => a + Number(ch), 0), wm = whole(Q.sub(Q.abs(m), Q.div(1, 2)));   // the palindrome's digits added up; the whole part of |m|
+  return [main, common(sum, wm)];   // main: the palindrome with an odd (or even) number of digits that the line's meeting point with y = x (or y = -x) rounds to, ignoring its sign, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one; tie-breaker: a bigger number dividing both the palindrome's digit sum and the gradient's whole part is better
 }
 
 const FAR = 3;      // how far one change may go
@@ -67,12 +68,12 @@ function agent(offer) {
       const den = Q.sub(1, Q.mul(m, k));
       if (!Q.isZero(den)) tries.push([move("rot.turn", { centre: 0, turn: k }), Q.div(Q.add(m, k), den), c]);   // turn the line about its y-intercept by the angle of a gradient k (the y-intercept stays put)
     }
-    // The next palindrome up (the ladder has no top): the smallest one above the unchanged number, by a shift or by a tilt.
-    if (!Q.eq(m, 1)) {
-      const s = p.side ?? 1, y = Q.mul(s, Q.div(c, Q.sub(1, m)));   // the unchanged number (minus it on the mirror)
-      const to = Q.mul(s, Q.of(pals(y, p.d).filter(t => Q.cmp(Q.of(t), y) > 0).reduce((a, b) => (b < a ? b : a))));
-      tries.push([move("si.shift", { k: Q.sub(Q.mul(to, Q.sub(1, m)), c) }), m, Q.mul(to, Q.sub(1, m))]);   // keep m, move c
-      if (!Q.isZero(c)) tries.push([move("si.tilt", { k: Q.sub(Q.sub(1, Q.div(c, to)), m) }), Q.sub(1, Q.div(c, to)), c]);   // keep c, move m
+    // The next palindrome up (the ladder has no top): the smallest one above the meeting point's size, keeping its sign, by a shift or by a tilt.
+    if (!Q.eq(m, p.meets)) {
+      const x = Q.div(c, Q.sub(p.meets, m)), s = Q.cmp(x, 0) < 0 ? -1 : 1, y = Q.abs(x);   // where the line meets y = meets·x, and its size
+      const to = Q.mul(s, Q.of(pals(y, p.digits === "odd").filter(t => Q.cmp(Q.of(t), y) > 0).reduce((a, b) => (b < a ? b : a))));
+      tries.push([move("si.shift", { k: Q.sub(Q.mul(to, Q.sub(p.meets, m)), c) }), m, Q.mul(to, Q.sub(p.meets, m))]);   // keep m, move c
+      if (!Q.isZero(c)) tries.push([move("si.tilt", { k: Q.sub(Q.sub(p.meets, Q.div(c, to)), m) }), Q.sub(p.meets, Q.div(c, to)), c]);   // keep c, move m
     }
     tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
   }

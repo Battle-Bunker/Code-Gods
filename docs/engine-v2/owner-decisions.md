@@ -678,6 +678,26 @@ back) or TRIAL (a declared experiment, measured and reported).
       unbounded ladder with sparse rungs is better than a top hit exactly; the follow-up (every palindrome a rung, odd
       or even number of digits × mirror) replaces it if row 2 improves and fairness, the energy gate and the deal hold.
 
+34. **TRIAL** (the lens worker's redesign, declared to the coordinator 15 Nov; replaces trial 33): Same on Both Rulers
+    reads where the line meets y = x, or y = −x, without its sign (x = c/(±1 − m)), and that number should round to a
+    palindrome with an odd, or an even, number of digits (every such number is a rung: 1–9, 101 … 999, …; 11 … 99,
+    1001 …), the bigger the better, in triangular levels of digits. Instances: y = x or y = −x × odd or even digits (no
+    mirror instances; the reflection in the x-axis maps one diagonal's meeting point to the other's, so they are exact
+    peers). Ties round up (6½ stands on 7). Tie-breaker: the biggest number dividing both the palindrome's digit sum and
+    the gradient's whole part.
+    - **Motivation.** Trial 33's rungs (palindromes starting with d) were too sparse to climb between: playtest round 30
+      stayed on the first rung all game. Its mirror instances also made the half turn a repeated repair (the pole at m = 1
+      throws the meeting point across 0; 384 half turns at +7.0 bits, 88% repeated by the same seat on the same object).
+    - **Effects** (80 games, widened starters #855, drift 0, the family in every game): mean gain 284, fifth of eleven
+      (the pool's spread 8.4 is Square Area's 47); balance within the family 1.24; 66% of seats still climbing in the
+      last third, levels per object median 2, rung-to-rung crossings about 2,300; **14% plateaued early (above the 10%
+      guide)**; peak seat 12.2 bits; the longest stretch runs by this family 13 (trial 33's parity draft: 55). The half
+      turn no longer pays; the x-axis reflection is now its most used move (1,202 moves, 89–93% repeated), the next
+      cheapest move in the tug (the coordinator, on the spec lead's and the agents session's mirror-tug runs: barring
+      reflections leaves the tug as it is). The tie-breaker stays on the gradient's whole part: one read from c or from
+      the other meeting point is a multiple of a one-digit palindrome on whole lines, so a flat line is always best at the
+      ladder's foot and row 3 fails.
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.
