@@ -72,3 +72,43 @@ Not played by a human this round (it was a partner in alice's game). Carried ove
 | 3 | The turn's note "by the angle of a 1 gradient" is not a child's phrase; "an eighth of a turn (45°)" would be | 03 | minor (wording) |
 | 4 | Develop deploy runs 638 and 639 are red on the `unit` job (`test:offline:rest`); the deployment itself succeeded | — | for the owning session |
 | 5 | Header and Why points still differ (129.94 vs 126.64; 53.23 vs 45.07) | 02 | minor (views), open |
+
+## Supplement: the turn and the zoom tried by hand (the coordinator's brief)
+
+Played on develop 872fe49f, after #790 (the zoom out of the beginner set; the turn stays). Fresh local deployment, app
+build 4cdbdef5, time scale 1, at 1440:
+- room DZ7BQD, Lines · beginner: alice, **Prime Staircase** (the turn);
+- room ENBL49, Lines · more ways to move (trial): carol, Treasure (the zoom lives only there now).
+
+**A player cannot make a move by hand.** The only place a person meets a move is the **What if** pane: "Try a change to
+see what it would do. Nothing happens to the line: only agents change lines." It opens from the palette ("List a
+representation's mutators") or the pane menu. You pick a line in Lines, choose the move from **Change**, fill its
+numbers, and read what it would do, your rarity and points before and after, and "An agent would spend about … energy
+on this change". So "used by hand" below means tried there, twice each.
+
+| Question (as a bright 12-year-old) | Turn | Zoom |
+|---|---|---|
+| Can I find it? | Yes, under "the line on the plane" in Change. But it sits beside an older move, **"turn the line about its point at x = x0"**: two "turn" moves in one list, and "x0" means nothing to a child (06) | Yes in the trial preset ("zoom the line away from the origin or towards it, keeping its steepness"). Not in Lines · beginner since #790 |
+| Do the title and sketch say what it will do before I press? | The **sentence** does: *"Stick a pin in the line at (0, −5) and turn the line around it, anticlockwise, by the angle of a 1 gradient (the slope of a line that goes 1 up for every 1 across). The pin stays put. Now the line goes down ³⁵⁄₆₉ for every 1 across"* (09). The **sketch** does not: a dot, an arrowhead and the label "¼ TURN", whose end the arrowhead covers; the line itself is not drawn (08). The inputs are labelled with raw names, "centre" (the text "origin") and "turn" (the text "left", or a gradient such as "3/4"); nothing says what may be typed (07) | The **sentence** does: *"Zoom from the origin O: everything ends up twice as far from the origin, so the line's crossings move from −1⅓ to −2⅔ on the x-axis and from 4 to 8 on the y-axis (the arrows), and it keeps the same slope. It becomes y = 3x + 8"* (11). The **sketch** shows two arrowheads marked "×2" and a dot at 0, with no line and no axes. The input is labelled "f" (10) |
+| Price shown? | Yes: a quarter turn about the origin, **about 106.97 energy**; a 1-gradient turn about the y-intercept, **111.75** on one line and **52.20** on another. An agent's ordinary moves in the same game cost 15–30 | Yes: ×2 **about 9.71 energy**, ×⅓ **about 14.50** (the trial preset, 64 energy a second) |
+| What it would do to my points | ¼ turn about the origin: 64.77 → 12.77 points; the 1-gradient turn: 12.21 → 12.21 | ×2: −36.30 → −23.10; ×⅓: 10.08 → 34.49 |
+| An agent's move in the log, and to whom | Round 23's log entry for the starter's turn (03): *"turn the line clockwise by the angle of a 1 gradient about its point at x = 0"*, with my rarity and points before and after. Moves by **other** seats appear in the public log only as **"Line 3 changed."**, so a player cannot see what someone else's turn did, or how much another seat lost (12) | No zoom by an agent appeared in carol's logs (the trial game's starters made 1 mirror and no zoom in the moves read) |
+
+Two more things seen:
+- What if showed **"Your points on it −36.30 points"** while the same line's card read 37.08 points. Negative points are
+  never explained (10). The second zoom showed 10.08 against the card's 5.82: the header/Why mismatch again.
+- Alice (Prime Staircase) finished **1st, 303.09**, and her agent kept stepping up late: the chart rises in the last
+  two minutes. The best lines still held runs of **one** prime ("1¹³⁄₂₉"), so no run of two was reached (13). A redraw
+  changed the ending digit 7 → 3 → 7.
+
+### Supplement findings
+
+| # | Finding | Evidence | Severity |
+|---|---|---|---|
+| S1 | A player cannot move a line by hand; What if only previews. If the brief expects players to use moves themselves, there is no control for it | 06, 07 | question (app/coordinator) |
+| S2 | Two "turn" moves sit side by side in Change ("…about its point at x = x0" and "…around a pin, like a clock hand"); "x0" is jargon | 06 | minor (wording) |
+| S3 | The turn's and the zoom's sketches do not draw the line, and the turn's label is covered by its arrowhead ("¼ TUR▶") | 08, 11 | minor (views) |
+| S4 | Inputs are labelled with raw parameter names ("centre", "turn", "f"), with no hint of what may be typed ("origin", "left", "3/4") | 07, 10 | minor (app) |
+| S5 | Other seats' moves show as "Line N changed." in the public log, so who lost what to a turn or zoom is invisible | 12 | minor (by design? coordinator) |
+| S6 | What if can show negative points on a line (−36.30) with no explanation | 10 | minor (views) |
+| S7 | A turn costs 52–112 energy in What if, 3–7 times an ordinary move | 07, 09 | watch (pricing) |
