@@ -60,6 +60,6 @@ export function lookAllPrice(rows: readonly ({ lookPrice?: number } | undefined)
 }
 
 /** The Watcher a board needs (lib/v2-agents watcherFor): one program per object type. */
-export const watcherTypeOf = (variant: string): "lines" | "grids" => (variant.startsWith("grid") ? "grids" : "lines");
+export const watcherTypeOf = (variant: string): "lines" | "grids" | "pairs" => (variant.startsWith("grid") ? "grids" : variant.startsWith("pair") ? "pairs" : "lines");
 /** Its share of power: lines about 15 s fresh, most turns left to the climber (W2, #674). */
 export const KEEP_FRESH_SHARE = 0.2;

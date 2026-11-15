@@ -8,6 +8,7 @@ export * from "./summon.ts";
 export { CATALOGUE, LENSES, type FamilyEntry, type TieBreakerEntry, type Lens, type LensId } from "./catalogue.ts";
 export { GRID_CATALOGUE, GRID_LENSES, type GridFamilyEntry, type GridTieBreakerEntry, type GridLens, type GridLensId } from "./grid-catalogue.ts";
 export { gridUndescribed, isGridFamily } from "./grid-starters.ts";
+export { isPairFamily, PAIR_SCORES } from "./pair-starters.ts";
 export * from "./host.ts";
 export * from "./compat.gen.ts";
 export { unopposedDirections, unopposedIn, WEAK_BELOW, OPPORTUNITY_FRACTION, LADDER_SLOPE, type UnopposedDirection } from "./unopposed.ts";

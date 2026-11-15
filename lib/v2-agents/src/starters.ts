@@ -16,6 +16,7 @@ import { lineType } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
 import { CATALOGUE, LENSES, type FamilyEntry, type Lens, type LensId } from "./catalogue.ts";
 import { gridExampleFor, gridScoreSource, gridShippedAgents, gridStartersFor, isGridFamily, isGridTypeFamily } from "./grid-starters.ts";
+import { isPairFamily, isPairTypeFamily, pairExampleFor, pairScoreSource, pairShippedAgents, pairStartersFor } from "./pair-starters.ts";
 
 export type AgentKind = "example" | "simple" | "thorough" | "bold" | "naive";
 export type ShippedLanguage = Extract<Language, "typescript" | "python">;
@@ -357,6 +358,7 @@ const LANGUAGES: readonly ShippedLanguage[] = ["typescript", "python"];
 /** The example for a dealt rule, in one language (null: no example for that family or tie-breaker). */
 export function exampleFor(family: string, tieBreaker: string, language: ShippedLanguage): ShippedAgent | null {
   if (isGridTypeFamily(family)) return gridExampleFor(family, tieBreaker, language);
+  if (isPairTypeFamily(family)) return pairExampleFor(family, tieBreaker, language);
   const e = CATALOGUE.find(x => x.family === family);
   return e?.tieBreakers[tieBreaker] ? render("example", family, tieBreaker, language) : null;
 }
@@ -364,6 +366,7 @@ export function exampleFor(family: string, tieBreaker: string, language: Shipped
 /** The Simple, Thorough and Bold starters for a family, then Naive (a teaching example, never a default), in one language. */
 export function startersFor(family: string, language: ShippedLanguage, tieBreaker?: string | null): ShippedAgent[] {
   if (isGridTypeFamily(family)) return gridStartersFor(family, language, tieBreaker);   // grids: written for the dealt tie-breaker (lines read it themselves)
+  if (isPairTypeFamily(family)) return pairStartersFor(family, language, tieBreaker);   // pairs of lines: likewise
   return (["simple", "thorough", "bold", "naive"] as const).map(k => render(k, family, null, language));
 }
 
@@ -373,7 +376,7 @@ export function shippedAgents(): ShippedAgent[] {
   return CATALOGUE.filter(e => lineType.families.some(f => f.id === e.family)).flatMap(e => LANGUAGES.flatMap(language => [
     ...Object.keys(e.tieBreakers).filter(tb => familyOf(e.family).tieBreakers.some(t => t.id === tb)).map(tb => render("example", e.family, tb, language)),
     ...startersFor(e.family, language),
-  ])).concat(gridShippedAgents());
+  ])).concat(gridShippedAgents(), pairShippedAgents());
 }
 
 /**
@@ -382,8 +385,10 @@ export function shippedAgents(): ShippedAgent[] {
  * can always summon one.
  */
 export function hasStarters(family: string): boolean {
-  return isGridFamily(family) || (CATALOGUE.some(e => e.family === family) && lineType.families.some(f => f.id === family));
+  return isGridFamily(family) || isPairFamily(family) || (CATALOGUE.some(e => e.family === family) && lineType.families.some(f => f.id === family));
 }
+
+const pairFirstTie = (family: string): string => { throw new Error(`${family}: a pair agent's score is written for one tie-breaker; name it`); };
 
 /** Where a shipped agent's rendered copy is committed (for reading and review): agents/<family>/<name>.<ext>. */
 export function shippedPath(a: ShippedAgent): string {
@@ -397,6 +402,7 @@ export function shippedPath(a: ShippedAgent): string {
  */
 export function scoreSource(family: string, tieBreaker: string | null, language: ShippedLanguage): string {
   if (isGridTypeFamily(family)) return gridScoreSource(family, tieBreaker, language);
+  if (isPairTypeFamily(family)) return pairScoreSource(family, tieBreaker ?? pairFirstTie(family), language);
   const e = entryOf(family);
   return (language === "typescript" ? scoreTs(e, tieBreaker) : scorePy(e, tieBreaker)).join("\n") + "\n";
 }
