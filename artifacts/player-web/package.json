@@ -16,6 +16,7 @@
     "e2e:connect": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-connect.ts",
     "e2e:assistant": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-assistant.ts",
     "e2e:replay": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-replay.ts",
+    "e2e:ended": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-ended.ts",
     "e2e:gallery": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-gallery.ts",
     "e2e:annotations-lines": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/annotations-lines.ts ../../docs/screenshots/annotations-lines",
     "e2e:annotations-game": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/annotations-game.ts ../../docs/screenshots/annotations-lines/game",
