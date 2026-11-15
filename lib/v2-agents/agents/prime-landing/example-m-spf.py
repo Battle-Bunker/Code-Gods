@@ -16,10 +16,11 @@ def score(m, c, p):
         landing = near(c, prime, p["ends"])             # it lands on the x-axis: the prime ending in p["ends"] nearest
         main = -abs(c - landing)
         return [main, None]
-    landing = near(c, prime, p["ends"])             # the prime ending in p["ends"] nearest the y-intercept
+    s = p.get("side", 1)                           # 1, or -1 on the mirror: minus a prime
+    landing = s * near(s * c, prime, p["ends"])   # the (minus) prime ending in p["ends"] nearest
     main = -abs(c - landing)
     fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)
-    return [main, fm[0] if fm else 1]   # main: how far the y-intercept is from the nearest prime ending in the rule's digit (closer is better); tie-breaker: the gradient's smallest prime factor big is better
+    return [main, fm[0] if fm else 1]   # main: how far the y-intercept is from the nearest prime ending in the rule's digit, or minus one on the mirror (closer is better); tie-breaker: the gradient's smallest prime factor big is better
 
 
 FAR = 3      # how far one change may go

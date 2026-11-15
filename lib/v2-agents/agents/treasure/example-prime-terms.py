@@ -16,7 +16,8 @@ def score(m, c, p):
         main = -abs(c - p["k"])                        # how far across from (k, T) it passes
         return [main, None]
     main = -abs(m * p["k"] + c - p["T"])           # y(k) = m*k + c
-    primes = {m * x + c for x in range(1, 9) if prime(m * x + c)}   # y(1) ... y(8)
+    sg = -1 if p["T"] < 0 else 1
+    primes = {sg * (m * x + c) for x in range(1, 9) if prime(sg * (m * x + c))}   # y(1) ... y(8), minus them when T is below zero
     return [main, len(primes)]   # main: how far y(k) is from T (closer is better); tie-breaker: more different primes among y(1) ... y(8) is better
 
 

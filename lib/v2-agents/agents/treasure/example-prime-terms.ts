@@ -16,7 +16,7 @@ function score(m, c, p) {
     return [main, null];
   }
   const main = Q.neg(Q.abs(Q.sub(Q.add(Q.mul(m, p.k), c), p.T)));   // y(k) = m·k + c
-  const primes = new Set([1, 2, 3, 4, 5, 6, 7, 8].map(x => Q.add(Q.mul(m, x), c)).filter(prime).map(Q.toString));   // y(1) ... y(8)
+  const primes = new Set([1, 2, 3, 4, 5, 6, 7, 8].map(x => Q.mul(p.T < 0 ? -1 : 1, Q.add(Q.mul(m, x), c))).filter(prime).map(Q.toString));   // y(1) ... y(8), minus them when T is below zero
   return [main, primes.size];   // main: how far y(k) is from T (closer is better); tie-breaker: more different primes among y(1) ... y(8) is better
 }
 

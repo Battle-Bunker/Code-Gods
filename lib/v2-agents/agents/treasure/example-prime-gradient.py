@@ -16,7 +16,8 @@ def score(m, c, p):
         main = -abs(c - p["k"])                        # how far across from (k, T) it passes
         return [main, None]
     main = -abs(m * p["k"] + c - p["T"])           # y(k) = m*k + c
-    mp = near(m, prime)                        # the prime nearest the gradient
+    sg = -1 if p["T"] < 0 else 1
+    mp = sg * near(sg * m, prime)               # the prime (minus a prime when T is below zero) nearest the gradient
     return [main, -abs(m - mp)]   # main: how far y(k) is from T (closer is better); tie-breaker: a gradient close to a prime is better
 
 

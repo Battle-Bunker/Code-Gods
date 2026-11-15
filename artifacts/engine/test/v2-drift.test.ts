@@ -33,20 +33,21 @@ test("every driftSeconds, a seat's parameters are redrawn; the rule, the values 
   const me = (await ada!.query("v2/games:header", { gameId })).me;
   const knownBefore = new Map((await admin.query("v2/testing:knowledgeOf", { gameId, memberId: me })).map((k: any) => [k.objectId, k]));
   assert.ok(knownBefore.size >= 3, "Ada knows the starting objects");
-  for (let i = 0; (await admin.query("v2/testing:clock", { gameId })).worldSeconds < 11; i++) {
-    assert.ok(i < 120, "the world reaches 11 s");
+  // A redraw may keep the value (drift.ts), so wait for the first drift that changes it: with a grid of n ≥ 3 values,
+  // six drifts all keeping it has chance at most 3^-6.
+  for (let i = 0; (await ada!.query("v2/play:myRule", { gameId })).drifts === 0; i++) {
+    assert.ok(i < 300 && (await admin.query("v2/testing:clock", { gameId })).worldSeconds < 63, "a drift changes the value within six drifts");
     await new Promise(r => setTimeout(r, 500));
   }
   const after = await ada!.query("v2/play:myRule", { gameId });
-  assert.equal(after.drifts, 1);
-  assert.ok(after.driftedAt >= 10 && after.driftedAt < 13, `drifted at ${after.driftedAt}`);
+  assert.ok(after.drifts >= 1);
+  assert.ok(after.driftedAt % 10 < 3, `drifted at ${after.driftedAt}, on a drift tick`);
   assert.deepEqual([after.family, after.tieBreaker], [before.family, before.tieBreaker], "never the family or tie-breaker");
-  assert.notEqual(JSON.stringify(after.params), JSON.stringify(before.params), "the parameters changed");
   assert.notEqual(after.ruleKey, before.ruleKey);
 
   const events = await admin.query("v2/testing:events", { gameId, after: -1 });
-  const drift = events.find((e: any) => e.kind === "drift");
-  assert.ok(drift && drift.data.k === 1 && drift.data.seats.some((s: any) => s.ruleKey === after.ruleKey), "the record has the redraw");
+  const drift = events.find((e: any) => e.kind === "drift" && e.data.k === after.drifts);
+  assert.ok(drift && drift.data.k === after.drifts && drift.data.seats.some((s: any) => s.ruleKey === after.ruleKey), "the record has the redraw");
   assert.ok(events.some((e: any) => e.kind === "values" && e.seq > drift.seq), "and the objects' values under the new rules");
   await perform(ada!, "game.pause", {}, { gameId });
   // Her knowledge shows her own bits under the new rule on the states she knows, the others' sum as told, nothing
