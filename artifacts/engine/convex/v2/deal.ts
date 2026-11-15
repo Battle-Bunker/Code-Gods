@@ -40,6 +40,8 @@ export function familyOf(id: string): RuleFamily<unknown, unknown> {
   if (!f) throw new Error(`Unknown rule family ${id}`);
   return f;
 }
+/** Whether a family keeps its params under drift (a ladder: RuleFamily.keepsParams); false for a family no longer defined. */
+export const keepsParams = (id: string): boolean => FAMILIES.get(id)?.keepsParams === true;
 
 const pools = new Map<string, DealtRule[]>();
 /**
