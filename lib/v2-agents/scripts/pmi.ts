@@ -23,7 +23,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { join } from "node:path";
 import { isMainThread, parentPort, Worker, workerData } from "node:worker_threads";
-import { canonicalJson, mixedIntLog2Norm, rng } from "@workspace/v2-core";
+import { canonicalJson, rng } from "@workspace/v2-core";
 import { lineLaw, lineType, presets, type LineState } from "@workspace/v2-linear";
 import { findVariant, valuesVariant, VALUE_CONFIG } from "@workspace/v2-valuation";
 import { valuer } from "../src/harness.ts";
@@ -41,7 +41,7 @@ function drawAll(job: Job): { states: LineState[]; weights: Float64Array; total:
   const { variant } = findVariant(job.variant);
   const law = lineLaw(variant);
   const tilts = VALUE_CONFIG.tilts;
-  const norms = tilts.map(t => mixedIntLog2Norm(t));
+  const norms = tilts.map(t => law.log2Norm(t));   // the law's own normaliser per tilt (value.ts does the same)
   const states: LineState[] = [], w: number[] = [];
   let total = 0;
   for (const t of tilts) {
@@ -51,7 +51,7 @@ function drawAll(job: Job): { states: LineState[]; weights: Float64Array; total:
       total++;
       if (d.state === null) continue;
       let mix = 0;
-      tilts.forEach((tk, k) => { mix += 2 ** ((1 - tk) * d.bits - d.coords * norms[k]!); });
+      tilts.forEach((tk, k) => { mix += 2 ** ((1 - tk) * d.bits - norms[k]!); });
       states.push(d.state);
       w.push(tilts.length / mix);
     }
