@@ -23,6 +23,7 @@ const PROTECT = [];    // pairs where you promised not to lower the others, e.g.
 
 function agent(offer) {
   if (LEAVE.includes(offer.object)) return null;   // a deal: leave this pair alone
+  if (saving(offer)) return null;   // under 10 s of your income in hand: save up for a move (the game still tells you the pair)
   // A tug-of-war (another player taking back your gains on this pair, 3 times lately) burns energy on both
   // sides: tell your owner, who can make a deal. (Leaving the pair instead gives it away: try it and compare.)
   contested(offer, 3);

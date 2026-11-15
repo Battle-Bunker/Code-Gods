@@ -156,6 +156,7 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     "function agent(offer) {",
     ...(kind === "naive" ? [] : [
       "  if (LEAVE.includes(offer.object)) return null;   // a deal: leave this line alone",
+      "  if (saving(offer)) return null;   // under 10 s of your income in hand: save up for a move (the game still tells you the line)",
       "  // A tug-of-war (another player taking back your gains on this line, 3 times lately) burns energy on both",
       "  // sides: tell your owner, who can make a deal. (Leaving the line instead gives it away: try it and compare.)",
       "  contested(offer, 3);",
@@ -276,6 +277,8 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     "def agent(offer):",
     ...(kind === "naive" ? [] : [
       "    if offer.object in LEAVE:   # a deal: leave this line alone",
+      "        return None",
+      "    if saving(offer):   # under 10 s of your income in hand: save up for a move (the game still tells you the line)",
       "        return None",
       "    # A tug-of-war (another player taking back your gains on this line, 3 times lately) burns energy on both",
       "    # sides: tell your owner, who can make a deal. (Leaving the line instead gives it away: try it and compare.)",

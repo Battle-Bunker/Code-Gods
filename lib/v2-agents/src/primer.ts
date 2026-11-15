@@ -136,7 +136,7 @@ const WORDS: Readonly<Record<string, PrimerWords>> = {
   },
 };
 
-/** An example agent's source without the deal knobs' lines (LEAVE, PROTECT, contested), for the primer. */
+/** An example agent's source without the deal knobs' lines (LEAVE, PROTECT, contested, saving), for the primer. */
 function withoutKnobs(source: string | undefined): string | undefined {
   if (source === undefined) return undefined;
   const lines = source.split("\n"), out: string[] = [];
@@ -144,6 +144,7 @@ function withoutKnobs(source: string | undefined): string | undefined {
     const l = lines[i]!;
     if (/^(LEAVE|PROTECT) = /.test(l) || /contested\(offer/.test(l) || /tug-of-war|Leaving the line|promise: on these lines/i.test(l)) continue;
     if (/^\s+if offer\.object in (LEAVE|PROTECT)/.test(l)) { i++; continue; }   // the test and its one-line body
+    if (/^\s+if saving\(offer\)/.test(l)) { i++; continue; }   // saving up for a move: the economy's, not the example's point
     out.push(l);
   }
   return out.join("\n");

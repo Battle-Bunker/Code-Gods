@@ -46,6 +46,8 @@ def edit(b, cells, f):
 def agent(offer):
     if offer.object in LEAVE:   # a deal: leave this board alone
         return None
+    if saving(offer):   # under 10 s of your income in hand: save up for a move (the game still tells you the board)
+        return None
     # A tug-of-war (another player taking back your gains on this board, 3 times lately) burns energy on both
     # sides: tell your owner, who can make a deal. (Leaving the board instead gives it away: try it and compare.)
     contested(offer, 3)
