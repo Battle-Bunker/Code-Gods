@@ -40,6 +40,8 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "prime-landing 3a": "15 Nov, spec lead: repertoire in progress",
   "smooth-intercept 3a": "15 Nov, spec lead: repertoire in progress",
   "square-area 3a": "15 Nov, grids session: Square Area redesign",
+  "opposite-nines 3a": "15 Nov, grids session: big-on-top undealt for a cheap peak (#902); grid repertoires after the deadline",
+  "strangers 3a": "15 Nov, grids session: ones and prime-strangers undealt for cheap peaks (#902); grid repertoires after the deadline",
   "whole-crossing 3a": "15 Nov, spec lead: repertoire in progress",
   "divisibility-ladder 3a": "15 Nov, spec lead: repertoire in progress",
   "treasure 3a": "15 Nov, spec lead: repertoire in progress",
@@ -78,7 +80,6 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "lines-pairs 7-kind:base-ladder": "15 Nov, pairs session: every pair family climbs a base's ladder",
   "lines-pairs 7-form:shares-factor": "15 Nov, pairs session",
   "grids-beginner 7-form:second-axis": "15 Nov, grids session",
-  "grids-beginner 7-form:placement": "15 Nov, grids session",
   // Row 5: no PMI table for the variant yet (lib/v2-agents scripts/pmi.ts).
   "lines-lenses 5-unmeasured": "15 Nov, spec lead: PMI table for line-q-lenses",
   "grids-beginner 5-unmeasured": "15 Nov, grids session: PMI table for grid-4-d10",

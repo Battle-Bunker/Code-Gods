@@ -5,6 +5,7 @@ import { touchActivity } from "../activity";
 import { OpFailure } from "@workspace/v2-affordances";
 import { endGame, pauseGame, resumeGame, startWorld } from "../loop.ts";
 import { defineOp, inGame, inRoom, seated } from "./define";
+import { ownAccountNow } from "../access";
 
 export const { op: get, as: getAs } = defineOp("game.get", "query", async env => {
   const { game, player } = inGame(env);
@@ -12,7 +13,8 @@ export const { op: get, as: getAs } = defineOp("game.get", "query", async env =>
   return {
     gameId: game._id, phase: game.phase, worldSeconds: clock?.worldSeconds ?? 0, endsAt: game.endsAt ?? null,
     preset: game.preset, variant: game.variant, roster: game.roster.map(r => ({ memberId: r.memberId, name: r.name })),
-    me: player ? { energy: player.energy, power: player.power, ready: player.ready, pauseUsed: player.pauseUsed } : null,
+    // The store settled to the world clock, as the app shows it (the stored row is only as of its last settlement).
+    me: player ? { energy: (await ownAccountNow(env.ctx, game, player)).balance, power: player.power, ready: player.ready, pauseUsed: player.pauseUsed } : null,
   };
 });
 

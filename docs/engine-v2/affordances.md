@@ -209,6 +209,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `view.sortObjects` | Sort objects | sort | client · room | member | planning, live, paused, ended, replay | write |
 | `view.filterObjects` | Filter objects | mine, minBits | client · room | member | planning, live, paused, ended, replay | write |
 | `view.showGlossary` | Explain a term | term | client · none | anyone | signedOut, home, room, planning, live, paused, ended, replay, admin | write |
+| `view.closeGlossary` | Close the glossary | — | client · none | anyone | signedOut, home, room, planning, live, paused, ended, replay, admin | write |
 | `replay.open` | Watch a replay | gameId | client · room | member | room, ended, replay | write |
 | `replay.play` | Play the replay | — | client · game | member | replay | write |
 | `replay.pause` | Pause the replay | — | client · game | member | replay | write |
