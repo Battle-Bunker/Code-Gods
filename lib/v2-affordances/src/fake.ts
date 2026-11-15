@@ -311,6 +311,12 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     const won = gameOf(e).auction?.wins[e.userId];
     return { family, params: {}, layers: ["main"], card: `Your rule, ${family}, wants the gradient close to its target.`, depends: ["si"], wonByBid: won ? { handicap: won.handicap } : null };
   },
+  "game.boardAt": (e, a) => {
+    const g = gameOf(e);
+    const objects = Object.entries(g.objects).map(([objectId, o]) => ({ objectId, number: numberOf(g, objectId), state: null, own: bitsOf(g, e.userId, o), others: null, points: null }))
+      .sort((x, y) => x.number - y.number).filter(o => a.after === undefined || o.number > a.after).slice(0, a.limit);
+    return { world: a.world, objects, nextAfter: null };
+  },
   "rule.values": () => ({ points: knots() }),
   "rule.worth": (_e, a) => {
     const first = a.score?.[0];

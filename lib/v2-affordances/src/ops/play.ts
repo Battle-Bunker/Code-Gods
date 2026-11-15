@@ -159,6 +159,18 @@ export const playOps = [
     contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
+    id: "game.boardAt", title: "Show the board at a moment", group: "objects", scope: "game",
+    description: "Every object as it was at a world time (v1's get_board_at), as the caller saw it then: its state, the caller's own bits, the others' bits added together and the caller's points. While the game runs the others' bits are blurred as everywhere else and nothing is attributed. Up to 100 objects by number a call; pass nextAfter as after for the rest.",
+    tooltip: "The board as it was at a moment.", keywords: ["board at", "history", "snapshot", "back then", "rewind"],
+    params: obj({ world: z.number().min(0).describe("World seconds since the start."), after: z.number().int().optional().describe("Only objects numbered above this (from nextAfter)."), limit: z.number().int().min(1).max(100).default(100) }),
+    result: z.object({
+      world: z.number(),
+      objects: z.array(z.object({ objectId: id, number: z.number().int(), state: z.string().nullable().describe("null: hidden from you (a paid game)"), own: z.number().nullable(), others: z.number().nullable(), points: z.number().nullable() })),
+      nextAfter: z.number().int().nullable(),
+    }),
+    contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server", action: true,
+  }),
+  affordance({
     id: "pitch.draft", title: "Draft a cooperation pitch", group: "play", scope: "game",
     description: "Drafts a chat message proposing cooperation to other players: which states serve both rules and which objects to defend together. Returns the draft only; send it with chat.send.",
     tooltip: "Help me pitch a deal to other players.", keywords: ["negotiate", "pitch", "deal", "cooperate"],

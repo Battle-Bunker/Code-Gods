@@ -186,6 +186,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `object.whatIf` | What if, for the others | objectId, calls | server · game | seated | live, paused | write; confirm inline |
 | `moves.list` | List moves that concern me | cursor, limit | server · game | seated | planning, live, paused, ended, replay | read |
 | `log.list` | Read the public log | cursor, limit | server · game | member | planning, live, paused, ended, replay | read |
+| `game.boardAt` | Show the board at a moment | world, after, limit | server (action) · game | member | planning, live, paused, ended, replay | read |
 | `pitch.draft` | Draft a cooperation pitch | to, aim | server (action) · game | seated | planning, live, paused | write; spends aiBudget; confirm summary |
 | `agents.list` | List my agents | — | server · game | seated | planning, live, paused, ended | read |
 | `agent.programs` | List an agent's versions | agentId | server · game | seated | planning, live, paused, ended | read |
