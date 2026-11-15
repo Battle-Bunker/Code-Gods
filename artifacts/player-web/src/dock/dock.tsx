@@ -9,7 +9,7 @@ import { readingOrder, shownPanes, storedSlugOf, type GamePhase } from "@workspa
 import { useRuntime, useView } from "@/core/affordance-runtime";
 import { useWide } from "@/core/use-wide";
 import { onReveal } from "./open-pane";
-import { DockScopeContext, PaneBody, PaneHeader, usePaneName, type PaneComponents, type StoredPaneComponent } from "./pane-parts";
+import { DockScopeContext, PaneBody, PaneHeader, PaneMenu, usePaneName, type PaneComponents, type StoredPaneComponent } from "./pane-parts";
 
 export type { PaneComponents, StoredPaneComponent } from "./pane-parts";
 
@@ -17,9 +17,41 @@ const DesktopDock = lazy(() => import("./desktop"));
 
 /** Panes read top to bottom as one page on a phone (persona walk: Results scrolled inside itself, past "What cost you"). */
 const UNCAPPED = new Set(["results"]);
+/** On a phone the assistant is a sheet at the bottom of the screen (v1), reachable over whatever pane is being read. */
+const SHEET = "assistant";
 
-function StackedDock({ panes, phase }: { panes: string[]; phase: GamePhase }) {
+/** The phone's assistant sheet: a bar at the bottom until opened, then most of the screen; open when it first appears. */
+function AssistantSheet({ open, setOpen }: { open: boolean; setOpen: (o: boolean) => void }) {
   const name = usePaneName();
+  return (
+    <div className={`fixed inset-x-0 bottom-0 z-20 flex flex-col border-t bg-card shadow-[0_-4px_12px_rgba(0,0,0,0.08)] ${open ? "h-[60dvh]" : ""}`}
+      data-testid="assistant-sheet" data-open={open || undefined}>
+      {/* One header: the name and the toggle, and the pane's own menu (move, close, open another). */}
+      <div className="flex h-11 shrink-0 items-center gap-2 pr-2">
+        <button type="button" className="flex h-full min-w-0 flex-1 items-center justify-between pl-4 pr-2 text-sm font-semibold" aria-expanded={open}
+          onClick={() => setOpen(!open)} data-testid="button-assistant-sheet">
+          <span className="truncate">{name(SHEET)}</span><span className="text-xs font-normal text-muted-foreground">{open ? "Lower ▾" : "Open ▴"}</span>
+        </button>
+        <PaneMenu pane={SHEET} />
+      </div>
+      {open && (
+        <section data-pane={SHEET} data-testid={`pane-${SHEET}`} aria-label={name(SHEET)} className="flex min-h-0 flex-1 flex-col border-t">
+          <PaneBody pane={SHEET} />
+        </section>
+      )}
+    </div>
+  );
+}
+
+function StackedDock({ panes: all, phase }: { panes: string[]; phase: GamePhase }) {
+  const name = usePaneName();
+  const sheet = all.includes(SHEET);
+  const panes = useMemo(() => all.filter(p => p !== SHEET), [all]);
+  // Opened now (by the menu, the palette or a model) the sheet rises; open from before (the view is kept for the room) it
+  // waits lowered, so a game never starts under it. After that it stays as the player leaves it.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const hadSheet = useRef(sheet);
+  useEffect(() => { if (sheet && !hadSheet.current) setSheetOpen(true); hadSheet.current = sheet; }, [sheet]);
   const scroller = useRef<HTMLDivElement>(null);
   // A new phase opens at its first pane (round 26: at the buzzer the page stayed scrolled to the bottom, on Where am I,
   // with "How the game went" above the fold).
@@ -36,6 +68,7 @@ function StackedDock({ panes, phase }: { panes: string[]; phase: GamePhase }) {
     return () => ro.disconnect();
   }, []);
   const jump = useCallback((pane: string) => {
+    if (pane === SHEET) { setSheetOpen(true); return; }
     const section = scroller.current?.querySelector<HTMLElement>(`section[data-pane="${CSS.escape(pane)}"]`);
     // The pane from its top: its own body may have been scrolled down earlier (round 5: the Results headline hidden).
     section?.querySelector<HTMLElement>("[data-pane-body]")?.scrollTo({ top: 0 });
@@ -53,7 +86,7 @@ function StackedDock({ panes, phase }: { panes: string[]; phase: GamePhase }) {
           <button key={p} type="button" className="shrink-0 border px-2 py-0.5 text-xs" data-testid={`button-jump-${p}`} onClick={() => jump(p)}>{name(p)}</button>
         ))}
       </nav>
-      <div className="space-y-2 p-2">
+      <div className={`space-y-2 p-2 ${sheet ? "pb-14" : ""}`}>
         {panes.map(p => (
           <div key={p} className={`${UNCAPPED.has(p) ? "" : "max-h-[60dvh] "}min-h-[200px] flex`}>
             <section data-pane={p} data-testid={`pane-${p}`} aria-label={name(p)} style={{ scrollMarginTop: navHeight + 8 }} className="flex min-h-0 flex-1 flex-col border border-[hsl(var(--card-border))] bg-card">
@@ -63,6 +96,7 @@ function StackedDock({ panes, phase }: { panes: string[]; phase: GamePhase }) {
           </div>
         ))}
       </div>
+      {sheet && <AssistantSheet open={sheetOpen} setOpen={setSheetOpen} />}
     </div>
   );
 }
