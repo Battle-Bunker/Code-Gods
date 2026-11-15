@@ -176,6 +176,12 @@ async function endedGame(page: Page, preset: string, noun: string) {
     const s = await open(page, pane);
     await page.waitForTimeout(300);
     assert.ok((await s.innerText()).trim().length > 20, `${label}: ${pane} has content after the end`);
+    if (pane === "rules") {
+      // v1's "Copy game rules for an AI": copied, or (no clipboard here) shown to copy by hand, the primer included.
+      await s.getByTestId("button-copy-rules-ai").click();
+      await page.getByText("Rules copied").or(s.getByTestId("text-rules-ai")).first().waitFor({ timeout: 5_000 });
+      if (await s.getByTestId("text-rules-ai").count()) assert.match(await s.getByTestId("text-rules-ai").inputValue(), /## Writing agents[\s\S]*look\(/, `${label}: the rules for an AI carry the primer`);
+    }
     ok(pane);
   }
   const results = await open(page, "results");
