@@ -116,5 +116,28 @@ export function distanceToPrime(x: Q): Q {
   return Qn.abs(Qn.sub(x, q(nearbyPrimes(x)[0]!)));
 }
 
+/**
+ * The dealt prime filter (owner decision 41: "distance to nearest prime ending in k (base 10) ... rather than just
+ * distance to nearest prime"): primes whose last decimal digit is k, k ∈ 1, 3, 7, 9 (every prime but 2 and 5 ends in
+ * one of them, a quarter each).
+ */
+export const PRIME_ENDINGS = [1, 3, 7, 9] as const;
+export type PrimeEnding = (typeof PRIME_ENDINGS)[number];
+const endsIn = (p: bigint, k: number) => p % 10n === BigInt(k);
+/** The prime ending in k nearest x (on a tie, the smaller): searched outward from x. */
+export function nearestPrimeEnding(x: Q, k: number): bigint {
+  const f = Qn.floor(x);
+  let lo: bigint | null = null;
+  for (let n = f; n >= 2n; n--) if (endsIn(n, k) && isPrime(n)) { lo = n; break; }
+  let hi = f + 1n < 2n ? 2n : f + 1n;
+  while (!(endsIn(hi, k) && isPrime(hi))) hi++;
+  if (lo === null) return hi;
+  return Qn.cmp(Qn.sub(x, q(lo)), Qn.sub(q(hi), x)) <= 0 ? lo : hi;
+}
+/** Distance from x to the nearest prime ending in k. */
+export const distanceToPrimeEnding = (x: Q, k: number): Q => Qn.abs(Qn.sub(x, q(nearestPrimeEnding(x, k))));
+/** Whether n is a prime ending in k. */
+export const isPrimeEnding = (n: bigint, k: number): boolean => endsIn(n, k) && isPrime(n);
+
 /** Distance from x to the nearest whole number. */
 export const distanceToWhole = (x: Q): Q => Qn.abs(Qn.sub(x, q(nearestInteger(x))));

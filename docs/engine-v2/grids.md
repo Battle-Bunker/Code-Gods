@@ -381,12 +381,14 @@ strongly, from +2 to +8 bits:
 - small or equal digits: Mirrormancer, Two Pair, Spread of Three, Leapfrog;
 - monotone runs: Uphill, Staircase, Mountain Climb.
 
-Crosswise Threes, Kings and Subjects, Stepping Stones and Fillomino are near 0 with almost everything. Opposite Nines and
-Staircase, in different clusters, are blocked too: annealing reached both their exact tops at once. The dealer
-(artifacts/engine/convex/v2/deal.ts, lib/v2-grid seating.ts) seats at most one family from each cluster and never one
-family twice: every grid deal is the seed's first shuffle with no clash, else the one with the fewest over 200
-shuffles, and the game records the clashes left (`seating`, private). The beginner pool seats three players without
-a clash (one from each digit cluster and Crosswise Threes); a fourth adds one. Residues (totals modulo a number) are
+Crosswise Threes, Kings and Subjects, Stepping Stones and Fillomino are near 0 with almost everything. The two digit
+clusters are strongly anti-aligned with each other (PMI −2 to −4.6), and a big-digit seat against a small-digit one
+scored 2–4× less with starters, so the dealer (artifacts/engine/convex/v2/deal.ts, lib/v2-grid seating.ts) never seats
+that pair, one family twice, Magic Eighteen with Magic Accountant, or the blocked pair Opposite Nines × Staircase (both
+exact tops were reached at once); among the deals left it takes one with the fewest aligned pairs (two of one cluster):
+the seed's first shuffle costing nothing, else the cheapest over 200 shuffles. The game records the pairs left
+(`seating`, private). A three-seat beginner table is one digit cluster plus Crosswise Threes, with one aligned pair
+(owner-decisions.md call 19). Residues (totals modulo a number) are
 the perpendicular direction on grids: "every row and column adds up to a multiple of 5" has a mean |PMI| of 0.13
 against the fifteen current mains, against 1.1 to 2.6 for sizes, repeats, parity and factors.
 

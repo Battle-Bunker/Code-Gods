@@ -34,6 +34,8 @@ export const overridesV = v.object({
   peerNoiseBits: v.optional(v.number()),
   /** The weight on a look's read price (decision 35). */
   readPriceWeight: v.optional(v.number()),
+  /** Parameter drift's interval in world seconds (drift.ts; 0: off). */
+  driftSeconds: v.optional(v.number()),
   /**
    * Time dilation (owner decision 37): every rate × this, every duration ÷ it (v2-economy dilate), so the room's games
    * run this many times faster with the same per-act quantities. For simulations and local playtests only: set by the
@@ -61,7 +63,7 @@ export const offerV = v.object({ family: v.string(), title: v.string(), card: v.
 
 export const eventKindV = v.union(
   v.literal("gameStarted"), v.literal("objectBorn"), v.literal("act"), v.literal("values"), v.literal("tick"),
-  v.literal("phase"), v.literal("command"), v.literal("gameEnded"),
+  v.literal("phase"), v.literal("command"), v.literal("gameEnded"), v.literal("drift"),
 );
 
 // ---------------------------------------------------------------- the tables
@@ -119,6 +121,8 @@ export const v2Tables = {
       durationMode: v.optional(durationModeV),
       /** World seconds between published standings (v1's scoreIntervalSeconds; absent: 10). */
       scoreIntervalSeconds: v.optional(v.number()),
+      /** Parameter drift's interval in world seconds (drift.ts; 0 or absent: off). */
+      driftSeconds: v.optional(v.number()),
       /** The game's time dilation (decision 37): its settings are already dilated by it; wall-clock pacing divides by it. */
       timeScale: v.optional(v.number()),
       /** The weight on a look's read price (knowledge.ts, decision 35); absent (games stored before it): 0, free. */
@@ -131,8 +135,8 @@ export const v2Tables = {
      * (lib/v2-agents unopposedDirections), computed at the deal. Never shown to players; for the collapse analysis.
      */
     unopposed: v.optional(v.array(v.any())),
-    /** Grid seating (deal.ts, lib/v2-grid seating.ts): the pairs of seated families of one PMI cluster the deal left. */
-    seating: v.optional(v.object({ clashes: v.array(v.string()) })),
+    /** Grid seating (deal.ts, lib/v2-grid seating.ts): the forbidden and the aligned pairs of seated families the deal left. */
+    seating: v.optional(v.object({ clashes: v.array(v.string()), aligned: v.optional(v.array(v.string())) })),
     /** Paused by idle parking (activity.ts): resumed by the next human activity, not by the owner. */
     parked: v.optional(v.boolean()),
     /** PRIVATE: the world second the game ends at (drawn at the start in halfLife mode); absent: settings.worldSeconds. */
@@ -193,6 +197,8 @@ export const v2Tables = {
   v2Engine: defineTable({
     gameId: v.id("v2Games"), leaseId: v.string(), tick: v.number(), objects: v.number(), acts: v.number(), moves: v.number(),
     events: v.number(), scoreboards: v.number(), scoreboardAt: v.number(), failures: v.number(),
+    /** Parameter drifts done (drift.ts): drift k happens at world second k × driftSeconds. */
+    drifts: v.optional(v.number()),
     /** Each player's running points total (hot, so it lives here and not on any document a query reads). */
     totals: v.record(v.string(), v.number()),
     /** The same totals from the disclosed points (what the published standings show while live). */
@@ -208,6 +214,8 @@ export const v2Tables = {
     title: v.string(), card: v.string(), depends: v.array(v.string()),
     /** The main layer's representation (the compact face's view). */
     primary: v.string(), ladder: legacyLadder,
+    /** Parameter drift (drift.ts): how many times this rule's parameters were redrawn, and the world second of the last. */
+    drifts: v.optional(v.number()), driftedAt: v.optional(v.number()),
     /** Won by a bid (the percent bid) and the handicap the winner pays, percent of totals. */
     bid: v.optional(v.number()), handicap: v.optional(v.number()),
   }).index("by_game_member", ["gameId", "memberId"]),

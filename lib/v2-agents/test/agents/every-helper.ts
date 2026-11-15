@@ -14,6 +14,7 @@ function agent(offer: Offer) {
     String(prime(2n ** 61n - 1n)), String(prime(2n ** 61n + 1n)), String(prime("7")), String(prime(true)),
     String(near(3.5, prime)), String(near(10, n => n % 2 === 1)),
     String(near(-20000, prime)), String(near(200000000, square)), String(near(Q.of(-3, 2), square)),
+    String(near(25, prime, 3)), String(near(8, prime, 3)), String(near(Q.of(-40), prime, 1)), String(near(Q.of(39, 2), prime, 9)), String(near(10, n => n % 2 === 1, 7)),
   ];
   const plan = cheapest(offer, [[move("si.shift", { k: 2 }), move("si.shift", { k: -1 })], move("si.shift", { k: 1 }), move("nope", {})]);
   return [...(plan ?? []), move("probe", { r: seen.join("|") })];

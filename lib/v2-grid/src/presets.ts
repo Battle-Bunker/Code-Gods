@@ -28,7 +28,6 @@ export const BEGINNER_DEALT: Readonly<Record<string, readonly string[]>> = {
   "crosswise-threes": ["bigger-side", "other-fold", "fold-factors"],
 };
 
-/** A pool: each family's dealable params, with its tie-breakers (those `dealt` lists for it, when it lists the family). */
 /** The parameters the more-rules pool deals, for its families that have several. */
 const MORE_PARAMS: Readonly<Record<string, unknown>> = { uphill: { corner: "BR" }, staircase: { direction: "right" }, "magic-accountant": { axis: "rows", T: 18 } };
 

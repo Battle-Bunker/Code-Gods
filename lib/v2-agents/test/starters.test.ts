@@ -237,18 +237,38 @@ test("a vertical line is tipped, not skipped, where the rule cannot read it: the
   }
 });
 
-test("a vertical line the rule reads is scored where it stands: x = 9/2 slides to a prime landing (Prime Landing)", async () => {
-  const at = { lines: [{ a: 2n, b: 0n, c: -9n }] };   // x = 9/2
+test("a vertical line the rule reads is scored where it stands: x = 5/2 slides to a prime landing (Prime Landing, primes ending in 3: x = 3)", async () => {
+  const at = { lines: [{ a: 2n, b: 0n, c: -5n }] };   // x = 5/2
   for (const language of ["typescript", "python"] as const) {
     for (const kind of ["simple", "thorough"] as const) {
       const a = startersFor("prime-landing", language).find(x => x.kind === kind)!;
       const { record, state } = await runAct(await boxes.get(language), {
-        type: lineType, variant: lineQ, state: at, rule: { family: "prime-landing", params: paramsOf("prime-landing"), tieBreaker: familyOf("prime-landing").tieBreakers[0]!.id }, program: program(a), seed: "1", energy: 500,
+        type: lineType, variant: lineQ, state: at, rule: { family: "prime-landing", params: { ends: 3 }, tieBreaker: familyOf("prime-landing").tieBreakers[0]!.id }, program: program(a), seed: "1", energy: 500,
       });
       assert.equal(record.outcome, "committed", `${language} ${kind}: ${record.reason}`);
       assert.equal(record.calls[0]!.mutator, "cart.slide", `${language} ${kind}: ${record.calls[0]!.mutator}`);
       const l = state.lines[0]!;
-      assert.ok(l.b === 0n && [2n, 3n, 5n, 7n].includes(-l.c / l.a) && l.c % l.a === 0n, `${language} ${kind}: lands on a prime (${l.a}x + ${l.c} = 0)`);
+      assert.ok(l.b === 0n && -l.c / l.a === 3n && l.c % l.a === 0n, `${language} ${kind}: lands on 3, the prime ending in 3 nearest (${l.a}x + ${l.c} = 0)`);
+    }
+  }
+});
+
+test("starters read the rule's parameters every act (drift redraws them): the same agent follows A = 4, then A = 12, in one sandbox", async () => {
+  const f = familyOf("triangle-area");
+  const at = { lines: [fromMC(q(-1), q(3))] };   // y = −x + 3: a triangle of area 9/2
+  for (const language of ["typescript", "python"] as const) {
+    const simple = startersFor("triangle-area", language).find(a => a.kind === "simple")!;
+    const box = await boxes.get(language);
+    for (const A of [4, 12]) {
+      const params = { A }, tieBreaker = f.tieBreakers[0]!.id;
+      const main = (s: LineState) => evaluateSite(lineType, f, params, s, lineQ, 0, tieBreaker).score![0]!;
+      let s: LineState = at;
+      for (let t = 0; t < 6; t++) {
+        const { record, state } = await runAct(box, { type: lineType, variant: lineQ, state: s, rule: { family: "triangle-area", params, tieBreaker }, program: program(simple), seed: String(A * 100 + t), energy: 500 });
+        assert.notEqual(record.outcome, "failed", record.reason);
+        s = state;
+      }
+      assert.ok(Qn.cmp(main(s), main(at)) > 0, `${language}: with A = ${A} the area moved toward ${A} (${lineType.encode(s)})`);
     }
   }
 });

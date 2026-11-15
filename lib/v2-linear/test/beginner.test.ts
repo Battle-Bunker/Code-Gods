@@ -39,7 +39,7 @@ test("restored families (decision 22), worked by hand", () => {
 });
 
 test("worked examples, one line per family", () => {
-  assert.deepEqual(terms(primeStaircase, {}, mc(30, 7)), { run: "6", "first-prime": "7", "last-prime": "157", "near-miss": "4", "step-back": "0" });   // 7, 37, 67, 97, 127, 157, then 187 = 11·17 (4 from 191); y(−1) = −23
+  assert.deepEqual(terms(primeStaircase, { ends: 7 }, mc(30, 7)), { run: "6", "first-prime": "7", "last-prime": "157", "near-miss": "10", "step-back": "6" });   // primes ending in 7: 7, 37, …, 157, then 187 = 11·17 (10 from 197); |y(−1)| = 23, 6 from 17
   assert.deepEqual(terms(squareArea, {}, mc(-2, 6)),
     { square: "0", "spf": "3", "lpf": "3", "omega": "1" });   // legs 3 and 6: area 9
   // legs 12 and 24 (y = −2x + 24): area 144 = 12², 12 = 2·2·3
@@ -47,7 +47,7 @@ test("worked examples, one line per family", () => {
   assert.deepEqual([t12.square, t12["spf"], t12["lpf"], t12["omega"]], ["0", "2", "3", "3"]);
   assert.deepEqual(terms(treasure, { k: 2, T: 37 }, mc(30, -23)),
     { treasure: "0", "prime-terms": "6", "prime-gradient": "1", "square-start": "23", "m-spf": "2", "m-gpf": "5" });   // y(2) = 37; 30 = 2·3·5, 1 from 29 and 31
-  assert.deepEqual(terms(primeLanding, {}, mc(2, 13)), { landing: "0", "big-prime": "13", "prime-gradient": "0", "next-prime": "2", "m-spf": "2", "m-gpf": "2" });   // y(1) = 15, 2 from 13 and 17
+  assert.deepEqual(terms(primeLanding, { ends: 3 }, mc(2, 13)), { landing: "0", "big-prime": "13", "prime-gradient": "1", "next-prime": "2", "m-spf": "2", "m-gpf": "2" });   // primes ending in 3: m = 2 is 1 from 3; y(1) = 15, 2 from 13
   assert.deepEqual(terms(sameOnBothRulers, { T: 6 }, mc(3, -12)), { fixed: "0", steep: "2", "prime-start": "1", "whole-values": "11", "whole-lamp": "1/2", "m-spf": "3", "m-gpf": "3" });   // 3x − 12 = x at x = 6; lamp 3/2
   assert.deepEqual(terms(wholeCrossing, {}, mc(4, -20)), { crossing: "0", "k-spf": "5", "k-gpf": "5", "m-spf": "2", "gcd-c": "5", "gcd-num-m": "1" });       // crosses at 5; gcd(5, −20), gcd(5, 4)
   assert.deepEqual(terms(wholeCrossing, {}, mc(3, 1)), { crossing: "1/3", "k-spf": "1", "k-gpf": "1", "m-spf": "3", "gcd-c": "—", "gcd-num-m": "—" });       // at −⅓, nearest 0 (shares every factor: undefined)
@@ -87,8 +87,8 @@ test("presets: four pools over the beginner families, every named tie-breaker ex
 });
 
 test("Prime Staircase: a repeated prime stops the run; no run, no first prime", () => {
-  assert.deepEqual(terms(primeStaircase, {}, mc(0, 7)), { run: "1", "first-prime": "7", "last-prime": "7", "near-miss": "—", "step-back": "0" });   // 7, 7, …: a run of one, never a miss
-  assert.deepEqual(terms(primeStaircase, {}, mc(1, 1000)), { run: "0", "first-prime": "0", "last-prime": "0", "near-miss": "3", "step-back": "2" });  // 1000 is not prime (3 from 997); 999 is 2 from 997
+  assert.deepEqual(terms(primeStaircase, { ends: 7 }, mc(0, 7)), { run: "1", "first-prime": "7", "last-prime": "7", "near-miss": "—", "step-back": "0" });   // 7, 7, …: a run of one, never a miss
+  assert.deepEqual(terms(primeStaircase, { ends: 7 }, mc(1, 1000)), { run: "0", "first-prime": "0", "last-prime": "0", "near-miss": "3", "step-back": "2" });  // 1000 is not prime (3 from 997); 999 is 2 from 997
 });
 
 
@@ -112,11 +112,11 @@ test("vertical lines score where the rule has an honest reading (the coordinator
   // x = 13/2: Treasure passes (13/2, 37), 9/2 across from (2, 37); Prime Landing lands on the x-axis ½ from 7; it meets
   // y = x at 13/2, ½ from T = 6; Ruler's distance² is 169/4, 25/4 from 36 (k = 6). Tie-breakers stay undefined.
   assert.deepEqual(terms(treasure, { k: 2, T: 37 }, x(-2n, 13n), lineQ), { treasure: "9/2", "prime-terms": "—", "prime-gradient": "—", "square-start": "—", "m-spf": "—", "m-gpf": "—" });
-  assert.equal(terms(primeLanding, {}, x(-2n, 13n), lineQ).landing, "1/2");
+  assert.equal(terms(primeLanding, { ends: 7 }, x(-2n, 13n), lineQ).landing, "1/2");
   assert.equal(terms(sameOnBothRulers, { T: 6 }, x(-2n, 13n), lineQ).fixed, "1/2");
   assert.deepEqual(terms(ruler, {}, x(-2n, 13n), lineQ), { ruler: "25/4", far: "6", "prime-gradient": "—", "square-area": "—" });
   // x = 3: on the prime 3, distance² 9 exactly.
-  assert.equal(terms(primeLanding, {}, x(-1n, 3n), lineQ).landing, "0");
+  assert.equal(terms(primeLanding, { ends: 3 }, x(-1n, 3n), lineQ).landing, "0");
   assert.equal(terms(ruler, {}, x(-1n, 3n), lineQ).ruler, "0");
   assert.notEqual(evaluateSite(lineType, ruler, {}, x(-1n, 3n), lineQ, 0, null).score, null, "a vertical line scores");
 });

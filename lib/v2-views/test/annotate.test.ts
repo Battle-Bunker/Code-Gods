@@ -31,8 +31,8 @@ test("readable: exact fractions up to a denominator of 100, an approximate decim
   assert.equal(readable(q(27720)), "27,720");
 });
 
-test("Prime Gradient: main part and tie-breaker, their values the scored terms, the reference and the distance", () => {
-  const a = annotate(rule(primeGradient, {}), mc(4, -3));
+test("Prime Gradient (primes ending in 3): main part and tie-breaker, their values the scored terms, the reference and the distance", () => {
+  const a = annotate(rule(primeGradient, { ends: 3 }), mc(4, -3));
   const [p, tie] = a.sites[0]!.parts;
   assert.equal(a.sites[0]!.parts.length, 2);
   assert.equal(p!.name, "main part");
@@ -42,10 +42,10 @@ test("Prime Gradient: main part and tie-breaker, their values the scored terms, 
   assert.equal(tie!.term, "prime");
   assert.equal(tie!.aim, "the bigger, the better");
   assert.equal(a.bits, null, "no value function: no bits");
-  assert.deepEqual(annotate(rule(primeGradient, {}), mc(4, -3), { value: () => 3.5 }).bits, 3.5);
-  assert.equal(annotate(rule(primeGradient, {}, lineZ, null), mc(4, -3)).sites[0]!.parts.length, 1);
-  // The main part owns the picture: both nearby primes, drawn as ghosts with their distances.
-  assert.deepEqual(p!.marks.filter(m => m.kind === "candidate").map(m => refKey((m as { ref: never }).ref)).sort(), ["cart.ghost(g=3)", "cart.ghost(g=5)"]);
+  assert.deepEqual(annotate(rule(primeGradient, { ends: 3 }), mc(4, -3), { value: () => 3.5 }).bits, 3.5);
+  assert.equal(annotate(rule(primeGradient, { ends: 3 }, lineZ, null), mc(4, -3)).sites[0]!.parts.length, 1);
+  // The main part owns the picture: the nearest prime ending in 3, drawn as a ghost with its distance.
+  assert.deepEqual(p!.marks.filter(m => m.kind === "candidate").map(m => refKey((m as { ref: never }).ref)).sort(), ["cart.ghost(g=3)"]);
   assert.ok(a.sites[0]!.working.includes("gradient = 4"));
   assert.ok(a.sites[0]!.working.includes("distance to 3 = 1"));
 });
@@ -102,7 +102,7 @@ test("parts are the recorded terms on every family and a walk of states: no seco
 
 test("moves: each really improves the utility, at the price it quotes; the cheapest for the main part leads, the frontier ascends", () => {
   for (const [f, p, st] of [
-    [emptyTank, {}, mc(-3, 10)], [primeGradient, {}, mc(4, -3)], [mMeetsC, {}, mc(1, 5)], [crossingCheck, { k: 1, q: 5 }, mc(1, 0)], [triangleArea, { A: 8 }, mc(-1, 3)],
+    [emptyTank, {}, mc(-3, 10)], [primeGradient, { ends: 3 }, mc(4, -3)], [mMeetsC, {}, mc(1, 5)], [crossingCheck, { k: 1, q: 5 }, mc(1, 0)], [triangleArea, { A: 8 }, mc(-1, 3)],
   ] as const) {
     const r = rule(f as RuleFamily<LineState, unknown>, p, lineQ);
     const before = evaluateObject(lineType, r.family, r.params, st, lineQ).score;

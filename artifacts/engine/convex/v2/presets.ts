@@ -46,6 +46,8 @@ export interface Preset {
    * at a typical object (MEDIAN_LOOK_BITS) take a tenth of a player's power (v2-economy readPriceWeightFor).
    */
   readPriceWeight: number;
+  /** Parameter drift (drift.ts; the coordinator's trial, call 18): world seconds between redraws, 0 off; 120 on the beginner games. */
+  driftSeconds: number;
   economy: PresetEconomy;
   bid?: PresetBid;
 }
@@ -97,7 +99,7 @@ function fromPool(id: string, extra: Partial<Preset> & { id?: string; title?: st
     // attention more on specific battlefields for the beginner game."
     // Owner decision 32: each reading of the others' sums is an independent draw of this variance; σ 8 (v1's default)
     // outside the beginner game.
-    startingObjects: 3, durationMode: "fixed", peerNoiseVariance: 64,
+    startingObjects: 3, durationMode: "fixed", peerNoiseVariance: 64, driftSeconds: 0,
     economy: ECONOMY, ...extra,
   };
   return { ...base, readPriceWeight: extra.readPriceWeight ?? readPriceWeightFor(base.economy.powerPerSecond, medianLookBits(base.variant)) };
@@ -107,7 +109,7 @@ function fromPool(id: string, extra: Partial<Preset> & { id?: string; title?: st
  * The beginner games: ten minutes (owner decision 34, "The beginner game should be 10m long"), so with decision 31's
  * births 5 objects by the end; exact readings (decision 32, "it should be zero for the beginner game").
  */
-const BEGINNER_WORLD = { worldSeconds: 600, peerNoiseVariance: 0 };
+const BEGINNER_WORLD = { worldSeconds: 600, peerNoiseVariance: 0, driftSeconds: 120 };
 const BEGINNER = fromPool("lines-beginner", { ...BEGINNER_WORLD, startingEnergy: beginnerStart("line-q", ECONOMY.powerPerSecond) });
 /**
  * The beginner grid (docs/engine-v2/grids.md): the 4×4 board of digits. A board's agents read 16 cells, not y = mx + c,

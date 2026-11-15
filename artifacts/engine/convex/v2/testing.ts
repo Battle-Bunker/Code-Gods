@@ -20,6 +20,9 @@ import { makeFunctionReference } from "convex/server";
 import { fixturesOn } from "../auth/identity";
 import { presetOf } from "./presets";
 import { RUNTIME_VERSION } from "./readiness";
+import { valueRecord as valueRecordOf } from "./values";
+import { seatRules as seatRulesOf } from "./loop";
+import { decode as decodeState, scopeOf as scopeOfGame, valuesOf as valuesOfState } from "./world";
 import { fullReadBits as fullReadBitsOf } from "./knowledge";
 import { newNoiseKey, objectReading, readingNoise, shownAt } from "./disclose";
 
@@ -277,6 +280,39 @@ export const valueOf = internalQuery({
     const member = (await ctx.db.query("v2Members").withIndex("by_room_user", q => q.eq("roomId", game.roomId).eq("userId", userId)).first())!;
     const v = (await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", member._id)).unique())!;
     return { score: v.score, rarityBits: v.rarityBits, want: v.want, points: v.points, version: v.version };
+  },
+});
+
+/** Deals a seated human a given rule (drift's test: a family with a parameter grid), its card and layers as dealt. */
+export const setRule = internalMutation({
+  args: { gameId: v.id("v2Games"), userId: v.string(), ruleKey: v.string() },
+  handler: async (ctx, { gameId, userId, ruleKey }) => {
+    fixtures();
+    const game = (await ctx.db.get(gameId))!;
+    const member = (await ctx.db.query("v2Members").withIndex("by_room_user", q => q.eq("roomId", game.roomId).eq("userId", userId)).first())!;
+    const rec = valueRecordOf(ruleKey)!;
+    const rule = { family: rec.family, params: rec.params, tieBreaker: rec.tieBreaker === "none" ? null : rec.tieBreaker, ruleKey, contentHash: rec.contentHash };
+    const row = (await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", member._id)).unique())!;
+    await ctx.db.patch(row._id, { ...rule, ...ruleView(rule) });
+  },
+});
+
+/** How many stored value rows disagree with the values the game's current rules give their objects (drift's check). */
+export const staleValues = internalQuery({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => {
+    fixtures();
+    const game = (await ctx.db.get(gameId))!, seats = await seatRulesOf(ctx, game);
+    let rows = 0, stale = 0;
+    for (const st of await ctx.db.query("v2ObjectStates").withIndex("by_game_state", q => q.eq("gameId", gameId)).collect()) {
+      for (const val of valuesOfState(decodeState(st.state, game.variant), game.variant, seats, scopeOfGame(game).objects)) {
+        const row = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", st.objectId).eq("memberId", val.memberId as Id<"v2Members">)).unique();
+        if (!row) continue;
+        rows++;
+        if (Math.abs(row.rarityBits - val.rarityBits) > 1e-9 || Math.abs(row.want - val.want) > 1e-9) stale++;
+      }
+    }
+    return { rows, stale };
   },
 });
 

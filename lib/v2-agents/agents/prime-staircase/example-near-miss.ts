@@ -1,5 +1,5 @@
-// Prime Staircase · Example: the first non-prime term close to a prime
-// Main part: a run of different primes from y(0). Tie-breaker: the first non-prime term close to a prime.
+// Prime Staircase · Example: the first term that breaks the run, close to such a prime
+// Main part: a run of different dealt primes from y(0). Tie-breaker: the first term that breaks the run, close to such a prime.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,15 +11,15 @@
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p) {
-  const run = [];                                 // the different primes it starts with
-  let stopped = false, miss = null;               // miss: the size of the first term that is not prime
+  const run = [];                                 // the different primes ending in p.ends it starts with
+  let stopped = false, miss = null;               // miss: the size of the first term that is not such a prime
   for (let n = 0; n < 12; n++) {                  // y(0) ... y(11)
-    const t = Q.add(Q.mul(m, n), c), isPrime = prime(t);
+    const t = Q.add(Q.mul(m, n), c), isPrime = prime(t) && Q.toString(t).endsWith(String(p.ends));
     if (!stopped && isPrime && !run.some(r => Q.eq(r, t))) run.push(t); else stopped = true;
     if (!isPrime && miss === null) miss = Q.abs(t);
   }
   const main = run.length;
-  return [main, miss === null ? null : Q.neg(Q.abs(Q.sub(miss, near(miss, prime))))];   // main: how many different primes the pattern y(0), y(1), ... starts with (more is better); tie-breaker: a first non-prime term (ignoring sign) close to a prime is better (none in twelve terms: no tie-breaker)
+  return [main, miss === null ? null : Q.neg(Q.abs(Q.sub(miss, near(miss, prime, p.ends))))];   // main: how many different primes ending in the rule's digit the pattern y(0), y(1), ... starts with (more is better); tie-breaker: a first term that breaks the run (ignoring sign) close to such a prime is better (none in twelve terms: no tie-breaker)
 }
 
 const FAR = 3;      // how far one change may go

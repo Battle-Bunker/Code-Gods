@@ -90,15 +90,15 @@ const neg = (ts: string) => `Q.neg(${ts})`;
 export const CATALOGUE: readonly FamilyEntry[] = [
   {
     family: "prime-gradient",
-    mainSays: "how far the gradient is from the nearest prime (closer is better)",
+    mainSays: "how far the gradient is from the nearest prime ending in the rule's digit (closer is better)",
     main: {
       ts: [
-        "const nearest = near(m, prime);                 // the prime nearest the gradient",
+        "const nearest = near(m, prime, p.ends);         // the prime ending in p.ends nearest the gradient",
         "if (nearest === null) return null;              // none within 10,000: hopeless",
         `const main = ${neg("Q.abs(Q.sub(m, nearest))")};`,
       ],
       py: [
-        "nearest = near(m, prime)                        # the prime nearest the gradient",
+        "nearest = near(m, prime, p[\"ends\"])             # the prime ending in p[\"ends\"] nearest the gradient",
         "if nearest is None:                             # none within 10,000: hopeless",
         "    return None",
         "main = -abs(m - nearest)",
@@ -107,8 +107,8 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     tieBreakers: {
       prime: { ts: "nearest", py: "nearest", says: "a bigger prime is better", lenses: ["tilt"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less; does it still jump past wider gaps between primes?" },
       cPrime: {
-        pre: { ts: ["const cp = near(c, prime);                  // the prime nearest the y-intercept"], py: ["cp = near(c, prime)                        # the prime nearest the y-intercept"] },
-        ts: neg("Q.abs(Q.sub(c, cp))"), py: "-abs(c - cp)", says: "a y-intercept close to a prime too is better",
+        pre: { ts: ["const cp = near(c, prime, p.ends);          // the prime ending in p.ends nearest the y-intercept"], py: ["cp = near(c, prime, p[\"ends\"])             # the prime ending in p[\"ends\"] nearest the y-intercept"] },
+        ts: neg("Q.abs(Q.sub(c, cp))"), py: "-abs(c - cp)", says: "a y-intercept close to such a prime too is better",
         lenses: ["shift", "tilt"], steps: 3, tryThis: "remove the \"tilt\" line: moving the line up and down never changes the gradient.",
       },
       "c-spf": {
@@ -273,25 +273,25 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   {
     family: "prime-staircase",
     thorough: ["shift", "tilt", "step", "turnAtMinusOne"],   // all of them would not fit the starting energy beside these tie-breakers
-    mainSays: "how many different primes the pattern y(0), y(1), ... starts with (more is better)",
+    mainSays: "how many different primes ending in the rule's digit the pattern y(0), y(1), ... starts with (more is better)",
     main: {
       ts: [
-        "const run = [];                                 // the different primes it starts with",
-        "let stopped = false, miss = null;               // miss: the size of the first term that is not prime",
+        "const run = [];                                 // the different primes ending in p.ends it starts with",
+        "let stopped = false, miss = null;               // miss: the size of the first term that is not such a prime",
         "for (let n = 0; n < 12; n++) {                  // y(0) ... y(11)",
-        "  const t = Q.add(Q.mul(m, n), c), isPrime = prime(t);",
+        "  const t = Q.add(Q.mul(m, n), c), isPrime = prime(t) && Q.toString(t).endsWith(String(p.ends));",
         "  if (!stopped && isPrime && !run.some(r => Q.eq(r, t))) run.push(t); else stopped = true;",
         "  if (!isPrime && miss === null) miss = Q.abs(t);",
         "}",
         "const main = run.length;",
       ],
       py: [
-        "run, stopped, miss = [], False, None            # miss: the size of the first term that is not prime",
+        "run, stopped, miss = [], False, None            # miss: the size of the first term that is not such a prime",
         "for n in range(12):                             # y(0) ... y(11)",
         "    t = m * n + c",
-        "    is_prime = prime(t)",
+        "    is_prime = prime(t) and t % 10 == p[\"ends\"]",
         "    if not stopped and is_prime and t not in run:",
-        "        run.append(t)                           # the different primes it starts with",
+        "        run.append(t)                           # the different primes ending in p[\"ends\"] it starts with",
         "    else:",
         "        stopped = True",
         "    if not is_prime and miss is None:",
@@ -309,13 +309,13 @@ export const CATALOGUE: readonly FamilyEntry[] = [
         lenses: ["shift", "tilt", "step"], steps: 3, tryThis: "remove the \"step\" line: can moving and tilting alone end the run on a bigger prime?",
       },
       "near-miss": {
-        ts: `miss === null ? null : ${neg("Q.abs(Q.sub(miss, near(miss, prime)))")}`, py: "None if miss is None else -abs(miss - near(miss, prime))",
-        says: "a first non-prime term (ignoring sign) close to a prime is better (none in twelve terms: no tie-breaker)",
+        ts: `miss === null ? null : ${neg("Q.abs(Q.sub(miss, near(miss, prime, p.ends)))")}`, py: "None if miss is None else -abs(miss - near(miss, prime, p[\"ends\"]))",
+        says: "a first term that breaks the run (ignoring sign) close to such a prime is better (none in twelve terms: no tie-breaker)",
         lenses: ["shift", "tilt", "step"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less; does the run survive while the miss gets nearer a prime?",
       },
       "step-back": {
         pre: { ts: ["const back = Q.abs(Q.sub(c, m));               // y(-1), ignoring its sign"], py: ["back = abs(c - m)                          # y(-1), ignoring its sign"] },
-        ts: neg("Q.abs(Q.sub(back, near(back, prime)))"), py: "-abs(back - near(back, prime))", says: "y(-1) (ignoring sign) close to a prime is better",
+        ts: neg("Q.abs(Q.sub(back, near(back, prime, p.ends)))"), py: "-abs(back - near(back, prime, p[\"ends\"]))", says: "y(-1) (ignoring sign) close to such a prime is better",
         lenses: ["shift", "tilt", "step"], steps: 3, tryThis: "remove the \"tilt\" line: does changing the step alone reach a prime one term back?",
       },
     },
@@ -371,19 +371,19 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   },
   {
     family: "prime-landing",
-    mainSays: "how far the y-intercept is from the nearest prime (closer is better)",
+    mainSays: "how far the y-intercept is from the nearest prime ending in the rule's digit (closer is better)",
     main: {
-      ts: ["const landing = near(c, prime);                 // the prime nearest the y-intercept", `const main = ${neg("Q.abs(Q.sub(c, landing))")};`],
-      py: ["landing = near(c, prime)                        # the prime nearest the y-intercept", "main = -abs(c - landing)"],
+      ts: ["const landing = near(c, prime, p.ends);         // the prime ending in p.ends nearest the y-intercept", `const main = ${neg("Q.abs(Q.sub(c, landing))")};`],
+      py: ["landing = near(c, prime, p[\"ends\"])             # the prime ending in p[\"ends\"] nearest the y-intercept", "main = -abs(c - landing)"],
     },
     vertical: {
       main: {
         ts: [
-          "const landing = near(c, prime);                 // it lands on the x-axis: the prime nearest",
+          "const landing = near(c, prime, p.ends);         // it lands on the x-axis: the prime ending in p.ends nearest",
           "const main = Q.neg(Q.abs(Q.sub(c, landing)));",
         ],
         py: [
-          "landing = near(c, prime)                        # it lands on the x-axis: the prime nearest",
+          "landing = near(c, prime, p[\"ends\"])             # it lands on the x-axis: the prime ending in p[\"ends\"] nearest",
           "main = -abs(c - landing)",
         ],
       },
@@ -391,13 +391,13 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     tieBreakers: {
       "big-prime": { ts: "landing", py: "landing", says: "a bigger prime is better", lenses: ["shift"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less; does it still jump past wider gaps between primes?" },
       "prime-gradient": {
-        pre: { ts: ["const mp = near(m, prime);                  // the prime nearest the gradient"], py: ["mp = near(m, prime)                        # the prime nearest the gradient"] },
-        ts: neg("Q.abs(Q.sub(m, mp))"), py: "-abs(m - mp)", says: "a gradient close to a prime too is better",
+        pre: { ts: ["const mp = near(m, prime, p.ends);          // the prime ending in p.ends nearest the gradient"], py: ["mp = near(m, prime, p[\"ends\"])             # the prime ending in p[\"ends\"] nearest the gradient"] },
+        ts: neg("Q.abs(Q.sub(m, mp))"), py: "-abs(m - mp)", says: "a gradient close to such a prime too is better",
         lenses: ["tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: tilting never moves the y-intercept, so the landing stays.",
       },
       "next-prime": {
         pre: { ts: ["const y1 = Q.abs(Q.add(m, c));                 // y(1) = m + c, ignoring its sign"], py: ["y1 = abs(m + c)                            # y(1) = m + c, ignoring its sign"] },
-        ts: neg("Q.abs(Q.sub(y1, near(y1, prime)))"), py: "-abs(y1 - near(y1, prime))", says: "y(1) (ignoring sign) close to a prime too is better",
+        ts: neg("Q.abs(Q.sub(y1, near(y1, prime, p.ends)))"), py: "-abs(y1 - near(y1, prime, p[\"ends\"]))", says: "y(1) (ignoring sign) close to such a prime too is better",
         lenses: ["tilt", "shift"], steps: 3, tryThis: "remove the \"shift\" line: tilting keeps the landing and moves y(1) by k.",
       },
       "m-spf": {

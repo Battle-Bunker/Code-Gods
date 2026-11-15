@@ -13,16 +13,16 @@
  * so the human is not the odd one out (`practiceDeal`), by the agents session's pair verdicts; the games after it rotate
  * those rules like any room's (playtest round 9: v1's rotation).
  *
- * Seating (grids; the coordinator's call following owner decision 39, lib/v2-grid seating.ts): families of one PMI
- * cluster align, so every grid deal (fresh, practice, and the rest of a bid deal) is the seed's first shuffle that seats
- * no two families of one cluster, or the one with the fewest such clashes over SEATING_TRIES shuffles. A deal on any
- * other object type is the first shuffle, as before. The game records the clashes left (`seating` in tables.ts).
+ * Seating (grids; the coordinator's calls following owner decision 39, lib/v2-grid seating.ts): every grid deal (fresh,
+ * practice, and the rest of a bid deal) is the seed's first shuffle with no forbidden pair and no aligned pair, else the
+ * one with the lowest seating cost (forbidden pairs first, then aligned ones) over SEATING_TRIES shuffles. A deal on any
+ * other object type is the first shuffle, as before. The game records the pairs left (`seating` in tables.ts).
  */
 import { canonicalJson, hashHex, rng, ruleLayers, type Rng, type RuleFamily } from "@workspace/v2-core";
 import type { BidDealer } from "@workspace/v2-economy";
 import { hasStarters, pairVerdict, type PairVerdict } from "@workspace/v2-agents/pure";
 import { findVariant, objectTypes, ruleKey } from "@workspace/v2-valuation";
-import { gridClashes } from "@workspace/v2-grid";
+import { gridAlignedPairs, gridClashes, gridSeatingCost } from "@workspace/v2-grid";
 import { measuredToBits, valueRecord } from "./values.ts";
 import type { Preset } from "./presets.ts";
 
@@ -78,7 +78,7 @@ export function dealKeyOf(preset: Preset, pool: readonly DealtRule[]): string {
  * the pool lasts (the pool is reused from its start when there are more seats than rules).
  */
 export function freshDeal(pool: readonly DealtRule[], seats: number, seed: string, variant?: string): DealtRule[] {
-  return dealFrom(pool, seats, dealRng(seed), variant ? fams => seatingClashes(variant, fams).length : undefined);
+  return dealFrom(pool, seats, dealRng(seed), variant ? fams => seatingCost(variant, fams) : undefined);
 }
 
 /** Whether a variant has a seating rule (grids: lib/v2-grid seating.ts). */
@@ -87,13 +87,21 @@ export const hasSeatingRule = (variant: string): boolean => findVariant(variant)
 export function seatingClashes(variant: string, families: readonly string[]): string[] {
   return hasSeatingRule(variant) ? gridClashes(families) : [];
 }
+/** The aligned (allowed but avoided) pairs among seated families; none where the variant has no seating rule. */
+export function seatingAligned(variant: string, families: readonly string[]): string[] {
+  return hasSeatingRule(variant) ? gridAlignedPairs(families) : [];
+}
+/** A table's seating cost (forbidden pairs, then aligned ones); 0 where the variant has no seating rule. */
+export function seatingCost(variant: string, families: readonly string[]): number {
+  return hasSeatingRule(variant) ? gridSeatingCost(families) : 0;
+}
 /** Shuffles a seating rule may draw before it settles for the deal with the fewest clashes. */
 const SEATING_TRIES = 200;
 /** The deal's random stream for a game seed: the fresh deal and the bid dealer draw from the same one. */
 export const dealRng = (seed: string): Rng => rng(seed, "deal");
 /**
- * A fresh deal drawn from `r`: a shuffle of the pool dealt in order. With `clashes` (the seating rule, counting the
- * forbidden pairs among the dealt families), the first shuffle with none, else the one with the fewest.
+ * A fresh deal drawn from `r`: a shuffle of the pool dealt in order. With `clashes` (the seating rule's cost of the dealt
+ * families), the first shuffle costing 0, else the cheapest.
  */
 export function dealFrom(pool: readonly DealtRule[], seats: number, r: Rng, clashes?: (families: readonly string[]) => number): DealtRule[] {
   if (pool.length === 0) throw new Error("No rule of this preset is dealable (none has a value function): nothing can be dealt");
@@ -142,7 +150,7 @@ export function practiceDeal(pool: readonly DealtRule[], kinds: readonly SeatKin
   const r = dealRng(seed), h = kinds.indexOf("human");
   let first: DealtRule[] | undefined;
   for (let i = 0; i < PRACTICE_TRIES; i++) {
-    const deal = dealFrom(pool, kinds.length, r, fams => seatingClashes(variant, fams).length);
+    const deal = dealFrom(pool, kinds.length, r, fams => seatingCost(variant, fams));
     first ??= deal;
     if (practiceFits(variant, deal, h)) return deal;
   }
@@ -164,7 +172,7 @@ export function bidDealer(pool: readonly DealtRule[], variant?: string): BidDeal
     dealRest(count, excluded, r) {
       const left = pool.filter(x => !excluded.includes(x.family));
       // The won families are seated too: the seating rule counts their clashes with the rest.
-      return dealFrom(left, count, r, variant ? fams => seatingClashes(variant, [...excluded, ...fams]).length : undefined);
+      return dealFrom(left, count, r, variant ? fams => seatingCost(variant, [...excluded, ...fams]) : undefined);
     },
   };
 }

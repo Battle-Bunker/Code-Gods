@@ -19,6 +19,8 @@
 #   near(x, test)                the whole number nearest to x that passes the test, e.g. near(m, prime).
 #                                The test gets a plain whole number. On a tie the smaller one; None if none
 #                                within 10,000.
+#   near(x, test, k)             the same among positive whole numbers ending in the digit k: near(c, prime, 3) is
+#                                the prime ending in 3 nearest c (below the smallest such prime, that prime).
 #   whole(x)                     the whole number nearest to x (a half rounds up).
 #   smooth(n)                    is n made only by multiplying 2s, 3s, 5s and 7s (1 included; the sign ignored)?
 #                                e.g. near(x, smooth).
@@ -59,6 +61,8 @@
 #                                do not raise your own rarity it prices only the best two, so an act with nothing to
 #                                gain costs little. now is your score here; without the game's values it takes the step
 #                                best for your rule instead.
+#   allowance(offer)             the most one move should cost now: the agent's energy (no debt), and at most 15 seconds
+#                                of its income where the game says what it earns. climb never takes a dearer move.
 #   note(offer, text)            leave your owner a short note (they read it in the act log). At most 3 a turn.
 #   contested(offer, times)      True when pushback(offer) has reached times; it then leaves your owner a note naming
 #                                the tug-of-war and suggesting a deal with the other player.
@@ -464,20 +468,31 @@ def pair_steps(L, far, kinds):
     return out
 
 
+_ALLOWANCE_SECONDS = 15   # a move may cost at most this many seconds of the agent's income
+
+
+def allowance(offer):
+    b = offer.budget()
+    cap = max(0, b.energy)
+    income = getattr(b, "income", None)
+    return min(cap, _ALLOWANCE_SECONDS * income) if isinstance(income, (int, float)) and income > 0 else cap
+
+
 def climb(offer, options, now, most=None):
     options = sorted(options, key=_functools.cmp_to_key(lambda a, b: -1 if better(a[1], b[1]) else 1 if better(b[1], a[1]) else 0))
     if most is not None:
         options = options[:most]
     w = worth(offer)
-    best = None
     if w is None:   # the best step for your rule that beats now and is allowed
+        cap = allowance(offer)
         for plan, s in options:
             if not better(s, now):
                 break
-            if price(offer, plan) is not None:
+            p = price(offer, plan)
+            if p is not None and p <= cap:
                 return _as_plan(plan)
         return None
-    value, spare = w.mine * w.others, 2
+    value, spare, ranked = w.mine * w.others, 2, []
     for plan, s in options:
         r = rarity(offer, s)   # free
         if r <= 0:   # sorted best first: the rest score no points for you either
@@ -494,8 +509,15 @@ def climb(offer, options, now, most=None):
             continue
         v = r * o.after
         if v > value + 1e-9:
-            value, best = v, plan
-    return None if best is None else _as_plan(best)
+            ranked.append((v, plan))
+    # The best step it can pay for within its allowance (its energy, and a few seconds of its income).
+    ranked.sort(key=lambda x: -x[0])
+    cap = allowance(offer)
+    for _, plan in ranked[:4]:
+        p = price(offer, plan)
+        if p is not None and p <= cap:
+            return _as_plan(plan)
+    return None
 
 
 def fair(offer, plan):
@@ -569,8 +591,18 @@ def better(a, b):
 _PRIME, _SQUARE = prime, square     # the helpers themselves, even if an agent reuses the names
 
 
-def near(x, test):
+def near(x, test, ends=None):
     v = Fraction(x)
+    if ends is not None:
+        # Only positive whole numbers whose last digit is `ends`; below the smallest such prime, that prime.
+        first = {0: None, 1: 11, 2: 2, 3: 3, 4: None, 5: 5, 6: None, 7: 7, 8: None, 9: 19}
+        if test is _PRIME and ends in first:
+            if first[ends] is None:
+                return None
+            if v <= first[ends]:
+                return first[ends]
+        inner = test
+        test = lambda n: n > 0 and n % 10 == ends and inner(n)
     # Exact for any size where the answer is known in closed form: below 2 the nearest prime is 2; squares by root.
     if test is _PRIME and v <= 2:
         return 2

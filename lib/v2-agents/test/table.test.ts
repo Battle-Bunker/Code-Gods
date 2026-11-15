@@ -6,7 +6,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { toolName } from "@workspace/v2-affordances";
 import { Budget, mockProvider, type ChatProvider, type MockStep } from "@workspace/v2-ai";
-import { lineType, lineZ, presets } from "@workspace/v2-linear";
+import { lineQ, lineType, lineZ, presets } from "@workspace/v2-linear";
 import { sandboxes, startersFor } from "../src/index.ts";
 import { deals, runTable, type TableSeat } from "../src/table.ts";
 
@@ -118,4 +118,16 @@ test("unique objects: a move onto a state another line already holds is refused,
   const [free, unique] = [await run(false), await run(true)];
   assert.equal(free.seats[0]!.refused, 0);
   assert.ok(unique.seats[0]!.refused > 0, "the second line onto y = x + 1 is refused");
+});
+
+test("on the beginner economy (power 4) starters live within their income: no agent owes more than a few seconds of it", async () => {
+  let worst = 0, acts = 0;
+  const rules = [["prime-landing", "big-prime"], ["treasure", "prime-terms"], ["whole-crossing", "k-spf"]] as const;
+  await runTable(boxes, {
+    type: lineType, variant: lineQ, lines: 3, seed: "income", seconds: 90, unique: true,
+    seats: rules.map(([f, t], k) => seat(`P${k}`, "starter", f, t)),
+    onAct: e => { acts++; if (e.balance < 0) worst = Math.max(worst, -e.balance / e.income); },
+  });
+  assert.ok(acts > 100, `${acts} acts`);
+  assert.ok(worst <= 3, `worst debt ${worst.toFixed(1)} s of income`);
 });
