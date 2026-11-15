@@ -6,7 +6,8 @@
 import { Play } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { roomPath } from "@/site/lib/routes";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { ANOTHER, GameSummary, summarise, type SummaryClimb, type SummaryTug } from "@workspace/v2-views";
 import { usePaneOps } from "@/dock/open-pane";
@@ -101,6 +102,21 @@ function Rotation({ summary }: { summary: ReturnType<typeof rotationSummary> }) 
 /** How many contested objects the summary reads the moves of at most. */
 const CONTESTED_MAX = 10;
 
+/** How long the summary waits for every read before it speaks from what has arrived. */
+const PATIENCE_MS = 4000;
+
+/** The advice when the summary cannot be built (its rule or a face did not load): never an empty Results page. */
+function PlainNext({ noun }: { noun: string }) {
+  return (
+    <div className="v2v v2v-summary">
+      <div className="v2v-summary-next" data-testid="text-summary-next">
+        <h4 className="v2v-summary-next-title">Try next game</h4>
+        <p>Open your secret goal before the world starts, summon a starter that climbs its main part, and watch which {noun}s earn you points.</p>
+      </div>
+    </div>
+  );
+}
+
 function EndSummary({ total }: { total: number }) {
   const header = useGame();
   const my = useMyRule();
@@ -146,7 +162,19 @@ function EndSummary({ total }: { total: number }) {
     try { await openObject.run({ objectId: id }); }
     catch (e) { toast({ title: `The ${objectWord(header?.variant).one} did not open`, description: e instanceof Error ? e.message : String(e), variant: "destructive" }); }
   };
-  // Said only once the page and its objects have loaded: an empty list read "no line scored" to a player with points.
-  if (!summary || !done || ids.status === "LoadingFirstPage" || objects.some(o => o === undefined)) return null;
-  return <div data-testid="results-summary"><GameSummary summary={summary as never} rule={my!.rule as never} value={my!.bits ?? undefined} onOpen={id => void onOpen(id)} /></div>;
+  // Said once the page and its objects have loaded (an empty list read "no line scored" to a player with points), and
+  // never nothing: after a few seconds, from what has arrived (round 12: Exact Change's Results said no word of advice).
+  const [patient, setPatient] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setPatient(true), PATIENCE_MS); return () => clearTimeout(t); }, []);
+  const loading = !done || ids.status === "LoadingFirstPage" || objects.some(o => o === undefined);
+  if (loading && !patient) return null;
+  const plain = <PlainNext noun={objectWord(header?.variant).one} />;
+  if (!summary) return <div data-testid="results-summary">{plain}</div>;
+  return (
+    <div data-testid="results-summary">
+      <ErrorBoundary FallbackComponent={() => plain}>
+        <GameSummary summary={summary as never} rule={my!.rule as never} value={my!.bits ?? undefined} onOpen={id => void onOpen(id)} />
+      </ErrorBoundary>
+    </div>
+  );
 }
