@@ -5,7 +5,7 @@
  *
  *   pnpm --filter @workspace/v2-agents collapse-check [-- --variant line-q,line-z,grid-4-d10] [--tests 1,2,3,4,5]
  *     [--beta 0.02,0.05,0.1] [--tables 8] [--grid-tables 3] [--evals 100000] [--ref-mult 10] [--ramp-evals 30000]
- *     [--games 3] [--seconds 300] [--objects 3] [--births 0.004167] [--old-row yes|no] [--reach-births 2] [--direction-starts 60] [--jobs 3] [--json]
+ *     [--games 3] [--seconds 600] [--objects 3] [--births 0.004167] [--old-row yes|no] [--reach-births 2] [--direction-starts 60] [--jobs 3] [--json]
  *
  * Tests (thresholds in src/collapse.ts):
  *   1 joint rise     per dealt table (owner decision 30, thresholds set 14 Nov): directions (one call, repeated 8 times;
@@ -19,7 +19,7 @@
  *                    anneals with 10 restarts) against a reference (W enumerated, or ref-mult·B of annealing); a table
  *                    fails at ≥ 95%, the variant when more than a quarter do
  *   3 single answer  per table: the best 24 distinct states in W keep ≥ 70% of 24 × the best and lie in one closed form
- *   4 dynamics       the plain starters and, on lines, the shortcut climber (scripts/climbers.ts) play 300 s under
+ *   4 dynamics       the plain starters and, on lines, the shortcut climber (scripts/climbers.ts) play --seconds (600) under
  *                    unique objects at this β, at --objects starting objects and --births a second (the presets' 3 and
  *                    1/240, owner decision 31; one comparison row at the old 24 and 0.1, middle β, not counted). Fails on (a) < 25% of
  *                    objects changing in the last minute under the plain starters, (b) a shortcut search finding no
@@ -62,7 +62,7 @@ const { values: o } = parseArgs({ options: {
   "ramp-evals": { type: "string", default: "30000" },
   "enum-cap": { type: "string", default: "300000" },
   games: { type: "string", default: "3" },
-  seconds: { type: "string", default: "300" },
+  seconds: { type: "string", default: "600" },   // the beginner game is ten minutes (owner decision 34)
   "reach-births": { type: "string", default: "2" },
   "direction-starts": { type: "string", default: "60" },
   objects: { type: "string", default: "3" },
