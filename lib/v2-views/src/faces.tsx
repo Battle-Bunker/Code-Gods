@@ -22,7 +22,7 @@ const rolesOf = (parts: readonly Contributor[]) => parts.flatMap(p => p.source.m
 
 export const GLYPH = { main: "●", tb: "◆" } as const;
 /** Each part's name, said beside its symbol (a symbol never stands alone for a concept: the owner, 15 Nov). */
-export const PART_NAME = { main: "main part", tb: "tie-breaker" } as const;
+export const PART_NAME = { main: "main part", tb: "secondary preference" } as const;
 /** A move that raises the bits for you and for the others: its one name, everywhere. */
 export const GOOD_FOR_BOTH = "good for both";
 
@@ -148,7 +148,7 @@ export function PartsList({ parts, active, onActive, onSelect, selected }: Parts
           onClick={() => onSelect?.(selected === i ? null : i)}
           onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect?.(selected === i ? null : i); } else if (e.key === "Escape") onSelect?.(null); }}>
           <div className="v2v-part-head">
-            <span className="v2v-part-name">{GLYPH[p.role]} {p.name === "main part" ? "Main part" : "Tie-breaker"}: {p.title}</span>
+            <span className="v2v-part-name">{GLYPH[p.role]} {p.name[0]!.toUpperCase() + p.name.slice(1)}: {p.title}</span>
             <span className="v2v-part-aim">{p.aim}</span>
           </div>
           <div className="v2v-part-sentence">{p.sentence}</div>
@@ -424,7 +424,7 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
 
       <div className="v2v-exp-body">
         <PartsList parts={sa.parts} active={lit} onActive={setHoverPart} selected={sel} onSelect={setSelected} />
-        {sa.parts.length > 1 && <p className="v2v-combine">The main part counts first; {`the tie-breaker decides between ${a.noun}s that are equally good on the main part.`}</p>}
+        {sa.parts.length > 1 && <p className="v2v-combine">The main part counts first; {`each preference after it decides only between ${a.noun}s that are equally good on everything before it.`}</p>}
         {props.improvement !== false && (props.climb
           ? <div className="v2v-moves-col"><MovesList list={list} noun={a.noun} bits={a.bits} others={props.others} />{props.climb}</div>
           : <MovesList list={list} noun={a.noun} bits={a.bits} others={props.others} />)}

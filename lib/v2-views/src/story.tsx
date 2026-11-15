@@ -4,7 +4,7 @@
  */
 import type { ReactElement, ReactNode } from "react";
 import type { ScaleRow } from "./example.ts";
-import { compareScores, representation, type ObjectType, type Score, type Variant } from "@workspace/v2-core";
+import { compareScores, representation, tieBreakerIds, type ObjectType, type Score, type Variant } from "@workspace/v2-core";
 import { annotate, type RuleRef } from "./annotate.ts";
 import { changesBetween, withParams } from "./contributors.ts";
 import { ExpandedFace } from "./faces.tsx";
@@ -29,14 +29,17 @@ export interface GoalCardProps<S, P> {
   readonly scale?: readonly ScaleRow[];
 }
 
-/** The main part's sentence and the dealt tie-breaker's, from the layers (null when the family has no main sentence). */
-function cardLines<S, P>(rule: RuleRef<S, P>, tbId: string | null): { main: string; tb: string | null } | null {
+/** The main part's sentence and each dealt preference's in order, from the layers (null when the family has no main sentence). */
+function cardLines<S, P>(rule: RuleRef<S, P>, tbIds: readonly string[]): { main: string; prefs: string[] } | null {
   const f = rule.family as unknown as { main?: { sentence?(p: P): string }; tieBreakers: readonly { id: string; sentence?(p: P): string }[] };
   try {
     const main = f.main?.sentence?.(rule.params);
     if (!main) return null;
-    const t = tbId ? f.tieBreakers.find(x => x.id === tbId)?.sentence?.(rule.params) : undefined;
-    return { main: withParams(main, rule.params), tb: t ? withParams(t, rule.params).replace(/^Tie-breaker: /, "") : null };
+    const prefs = tbIds.flatMap(id => {
+      const t = f.tieBreakers.find(x => x.id === id)?.sentence?.(rule.params);
+      return t ? [withParams(t, rule.params).replace(/^(Tie-breaker|Secondary|Third|Then):\s*/, "")] : [];
+    });
+    return { main: withParams(main, rule.params), prefs };
   } catch { return null; }
 }
 
@@ -48,7 +51,9 @@ export function GoalCard<S, P>({ rule, example, value, mine, exampleOpen, exampl
   const f = rule.family;
   const noun = nounOf(rule.type);
   const tbId = rule.tieBreaker === undefined ? (f.tieBreakers[0]?.id ?? null) : rule.tieBreaker;
-  const lines = cardLines(rule, tbId);
+  // A rule is an ordered list of layers of any depth (#879): "a>b" is main, then a, then b.
+  const tbIds = tieBreakerIds(tbId ?? undefined) ?? [];
+  const lines = cardLines(rule, tbIds);
   return (
     <article className="v2v v2v-goal">
       <header>
@@ -57,7 +62,7 @@ export function GoalCard<S, P>({ rule, example, value, mine, exampleOpen, exampl
             own; the family's whole card only when it has no layer sentences. */}
         {lines ? (<>
           <p className="v2v-goal-card" data-testid="text-goal-main">{lines.main}</p>
-          {lines.tb && <p className="v2v-goal-card v2v-goal-tb" data-testid="text-goal-tie-breaker"><b>Tie-breaker:</b> {lines.tb}</p>}
+          {lines.prefs.map((t, i) => <p key={i} className="v2v-goal-card v2v-goal-tb" data-testid={i === 0 ? "text-goal-tie-breaker" : `text-goal-preference-${i + 1}`}><b>{i === 0 ? "Secondary" : i === 1 ? "Third" : `Preference ${i + 2}`}:</b> {t}</p>)}
         </>) : <p className="v2v-goal-card">{f.card(rule.params, tbId)}</p>}
       </header>
       {mine && (

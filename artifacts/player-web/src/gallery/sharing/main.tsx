@@ -68,7 +68,7 @@ function Frame({ f }: { f: string }): ReactElement {
             <label><input type="checkbox" /> Cy</label>
             <label><input type="checkbox" /> Everyone at the table</label>
           </div>
-          <p className="sr-muted">They will see your card: its sentence, your main part and your tie-breaker, and how rare any line is for you. They will not see your agents or your energy.</p>
+          <p className="sr-muted">They will see your card: its sentence, your main part and your secondary preference, and how rare any line is for you. They will not see your agents or your energy.</p>
           <p className="sr-muted"><b>Once shown, it stays shown for this game.</b> They have read it; hiding it again would only pretend they had not.</p>
           <span><span className="sr-btn">Show my card to Bo</span> <span className="sr-btn" data-quiet="">Cancel</span></span>
         </div>
@@ -83,7 +83,7 @@ function Frame({ f }: { f: string }): ReactElement {
         <div className="sr-card">
           <h3>Line {LINE} <ObjectChip type={lineType} state={NOW} /></h3>
           <p>For you: <b>{fmt(va, ADA, NOW)} bits</b> · <span className="sr-for">for Bo: {fmt(vb, BO, NOW)} bits</span></p>
-          <p className="sr-muted">Bo's parts drawn on your line, in his colours (◆ is his tie-breaker):</p>
+          <p className="sr-muted">Bo's parts drawn on your line, in his colours (◆ is his secondary preference):</p>
           <CompactFace rule={BO} state={NOW} value={vb} />
         </div>
       </div>
