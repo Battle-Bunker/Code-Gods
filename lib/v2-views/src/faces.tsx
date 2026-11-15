@@ -74,10 +74,10 @@ export interface CompactFaceProps<S, P> {
   readonly before?: S;
   /** The cheapest move that makes the object rarer, drawn as a hint: true computes it here (own rule only), or pass one. */
   readonly next?: boolean | Move<S> | null;
-  /** When the object does not score (a vertical line, for a rule that reads its y-intercept): "To score: <the move>". */
   /** How fresh this view of the object is (priced looks): drawn as a line above the face when given. */
   readonly seen?: Seen;
-  /** On by default: a rule that does not score the object says what would (playtest round 12); false to leave it out. */
+  /** When the object does not score (a vertical line, for a rule that reads its y-intercept): "To score: <the move>".
+   *  On by default (playtest round 12: a rule that does not score says what would); false to leave it out. */
   readonly toScore?: boolean;
 }
 

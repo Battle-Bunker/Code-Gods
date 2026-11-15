@@ -8,7 +8,7 @@
  */
 import { Qn, ref, type ElementRef, type ElementValue, type Q } from "@workspace/v2-core";
 import type { EquationScene, EquationTemplate } from "@workspace/v2-linear";
-import { EXACT_DENOMINATOR, fmtNum, fmtQ, fmtValue, MINUS } from "./format.ts";
+import { exactOrDecimal, fmtQ, fmtValue, isApprox, MINUS } from "./format.ts";
 
 export type Eq = EquationScene;
 /** An element piece; a coefficient of ±1 carries its variable instead of a "1" ("−x" is one node). */
@@ -40,11 +40,11 @@ export function pieces(t: EquationTemplate, rep: string, values: (r: ElementRef)
     }
     const implied = coef && x.n === x.d; // a coefficient of ±1 (its sign is already taken off): "x", "−x"
     absorbed = implied;
-    out.push({ kind: "el", r, v, op, mag: implied ? "" : x.d > EXACT_DENOMINATOR ? fmtNum(Number(x.n) / Number(x.d)) : fmtQ(x), variable: implied ? (next as string)[0]! : "" });
+    out.push({ kind: "el", r, v, op, mag: implied ? "" : exactOrDecimal(x), variable: implied ? (next as string)[0]! : "" });
   }
   const ps = tidy(out);
   // A number past the exact limit is written as a decimal: the equation then says "≈", never "=" (one form per place).
-  const approx = out.some(p => p.kind === "el" && p.v.kind === "number" && p.v.q.d > EXACT_DENOMINATOR);
+  const approx = out.some(p => p.kind === "el" && p.v.kind === "number" && isApprox(p.v.q));
   return approx ? ps.map(p => (p.kind === "text" ? { ...p, text: p.text.replace(/ = /g, " ≈ ") } : p)) : ps;
 }
 
@@ -127,7 +127,8 @@ export function solvedText(ps: Piece[]): string | null {
   const a = withVar ? (withVar.mag === "" ? (withVar.op === MINUS ? Qn.neg(Qn.ONE) : Qn.ONE) : shown(withVar)) : Qn.ONE;
   const c = consts[0] ? shown(consts[0]) : Qn.ZERO;
   if (Qn.isZero(a)) return null;
-  return `${vars[0]} = ${fmtQ(Qn.div(Qn.neg(c), a))}`;
+  const x = Qn.div(Qn.neg(c), a);
+  return `${vars[0]} ${isApprox(x) ? "≈" : "="} ${exactOrDecimal(x)}`;
 }
 
 /** A caption: words and the representation's elements, each value written as it is ("2", "⅓"); null if one is undefined. */

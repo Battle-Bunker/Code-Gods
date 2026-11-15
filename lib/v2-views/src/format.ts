@@ -39,8 +39,13 @@ export const EXACT_DENOMINATOR = 999n;
  * A number on a ruler, a plot or a part: exact while its denominator is at most 100 ("2¹⁹⁄₆₄", "⅓"), else approximate
  * ("≈ 9.90"); whole numbers from 10,000 up grouped ("27,720").
  */
+/** Whether a number is past the exact limit (then written as a decimal, with "≈" said by its caller). */
+export const isApprox = (q: Q): boolean => q.d > EXACT_DENOMINATOR;
+/** A number's digits under the one limit: an exact fraction ("3¹¹⁄₁₆₂") or, past it, a decimal ("3.00"), without "≈". */
+export const exactOrDecimal = (q: Q): string => (isApprox(q) ? fmtNum(Number(q.n) / Number(q.d)) : fmtQ(q));
+
 export function readable(q: Q): string {
-  if (q.d > EXACT_DENOMINATOR) return `≈ ${fmtNum(Number(q.n) / Number(q.d))}`;
+  if (isApprox(q)) return `≈ ${exactOrDecimal(q)}`;
   const t = fmtQ(q);
   return q.d === 1n && (q.n >= 10000n || q.n <= -10000n) ? t.replace(/\d+/, d => Number(d).toLocaleString("en-US")) : t;
 }
