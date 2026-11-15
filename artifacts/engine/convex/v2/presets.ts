@@ -4,7 +4,7 @@
  * the server needs to run a game of it: timing, players, the economy and an optional bid phase. The deal
  * (convex/v2/deal.ts) deals only the pool's rules whose artefact converged.
  */
-import { GRIDS_BEGINNER_ECONOMY, LINES_BEGINNER_ECONOMY, readPriceWeightFor } from "@workspace/v2-economy";
+import { LINES_BEGINNER_ECONOMY, readPriceWeightFor, summonPriceScale } from "@workspace/v2-economy";
 import { preset as linearPreset, type PoolRule } from "@workspace/v2-linear";
 import { gridPresets } from "@workspace/v2-grid";
 import { pairPresets } from "@workspace/v2-pair";
@@ -67,6 +67,20 @@ export function medianLookBits(variant: string): number {
   return bits;
 }
 
+/**
+ * A typical starter's summon price before the power scale, in bits: the median over the beginner pool's starters of
+ * each variant, both languages (measured; the unit test v2-presets keeps it within 5%). The beginner game's start buys
+ * STARTERS_AT_START of them at the scaled price (the coordinator's call 17), so it follows the power like the read weight.
+ */
+export const MEDIAN_STARTER_BITS: Readonly<Record<string, number>> = { "line-q": 466, "line-q-lenses": 466, "grid-4-d10": 701 };
+export const STARTERS_AT_START = 3;
+/** The beginner start at this power: STARTERS_AT_START typical starters at the scaled summon price, to the nearest 10. */
+export function beginnerStart(variant: string, powerPerSecond: number): number {
+  const bits = MEDIAN_STARTER_BITS[variant];
+  if (bits === undefined) throw new Error(`No median starter for the variant ${variant}: measure it (MEDIAN_STARTER_BITS)`);
+  return Math.round((STARTERS_AT_START * bits * summonPriceScale(powerPerSecond)) / 10) * 10;
+}
+
 /** A pool by id: the line presets' (v2-linear), the grid's (v2-grid) or the two-line systems' (v2-pair). */
 function poolPreset(id: string): { id: string; title: string; variant: string; rules: readonly PoolRule[] } {
   const g = gridPresets.find(x => x.id === id) ?? pairPresets.find(x => x.id === id);
@@ -94,13 +108,12 @@ function fromPool(id: string, extra: Partial<Preset> & { id?: string; title?: st
  * births 5 objects by the end; exact readings (decision 32, "it should be zero for the beginner game").
  */
 const BEGINNER_WORLD = { worldSeconds: 600, peerNoiseVariance: 0 };
-const BEGINNER = fromPool("lines-beginner", BEGINNER_WORLD);
+const BEGINNER = fromPool("lines-beginner", { ...BEGINNER_WORLD, startingEnergy: beginnerStart("line-q", ECONOMY.powerPerSecond) });
 /**
  * The beginner grid (docs/engine-v2/grids.md): the 4×4 board of digits. A board's agents read 16 cells, not y = mx + c,
- * so they are longer and dearer to summon (grid starters cost about 400 to 590 energy before the power scale, line starters 300 to 500): grids
- * start with 900 energy so that a starter takes about the share of the starting energy a line starter takes of 600.
+ * so they are longer and dearer to summon; its start buys three typical grid starters, as the lines' buys three line ones.
  */
-const GRIDS = fromPool("grids-beginner", { ...BEGINNER_WORLD, startingEnergy: GRIDS_BEGINNER_ECONOMY.startingEnergy });
+const GRIDS = fromPool("grids-beginner", { ...BEGINNER_WORLD, startingEnergy: beginnerStart("grid-4-d10", ECONOMY.powerPerSecond) });
 
 
 /**
@@ -109,7 +122,7 @@ const GRIDS = fromPool("grids-beginner", { ...BEGINNER_WORLD, startingEnergy: GR
  * opportunities a second, power 64, a 30 s store, 600 to start (archive lib/game-core settings.ts, the Grid defaults).
  */
 const V1_DEFAULT_BOARD: Partial<Preset> = {
-  startingObjects: 10, durationMode: "halfLife", worldSeconds: 300,
+  startingObjects: 10, durationMode: "halfLife", worldSeconds: 300, startingEnergy: 600,
   economy: { powerPerSecond: 64, fullChargeSeconds: 30, opportunitiesPerSecond: 100, birthsPerSecond: 0.1 },
 };
 
@@ -127,7 +140,8 @@ export const PRESETS: readonly Preset[] = [
   // functions and shipped starters (deal.ts playable).
   fromPool("lines-pairs", V1_DEFAULT_BOARD),
   { ...GRIDS, id: "grids-beginner-bidding", title: "Grids · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
-  fromPool("grids-more-rules", { ...V1_DEFAULT_BOARD, startingEnergy: GRIDS_BEGINNER_ECONOMY.startingEnergy }),
+  // Grid starters are dearer: 900 to start, so a starter takes about the share of it a line starter takes of 600.
+  fromPool("grids-more-rules", { ...V1_DEFAULT_BOARD, startingEnergy: 900 }),
 ];
 export const DEFAULT_PRESET = BEGINNER.id;
 

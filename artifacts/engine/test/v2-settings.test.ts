@@ -53,9 +53,9 @@ test("the beginner game (owner decisions 31, 32, 34): 600 s fixed, 3 objects, ex
   const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
   const h = await ada!.query("v2/games:header", { gameId });
   assert.deepEqual([h.durationMode, h.worldSeconds, h.peerNoiseVariance, h.peerNoiseBits], ["fixed", 600, 0, 0]);
-  // A look at a typical line costs a fiftieth of the power: 5 a second take a tenth (decision 35), at 8 energy a second.
-  assert.ok(Math.abs(h.readPriceWeight * 13.7 / 32 - 8 / 50) < 1e-9, `weight ${h.readPriceWeight}`);
-  assert.equal(h.priceScale, 8 / 64, "summons at power ÷ 64");
+  // A look at a typical line costs a fiftieth of the power: 5 a second take a tenth (decision 35), at 4 energy a second.
+  assert.ok(Math.abs(h.readPriceWeight * 13.7 / 32 - 4 / 50) < 1e-9, `weight ${h.readPriceWeight}`);
+  assert.equal(h.priceScale, 4 / 64, "summons at power ÷ 64");
   await perform(ada!, "game.startWorldNow", {}, { gameId });   // the starting objects are born with the world
   const ids = (await ada!.query("v2/spectate:objectIds", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page;
   assert.equal(ids.length, 3, "3 objects to start (decision 31)");
@@ -72,11 +72,11 @@ test("a room dilated by 10 plays the same game ten times faster: every rate × 1
   assert.deepEqual([h.timeScale, h.planningSeconds, h.worldSeconds, h.scoreIntervalSeconds], [10, 6, 60, 1]);
   const settings = await admin.query("v2/testing:settingsOf", { gameId });
   const e = settings.economy;
-  assert.deepEqual([e.powerPerSecond, e.opportunitiesPerSecond, e.fullChargeSeconds, settings.startingEnergy], [80, 30, 24, 600]);
+  assert.deepEqual([e.powerPerSecond, e.opportunitiesPerSecond, e.fullChargeSeconds, settings.startingEnergy], [40, 30, 24, 90]);
   assert.ok(Math.abs(e.birthsPerSecond - 10 / 240) < 1e-12);
   const mine = await ada!.query("v2/play:me", { gameId });
-  assert.ok(Math.abs(mine.capacity - 8 * 240) < 1e-6 || mine.capacity < 8 * 240, "a store holds what it would undilated (less what agents hold)");
-  assert.equal(h.priceScale, 8 / 64, "a summon costs the same energy: the price scale is the undilated power's");
+  assert.ok(Math.abs(mine.capacity - 4 * 240) < 1e-6 || mine.capacity < 4 * 240, "a store holds what it would undilated (less what agents hold)");
+  assert.equal(h.priceScale, 4 / 64, "a summon costs the same energy: the price scale is the undilated power's");
   const started = Date.now();
   await perform(ada!, "game.startWorldNow", {}, { gameId });
   for (let i = 0; (await ada!.query("v2/games:header", { gameId })).phase !== "ended"; i++) {
@@ -87,7 +87,8 @@ test("a room dilated by 10 plays the same game ten times faster: every rate × 1
   const history = await ada!.query("v2/games:standingsHistory", { gameId, after: -1 });
   // Published every dilated second where the tick allows (a tick still runs every 1.5 s of wall time, with ten times the
   // acts): at least a second apart, far more often than the undilated game's 6 publications of a 60 s world.
-  const worlds = history.map((r: any) => r.worldSeconds);
+  // (The last row is the final scoreboard, published at the end whenever it falls.)
+  const worlds = history.map((r: any) => r.worldSeconds).slice(0, -1);
   assert.ok(worlds.every((w: number, i: number) => i === 0 || w - worlds[i - 1] >= 1 - 1e-9), `a second apart at least: ${worlds.join(", ")}`);
   assert.ok(history.length >= 20, `published at the dilated interval: ${history.length} rows`);
 });

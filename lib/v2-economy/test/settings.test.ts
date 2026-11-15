@@ -8,10 +8,11 @@ test("Lines · beginner: the starting energy fits the planning store, and the fi
   const e = LINES_BEGINNER_ECONOMY;
   assert.doesNotThrow(() => assertEconomy(e));
   const whole = e.powerPerSecond * e.fullChargeSeconds;
-  assert.equal(whole, 1920);
+  assert.equal(whole, 960);   // the coordinator's call 17: 4 a second, a 240 s store
   assert.ok(e.startingEnergy <= whole);
-  // Today's dearest beginner starter (573 bits): the first agent takes as much power as still lets the store hold it.
-  assert.equal(firstAgentShare({ allocated: 0, powerPerSecond: e.powerPerSecond, fullChargeSeconds: e.fullChargeSeconds, need: 573 }), 0.701562);
+  // Today's dearest beginner starter (599 bits, ÷ 16 at power 4: about 37): so cheap that the first agent may take the
+  // most power a first agent takes.
+  assert.equal(firstAgentShare({ allocated: 0, powerPerSecond: e.powerPerSecond, fullChargeSeconds: e.fullChargeSeconds, need: 599 / 16 }), 0.75);
   // After a default first summon the own store (half the power) still holds the starting energy.
   assert.ok(energyCapacity(ownIncome(e.powerPerSecond, defaultShare(0)), e.fullChargeSeconds) >= e.startingEnergy);
   assert.throws(() => assertEconomy({ ...e, fullChargeSeconds: 0 }), /fullChargeSeconds/);

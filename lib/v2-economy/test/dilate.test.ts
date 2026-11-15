@@ -42,7 +42,7 @@ test("a dilated game has the same opportunities, births and energies, window for
 test("every rate is multiplied, every duration divided, energies untouched; a factor of 1 changes nothing", () => {
   const fast = dilate(game, 10);
   assert.deepEqual([fast.planningSeconds, fast.worldSeconds, fast.scoreIntervalSeconds, fast.bid.seconds], [6, 60, 1, 4.5]);
-  assert.deepEqual([fast.economy.powerPerSecond, fast.economy.opportunitiesPerSecond, fast.economy.fullChargeSeconds], [80, 30, 24]);
+  assert.deepEqual([fast.economy.powerPerSecond, fast.economy.opportunitiesPerSecond, fast.economy.fullChargeSeconds], [40, 30, 24]);
   assert.ok(Math.abs(fast.economy.birthsPerSecond - 10 / 240) < 1e-15);
   assert.equal(fast.startingEnergy, 600, "energies are not rates");
   assert.equal(energyCapacity(fast.economy.powerPerSecond, fast.economy.fullChargeSeconds), energyCapacity(game.economy.powerPerSecond, game.economy.fullChargeSeconds));
