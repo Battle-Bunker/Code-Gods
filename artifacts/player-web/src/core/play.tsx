@@ -32,7 +32,7 @@ import { useReplaying } from "./affordance-runtime";
 import { GameTimer, useNow } from "./game-timer";
 import { navigate } from "./navigation";
 import { planningLine, SUMMON_FIRST } from "./planning-line";
-import { BLURRED_NOTE, countedNote, isTied, ownEnergy, ordinal, pointsText, scoreSentence, totalNote, totalSumNote } from "./words";
+import { countedNote, exactTotalNote, isTied, ownEnergy, ordinal, pointsText, scoreSentence, totalNote, totalSumNote } from "./words";
 import { objectWord } from "../sdk/object-types.ts";
 import { LineByLine, TiedMark } from "./score-help";
 
@@ -40,10 +40,10 @@ const PHASE = { planning: "Planning", live: "Running", paused: "Paused", ended: 
 
 /** Your total and rank, and your energy: one line under the site header. In a replay: the watched player's, at the playhead. */
 function GameBar({ header }: { header: Header }) {
+  const blurred = useOthersBlurred();
   const standings = useLeaderboard();
   const me = useMe();
   const replay = useReplayControls();
-  const blurred = useOthersBlurred();
   const openPane = useOpenPane(header.phase);
   const seat = replay ? replay.member : header.me;
   const mine = standings?.rows.find(r => r.memberId === seat);
@@ -52,8 +52,8 @@ function GameBar({ header }: { header: Header }) {
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b px-3 py-1.5 text-sm" data-testid="game-bar">
       <span className="border px-2 py-0.5 text-xs font-medium uppercase tracking-wide" data-testid="text-phase">{replay ? "Replay" : PHASE[header.phase]}</span>
       {seat ? (<>
-        <span data-testid="text-my-total" title={[blurred ? BLURRED_NOTE : null, scoreSentence(objectWord(header.variant).one, objectWord(header.variant).many), totalNote(totalSumNote(objectWord(header.variant).one), (mine?.handicap ?? 0) > 0), countedNote(standings?.worldSeconds, fixedLength(header))].filter(Boolean).join(" ")}>
-          {who}: <span className="font-semibold tabular-nums">{blurred ? "about " : ""}{pointsText(mine?.net ?? 0)}</span>{mine && standings && standings.rows.length > 1 ? ` · ${ordinal(mine.rank)} of ${standings.rows.length}` : ""}
+        <span data-testid="text-my-total" title={[blurred ? exactTotalNote(objectWord(header.variant).one) : null, scoreSentence(objectWord(header.variant).one, objectWord(header.variant).many), totalNote(totalSumNote(objectWord(header.variant).one), (mine?.handicap ?? 0) > 0), countedNote(standings?.worldSeconds, fixedLength(header))].filter(Boolean).join(" ")}>
+          {who}: <span className="font-semibold tabular-nums">{pointsText(mine?.net ?? 0)}</span>{mine && standings && standings.rows.length > 1 ? ` · ${ordinal(mine.rank)} of ${standings.rows.length}` : ""}
           {mine && standings && isTied(standings.rows, mine) && <> <TiedMark testId="text-my-tied" /></>}
         </span>
         <LineByLine testId="button-line-by-line-bar" />

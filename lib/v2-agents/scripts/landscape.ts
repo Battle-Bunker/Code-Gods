@@ -122,8 +122,8 @@ if (want("reach")) {
     if (Math.abs(changeCharge([r.price.total]) - mine) > 1e-9) throw new Error(`price mismatch at k=${k}: ${changeCharge([r.price.total])} vs ${mine}`);
   }
   const unit = jumpCharge(1, 0);
-  say(`A unit step (no surcharge) costs ${f2(unit)} ⚡. One jump of k against k unit steps (surcharge left out):`);
-  for (const k of [5, 10, 20, 58, 100, 400]) say(`  k = ${k}: one jump ${f1(jumpCharge(k, 0))} ⚡, k steps ${f1(k * unit)} ⚡, ratio ${f1(k * unit / jumpCharge(k, 0))}×`);
+  say(`A unit step (no surcharge) costs ${f2(unit)} energy. One jump of k against k unit steps (surcharge left out):`);
+  for (const k of [5, 10, 20, 58, 100, 400]) say(`  k = ${k}: one jump ${f1(jumpCharge(k, 0))} energy, k steps ${f1(k * unit)} energy, ratio ${f1(k * unit / jumpCharge(k, 0))}×`);
   const bs = birthMC("g0", 24).concat(birthMC("g1", 24));
   say(`Births (48): median |m| ${median(bs.map(b => Math.abs(b.m)))}, median |c| ${median(bs.map(b => Math.abs(b.c)))}; ${bs.filter(b => b.m === 0).length} of 48 are flat (m = 0)`);
   const X = 20_000;
@@ -134,12 +134,12 @@ if (want("reach")) {
     for (const [bl, E] of budgets) {
       const counts = rows.map(r => countWithin(r.cm, r.cc, E));
       const reachC = rows.map(r => { let far = 0; r.cc.forEach((v, i) => { if (v <= E) far = Math.max(far, Math.abs(i - X)); }); return far; });
-      say(`  ${bl} (${fmt(E)} ⚡): median ${fmt(median(counts))} states (range ${fmt(Math.min(...counts))}–${fmt(Math.max(...counts))}), |c| reaches ${fmt(median(reachC))}; evaluating 3 rules on all of them ≈ ${f1(median(counts) * 3 * 6.5e-6)} s`);
+      say(`  ${bl} (${fmt(E)} energy): median ${fmt(median(counts))} states (range ${fmt(Math.min(...counts))}–${fmt(Math.max(...counts))}), |c| reaches ${fmt(median(reachC))}; evaluating 3 rules on all of them ≈ ${f1(median(counts) * 3 * 6.5e-6)} s`);
     }
     const toTarget = rows.map(r => r.cm[-1 + X]! + r.cc[59 + X]!);
-    say(`  moving a birth to y = −x + 59: median ${fmt(median(toTarget))} ⚡ (24 lines: ${fmt(24 * median(toTarget))} ⚡)`);
+    say(`  moving a birth to y = −x + 59: median ${fmt(median(toTarget))} energy (24 lines: ${fmt(24 * median(toTarget))} energy)`);
     const big = rows.map(r => r.cm[-1 + X]! + r.cc[397 + X]!);
-    say(`  moving a birth to y = −x + 397: median ${fmt(median(big))} ⚡`);
+    say(`  moving a birth to y = −x + 397: median ${fmt(median(big))} energy`);
   }
   say();
 }
@@ -242,7 +242,7 @@ if (want("table")) {
         return best;
       });
       const v = res.map(r => r.v);
-      say(`- ${label}, ${fmt(E)} ⚡ for the line: best reachable F median ${f1(median(v))} (${f1(median(v) / ref)}× the −x + 59 state); targets ${[...new Set(res.map(r => `(${r.m}, ${r.c})`))].slice(0, 6).join(" ")}`);
+      say(`- ${label}, ${fmt(E)} energy for the line: best reachable F median ${f1(median(v))} (${f1(median(v) / ref)}× the −x + 59 state); targets ${[...new Set(res.map(r => `(${r.m}, ${r.c})`))].slice(0, 6).join(" ")}`);
     }
   }
   // Greedy climbers on F (steepest ascent over shift/tilt/step by up to 5 and the two sign flips), from births.

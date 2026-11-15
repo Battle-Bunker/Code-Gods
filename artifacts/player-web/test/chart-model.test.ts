@@ -94,13 +94,13 @@ const BEGINNER: RulesInput = {
 
 test("the rules say the game on lines in player words, with this game's values", () => {
   const text = rulesParagraphs(BEGINNER).join("\n");
-  for (const want of ["bits: each bit = twice as rare", "your bits for it × the others' bits", "⚡ energy", "600.00 ⚡", "64.00 ⚡ a second", "1 minute of planning", "runs for 5 minutes", "only you want gives you 0 points", "30 seconds"])
+  for (const want of ["bits: each bit = twice as rare", "your bits for it × the others' bits", "energy", "600.00 energy", "64.00 energy a second", "1 minute of planning", "runs for 5 minutes", "only you want gives you 0 points", "30 seconds"])
     assert.ok(text.includes(want), want);
   assert.doesNotMatch(text, /\b(payoff|objects?|grids?)\b/i);
   assert.doesNotMatch(text, /bidding/, "no bid phase in this preset");
   const bid = rulesParagraphs({ ...BEGINNER, bid: { seconds: 45 } }).join("\n");
   assert.match(bid, /First comes 45 seconds of bidding.*Then 1 minute of planning/);
-  assert.deepEqual(rulesFacts(BEGINNER).map(([k]) => k), ["Game", "Players", "Planning", "The world runs", "Starting energy", "Power", "Energy fills in", "Totals counted", "Others' totals"]);
+  assert.deepEqual(rulesFacts(BEGINNER).map(([k]) => k), ["Game", "Players", "Planning", "The world runs", "Starting energy", "Power", "Energy fills in", "Totals counted", "Others' bits"]);
   assert.deepEqual(rulesFacts({ ...BEGINNER, bid: { seconds: 45 } })[2], ["Bidding", "45 seconds"]);
 });
 
@@ -111,8 +111,8 @@ test("a half-life game's rules say its end is hidden and random; the facts say t
   const facts = Object.fromEntries(rulesFacts({ ...BEGINNER, durationMode: "halfLife", scoreIntervalSeconds: 30, peerNoiseBits: 0 }));
   assert.equal(facts["The world runs"], "a hidden random time (half-life 5 minutes)");
   assert.equal(facts["Totals counted"], "every 30 seconds");
-  assert.equal(facts["Others' totals"], "exact");
-  assert.equal(Object.fromEntries(rulesFacts(BEGINNER))["Others' totals"], "blurred while live (about 8 bits)");
+  assert.equal(facts["Others' bits"], "exact");
+  assert.equal(Object.fromEntries(rulesFacts(BEGINNER))["Others' bits"], "blurred while live (about 8 bits); totals exact");
 });
 
 test("durations in words", () => {

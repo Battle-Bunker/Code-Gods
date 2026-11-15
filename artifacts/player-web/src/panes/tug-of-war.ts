@@ -59,7 +59,7 @@ export function tugSentence(t: Extract<FeedItem<TugMove>, { kind: "tug" }>, kind
   const when = length ? `from ${timeLeft(t.from, length)} to ${timeLeft(t.to, length)}` : `${clock(t.from)} to ${clock(t.to)}`;
   if (opts.anonymous) {
     return `Tug-of-war on ${one} ${t.number}: your agent and another player moved it back and forth ${t.moves.length} times (${when}). ` +
-      `Your agent spent ${num(t.mySpend)} ⚡ on it, and every pull costs the other side too, so neither of you is getting anywhere. ` +
+      `Your agent spent ${num(t.mySpend)} energy on it, and every pull costs the other side too, so neither of you is getting anywhere. ` +
       // Nothing about who pulls, not even that it is a practice partner (round 10: that gave the player away).
       `Ask in chat who else wants this ${one}.`;
   }
@@ -70,7 +70,7 @@ export function tugSentence(t: Extract<FeedItem<TugMove>, { kind: "tug" }>, kind
   const ids = [...new Set(t.moves.filter(m => !m.mine && m.by).map(m => m.by!.memberId))];
   const robots = !!kinds && ids.length > 0 && ids.every(id => kinds.has(id) && kinds.get(id) !== "human");
   return `Tug-of-war on ${one} ${t.number}: your agent and ${theirAgents} moved it back and forth ${t.moves.length} times ` +
-    `(${when}). Your agent spent ${num(t.mySpend)} ⚡ on it, and theirs spent energy too, so neither of ` +
+    `(${when}). Your agent spent ${num(t.mySpend)} energy on it, and theirs spent energy too, so neither of ` +
     `you is getting anywhere. ` +
     // Practice partners and AI players read no chat: the advice is for a game with people.
     (robots ? "Practice partners do not read chat: with people, this is when you would talk to them." : `Talk to ${them} in chat about this ${one}.`);

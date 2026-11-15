@@ -20,7 +20,8 @@ import { makeFunctionReference } from "convex/server";
 import { fixturesOn } from "../auth/identity";
 import { presetOf } from "./presets";
 import { RUNTIME_VERSION } from "./readiness";
-import { newNoiseKey, noiseAt, shownAt } from "./disclose";
+import { fullReadBits as fullReadBitsOf } from "./knowledge";
+import { newNoiseKey, objectReading, readingNoise, shownAt } from "./disclose";
 
 const fixtures = () => {
   if (!fixturesOn(process.env)) throw new ConvexError({ code: "FORBIDDEN", message: "v2 fixtures need TEST_FIXTURES=1" });
@@ -98,7 +99,7 @@ export const seedGame = internalMutation({
     }
     const gameId = await ctx.db.insert("v2Games", {
       roomId, number: 1, code: `G${roomId.slice(-6).toUpperCase()}`, phase, preset: preset.id, variant: lineZ.id, seed,
-      settings: { planningSeconds: preset.planningSeconds, worldSeconds: preset.worldSeconds, startingEnergy: preset.startingEnergy, startingObjects: preset.startingObjects, minPlayers: preset.minPlayers, economy: preset.economy },
+      settings: { planningSeconds: preset.planningSeconds, worldSeconds: preset.worldSeconds, startingEnergy: preset.startingEnergy, startingObjects: preset.startingObjects, minPlayers: preset.minPlayers, economy: preset.economy, ...(a.noise ? { peerNoiseVariance: 64 } : {}) },
       roster, createdAt: now, startedAt: now, rotates: true, dealKey: "fixture", artefacts: [], ...(a.noise ? { noiseKey: newNoiseKey() } : {}),
       ...(phase === "planning" ? { planningEndsAt: now + preset.planningSeconds * 1000 } : { endsAt: now + preset.worldSeconds * 1000 }),
       ...(phase === "ended" ? { endedAt: now, summary: { winner: members[0]!, objects: a.objects ?? 12, acts: 0 } } : {}),
@@ -139,7 +140,7 @@ export const seedGame = internalMutation({
         const e = evals[k]!, want = total - e.rarityBits, points = e.rarityBits * want;
         pts.set(memberId, (pts.get(memberId) ?? 0) + points);
         packed.set(memberId, [...(packed.get(memberId) ?? []), i + 1, e.rarityBits, want]);
-        const shown = a.noise ? shownAt({ rarityBits: e.rarityBits, want }, noiseAt((await ctx.db.get(gameId))!, lineType.encode(state))) : {};
+        const shown = a.noise ? shownAt({ rarityBits: e.rarityBits, want }, readingNoise((await ctx.db.get(gameId))!, memberId, objectReading(objectId, 1))) : {};
         await ctx.db.insert("v2ObjectValues", { objectId, gameId, memberId, number: i + 1, ...e, want, points, ...shown, version: 1, changedAt: i });
       }
     }
@@ -412,7 +413,7 @@ export const noiseState = internalQuery({
     let consistent = 0;
     for (const r of rows) {
       const st = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", r.objectId)).unique())!;
-      const want = shownAt(r, noiseAt(game, st.state));
+      const want = shownAt(r, readingNoise(game, r.memberId, objectReading(r.objectId, st.version)));
       if (r.shownWant !== undefined && Math.abs(r.shownWant - want.shownWant) < 1e-9 && Math.abs(r.shownPoints! - want.shownPoints) < 1e-9) consistent++;
     }
     return { key: !!game.noiseKey, rows: rows.length, shown: rows.filter(r => r.shownWant !== undefined).length, consistent, points: rows.map(r => r.points) };
@@ -460,6 +461,16 @@ export const setReadiness = internalMutation({
 });
 
 /** An object's live state and version (what a paid game's players are not shown). */
+/** An object's full read, in bits, at its live state (what a look reads: knowledge.ts fullReadBits). */
+export const fullReadBits = internalQuery({
+  args: { objectId: v.id("v2Objects") },
+  handler: async (ctx, { objectId }) => {
+    fixtures();
+    const st = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", objectId)).unique())!;
+    return fullReadBitsOf((await ctx.db.get(st.gameId))!.variant, st.state);
+  },
+});
+
 export const stateOf = internalQuery({
   args: { objectId: v.id("v2Objects") },
   handler: async (ctx, { objectId }) => {

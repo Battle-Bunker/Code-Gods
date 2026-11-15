@@ -27,7 +27,14 @@ export const callV = v.object({ mutator: v.string(), site: v.number(), args: v.r
 export const durationModeV = v.union(v.literal("fixed"), v.literal("halfLife"));
 export const overridesV = v.object({
   planningSeconds: v.optional(v.number()), worldSeconds: v.optional(v.number()), startingEnergy: v.optional(v.number()),
-  durationMode: v.optional(durationModeV), scoreIntervalSeconds: v.optional(v.number()), peerNoiseBits: v.optional(v.number()),
+  durationMode: v.optional(durationModeV), scoreIntervalSeconds: v.optional(v.number()),
+  /** The variance, bits², of each reading of the others' sums while live (decision 32). */
+  peerNoiseVariance: v.optional(v.number()),
+  /** Stored rooms' old σ override, ignored (decision 32 replaced it with the variance). */
+  peerNoiseBits: v.optional(v.number()),
+  /** The weight on a look's read price (decision 35). */
+  readPriceWeight: v.optional(v.number()),
+  /** Stored rooms' old free/paid flag, ignored (decision 35). */
   observation: v.optional(v.union(v.literal("free"), v.literal("paid"))),
 });
 /** A player's view of an object at one moment (a move's before and after). */
@@ -95,7 +102,9 @@ export const v2Tables = {
       minPlayers: v.number(),
       economy: v.object({ powerPerSecond: v.number(), fullChargeSeconds: v.number(), opportunitiesPerSecond: v.number(), birthsPerSecond: v.number() }),
       bid: v.optional(v.object({ pricing: v.union(v.literal("first"), v.literal("second")), disclosure: v.union(v.literal("none"), v.literal("handicaps"), v.literal("all")) })),
-      /** σ of the disclosure noise on the others' sums while live (disclose.ts; absent: the default, 8). */
+      /** The variance, bits², of each reading of the others' sums while live (disclose.ts, decision 32; absent: 0). */
+      peerNoiseVariance: v.optional(v.number()),
+      /** Games stored before decision 32: σ of the old shared draw, ignored. */
       peerNoiseBits: v.optional(v.number()),
       /**
        * v1's duration modes: "fixed" ends the world exactly `worldSeconds` after it starts (public); "halfLife" ends it
@@ -104,7 +113,9 @@ export const v2Tables = {
       durationMode: v.optional(durationModeV),
       /** World seconds between published standings (v1's scoreIntervalSeconds; absent: 10). */
       scoreIntervalSeconds: v.optional(v.number()),
-      /** v1's paid observation (knowledge.ts): "paid" shows a seated player each object as last told; absent: free. */
+      /** The weight on a look's read price (knowledge.ts, decision 35); absent (games stored before it): 0, free. */
+      readPriceWeight: v.optional(v.number()),
+      /** Games stored before decision 35: the old free/paid flag, ignored. */
       observation: v.optional(v.union(v.literal("free"), v.literal("paid"))),
     }),
     /**
@@ -112,6 +123,8 @@ export const v2Tables = {
      * (lib/v2-agents unopposedDirections), computed at the deal. Never shown to players; for the collapse analysis.
      */
     unopposed: v.optional(v.array(v.any())),
+    /** Grid seating (deal.ts, lib/v2-grid seating.ts): the pairs of seated families of one PMI cluster the deal left. */
+    seating: v.optional(v.object({ clashes: v.array(v.string()) })),
     /** Paused by idle parking (activity.ts): resumed by the next human activity, not by the owner. */
     parked: v.optional(v.boolean()),
     /** PRIVATE: the world second the game ends at (drawn at the start in halfLife mode); absent: settings.worldSeconds. */
@@ -279,13 +292,15 @@ export const v2Tables = {
   /**
    * The public log (v1's, docs/public-log-design.md §1–§2): one row per birth and per committed move, read by every
    * seated player. `bits` is every roster seat's exact bits after it (roster order, server-private: a viewer gets its own
-   * and the others' sum), `noise` the disclosure noise at the state (disclose.ts); `by`, `agentId`, `calls` and `charge`
+   * and the others' sum; each reader's reading of it is their own, play.ts logPage); `by`, `agentId`, `calls` and `charge`
    * reach only the mover while live. `seq` is the record's event seq of the birth or the act.
    */
   v2Log: defineTable({
     gameId: v.id("v2Games"), seq: v.number(), worldSeconds: v.number(), kind: v.union(v.literal("born"), v.literal("move")),
     objectId: v.id("v2Objects"), number: v.number(), version: v.number(), stateBefore: v.optional(v.string()), state: v.string(),
-    bits: v.array(v.number()), bitsBefore: v.optional(v.array(v.number())), noise: v.number(), noiseBefore: v.optional(v.number()),
+    bits: v.array(v.number()), bitsBefore: v.optional(v.array(v.number())), 
+    /** Rows written before decision 32: the old shared draw, ignored. */
+    noise: v.optional(v.number()), noiseBefore: v.optional(v.number()),
     by: v.optional(v.id("v2Members")), agentId: v.optional(v.id("v2Agents")), calls: v.optional(v.array(callV)), charge: v.optional(v.number()),
   }).index("by_game_seq", ["gameId", "seq"]),
 

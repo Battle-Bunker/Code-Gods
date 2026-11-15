@@ -1,7 +1,7 @@
 /**
  * My agents (integration plan §1.5; ux-lessons 3.7–3.9): the player's own energy and power first, with the sentence
  * that explains power; then one row per agent, each its own component subscribed to that agent's energy document
- * (dropped when the row unmounts): name, language, share of power, energy ("about 0 ⚡" with the exact figure in the
+ * (dropped when the row unmounts): name, language, share of power, energy ("about 0 energy" with the exact figure in the
  * tooltip), what it did, and Destroy, whose confirmation says what comes back. Operations only through affordances.
  */
 import { summonFirst } from "./first-summon";

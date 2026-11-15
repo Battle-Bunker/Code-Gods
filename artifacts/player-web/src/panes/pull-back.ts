@@ -9,7 +9,7 @@
 export const PULL_SHARE = 0.01;
 
 export interface PullBackInput {
-  /** The player's power (⚡ a second) and own store. */
+  /** The player's power (energy a second) and own store. */
   power: number; energy: number;
   /** How many seconds of its income the own store holds (capacity ÷ own income). */
   chargeSeconds: number;
@@ -60,7 +60,7 @@ export function shortfallOf(e: unknown): Shortfall | null {
 const fmt = (x: number) => x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 /** The words beside a refused purchase: both ways to pay, or why waiting never pays. */
 export function shortText(s: Shortfall, verb: "summon" | "edit", planning = false): string {
-  const head = `This ${verb} costs ${fmt(s.price)} ⚡ and your store holds ${fmt(s.store)} ⚡`;
+  const head = `This ${verb} costs ${fmt(s.price)} energy and your store holds ${fmt(s.store)} energy`;
   if (planning) return `${head}. Energy only comes in once the world runs: pull power back from your agents to pay now, or start the world.`;
   if (s.secondsToPay === null) return `${head}: waiting never pays it at this split. Pull power back from your agents, or shorten the code.`;
   const n = Math.max(1, Math.ceil(s.secondsToPay));

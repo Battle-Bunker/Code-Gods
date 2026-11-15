@@ -33,7 +33,7 @@ export function otherStartingPoints(family: string, language: Language, tieBreak
   } catch { return []; }
 }
 
-/** The summon (or replace) price of a program, in ⚡. */
+/** The summon (or replace) price of a program, in energy. */
 export const summonPrice = (language: Language, source: string) => summonBits(language, source).energy;
 /** What replacing an agent's program costs (owner decision 21): only what changed, as agent.replace charges it. */
 export const editPrice = (language: Language, oldSource: string, newSource: string) => editBits(language, oldSource, newSource).energy;
@@ -76,7 +76,7 @@ export function summonedText(o: { name: string; share: number; power: number }):
 
 /** What a replace did (ux-lessons 3.3), with what the edit cost (owner decision 21: only what changed). */
 export const replacedText = (name: string, price: number) =>
-  `${name} now runs your new code for ${energyText(price)} (only what you changed is charged). It keeps its stored ⚡ and its share of your power; the price came from your own energy.`;
+  `${name} now runs your new code for ${energyText(price)} (only what you changed is charged). It keeps its stored energy and its share of your power; the price came from your own energy.`;
 
 /**
  * The frozen comparison after a change (ux-lessons 3.5): points a move before and since, from the two versions'

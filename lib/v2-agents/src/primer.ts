@@ -15,9 +15,9 @@ export const HELPERS: readonly { readonly name: string; readonly ts: string; rea
   { name: "goal", ts: "goal(offer)", py: "goal(offer)", says: "your rule: .family, .params, .tieBreaker (Python .tie_breaker), .card, .layers. Free" },
   { name: "progress", ts: "progress(offer)", py: "progress(offer)", says: "the score on this line now: .main, .tiebreak (bigger is better), .bits (its worth; null / None if unknown). Costs reading the rule's views" },
   { name: "move", ts: `move("si.tilt", { k: 1 })`, py: `move("si.tilt", k=1)`, says: "one change; a plan is a list of moves" },
-  { name: "price", ts: "price(offer, plan)", py: "price(offer, plan)", says: "the ⚡ a plan would cost, or null / None if it is not allowed. Changes nothing" },
+  { name: "price", ts: "price(offer, plan)", py: "price(offer, plan)", says: "the energy a plan would cost, or null / None if it is not allowed. Changes nothing" },
   { name: "cheapest", ts: "cheapest(offer, plans)", py: "cheapest(offer, plans)", says: "the cheapest allowed plan of several (often one change through different views), as a list; null / None if none" },
-  { name: "energy", ts: "energy(offer)", py: "energy(offer)", says: "the agent's ⚡" },
+  { name: "energy", ts: "energy(offer)", py: "energy(offer)", says: "the agent's energy" },
   { name: "better", ts: "better(a, b)", py: "better(a, b)", says: "is score a better than score b (lists of parts, compared in order; null is worst)" },
   { name: "near", ts: "near(x, prime)", py: "near(x, prime)", says: "the whole number nearest x that passes a test; on a tie the smaller" },
   { name: "prime", ts: "prime(n)", py: "prime(n)", says: "is n a prime whole number" },
@@ -162,15 +162,15 @@ export function agentPrimer<S>(type: ObjectType<S> = lineType as unknown as Obje
 
 THE GAME. ${w.game} A ${one}'s score on a rule is its rarity: ${many} that random play rarely makes that good are worth more points. The player understands their rule, negotiates with the others and tells you what their agent should do; you write that agent and explain it in plain words.
 
-WORDS. To the player say points, rarity in bits (each bit = twice as rare), ⚡ energy, power, main part, tie-breaker, ${one}, view. Never "object" or "representation". A ${one} scores the player's bits × the other players' bits on it added together; a total adds up all the ${many}.
+WORDS. To the player say points, rarity in bits (each bit = twice as rare), energy, power, main part, tie-breaker, ${one}, view. Never "object" or "representation". A ${one} scores the player's bits × the other players' bits on it added together; a total adds up all the ${many}.
 
 AN AGENT. A program in Python or TypeScript that defines agent(offer). Each turn it is offered one ${one}, may look at it and price changes, and returns a plan (a list of moves) or None / null to skip. If any move in a plan is not allowed, the whole turn fails and nothing changes.
 
-WHAT COSTS ⚡.
+WHAT COSTS ENERGY.
 - Looking: each view read costs a little, once per turn (looking again is free; all views together cost at most one full look). Looking is about 32 times cheaper than a change.
-- Changing: each move is priced by the view it is made through: which move (a few ⚡), how big its numbers are, and a surcharge when the new ${one} takes more to write down. ${w.prices} A turn's changes cost W + 0.05·W², so a few small moves per turn beat one huge plan.
+- Changing: each move is priced by the view it is made through: which move, how big its numbers are, and a surcharge when the new ${one} takes more to write down. ${w.prices} A turn's changes cost W + 0.05·W², so a few small moves beat one huge plan.
 - Thinking is free but capped: about half a million steps and 64 calls to the game (looks, goal, prices) per turn. So: look once, try many changes in your own code, price only the best few, and make the cheapest. The same change often costs different amounts through different views; choosing the view is the skill.
-- Summoning costs ⚡ by the program's length; comments are free, so explain in comments. Replacing a program costs only the change, so deal edits are cheap.
+- Summoning costs energy by the program's length; comments are free, so explain in comments. Replacing a program costs only the change, so deal edits are cheap.
 - Energy moves with power. If the store cannot pay a summon: give the agents a small share each (Split power), pay, then share power out again.
 
 VIEWS (look(offer, view); * marks the numbers a view's moves change; names with inputs are read with peek):
@@ -183,7 +183,7 @@ HELPERS (the same names in both languages):
 ${HELPERS.map(h => ({ ...h, says: h.says.replace(/\bline\b/g, one), ...w.helpers?.[h.name] })).map(h => `- ${h.ts}${h.py !== h.ts ? `  /  Python: ${h.py}` : ""}: ${h.says}`).join("\n")}
 Lower level, if needed: offer.view / element / quote / budget, Q (TypeScript rationals: Q.add, Q.sub, Q.mul, Q.div, Q.abs, Q.cmp, Q.eq) and Python's Fraction.
 
-PLAYING FOR POINTS. A player's points on a ${one} are their rarity there times the other players' rarity there, added up: a ${one} only they like scores nothing, a move that spoils a ${one} for the others lowers their points too, and a tug-of-war burns ⚡ on both sides. The starters (not "Naive", a teaching example) take the step that raises their points most (climb), so they improve a ${one} for several rules at once, note tug-of-wars to their owner (contested(offer, 3)), and keep two lists a player sets after a deal in chat (${w.deal}): PROTECT (${many} where they only make moves that keep the others as well off; fair(offer, plan) checks) and LEAVE (${many} they never touch). No two ${many} may be in the same state and long moves are expensive, so points come from climbing step by step toward states good for everyone. offer.object is the ${one}'s number.
+PLAYING FOR POINTS. A player's points on a ${one} are their rarity there times the other players' rarity there, added up: a ${one} only they like scores nothing, a move that spoils a ${one} for the others lowers their points too, and a tug-of-war burns energy on both sides. The starters (not "Naive", a teaching example) take the step that raises their points most (climb), so they improve a ${one} for several rules at once, note tug-of-wars to their owner (contested(offer, 3)), and keep two lists a player sets after a deal in chat (${w.deal}): PROTECT (${many} where they only make moves that keep the others as well off; fair(offer, plan) checks) and LEAVE (${many} they never touch). No two ${many} may be in the same state and long moves are expensive, so points come from climbing step by step toward states good for everyone. offer.object is the ${one}'s number.
 
 STARTING POINTS. Every rule has a ready example for its tie-breaker and three starters (Simple, Thorough, Bold) plus a "Naive" one to learn from; each has one "Try this:" comment. Prefer changing the player's current agent with Replace over summoning a second one (two agents with different ideas undo each other). Check a program before summoning: it runs once on sample ${many} and reports the price. After a change, compare points per move; put the previous version back if it did worse.
 ${ex ? `

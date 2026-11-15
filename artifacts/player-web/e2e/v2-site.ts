@@ -117,7 +117,7 @@ try {
       await page.goto(`${SITE}/rooms/${room}/games/${g.gameId}`);
       await page.getByTestId("text-my-total").waitFor();
       assert.match(await page.getByTestId("text-my-total").innerText(), /points/);
-      assert.match(await page.getByTestId("text-my-energy").innerText(), /⚡/);
+      assert.match(await page.getByTestId("text-my-energy").innerText(), /energy/);
       for (const pane of ["objects", "my-card", "feed", "agents", "race"]) await page.getByTestId(`pane-${pane}`).waitFor();
       const row = page.locator("[data-testid^=row-line-]").first();
       await row.waitFor();
@@ -125,9 +125,9 @@ try {
       await page.getByTestId("pane-feed").getByText(/Your agent/).first().waitFor();
       const feed = await page.getByTestId("pane-feed").innerText();
       assert.match(feed, /Your agent/);
-      assert.doesNotMatch(feed, /payoff|object|✨/i, "the act log speaks in player words");
+      assert.doesNotMatch(feed, /payoff|object|\p{Extended_Pictographic}/iu, "the act log speaks in player words");
       assert.match(feed, /your [\d.,]+ bits? × others' [\d.,]+ bits? [=≈] [\d.,]+ points?/, "the act log shows how a line scores");
-      assert.doesNotMatch(feed, /\d\.\d (bits?|points?|⚡)/, "every measure has 2 decimal places");
+      assert.doesNotMatch(feed, /\d\.\d (bits?|points?|energy)/, "every measure has 2 decimal places");
       await noHorizontalScroll(page, `${label} game`);
       await shot(page, `v2-game-${label}`);
       await row.click();
@@ -197,6 +197,22 @@ try {
         assert.deepEqual(out, [], `${label}: deal ${i} (${rule}): every view control inside the goal card`);
         if (i === 0) await shot(page, `v2-goal-views-${label}`);
       }
+    });
+
+    await check(`${label}: "Explain a term" opens the glossary at the term, and it closes (it set the view and showed nothing)`, async () => {
+      await page.goto(`${SITE}/`);
+      await page.getByTestId("button-avatar").waitFor();
+      await page.locator("body").click({ position: { x: 5, y: 300 } });
+      await page.keyboard.press("Control+K");
+      await page.getByTestId("input-palette").fill("Explain a term");
+      await page.keyboard.press("Enter");
+      const field = page.getByTestId("input-palette-field");
+      if (await field.isVisible({ timeout: 3000 }).catch(() => false)) { await field.fill("points"); await field.press("Enter"); }
+      const glossary = page.getByTestId("glossary");
+      await glossary.waitFor({ timeout: 10_000 });
+      assert.match(await glossary.innerText(), /Points|Glossary/);
+      await page.keyboard.press("Escape");
+      await glossary.waitFor({ state: "detached", timeout: 5000 });
     });
 
     await check(`${label}: planning shows one countdown and the owner's "Start the world now"`, async () => {

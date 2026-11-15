@@ -30,15 +30,19 @@ test("values in a game carry the uniqueness correction at the game's object coun
   const { worthOf, valueFnIn } = await import("../../convex/v2/values.ts");
   const { valueObjects } = await import("../../convex/v2/world.ts");
   const { uniquenessShift, withUniqueness } = await import("@workspace/v2-valuation");
-  const preset = presetOf("lines-beginner"), objects = valueObjects(preset);
-  assert.equal(objects, Math.round(preset.startingObjects + preset.economy.birthsPerSecond * preset.worldSeconds / 2));
+  // The beginner game's N is 4 (3 objects plus half of its 2.5 births over 600 s: decisions 31, 34), whose shift (about
+  // 0.04 bits) is too small to tell a correction from none: the check runs at v1's 10 objects and 0.05 births/s (N 18).
+  const preset = presetOf("lines-beginner"), settings = { ...preset, startingObjects: 10, economy: { ...preset.economy, birthsPerSecond: 0.05 } };
+  assert.equal(valueObjects(preset), 4, "the beginner game's N (decisions 31, 34)");
+  const objects = valueObjects(settings);
+  assert.equal(objects, Math.round(settings.startingObjects + settings.economy.birthsPerSecond * settings.worldSeconds / 2));
   const rec = VALUE_RECORDS.find(x => x.ruleKey === dealablePool(preset)[0]!.ruleKey)!;
   const rare = rec.knots.at(-1)!, scope = { variant: rec.variant, objects };
   const one = worthOf(rec.ruleKey, scoreFrom(rare.u), { variant: rec.variant, objects: 1 }).bits;
   const many = worthOf(rec.ruleKey, scoreFrom(rare.u), scope).bits;
   assert.equal(one, rare.bits, "one object: no correction");
   const table = UNIQUENESS.find(t => t.variant === rec.variant)!, shift = uniquenessShift(table, objects);
-  assert.ok(shift > 0.1, `${rec.variant} at ${objects} objects: shift ${shift}`);
+  assert.ok(shift > 0, `${rec.variant} at ${objects} objects: shift ${shift}`);
   assert.ok(Math.abs(one - many - shift) < 1e-9, `a rare score loses the full shift in a game of ${objects} lines: ${one} → ${many}, shift ${shift}`);
   // What the agents and the app are sent applies the same correction (host.ts gameLookup, sdk/rule.ts valueOf).
   const f = valueFnIn(rec.ruleKey, scope)!;

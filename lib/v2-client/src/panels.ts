@@ -3,7 +3,7 @@
  * A pane is opened, moved and closed with the view affordances (`view.openPane`, `view.movePane`, `view.closePane`),
  * which keep the open panes in the human's view state (`ViewState.panes`), so an assistant can arrange the screen for
  * them and every client of theirs follows. How they are laid out on a desktop is the view state's `dock` (`dockFor`).
- * Player words only: points, rarity in bits, ⚡ energy, power, "line".
+ * Player words only: points, rarity in bits, energy, power, "line".
  */
 import { defaultDock, dockGroups, dockInsert, dockKindOf, dockWithout, type DockNode, type Place, type ViewState } from "@workspace/v2-affordances";
 

@@ -120,7 +120,7 @@ export function AffordanceButton<Id extends AffordanceId>({
           <AlertDialogContent data-testid={testId ? `${testId}-confirm` : undefined}>
             <AlertDialogHeader>
               <AlertDialogTitle>{a.title}?</AlertDialogTitle>
-              <AlertDialogDescription>{confirmText ?? a.tooltip}{a.spends === "energy" ? " It costs ⚡ energy." : ""}</AlertDialogDescription>
+              <AlertDialogDescription>{confirmText ?? a.tooltip}{a.spends === "energy" ? " It costs energy." : ""}</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>

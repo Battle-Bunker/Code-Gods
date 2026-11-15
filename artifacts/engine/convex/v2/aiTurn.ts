@@ -91,7 +91,7 @@ export const turn = internalAction({
     const starters = seat.family ? startersFor(seat.family, "typescript", seat.tieBreaker).filter(s => s.kind === "simple").map(s => ({ title: s.title, summary: s.summary, language: "typescript", source: s.source })) : [];
     const ledger = await ctx.runQuery(DEALS, { gameId, memberId });
     const briefing = `Turn ${n + 1} of ${MAX_TURNS}. The game is ${seat.phase}${seat.phase === "live" ? ` at ${Math.round(seat.worldSeconds)} s` : ""}. ` +
-      `You have ${Math.round(seat.energy)} ⚡ in your own store and ${seat.agents} agent(s). Act, then stop.`
+      `You have ${Math.round(seat.energy)} energy in your own store and ${seat.agents} agent(s). Act, then stop.`
       + (ledger ? `\n\n${commitmentBriefing(commitmentsOf(ledger.me, ledger.chat, ledger.moves, ledger.programs, 2 * AI_TURN_MS / 1000))}` : "");
     try {
       await spendWithin(ctx, { roomId: seat.roomId as Id<"v2Rooms">, gameId, memberId, pool: "ai" }, budget => runAssistant({

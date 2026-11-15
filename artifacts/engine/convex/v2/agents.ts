@@ -50,7 +50,7 @@ export async function pay(ctx: MutationCtx, game: Doc<"v2Games">, player: Doc<"v
   const secondsToPay = perSecond > 0 && capacity >= price ? (price - own.balance) / perSecond : null;
   const payNow = await payNowShares(ctx, game, player, world, price - own.balance);
   const r1 = (x: number) => Math.round(x * 10) / 10;
-  throw new OpFailure(`${what} costs ${r1(price)} ⚡; you have ${r1(own.balance)}.`,
+  throw new OpFailure(`${what} costs ${r1(price)} energy; you have ${r1(own.balance)}.`,
     payNow ? "Pull power back from your agents to pay now (power.allocate with the shares in data.payNow), or wait while energy accrues; a shorter program costs less."
       : "Energy accrues while the game runs; a shorter program costs less.",
     { price, store: own.balance, perSecond, capacity, secondsToPay, payNow: payNow ? { shares: payNow } : null });

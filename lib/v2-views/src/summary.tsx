@@ -63,7 +63,7 @@ export interface Summary<S = unknown> {
   readonly noun: string;
   /** One thing to try next game, and the object it is about (when it is about one). */
   readonly next: { readonly text: string; readonly number: number | null };
-  /** The best that scored: the main part's chain ("● y-intercept 23 · on 23") and the score's arithmetic. */
+  /** The best that scored: the main part's chain ("● main part: y-intercept 23 · on 23") and the score's arithmetic. */
   readonly earned: readonly { readonly number: number; readonly id?: string; readonly state: S; readonly points: number; readonly chain: string; readonly formula: string }[];
   readonly earnedNote: string;
   /** Each tug-of-war, dearest first: what happened, with whom, at what cost. */
@@ -105,13 +105,13 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
   const costNote = tugs.length > 1 ? `Tug-of-wars cost you ${fmtEnergy(spent)} in all${partial}: energy that moved no ${noun} for good.` : partial ? `Counted${partial}.` : null;
 
   // One thing to try. Agents are hill climbers (owner, 14 November): on a contested line what pays is a step that raises
-  // the points for both sides (↑ both on the line's moves), which nobody has a reason to undo, not a pull back and forth.
+  // the points for both sides (the moves marked “good for both”), which nobody has a reason to undo, not a pull back and forth.
   let next: Summary<S>["next"];
   const top = tugs[0];
   if (top) {
     const lesson = top.practice
-      ? `when your agent and another player's pull the same ${noun} back and forth, have it take the moves marked ↑ both on the ${noun}: they raise the points for you and for them, so theirs has no reason to undo them`
-      : `when you and another player pull the same ${noun} back and forth, look on the ${noun} for the moves marked ↑ both: they raise the points for you both, so climb with those and tell each other in chat`;
+      ? `when your agent and another player's pull the same ${noun} back and forth, have it take the moves marked “good for both” on the ${noun}: they raise the points for you and for them, so theirs has no reason to undo them`
+      : `when you and another player pull the same ${noun} back and forth, look on the ${noun} for the moves marked “good for both”: they raise the points for you both, so climb with those and tell each other in chat`;
     next = { number: top.number, text: input.rotates
       ? `Next game, ${lesson}.`
       : `Next game, ${lesson}. This game it was ${noun} ${top.number}.` };
@@ -140,7 +140,7 @@ export interface GameSummaryProps<S> {
 
 /**
  * The summary in the contributor chain's visual language: "Try next game" first and strongest, then what earned your
- * points (each with its compact face and the ● chain, tappable), then what cost you.
+ * points (each with its compact face and the main part's chain, tappable), then what cost you.
  */
 export function GameSummary<S>({ summary, rule, value, onOpen }: GameSummaryProps<S>): ReactElement {
   const Noun = cap(summary.noun);

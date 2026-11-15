@@ -1,6 +1,6 @@
 /**
  * The game's quantities in player words (ux-lessons 2.1, 3.9): points, rarity in bits (each bit = twice as rare),
- * ⚡ energy, power, and how a score is made. Pure.
+ * energy, power, and how a score is made. Pure.
  *
  * One number rule for every measure on screen: 2 decimal places (`num`, which is v2-views' `fmtNum`, so the faces and
  * the panes round the same way). A line's score is written once, by `scoreFormula`: the product shown is the product of
@@ -20,14 +20,14 @@ export { BITS_HELP };
 /** "3.40 bits". */
 export const bitsText = fmtBits;
 /**
- * "123.40 ⚡"; energy a little below zero (an agent or a store spending as fast as it earns) reads "about 0 ⚡", since a
- * bare "−8.90 ⚡" read as broken to a first-time player (the exact figure goes in the tooltip).
+ * "123.40 energy"; energy a little below zero (an agent or a store spending as fast as it earns) reads "about 0 energy", since a
+ * bare "−8.90 energy" read as broken to a first-time player (the exact figure goes in the tooltip).
  */
-export const energyText = (x: number) => (x < 0 && x > -50 ? "about 0 ⚡" : `${num(x)} ⚡`);
-/** The exact figure, for the tooltip under "about 0 ⚡". */
-export const exactEnergy = (x: number) => `${num(x)} ⚡`;
-/** Power: "2.50 ⚡ a second". */
-export const powerText = (x: number) => `${num(x)} ⚡ a second`;
+export const energyText = (x: number) => (x < 0 && x > -50 ? "about 0 energy" : `${num(x)} energy`);
+/** The exact figure, for the tooltip under "about 0 energy". */
+export const exactEnergy = (x: number) => `${num(x)} energy`;
+/** Power: "2.50 energy a second". */
+export const powerText = (x: number) => `${num(x)} energy a second`;
 /** "1st", "2nd", "3rd", "4th". */
 export const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th"}`;
 /**
@@ -49,9 +49,11 @@ export const SCORE_SENTENCE = scoreSentence();
 export const totalSumNote = (one = "line") => `Your total is the sum of your points on every ${one}.`;
 /** Beside the formula's "others' bits". */
 /** Said once where the others' numbers show, while the room blurs them (v1 peerNoiseBits: keeps their rules secret). */
-export const BLURRED_NOTE = "While the game runs, the others' bits are deliberately blurred to keep their rules secret, so they and your points are estimates; the final count, when the game ends, is exact.";
+export const blurredNote = (one = "line") => `While the game runs, each ${one}'s others' bits are deliberately blurred to keep their rules secret, so a ${one}'s points are estimates. Your totals and the standings are counted exactly.`;
 /** Results, once a blurred game has ended (v1's wording). */
-export const BLURRED_ENDED_NOTE = "Final points are counted exactly now the game has ended. During the game your points were an estimate: how much the others want each object is blurred to keep their rules secret.";
+export const blurredEndedNote = (one = "line") => `Each ${one}'s figures are exact now the game has ended. During the game, how much the others wanted each ${one} was blurred to keep their rules secret; the totals were exact throughout.`;
+/** Beside the total, while the room blurs the others' bits: the total itself is exact (W3 #662, the coordinator's call 15). */
+export const exactTotalNote = (one = "line") => `Your total is counted exactly at every count, although the points shown on each ${one} are estimates while the game runs.`;
 export const othersNote = (one = "line") => `Others' bits: every other player's rarity on this ${one}, added together. A ${one} scores when it is rare for you and for them.`;
 /** When the standings were counted (world seconds): a move's points join a total only at the next count. */
 export const countedNote = (worldSeconds: number | null | undefined, length?: number | null): string | null =>

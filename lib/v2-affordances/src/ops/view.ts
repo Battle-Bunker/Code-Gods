@@ -91,7 +91,7 @@ export const viewOps = [
   }),
   affordance({
     id: "view.showGlossary", title: "Explain a term", group: "help", scope: "none",
-    description: "Opens the glossary at a term (points, rarity in bits, ⚡ energy, power, representation, mutator), or its index.",
+    description: "Opens the glossary at a term (points, rarity in bits, energy, power, representation, mutator), or its index.",
     tooltip: "What does this word mean?", keywords: ["glossary", "help", "what is", "define"],
     params: obj({ term: z.string().max(40).optional() }), result: done,
     contexts: CONTEXTS, caller: "anyone", effect: "write", confirm: "none", runs: "client",

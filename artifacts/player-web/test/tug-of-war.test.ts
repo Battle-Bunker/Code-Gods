@@ -29,7 +29,7 @@ test("the entry says who pulls, how often, what it cost you, and to talk", () =>
   assert.ok(tug.kind === "tug");
   assert.equal(tugSentence(tug),
     "Tug-of-war on line 7: your agent and another player's agent moved it back and forth 4 times (0:24 to 0:30). " +
-    "Your agent spent 9.50 ⚡ on it, and theirs spent energy too, so neither of you is getting anywhere. Talk to them in chat about this line.");
+    "Your agent spent 9.50 energy on it, and theirs spent energy too, so neither of you is getting anywhere. Talk to them in chat about this line.");
 });
 
 test("contested lines are the lines of the folded entries", () => {
@@ -85,7 +85,7 @@ test("live, a tug-of-war names no one and says nothing of what the other side sp
   assert.ok(tug.kind === "tug");
   assert.equal(tugSentence(tug, undefined, "line", null, { anonymous: true }),
     "Tug-of-war on line 7: your agent and another player moved it back and forth 4 times (0:24 to 0:30). " +
-    "Your agent spent 9.50 ⚡ on it, and every pull costs the other side too, so neither of you is getting anywhere. Ask in chat who else wants this line.");
+    "Your agent spent 9.50 energy on it, and every pull costs the other side too, so neither of you is getting anywhere. Ask in chat who else wants this line.");
   // Live, nothing hints at who pulls, not even that they are a practice partner (round 10).
   const bots = tugSentence(tug, undefined, "grid", null, { anonymous: true });
   assert.doesNotMatch(bots, /Ada|Practice partner/);

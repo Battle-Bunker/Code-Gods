@@ -41,7 +41,7 @@ function MyStats() {
       <p data-testid="example-phase">The game is {game.phase}.</p>
       <p data-testid="example-players">{game.roster.length} players.</p>
       {rule && <p data-testid="example-rule">Your goal: {rule.row.title}</p>}
-      {me && <p>Your energy: {Math.round(me.energy)} ⚡</p>}
+      {me && <p>Your energy: {Math.round(me.energy)} energy</p>}
       {board && (
         <ol>
           {board.rows.map(r => <li key={r.memberId}>{r.name}: {r.net.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} points</li>)}

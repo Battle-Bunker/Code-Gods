@@ -12,8 +12,8 @@ test("every measure a player reads has 2 decimal places, one path for bits, ener
   assert.equal(num(-0.004), "0.00", "never −0.00");
   assert.equal(pointsText(51.0072), "51.01 points");
   assert.equal(pointsText(1), "1.00 point");
-  assert.equal(energyText(600), "600.00 ⚡");
-  assert.equal(powerText(2.5), "2.50 ⚡ a second");
+  assert.equal(energyText(600), "600.00 energy");
+  assert.equal(powerText(2.5), "2.50 energy a second");
 });
 
 test("a line's score: your bits × the others' bits = points, the product of the full values", () => {
@@ -96,4 +96,14 @@ test("a blurred others' sum below zero reads as what the server scores: none (ro
   assert.match(scoreFormula(5, -8.21, true), /others' about 0(\.00)? bits? ≈ 0(\.00)? points/);
   const snap = (want: number) => ({ rarityBits: 5, want, points: 5 * Math.max(0, want) });
   assert.doesNotMatch(pointsText(snap(-3.5), snap(2), "line", true), /−|-\d/, "nor the others' bits before");
+});
+
+test("live, only each line's figures are estimates; the totals and standings are exact (call 15, W3 #662)", async () => {
+  const { blurredNote, blurredEndedNote } = await import("../src/core/words.ts");
+  const BLURRED_NOTE = blurredNote(), BLURRED_ENDED_NOTE = blurredEndedNote();
+  assert.match(blurredNote("grid"), /each grid's others' bits/, "in the game's own noun");
+  assert.match(BLURRED_NOTE, /each line's/);
+  assert.match(BLURRED_NOTE, /totals .* exact/i);
+  assert.doesNotMatch(BLURRED_NOTE, /your points are estimates/);
+  assert.match(BLURRED_ENDED_NOTE, /totals were exact throughout/i);
 });

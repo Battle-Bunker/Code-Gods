@@ -6,7 +6,7 @@
  * 6.80 bits × others' 2.40 bits = 16.32 points", the others' bits before when they changed). When the points move
  * against your rarity, the sentence names the factor that moved; nothing is guessed when neither explains it.
  *
- * Player words only (ux 2.1): points, bits, ⚡ energy, "line"; never "grid", "object" or "payoff".
+ * Player words only (ux 2.1): points, bits, energy, "line"; never "grid", "object" or "payoff".
  */
 import type { Variant } from "@workspace/v2-core";
 import { objectTypeOf } from "../sdk/object-types.ts";

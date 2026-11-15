@@ -121,7 +121,7 @@ export function commitmentBriefing(commitments: readonly Commitment[]): string {
     const ids = c.lines.join(", ");
     if (c.status === "enacted") return `${head}your agents skip ${c.lines.length === 1 ? "it" : "them"}: kept.${theirs}`;
     return `${head}PENDING: your agents' code does not skip ${c.lines.length === 1 ? "it" : "them"} yet${c.myBreaks.length ? `, and they moved ${list([...new Set(c.myBreaks.map(b => b.line))])} against ${c.partner} since` : ""}. `
-      + `This turn, enact it (read the code with ${toolName("agent.programs")}; if it has a PROTECT list, add ${ids} to it (it then only makes moves there that keep the others as well off), or to LEAVE to stay off entirely; otherwise add at the top of agent(offer) if ([${ids}].includes(offer.object)) return null; in TypeScript or if offer.object in (${ids}${c.lines.length === 1 ? "," : ""}): return None in Python; ${toolName("agent.check")}, then ${toolName("agent.replace")}: an edit costs only the change, about 20 ⚡) or retract it in chat.${theirs}`;
+      + `This turn, enact it (read the code with ${toolName("agent.programs")}; if it has a PROTECT list, add ${ids} to it (it then only makes moves there that keep the others as well off), or to LEAVE to stay off entirely; otherwise add at the top of agent(offer) if ([${ids}].includes(offer.object)) return null; in TypeScript or if offer.object in (${ids}${c.lines.length === 1 ? "," : ""}): return None in Python; ${toolName("agent.check")}, then ${toolName("agent.replace")}: an edit costs only the change, about 20 energy) or retract it in chat.${theirs}`;
   });
   return `YOUR DEALS (read from the chat; you keep them, the game does not):\n${rows.join("\n")}`;
 }

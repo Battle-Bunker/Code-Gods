@@ -27,7 +27,7 @@ export interface Move<S> {
   readonly changes: readonly string[];
   /** The line after the move, written: "y = 6x + 24". */
   readonly text: string;
-  /** Why it is listed: "the cheapest for the main part", "the cheapest for the tie-breaker", "the most rarity per ⚡". */
+  /** Why it is listed: "the cheapest for the main part", "the cheapest for the tie-breaker", "the most rarity per energy". */
   readonly reason: string;
 }
 
@@ -99,7 +99,7 @@ export function moves<S, P>(rule: RuleRef<S, P>, state: S, value: ((u: Score) =>
 /**
  * A varied list (coordinator, from real games: three "multiply every output by 4, 16, 64"): the cheapest move that
  * improves the main part, the cheapest that improves the tie-breaker without hurting the main part, then the most
- * rarity per ⚡; at most one move of each kind; filled from the price/bits frontier if short.
+ * rarity per energy; at most one move of each kind; filled from the price/bits frontier if short.
  */
 function varied<F extends Found>(found: readonly F[], u0: Score, before: number | null, want: number, kindOf: (f: F) => string,
   better: (u: Score, bits: number | null, than: Found) => boolean): { f: F; reason: string }[] {
@@ -119,7 +119,7 @@ function varied<F extends Found>(found: readonly F[], u0: Score, before: number 
   if (before !== null) {
     const perEnergy = (f: F) => ((f.bits ?? before) - before) / Math.max(f.price.total, 1e-9);
     // One move for this reason: the best value that is not already listed (or of a kind already listed).
-    take([...found].sort((a, b) => perEnergy(b) - perEnergy(a)).find(f => !out.some(o => o.f === f) && !kinds.has(kindOf(f))), "the most rarity per ⚡");
+    take([...found].sort((a, b) => perEnergy(b) - perEnergy(a)).find(f => !out.some(o => o.f === f) && !kinds.has(kindOf(f))), "the most rarity per energy");
   }
   const fill = ["rarer still", "rarer again", "rarest on offer"];
   for (const f of frontierOf(found, better)) take(f, fill[out.filter(o => fill.includes(o.reason)).length] ?? "rarer again");

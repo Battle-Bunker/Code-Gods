@@ -168,6 +168,68 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     magnitude tie-breakers: they stay dealt, tied to the primary per decision 29. The fix for aligned hills is in the
     pool and the deal: rules in tension, diversity of goals.)
 
+31. On the beginner game's objects (relayed by the coordinator, 15 November): "Let's shrink object quantity for the
+    beginner game to 3 and 1 spawn per 4 minutes so it ends at 5. I want to concentrate human attention more on specific
+    battlefields for the beginner game." (Both beginner presets: 3 starting objects, one birth per 240 s; it replaces the
+    coordinator's calls 8 and 9 on the count and births. At the beginner length of 300 s that ends at 4 objects, not 5;
+    the coordinator is asking the owner whether the game should be longer.)
+
+32. On disclosure noise (relayed by the coordinator, 15 November): "Regarding noise/blur it sounds like the mistake was
+    fixing the noise offset per value and across players so that it produced a cumulative and shared bias. It seems like
+    the obvious solution would be to add noise independently for every query of an object such that it's never shared
+    across players and never accumulates through decisions. Querying the same object multiple times with no updates to
+    it in between would return slightly different results just like measurement error. … I want noise to be a
+    configurable quantity in bit variance that can include zero and it should be zero for the beginner game." (It
+    replaces v1's keyed per-state draw and the coordinator's call B1. The setting is `peerNoiseVariance`, bits²: 0, 4,
+    16, 64 or 256; 0 on the beginner presets, 64 elsewhere. Every read an agent makes and every paid look is a fresh
+    draw. A player's reactive reads in the app are their own reading of the object at that version, independent of
+    every other player's: a Convex query must be deterministic, so one reading per player per object version
+    (convex/v2/disclose.ts).)
+
+33. On free information (relayed by the coordinator, 15 November): "you have kept the update that ceases to give any
+    information away for free except a coarse time grain leaderboard right? There should no longer be a common score
+    broadcast per object. Every player has to spend energy on querying world state with the resolution they deem
+    worthwhile given the expense of information. That's a key change we made to ensure God energy remains a crucial
+    resource instead of only being needed for rare agent summons." (The exact standings every `scoreIntervalSeconds`
+    are the coarse leaderboard; call 15 is now the rule. A birth stays public, as in v1's paid mode: the coordinator's
+    call.)
+
+34. On the beginner game's length (relayed by the coordinator, 15 November): "The beginner game should be 10m long".
+    (Beginner presets: 600 s, 3 starting objects, one birth per 240 s, so 5 objects by the end.)
+
+35. On paying for information (relayed by the coordinator, 15 November): "Paying for information should be intrinsic
+    rather than an optional feature flag, but the weighting of cost for reading information could in principle be set
+    to zero. It should have a modest value for beginner game so that querying 5 objects every second would be easily
+    affordable but doing so 100 times a second would be prohibitive." (The `observation` free/paid flag goes; every game
+    pays to look, at the spec's read price times a weight that may be 0.)
+
+38. On power levels (relayed by the coordinator, 15 November): "About power levels, I want them scaled down a lot. It
+    should be really hard to reach object energy levels of 20 or 30 let alone hundreds. I don't understand why our energy
+    levels jumped up so much under the new engine and Line type compared to grids in the old engine but I want to
+    understand."
+
+39. On perpendicular rules (relayed by the coordinator, 15 November): "I also want the meaningfulness of adding others
+    bits before multiplying our own to come from all rules being approximately perpendicular value vectors in the
+    configuration space such that two other players with 20 bits represents an object that's as rare and hard to reach
+    as 40 bits. Multiplying by our own score is still the mechanism I want. Score is measured in square bits."
+
+40. On unopposed and joint heights (relayed by the coordinator, 15 November): "It's not so bad if players with no
+    opposition could fairly easily reach higher than 20 energy per object but I want it to be hard work to find states
+    that would give two players 20 energy each on the same object because their rules should naturally pull against each
+    other (be roughly perpendicular) without clever coordination."
+
+41. On parameterised rules (relayed by the coordinator, 15 November): "I also want all rules to have substantial degrees
+    of freedom in configuration params. I've been lazily suggesting rules involving straightforward primes without params
+    and anchoring you to such rules, but I really want large amounts of diversity and specificity within each rule family
+    which will help two randomly drawn rules tend to be more perpendicular. For example, we want rules like: distance to
+    nearest prime ending in k (base 10) with k say 7 or 13 rather than just distance to nearest prime. If another rule is
+    interested in primes it should also filter them with a random parameter so the two rules will have to really work to
+    find lines that do well on both their rules. Ideally we have many qualifiers on uses of primes so it's possible to
+    find intersections of the qualifiers, just hard. And of course we want many different properties than primes involved
+    for more perpendicularity, like modulus and number or type of prime factors and digit properties and squares or
+    exponents of factors more generally and that's just the properties on specific numbers we construct but we want lots
+    of diversity in converting line properties into numbers we apply utility to as well."
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact
@@ -264,13 +326,23 @@ back) or TRIAL (a declared experiment, measured and reported).
     tie-breakers each. The beginner eight keep their mains, Two Pair's "pairs far apart" and Strangers' "1s beside
     bigger numbers", and get tied replacements for the 22 independent ones (primes, zeros, corners, odd, "X big"),
     which leave the dealt pool but stay in the code, undealt, until the coordinator reports the effect (grids.md §6).
+13. The beginner economy at 3 Hz (decision 37): power 8 ⚡/s (was 64), fullChargeSeconds 240 (was 30, so the store still
+    holds 1,920 ⚡), startingEnergy 600, β 0.05. Motive: keep energy binding per act as it was at 25 Hz (about 8 ⚡ an
+    act, about 1.5 unit moves), since the owner wants god energy to stay crucial; at power 64 a seat would have about
+    64 ⚡ an act and energy would stop binding.
 
-15. **TRIAL** (declared 15 Nov, departing from v1): the published standings are EXACT. Standings, their history and
+15. **TRIAL, now the rule** (declared 15 Nov, departing from v1; confirmed by the owner's decision 33, "a coarse time
+    grain leaderboard"; its `peerNoiseBits` 8 on the beginner presets withdrawn by decision 32): the published standings
+    are EXACT. Standings, their history and
     the leaderboard chart are the exact totals, published together every `scoreIntervalSeconds` (batched, as v1's
     scoreboard), with `peerNoiseBits` 8 on the beginner presets; every per-object figure stays blurred with v1's floor
     at 0. v1's totals came from the disclosed sums (`disclosedTotalsOf`). Motive: a child's leaderboard must agree with
     the final result (round 10: live totals read 1.5–2.5× the final count; at σ 8 a total from disclosed sums cannot
     track it, floored or not), and a batched exact total leaks only an aggregate over all objects.
+16. **TRIAL** (declared 15 Nov, departing from v1): a half-life game lasts at least a tenth of its half-life. A draw
+    below h/10 is drawn again, which (the exponential being memoryless) is the floor plus one exponential draw
+    (convex/v2/duration.ts). v1 had no floor: 7% of its half-life games ended within h/10, 0.7% within h/100. Motive:
+    "a game that ends before anyone can act is no game."
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 

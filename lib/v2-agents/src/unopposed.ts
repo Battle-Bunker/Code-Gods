@@ -11,16 +11,16 @@
 import { TENSION, type TensionTable } from "./tension.gen.ts";
 
 /**
- * The joint gain (bits per ⚡) below which a shared unopposed rise is "weak", at or above which it is "strong".
+ * The joint gain (bits per energy) below which a shared unopposed rise is "weak", at or above which it is "strong".
  *
  * Set from the measurements printed by `pnpm --filter @workspace/v2-agents gen-tension` (14 November 2026, seed t1):
  *   - the reference is the 247k table's ladder, lines through (p, 0) and (0, 2p) for prime p (y = −2x + 734 at
  *     p = 367): Square Area/spf gains 1.32 and Whole Crossing/k-spf 1.06 bits per bit of read length (the surcharge
- *     the law charges for the bigger numbers), so its joint gain (the smaller) is 1.06 bits per ⚡
+ *     the law charges for the bigger numbers), so its joint gain (the smaller) is 1.06 bits per energy
  *     (TENSION["line-q"].reference);
  *   - over the 46 cheap directions, the 4,147 (pair, direction) shared rises of the pool (both rules "+" both ways)
  *     have joint gains, along the direction repeated 8 times, of median 0.005, 90th percentile 0.019, 99th percentile
- *     0.036 and at most 0.053 bits per ⚡ (per rule alone: median 0.013, 99th percentile 0.29, at most 2.3).
+ *     0.036 and at most 0.053 bits per energy (per rule alone: median 0.013, 99th percentile 0.29, at most 2.3).
  * 0.1 admits every measured cheap shared climb with a margin of about 2 over the largest, and is under a tenth of the
  * reference (1/10.6). A strong direction pays two seated rules within an order of magnitude of the stretch-to-367 rate.
  */
@@ -55,9 +55,9 @@ export interface UnopposedDirection {
   readonly kind: "cheap" | "ladder";
   /** The seated rules rising together along it, in seat order (deduplicated). */
   readonly rules: string[];
-  /** Each rising rule's gain per ⚡ along the direction, aligned with `rules`. */
+  /** Each rising rule's gain per energy along the direction, aligned with `rules`. */
   readonly gains: number[];
-  /** The joint gain per ⚡: the second largest of `gains` (for two rules, the smaller). */
+  /** The joint gain per energy: the second largest of `gains` (for two rules, the smaller). */
   readonly gainPerEnergy: number;
   readonly strength: "weak" | "strong";
 }

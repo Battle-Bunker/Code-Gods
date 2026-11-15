@@ -5,7 +5,7 @@
  *
  *   pnpm --filter @workspace/v2-agents collapse-check [-- --variant line-q,line-z,grid-4-d10] [--tests 1,2,3,4,5]
  *     [--beta 0.02,0.05,0.1] [--tables 8] [--grid-tables 3] [--evals 100000] [--ref-mult 10] [--ramp-evals 30000]
- *     [--games 3] [--seconds 300] [--objects 10] [--births 0.05] [--old-row yes|no] [--reach-births 2] [--direction-starts 60] [--jobs 3] [--json]
+ *     [--games 3] [--seconds 600] [--objects 3] [--births 0.004167] [--old-row yes|no] [--reach-births 2] [--direction-starts 60] [--jobs 3] [--json]
  *
  * Tests (thresholds in src/collapse.ts):
  *   1 joint rise     per dealt table (owner decision 30, thresholds set 14 Nov): directions (one call, repeated 8 times;
@@ -14,14 +14,14 @@
  *                    third rule falling comparably (an adversary). β-independent. Single-rule ramps (top at W's edge,
  *                    growing > 10% to 2W, tail tracking read length) are reported as information, and so are each
  *                    table's "unopposed directions (logged)" from the tension table (src/unopposed.ts): count, strongest
- *                    gain per ⚡, strong / weak
+ *                    gain per energy, strong / weak
  *   2 cheap optimum  per dealt 3-seat table: a searcher with the rules and B evaluations in W (enumerates when W ≤ B, else
  *                    anneals with 10 restarts) against a reference (W enumerated, or ref-mult·B of annealing); a table
  *                    fails at ≥ 95%, the variant when more than a quarter do
  *   3 single answer  per table: the best 24 distinct states in W keep ≥ 70% of 24 × the best and lie in one closed form
- *   4 dynamics       the plain starters and, on lines, the shortcut climber (scripts/climbers.ts) play 300 s under
- *                    unique objects at this β, at --objects starting objects and --births a second (the presets' 10 and
- *                    0.05; one comparison row at the old 24 and 0.1, middle β, not counted). Fails on (a) < 25% of
+ *   4 dynamics       the plain starters and, on lines, the shortcut climber (scripts/climbers.ts) play --seconds (600) under
+ *                    unique objects at this β, at --objects starting objects and --births a second (the presets' 3 and
+ *                    1/240, owner decision 31; one comparison row at the old 24 and 0.1, middle β, not counted). Fails on (a) < 25% of
  *                    objects changing in the last minute under the plain starters, (b) a shortcut search finding no
  *                    improving move on > half the final objects, (c) gains stopping by the midpoint for every climber.
  *                    Idle shares are reported, not failed
@@ -62,11 +62,11 @@ const { values: o } = parseArgs({ options: {
   "ramp-evals": { type: "string", default: "30000" },
   "enum-cap": { type: "string", default: "300000" },
   games: { type: "string", default: "3" },
-  seconds: { type: "string", default: "300" },
+  seconds: { type: "string", default: "600" },   // the beginner game is ten minutes (owner decision 34)
   "reach-births": { type: "string", default: "2" },
   "direction-starts": { type: "string", default: "60" },
-  objects: { type: "string", default: "10" },
-  births: { type: "string", default: "0.05" },
+  objects: { type: "string", default: "3" },
+  births: { type: "string", default: String(1 / 240) },
   "old-row": { type: "string", default: "yes" },
   jobs: { type: "string", default: String(Math.min(3, availableParallelism())) },
   json: { type: "boolean", default: false },
@@ -130,16 +130,16 @@ async function runVariant(v: VariantId): Promise<VariantResult> {
   let fullRow: { beta: number; verdicts: Record<string, Verdict>; notes: Record<string, string> } | null = null;
   const rows: Row[] = [];
   const stateKey = (x: readonly number[]) => x.join(",");
-  log(`${v}: ${rules.length} rules (${pool.skipped.length} without a value function), E = ${f1(E)} ⚡, ${tables.length} tables`);
+  log(`${v}: ${rules.length} rules (${pool.skipped.length} without a value function), E = ${f1(E)} energy, ${tables.length} tables`);
 
   // Test 5 does not depend on β: once.
-  // At the server's noise (DISCLOSE.sigma, keyed per state) it counts; exact sums are a comparison row.
+  // At the server's noise (DISCLOSE.sigma, a fresh draw each read: decision 32) it counts; exact sums are a comparison row.
   let disclose: { verdict: Verdict; note: string } | null = null, exact: { verdict: Verdict; note: string } | null = null;
   if (tests.has(5)) {
     const t0 = performance.now();
     const probes = births(space.type, space.variant, "probe", 3000);
     const at = (sigma: number) => {
-      const res = identify(rules, r => space.bits(r), probes, 40, sigma, v, 3000, s => space.type.encode(s));
+      const res = identify(rules, r => space.bits(r), probes, 40, sigma, v, 3000);   // a fresh draw a read, as the server draws it (decision 32)
       const m = median(res.need);
       return { verdict: (discloseFails(m) ? "FAIL" : "PASS") as Verdict, note: `σ = ${sigma} bits: median ${Number.isFinite(m) ? m : "> 3000"} probes (floor ${DISCLOSE.floor}), ${res.unidentified}/${res.need.length} unidentified in 3,000` };
     };
@@ -277,7 +277,7 @@ function togetherTest(v: VariantId, space: Space<any>, tables: readonly Rule[][]
     const un = unopposedDirections(v, table.map(ruleName)), strong = un.filter(u => u.strength === "strong").length;
     logged.directions += un.length; logged.strong += strong; if (strong) logged.tablesWithStrong++;
     if (un[0] && un[0].gainPerEnergy > logged.strongest) { logged.strongest = un[0].gainPerEnergy; logged.strongestAt = `${un[0].direction}, table ${t}`; }
-    const unNote = `unopposed directions (logged): ${un.length}${un[0] ? `, strongest ${f2(un[0].gainPerEnergy)} bits/⚡ (${un[0].direction}: ${un[0].rules.join(" + ")}), ${strong} strong / ${un.length - strong} weak` : ""}`;
+    const unNote = `unopposed directions (logged): ${un.length}${un[0] ? `, strongest ${f2(un[0].gainPerEnergy)} bits/energy (${un[0].direction}: ${un[0].rules.join(" + ")}), ${strong} strong / ${un.length - strong} weak` : ""}`;
     const keys = new Set(base.map(c => `${c.mutator} ${JSON.stringify(c.args)}`));
     const calls = (s: any) => (grid ? base : [...base, ...lineShortcutMoves(space.variant, table[0]!, s).filter(c => !keys.has(`${c.mutator} ${JSON.stringify(c.args)}`))]);
     const found = directions({ type: space.type, variant: space.variant, rules: table, bits: r => space.bits(r), starts, calls });
@@ -287,7 +287,7 @@ function togetherTest(v: VariantId, space: Space<any>, tables: readonly Rule[][]
     else if (found.some(f => f.together >= TOGETHER.starts * starts.length)) opposed++;
     details.push(`${v} test 1 table ${t} (${table.map(ruleName).join(", ")}): ${found.length} directions raise two rules together from some start; ${worst ? `most unopposed: ${worst.key} from ${worst.unopposed}/${starts.length} starts (together from ${worst.together})${worst.example ? `, e.g. ${worst.example.from} → ${worst.example.to}, gains ${worst.example.gains.map(f1).join(" / ")}` : ""}` : "none"}${fails ? " — FAIL" : ""}; ${unNote}`);
   }
-  const unopposed = !TENSION[v] ? `unopposed directions (logged): no tension table for ${v} yet` : `unopposed directions (logged, strong at ≥ ${WEAK_BELOW} bits/⚡): ${logged.directions} over ${tables.length} tables, ${logged.strong} strong / ${logged.directions - logged.strong} weak (${logged.tablesWithStrong} tables with a strong one)${logged.directions ? `, strongest ${f2(logged.strongest)} bits/⚡ (${logged.strongestAt})` : ""}`;
+  const unopposed = !TENSION[v] ? `unopposed directions (logged): no tension table for ${v} yet` : `unopposed directions (logged, strong at ≥ ${WEAK_BELOW} bits/energy): ${logged.directions} over ${tables.length} tables, ${logged.strong} strong / ${logged.directions - logged.strong} weak (${logged.tablesWithStrong} tables with a strong one)${logged.directions ? `, strongest ${f2(logged.strongest)} bits/energy (${logged.strongestAt})` : ""}`;
   return {
     verdict: failing ? "FAIL" : "PASS",
     note: `${failing}/${tables.length} tables have an unopposed direction raising two rules together${opposed ? `; ${opposed} more have one an adversary opposes` : ""}; ${unopposed}`,
@@ -353,7 +353,7 @@ function report(results: VariantResult[]): string {
   for (const r of results) {
     out.push(`### ${r.variant} (preset ${r.preset}: ${r.rules} rules with value functions${r.skipped.length ? `; ${r.skipped.length} skipped without one: ${r.skipped.join(", ")}` : "; none skipped"})`, "");
     const ts = [...tests].sort().map(String).filter(t => r.rows.some(x => x.verdicts[t]));
-    out.push(`| β | W (⚡) | ${ts.map(t => TEST_NAMES[t]).join(" | ")} |`, `|--:|--:|${ts.map(() => "---").join("|")}|`);
+    out.push(`| β | W (energy) | ${ts.map(t => TEST_NAMES[t]).join(" | ")} |`, `|--:|--:|${ts.map(() => "---").join("|")}|`);
     for (const row of r.rows) out.push(`| ${row.beta}${row.comparison ? ` (${row.comparison}; not counted)` : ""} | ${Math.round(row.E)} | ${ts.map(t => (row.verdicts[t] ? `**${row.verdicts[t]}**: ${row.notes[t]}` : "–")).join(" | ")} |`);
     out.push("");
   }

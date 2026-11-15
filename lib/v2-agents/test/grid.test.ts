@@ -5,7 +5,7 @@
  *  - an agent's own idea of the score is the engine's on sampled boards, in both languages;
  *  - both languages make the same moves on newborn boards, with and without what the board is worth, and none fails;
  *  - each example climbs (no move lowers the main part; some raise it; some raise the tie-breaker);
- *  - the starters play for points: they keep their energy where a change adds too few points per ⚡ (nobody else
+ *  - the starters play for points: they keep their energy where a change adds too few points per energy (nobody else
  *    values the board), where Naive pays regardless.
  */
 import { test, after } from "node:test";
