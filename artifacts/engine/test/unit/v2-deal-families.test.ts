@@ -5,7 +5,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dealablePool, freshDeal, opponentGaps, practiceDeal } from "../../convex/v2/deal.ts";
+import { dealablePool, freshDeal, opponentGaps, practiceDeal, type SeatKind } from "../../convex/v2/deal.ts";
 import { PRESETS } from "../../convex/v2/presets.ts";
 
 for (const preset of PRESETS) {
@@ -30,8 +30,9 @@ for (const preset of PRESETS) {
 
 // Playtest round 21: practiceFits redrew whole tables until the human was in company, so the human's family followed
 // the fit (Smooth Intercept 21.5%, Prime Staircase 0.6% of practice games where uniform was 9.1%). The human's family
-// is drawn uniformly first; the partners are then chosen to fit.
-for (const preset of PRESETS) {
+// is drawn uniformly first. Since the coordinator's call of 15 Nov a practice game is dealt as a real game, so a grid's
+// practice deal is its real deal, whose seating rule constrains which families sit together, by design (as above).
+for (const preset of PRESETS.filter(p => !p.variant.startsWith("grid"))) {
   test(`${preset.id}: the human's family in a practice game is uniform over the families`, () => {
     const pool = dealablePool(preset);
     const families = [...new Set(pool.map(r => r.family))];
@@ -64,5 +65,27 @@ for (const preset of PRESETS.filter(p => p.variant.startsWith("line"))) {
     }
     assert.equal(fresh, runs, "every fresh table has a seat with a named opponent");
     assert.ok(human / runs > 0.97, `the human has a named opponent seated in ${(human / runs * 100).toFixed(1)}% of practice games`);
+  });
+}
+
+// The coordinator's call of 15 Nov: a practice game is dealt exactly as a real game for the same seats. The old
+// goal-sharing fit dealt tables that settled on a shared optimum (the agents session's reproduction of rounds 26–27).
+// Each family's frequency over all seats matches a fresh deal's within sampling noise (two fresh samples of 2000 seeds
+// differ by up to ~15% of uniform); off lines the practice deal is the fresh deal itself.
+for (const preset of PRESETS) {
+  test(`${preset.id}: practice and fresh deals deal each family equally often`, () => {
+    const pool = dealablePool(preset), families = [...new Set(pool.map(r => r.family))];
+    if (families.length < 2) return;
+    const runs = 2000, seats = Math.min(3, families.length), fresh = new Map<string, number>(), practice = new Map<string, number>();
+    const kinds = ["human", "practice", "practice"].slice(0, seats) as SeatKind[];
+    for (let s = 0; s < runs; s++) {
+      for (const r of freshDeal(pool, seats, `fp-${s}`, preset.variant)) fresh.set(r.family, (fresh.get(r.family) ?? 0) + 1);
+      for (const r of practiceDeal(pool, kinds, `fp-${s}`, preset.variant)) practice.set(r.family, (practice.get(r.family) ?? 0) + 1);
+    }
+    const uniform = runs * seats / families.length;
+    for (const f of families) {
+      const gap = Math.abs((practice.get(f) ?? 0) - (fresh.get(f) ?? 0)) / uniform;
+      assert.ok(gap < 0.25, `${f}: practice ${practice.get(f) ?? 0}, fresh ${fresh.get(f) ?? 0} (uniform ${uniform.toFixed(0)})`);
+    }
   });
 }
