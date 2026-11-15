@@ -7,6 +7,7 @@
 import { tieBreakersOn, type TieBreaker, type Variant } from "@workspace/v2-core";
 import { divisibilityLadder, primeLanding, primeStaircase, pythagoreanArea, ruler, sameOnBothRulers, squareArea, treasure, wholeCrossing } from "./beginner.ts";
 import { primeGradient } from "./families.ts";
+import { smoothIntercept } from "./rational2.ts";
 import { lineQ, lineQLenses, lineZ, lineZ4 } from "./type.ts";
 
 export interface PoolRule {
@@ -33,7 +34,9 @@ export interface Preset {
  */
 // Exact Change is not dealt (the coordinator's call, 15 Nov, playtest round 12): most lines score nothing for it (it reads
 // a line as coins only when a and b are both positive), so a player dealt it has no hill from the deal.
-export const beginnerPool = [primeLanding, squareArea, wholeCrossing, divisibilityLadder, treasure, sameOnBothRulers, primeGradient, primeStaircase, ruler, pythagoreanArea] as const;
+// Smooth Intercept, Prime Landing's adversary on the y-intercept (design-principles.md row 6, the coordinator, 15 Nov),
+// is dealt as a ladder on the rationals (it has no whole-number instances).
+export const beginnerPool = [primeLanding, smoothIntercept, squareArea, wholeCrossing, divisibilityLadder, treasure, sameOnBothRulers, primeGradient, primeStaircase, ruler, pythagoreanArea] as const;
 
 const beginnerRules = (v: Variant): readonly PoolRule[] => beginnerPool.flatMap(f =>
   f.dealable(v).map(params => ({ family: f.id, params, tieBreakers: tieBreakersOn(f, v).map(t => t.id) })));
