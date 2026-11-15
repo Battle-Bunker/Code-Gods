@@ -6,8 +6,9 @@
  */
 import { Qn, q, ref, type ElementRef, type Q } from "@workspace/v2-core";
 import { lineParams } from "./line.ts";
-import { allUndefined, distance, family, gap, more, num, undef, type L, type Shape } from "./layers.ts";
-import { distanceToPrime, distanceToWhole, isPrime, largestPrimeFactor, nearbyPrimes, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
+import { allUndefined, distance, family, gap, more, num, undef, undealt, type L, type Shape } from "./layers.ts";
+import { gcdTerm } from "./rational.ts";
+import { distanceToPrime, distanceToWhole, isPrime, largestPrimeFactor, nearbyPrimes, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
 
 /** The smallest and largest prime factor of a whole number (|n|); 1 for 0, ±1 and fractions. */
 const spfQ = (x: Q): Q => q(x.d === 1n ? smallestPrimeFactor(x.n) : 1n);
@@ -217,6 +218,12 @@ const crossingShape: Shape<object> = {
     more("k-spf", "that whole number's smallest prime factor", "That whole number's smallest prime factor should be as big as possible.", "crossing"),
     more("k-gpf", "that whole number's largest prime factor", "That whole number's largest prime factor should be as big as possible.", "crossing"),
     factorTies<object>("m", "the gradient")[0]!,
+    // §A2 (line-rules-v3-proposals.md): the anchor tied to another aspect of the line. Whole Crossing is in the beginner
+    // pool, so these two are undealt until they pass the collapse check (§A5).
+    undealt(more("gcd-c", "common factor of that whole number and the y-intercept's nearest whole number",
+      "That whole number and the whole number nearest the y-intercept should have as big a common factor as possible.", "crossing")),
+    undealt(more("gcd-num-m", "common factor of that whole number and the gradient's top",
+      "That whole number and the gradient's top number (in lowest terms) should have as big a common factor as possible.", "crossing")),
   ],
 };
 export const wholeCrossing = family("whole-crossing", "Whole Crossing", ["crossing", "si", "cart"], crossingShape, [{}], ctx => {
@@ -231,6 +238,12 @@ export const wholeCrossing = family("whole-crossing", "Whole Crossing", ["crossi
   // A vertical line crosses at x0 but has no gradient: its m-spf is undefined (it ranks last), not its crossing.
   const mv = ctx.read(mRef), m = num(mv);
   ctx.term("m-spf", m === null ? "the gradient's smallest prime factor" : factorLabel("smallest", "the gradient", m), m === null ? undef(mv) : spfQ(m), [mRef]);
+  // A vertical line has no y-intercept or gradient either: both undefined. With a 0 on either side, undefined (gcdTerm).
+  const cRef = ref("si", "c"), cv = ctx.read(cRef), c = num(cv);
+  const gc = c === null ? null : gcdTerm(k.n, nearestInteger(c), `common factor of ${k.n} and ${nearestInteger(c)} (nearest the y-intercept)`);
+  ctx.term("gcd-c", gc ? gc.label : "the y-intercept's nearest whole number", gc ? gc.value : undef(cv), [kRef, cRef]);
+  const gm = m === null ? null : gcdTerm(k.n, m.n, `common factor of ${k.n} and the gradient's top ${m.n}`);
+  ctx.term("gcd-num-m", gm ? gm.label : "the gradient's top", gm ? gm.value : undef(mv), [kRef, mRef]);
   ctx.mark({ kind: "focus", ref: xRef });
   ctx.mark({ kind: "candidate", ref: kRef, term: "crossing" });
   // The nearest whole number on the x-axis, so the plane can draw the target (marks only).

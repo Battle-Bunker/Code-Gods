@@ -247,6 +247,13 @@ back) or TRIAL (a declared experiment, measured and reported).
     each). Motivation: a uniform log2 14 would tax every existing call by 0.64 bit whether or not anyone uses the new
     moves. Prices only: a move and its inverse are the same mutator at the same bits, so the law, and every value, is
     unchanged. Measured: how often agents use the five, and the balance and collapse runs (`lenses-and-mutators.md` §7).
+12. **TRIAL** (declared, following decision 30): adversary-aware fair-aligned dealing. v1's fair-aligned dealer stays
+    the base (seeded, bidding respected, the practice rule kept); the dealer minimises a table's unopposed shared
+    directions (cheap moves or prime ladders along which two seated rules rise and no seated rule falls or pays an
+    opportunity cost of at least twice the climbers' gain), admitting at most one weak one (joint gain under 0.1 bits per
+    ⚡, a tenth of the stretch case's 1.06) and never a strong one. Step 1, measurement only: each game logs its unopposed
+    directions (`unopposedDirections` in v2-agents) and the collapse check reports them; the filter is turned on when the
+    pool has enough adversaries.
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 

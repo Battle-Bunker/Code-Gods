@@ -18,6 +18,11 @@
  * Basic strategies  the same along k = 1 … steps repeated applications of one move with a fixed argument (shift +1,
  *         tilt +1, stretch ×2, …), from every state: a climb of A is Δbits_A > 0 after k steps.
  * Flag    the shared-prime case: lines with x-intercept a prime p, and stretch by p, scored on every rule.
+ * Climbs per rule  (JSON only, for scripts/gen-tension.ts) per rule and direction: one application's rises, falls,
+ *         mean Δbits given a rise and mean price; and the direction repeated `steps` times from every state, its
+ *         rises, mean Δbits given a rise and the price of the run; and along the runs that raise the rule, every other
+ *         family's rule's opportunity cost (its best bits one move from the start less its bits at the run's end) as
+ *         a share of the climber's gain.
  *
  * Printed: Markdown tables (the doc's results section). With --json, every count, per direction and strategy.
  */
@@ -150,6 +155,20 @@ const T = new Float64Array(NR * ND * NR * 4);
 const ti = (a: number, d: number, b: number) => ((a * ND + d) * NR + b) * 4;
 /** Per (A, direction): moves made, moves raising A, sum of ΔA over raising moves, moves lowering A. */
 const H = new Float64Array(NR * ND * 4);
+/** Per (A, direction): sum of the price (fee + surcharge) over the moves raising A. */
+const HP = new Float64Array(NR * ND);
+/** Per (A, direction), the direction repeated STEPS times from every state: [runs, runs raising A, sum ΔA over raising runs, sum price of the STEPS moves over raising runs]. */
+const HR = new Float64Array(NR * ND * 4);
+/**
+ * Opportunity cost (the coordinator, 14 Nov: small/smooth adversaries contest by opportunity cost, not by falling):
+ * along a run of A's that rises, another rule C's cost is its best bits one move from the start (any direction, or
+ * staying) less its bits at the run's end, as a ratio r to A's gain. Per (A, direction, C): [rising runs, runs with
+ * r ≥ OPP_F[i] for each i].
+ */
+const OPP_F = [0.1, 0.25, 0.5, 1, 2, 4];
+const NF = OPP_F.length;
+const OC = new Float64Array(NR * ND * NR * (1 + NF));
+const oci = (a: number, d: number, c: number) => ((a * ND + d) * NR + c) * (1 + NF);
 /** Per (A, strategy, k index, B): [up, down, same, sumΔ] given Δbits_A > 0 after k steps. */
 const TS = new Float64Array(NR * NS * KS.length * NR * 4);
 const tsi = (a: number, s: number, k: number, b: number) => (((a * NS + s) * KS.length + k) * NR + b) * 4;
@@ -182,12 +201,38 @@ for (let a = 0; a < NR; a++) {
       H[h]!++;
       if (dA < -EPS) H[h + 3]!++;
       if (dA <= EPS) continue;
-      H[h + 1]!++; H[h + 2]! += dA;
+      H[h + 1]!++; H[h + 2]! += dA; HP[a * ND + d]! += mv.price;
       for (let b = 0; b < NR; b++) {
         if (FAM[b] === FAM[a]) continue;
         const i = ti(a, d, b), db = b1[b]! - b0[b]!;
         const row = T.subarray(i, i + 4); tally(row, db); row[3]! += db;
         tally(PHI_B[ps]!, db); tally(DEN_B[qs]!, db);
+      }
+    }
+    // Every rule's best bits one move from the start (or staying): its alternative to a climb along a direction.
+    const bestNear = Float64Array.from(b0);
+    for (let d = 0; d < ND; d++) {
+      const mv = applyDir(s, DIRS[d]!);
+      if (!mv) continue;
+      const b1 = allBits(mv.s);
+      for (let c = 0; c < NR; c++) if (b1[c]! > bestNear[c]!) bestNear[c] = b1[c]!;
+    }
+    // Every direction repeated STEPS times: the sustained climb along it (A's gain; tension-gen's gain per ⚡), and
+    // the others' opportunity cost when it rises.
+    for (let d = 0; d < ND; d++) {
+      let x: LineState | null = s, price = 0;
+      for (let k = 0; k < STEPS && x; k++) { const mv = applyDir(x, DIRS[d]!); x = mv ? mv.s : null; if (mv) price += mv.price; }
+      if (!x) continue;
+      const dA = bitsFns[a]!(x) - b0[a]!, h = (a * ND + d) * 4;
+      HR[h]!++;
+      if (dA <= EPS) continue;
+      HR[h + 1]!++; HR[h + 2]! += dA; HR[h + 3]! += price;
+      const bE = allBits(x);
+      for (let c = 0; c < NR; c++) {
+        if (FAM[c] === FAM[a]) continue;
+        const i = oci(a, d, c), r = (bestNear[c]! - bE[c]!) / dA;
+        OC[i]!++;
+        for (let f = 0; f < NF; f++) if (r >= OPP_F[f]!) OC[i + 1 + f]!++;
       }
     }
     for (let si = 0; si < NS; si++) {
@@ -498,5 +543,25 @@ if (o.json) {
       const h = ((a * NS + si) * KS.length + ki) * 3;
       return [HS[h]!, HS[h + 1]!, +(HS[h + 2]! / Math.max(1, HS[h + 1]!)).toFixed(2)];
     })]))])),
+    climbsLegend: "per rule, per direction (in the order of directions): [moves, moves raising the rule, moves lowering it, mean Δbits given a rise, mean price (fee + surcharge, bits) of the raising moves]",
+    climbs: Object.fromEntries(RULES.map((_, a) => [R(a), DIRS.map((_d, d) => {
+      const h = (a * ND + d) * 4, up = Math.max(1, H[h + 1]!);
+      return [H[h]!, H[h + 1]!, H[h + 3]!, +(H[h + 2]! / up).toFixed(3), +(HP[a * ND + d]! / up).toFixed(3)];
+    })])),
+    repeatsLegend: `per rule, per direction: the direction repeated ${STEPS} times from every state, [runs, runs raising the rule, mean Δbits given a rise, mean price (fee + surcharge, bits) of the ${STEPS} moves of a raising run]`,
+    opportunityLegend: `per rule A, per direction (in order): one character per rule C (in the order of rules): the number of fractions in [${OPP_F.join(", ")}] that C's opportunity cost reaches, as a share of A's gain, in at least half of A's rising runs of ${STEPS} repeats (C's cost: its best bits one move from the start, or staying, less its bits at the run's end); " " the same family, "." fewer than 8 rising runs`,
+    opportunityFractions: OPP_F,
+    opportunity: Object.fromEntries(RULES.map((_, a) => [R(a), DIRS.map((_d, d) => RULES.map((_c, c) => {
+      if (FAM[c] === FAM[a]) return " ";
+      const i = oci(a, d, c), n = OC[i]!;
+      if (n < 8) return ".";
+      let k = 0;
+      while (k < NF && OC[i + 1 + k]! >= 0.5 * n) k++;
+      return String(k);
+    }).join(""))])),
+    repeats: Object.fromEntries(RULES.map((_, a) => [R(a), DIRS.map((_d, d) => {
+      const h = (a * ND + d) * 4, up = Math.max(1, HR[h + 1]!);
+      return [HR[h]!, HR[h + 1]!, +(HR[h + 2]! / up).toFixed(3), +(HR[h + 3]! / up).toFixed(3)];
+    })])),
   }));
 }

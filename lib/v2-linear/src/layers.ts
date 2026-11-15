@@ -13,6 +13,11 @@ export type L<P> = Layer<P>;
 export function distance<P>(id: string, title: string, sentence: string, rep: string): L<P> {
   return { id, title, sentence: () => sentence, rep, sense: "min" };
 }
+/**
+ * A tie-breaker dealt on no variant: a candidate (line-rules-v3-proposals.md §A2) added to a family that is already in a
+ * pool, kept out of the deal until it passes the collapse check (§A5). It is still evaluated and valued.
+ */
+export const undealt = <P,>(l: L<P>): L<P> => ({ ...l, dealtOn: () => false });
 /** A count or size layer: bigger is better. */
 export function more<P>(id: string, title: string, sentence: string, rep: string | "size" = "size"): L<P> {
   return { id, title, sentence: () => sentence, rep, sense: "max" };

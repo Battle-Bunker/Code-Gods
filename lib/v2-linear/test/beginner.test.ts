@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateSite, Qn, q, rng, walkStep, type Evaluation, type RuleFamily } from "@workspace/v2-core";
-import { beginnerFamilies, beginnerPool, divisibilityLadder, exactChange, lineQ, lineType, lineZ, primeLanding, primeStaircase, pythagoreanArea, ruler, sameOnBothRulers, squareArea, treasure, wholeCrossing, type LineState } from "../src/index.ts";
+import { beginnerFamilies, beginnerPool, presets, divisibilityLadder, exactChange, lineQ, lineType, lineZ, primeLanding, primeStaircase, pythagoreanArea, ruler, sameOnBothRulers, squareArea, treasure, wholeCrossing, type LineState } from "../src/index.ts";
 import { mc } from "./helpers.ts";
 
 /** Every layer's term, as wire strings, for one evaluation. */
@@ -49,8 +49,8 @@ test("worked examples, one line per family", () => {
     { treasure: "0", "prime-terms": "6", "prime-gradient": "1", "square-start": "23", "m-spf": "2", "m-gpf": "5" });   // y(2) = 37; 30 = 2·3·5, 1 from 29 and 31
   assert.deepEqual(terms(primeLanding, {}, mc(2, 13)), { landing: "0", "big-prime": "13", "prime-gradient": "0", "next-prime": "2", "m-spf": "2", "m-gpf": "2" });   // y(1) = 15, 2 from 13 and 17
   assert.deepEqual(terms(sameOnBothRulers, { T: 6 }, mc(3, -12)), { fixed: "0", steep: "2", "prime-start": "1", "whole-values": "11", "whole-lamp": "1/2", "m-spf": "3", "m-gpf": "3" });   // 3x − 12 = x at x = 6; lamp 3/2
-  assert.deepEqual(terms(wholeCrossing, {}, mc(4, -20)), { crossing: "0", "k-spf": "5", "k-gpf": "5", "m-spf": "2" });       // crosses at 5
-  assert.deepEqual(terms(wholeCrossing, {}, mc(3, 1)), { crossing: "1/3", "k-spf": "1", "k-gpf": "1", "m-spf": "3" });       // at −⅓, nearest 0
+  assert.deepEqual(terms(wholeCrossing, {}, mc(4, -20)), { crossing: "0", "k-spf": "5", "k-gpf": "5", "m-spf": "2", "gcd-c": "5", "gcd-num-m": "1" });       // crosses at 5; gcd(5, −20), gcd(5, 4)
+  assert.deepEqual(terms(wholeCrossing, {}, mc(3, 1)), { crossing: "1/3", "k-spf": "1", "k-gpf": "1", "m-spf": "3", "gcd-c": "—", "gcd-num-m": "—" });       // at −⅓, nearest 0 (shares every factor: undefined)
   assert.deepEqual(terms(divisibilityLadder, {}, mc(5, 60)), { ladder: "6", "m-spf": "5", "m-gpf": "5", steep: "5", "m-prime": "0" });   // 1 … 6 divide 60, 7 does not
 });
 
@@ -91,3 +91,18 @@ test("Prime Staircase: a repeated prime stops the run; no run, no first prime", 
   assert.deepEqual(terms(primeStaircase, {}, mc(1, 1000)), { run: "0", "first-prime": "0", "last-prime": "0", "near-miss": "3", "step-back": "2" });  // 1000 is not prime (3 from 997); 999 is 2 from 997
 });
 
+
+test("Whole Crossing's §A2 tie-breakers: tied to the crossing's whole number, undealt (in no pool's deal)", () => {
+  // Worked by hand. y = 2x − 12 crosses at 6: gcd(6, −12) = 6, gcd(6, 2) = 2.
+  assert.deepEqual(terms(wholeCrossing, {}, mc(2, -12), lineQ), { crossing: "0", "k-spf": "2", "k-gpf": "3", "m-spf": "2", "gcd-c": "6", "gcd-num-m": "2" });
+  // y = (3/2)x − 9 crosses at 6: gcd(6, −9) = 3, gcd(6, 3) = 3 (the gradient's top).
+  assert.deepEqual(terms(wholeCrossing, {}, mc(q(3, 2), -9), lineQ), { crossing: "0", "k-spf": "2", "k-gpf": "3", "m-spf": "1", "gcd-c": "3", "gcd-num-m": "3" });
+  // y = (2/5)x − 13/5 crosses at 13/2, nearest 7 (a half rounds up); c = −2.6, nearest −3: gcd 1; gcd(7, 2) = 1.
+  assert.deepEqual(terms(wholeCrossing, {}, mc(q(2, 5), q(-13, 5)), lineQ), { crossing: "1/2", "k-spf": "7", "k-gpf": "7", "m-spf": "1", "gcd-c": "1", "gcd-num-m": "1" });
+  // x = 3: crosses at 3 but has no y-intercept or gradient.
+  const vert: LineState = { lines: [{ a: 1n, b: 0n, c: -3n }] };
+  const t = terms(wholeCrossing, {}, vert, lineQ);
+  assert.equal(t["gcd-c"], "—");
+  assert.equal(t["gcd-num-m"], "—");
+  for (const tb of ["gcd-c", "gcd-num-m"]) assert.ok(!presets.some(p => p.rules.some(r => r.family === "whole-crossing" && r.tieBreakers.includes(tb))), tb);
+});
