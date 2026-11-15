@@ -5,7 +5,7 @@ import { OpFailure } from "@workspace/v2-affordances";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { MAX_MEMBERS, MAX_PLAYERS, normaliseCode, userById } from "./access";
-import { bidDealer, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, practiceDeal, rotatedDeal, ruleView, hasSeatingRule, seatingAligned, seatingClashes, type DealtRule, type PastDeal } from "./deal.ts";
+import { bidDealer, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, policyDeal, practiceDeal, type SeatKind, rotatedDeal, ruleView, hasSeatingRule, seatingAligned, seatingClashes, type DealtRule, type PastDeal } from "./deal.ts";
 import { dealWithBids, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
 import { isPreset, presetOf } from "./presets.ts";
 import { typeOf } from "./world.ts";
@@ -296,6 +296,10 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     endAtWorld: drawEnd(settings.durationMode, settings.worldSeconds),
     // The dealing trial, step 1: what this table could climb together unopposed (private; deal.ts will use it later).
     unopposed: unopposedDirections(preset.variant, rules.map(r => `${r.family}/${r.tieBreaker}`)),
+    // The dealing trial, step 2 (logging only): what the spec lead's policy would have dealt this table, beside the
+    // real deal, for fresh and practice deals (a rotation, a rematch or a won bid deals what it must).
+    ...(!again && !rotation && wins.length === 0
+      ? { unopposedPolicy: policyDeal(dealablePool(preset), seats.map(m => m.kind as SeatKind), seed, preset.variant) } : {}),
     // The seating rule's pairs this deal left (grids; deal.ts): forbidden ones (none unless the pool is too small) and aligned ones.
     ...(hasSeatingRule(preset.variant) ? { seating: { clashes: seatingClashes(preset.variant, rules.map(r => r.family)), aligned: seatingAligned(preset.variant, rules.map(r => r.family)) } } : {}),
     ...(rotation ? { rotation } : {}),
