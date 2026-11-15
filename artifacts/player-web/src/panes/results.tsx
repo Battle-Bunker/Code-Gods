@@ -12,13 +12,14 @@ import { useAffordance } from "@workspace/v2-affordances/react";
 import { ANOTHER, GameSummary, summarise, type SummaryClimb, type SummaryTug } from "@workspace/v2-views";
 import { usePaneOps } from "@/dock/open-pane";
 import { toast } from "@/hooks/use-toast";
-import { decodeState, objectWord, useGame, useObjectMovesOf, useLeaderboard, useMoves, useTugs, useMyObjects, useMyRule, useObjectIds, useRotationRound, blursOthers } from "@/sdk";
+import { decodeState, objectWord, useGame, useObjectMovesOf, useLeaderboard, useMoves, useTugs, useMyObjects, useMyRule, useObjectIds, useRotationRound, blursOthers, useStandingsHistory, useMe } from "@/sdk";
 import { foldTugs } from "./tug-of-war";
 import { AffordanceButton } from "@/site/components/action";
 import { blurredEndedNote, isTied, ordinal, pointsText, TIE_NOTE, totalNote, totalsSumNote } from "@/core/words";
 import { LineByLine, TiedMark } from "@/core/score-help";
 import { endNote, resultsHeadline, rotationSummary } from "./results-headline";
 import { MyPointsChart } from "./points-over-time";
+import { seriesOf } from "./chart-model";
 import { mergeTugs, tugsFromServer } from "./summary-tugs";
 
 export function ResultsPane() {
@@ -128,6 +129,9 @@ function EndSummary({ total }: { total: number }) {
   const serverTugs = useTugs();
   const moves = useMoves(30, { replayOnly: true });
   const round = useRotationRound();
+  // How the game went for this player (round 28): their total over time, the energy left unspent.
+  const history = useStandingsHistory();
+  const me = useMe();
   const done = serverTugs !== undefined;
   const top = useMemo(() => ids.results.slice(0, 5).map(r => r.objectId), [ids.results]);
   const objects = useMyObjects(top);
@@ -155,8 +159,10 @@ function EndSummary({ total }: { total: number }) {
       const rows = contestedMoves[i];
       return rows ? [{ number, moves: [...rows].reverse().map(m => ({ by: m.mine ? "you" : m.by?.name ?? ANOTHER, before: m.before, after: m.after })) }] : [];
     });
-    return summarise({ rule: my.rule as never, value: my.bits ?? undefined, objects: objs as never, tugs, total, rotates, movesRead: null, climbs });
-  }, [my, header, objects, serverTugs, moves.results, total, round, contestedNumbers, contestedMoves]);
+    const points = header.me ? seriesOf(history ?? [], header.me) : [];
+    const pace = points.length > 1 && me ? { points, endWorld: points.at(-1)!.x, energyLeft: me.energy, capacity: me.capacity } : undefined;
+    return summarise({ rule: my.rule as never, value: my.bits ?? undefined, objects: objs as never, tugs, total, rotates, movesRead: null, climbs, ...(pace ? { pace } : {}) });
+  }, [my, header, objects, serverTugs, moves.results, total, round, contestedNumbers, contestedMoves, history, me]);
   const openObject = useAffordance("view.openObject");
   const panes = usePaneOps(header?.phase ?? "ended");
   const onOpen = async (id: string | undefined) => {
