@@ -42,7 +42,7 @@ export const playOps = [
   }),
   affordance({
     id: "game.pause", title: "Pause the game", group: "play", scope: "game",
-    description: "Pauses the world for everyone. Each player may pause once per game; the owner resumes.",
+    description: "Pauses the world for everyone. Each player may pause once per game; the pause ends by itself after the room's pause length (3 minutes unless the owner set another), or earlier when the owner resumes.",
     tooltip: "Use your one pause.", keywords: ["pause", "stop time", "hold on"],
     params: obj({ requestId: requestId.optional() }), result: ok,
     contexts: ["live"], caller: "seated", effect: "write", confirm: "inline", runs: "server", available: pauseCheck,

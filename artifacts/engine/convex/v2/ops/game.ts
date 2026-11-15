@@ -77,6 +77,8 @@ export const { op: ready, as: readyAs } = defineOp("game.ready", "mutation", asy
 export const { op: pause, as: pauseAs } = defineOp("game.pause", "mutation", async env => {
   const { game, player, member } = seated(env);
   if (player.pauseUsed) throw new OpFailure("You have used your one pause.");
+  // v1: only a running world pauses (planning has no clock to stop; a paused game is already paused).
+  if (game.phase !== "live") throw new OpFailure(game.phase === "paused" ? "The game is already paused." : "Only a running game can be paused.");
   await env.ctx.db.patch(player._id, { pauseUsed: true });
   await pauseGame(env.ctx, game, member._id);
   return { ok: true as const };

@@ -26,6 +26,13 @@ differ, the owner's words win.
    the y-intercept near an integer, with a tie-breaker maximising the largest common factor of that nearest integer
    and the floor of the gradient. A tie-breaker that independently wants another coefficient to have some property
    fails.
+3a. **A repertoire of secondaries, and room for deeper layers.** Every family declares several alternative secondary
+   preferences, each tied to the main part as principle 3 requires; a dealt rule is the main part plus one of them, so
+   two seats holding the same family and the same numbers can still want different things [14: "I will want several
+   secondary rule candidates within each family"]. The engine treats a dealt rule as an ordered list of layers of any
+   length, so tertiary and higher preferences can be dealt later without rework; the beginner set deals none [14].
+   On 15 November the redesign to ladders removed each family's untied tie-breakers and replaced them with a single
+   tied one, so most families were left with a repertoire of one: this failed the owner's words and no row caught it.
 4. **Highly configurable families.** Every family has substantial dealt parameters and many qualifiers (endings,
    moduli, number and type of prime factors, digit properties, squares and powers, which reading of the line) [41].
    A family with one dealable instance fails.
@@ -69,6 +76,7 @@ A pull request that adds or changes a dealt rule family carries this table fille
 | 1 | Is the main part unbounded? | The best state found by a long search is still improvable; no state scores the main part's maximum. |
 | 2 | Is the ladder climbed all game, in play? | Without parameter redraws, in a 600 s game against two other seated rules, most seats (about two in three) are still stepping up their main part in the last third, and few (under one in ten) sit on a level they reached in the first two minutes. These figures guide judgement; they are not a gate to tune against. Report levels climbed and bits per level too, but do not tune the level size to hit a count: splitting a level into finer grades changes nothing a player feels. A ladder that exists but is not climbed fails (the first redesigned Prime Landing: rungs ten units apart on one coefficient, 0 to 3 steps up in 80 games, because each step wrecked the other seats' bits). Rungs should be one small move apart, or joined by a representation shortcut. |
 | 3 | Is the tie-breaker defined by the main part's value? | Show two main-part levels whose best tie-breaker states differ, and that stepping up the main part loses tie-breaker bits. |
+| 3a | How many secondary candidates? | Count of dealt tie-breakers, each passing row 3 on its own and of a different form from the others; at least 3. Show that the family's code and its dealt key take a list of layers, not one. |
 | 4 | How many dealable instances? | Count of dealt parameter sets within the equal-opportunity band; at least 4. |
 | 5 | Are instances perpendicular? | Pairwise dependence within the family and against the pool (the PMI table). |
 | 6 | Which families oppose it? | At least one named family in tension, from the tension matrix. |

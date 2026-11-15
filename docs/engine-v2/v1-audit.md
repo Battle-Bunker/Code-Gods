@@ -25,6 +25,100 @@ from commit history and PR bodies.
   `archive:lib/game-core/src/settings.ts:714-780`. Some features the owner asked for were already switched off there
   by coordinator calls (noted in the rows).
 
+
+## Status, re-audited 15 November against `develop` 51249392
+
+Each §1 departure and §2 row, checked against the code as it now stands (not this file's older text). Verdicts:
+**restored** (with PR), **owner N** (a verbatim owner decision covers it), **call/trial N** (a coordinator's declared
+call or trial in owner-decisions.md), **kept** (v1 and v2 agree), **STILL MISSING** (with size and side).
+Note: owner-decisions.md repeats numbers 12, 13, 17, 18, 19 and 23 under "Coordinator's calls under the owner's
+delegation"; a call number below means the one whose subject is named.
+
+| Item | Status | Evidence |
+|---|---|---|
+| §1.1 Live moves attributed | restored (#587, #615); owner 33 | convex/v2/disclose.ts:113; play.ts:194-201 |
+| §1.2 Exact others' sums | owner 32 (#608, #611, #673) | disclose.ts:34-40; open point: `othersAt` is a free quote at up to 4 states (play.ts:305-334), against owners 33 and 35 |
+| §1.3 Paid looks deleted | restored (#643, #653); owner 35 (every game pays to read, weight may be 0, #685) | knowledge.ts:28-35 |
+| §1.4 Default domain line-z | restored (line-q beginner; owner 2, call 6; whole-number setups retired #620) | lib/v2-linear/src/presets.ts:45 |
+| §1.5 Hold rarity | owner 43 (not restored; measurement docs/engine-v2/hold-measurement.md, call 11) | owner-decisions.md decision 43 |
+| §1.5 Defence goals | **STILL MISSING** (call 1 said restore) | no defence code in v2; v1 archive lib/game-utilities/src/families/grid/defence.ts |
+| §1.6 Hidden random end | restored (#623) as a setting, default on the v1-board presets; beginner fixed 600 s by owner 34 ("10m long") | duration.ts; presets.ts:105,126 |
+| §1.7 Fair-aligned dealer | trial 12 (logging only; the deal is the seeded shuffle with the seating rules) | deal.ts policyDeal; lobby.ts |
+| §1.8 Idle parking | restored (#629) | activity.ts |
+| §1.9 Scoreboard interval | restored (#623); exact standings by call 15, owner 33 | lobby.ts scoreIntervalSeconds |
+| §1.10 Tiers | owner 13, 23, 29 (a main part plus a tie-breaker, no gates) | lib/v2-linear presets |
+| §1.11 Commit clause, shelter targeting | **STILL MISSING** (both) | no `only_if_better`, no shelter in v2; v1 archive lib/game-core/src/settings.ts:153,158 |
+| §1.12 Futility memo | **STILL MISSING** | tick.ts offers with no memo; v1 archive lib/futility.ts |
+| §1.13 Birth law and counts | call 4 (stationary-law births); owner 31 (beginner counts) | world.ts:49-64; tick.ts:59-61 |
+| §1.14 Move onto own state | restored (#615); owner 24 | tick.ts:124-126 |
+| §1.15 200 agents per god | **STILL MISSING** (v2 caps 20, `MAX_AGENTS`, play.ts:26; no decision or call) | agents.ts:86 |
+| §2.1 Live, a player sees only their own utility | kept | world.ts:30-36 |
+| §2.1 Every transformation and spawn is public | restored (#587, #615); owners 33, 36 narrow the spread | play.ts:194-201 |
+| §2.1 Others' summons hidden | kept (v1's public agent count is not shown; minor) | play.ts:133-140 |
+| §2.1 Public scores move together | restored (#623); call 15, owner 33 | loop.ts scoreboard |
+| §2.1 Disclosed sums carry Gaussian noise | owner 32 (#673) | disclose.ts; presets.ts peerNoiseVariance |
+| §2.1 The commit clause decides on noisy values | owner 32 (per-player stable readings) | play.ts:323-325; lib/v2-agents host.ts:203-209 |
+| §2.1 Per-object public figures | kept; counts "as last looked" by owners 33, 35 | spectate.ts:24-36 |
+| §2.1 Paid observation | restored (#643, #653); owner 35 | knowledge.ts |
+| §2.1 Spectators see the public view | kept | spectate.ts |
+| §2.1 Ended games fully transparent | kept | replays.ts; disclose.ts:113 |
+| §2.1 Nothing visible disappears | kept (UNVERIFIED pane by pane) | disclose.ts:113 |
+| §2.1 Rival inference is a legitimate read | **STILL MISSING** (no counterpart of v1's fit_utility_mixture) | v1 archive lib/game-utilities/src/inference.ts |
+| §2.1 Bids sealed | kept (owner 18) | bids.ts |
+| §2.2 Every object unique | restored (#615); owner 24 | tick.ts:124-126; loop.ts |
+| §2.2 Every object an independent universe | kept (no v2 independence test yet) | lib/v2-core contracts |
+| §2.2 Births: Poisson | call 4; owner 31 (beginner) | world.ts; tick.ts |
+| §2.2 Integer and string objects | owner 15 | — |
+| §2.2 Grid object boards | partly (call 13: grids-more-rules, grids-arithmetic on the 4×4 digit board); colour, glyph, playing-card and larger boards **STILL MISSING** | presets.ts:144-154; lib/v2-grid has grid-4-d10, grid-2-d3 |
+| §2.2 Opportunity targeting: uniform or shelter | **STILL MISSING** (shelter) | tick.ts:5 (uniform) |
+| §2.3 Payoff | kept | world.ts:30-37 |
+| §2.3 Bits are rarity | owner 10 (4, 19, 20, 22, 23) | values.ts worthOf |
+| §2.3 Hold rarity | owner 43 | as §1.5 |
+| §2.3 Defence goals | **STILL MISSING** | as §1.5 |
+| §2.3 Tiered rules | owner 14; call (f) | lib/v2-linear presets |
+| §2.3 Continuous landscape | kept (owner 13, 23) | spec §0.3 |
+| §2.3 Params named and typed | kept | lib/v2-core contracts.ts ParamDecl |
+| §2.3 Params of equal opportunity | restored (#630) | test/unit/v2-params-equal.test.ts |
+| §2.3 Scores are points tuples, never "tie-break" | changed: the app says "tie-breaker" (CLAUDE.md and decision 29's summary use it); wording is a coordinator call | player-web panes/lines.ts:89; lib/v2-views faces.tsx:427 |
+| §2.3 Heterogeneous simple utilities | kept (owner 14) | beginnerPool, 11 families |
+| §2.3 Dealing fair-aligned | trial 12; call 30 (practice dealt as real) | deal.ts |
+| §2.3 Rule rotation | kept | deal.ts |
+| §2.3 Commit clause | **STILL MISSING** | as §1.11 |
+| §2.3 Futility memo | **STILL MISSING** | as §1.12 |
+| §2.4 Power per god | owner 38; call 17 (beginner 4/s; 64 elsewhere) | lib/v2-economy settings.ts:25; presets.ts:125-128 |
+| §2.4 Capacity | kept; call 17 (beginner 240 s) | energy.ts |
+| §2.4 Energy and debt move with power | kept | energy.ts:8-9 |
+| §2.4 Debt bound | kept | energy.ts:13,148 |
+| §2.4 Selection proportional to energy | kept | energy.ts pickByEnergy |
+| §2.4 Opportunity rate | owner 37 | settings.ts:28; presets.ts:127 |
+| §2.4 Act charge | kept | lib/v2-economy charge.ts |
+| §2.4 Offer read log2(live objects) | kept | energy.ts offerReadBits |
+| §2.4 Read metering | owner 6, 35 | presets.ts readPriceWeight |
+| §2.4 Change cost | owner 11, 17, 19 | lib/v2-core walk.ts |
+| §2.4 Summon price | owner 21 | lib/v2-agents summon.ts |
+| §2.4 Starting energy | call 17 (beginner); kept elsewhere (600, 900 on grids-more-rules) | presets.ts |
+| §2.4 First agent's share | kept | energy.ts:49-59 |
+| §2.4 Bid phase and handicap | kept (owner 18) | lib/v2-economy bidding.ts |
+| §2.5 Sandboxed Python or TypeScript | kept | lib/v2-sandbox |
+| §2.5 Step budget 500,000 | kept (owner 6) | lib/v2-sandbox limits.ts |
+| §2.5 Agent sees only its object | owner 6 | lib/v2-agents host.ts |
+| §2.5 At most 200 agents | **STILL MISSING** (20) | as §1.15 |
+| §2.5 One pause per player, 180 s | restored (this PR): a pause ends by itself after the room's pauseSeconds (default 180), or earlier when the owner resumes; only a running game pauses | loop.ts pauseGame, pauseEnds; header pauseEndsAt |
+| §2.5 Planning holds until sandboxes are warm | restored (#635) | readiness.ts; loop.ts allReady |
+| §2.6 At least 3 players | kept | presets.ts minPlayers |
+| §2.6 At most 8 players | restored (#629) | access.ts MAX_PLAYERS |
+| §2.6 Public chat only | kept | tables.ts v2Chat |
+| §2.6 AI players same information | kept (owner 16) | aiTurn.ts |
+| §2.6 AI only in admin rooms; quotas | kept | spend.ts |
+| §2.6 Assistant modes | kept | assistant.ts; assistantCore.ts |
+| §2.6 Assistant state per (player, game) | kept | assistant.ts |
+| §2.6 Duration halfLife or fixed | restored (#623); owner 34 (beginner 600 s); trial 16 | duration.ts |
+| §2.6 Planning 60 s | kept | presets.ts planningSeconds |
+| §2.6 Park after 30 minutes idle | restored (#629) | activity.ts IDLE_MS |
+| §2.6 Members players or spectators | kept | lobby.ts |
+| §2.6 Practice partners and AI never bid | kept (owner 18) | bids.ts |
+| §2.6 Setups: users may save their own | **STILL MISSING** (only deployed presets plus room overrides) | convex/v2/setups.ts |
+
 ---
 
 ## 1. The discretionary departures, most consequential first
@@ -273,3 +367,42 @@ Status: **K** kept, **C** changed, **D** dropped, **?** unknown.
   - Sandbox warm-up (#53).
   - Each AI-seat permission (#57).
   - A full search for a v2 player cap (#55).
+
+---
+
+## 4. App: player-facing behaviour (W5, 15 November)
+
+This section compares the v1 client (`archive:artifacts/player-web`) with the v2 app, pane by pane and affordance by
+affordance. Hours are app work. **W3** means the item needs a server read or operation first. **Q** means it waits on an
+owner question.
+
+**Carried over, checked:**
+- paid looks (always paid, keep fresh), noise on others' figures, hidden random end, score interval, idle parking;
+- the public log with live anonymity, bidding screens, replay with watch-as;
+- the fully transparent ended game: `e2e:ended` walks every pane for lines and grids, on desktop and phone, and closes
+  the gap left open in §3 (#11);
+- one pause, power share and pull back, "summon when I have the energy", rematch;
+- rule gallery, palette, glossary, AI quotas, assistant threads and owner powers;
+- chat closing after the end.
+
+| # | v1 behaviour | v2 now | Hours | Needs |
+|---|---|---|---|---|
+| A1 | Configure page with every setting; saved setups (page/get/save/duplicate/remove) and seeded system setups | Preset picker and three overrides | 6–8 | W3 (tables, ops); see §2 #66 |
+| A2 | Rival-inference assistant tools (fit_utility_mixture, list_utility_candidates, get_utility_series, get_board_at); "Possible gods" list | Absent | 3 | W3 (reads) |
+| A3 | Objects sorts: payoff, bits, others, mutations, newest, oldest, recently mutated. Filters: all, positive, contested | Sorts: points, rarity, recent | 3 | W3 (indexed fields) |
+| A4 | Feed filters (who, object, minimum impact); group by mutator, "cost against yield" | Mine / all moves toggle only | 3 | — |
+| A5 | Goal card: "How rare is each rule score?" table; editable, randomisable example | Fixed example | 3 | Q: check that the rarity table doesn't point at peaks |
+| A6 | My agents: sparkline, "Edit a copy", version comparison, "How energy works" | Absent | 3 | — |
+| A7 | Replay: keyboard shortcuts, speeds ¼–64×, deep links (?e ?t &as), copy a moment link, download | Scrubber and watch-as | 2–3 | W3 for download |
+| A8 | Owner "Cancel bidding" | Absent | 1 | W3 (op) |
+| A9 | Phone assistant bottom sheet; pane maximise | Absent | 3 | — |
+| A10 | Chat filters: Humans, AI, Mentions | Absent | 1 | — |
+| A11 | Grid tiles / colour-blind toggle | Absent | 2 | — |
+| A12 | "Copy game rules for an AI"; "Connect a player app" sheet | The CLI and MCP exist; no sheet in the app | 1 | — |
+| A13 | Header: overdrawn warning, retry-uncertain banner | Absent | 1 | W3 (check the field) |
+| A14 | "Who am I" and "Server info" sheets | Absent | 1 | — |
+| A15 | run_code tool and Code results pane | Absent | 2 | W3 (sandbox op); Q (wanted?) |
+| A16 | Hold rarity; score-noise variants; other deleted setups | Deleted | — | Q, already open in §1 |
+
+**Order of restoration.** Items with no server need and no open question come first, largest effect on play first: A4,
+A6, A7 (without download), A10, A11, A9, A12, A14. Each operation among them goes through `lib/v2-affordances`.

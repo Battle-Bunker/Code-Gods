@@ -360,20 +360,36 @@ export async function parkGame(ctx: MutationCtx, game: Doc<"v2Games">) {
   await appendEvent(ctx, game._id, "phase", { phase: "paused", parked: true });
 }
 
+/** v1's pause length when the room sets none, wall seconds (archive settings.ts pauseSeconds). */
+export const DEFAULT_PAUSE_SECONDS = 180;
+const PAUSE_ENDS = makeFunctionReference<"mutation", { gameId: Id<"v2Games">; pauseEndsAt: number }>("v2/loop:pauseEnds");
+
+/** A player's pause (one each): it ends by itself after the game's pauseSeconds (v1), or earlier when the owner resumes. */
 export async function pauseGame(ctx: MutationCtx, game: Doc<"v2Games">, by: Id<"v2Members">) {
   const engine = await engineOf(ctx, game._id);
   await ctx.db.patch(engine._id, { leaseId: "" });
-  // No countdown while paused: the end is set again on resume from the world time left.
-  await ctx.db.patch(game._id, { phase: "paused", pausedBy: by, endsAt: undefined });
-  await appendEvent(ctx, game._id, "phase", { phase: "paused", by });
+  const pauseEndsAt = Date.now() + (game.settings.pauseSeconds ?? DEFAULT_PAUSE_SECONDS) * 1000;
+  // No countdown to the world's end while paused: it is set again on resume from the world time left.
+  await ctx.db.patch(game._id, { phase: "paused", pausedBy: by, pauseEndsAt, endsAt: undefined });
+  await appendEvent(ctx, game._id, "phase", { phase: "paused", by, pauseEndsAt });
+  await ctx.scheduler.runAt(pauseEndsAt, PAUSE_ENDS, { gameId: game._id, pauseEndsAt });
 }
+
+/** A player's pause runs out (v1): the game resumes, unless it was resumed, re-paused or ended meanwhile. */
+export const pauseEnds = internalMutation({
+  args: { gameId: v.id("v2Games"), pauseEndsAt: v.number() },
+  handler: async (ctx, { gameId, pauseEndsAt }) => {
+    const game = await ctx.db.get(gameId);
+    if (game?.phase === "paused" && !game.parked && game.pauseEndsAt === pauseEndsAt) await resumeGame(ctx, game);
+  },
+});
 
 export async function resumeGame(ctx: MutationCtx, game: Doc<"v2Games">) {
   const leaseId = crypto.randomUUID(), now = Date.now();
   const engine = await engineOf(ctx, game._id), clock = await clockOf(ctx, game._id);
   await ctx.db.patch(engine._id, { leaseId });
   await ctx.db.patch(clock._id, { lastTickAt: now });
-  await ctx.db.patch(game._id, { phase: "live", pausedBy: undefined, endsAt: now + Math.max(0, endWorldOf(game) - clock.worldSeconds) * 1000 / timeScaleOf(game.settings) });
+  await ctx.db.patch(game._id, { phase: "live", pausedBy: undefined, pauseEndsAt: undefined, endsAt: now + Math.max(0, endWorldOf(game) - clock.worldSeconds) * 1000 / timeScaleOf(game.settings) });
   await appendEvent(ctx, game._id, "phase", { phase: "live", worldSeconds: clock.worldSeconds });
   await ctx.scheduler.runAfter(0, TICK, { gameId: game._id, leaseId });
   await ctx.scheduler.runAfter(WATCHDOG_MS, WATCHDOG, { gameId: game._id, leaseId });
