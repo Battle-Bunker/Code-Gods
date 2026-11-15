@@ -155,12 +155,10 @@ try {
       assert.equal(await page.getByTestId("hold").count(), 0, "no hold control in the forge");
       await page.getByTestId("leave-alone").waitFor();
     }
-    if (label === "phone") {
-      // A phone folds the agent's code behind "Show the code" (a wall of code filled the screen in a persona walk).
-      assert.equal(await page.getByTestId("input-forge-code").count(), 0, "phone: the code is folded");
-      await page.getByTestId("button-forge-show-code").click();
-      await page.getByTestId("input-forge-code").waitFor();
-    }
+    // The agent's code is folded behind "Show the code" on every screen (round 26: 40 lines of comments opened the pane).
+    assert.equal(await page.getByTestId("input-forge-code").count(), 0, `${label}: the code is folded`);
+    await page.getByTestId("button-forge-show-code").click();
+    await page.getByTestId("input-forge-code").waitFor();
 
     const startNow = page.getByTestId("button-start-world");
     if (await startNow.count()) { await startNow.click(); await startNow.click().catch(() => {}); }

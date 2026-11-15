@@ -95,7 +95,7 @@ try {
     // Force a lasting shortfall while still planning: the first agent takes 99% of the power (its energy goes with it),
     // then ask for a second agent. Nothing accrues in planning, so the forge must not promise "pays by itself in about
     // N s" (round 6): it says energy comes in once the world runs, and offers to pull power back now.
-    if (label === "phone") await page.getByTestId("button-forge-show-code").click().catch(() => {});
+    await page.getByTestId("button-forge-show-code").click().catch(() => {});
     await allocate(page, { [await firstAgent(page)]: 0.99 });
     await page.getByTestId("button-summon-beside").click();
     await page.getByTestId("text-forge-status").getByText(/Energy only comes in once the world runs: pull power back from your agents to pay now, or start the world\./).waitFor({ timeout: 30_000 });
