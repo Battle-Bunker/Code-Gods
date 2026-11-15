@@ -1,5 +1,5 @@
 # Steep Ratio · Naive (for learning)
-# Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: whichever you were dealt (that number shares a factor with the y-intercepts' gap; that number has a big smallest prime factor).
+# Main part: one line a whole number of times as steep, on your pattern. Secondary preference: whichever you were dealt (that number shares a factor with the y-intercepts' gap; that number has a big smallest prime factor).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -7,7 +7,7 @@
 
 
 def score(L, p, tie):
-    # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good are the two lines L for your rule? [main part, secondary]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     if f.ratio is None:   # no ratio of gradients: no score
         return None

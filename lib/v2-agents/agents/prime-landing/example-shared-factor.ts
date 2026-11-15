@@ -1,5 +1,5 @@
 // Prime Landing · Example: the factor that prime minus 1 shares with the y-intercept's whole part
-// Main part: where the line lands on the x-axis, on as big a dealt prime as possible. Tie-breaker: the factor that prime minus 1 shares with the y-intercept's whole part.
+// Main part: where the line lands on the x-axis, on as big a dealt prime as possible. Secondary preference: the factor that prime minus 1 shares with the y-intercept's whole part.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,7 +9,7 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: change FAR = 3 to 2: a shift by a whole number moves the landing by c's change over the gradient.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p) {
   if (m === null) {               // the vertical line x = c
     const level = p => { const D = Q.toString(p).length; let L = 0; while (((L + 1) * (L + 2)) / 2 <= D) L++; return Q.add(L, Q.div(Q.add(D - (L * (L + 1)) / 2, Q.div(p, Q.of(10n ** BigInt(D)))), L + 1)); };   // levels of digits: level L needs L(L + 1)/2
@@ -26,7 +26,7 @@ function score(m, c, p) {
   const gap = Q.abs(Q.sub(x, landing));            // on the rung when it rounds there (within 1/2, ties up)
   const main = Q.cmp(Q.mul(2, gap), 1) < 0 || Q.eq(Q.sub(landing, x), Q.div(1, 2)) ? level(landing) : Q.neg(Q.sub(gap, Q.div(1, 2)));
   const wc = whole(Q.div(Q.sub(Q.mul(2, c), 1), 2));   // the y-intercept's whole part (rounded down)
-  return [main, common(Q.sub(landing, 1), wc)];   // main: the prime ending in the rule's digit that where the line lands on the x-axis rounds to (bigger is better: a ladder with no top), else minus how far it is from rounding to one; tie-breaker: take the number just before that prime: a bigger number dividing both it and the y-intercept's whole part is better
+  return [main, common(Q.sub(landing, 1), wc)];   // main: the prime ending in the rule's digit that where the line lands on the x-axis rounds to (bigger is better: a ladder with no top), else minus how far it is from rounding to one; secondary: take the number just before that prime: a bigger number dividing both it and the y-intercept's whole part is better
 }
 
 const FAR = 3;      // how far one change may go

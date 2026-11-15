@@ -1,5 +1,5 @@
 // Magic Eighteen · Example: rows of all different numbers
-// Main part: every row adds up to the target. Tie-breaker: rows of all different numbers.
+// Main part: every row adds up to the target. Secondary preference: rows of all different numbers.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 // (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -7,11 +7,11 @@
 // raises your points most (your rarity times the other players').
 // Try this: remove the "trade" line: can single cells make a row's numbers differ and keep its total?
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] + b[r + 1] + b[r + 2] + b[r + 3] - p.T);   // each row: how far its total is from T
-  return [main, [0, 4, 8, 12].filter(r => new Set(b.slice(r, r + 4)).size === 4).length];   // main: how far the rows' totals are from T, added up (closer is better); tie-breaker: more rows of four different numbers is better
+  return [main, [0, 4, 8, 12].filter(r => new Set(b.slice(r, r + 4)).size === 4).length];   // main: how far the rows' totals are from T, added up (closer is better); secondary: more rows of four different numbers is better
 }
 
 const FAR = 2;      // how far one change may go

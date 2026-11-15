@@ -1,5 +1,5 @@
 // Square Area · Example: prime factors of that square's root
-// Main part: area close to a square number. Tie-breaker: prime factors of that square's root.
+// Main part: area close to a square number. Secondary preference: prime factors of that square's root.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,7 +9,7 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: change FAR = 3 to 2: shorter steps cost less; does it still reach bigger squares?
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p) {
   if (Q.isZero(m) || Q.isZero(c)) return null;    // no triangle: the worst score
   const area = Q.div(Q.mul(c, c), Q.mul(2, Q.abs(m)));
@@ -17,7 +17,7 @@ function score(m, c, p) {
   if (sq === null) return null;                   // none within 10,000: hopeless
   const main = Q.neg(Q.abs(Q.sub(area, sq)));
   const f = factors(root(sq));                    // the prime factors of that square's root
-  return [main, f.length];   // main: how far the triangle's area is from a square number (closer is better); tie-breaker: more prime factors in the root are better
+  return [main, f.length];   // main: how far the triangle's area is from a square number (closer is better); secondary: more prime factors in the root are better
 }
 
 const FAR = 3;      // how far one change may go

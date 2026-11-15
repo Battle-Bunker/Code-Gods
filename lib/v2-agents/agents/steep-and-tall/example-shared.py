@@ -1,5 +1,5 @@
 # Steep and Tall · Example: prime factors shared by the whole parts of the gradient and the y-intercept
-# Main part: the smaller of the gradient and the y-intercept. Tie-breaker: prime factors shared by the whole parts of the gradient and the y-intercept.
+# Main part: the smaller of the gradient and the y-intercept. Secondary preference: prime factors shared by the whole parts of the gradient and the y-intercept.
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,10 +11,10 @@
 
 
 def score(m, c, p):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     main = min(m, c)                                # the smaller of the two
     fm, fc = m // 1, c // 1                         # each rounded down
-    return [main, shared(fm, fc)]   # main: the smaller of the gradient and the y-intercept (bigger is better); tie-breaker: those two rounded down sharing many prime factors is better
+    return [main, shared(fm, fc)]   # main: the smaller of the gradient and the y-intercept (bigger is better); secondary: those two rounded down sharing many prime factors is better
 
 
 FAR = 3      # how far one change may go

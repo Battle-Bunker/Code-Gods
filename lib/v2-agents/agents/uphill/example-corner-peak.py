@@ -1,5 +1,5 @@
 # Uphill · Example: numbers smaller than the number in the corner you walk toward
-# Main part: rising steps toward the corner. Tie-breaker: numbers smaller than the number in the corner you walk toward.
+# Main part: rising steps toward the corner. Secondary preference: numbers smaller than the number in the corner you walk toward.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -9,7 +9,7 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     right, down = p["corner"][1] == "R", p["corner"][0] == "B"   # which way to walk
     rises = []   # each step toward the corner, along the rows and down the columns: how much it rises
     for i in range(16):
@@ -18,7 +18,7 @@ def score(b, p):
         if i < 12:
             rises.append(b[i + 4] - b[i] if down else b[i] - b[i + 4])
     main = len([d for d in rises if d > 0])
-    return [main, len([x for x in b if x < b[(12 if down else 0) + (3 if right else 0)]])]   # main: the steps along every row and column toward the corner that reach a bigger number (more is better); tie-breaker: more numbers smaller than the one in the corner you walk toward is better
+    return [main, len([x for x in b if x < b[(12 if down else 0) + (3 if right else 0)]])]   # main: the steps along every row and column toward the corner that reach a bigger number (more is better); secondary: more numbers smaller than the one in the corner you walk toward is better
 
 
 FAR = 2      # how far one change may go

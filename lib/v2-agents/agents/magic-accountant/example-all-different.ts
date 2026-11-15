@@ -1,5 +1,5 @@
 // Magic Accountant · Example: rows (or columns) of four different numbers
-// Main part: every row (or column) adds up to the magic number. Tie-breaker: rows (or columns) of four different numbers.
+// Main part: every row (or column) adds up to the magic number. Secondary preference: rows (or columns) of four different numbers.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 // (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -7,11 +7,11 @@
 // raises your points most (your rarity times the other players').
 // Try this: remove the "trade" line: can single steps make the numbers differ without spoiling the totals?
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (let k = 0; k < 4; k++) { let t = 0; for (let j = 0; j < 4; j++) t += p.axis === "rows" ? b[4 * k + j] : b[4 * j + k]; main -= Math.abs(t - p.T); }   // each line: how far its total is from T
-  return [main, [0, 1, 2, 3].filter(k => new Set([0, 1, 2, 3].map(j => (p.axis === "rows" ? b[4 * k + j] : b[4 * j + k]))).size === 4).length];   // main: how far each row's (or column's) total is from T, added up (closer is better); tie-breaker: more rows (or columns, the dealt way) of four different numbers is better
+  return [main, [0, 1, 2, 3].filter(k => new Set([0, 1, 2, 3].map(j => (p.axis === "rows" ? b[4 * k + j] : b[4 * j + k]))).size === 4).length];   // main: how far each row's (or column's) total is from T, added up (closer is better); secondary: more rows (or columns, the dealt way) of four different numbers is better
 }
 
 const FAR = 2;      // how far one change may go

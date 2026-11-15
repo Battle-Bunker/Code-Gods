@@ -1,12 +1,12 @@
 // Strangers · Naive (for learning)
-// Main part: touching strangers in the corner boxes. Tie-breaker: strangers that are both prime.
+// Main part: touching strangers in the corner boxes. Secondary preference: strangers that are both prime.
 // What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 // board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 // board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
 // from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   const gcd = (x, y) => (y ? gcd(y, x % y) : x);   // the greatest common divisor
   let main = 0, ones = 0;
@@ -20,7 +20,7 @@ function score(b, p) {
     const u = b[x[i]], w = b[x[j]];
     if ([2, 3, 5, 7].includes(u) && [2, 3, 5, 7].includes(w) && gcd(u, w) === 1 && Math.abs(u - w) >= 2) primeSt++;
   }
-  return [main, primeSt];   // main: how many touching pairs in the corner boxes are strangers (more is better); tie-breaker: more strangers that are both prime is better
+  return [main, primeSt];   // main: how many touching pairs in the corner boxes are strangers (more is better); secondary: more strangers that are both prime is better
 }
 
 const FAR = 1;      // how far one change may go

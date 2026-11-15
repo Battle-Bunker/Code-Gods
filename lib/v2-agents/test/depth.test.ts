@@ -26,7 +26,7 @@ test("a depth-3 rule: its layers in order, its key, and its card", () => {
   assert.throws(() => ruleLayers(exactChange, "big-bill>big-bill"), /repeats/);
   assert.throws(() => ruleLayers(exactChange, "big-bill>nope"), /no tie-breaker nope/);
   const card = exactChange.card(P, TB);
-  assert.match(card, /Tie-breaker: The bill N should be as big as possible\. Then: Both coin values should be as close as possible to primes/);
+  assert.match(card, /Secondary: The bill N should be as big as possible\. Third: Both coin values should be as close as possible to primes/);
 });
 
 test("a depth-3 score ranks by the main layer, then the first tie-breaker, then the second", () => {

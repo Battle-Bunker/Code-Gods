@@ -1,5 +1,5 @@
 # Leapfrog · Bold
-# Main part: each number one apart from the number two cells along. Tie-breaker: down the columns: each number one apart from the number two cells below.
+# Main part: each number one apart from the number two cells along. Secondary preference: down the columns: each number one apart from the number two cells below.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 # other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
@@ -8,11 +8,11 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     main = 0
     for i in [0, 1, 4, 5, 8, 9, 12, 13]:   # cell i and the cell two along
         main -= abs(abs(b[i] - b[i + 2]) - 1)
-    return [main, -sum(abs(abs(b[i] - b[i + 8]) - 1) for i in range(8))]   # main: how far each number and the number two cells along its row are from one apart, added up (closer is better); tie-breaker: each number closer to one apart from the number two cells down is better
+    return [main, -sum(abs(abs(b[i] - b[i + 8]) - 1) for i in range(8))]   # main: how far each number and the number two cells along its row are from one apart, added up (closer is better); secondary: each number closer to one apart from the number two cells down is better
 
 
 FAR = 2      # how far one change may go

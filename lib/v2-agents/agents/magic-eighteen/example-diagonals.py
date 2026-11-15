@@ -1,5 +1,5 @@
 # Magic Eighteen · Example: both diagonals add up to the target too
-# Main part: every row adds up to the target. Tie-breaker: both diagonals add up to the target too.
+# Main part: every row adds up to the target. Secondary preference: both diagonals add up to the target too.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -9,11 +9,11 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     main = 0
     for r in range(0, 16, 4):   # each row: how far its total is from T
         main -= abs(b[r] + b[r + 1] + b[r + 2] + b[r + 3] - p["T"])
-    return [main, -abs(b[0] + b[5] + b[10] + b[15] - p["T"]) - abs(b[3] + b[6] + b[9] + b[12] - p["T"])]   # main: how far the rows' totals are from T, added up (closer is better); tie-breaker: diagonals adding up closer to T are better
+    return [main, -abs(b[0] + b[5] + b[10] + b[15] - p["T"]) - abs(b[3] + b[6] + b[9] + b[12] - p["T"])]   # main: how far the rows' totals are from T, added up (closer is better); secondary: diagonals adding up closer to T are better
 
 
 FAR = 2      # how far one change may go

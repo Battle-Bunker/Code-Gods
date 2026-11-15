@@ -1,5 +1,5 @@
 # Square Area · Example: prime factors of that square's root
-# Main part: area close to a square number. Tie-breaker: prime factors of that square's root.
+# Main part: area close to a square number. Secondary preference: prime factors of that square's root.
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,7 +11,7 @@
 
 
 def score(m, c, p):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m == 0 or c == 0:                            # no triangle: the worst score
         return None
     area = c * c / (2 * abs(m))
@@ -20,7 +20,7 @@ def score(m, c, p):
         return None
     main = -abs(area - sq)
     f = factors(root(sq))                           # the prime factors of that square's root
-    return [main, len(f)]   # main: how far the triangle's area is from a square number (closer is better); tie-breaker: more prime factors in the root are better
+    return [main, len(f)]   # main: how far the triangle's area is from a square number (closer is better); secondary: more prime factors in the root are better
 
 
 FAR = 3      # how far one change may go

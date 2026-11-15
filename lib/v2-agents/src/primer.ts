@@ -115,7 +115,7 @@ interface PrimerWords {
 const WORDS: Readonly<Record<string, PrimerWords>> = {
   line: {
     title: "lines", one: "line", many: "lines",
-    game: "The game is played on lines: every piece is one line, read in several views. Each player has a rule about lines, made of a main part and a tie-breaker (for example \"make the gradient close to a prime; tie-breaker: the bigger that prime, the better\").",
+    game: "The game is played on lines: every piece is one line, read in several views. Each player has a rule about lines: a main part and a secondary preference (for example \"make the gradient close to a prime; secondary: the bigger that prime, the better\").",
     prices: "A move by k costs k moves by 1, so a big jump never saves; ×6 (mach.stretch) costs ×2 plus ×3. Numbers made of small primes are cheap (24), big primes dear (23).",
     deal: "\"I leave line 4's y-intercept alone if you keep its gradient prime\"",
     typescript: "the same shape with Q for arithmetic",
@@ -123,7 +123,7 @@ const WORDS: Readonly<Record<string, PrimerWords>> = {
   },
   grid: {
     title: "grids", one: "board", many: "boards",
-    game: "The game is played on boards: every piece is a 4×4 board of the numbers 0 to 9 (cells r0c0 … r3c3, row by row, counted from 0), read in several views. Each player has a rule about boards, made of a main part and a tie-breaker (for example \"every row should read the same backwards, like 3 1 1 3; tie-breaker: the middle two columns as big as possible\").",
+    game: "The game is played on boards: every piece is a 4×4 board of the numbers 0 to 9 (cells r0c0 … r3c3, row by row, counted from 0), read in several views. Each player has a rule about boards: a main part and a secondary preference (for example \"every row should read the same backwards, like 3 1 1 3; secondary: the middle two columns as big as possible\").",
     prices: "A move by k costs k moves by 1, so climb in small steps; a change that raises the board's total pays a surcharge of half the growth, so big numbers are rare and dear; rearranging (swaps, turns, writing a row backwards) pays none.",
     deal: "\"I leave board 4's top row alone if you keep its corners big\"",
     typescript: "the same shape, with plain numbers (a view's numbers are Q: Q.toNumber reads them)",
@@ -163,7 +163,7 @@ export function agentPrimer<S>(type: ObjectType<S> = lineType as unknown as Obje
 
 THE GAME. ${w.game} A ${one}'s score on a rule is its rarity: ${many} that random play rarely makes that good are worth more points. The player understands their rule, negotiates with the others and tells you what their agent should do; you write that agent and explain it in plain words.
 
-WORDS. To the player say points, rarity in bits (each bit = twice as rare), energy, power, main part, tie-breaker, ${one}, view. Never "object" or "representation". A ${one} scores the player's bits × the other players' bits on it added together; a total adds up all the ${many}.
+WORDS. To the player say points, rarity in bits (each bit = twice as rare), energy, power, main part, secondary preference, ${one}, view. Never "object" or "representation". A ${one} scores the player's bits × the other players' bits on it added together; a total adds up all the ${many}.
 
 AN AGENT. A program in Python or TypeScript that defines agent(offer). Each turn it is offered one ${one}, may look at it and price changes, and returns a plan (a list of moves) or None / null to skip. If any move in a plan is not allowed, the whole turn fails and nothing changes.
 
@@ -186,7 +186,7 @@ Lower level, if needed: offer.view / element / quote / budget, Q (TypeScript rat
 
 PLAYING FOR POINTS. A player's points on a ${one} are their rarity there times the other players' rarity there, added up: a ${one} only they like scores nothing, a move that spoils a ${one} for the others lowers their points too, and a tug-of-war burns energy on both sides. The starters (not "Naive", a teaching example) take the step that raises their points most (climb), so they improve a ${one} for several rules at once, note tug-of-wars to their owner (contested(offer, 3)), and keep two lists a player sets after a deal in chat (${w.deal}): PROTECT (${many} where they only make moves that keep the others as well off; fair(offer, plan) checks) and LEAVE (${many} they never touch). No two ${many} may be in the same state and long moves are expensive, so points come from climbing step by step toward states good for everyone. offer.object is the ${one}'s number.
 
-STARTING POINTS. Every rule has a ready example for its tie-breaker and three starters (Simple, Thorough, Bold) plus a "Naive" one to learn from; each has one "Try this:" comment. Prefer changing the player's current agent with Replace over summoning a second one (two agents with different ideas undo each other). Check a program before summoning: it runs once on sample ${many} and reports the price. After a change, compare points per move; put the previous version back if it did worse.
+STARTING POINTS. Every rule has a ready example for each secondary and three starters (Simple, Thorough, Bold) plus a "Naive" one to learn from; each has one "Try this:" comment. Prefer changing the player's current agent with Replace over summoning a second one (two agents with different ideas undo each other). Check a program before summoning: it runs once on sample ${many} and reports the price. After a change, compare points per move; put the previous version back if it did worse.
 ${ex ? `
 EXAMPLE (Python; the TypeScript is ${w.typescript}):
 ${ex}` : ""}

@@ -1,5 +1,5 @@
 // Crossing Check · Simple
-// Main part: y(k) close to x(q). Tie-breaker: whichever you were dealt (they cross at a big number; x(q) nearly whole).
+// Main part: y(k) close to x(q). Secondary preference: whichever you were dealt (they cross at a big number; x(q) nearly whole).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,14 +9,14 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: add the seq.step line from the Thorough starter: a third way to change the line.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (Q.isZero(m)) return null;                   // a flat line never reaches height q
   const y = Q.add(Q.mul(m, p.k), c);              // y(k): the height at x = k
   const x = Q.div(Q.sub(p.q, c), m);              // x(q): where the line reaches height q
   const main = Q.neg(Q.abs(Q.sub(y, x)));
   // main: how far apart y(k) and x(q) are (closer is better)
-  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     if (t === "size") return Q.abs(x);   // a bigger x(q) is better
     if (t === "whole") return -(x.d - 1n);   // x(q) a whole number is best
     return null;

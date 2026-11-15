@@ -1,17 +1,17 @@
 // Staircase · Bold
-// Main part: numbers one more than the one before. Tie-breaker: stairs that are also 1 more the other way.
+// Main part: numbers one more than the one before. Secondary preference: stairs that are also 1 more the other way.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: change FAR = 2 to 1: single steps, the same price per step, but more turns to get there.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   const step = p.direction === "right" ? 1 : 4;   // the number before: to the left, or above
   let main = 0;
   for (let i = 0; i < 16; i++) if ((step === 1 ? i % 4 > 0 : i >= 4) && b[i] === b[i - step] + 1) main++;
-  return [main, b.filter((x, i) => i >= 4 && i % 4 > 0 && x === b[i - 1] + 1 && x === b[i - 4] + 1).length];   // main: the numbers exactly 1 more than the number before them (more is better); tie-breaker: more stairs that are also 1 more the other way (above, or to the left) is better
+  return [main, b.filter((x, i) => i >= 4 && i % 4 > 0 && x === b[i - 1] + 1 && x === b[i - 4] + 1).length];   // main: the numbers exactly 1 more than the number before them (more is better); secondary: more stairs that are also 1 more the other way (above, or to the left) is better
 }
 
 const FAR = 2;      // how far one change may go

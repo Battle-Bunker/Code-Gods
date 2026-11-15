@@ -1,5 +1,5 @@
 # Same on Both Rulers · Naive (for learning)
-# Main part: where the line meets y = x or y = −x, on as big a number reading the same backwards as possible (ignoring a minus sign). Tie-breaker: whichever you were dealt (the biggest number dividing both that number's digits added up and the gradient's whole part).
+# Main part: where the line meets y = x or y = −x, on as big a number reading the same backwards as possible (ignoring a minus sign). Secondary preference: whichever you were dealt (the biggest number dividing both that number's digits added up and the gradient's whole part).
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -33,7 +33,7 @@ def on_rung(y, r):   # on the rung when y rounds to it: its levels of digits (le
     return L + (D - L * (L + 1) // 2 + Fraction(r, 10 ** D)) / (L + 1)
 
 def score(m, c, p, tie):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m is None:              # the vertical line x = c
         y = abs(c)                                     # x = c meets y = x and y = -x at x = c
         main = on_rung(y, rung_of(y, p["digits"] == "odd"))
@@ -44,7 +44,7 @@ def score(m, c, p, tie):
     rung = rung_of(y, p["digits"] == "odd")
     main = on_rung(y, rung)
     # main: the palindrome with an odd (or even) number of digits that the line's meeting point with y = x (or y = -x) rounds to, ignoring its sign, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one
-    def tier(t):   # each tie-breaker, in order (None: ranks last)
+    def tier(t):   # each secondary, in order (None: ranks last)
         if t == "shared-factor":   # a bigger number dividing both the palindrome's digit sum and the gradient's whole part is better
             total, wm = sum(int(ch) for ch in str(rung)), whole(abs(m) - Fraction(1, 2))   # the palindrome's digits added up; the whole part of |m|
             return common(total, wm)

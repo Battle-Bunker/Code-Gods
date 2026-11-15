@@ -1,5 +1,5 @@
 // Smooth Intercept · Example: the factor that number plus 1 shares with the gradient's whole part
-// Main part: the y-intercept made of as many of the dealt primes as possible. Tie-breaker: the factor that number plus 1 shares with the gradient's whole part.
+// Main part: the y-intercept made of as many of the dealt primes as possible. Secondary preference: the factor that number plus 1 shares with the gradient's whole part.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,7 +9,7 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: change FAR = 3 to 2: tilting never moves the y-intercept, so the rung stays.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p) {
   const a = Q.abs(c), s = nearMadeOf(a, p.primes);   // the nearest rung: made only of the rule's primes
   let main = Q.neg(Q.abs(Q.sub(a, s)));           // off every rung: below them all
@@ -19,7 +19,7 @@ function score(m, c, p) {
     main = Q.add(level, Q.div(Q.add(omega - (level * (level + 1)) / 2, Q.div(1, Q.add(2, s))), level + 1));
   }
   const wm = whole(Q.div(Q.sub(Q.mul(2, m), 1), 2));   // the gradient's whole part (rounded down)
-  return [main, common(Q.add(s, 1), wm)];   // main: how many of the rule's primes the y-intercept (ignoring sign) is made of, in levels that each need one more than the last (more is better: a ladder with no top; of two with as many, the smaller), else minus how far it is from the nearest such number; tie-breaker: take the number just after that number: a bigger number dividing both it and the gradient's whole part is better
+  return [main, common(Q.add(s, 1), wm)];   // main: how many of the rule's primes the y-intercept (ignoring sign) is made of, in levels that each need one more than the last (more is better: a ladder with no top; of two with as many, the smaller), else minus how far it is from the nearest such number; secondary: take the number just after that number: a bigger number dividing both it and the gradient's whole part is better
 }
 
 const FAR = 3;      // how far one change may go

@@ -1,19 +1,19 @@
 // Smooth Square · Naive (for learning)
-// Main part: area close to a square number. Tie-breaker: whichever you were dealt (prime factors shared by that square's root and the x-intercept's nearest whole number).
+// Main part: area close to a square number. Secondary preference: whichever you were dealt (prime factors shared by that square's root and the x-intercept's nearest whole number).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
 // It is here to learn from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same lines and watch your points: then switch to Simple.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (Q.isZero(m) || Q.isZero(c)) return null;    // no triangle: the worst score
   const area = Q.div(Q.mul(c, c), Q.mul(2, Q.abs(m)));
   const sq = near(area, square);                  // the square number nearest the area
   const main = Q.neg(Q.abs(Q.sub(area, sq)));
   // main: how far the triangle's area is from a square number (closer is better)
-  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     if (t === "shared") return shared(root(sq), whole(Q.neg(Q.div(c, m))));   // that square's root sharing many prime factors with the whole number nearest the x-axis crossing is better
     return null;
   })];

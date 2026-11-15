@@ -1,16 +1,16 @@
 // Mirrormancer · Thorough
-// Main part: every row reads the same backwards. Tie-breaker: every column reads the same backwards.
+// Main part: every row reads the same backwards. Secondary preference: every column reads the same backwards.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: change QUOTES = 6 to 2: fewer prices asked, but it may miss a cheaper plan.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] - b[r + 3]) + Math.abs(b[r + 1] - b[r + 2]);   // each row: its ends' gap and its middle's gap
-  return [main, -[0, 1, 2, 3].reduce((t, c) => t + Math.abs(b[c] - b[c + 12]) + Math.abs(b[c + 4] - b[c + 8]), 0)];   // main: how far each row is from reading the same backwards, added up (closer is better); tie-breaker: columns closer to reading the same backwards are better
+  return [main, -[0, 1, 2, 3].reduce((t, c) => t + Math.abs(b[c] - b[c + 12]) + Math.abs(b[c + 4] - b[c + 8]), 0)];   // main: how far each row is from reading the same backwards, added up (closer is better); secondary: columns closer to reading the same backwards are better
 }
 
 const FAR = 1;      // how far one change may go

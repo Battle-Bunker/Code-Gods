@@ -50,7 +50,7 @@ export const playOps = [
 
   affordance({
     id: "rule.explain", title: "Explain my rule", group: "play", scope: "game",
-    description: "The caller's private rule: family, parameters, its layers (main part, tie-breakers), the card sentence, which representations it reads, and the handicap if it was won by bid. Its value curve is rule.values. Never reveals other players' rules.",
+    description: "The caller's private rule: family, parameters, its layers (main goal, then secondary preferences in order), the card sentence, which representations it reads, and the handicap if it was won by bid. Its value curve is rule.values. Never reveals other players' rules.",
     tooltip: "What your rule wants.", keywords: ["my rule", "goal", "card", "what do I want"],
     params: none,
     result: z.object({
@@ -65,6 +65,14 @@ export const playOps = [
     tooltip: "How much each score is worth to you.", keywords: ["values", "curve", "rarity", "bits", "worth"],
     params: none, result: z.object({ points: z.array(knot) }),
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
+  }),
+  affordance({
+    id: "rule.candidates", title: "List the rules that could be dealt", group: "play", scope: "game",
+    description: "Every rule this game's dealer could deal to a player (v1's list_utility_candidates): family, parameters, tie-breaker and the card a player holding it reads. The other players' rules are among these; the list never says who holds which. Read it with log.list to work out what the others want.",
+    tooltip: "Every rule anyone could hold here.", keywords: ["candidates", "possible rules", "rivals", "what could the others want", "rule list"],
+    params: none,
+    result: z.object({ rules: z.array(z.object({ family: z.string(), params: z.record(z.string(), z.unknown()), tieBreaker: z.string().nullable(), card: z.string() })) }),
+    contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
     id: "rule.worth", title: "Look up what a score is worth", group: "play", scope: "game",

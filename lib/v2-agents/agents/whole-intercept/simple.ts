@@ -1,5 +1,5 @@
 // Whole Intercept · Simple
-// Main part: y-intercept close to a whole number. Tie-breaker: whichever you were dealt (smallest prime factor of that whole number; prime factors of that whole number).
+// Main part: y-intercept close to a whole number. Secondary preference: whichever you were dealt (smallest prime factor of that whole number; prime factors of that whole number).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,7 +9,7 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: add the seq.step line from the Thorough starter: a third way to change the line.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   const up = whole(c);                            // the whole number nearest the y-intercept (a half rounds up)
   const spf = k => (Q.isZero(k) ? 2 : (factors(k)[0] ?? 1));   // smallest prime factor: 2 for 0, 1 for 1 and -1
@@ -18,7 +18,7 @@ function score(m, c, p, tie) {
   const main = Q.neg(Q.abs(Q.sub(c, n)));
   const f = factors(n);                           // its prime factors, smallest first
   // main: how far the y-intercept is from a whole number (closer is better)
-  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     if (t === "spf") return spf(n);   // a bigger smallest prime factor is better (a big prime is best)
     if (t === "omega") return f.length;   // more prime factors are better
     return null;

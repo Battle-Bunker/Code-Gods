@@ -1,5 +1,5 @@
 # Ruler · Naive (for learning)
-# Main part: distance² from (0, 0) on as big a dealt prime as possible. Tie-breaker: whichever you were dealt (the factor that prime minus 1 shares with the y-intercept's whole part).
+# Main part: distance² from (0, 0) on as big a dealt prime as possible. Secondary preference: whichever you were dealt (the factor that prime minus 1 shares with the y-intercept's whole part).
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -8,7 +8,7 @@
 
 
 def score(m, c, p, tie):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m is None:              # the vertical line x = c
         d2 = c * c                                      # its distance from (0, 0), squared
         x = d2 - Fraction(1, 2)
@@ -24,7 +24,7 @@ def score(m, c, p, tie):
     level = lambda p: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(p, 10 ** D)) / (L + 1))(len(str(p)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(p))))   # levels of digits: level L needs L(L + 1)/2
     main = level(rung) if 2 * gap < 1 or rung - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
     # main: the prime ending in the rule's digit that the distance from (0, 0), squared, rounds down to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far it is from rounding down to one
-    def tier(t):   # each tie-breaker, in order (None: ranks last)
+    def tier(t):   # each secondary, in order (None: ranks last)
         if t == "shared-factor":   # that prime minus 1 and the y-intercept's whole part: a bigger factor shared is better
             wc = whole((2 * abs(c) - 1) / 2)          # the y-intercept's whole part, ignoring its sign
             return common(rung - 1, wc)

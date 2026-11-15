@@ -1,12 +1,12 @@
 // Strangers · Simple
-// Main part: touching strangers in the corner boxes. Tie-breaker: strangers across the corner boxes' borders.
+// Main part: touching strangers in the corner boxes. Secondary preference: strangers across the corner boxes' borders.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: add the "trade" line from the Thorough starter: moving an amount from one cell to another keeps their total.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   const gcd = (x, y) => (y ? gcd(y, x % y) : x);   // the greatest common divisor
   let main = 0, ones = 0;
@@ -17,7 +17,7 @@ function score(b, p) {
   }
   let across = 0;   // touching pairs across the boxes' borders that are strangers
   for (const [i, j] of [[1, 2], [5, 6], [9, 10], [13, 14], [4, 8], [5, 9], [6, 10], [7, 11]]) if (b[i] > 1 && b[j] > 1 && gcd(b[i], b[j]) === 1 && Math.abs(b[i] - b[j]) >= 2) across++;
-  return [main, across];   // main: how many touching pairs in the corner boxes are strangers (more is better); tie-breaker: more strangers across the corner boxes' borders is better
+  return [main, across];   // main: how many touching pairs in the corner boxes are strangers (more is better); secondary: more strangers across the corner boxes' borders is better
 }
 
 const FAR = 1;      // how far one change may go

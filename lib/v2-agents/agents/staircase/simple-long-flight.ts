@@ -1,19 +1,19 @@
 // Staircase · Simple
-// Main part: numbers one more than the one before. Tie-breaker: cells in the longest flight of stairs.
+// Main part: numbers one more than the one before. Secondary preference: cells in the longest flight of stairs.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: add the "trade" line from the Thorough starter: moving an amount from one cell to another keeps their total.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   const step = p.direction === "right" ? 1 : 4;   // the number before: to the left, or above
   let main = 0;
   for (let i = 0; i < 16; i++) if ((step === 1 ? i % 4 > 0 : i >= 4) && b[i] === b[i - step] + 1) main++;
   let flight = 1;   // the longest flight: stairs one after another, counting the cell it starts from
   for (let k = 0; k < 4; k++) { let run = 1; for (let j = 1; j < 4; j++) { const i = step === 1 ? 4 * k + j : 4 * j + k; run = b[i] === b[i - step] + 1 ? run + 1 : 1; flight = Math.max(flight, run); } }   // along each row (or down each column)
-  return [main, flight];   // main: the numbers exactly 1 more than the number before them (more is better); tie-breaker: a longer flight of stairs is better
+  return [main, flight];   // main: the numbers exactly 1 more than the number before them (more is better); secondary: a longer flight of stairs is better
 }
 
 const FAR = 1;      // how far one change may go

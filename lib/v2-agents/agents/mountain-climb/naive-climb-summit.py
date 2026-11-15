@@ -1,5 +1,5 @@
 # Mountain Climb · Naive (for learning)
-# Main part: cells on the longest climb from the top-left cell. Tie-breaker: the biggest number the climb reaches.
+# Main part: cells on the longest climb from the top-left cell. Secondary preference: the biggest number the climb reaches.
 # What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 # board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 # board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
@@ -8,7 +8,7 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     def near(i):   # the cells touching cell i
         return [j for j in (i - 4, i + 4, i - 1 if i % 4 else -1, i + 1 if i % 4 < 3 else -1) if 0 <= j < 16]
     level, main = [0], 0   # start at the top-left cell
@@ -17,7 +17,7 @@ def score(b, p):
         main += 1
         reached += level
         level = list({j for i in level for j in near(i) if b[j] == b[i] + 1})   # each step: touching cells exactly 1 bigger
-    return [main, b[0] + main - 1]   # main: the cells on the longest climb from the top-left cell, each step 1 bigger (more is better); tie-breaker: a climb reaching a bigger number is better
+    return [main, b[0] + main - 1]   # main: the cells on the longest climb from the top-left cell, each step 1 bigger (more is better); secondary: a climb reaching a bigger number is better
 
 
 FAR = 1      # how far one change may go

@@ -1,5 +1,5 @@
 # Steep Ratio · Bold
-# Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: whichever you were dealt (that number shares a factor with the y-intercepts' gap; that number has a big smallest prime factor).
+# Main part: one line a whole number of times as steep, on your pattern. Secondary preference: whichever you were dealt (that number shares a factor with the y-intercepts' gap; that number has a big smallest prime factor).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -8,7 +8,7 @@
 
 
 def score(L, p, tie):
-    # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good are the two lines L for your rule? [main part, secondary]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     if f.ratio is None:   # no ratio of gradients: no score
         return None

@@ -1,5 +1,5 @@
 // Smooth Square · Example: prime factors shared by that square's root and the x-intercept's nearest whole number
-// Main part: area close to a square number. Tie-breaker: prime factors shared by that square's root and the x-intercept's nearest whole number.
+// Main part: area close to a square number. Secondary preference: prime factors shared by that square's root and the x-intercept's nearest whole number.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,13 +9,13 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: change FAR = 3 to 2: shorter steps cost less; does it still reach bigger squares?
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p) {
   if (Q.isZero(m) || Q.isZero(c)) return null;    // no triangle: the worst score
   const area = Q.div(Q.mul(c, c), Q.mul(2, Q.abs(m)));
   const sq = near(area, square);                  // the square number nearest the area
   const main = Q.neg(Q.abs(Q.sub(area, sq)));
-  return [main, shared(root(sq), whole(Q.neg(Q.div(c, m))))];   // main: how far the triangle's area is from a square number (closer is better); tie-breaker: that square's root sharing many prime factors with the whole number nearest the x-axis crossing is better
+  return [main, shared(root(sq), whole(Q.neg(Q.div(c, m))))];   // main: how far the triangle's area is from a square number (closer is better); secondary: that square's root sharing many prime factors with the whole number nearest the x-axis crossing is better
 }
 
 const FAR = 3;      // how far one change may go

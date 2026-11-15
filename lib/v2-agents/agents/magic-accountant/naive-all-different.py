@@ -1,5 +1,5 @@
 # Magic Accountant · Naive (for learning)
-# Main part: every row (or column) adds up to the magic number. Tie-breaker: rows (or columns) of four different numbers.
+# Main part: every row (or column) adds up to the magic number. Secondary preference: rows (or columns) of four different numbers.
 # What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 # board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 # board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
@@ -8,12 +8,12 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     main = 0
     for k in range(4):   # each line: how far its total is from T
         t = sum(b[4 * k + j] if p["axis"] == "rows" else b[4 * j + k] for j in range(4))
         main -= abs(t - p["T"])
-    return [main, len([k for k in range(4) if len({b[4 * k + j] if p["axis"] == "rows" else b[4 * j + k] for j in range(4)}) == 4])]   # main: how far each row's (or column's) total is from T, added up (closer is better); tie-breaker: more rows (or columns, the dealt way) of four different numbers is better
+    return [main, len([k for k in range(4) if len({b[4 * k + j] if p["axis"] == "rows" else b[4 * j + k] for j in range(4)}) == 4])]   # main: how far each row's (or column's) total is from T, added up (closer is better); secondary: more rows (or columns, the dealt way) of four different numbers is better
 
 
 FAR = 1      # how far one change may go

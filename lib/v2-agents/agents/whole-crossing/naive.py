@@ -1,5 +1,5 @@
 # Whole Crossing · Naive (for learning)
-# Main part: the x-axis crossing on a ladder of 5s. Tie-breaker: whichever you were dealt (the biggest number dividing both that number after its 5s, plus 1, and the gradient's whole part).
+# Main part: the x-axis crossing on a ladder of 5s. Secondary preference: whichever you were dealt (the biggest number dividing both that number after its 5s, plus 1, and the gradient's whole part).
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -8,7 +8,7 @@
 
 
 def score(m, c, p, tie):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m is None:              # the vertical line x = c
         x = c                                          # it stands on the x-axis at x = c
         # The ladder: x = 5^j × t with t leaving r when divided by 5 (1, 5, 25, ... times t). The nearest such number, any level,
@@ -54,7 +54,7 @@ def score(m, c, p, tie):
         L += 1
     main = L + Fraction(best[0] - L * (L + 1) // 2, L + 1) if best[2] == 0 else -Fraction(best[2], dd)   # on the ladder: its level; else below them all
     # main: the level of 5s the line's x-axis crossing holds when it is a whole number leaving r after its 5s are divided out (level L needs L(L + 1)/2 fives; more is better: a ladder with no top), else minus how far it is from the nearest such number
-    def tier(t):   # each tie-breaker, in order (None: ranks last)
+    def tier(t):   # each secondary, in order (None: ranks last)
         if t == "shared-factor":   # take that number with its 5s divided out, ignore its sign and add 1: a bigger number dividing both it and the gradient's whole part is better
             t1, wm = abs(best[1]) + 1, whole(abs(m) - Fraction(1, 2))   # |t| + 1, and the gradient's whole part ignoring sign
             return common(t1, wm)

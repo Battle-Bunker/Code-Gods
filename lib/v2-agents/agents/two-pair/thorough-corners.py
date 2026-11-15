@@ -1,5 +1,5 @@
 # Two Pair · Thorough
-# Main part: every corner box holds two different pairs. Tie-breaker: the board's four corners.
+# Main part: every corner box holds two different pairs. Secondary preference: the board's four corners.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 # other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
@@ -8,12 +8,12 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     main = 0
     for x in BOXES:
         w, y, z, u = sorted(b[i] for i in x)   # the box's four numbers, smallest first
         main -= y - w + u - z + (2 if w == u else 0)   # pair the two smallest and the two biggest; four of a kind: two cells must move by 1
-    return [main, b[0] + b[3] + b[12] + b[15]]   # main: how far each corner box is from holding two different pairs, added up (closer is better); tie-breaker: bigger corners of the board are better
+    return [main, b[0] + b[3] + b[12] + b[15]]   # main: how far each corner box is from holding two different pairs, added up (closer is better); secondary: bigger corners of the board are better
 
 
 FAR = 1      # how far one change may go

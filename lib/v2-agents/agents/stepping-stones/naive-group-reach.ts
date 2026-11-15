@@ -1,12 +1,12 @@
 // Stepping Stones · Naive (for learning)
-// Main part: the biggest group you can hop between. Tie-breaker: rows and columns the biggest group reaches.
+// Main part: the biggest group you can hop between. Secondary preference: rows and columns the biggest group reaches.
 // What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 // board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 // board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
 // from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   const near = i => [i - 4, i + 4, i % 4 ? i - 1 : -1, i % 4 < 3 ? i + 1 : -1].filter(j => j >= 0 && j < 16);   // the cells touching cell i
   let best = [];   // the biggest group (the first found on a tie)
@@ -19,7 +19,7 @@ function score(b, p) {
     if (group.length > best.length) best = group;
   }
   const main = best.length;
-  return [main, new Set(best.map(i => Math.floor(i / 4))).size + new Set(best.map(i => i % 4)).size];   // main: the cells in the biggest group you can hop between, touching cells 2 apart (more is better); tie-breaker: a biggest group reaching into more rows and columns is better
+  return [main, new Set(best.map(i => Math.floor(i / 4))).size + new Set(best.map(i => i % 4)).size];   // main: the cells in the biggest group you can hop between, touching cells 2 apart (more is better); secondary: a biggest group reaching into more rows and columns is better
 }
 
 const FAR = 1;      // how far one change may go

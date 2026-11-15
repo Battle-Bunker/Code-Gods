@@ -1,5 +1,5 @@
 # Strangers · Bold
-# Main part: touching strangers in the corner boxes. Tie-breaker: strangers across the corner boxes' borders.
+# Main part: touching strangers in the corner boxes. Secondary preference: strangers across the corner boxes' borders.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 # other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
@@ -8,7 +8,7 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     def gcd(x, y):   # the greatest common divisor
         return gcd(y, x % y) if y else x
     main, ones = 0, 0
@@ -23,7 +23,7 @@ def score(b, p):
     for i, j in [[1, 2], [5, 6], [9, 10], [13, 14], [4, 8], [5, 9], [6, 10], [7, 11]]:
         if b[i] > 1 and b[j] > 1 and gcd(b[i], b[j]) == 1 and abs(b[i] - b[j]) >= 2:
             across += 1
-    return [main, across]   # main: how many touching pairs in the corner boxes are strangers (more is better); tie-breaker: more strangers across the corner boxes' borders is better
+    return [main, across]   # main: how many touching pairs in the corner boxes are strangers (more is better); secondary: more strangers across the corner boxes' borders is better
 
 
 FAR = 2      # how far one change may go

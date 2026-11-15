@@ -24,6 +24,8 @@ export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
   "object.quote": "what-if", "object.score": "what-if",
   // The board at a moment (v1's get_board_at): beside the log it is built from.
   "game.boardAt": "feed",
+  // The rules anyone could hold (v1's list_utility_candidates): beside what the others care about (W5's "Possible gods").
+  "rule.candidates": "others-care",
 };
 /** Reads the room page shows (its members, past games, the rotation, the bid phase). */
 export const ROOM_READS: ReadonlySet<string> = new Set(["room.get", "room.history", "game.rotation", "bid.state"]);

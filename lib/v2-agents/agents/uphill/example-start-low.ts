@@ -1,5 +1,5 @@
 // Uphill · Example: numbers bigger than the number in the corner the walks start from
-// Main part: rising steps toward the corner. Tie-breaker: numbers bigger than the number in the corner the walks start from.
+// Main part: rising steps toward the corner. Secondary preference: numbers bigger than the number in the corner the walks start from.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 // (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -7,13 +7,13 @@
 // raises your points most (your rarity times the other players').
 // Try this: remove the "swap" line: can single steps lower the starting corner?
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   const right = p.corner[1] === "R", down = p.corner[0] === "B";   // which way to walk
   const rises = [];   // each step toward the corner, along the rows and down the columns: how much it rises
   for (let i = 0; i < 16; i++) { if (i % 4 < 3) rises.push(right ? b[i + 1] - b[i] : b[i] - b[i + 1]); if (i < 12) rises.push(down ? b[i + 4] - b[i] : b[i] - b[i + 4]); }
   let main = rises.filter(d => d > 0).length;
-  return [main, b.filter(x => x > b[15 - (down ? 12 : 0) - (right ? 3 : 0)]).length];   // main: the steps along every row and column toward the corner that reach a bigger number (more is better); tie-breaker: more numbers bigger than the one in the corner the walks start from is better
+  return [main, b.filter(x => x > b[15 - (down ? 12 : 0) - (right ? 3 : 0)]).length];   // main: the steps along every row and column toward the corner that reach a bigger number (more is better); secondary: more numbers bigger than the one in the corner the walks start from is better
 }
 
 const FAR = 2;      // how far one change may go

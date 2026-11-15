@@ -1,16 +1,16 @@
 // Mirrormancer · Naive (for learning)
-// Main part: every row reads the same backwards. Tie-breaker: every column reads the same backwards.
+// Main part: every row reads the same backwards. Secondary preference: every column reads the same backwards.
 // What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 // board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 // board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
 // from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] - b[r + 3]) + Math.abs(b[r + 1] - b[r + 2]);   // each row: its ends' gap and its middle's gap
-  return [main, -[0, 1, 2, 3].reduce((t, c) => t + Math.abs(b[c] - b[c + 12]) + Math.abs(b[c + 4] - b[c + 8]), 0)];   // main: how far each row is from reading the same backwards, added up (closer is better); tie-breaker: columns closer to reading the same backwards are better
+  return [main, -[0, 1, 2, 3].reduce((t, c) => t + Math.abs(b[c] - b[c + 12]) + Math.abs(b[c + 4] - b[c + 8]), 0)];   // main: how far each row is from reading the same backwards, added up (closer is better); secondary: columns closer to reading the same backwards are better
 }
 
 const FAR = 1;      // how far one change may go

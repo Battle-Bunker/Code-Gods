@@ -24,3 +24,11 @@ test("energy above the store's cap says so (grid games start at 900 energy above
   assert.equal(above.text, "900.00 (more than your store holds: 576.00; it won't refill above that)");
   assert.equal(above.full, true);
 });
+
+test("below zero the header says overdrawn, and that nothing can be summoned until income covers it (v1)", async () => {
+  const { ownEnergy } = await import("../src/core/words.ts");
+  const e = ownEnergy({ energy: -12.4, capacity: 100, ownPerSecond: 2 });
+  assert.match(e.text, /^overdrawn by 12\.4/);
+  assert.match(e.title, /cannot summon until your income/);
+  assert.equal(e.full, false);
+});

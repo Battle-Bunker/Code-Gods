@@ -1,5 +1,5 @@
 // Prime Staircase · Example: y(−1) close to such a prime
-// Main part: a run of different dealt primes from y(0). Tie-breaker: y(−1) close to such a prime.
+// Main part: a run of different dealt primes from y(0). Secondary preference: y(−1) close to such a prime.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,7 +9,7 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: remove the "tilt" line: does changing the step alone reach a prime one term back?
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p) {
   const run = [];                                 // the different primes ending in p.ends it starts with
   let t = c;                                      // ends as the first term that breaks the run
@@ -21,7 +21,7 @@ function score(m, c, p) {
   const d = Q.abs(Q.sub(miss, near(miss, prime, p.ends)));
   const main = Q.add(run.length, Q.div(1, Q.add(2, d)));   // a longer run always wins; a near miss beats a far one
   const back = Q.abs(Q.sub(c, m));               // y(-1), ignoring its sign
-  return [main, Q.neg(Q.abs(Q.sub(back, near(back, prime, p.ends))))];   // main: how many different primes ending in the rule's digit the pattern y(0), y(1), ... starts with (more is better: a ladder with no top), plus a little for the term that breaks the run being near such a prime; tie-breaker: y(-1) (ignoring sign) close to such a prime is better
+  return [main, Q.neg(Q.abs(Q.sub(back, near(back, prime, p.ends))))];   // main: how many different primes ending in the rule's digit the pattern y(0), y(1), ... starts with (more is better: a ladder with no top), plus a little for the term that breaks the run being near such a prime; secondary: y(-1) (ignoring sign) close to such a prime is better
 }
 
 const FAR = 3;      // how far one change may go

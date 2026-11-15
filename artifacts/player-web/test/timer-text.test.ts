@@ -48,3 +48,11 @@ test("world time runs at the header's timeScale (W3 #698: a sim or local playtes
   const x = timerText({ phase: "live", endsAt: null, durationMode: "halfLife", worldSeconds: 300, startedAt: 0, timeScale: 2, planningEndsAt: null, planningSeconds: 60 } as never, 10_000)!;
   assert.match(x.note, /^it cannot end for 0:10;/);
 });
+
+test("a player's pause counts down to when it resumes by itself, and says who paused (W3 #873)", () => {
+  const roster = [{ memberId: "m1", name: "Bo", kind: "human" }];
+  const x = timerText({ phase: "paused", pausedBy: "m1", pauseEndsAt: 161_000, roster, worldSeconds: 300, planningEndsAt: null, planningSeconds: 60 } as never, 0)!;
+  assert.deepEqual([x.label, x.value, x.note], ["Game", "paused", "Paused by Bo · resumes in 2:41"]);
+  const late = timerText({ phase: "paused", pausedBy: "m1", pauseEndsAt: 1_000, roster, worldSeconds: 300, planningEndsAt: null, planningSeconds: 60 } as never, 5_000)!;
+  assert.equal(late.note, "Paused by Bo · resuming…");
+});

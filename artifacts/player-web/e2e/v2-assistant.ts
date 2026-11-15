@@ -64,6 +64,8 @@ try {
 
     // Open the assistant from the first pane's menu (as a player would), unless it is already on screen.
     const pane = page.getByTestId("pane-assistant");
+    // On a phone an assistant already open waits as a lowered sheet at the bottom of the screen.
+    if (!await pane.count() && await page.getByTestId("button-assistant-sheet").count()) await page.getByTestId("button-assistant-sheet").click();
     if (!await pane.count()) {
       await page.locator("[data-testid^=button-pane-menu-]").first().click();
       await page.getByTestId("button-open-pane-assistant").click();
@@ -92,6 +94,14 @@ try {
     await pane.getByTestId("text-assistant-allowance").waitFor();
     assert.equal(await pane.getByTestId("button-assistant-mode-onRequest").getAttribute("aria-pressed"), "true");
     await shot(page, `assistant-${label}-settings`);
+    if (label === "phone") {
+      // v1's bottom sheet: the assistant over any pane, lowered to a bar and raised again.
+      const bar = page.getByTestId("button-assistant-sheet");
+      await bar.click();
+      assert.equal(await pane.count(), 0, "phone: the lowered sheet is a bar");
+      await bar.click();
+      await pane.getByTestId("assistant").waitFor();
+    }
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     assert.ok(overflow <= 0, `${label}: the page does not scroll sideways (${overflow}px)`);
     assert.deepEqual(errors, [], `${label}: no page errors`);

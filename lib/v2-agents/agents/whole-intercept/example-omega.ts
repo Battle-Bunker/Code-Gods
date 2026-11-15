@@ -1,5 +1,5 @@
 // Whole Intercept · Example: prime factors of that whole number
-// Main part: y-intercept close to a whole number. Tie-breaker: prime factors of that whole number.
+// Main part: y-intercept close to a whole number. Secondary preference: prime factors of that whole number.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,7 +9,7 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: remove the "stretch" line: is adding as good as multiplying here?
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p) {
   const up = whole(c);                            // the whole number nearest the y-intercept (a half rounds up)
   const spf = k => (Q.isZero(k) ? 2 : (factors(k)[0] ?? 1));   // smallest prime factor: 2 for 0, 1 for 1 and -1
@@ -17,7 +17,7 @@ function score(m, c, p) {
   const n = half && spf(Q.sub(up, 1)) > spf(up) ? Q.sub(up, 1) : up;   // halfway: the one with the bigger smallest prime factor
   const main = Q.neg(Q.abs(Q.sub(c, n)));
   const f = factors(n);                           // its prime factors, smallest first
-  return [main, f.length];   // main: how far the y-intercept is from a whole number (closer is better); tie-breaker: more prime factors are better
+  return [main, f.length];   // main: how far the y-intercept is from a whole number (closer is better); secondary: more prime factors are better
 }
 
 const FAR = 3;      // how far one change may go
