@@ -25,12 +25,16 @@ test("driftParams: uniform over all the dealable params (the current ones includ
   assert.deepEqual(driftParams({ dealable: () => [] as { T: number }[] }, variant, { T: 6 }, "g", 0, 1), { T: 6 });
 });
 
-test("driftParams: a `lens` param never drifts (Divisibility's powers stay powers, matching stays matching)", () => {
-  const lensed = { dealable: () => [{ lens: "powers", q: 3, layout: "halves" }, { lens: "powers", q: 3, layout: "alternate" }, { lens: "matching", q: 2, layout: "halves" }, { lens: "matching", q: 2, layout: "alternate" }] };
+test("driftParams: `lens` and `layout` params never drift (Divisibility keeps its goal and the cells it reads; q drifts)", () => {
+  const lensed = { dealable: () => (["powers", "matching"] as const).flatMap(lens => (["halves", "alternate"] as const).flatMap(layout => [2, 3].map(q => ({ lens, q, layout })))) };
+  const qs = new Set<number>();
   for (let tick = 1; tick <= 200; tick++) {
-    assert.equal(driftParams(lensed, variant, { lens: "powers", q: 3, layout: "halves" }, "g", 0, tick).lens, "powers");
-    assert.equal(driftParams(lensed, variant, { lens: "matching", q: 2, layout: "alternate" }, "g", 1, tick).lens, "matching");
+    const p = driftParams(lensed, variant, { lens: "powers", q: 3, layout: "halves" }, "g", 0, tick);
+    assert.deepEqual([p.lens, p.layout], ["powers", "halves"]);
+    qs.add(p.q);
+    const m = driftParams(lensed, variant, { lens: "matching", q: 2, layout: "alternate" }, "g", 1, tick);
+    assert.deepEqual([m.lens, m.layout], ["matching", "alternate"]);
   }
-  const layouts = new Set(Array.from({ length: 50 }, (_, t) => driftParams(lensed, variant, { lens: "powers", q: 3, layout: "halves" }, "g", 0, t + 1).layout));
-  assert.deepEqual([...layouts].sort(), ["alternate", "halves"], "the layout still drifts");
+  assert.deepEqual([...qs].sort(), [2, 3], "q still drifts");
+  assert.deepEqual(driftParams(five, variant, { A: 6 }, "g", 0, 3, p => p.A === 12), { A: 12 }, "params without a lens or layout drift as before");
 });

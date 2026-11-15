@@ -63,7 +63,7 @@ test("Grids · beginner deals every grid family, each a main layer plus one tie-
   assert.ok(presetOf("grids-beginner-bidding").bid);
 });
 
-test("Grids · arithmetic deals Divisibility's four instances and Leading Digits' four, on the beginner grid's game, and is not the default", async () => {
+test("Grids · arithmetic deals Divisibility's eight instances and Leading Digits' four, on the beginner grid's game, and is not the default", async () => {
   const { DEFAULT_PRESET, presetOf } = await import("../../convex/v2/presets.ts");
   const { dealablePool, playable } = await import("../../convex/v2/deal.ts");
   const p = presetOf("grids-arithmetic"), grids = presetOf("grids-beginner");
@@ -74,7 +74,7 @@ test("Grids · arithmetic deals Divisibility's four instances and Leading Digits
   assert.deepEqual([p.startingEnergy, p.economy, p.worldSeconds, p.startingObjects, p.driftSeconds], [grids.startingEnergy, grids.economy, grids.worldSeconds, grids.startingObjects, grids.driftSeconds]);
   const pool = dealablePool(p);
   assert.ok(playable(p));
-  assert.deepEqual(pool.map(r => `${r.family}/${r.tieBreaker}`).sort(), [...Array(4).fill("divisibility/leftover-digits"), ...Array(4).fill("leading-digits/exponent-digits")]);
+  assert.deepEqual(pool.map(r => `${r.family}/${r.tieBreaker}`).sort(), [...Array(8).fill("divisibility/leftover-digits"), ...Array(4).fill("leading-digits/exponent-digits")]);
   assert.deepEqual(pool.filter(r => r.family === "leading-digits").map(r => r.params), [{ b: 2, layout: "halves" }, { b: 2, layout: "alternate" }, { b: 7, layout: "halves" }, { b: 7, layout: "alternate" }]);
   // No other deployed preset deals either family.
   const { PRESETS } = await import("../../convex/v2/presets.ts");
