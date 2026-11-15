@@ -10,7 +10,8 @@ import { objectWord, useAgentPrograms, useAgentCount, useGame, useGameScope, use
 import { useOpenPane } from "@/dock/open-pane";
 import { AffordanceButton, Tip } from "@/site/components/action";
 import { energyAmount } from "@/core/words";
-import { DEBT_TEXT, WORKING_TEXT, debtText, destroyConfirm, energyExact, percent, powerSentence, shareText, workText } from "./agents-words";
+import { DEBT_TEXT, ENERGY_HOW, WORKING_TEXT, debtText, destroyConfirm, energyExact, percent, powerSentence, shareText, versionRows, workText } from "./agents-words";
+import { requestForge } from "./forge-request";
 
 function Energy({ value, testId }: { value: number; testId: string }) {
   const exact = energyExact(value);
@@ -38,26 +39,49 @@ function AgentRow({ agent, power }: { agent: Agent; power: number | undefined })
           <p className="text-xs text-muted-foreground" data-testid={`text-agent-work-${agent.agentId}`}>{workText(e)}</p>
         </>
       )}
-      <AgentCode agentId={agent.agentId} />
+      <AgentCode agentId={agent.agentId} name={agent.name} />
     </li>
   );
 }
 
-/** The agent's code as it runs now, on request (its program subscribes only while shown); readable after the end too. */
-function AgentCode({ agentId }: { agentId: string }) {
+/** The agent's code as it runs now and its versions side by side, on request (subscribed only while shown); readable after the end too. */
+function AgentCode({ agentId, name }: { agentId: string; name: string }) {
   const [open, setOpen] = useState(false);
   return (
     <details className="text-xs" onToggle={e => setOpen((e.target as HTMLDetailsElement).open)} data-testid={`details-agent-code-${agentId}`}>
-      <summary className="cursor-pointer text-muted-foreground underline underline-offset-4">Its code</summary>
-      {open && <Program agentId={agentId} />}
+      <summary className="cursor-pointer text-muted-foreground underline underline-offset-4">Its code and versions</summary>
+      {open && <Program agentId={agentId} name={name} />}
     </details>
   );
 }
 
-function Program({ agentId }: { agentId: string }) {
-  const current = useAgentPrograms(agentId)?.[0];
-  if (!current) return <p className="mt-1 text-muted-foreground">Loading…</p>;
-  return <pre className="mt-1 max-h-64 overflow-auto border bg-muted/40 p-2 font-mono text-[11px] leading-snug" data-testid={`text-agent-code-${agentId}`}>{current.source}</pre>;
+function Program({ agentId, name }: { agentId: string; name: string }) {
+  const header = useGame();
+  const openPane = useOpenPane(header?.phase ?? "live");
+  const programs = useAgentPrograms(agentId);
+  const [shown, setShown] = useState<number | null>(null);
+  if (!programs?.length) return <p className="mt-1 text-muted-foreground">Loading…</p>;
+  const live = header?.phase !== "ended";
+  const rows = versionRows(programs);
+  const program = programs.find(p => p.version === shown) ?? programs[0]!;
+  return (
+    <div className="mt-1 space-y-2">
+      {live && <button type="button" className="underline underline-offset-4" onClick={() => void requestForge({ kind: "agent", agentId }, openPane)} data-testid={`button-agent-edit-${agentId}`}>Edit {name} in Agent code</button>}
+      {rows.length > 1 && (
+        <table className="w-full tabular-nums" data-testid={`table-agent-versions-${agentId}`}>
+          <thead><tr className="text-left text-muted-foreground"><th className="font-normal">Version</th><th className="font-normal text-right">Moves</th><th className="font-normal text-right">Points gained</th><th className="font-normal text-right">A move</th><th /></tr></thead>
+          <tbody>{rows.map((r, i) => (
+            <tr key={r.version} data-testid="row-agent-version" className={program.version === r.version ? "font-medium" : ""}>
+              <td><button type="button" className="underline underline-offset-4" aria-pressed={program.version === r.version} onClick={() => setShown(r.version)}>{r.label}</button></td>
+              <td className="text-right">{r.moves}</td><td className="text-right">{r.gained}</td><td className="text-right">{r.perMove}</td>
+              <td className="text-right">{live && i > 0 && <AffordanceButton id="agent.putBack" args={{ agentId, version: r.version }} label="Put back" busyLabel="Putting back…" tone="quiet" className="px-1 text-xs" testId={`button-put-back-${r.version}`} />}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}
+      <pre className="max-h-64 overflow-auto border bg-muted/40 p-2 font-mono text-[11px] leading-snug" data-testid={`text-agent-code-${agentId}`}>{program.source}</pre>
+    </div>
+  );
 }
 
 export function AgentsPane() {
@@ -75,6 +99,10 @@ export function AgentsPane() {
     <div className={`space-y-1 px-4 py-3 ${none ? "border-b" : "border-t"}`} data-testid="text-own-power">
       <p>Your energy <Energy value={me.energy} testId="text-own-energy" /> <span className="text-muted-foreground">(for summoning and replacing agents)</span></p>
       <p className="text-muted-foreground" data-testid="text-power-explained">{powerSentence(me.power, (agents ?? []).map(a => a.share))}</p>
+      <details className="text-xs" data-testid="details-energy-how">
+        <summary className="cursor-pointer text-muted-foreground underline underline-offset-4">How energy works</summary>
+        <p className="mt-1 text-muted-foreground">{ENERGY_HOW}</p>
+      </details>
     </div>
   );
   // With agents, they come first: "is my agent working?" is answered at the top of the pane, before how power works.
