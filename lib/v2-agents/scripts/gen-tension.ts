@@ -125,8 +125,19 @@ const ladders = LADDERS.map(l => {
 
 // ---------------------------------------------------------------- the reference and the distribution
 
-const SA = rules.indexOf("square-area/spf"), WC = rules.indexOf("whole-crossing/k-spf"), PL = rules.indexOf("prime-landing/big-prime");
-const ref = ladders[0]!;
+// The reference: the 247k case (Square Area's spf and Whole Crossing's k-spf on the first ladder) while both are dealt;
+// otherwise the strongest shared rise of two dealt rules of different families along any constructed ladder.
+let SA = rules.indexOf("square-area/spf"), WC = rules.indexOf("whole-crossing/k-spf"), ref = ladders[0]!;
+const PL = rules.indexOf("prime-landing/big-prime");
+if (SA < 0 || WC < 0) {
+  let best = -Infinity;
+  const fam = (r: string) => r.split("/")[0];
+  for (const l of ladders) for (let a = 0; a < NR; a++) for (let b = a + 1; b < NR; b++) {
+    if (fam(rules[a]!) === fam(rules[b]!)) continue;
+    const j = Math.min(l.gains[a]!, l.gains[b]!);
+    if (j > best) { best = j; SA = a; WC = b; ref = l; }
+  }
+}
 const reference = { ladder: ref.id, rules: [rules[SA]!, rules[WC]!], perRule: [ref.gains[SA]!, ref.gains[WC]!], gainPerEnergy: Math.min(ref.gains[SA]!, ref.gains[WC]!) };
 const q = (xs: number[], f: number) => xs[Math.min(xs.length - 1, Math.floor(f * xs.length))]!;
 const f3 = (x: number) => x.toFixed(3);
@@ -134,7 +145,7 @@ const quant = (xs: number[]) => { const s = xs.slice().sort((a, b) => a - b); re
 
 say(`Tension table for line-q from ${o.json} (seed ${res.seed}, repeats of ${res.steps}): ${NR} rules, ${ND} cheap directions, ${ladders.length} ladders over ${PRIMES.length} primes ${PRIMES[0]}–${PRIMES.at(-1)}.`);
 say();
-say(`Reference (${ref.id}; the 247k line y = −2x + 734 is p = 367): ${rules[SA]} ${f3(ref.gains[SA]!)}, ${rules[WC]} ${f3(ref.gains[WC]!)}, ${PL < 0 ? "(prime-landing/big-prime no longer dealt)" : `${rules[PL]} ${f3(ref.gains[PL]!)}`} bits per energy; joint (the smaller) ${f3(reference.gainPerEnergy)}.`);
+say(`Reference (${ref.id}${reference.rules.join() === "square-area/spf,whole-crossing/k-spf" ? "; the 247k line y = −2x + 734 is p = 367" : "; the 247k pair is no longer dealt: the strongest shared ladder rise"}): ${rules[SA]} ${f3(ref.gains[SA]!)}, ${rules[WC]} ${f3(ref.gains[WC]!)}, ${PL < 0 ? "(prime-landing/big-prime no longer dealt)" : `${rules[PL]} ${f3(ref.gains[PL]!)}`} bits per energy; joint (the smaller) ${f3(reference.gainPerEnergy)}.`);
 const joint: number[] = [], jointSum: number[] = [], per: number[] = [];
 const perBy = new Map<string, number[]>();
 for (let a = 0; a < NR; a++) for (let d = 0; d < ND; d++) if (res.repeats[rules[a]!]![cheapIdx[d]!]![1]! >= MIN) per.push(gains[a]![d]!);
