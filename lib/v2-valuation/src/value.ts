@@ -222,13 +222,13 @@ export interface TailFit {
   /** The fitted slope when the law's ceiling (TAIL_CEILING) cut it: a record that the knots alone would over-pay. */
   readonly unclamped?: number;
   /** "prime": the layer declares a prime-valued measure, so the tail is the code's own cost of a prime (Layer.measure). */
-  readonly measure?: "prime";
+  readonly measure?: "prime" | "ladder";
 }
 
 /** What the rule's layers declare they measure (Layer.measure), per component of the score. */
 export interface TailMeasures {
-  readonly primary?: "prime";
-  readonly secondary?: "prime";
+  readonly primary?: "prime" | "ladder";
+  readonly secondary?: "prime" | "ladder";
 }
 
 export interface ValueTail {
@@ -379,8 +379,19 @@ export const TAIL_CEILING = STEP;
  * floor, or not at all (too few knots, noise), takes the floor: a ramp of TAIL_FLOOR bits per doubling, or for a
  * distance a line on which closing the rest of the gap to 0 is worth TAIL_FLOOR bits. The ceiling wins over the floor.
  */
-function fitTail(pts: readonly { u: Q; y: number }[], ceiling: number, measure?: "prime", sizeRate?: number): TailFit {
+function fitTail(pts: readonly { u: Q; y: number }[], ceiling: number, measure?: "prime" | "ladder", sizeRate?: number): TailFit {
   const best = pts[pts.length - 1];
+  if (measure === "ladder" && best && best.u.n > 0n) {
+    // A ladder's main part (the coordinator's declared trial, 15 Nov): past the measured knots its value keeps rising at
+    // the rate measured over its rungs, a straight line in the main part, never held under the per-unit ceiling
+    // (one unit of a ladder is a whole level: several primes, digits or 5s, each dearer under the law than a unit of a
+    // coordinate). A flat tail was a top in disguise: Smooth Intercept's measured 5.4 bits per level, cut to 0.5, froze
+    // lines at 22.87 bits (playtest round 26). What stops the climb is the price of the shortcuts that climb it
+    // (v2-linear mutators.ts shortcutFloor), not the value. Too few rungs or no rise: TAIL_FLOOR per unit.
+    const pos = pts.filter(p => p.u.n > 0n);
+    const lin = pos.length >= 3 ? leastSquares(pos.map(p => ({ x: toNumber(p.u), y: p.y }))) : null;
+    return { form: "linear", slope: Math.max(lin?.slope ?? 0, TAIL_FLOOR), measure };
+  }
   if (measure === "prime" && (!best || best.u.n >= 0n)) {
     // A prime or a prime factor: the cheapest state whose value is the prime p pays about p/2 bits for it, so past the
     // measured knots the value rises at the code's own STEP bits per unit (the true rate, not only a ceiling). A
@@ -429,7 +440,8 @@ export function tailOf(knots: readonly Pick<ValueKnot, "u" | "bits">[], ceiling 
   const firsts: { u: Q; y: number }[] = [];
   for (const k of parsed) if (!firsts.length || compareScores([firsts[firsts.length - 1]!.u], [k.u![0]!]) !== 0) firsts.push({ u: k.u![0]!, y: k.bits });
   return { secondary: fitTail(same.map(k => ({ u: k.u![1]!, y: k.bits })), ceiling, measures.secondary, sizeRate),
-    primary: fitTail(firsts.slice(-6), ceiling, measures.primary, sizeRate) };
+    // A ladder's rate is measured over all its rungs (the top few alone are noisy where the samples run out).
+    primary: fitTail(measures.primary === "ladder" ? firsts : firsts.slice(-6), ceiling, measures.primary, sizeRate) };
 }
 
 export interface Lookup {
@@ -444,7 +456,9 @@ export interface Lookup {
 /** What a rule's main layer and dealt tie-breaker declare they measure: the tail's measures. */
 export function layerMeasures(family: RuleFamily<any, any>, tb: TieBreaker): TailMeasures {
   const [main, second] = ruleLayers(family, tb);
-  return { ...(main?.measure ? { primary: main.measure } : {}), ...(second?.measure ? { secondary: second.measure } : {}) };
+  // A ladder family's main part takes the ladder tail unless it declares its own measure.
+  const primary = main?.measure ?? (family.keepsParams ? "ladder" : undefined);
+  return { ...(primary ? { primary } : {}), ...(second?.measure ? { secondary: second.measure } : {}) };
 }
 
 /**

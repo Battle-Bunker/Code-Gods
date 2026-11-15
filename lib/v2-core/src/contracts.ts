@@ -212,9 +212,11 @@ export interface Layer<P> {
   /**
    * What kind of number the layer measures, where its value function needs to know (owner decision 26): "prime" for a
    * layer whose value is a prime or a prime factor (bigger better), so the value keeps rising past the measured knots
-   * at the code's own cost of a prime, STEP bits per unit. Omitted: a plain size, a count or a distance.
+   * at the code's own cost of a prime, STEP bits per unit. "ladder" for a ladder family's main part (a hill with no
+   * top, RuleFamily.keepsParams): its tail continues at the rate measured over its top knots (the coordinator's declared
+   * trial, 15 Nov: a flat tail is a top in disguise and freezes lines). Omitted: a plain size, a count or a distance.
    */
-  readonly measure?: "prime";
+  readonly measure?: "prime" | "ladder";
   /**
    * For a tie-breaker: whether it is dealt on this variant (default: always). False where it cannot decide anything
    * there, e.g. a pile of b-coins on whole-number lines, where b is always 1.

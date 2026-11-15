@@ -559,6 +559,31 @@ back) or TRIAL (a declared experiment, measured and reported).
       21.3 on another).
     - **Effects** (values: line-q best 17.9 bits, line-z 17.9 at the sampled top): see the PR for the gate.
 
+28. **TRIAL** (the coordinator's, declared 15 Nov, on the spec lead's rung-start measurement): a ladder's value tail
+    continues at its measured rate; no flat tail. A ladder family's main part (RuleFamily.keepsParams) takes the
+    "ladder" tail measure: past the sampled knots its value rises linearly at the slope measured over all its rungs
+    (4.3–12.6 bits per level across the pool), never held under the per-unit ceiling, which suits a coordinate, not a
+    level. The stored tails were re-fitted from the same knots (lib/v2-valuation scripts/retail.ts).
+    - **Argument.** Bits are rarity under the law, so relabelling a main part into levels changes nothing a player
+      earns (design-principles.md principle 1). The only bend in any ladder was where the sampled values ended and
+      the tail was cut to 0.5 bits per unit: Smooth Intercept's measured 5.4 bits per level became 0.1 bits per
+      stretch, which froze a line at 22.87 bits in playtest round 26. A flat tail is a top in disguise.
+
+29. **TRIAL** (the coordinator's, declared 15 Nov): a shortcut's price grows with the size of the line it rewrites.
+    A multiplying or representation shortcut (mach.stretch, basis.zoom, rot.turn) is still priced as a choice by its
+    factor's digits (decision 25), but never below that fee × 2^((Φ − 20)/3.5), where Φ is the code length of the
+    larger of the line before and after (symmetric, so the prices stay an exact potential, decision 19). Below Φ = 20
+    bits (line-q's law draws: median 14.7, 90th percentile 20.9) nothing changes; past it the fee doubles every 3.5
+    bits. Additive moves keep their prices.
+    - **Argument.** For a multiplicative ladder under a law whose code length grows with log size, the bits a step
+      gains and the fee of the shortcut that makes it both scale with log(factor), so bits per energy was constant
+      (Smooth Intercept about 0.13 bits per ⚡ from a rung start: 9 straight steps to about 18 bits for 100⚡). With the
+      fee rising with Φ, each further step costs more, and an unopposed seat that spends a whole game's income (about
+      2,500⚡) on one ladder ends near 30 bits (the coordinator's target 25–35; a fee linear in Φ would let it reach
+      50–65). The doubling form was chosen over a power of Φ because it is one sentence: "past 20 bits, a shortcut's
+      fee doubles every 3.5 bits of the line".
+    - **Effects:** see the PR (bits against energy per ladder from rung starts; in play).
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.
