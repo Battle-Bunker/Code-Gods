@@ -7,12 +7,12 @@ import { pairMutators } from "./mutators.ts";
 import { pairFamilies } from "./families.ts";
 
 /**
- * Two lines on the rationals, line-q's box and codes: linesPerObject 2 makes line-q's mutators price "which line" as
+ * Two lines on the rationals, line-q's codes (no box: owner decision 26): linesPerObject 2 makes line-q's mutators price "which line" as
  * one bit. Fifteen mutators, uniform "which" (log2 15).
  */
 export const pairQ: Variant = {
   id: "pair-q", objectType: "pair", mutators: pairMutators.map(m => m.id), birthMixSteps: 64,
-  params: { domain: "Q", linesPerObject: 2, argDomain: "Q", heightCap: 1_000_000 },
+  params: { domain: "Q", linesPerObject: 2, argDomain: "Q" },
 };
 
 export const pairType: ObjectType<PairState> = {

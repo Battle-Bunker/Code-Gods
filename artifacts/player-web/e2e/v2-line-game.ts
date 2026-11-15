@@ -10,7 +10,9 @@
  *   and the moves that would make it rarer with their prices and new bits; a tap selects a part) → the goal card shows
  *   the parts on their rulers → the game ends on its own
  *   and the results lead with "You finished …".
- * The room's game is shortened to 5 s planning and 30 world seconds (room.settings, as its owner).
+ * The room's game is shortened to 5 s planning and 30 world seconds (room.settings, as its owner), and its others'
+ * sums are read with noise (peerNoiseVariance 64; the beginner preset reads exact, owner decision 32: the grid game
+ * covers that path).
  *
  *   pnpm --filter @workspace/player-web run e2e:game        (SKIP_DEPLOY=1 reuses the uploaded build)
  */
@@ -62,7 +64,7 @@ async function shorten(page: Page, code: string) {
   const client = new ConvexHttpClient(CLOUD);
   client.setAuth(token);
   const found = await client.query("v2/rooms:byCode" as never, { code } as never) as { roomId: string };
-  const out = await client.mutation("v2/ops/room:settings" as never, { args: { overrides: { planningSeconds: 5, worldSeconds: 30 } }, roomId: found.roomId } as never) as { ok: boolean; error?: { message: string } };
+  const out = await client.mutation("v2/ops/room:settings" as never, { args: { overrides: { planningSeconds: 5, worldSeconds: 30, peerNoiseVariance: 64 } }, roomId: found.roomId } as never) as { ok: boolean; error?: { message: string } };
   assert.ok(out.ok, `room.settings: ${out.error?.message}`);
 }
 
@@ -154,7 +156,8 @@ try {
     const logged = await feed.getByTestId("public-log").innerText();
     assert.match(logged, /Line \d+ (changed|was born)|Your agent moved line \d+/, `${label}: the public log lists moves: ${logged.slice(0, 200)}`);
     assert.doesNotMatch(logged, /Practice partner \d+ moved/, `${label}: live, the public log names no other mover`);
-    assert.match(logged, /Your points (about|stayed about)/, `${label}: live, your points in the log are estimates`);
+    // "about" only where the room blurs the others' bits (the beginner game is exact: decision 32, variance 0).
+    assert.match(logged, /Your points (about |stayed (about )?)?[\d,]+\.\d\d/, `${label}: live, your points in the log: ${logged.slice(0, 200)}`);
     // The totals are exact (W3 #662, call 15): the header's total is never written as an estimate.
     const total = page.getByTestId("text-my-total");
     assert.doesNotMatch(await total.innerText(), /about/, `${label}: live, your total is exact`);
@@ -174,7 +177,8 @@ try {
     assert.match(sentence, /Points on this line [−\d.,]+ → [−\d.,]+|Points on this line stayed|No points on this line/, `the move says the points before → after: ${sentence}`);
     assert.match(sentence, FORMULA, `the move says yours × others' = points: ${sentence}`);
     // Live, the others' sums are blurred (W3 #608, v1 peerNoiseBits): the figure is written as an estimate.
-    assert.match(sentence, /others' about −?[\d,]+\.\d\d bits? ≈/, `${label}: live, the others' bits are an estimate: ${sentence}`);
+    // An estimate ("about … ≈") only where the room blurs the others' bits; the beginner game is exact (decision 32).
+    assert.match(sentence, /others' (about −?[\d,]+\.\d\d bits? ≈|[\d,]+\.\d\d bits? [=≈])/, `${label}: live, the others' bits in the formula: ${sentence}`);
     // Call 15 (W3 #662): the totals and standings are exact; only each line's figures are estimates.
     assert.doesNotMatch(await page.getByTestId("text-my-total").innerText(), /about/, `${label}: the header total is exact`);
     assert.doesNotMatch(sentence, /payoff|object|\p{Extended_Pictographic}/iu);

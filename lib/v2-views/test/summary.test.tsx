@@ -108,3 +108,15 @@ test("a partial act log says so: the costs are from the moves read", () => {
   assert.match(s.costNote ?? "", /from your last 1,000 moves/);
 });
 
+
+test("try next game: on a line the player's rule does not score, the move offered makes it score (playtest round 12: Exact Change)", async () => {
+  const { exactChange, fromMC, lineQ, lineType } = await import("@workspace/v2-linear");
+  const { q } = await import("@workspace/v2-core");
+  const { moves } = await import("../src/index.ts");
+  const ec = { type: lineType, family: exactChange, params: (exactChange as never as { dealable: (v: unknown) => unknown[] }).dealable(lineQ)[0], variant: lineQ } as never;
+  const state = { lines: [fromMC(q(2), q(5))] };
+  const s = summarise({ rule: ec, objects: [{ number: 3, state, points: 0, bits: 0, want: 6 }], tugs: [], total: 0 });
+  const scoring = moves(ec, state, null, { k: 1 }).find(m => m.utility !== null)!;
+  assert.ok(scoring);
+  assert.match(s.next.text, new RegExp(`Try “${scoring.words.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}”`), s.next.text);
+});

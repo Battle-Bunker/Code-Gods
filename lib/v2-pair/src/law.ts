@@ -15,7 +15,8 @@ export function pairLaw(variant: Variant): Law<PairState> {
       const d = lines.draw(r, t);
       if (d.state === null) return d;
       const s = canonicalPair(d.state.lines, variant);
-      return { state: "invalid" in s ? null : s, bits: d.bits, coords: d.coords };
+      return { ...d, state: "invalid" in s ? null : s };
     },
+    log2Norm: t => lines.log2Norm(t),
   };
 }

@@ -5,7 +5,8 @@
  * `view.compareRepresentations`), so an assistant can switch them for them; "Draw every line in Lines this way" pins the
  * representation for the rule's family (`view.pinRepresentation`).
  */
-import { isPaid, seenWords } from "./seen";
+import { isPaid, lookLabel, seenWords } from "./seen";
+import { FreshMark, useWorldNow } from "./fresh-mark";
 import { AffordanceButton } from "@/site/components/action";
 import { useMemo } from "react";
 import { pinnedRep } from "@workspace/v2-affordances";
@@ -39,6 +40,7 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
   const compare = useAffordance("view.compareRepresentations");
   const pin = useAffordance("view.pinRepresentation");
   const header = useGame();
+  const worldNow = useWorldNow();
   const replaying = useReplaying();
   const openPane = useOpenPane(replaying ? "replay" : header?.phase ?? "live");
   const state = useMemo(() => (o ? decodeState(o.state, header?.variant) : null), [o?.state, header?.variant]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -83,8 +85,8 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
         {/* Paid looks (W3 #643): this is the line as last seen; a look pays to see it as it is now. */}
         {isPaid(o) && (
           <p className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
-            <span data-testid="text-line-seen">{seenWords(o)}</span>
-            <AffordanceButton id="object.look" args={{ objectId }} label="Look now" busyLabel="Looking…" tone="quiet" className="px-2 py-0.5 text-xs" testId="button-look-line" />
+            <span className="inline-flex items-center gap-1.5" data-testid="text-line-seen"><FreshMark o={o} worldNow={worldNow} />{seenWords(o)}</span>
+            {lookLabel(o.lookPrice) && <AffordanceButton id="object.look" args={{ objectId }} label={lookLabel(o.lookPrice)!} busyLabel="Looking…" tone="quiet" className="px-2 py-0.5 text-xs" testId="button-look-line" />}
           </p>
         )}
       </div>

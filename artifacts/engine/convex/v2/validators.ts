@@ -61,6 +61,8 @@ export const headerV = v.object({
   /** "paid": a seated player sees each object as last told and pays to look (knowledge.ts); "free": as it is. */
   /** The weight on a look's read price (bits ÷ κ × weight; decision 35); 0: the live world reads free. */
   readPriceWeight: v.number(),
+  /** The factor on summon and edit prices: the game's power ÷ 64 (v2-economy summonPriceScale). */
+  priceScale: v.number(),
   /** Paused because nobody acted for 30 minutes: any human activity (`account.touch`) resumes it. */
   parked: v.boolean(),
 });
@@ -90,7 +92,7 @@ export const myRuleV = v.object({
 export const meV = v.object({
   memberId: v.id("v2Members"), energy: v.number(), power: v.number(), ready: v.boolean(), pauseUsed: v.boolean(), agents: v.number(),
   /**
-   * The own store's income (the unallocated power, ⚡/s) and what it holds at most (that income times the full-charge
+   * The own store's income (the unallocated power, energy per second) and what it holds at most (that income times the full-charge
    * seconds): at capacity it stops growing until something is spent. `energy` is as of the world clock's last tick;
    * `settledAt` is that world second, so the app can interpolate between ticks with its own clock.
    */
@@ -105,7 +107,7 @@ export const playObjectV = v.object({
   value: v.union(v.object({ score: scoreWireV, rarityBits: v.number(), want: v.number(), points: v.number(), version: v.number() }), v.null()),
   /** Paid observation (knowledge.ts): when the caller was last told this object (world seconds), and how many changes it has had since (public). */
   knownAt: v.optional(v.union(v.number(), v.null())), changesSince: v.optional(v.number()),
-  /** In a game that pays to read (decision 35), live and seated: what a look at it costs now (⚡). */
+  /** In a game that pays to read (decision 35), live and seated: what a look at it costs now, in energy. */
   lookPrice: v.optional(v.number()),
 });
 export const agentRowV = v.object({

@@ -16,7 +16,7 @@ import { measured, objectReading, readingNoise, shownAt } from "./disclose.ts";
 import { endWorldOf, scoreIntervalOf } from "./duration.ts";
 import { shouldPark } from "./activity.ts";
 import { allReady, ensureWarm, isReady, LANGUAGES } from "./readiness.ts";
-import { fullReadBits, paysToRead, tell } from "./knowledge.ts";
+import { paysToRead, tell } from "./knowledge.ts";
 
 /** Wall milliseconds between ticks; world time advances by the wall time that passed, at most MAX_DT a tick. */
 export const TICK_MS = 1500;
@@ -478,16 +478,18 @@ export const commit = internalMutation({
         ...record, ...(outcome !== record.outcome ? { outcome, after: record.before, charged: charge } : {}),
         ...(holder ? { reason: heldReason(game.variant, holder.number) } : {}),
       });
-      // Paid observation: an act that read the whole object paid exactly a look, so its owner is told the object as it
-      // stood (a change commits below and tells it as changed).
-      if (!committed && paysToRead(game) && record.readBits >= fullReadBits(game.variant, st.state) - 1e-9) {
+      // Owner decision 36: "Players should still know everything their agents learn for free". Every act an agent runs
+      // on an object tells its owner the object as the agent saw it, with the agent's own measurement of its value (a
+      // change commits below and tells it as changed). A stale act saw an older version: nothing newer to tell.
+      if (!committed && paysToRead(game) && st.version === act.version) {
         const row = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", act.objectId).eq("memberId", act.memberId as Id<"v2Members">)).unique();
-        if (row) await tell(ctx, game, act.memberId as Id<"v2Members">, { objectId: act.objectId, number: act.number, state: st.state, version: st.version, score: row.score, rarityBits: row.rarityBits, ...measured(game, row) }, world);
+        const seen = (act.input as { value?: { mine: number; others: number; points: number } } | undefined)?.value;
+        if (row) await tell(ctx, game, act.memberId as Id<"v2Members">, { objectId: act.objectId, number: act.number, state: st.state, version: st.version, score: row.score, rarityBits: row.rarityBits, ...(seen ? { want: seen.others, points: seen.points } : measured(game, row)) }, world);
       }
       if (!committed) continue;
       const { before, after } = await changeObject(ctx, game, seats, act.objectId, record.after, world, act.memberId);
       changes.push({ number: act.number, values: after, before });
-      // Paid observation: the mover is told the object its agent changed (the change paid for the look).
+      // The mover is told the object its agent changed, free (decision 36).
       if (paysToRead(game)) {
         const mine = after.find(x => x.memberId === act.memberId)!;
         await tell(ctx, game, act.memberId as Id<"v2Members">, { objectId: act.objectId, number: act.number, state: record.after, version: st.version + 1, score: mine.score, rarityBits: mine.rarityBits, ...measured(game, mine) }, world);

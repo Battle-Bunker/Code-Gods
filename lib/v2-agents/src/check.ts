@@ -17,6 +17,8 @@ export interface CheckInput<S> {
   /** The objects to try it on, with the ids to report them by. */
   readonly samples: readonly { readonly objectId: string; readonly state: S }[];
   readonly energy: number;
+  /** The game's factor on summon prices (its power ÷ 64, v2-economy summonPriceScale); 1 when absent. */
+  readonly priceScale?: number;
 }
 
 export interface CheckReport {
@@ -30,7 +32,7 @@ export interface CheckReport {
 }
 
 export async function check<S>(sandbox: Sandbox, input: CheckInput<S>): Promise<CheckReport> {
-  const price = summonBits(input.program.language, input.program.source).energy;
+  const price = (input.priceScale ?? 1) * summonBits(input.program.language, input.program.source).energy;
   const acts: ActRecord[] = [];
   for (const [i, s] of input.samples.entries()) {
     const { record } = await runAct(sandbox, {

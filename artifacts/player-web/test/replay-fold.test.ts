@@ -47,7 +47,7 @@ const FILE = {
   },
   rules: [
     { memberId: "m1", family: "prime-gradient", params: {}, tieBreaker: null, ruleKey: "k1", card: "Ada's card", layers: ["main"], contentHash: "h1", handicap: null },
-    { memberId: "m2", family: "triangle-area", params: {}, tieBreaker: null, ruleKey: "k2", card: "Bo's card", layers: ["main"], contentHash: "h2", value: { knots: [{ u: null, bits: 0, lo: 0, hi: 0 }, { u: ["1"], bits: 3, lo: 2.5, hi: 3.5 }], tail: { primary: 1, secondary: 0 } }, handicap: 10 },
+    { memberId: "m2", family: "triangle-area", params: {}, tieBreaker: null, ruleKey: "k2", card: "Bo's card", layers: ["main"], contentHash: "h2", value: { knots: [{ u: null, bits: 0, lo: 0, hi: 0 }, { u: ["1"], bits: 3, lo: 2.5, hi: 3.5 }], tail: { primary: { form: "linear", slope: 1 }, secondary: { form: "log", slope: 0.5 } } }, handicap: 10 },
   ],
   events: EVENTS.map(([kind, data], seq) => ({ seq, kind, data })),
 };

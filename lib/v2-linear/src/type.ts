@@ -9,11 +9,11 @@ const ALL_MUTATORS = mutators.map(m => m.id);
 
 export const lineZ: Variant = {
   id: "line-z", objectType: "line", mutators: ALL_MUTATORS, birthMixSteps: 64,
-  params: { domain: "Z", linesPerObject: 1, argDomain: "Z", heightCap: 1_000_000 },
+  params: { domain: "Z", linesPerObject: 1, argDomain: "Z" },
 };
 export const lineQ: Variant = {
   id: "line-q", objectType: "line", mutators: ALL_MUTATORS, birthMixSteps: 64,
-  params: { domain: "Q", linesPerObject: 1, argDomain: "Q", heightCap: 1_000_000 },
+  params: { domain: "Q", linesPerObject: 1, argDomain: "Q" },
 };
 /**
  * line-q with the five lens mutators (lenses-and-mutators.md §5: a turn, a swap, a lean, a zoom, a fold) beside the nine.
@@ -25,11 +25,11 @@ export const lineQLenses: Variant = {
   // The weighted which code (coordinator's trial, agreed with the spec lead, 15 Nov): the nine share 3/4 of the mass
   // (log2 12 = 3.58 bits each, against log2 9 = 3.17 on line-q), the five share 1/4 (log2 20 = 4.32 bits each).
   which: Object.fromEntries([...ALL_MUTATORS.map(id => [id, Math.log2(12)]), ...lensMutators.map(m => [m.id, Math.log2(20)])]),
-  params: { domain: "Q", linesPerObject: 1, argDomain: "Q", heightCap: 1_000_000 },
+  params: { domain: "Q", linesPerObject: 1, argDomain: "Q" },
 };
 export const lineZ4: Variant = {
   id: "line-z4", objectType: "line", mutators: ALL_MUTATORS, birthMixSteps: 64,
-  params: { domain: "Z", linesPerObject: 4, argDomain: "Z", heightCap: 1_000_000 },
+  params: { domain: "Z", linesPerObject: 4, argDomain: "Z" },
 };
 
 export const lineType: ObjectType<LineState> = {

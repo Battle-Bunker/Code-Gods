@@ -50,8 +50,11 @@ export function valueFnIn(ruleKey: string, scope: ValueScope) {
   return { knots: r.knots, tail: r.tail, ...(u ? { uniqueness: u } : {}) };
 }
 
-/** The most bits a rule's states reach in its value function (its last knot): a family's "top" in the bid phase. */
-export const topBits = (r: ValueRecord): number => r.knots.reduce((m, k) => Math.max(m, k.bits), 0);
+/**
+ * The bits at a rule's furthest measured knot: a family's scale in the bid phase. Not a maximum: past it the tail keeps
+ * rising without bound (owner decision 26).
+ */
+export const measuredToBits =(r: ValueRecord): number => r.knots.reduce((m, k) => Math.max(m, k.bits), 0);
 
 /** The value function as a curve, worst to best: each knot's utility (wire) and bits. */
 export const curveOf = (r: ValueRecord) => r.knots.map(k => ({ score: k.u, bits: k.bits }));

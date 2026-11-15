@@ -35,7 +35,7 @@ for (const family of families) for (const params of args.includes("--all-params"
     const best = vf.knots[vf.knots.length - 1]!;
     console.log(`${family.id} ${canonicalJson(params)} + ${vf.tieBreaker} on ${variant.id}: ${vf.knots.length} knots in ${((Date.now() - t) / 1000).toFixed(1)} s; ` +
       `best ${JSON.stringify(best.u)} = ${best.bits} bits [${best.lo}, ${best.hi}] (${best.source}); exact: ${vf.diagnostics.exact.map(e => e.name).join(", ") || "none"}; ` +
-      `draws ${vf.diagnostics.sampled?.accepted ?? 0}, ESS ${vf.diagnostics.sampled?.ess ?? 0}; tail ${vf.tail.secondary.toFixed(3)} per secondary, ${vf.tail.primary.toFixed(3)} per primary`);
+      `draws ${vf.diagnostics.sampled?.accepted ?? 0}, ESS ${vf.diagnostics.sampled?.ess ?? 0}; tail ${vf.tail.secondary.slope.toFixed(3)} ${vf.tail.secondary.form} on the secondary, ${vf.tail.primary.slope.toFixed(3)} ${vf.tail.primary.form} on the primary`);
     if (args.includes("--write")) {
       const dir = join(ROOT, "values", variant.id, family.id);
       mkdirSync(dir, { recursive: true });

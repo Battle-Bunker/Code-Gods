@@ -23,7 +23,7 @@ import type { BidDealer } from "@workspace/v2-economy";
 import { hasStarters, pairVerdict, type PairVerdict } from "@workspace/v2-agents/pure";
 import { findVariant, objectTypes, ruleKey } from "@workspace/v2-valuation";
 import { gridClashes } from "@workspace/v2-grid";
-import { topBits, valueRecord } from "./values.ts";
+import { measuredToBits, valueRecord } from "./values.ts";
 import type { Preset } from "./presets.ts";
 
 /** A rule as dealt: enough to evaluate it (family, params, tie-breaker) and to find its value function. */
@@ -169,12 +169,15 @@ export function bidDealer(pool: readonly DealtRule[], variant?: string): BidDeal
   };
 }
 
-/** The families on offer in a bid phase: each with its card and the most ✨ bits its rules reach (rounded to 0.1). */
+/**
+ * The families on offer in a bid phase: each with its card and the rarity bits at the furthest measured knot of its
+ * rules' value curves (rounded to 0.1): a scale for the bid, not a ceiling (owner decision 26: rarer scores keep rising).
+ */
 export function offers(pool: readonly DealtRule[]) {
   const out: { family: string; title: string; card: string; top: number }[] = [];
   for (const id of [...new Set(pool.map(r => r.family))]) {
     const rules = pool.filter(r => r.family === id), f = familyOf(id);
-    const top = Math.max(...rules.map(r => { const vf = valueRecord(r.ruleKey); return vf ? topBits(vf) : 0; }));
+    const top = Math.max(...rules.map(r => { const vf = valueRecord(r.ruleKey); return vf ? measuredToBits(vf) : 0; }));
     out.push({ family: id, title: f.title, card: f.card(rules[0]!.params, null), top: Math.round(top * 10) / 10 });
   }
   return out;

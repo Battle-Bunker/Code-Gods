@@ -4,7 +4,7 @@
  * the server needs to run a game of it: timing, players, the economy and an optional bid phase. The deal
  * (convex/v2/deal.ts) deals only the pool's rules whose artefact converged.
  */
-import { GRIDS_BEGINNER_ECONOMY, LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
+import { GRIDS_BEGINNER_ECONOMY, LINES_BEGINNER_ECONOMY, readPriceWeightFor } from "@workspace/v2-economy";
 import { preset as linearPreset, type PoolRule } from "@workspace/v2-linear";
 import { gridPresets } from "@workspace/v2-grid";
 import { pairPresets } from "@workspace/v2-pair";
@@ -42,9 +42,8 @@ export interface Preset {
   peerNoiseVariance: number;
   /**
    * The weight on a look's read price (bits ÷ κ; decision 35: "querying 5 objects every second would be easily
-   * affordable but doing so 100 times a second would be prohibitive"): a look costs about 1.1 ⚡ on a line (weight 3,
-   * median 11.7 bits) and 1.3 ⚡ on a grid (weight 1, median 41 bits), so 5 a second take about a tenth of a player's
-   * 64 ⚡/s and 100 a second about twice all of it.
+   * affordable but doing so 100 times a second would be prohibitive"), derived from the preset's power: 5 looks a second
+   * at a typical object (MEDIAN_LOOK_BITS) take a tenth of a player's power (v2-economy readPriceWeightFor).
    */
   readPriceWeight: number;
   economy: PresetEconomy;
@@ -57,6 +56,17 @@ const ECONOMY: PresetEconomy = {
   opportunitiesPerSecond: LINES_BEGINNER_ECONOMY.opportunitiesPerSecond, birthsPerSecond: 1 / 240,
 };
 
+/**
+ * A typical object's full read, in bits: the median over 1,000 births of each variant a preset plays (measured; the
+ * unit test v2-presets keeps it within 10% of the births). The read-price weight is set from it.
+ */
+export const MEDIAN_LOOK_BITS: Readonly<Record<string, number>> = { "line-q": 13.7, "line-q-lenses": 14.0, "grid-4-d10": 41.1, "pair-q": 30.4 };
+export function medianLookBits(variant: string): number {
+  const bits = MEDIAN_LOOK_BITS[variant];
+  if (bits === undefined) throw new Error(`No median look for the variant ${variant}: measure it (MEDIAN_LOOK_BITS)`);
+  return bits;
+}
+
 /** A pool by id: the line presets' (v2-linear), the grid's (v2-grid) or the two-line systems' (v2-pair). */
 function poolPreset(id: string): { id: string; title: string; variant: string; rules: readonly PoolRule[] } {
   const g = gridPresets.find(x => x.id === id) ?? pairPresets.find(x => x.id === id);
@@ -66,7 +76,7 @@ function poolPreset(id: string): { id: string; title: string; variant: string; r
 function fromPool(id: string, extra: Partial<Preset> & { id?: string; title?: string } = {}): Preset {
   const p = poolPreset(id);
   const pool = p.rules;
-  return {
+  const base: Omit<Preset, "readPriceWeight"> & { readPriceWeight?: number } = {
     id: p.id, title: p.title, variant: p.variant, pool, families: [...new Set(pool.map(r => r.family))],
     minPlayers: 3, planningSeconds: 60, worldSeconds: 300, startingEnergy: LINES_BEGINNER_ECONOMY.startingEnergy,
     // Owner decision 31: "Let's shrink object quantity for the beginner game to 3 ... I want to concentrate human
@@ -74,9 +84,9 @@ function fromPool(id: string, extra: Partial<Preset> & { id?: string; title?: st
     // Owner decision 32: each reading of the others' sums is an independent draw of this variance; σ 8 (v1's default)
     // outside the beginner game.
     startingObjects: 3, durationMode: "fixed", peerNoiseVariance: 64,
-    readPriceWeight: p.variant.startsWith("grid") ? 1 : 3,
     economy: ECONOMY, ...extra,
   };
+  return { ...base, readPriceWeight: extra.readPriceWeight ?? readPriceWeightFor(base.economy.powerPerSecond, medianLookBits(base.variant)) };
 }
 
 /**
@@ -87,8 +97,8 @@ const BEGINNER_WORLD = { worldSeconds: 600, peerNoiseVariance: 0 };
 const BEGINNER = fromPool("lines-beginner", BEGINNER_WORLD);
 /**
  * The beginner grid (docs/engine-v2/grids.md): the 4×4 board of digits. A board's agents read 16 cells, not y = mx + c,
- * so they are longer and dearer to summon (grid starters cost about 400 to 590 ⚡, line starters 300 to 500): grids
- * start with 900 ⚡ so that a starter takes about the share of the starting energy a line starter takes of 600.
+ * so they are longer and dearer to summon (grid starters cost about 400 to 590 energy before the power scale, line starters 300 to 500): grids
+ * start with 900 energy so that a starter takes about the share of the starting energy a line starter takes of 600.
  */
 const GRIDS = fromPool("grids-beginner", { ...BEGINNER_WORLD, startingEnergy: GRIDS_BEGINNER_ECONOMY.startingEnergy });
 

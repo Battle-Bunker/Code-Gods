@@ -1,10 +1,19 @@
 /** Number facts rules use: primes near a rational. Exact, on bigint. */
 import { Qn, q, type Q } from "@workspace/v2-core";
 
+/** Numbers up to this are trial-divided in floating point (exact below 2^53), the same divisors in the same order. */
+const SAFE = BigInt(Number.MAX_SAFE_INTEGER);
+const LIMIT = 100_000;
+
 export function isPrime(n: bigint): boolean {
   if (n < 2n) return false;
   if (n < 4n) return true;
   if (n % 2n === 0n || n % 3n === 0n) return false;
+  if (n <= SAFE) {
+    const x = Number(n);
+    for (let d = 5; d * d <= x && d <= LIMIT; d += 6) if (x % d === 0 || x % (d + 2) === 0) return false;
+    return true;
+  }
   for (let d = 5n; d * d <= n && d <= TRIAL_DIVISION_LIMIT; d += 6n) if (n % d === 0n || n % (d + 2n) === 0n) return false;
   return true;
 }
@@ -58,13 +67,18 @@ export function nearestSquareRoot(x: Q): bigint {
  * and deterministic, and the cost of a rule evaluation stays bounded on huge numbers (which the confining code makes
  * vanishingly rare).
  */
-export const TRIAL_DIVISION_LIMIT = 100_000n;
+export const TRIAL_DIVISION_LIMIT = BigInt(LIMIT);
 
 /** The smallest prime factor of |n| (up to TRIAL_DIVISION_LIMIT, else |n|); 1 for 0 and ±1. */
 export function smallestPrimeFactor(n: bigint): bigint {
   const m = n < 0n ? -n : n;
   if (m < 2n) return 1n;
   if (m % 2n === 0n) return 2n;
+  if (m <= SAFE) {
+    const x = Number(m);
+    for (let d = 3; d * d <= x && d <= LIMIT; d += 2) if (x % d === 0) return BigInt(d);
+    return m;
+  }
   for (let d = 3n; d * d <= m && d <= TRIAL_DIVISION_LIMIT; d += 2n) if (m % d === 0n) return d;
   return m;
 }
@@ -74,6 +88,11 @@ export function largestPrimeFactor(n: bigint): bigint {
   let m = n < 0n ? -n : n;
   if (m < 2n) return 1n;
   let big = 1n;
+  if (m <= SAFE) {
+    let x = Number(m), b = 1;
+    for (let d = 2; d * d <= x && d <= LIMIT; d += d === 2 ? 1 : 2) while (x % d === 0) { b = d; x /= d; }
+    return x > 1 ? BigInt(x) : BigInt(b);
+  }
   for (let d = 2n; d * d <= m && d <= TRIAL_DIVISION_LIMIT; d += d === 2n ? 1n : 2n) while (m % d === 0n) { big = d; m /= d; }
   return m > 1n ? m : big;
 }
@@ -83,6 +102,11 @@ export function primeFactorCount(n: bigint): number {
   let m = n < 0n ? -n : n;
   if (m < 2n) return 0;
   let k = 0;
+  if (m <= SAFE) {
+    let x = Number(m);
+    for (let d = 2; d * d <= x && d <= LIMIT; d += d === 2 ? 1 : 2) while (x % d === 0) { x /= d; k++; }
+    return x > 1 ? k + 1 : k;
+  }
   for (let d = 2n; d * d <= m && d <= TRIAL_DIVISION_LIMIT; d += d === 2n ? 1n : 2n) while (m % d === 0n) { m /= d; k++; }
   return m > 1n ? k + 1 : k;
 }

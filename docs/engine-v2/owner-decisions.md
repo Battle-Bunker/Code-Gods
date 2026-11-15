@@ -130,7 +130,9 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     that makes larger numbers harder to reach. Ideally we want to fit curves to map utility to energy so that the
     possible energy of an object can be unbounded. I don't want Maxima anywhere ideally, but if we have to accept some
     really high maximum possible scores for some rules because they must have their utility-to-energy relation calculated
-    fully empirically then I will accept this for the sake of allowing more diversity of rule types."
+    fully empirically then I will accept this for the sake of allowing more diversity of rule types." (Lines lose
+    their 10^6 box; a value function's fitted tail is the rule past its best knot and never saturates, held between the
+    law's floor and ceiling. The audit of every maximum left: docs/engine-v2/maxima.md.)
 
 27. On entanglement (relayed by the coordinator, 14 November): "I want rules to be highly entangled with one another
     but it's also ok for some rule pairs to be less entangled than others. That's what creates interesting political
@@ -202,6 +204,18 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     to zero. It should have a modest value for beginner game so that querying 5 objects every second would be easily
     affordable but doing so 100 times a second would be prohibitive." (The `observation` free/paid flag goes; every game
     pays to look, at the spec's read price times a weight that may be 0.)
+
+36. On what agents learn (relayed by the coordinator, 15 November): "Players should still know everything their agents
+    learn for free so beginners won't need to think about querying directly with their god powers to keep up with the
+    state of objects." (Every act a player's agent runs on an object, committed or not, tells the player the object as
+    the agent saw it, with the agent's own measurement of its value: convex/v2/loop.ts. A stale act saw an older version
+    and tells nothing newer.)
+
+37. On interaction rate and time (relayed by the coordinator, 15 November): "Default interaction rate should be 3Hz for
+    the beginner game. Run your simulations faster though, like 10x. Make provision for speeding up time for AI
+    simulations with a single param that dilates everything uniformly by that factor including power and interaction
+    rate and spawn rate and game duration etc." (The beginner economy's opportunities are 3 a second, #676. The factor is
+    v2-economy `dilate(settings, factor)`, agreed with the spec lead; simulations use 10.)
 
 38. On power levels (relayed by the coordinator, 15 November): "About power levels, I want them scaled down a lot. It
     should be really hard to reach object energy levels of 20 or 30 let alone hundreds. I don't understand why our energy

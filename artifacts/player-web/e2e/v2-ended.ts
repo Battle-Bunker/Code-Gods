@@ -167,6 +167,9 @@ async function endedGame(page: Page, preset: string, noun: string) {
   const results = await open(page, "results");
   await results.getByText(/You finished/).waitFor();
   assert.equal(await results.locator("[data-testid^=row-result-]").count(), 3, `${label}: the final standings, every player`);
+  // Never a Results page without advice (round 12: Exact Change's said nothing): "Try next game" is there.
+  await results.getByTestId("text-summary-next").waitFor({ timeout: 15_000 });
+  console.log(`${label}: try next game: ${(await results.getByTestId("text-summary-next").innerText()).replace(/\s+/g, " ").slice(0, 140)}`);
   ok("results");
   await noErrors("every pane");
   await page.screenshot({ path: path.join(shots, `ended-${label}.png`) });

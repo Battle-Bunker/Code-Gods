@@ -7,13 +7,14 @@
  *     [--pool v3|rational] [--moves unit|mutators]
  *
  * Object: a fraction line a·x + b·y + c = 0 (primitive, b > 0, or b = 0 < a), drawn from the line-q law
- * (each of a, b, c from the mixed integer code, conditioned on canonical). A rule is a primary and one secondary, both
+ * (each of a, b, c from its code in LINE_Q_CODES, conditioned on canonical). A rule is a primary and one secondary, both
  * real-valued, compared lexicographically; its bits at a line are −log2 π{lines at least as good}, estimated from
  * tilted draws of the law (decision 22: an empirical ladder). Prices are path-consistent unit steps on a, b or c
  * (#580): one call of "which" + a one-step argument + max(0, Δφ), charged W + 0.05·W².
  */
 import { parseArgs } from "node:util";
-import { mixedIntBits, mixedIntLog2Norm, rng, sampleMixedInt, stepsNonzeroBits, type Rng } from "@workspace/v2-core";
+import { rng, stepsNonzeroBits, type Rng } from "@workspace/v2-core";
+import { LINE_Q_CODES } from "@workspace/v2-linear";
 import { changeCharge } from "@workspace/v2-economy";
 
 const { values: o } = parseArgs({ options: {
@@ -40,8 +41,6 @@ function factor(n: number): number[] {
   while (n > 1) { if (n <= LIM) { const p = SPF[n]!; out.push(p); n /= p; } else { out.push(n); n = 1; } }
   return out;
 }
-const LOG2Z = mixedIntBits(1n) - 2;
-const phiInt = (n: number) => (n === 0 ? 1 : 2 + 0.5 * factor(n).reduce((s, p) => s + p, 0) + LOG2Z);
 const gcd = (x: number, y: number): number => { x = Math.abs(x); y = Math.abs(y); while (y) [x, y] = [y, x % y]; return x; };
 const spf = (n: number) => (Math.abs(n) <= 1 ? 0 : factor(n)[0]!);
 const bigOmega = (n: number) => (Math.abs(n) <= 1 ? 0 : factor(n).length);
@@ -72,7 +71,9 @@ function canon(a: number, b: number, c: number): L | null {
   if (b < 0 || (b === 0 && a < 0)) { a = -a; b = -b; c = -c; }
   return [a + 0, b + 0, c + 0];
 }
-const phiL = (l: L) => phiInt(l[0]) + phiInt(l[1]) + phiInt(l[2]);
+// φ on line-q: LINE_Q_CODES on (a, b, c).
+const { a: CA, b: CB, c: CC } = LINE_Q_CODES;
+const phiL = (l: L) => CA.bits(BigInt(l[0])) + CB.bits(BigInt(l[1])) + CC.bits(BigInt(l[2]));
 const key = (l: L) => ((l[0] + 4096) * 8192 + l[1]) * 8192 + (l[2] + 4096);
 
 /** The derived numbers a rule may read (every one a representation of the same line). */
@@ -246,13 +247,13 @@ const rulesOf = (fs: Fam[]): Rule[] => fs.flatMap(f => f.secs.map(s => ({ id: `$
 const TILT = 0.55;
 interface Sample { ls: L[]; logw: Float64Array; total: number }
 function drawLaw(n: number, seed: string): Sample {
-  const r = rng("v3-law", seed), z = mixedIntLog2Norm(TILT);
+  const r = rng("v3-law", seed), z = CA.log2Norm(TILT) + CB.log2Norm(TILT) + CC.log2Norm(TILT);
   const ls: L[] = [], lw: number[] = [];
   for (let i = 0; i < n; i++) {
-    const a = Number(sampleMixedInt(r, TILT)), b = Number(sampleMixedInt(r, TILT)), c = Number(sampleMixedInt(r, TILT));
+    const a = Number(CA.sample(r, TILT)), b = Number(CB.sample(r, TILT)), c = Number(CC.sample(r, TILT));
     const l = canon(a, b, c);
     if (!l || l[0] !== a || l[1] !== b || l[2] !== c || Math.max(Math.abs(a), b, Math.abs(c)) > 4000) continue;
-    ls.push(l); lw.push(-(1 - TILT) * phiL(l) + 3 * z);
+    ls.push(l); lw.push(-(1 - TILT) * phiL(l) + z);
   }
   const mx = lw.reduce((m, x) => Math.max(m, x), -Infinity); const logw = Float64Array.from(lw, x => x - mx);
   return { ls, logw, total: logw.reduce((s, x) => s + 2 ** x, 0) };
@@ -343,7 +344,7 @@ function reach(start: L, budget: number, maxStates = 150_000): { states: L[]; ca
   }
   return { states, capped: false, spent: budget };
 }
-function birth(r: Rng): L { for (;;) { const a = Number(sampleMixedInt(r)), b = Number(sampleMixedInt(r)), c = Number(sampleMixedInt(r)); const l = canon(a, b, c); if (l && l[0] === a && l[1] === b && l[2] === c && b > 0) return l; } }
+function birth(r: Rng): L { for (;;) { const a = Number(CA.sample(r)), b = Number(CB.sample(r)), c = Number(CC.sample(r)); const l = canon(a, b, c); if (l && l[0] === a && l[1] === b && l[2] === c && b > 0) return l; } }
 
 const LINE_SHARE = 2475, SEAT_GAME = 19_800;
 
@@ -809,4 +810,59 @@ if (want("params")) {
     say(`- ${qu.id}: median ${f1(median(bests))}, range ${f1(Math.min(...bests))}–${f1(Math.max(...bests))}`);
   }
   say(`\nExample cards: ${rows.slice(0, 4).map(x => `"${x.a.card}"`).join(" ")}`);
+}
+
+if (want("parambalance")) {
+  // Balance (v1's equal opportunity): best bits a rule reaches from births within its share of the cheapest reach,
+  // by lens and by qualifier. Mutator moves recommended (--moves mutators).
+  say("\n## Balance of the parameterised pool: best bits in reach, by lens and by qualifier\n");
+  const r = rng("param-balance");
+  const reaches = BIRTHS.slice(0, 3).map(b => reach(b, LINE_SHARE, Number(process.env.REACH ?? 60_000)));
+  say(`Reach from 3 births: ${reaches.map(x => `${x.states.length} lines up to ${x.spent.toFixed(0)} ⚡`).join(", ")}`);
+  const best = (pr: PRule) => { const v = valuers([pr], smp)[0]!; return median(reaches.map(x => x.states.reduce((m, l) => Math.max(m, v.bits(l)), 0))); };
+  const other = (l: Lens) => (l.id === "c" ? LENSES[1]! : LENSES[0]!);
+  say("| lens | median best bits over 6 random qualifiers | range |"); say("|---|---|---|");
+  for (const l of LENSES) {
+    const bs = Array.from({ length: 6 }, () => best(paramRule(l, QUALS[r.below(QUALS.length)]!, other(l), 10)));
+    say(`| ${l.id} | ${f1(median(bs))} | ${f1(Math.min(...bs))}–${f1(Math.max(...bs))} |`);
+  }
+  say("\n| qualifier | median best bits over 4 random lenses | range |"); say("|---|---|---|");
+  for (const q of QUALS) {
+    const bs = Array.from({ length: 4 }, () => { const l = LENSES[r.below(LENSES.length)]!; return best(paramRule(l, q, other(l), 10)); });
+    say(`| ${q.id} | ${f1(median(bs))} | ${f1(Math.min(...bs))}–${f1(Math.max(...bs))} |`);
+  }
+}
+
+if (want("paramdyn")) {
+  // Dynamism: random tables of 3 and 4 parameterised rules, scripted seats, mutator moves (--moves mutators).
+  say("\n## Dynamism: random tables of parameterised rules\n");
+  const r = rng("param-dyn", process.env.SEED ?? "1");
+  const draw = (): PRule => { const l = LENSES[r.below(LENSES.length)]!; let l2 = l; while (l2.id === l.id) l2 = LENSES[r.below(LENSES.length)]!; return paramRule(l, QUALS[r.below(QUALS.length)]!, l2, BASES[r.below(BASES.length)]!); };
+  for (const seats of [3, 4]) for (let t = 0; t < Number(process.env.TABLES ?? 4); t++) {
+    const rules: PRule[] = []; while (rules.length < seats) { const x = draw(); if (!rules.some(y => y.lens.id === x.lens.id && y.qual.id === x.qual.id)) rules.push(x); }
+    const vs = valuers(rules, smp); const dy = dynamicsTest(vs, `pd-${seats}-${t}`);
+    const sb = dy.seatBits; const spread = Math.max(...sb) / Math.max(1e-9, Math.min(...sb));
+    say(`**${seats} seats, table ${t + 1}**: ${rules.map(x => x.id).join(" + ")}`);
+    say(`  F ${dy.Ft.map(x => x.toFixed(0)).join("→")}; objects moved in the last 100 s ${f2(dy.changedLate)}; ever moved ${dy.touched}/24; moves ${dy.moves} (by seat ${dy.movesBy.join(", ")}); seat bits at the end ${sb.map(f1).join(", ")} (max/min ${f1(spread)}); largest coefficient ${dy.maxH}`);
+  }
+}
+
+if (want("paramdrift")) {
+  // The same random tables, but each seat's dealt qualifier value is redrawn within its family every 50 s
+  // (e.g. "a prime ending in 7" becomes "a prime ending in 3"): the §A8 drifting target, built from decision 41's params.
+  say("\n## Dynamism with drifting parameters (each qualifier redrawn within its family every 50 s)\n");
+  const r = rng("param-dyn", process.env.SEED ?? "1");
+  const draw = (): PRule => { const l = LENSES[r.below(LENSES.length)]!; let l2 = l; while (l2.id === l.id) l2 = LENSES[r.below(LENSES.length)]!; return paramRule(l, QUALS[r.below(QUALS.length)]!, l2, BASES[r.below(BASES.length)]!); };
+  const familyOf = (q: Qual) => q.id.replace(/[0-9]+/g, "#");
+  for (const seats of [3, 4]) for (let t = 0; t < Number(process.env.TABLES ?? 4); t++) {
+    const rules: PRule[] = []; while (rules.length < seats) { const x = draw(); if (!rules.some(y => y.lens.id === x.lens.id && y.qual.id === x.qual.id)) rules.push(x); }
+    const rr = rng("drift", seats, t);
+    const phases = Array.from({ length: 6 }, (_, k) => valuers(rules.map(x => {
+      if (k === 0) return x;
+      const fam = QUALS.filter(q => familyOf(q) === familyOf(x.qual));
+      return paramRule(x.lens, fam[rr.below(fam.length)]!, x.lens2, x.base);
+    }), smp));
+    const dy = dynamicsTest(phases[0]!, `pd-${seats}-${t}`, { phase: s => phases[Math.min(5, Math.floor(s / 50))]! });
+    say(`**${seats} seats, table ${t + 1}** (same tables as --part paramdyn): F ${dy.Ft.map(x => x.toFixed(0)).join("→")}; objects moved in the last 100 s ${f2(dy.changedLate)}; ever moved ${dy.touched}/24; seat bits at the end ${dy.seatBits.map(f1).join(", ")}`);
+  }
 }

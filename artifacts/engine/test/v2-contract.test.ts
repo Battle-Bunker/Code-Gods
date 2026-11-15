@@ -74,7 +74,7 @@ test("every live query answers a seated player within its validator", async () =
   await admin.mutation("v2/testing:setBidding", { roomId, open: true });
   const bids = await ada.query("v2/bids:state", { roomId });
   assert.ok(bids.open && bids.families.length > 0 && bids.players.length === 3);
-  assert.ok(bids.families.every((f: any) => f.card.length > 0 && f.top > 0), "each family on offer with its card and top");
+  assert.ok(bids.families.every((f: any) => f.card.length > 0 && f.top > 0), "each family on offer with its card and how far its values were measured (the query's `top`; the affordance calls it measuredTo)");
   await admin.mutation("v2/testing:setBidding", { roomId, open: false });
 });
 
@@ -138,7 +138,8 @@ test("operations run through defineOp: results, receipts, refusals, delegates an
     assert.equal((e as { data?: { error?: { code?: string } } }).data?.error?.code, "failed");
   }
   // An action resolves its caller through a query and returns its failure as a value (a summon dearer than the store).
-  const dear = await perform(ada, "agent.summon", { language: "python", source: `def agent(offer):\n  ${"x = 1\n  ".repeat(900)}return None\n` }, { gameId }, "action");
+  // (About 6,600 bits, so dearer than the 600 starting energy even at the beginner game's power scale, 8 ÷ 64.)
+  const dear = await perform(ada, "agent.summon", { language: "python", source: `def agent(offer):\n  ${"x = [1, 2, 3, 4, 5, 6, 7, 8, 9]\n  ".repeat(440)}return None\n` }, { gameId }, "action");
   assert.equal(dear.error.code, "failed", JSON.stringify(dear));
   // pitch.draft spends AI tokens: only in a room whose owner is an administrator (v2-assistant.test.ts drafts one there).
   const pitch = await perform(ada, "pitch.draft", { aim: "protect lines with a prime gradient" }, { gameId }, "action");

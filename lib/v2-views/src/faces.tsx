@@ -61,7 +61,8 @@ export interface CompactFaceProps<S, P> {
   readonly before?: S;
   /** The cheapest move that makes the object rarer, drawn as a hint: true computes it here (own rule only), or pass one. */
   readonly next?: boolean | Move<S> | null;
-  /** When the object does not score (a vertical line, for a rule that reads its y-intercept): "To score: <the move>". */
+  /** When the object does not score (a vertical line, for a rule that reads its y-intercept): "To score: <the move>".
+   *  On by default (playtest round 12: a rule that does not score says what would); false to leave it out. */
   readonly toScore?: boolean;
 }
 
@@ -75,7 +76,7 @@ export function CompactFace<S, P>(props: CompactFaceProps<S, P>): ReactElement {
   // The next move (asked for), or, not scoring and asked for (`toScore`), the cheapest move that makes it score: one
   // search either way, only when the caller wants a hint.
   const next = useMemo(() => {
-    if (props.next !== true && !(props.toScore && a.score === null)) return props.next || null;
+    if (props.next !== true && !((props.toScore ?? true) && a.score === null)) return props.next || null;
     if (a.score === null) return moves(props.rule, props.state, props.value, { k: 1 }).find(m => m.utility !== null) ?? null;
     return props.next === true ? moves(props.rule, props.state, props.value, { k: 1 })[0] ?? null : null;
   }, [props.next, props.toScore, props.rule, props.state, props.value, a.score]);
@@ -119,7 +120,7 @@ export function RulerView({ part, width = 300 }: { part: Part; width?: number })
       {r.refs.map(ref => <line key={ref.at} className="v2v-ruler-ref" data-strong={ref.strong ? "" : undefined} x1={X(ref.at)} x2={X(ref.at)} y1={Y - 7} y2={Y + 7} />)}
       {shown.map(ref => <text key={ref.at} className="v2v-ruler-label" data-strong={ref.strong ? "" : undefined} x={X(ref.at)} y={Y + 19} textAnchor="middle">{ref.label}</text>)}
       <circle className="v2v-ruler-value" cx={X(r.value)} cy={Y} r={4.5} />
-      <text className="v2v-ruler-label" data-value="" x={Math.min(W - lw / 2 - 2, Math.max(lw / 2 + 2, X(r.value)))} y={Y - 10} textAnchor="middle">{label}</text>
+      <text className="v2v-ruler-label" data-value="" x={Math.min(W - lw / 2 - 2, Math.max(lw / 2 + 2, X(r.value)))} y={Y - 10} textAnchor="middle" aria-label={`${PART_NAME[part.role]}: ${r.valueText}`}><title>{`${PART_NAME[part.role]}: ${r.valueText}`}</title>{label}</text>
     </svg>
   );
 }
@@ -378,6 +379,12 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
   const title = (id: string) => shortTitle(representation(rule.type, id).title);
   const bits = bitsLine(a);
   const first = list[0];
+  // Not scoring: what would make it score, the cheapest such move and its price (playtest round 12: Exact Change said
+  // only why not, and its holder had no way forward).
+  const toScore = useMemo(
+    () => (a.score !== null || props.improvement === false ? null : list.find(m => m.utility !== null) ?? moves(rule, state, props.value, { k: 1 }).find(m => m.utility !== null) ?? null),
+    [a.score, list, rule, state, props.value, props.improvement],
+  );
 
   return (
     <div className="v2v v2v-expanded" data-scoring={a.score === null ? undefined : ""}>
@@ -385,7 +392,12 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
         <ObjectChip type={rule.type} state={state} />
         {bits && <span className="v2v-exp-level" data-worst={a.score === null ? "" : undefined} title={BITS_HELP}>{bits}</span>}
       </header>
-      {a.worst && <p className="v2v-worst">This {a.noun} does not score for your rule: {a.worst}.</p>}
+      {a.worst && (
+        <p className="v2v-worst">
+          This {a.noun} does not score for your rule: {a.worst}.
+          {toScore && <span data-testid="text-to-score"> To score: {toScore.words}{!toScore.words.includes(toScore.text) && toScore.text.length <= 40 ? ` (it becomes ${toScore.text})` : ""}, for {fmtEnergy(toScore.price.total)}.</span>}
+        </p>
+      )}
       {sel !== null && (
         <p className="v2v-selchip" data-role={sa.parts[sel]!.role}>
           {GLYPH[sa.parts[sel]!.role]} {sa.parts[sel]!.name} selected: only its marks are drawn{" "}

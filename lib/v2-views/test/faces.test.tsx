@@ -195,3 +195,14 @@ test("a blurred others' total can be negative: points use max(0, others), so no 
   for (const p of [...html.matchAll(/data-points="([^"]+)"/g)].map(x => Number(x[1]))) assert.ok(p >= 0, `points ${p}`);
   assert.doesNotMatch(text(html), /−[\d.,]+ points/, "no negative points written");
 });
+
+test("a rule that does not score a line says what would make it score, with the cheapest such move (playtest round 12: Exact Change)", async () => {
+  const { exactChange } = await import("@workspace/v2-linear");
+  const ec: RuleRef<LineState, unknown> = { type: lineType, family: exactChange as never, params: (exactChange as never as { dealable: (v: unknown) => unknown[] }).dealable(lineQ)[0], variant: lineQ };
+  const flat = mc(2, 5); // −2x + y = 5: a and b not both positive, no coins
+  const compact = text(renderToStaticMarkup(<CompactFace rule={ec} state={flat} />));
+  assert.match(compact, /not scoring/);
+  assert.match(compact, /To score: \S/, "on by default");
+  const expanded = text(renderToStaticMarkup(<ExpandedFace rule={ec} state={flat} />));
+  assert.match(expanded, /does not score for your rule: .+\. To score: .+, for [\d,]+\.\d\d energy\./);
+});

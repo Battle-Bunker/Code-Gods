@@ -42,6 +42,7 @@ test("values in a game carry the uniqueness correction at the game's object coun
   const many = worthOf(rec.ruleKey, scoreFrom(rare.u), scope).bits;
   assert.equal(one, rare.bits, "one object: no correction");
   const table = UNIQUENESS.find(t => t.variant === rec.variant)!, shift = uniquenessShift(table, objects);
+  // Small on line-q since code C3 (a spread-out law, Σπ² ≈ 5e-4) and with a handful of objects, but there.
   assert.ok(shift > 0, `${rec.variant} at ${objects} objects: shift ${shift}`);
   assert.ok(Math.abs(one - many - shift) < 1e-9, `a rare score loses the full shift in a game of ${objects} lines: ${one} → ${many}, shift ${shift}`);
   // What the agents and the app are sent applies the same correction (host.ts gameLookup, sdk/rule.ts valueOf).

@@ -1,6 +1,6 @@
 /**
  * The rule gallery's read: one family's dealable rules in a preset, each with its card, layers and value curve (decision
- * 23: its value function's knots, worst to best, each score with its ✨ bits), what a dealt player can read before any
+ * 23: its value function's knots, worst to best, each score with its rarity bits), what a dealt player can read before any
  * deal. The value functions are large, so this module is the gallery's alone; a pane subscribes per family it shows.
  */
 import { v } from "convex/values";

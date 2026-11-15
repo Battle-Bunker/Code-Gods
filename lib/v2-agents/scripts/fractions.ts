@@ -2,7 +2,7 @@
  * Why fraction lines play as whole numbers (playtest round 10, lines-beginner on line-q). Analysis only: nothing here
  * changes game logic, the law, the codes or any value. docs/engine-v2/fractions.md reads its output.
  *
- *   node --experimental-strip-types scripts/fractions.ts [--parts law,prices,rules,play] [--seeds 3] [--seconds 300]
+ *   node --experimental-strip-types scripts/fractions.ts [--parts law,births,prices,rules,play] [--seeds 3] [--seconds 300]
  *     [--objects 10] [--births 0.05] [--agents plain,shortcut,fractional] [--draws 400000] [--table mixed]
  *
  * Parts:
@@ -13,6 +13,7 @@
  *           the charge W + βW² (β = 0.05), and the cheapest calls that tip a vertical line into a sloped one
  *   rules   per dealable rule: does it score a vertical line (main and each tie-breaker defined or not), and of its top
  *           states (enumerated |a|, |b| ≤ 12, |c| ≤ 30) what share is whole (b = 1) against the enumeration's share
+ *   births  the newborns of the walk (births.ts) on line-q: the same shares as law, from 200 seeds (--draws/10 lines)
  *   play    runTable with three scripted seats (the mixed table of scripts/freeze.ts and collapse-check test 4) under
  *           unique objects: the share of objects whole / fractional / vertical at 0, 60, 120 and the end, per agent
  *           kind, and the committed acts that change a line's class, by mutator
@@ -172,10 +173,10 @@ function drawLines(s: Shape, n: number, seed: string): LineState[] {
 const SHAPES = (): [string, Shape][] => {
   const cur = mixed(0.5);
   return [
-    ["C0 today: mixed(a), mixed(b), mixed(c), p(0) = ½", { kind: "triple", a: cur, b: cur, c: cur }],
+    ["C0 before the trial: mixed(a), mixed(b), mixed(c), p(0) = ½", { kind: "triple", a: cur, b: cur, c: cur }],
     ["C1 p(0) = 1/16 for b only (fewer vertical lines)", { kind: "triple", a: cur, b: mixed(1 / 16), c: cur }],
     ["C2 p(0) = 1/8 for a, b and c", { kind: "triple", a: mixed(1 / 8), b: mixed(1 / 8), c: mixed(1 / 8) }],
-    ["C3 C2 with b by steps (2^−½ per unit)", { kind: "triple", a: mixed(1 / 8), b: steps(1 / 16), c: mixed(1 / 8) }],
+    ["C3 C2 with b by steps (2^−½ per unit; line-q today, a trial)", { kind: "triple", a: mixed(1 / 8), b: steps(1 / 16), c: mixed(1 / 8) }],
     ["C4 (m, c) as rationals: vertical 1/16, p(0) = ¼, P(den 1) = ½", { kind: "mc", v: 1 / 16, num: mixed(1 / 4), den: denominator(1 / 2) }],
     ["C5 as C4 with P(den 1) = ⅓", { kind: "mc", v: 1 / 16, num: mixed(1 / 4), den: denominator(1 / 3) }],
     ["C6 (m, c): vertical 1/64, p(0) = ¼, den 1 ½ then ¼, ⅛, … (by steps)", { kind: "mc", v: 1 / 64, num: mixed(1 / 4), den: denominatorSteps(1 / 2) }],
@@ -210,10 +211,10 @@ function lawPart() {
     const base = phiOf(s, [3, 1], [5, 1]);
     row([name.split(" ")[0]!, ...moves.map(([, m, c]) => f2(phiOf(s, m, c) - base))]);
   }
-  // The price of a denominator under today's code: φ(y = (p/d)x + c) − φ(y = px + c) on a few lines.
+  // The price of a denominator under line-q's code (C3 since the trial): φ(y = (p/d)x + c) − φ(y = px + c) on a few lines.
   const phi = (l: Line) => lineType.readLength({ lines: [l] }, lineQ);
   const L = (a: bigint, b: bigint, c: bigint): Line => ({ a, b, c });
-  console.log("\nφ (bits) today, whole against fractional neighbours:\n");
+  console.log("\nφ (bits) under line-q's code (C3), whole against fractional neighbours:\n");
   head(["line", "triple (a, b, c)", "φ"]);
   for (const l of [L(-3n, 1n, -5n), L(-3n, 2n, -10n), L(-6n, 2n, -5n), L(-3n, 2n, -5n), L(-1n, 3n, -15n), L(-3n, 4n, -20n), L(-7n, 3n, -2n), L(0n, 1n, -5n), L(1n, 0n, -3n), L(-3n, 1n, 0n)]) {
     row([describeLine(l), `(${l.a}, ${l.b}, ${l.c})`, f2(phi(l))]);
@@ -287,14 +288,14 @@ function rulesPart() {
   const whole = (s: LineState) => s.lines[0]!.b === 1n;
   const base = states.filter(whole).length / states.length;
   const vert = states.filter(s => s.lines[0]!.b === 0n).length / states.length;
-  // Lines drawn from π itself (law.ts, today's code), and from two candidate codes: the share each rule scores null,
-  // weighted as births are.
+  // Lines drawn from π itself (law.ts: C3 since the trial), and from two other codes (C0, the code before it; C9):
+  // the share each rule scores null, weighted as births are.
   const law = lineLaw(lineQ), lr = rng("fractions-rules");
   const drawn: LineState[] = [];
   while (drawn.length < 4000) { const d = law.draw(lr, 1); if (d.state) drawn.push(d.state); }
-  const shapes = SHAPES(), cand = ["C3", "C9"].map(id => drawLines(shapes.find(([n]) => n.startsWith(id))![1], 4000, id));
-  console.log(`\nTop states (enumeration: ${states.length} lines, ${pct(base)} whole, ${pct(vert)} vertical). Per rule, the top 100 by its bits (ties at the cut kept): share whole, share vertical; the share of lines scoring null over the enumeration, over 4000 draws from π (law.ts, ${pct(drawn.filter(s => s.lines[0]!.b === 0n).length / drawn.length)} vertical) and over 4000 draws from the candidate codes C3 and C9.\n`);
-  head(["rule", "top states", "top whole", "top vertical", "null (enumeration)", "null (π today)", "null (C3)", "null (C9)", "best bits"]);
+  const shapes = SHAPES(), cand = ["C0", "C9"].map(id => drawLines(shapes.find(([n]) => n.startsWith(id))![1], 4000, id));
+  console.log(`\nTop states (enumeration: ${states.length} lines, ${pct(base)} whole, ${pct(vert)} vertical). Per rule, the top 100 by its bits (ties at the cut kept): share whole, share vertical; the share of lines scoring null over the enumeration, over 4000 draws from π (law.ts, ${pct(drawn.filter(s => s.lines[0]!.b === 0n).length / drawn.length)} vertical) and over 4000 draws from the codes C0 (before the trial) and C9.\n`);
+  head(["rule", "top states", "top whole", "top vertical", "null (enumeration)", "null (π, C3)", "null (C0)", "null (C9)", "best bits"]);
   const nullForAll = [drawn, ...cand].map(xs => xs.map(() => true));
   const nullShare = (xs: LineState[], k: number, v: ReturnType<typeof valuer<LineState>>, counts: boolean) => {
     let n = 0;
@@ -310,7 +311,7 @@ function rulesPart() {
     row([ruleName(rule), top.length, pct(top.filter(x => whole(x.s)).length / top.length), pct(top.filter(x => x.s.lines[0]!.b === 0n).length / top.length), pct(scored.filter(x => x.nul).length / scored.length),
       ...[drawn, ...cand].map((xs, k) => nullShare(xs, k, v, rule.family !== "whole-crossing")), f2(sorted[0]!.bits)]);
   }
-  console.log(`\nNull for every rule but Whole Crossing (10 of the 11 families): ${nullForAll.map((xs, k) => `${["π today", "C3", "C9"][k]} ${pct(xs.filter(Boolean).length / xs.length)}`).join(", ")}`);
+  console.log(`\nNull for every rule but Whole Crossing (10 of the 11 families): ${nullForAll.map((xs, k) => `${["π (C3)", "C0", "C9"][k]} ${pct(xs.filter(Boolean).length / xs.length)}`).join(", ")}`);
 }
 
 // ================================================================ play
@@ -405,7 +406,18 @@ async function playPart() {
   await boxes.close();
 }
 
+/** Newborns from the seeded walk (births.ts) on line-q: 200 seeds, `--draws`/10 lines in all. */
+function birthsPart() {
+  const total = Math.max(200, Math.round(Number(o.draws) / 10)), xs: Line[] = [];
+  for (let s = 0; s < 200; s++) for (const st of born(lineType, lineQ, `fractions-births-${s}`, Math.ceil(total / 200))) xs.push(st.lines[0]!);
+  const share = (f: (l: Line) => boolean) => pct(xs.filter(f).length / xs.length);
+  console.log(`\n## births: ${xs.length} newborns of the walk on line-q (200 seeds)\n`);
+  head(["vertical", "horizontal", "through origin", "b = 1 (whole)", "b 2..4", "b ≥ 5"]);
+  row([share(l => l.b === 0n), share(l => l.a === 0n), share(l => l.c === 0n), share(l => l.b === 1n), share(l => l.b >= 2n && l.b <= 4n), share(l => l.b >= 5n)]);
+}
+
 if (parts.has("law")) lawPart();
+if (parts.has("births")) birthsPart();
 if (parts.has("prices")) pricesPart();
 if (parts.has("rules")) rulesPart();
 if (parts.has("play")) await playPart();

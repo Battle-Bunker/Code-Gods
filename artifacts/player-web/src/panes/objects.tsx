@@ -7,7 +7,9 @@
  * and "Why?" from the rule's main part. Clicking a row opens it in One line (`view.openObject`). The order is the human's
  * view state (`view.sortObjects`), so an assistant can sort it for them. A spectator sees every line by number, as text.
  */
-import { isPaid, seenShort, seenWords } from "./seen";
+import { isPaid, KEEP_FRESH_SHARE, lookAllPrice, seenShort, watcherTypeOf } from "./seen";
+import { watcherFor } from "@workspace/v2-agents/pure";
+import { SeenNote } from "./fresh-mark";
 import { bitsText, num, othersNote, pointsText, scoreFormula, blurredNote } from "@/core/words";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { stableOrder } from "./stable-order";
@@ -15,7 +17,7 @@ import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import type { Score } from "@workspace/v2-core";
 import { annotate, CompactFace, ObjectChip, type Annotation } from "@workspace/v2-views";
-import { decodeState, defaultRepOf, objectTypeOf, objectWord, useDigest, useGame, useGameScope, useMoves, useMyObject, useMyRule, useObjectIds, useReplaySource, useSpectatorObjectIds, type GameRule, useOthersBlurred } from "@/sdk";
+import { decodeState, defaultRepOf, objectTypeOf, objectWord, useDigest, useGame, useGameScope, useMoves, useMyAgents, useMyObject, useMyObjects, useMyRule, useObjectIds, useReplaySource, useSpectatorObjectIds, type GameRule, useOthersBlurred } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
 import { useWide } from "@/core/use-wide";
 import { usePaneOps } from "@/dock/open-pane";
@@ -113,7 +115,7 @@ function LineRow({ objectId, number, rule, value, rep, scale, focused, contested
         {contested && <span className="border border-destructive/60 px-1 text-[10px] font-medium uppercase text-destructive" data-testid={`badge-contested-line-${number}`}
           title={`Your agent and another player's keep moving this ${word.one} back and forth: both of you burn energy. Talk to them.`}>tug-of-war</span>}
         {v && <span data-testid={`text-points-line-${number}`}>{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
-        {isPaid(o) && <span className="text-muted-foreground" data-testid={`text-seen-line-${number}`} title={seenWords(o) ?? undefined}>{seenShort(o)}</span>}
+        {isPaid(o) && <SeenNote o={o} number={number} />}
       </p>
       {v && <PointsRectangle number={number} rarity={v.rarityBits} want={v.want} scale={widen(scale, v.rarityBits, v.want)} approx={blurred} />}
       {v && (
@@ -125,15 +127,31 @@ function LineRow({ objectId, number, rule, value, rep, scale, focused, contested
   </>);
 }
 
-/** In a game with paid looks: what you see is as last seen; one press pays to see every one as it is now. */
-function LookAll({ firstId, many }: { firstId: string | null; many: string }) {
-  const first = useMyObject(firstId);   // the first row's own subscription: a paid game's reads carry knownAt
-  if (!isPaid(first)) return null;
+/**
+ * Every game pays to look (owner decisions 33, 35): what you see is as you last saw it. One press pays to see every
+ * loaded one as it is now; another summons a Watcher, an agent that only looks, so they stay fresh on their own.
+ */
+function LookAll({ ids, many, variant }: { ids: readonly string[]; many: string; variant: string }) {
+  const rows = useMyObjects(ids);   // the rows' own subscriptions (shared): each carries its look price
+  const agents = useMyAgents();
+  const price = lookAllPrice(rows);
+  if (!rows.some(r => isPaid(r))) return null;
+  const watching = agents?.some(a => a.name === "Watcher") ?? false;
+  const watcher = watcherFor(watcherTypeOf(variant), "typescript");
+  // Decision 36: your agents tell you every one they touch, so a beginner keeps up without looking; looking and a
+  // Watcher are extras for a player who wants their view sooner, never a step of the first game.
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 text-xs text-muted-foreground" data-testid="look-all">
-      <span>You see the {many} as you last saw them. Looking costs energy.</span>
-      <AffordanceButton id="object.look" args={{}} label={`Look at every ${many.replace(/s$/, "")} now`} busyLabel="Looking…" tone="quiet" className="px-2 py-1 text-xs" testId="button-look-all" />
-    </div>
+    <details className="px-3 text-xs text-muted-foreground" data-testid="look-all">
+      <summary className="cursor-pointer" data-testid="details-look-more">Your agents tell you about every {many.replace(/s$/, "")} they touch. Want to see them sooner?</summary>
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+        {price !== null && <AffordanceButton id="object.look" args={{}} label={`Look at all ${ids.length} ${many} (${price.toFixed(2)} energy)`} busyLabel="Looking…" tone="secondary" className="px-2 py-1 text-xs" testId="button-look-all" />}
+        {watching
+          ? <span data-testid="text-watching">Your Watcher keeps them fresh.</span>
+          : <AffordanceButton id="agent.summon" args={{ language: "typescript", source: watcher.source, name: "Watcher", share: KEEP_FRESH_SHARE }}
+              label={`Keep my ${many} fresh`} busyLabel="Summoning…" tone="secondary" className="px-2 py-1 text-xs" testId="button-keep-fresh"
+              confirmText={`Summon a Watcher: an agent that only looks, for ${Math.round(KEEP_FRESH_SHARE * 100)}% of your power. It looks at your ${many} one by one, so you see them sooner, without paying for each look yourself.`} />}
+      </div>
+    </details>
   );
 }
 
@@ -167,7 +185,8 @@ function SeatedLines() {
   const release = (after: number) => { clearTimeout(holdRef.current.timer); holdRef.current.timer = setTimeout(() => { holdRef.current.order = null; setHold(null); }, after); };
   useEffect(() => () => clearTimeout(holdRef.current.timer), []);
   const onNearEnd = useCallback(() => { if (status === "CanLoadMore") loadMore(30); }, [status, loadMore]);
-  if (status === "LoadingFirstPage") return <p className="p-4 text-sm text-muted-foreground">Loading your lines…</p>;
+  const loadedIds = useMemo(() => results.map(r => r.objectId), [results]);
+  if (status === "LoadingFirstPage") return <p className="p-4 text-sm text-muted-foreground">Loading your {objectWord(header?.variant).many}…</p>;
   if (!results.length) {
     return (
       <p className="p-4 text-sm text-muted-foreground" data-testid="lines-empty">
@@ -184,7 +203,7 @@ function SeatedLines() {
         <SortControl />
         <PointsKey />
       </div>
-      <LookAll firstId={results[0]?.objectId ?? null} many={objectWord(header?.variant).many} />
+      <LookAll ids={loadedIds} many={objectWord(header?.variant).many} variant={header?.variant ?? ""} />
       <VirtualRows rows={results} rowHeight={ROW_H} maxHeight={maxHeight} keyOf={r => r.objectId} onNearEnd={onNearEnd} testId="lines-list"
         render={r => <LineRow objectId={r.objectId} number={r.number} rule={rule} value={my?.bits ?? null} rep={rep} scale={scale} focused={view.focus?.objectId === r.objectId} contested={contested.has(r.objectId)} onOpen={onOpen} variant={header?.variant ?? ""} />} />
     </div>

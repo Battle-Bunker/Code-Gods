@@ -41,7 +41,7 @@ test("each setup says in words what it plays", () => {
 });
 
 test("the form starts from the overrides, else the preset's own values, with the game length in minutes", () => {
-  const rest = { durationMode: "fixed", scoreIntervalSeconds: "10", peerNoiseVariance: "0", observation: "free" };
+  const rest = { durationMode: "fixed", scoreIntervalSeconds: "10", peerNoiseVariance: "0", readPriceWeight: String(beginner.readPriceWeight) };
   assert.deepEqual(formOf(beginner, {}), { planningSeconds: "60", worldMinutes: "10", startingEnergy: String(beginner.startingEnergy), ...rest });
   assert.deepEqual(formOf(beginner, { worldSeconds: 90, planningSeconds: 20 }), { planningSeconds: "20", worldMinutes: "1.5", startingEnergy: String(beginner.startingEnergy), ...rest });
 });
@@ -64,7 +64,7 @@ test("values the server would refuse are explained in words instead of sent", ()
 });
 
 test("the next game's summary uses the overrides", () => {
-  assert.equal(nextGameSummary(beginner, { worldSeconds: 120 }), `3 or more players · 60 s to plan · 2 min game · ${beginner.startingEnergy} energy to start · others' sums exact · totals every 10 s.`);
+  assert.equal(nextGameSummary(beginner, { worldSeconds: 120 }), `3 or more players · 60 s to plan · 2 min game · ${beginner.startingEnergy} energy to start · others' sums exact · totals every 10 s · a look costs 3× the read price.`);
   assert.match(nextGameSummary(presetOf("lines-beginner-bidding"), {}), /45 s of bidding first/);
 });
 
@@ -92,12 +92,16 @@ test("the noise defaults to the preset's own (decision 32: 0 on the beginner gam
   assert.deepEqual(overridesOf(formOf(lenses, {}), lenses), { ok: true, overrides: {} }, "the preset's own is not sent");
 });
 
-test("paid looks are a room setting (v1's paid observation): free by default, sent only when paid", () => {
+test("every game pays to look (owner decision 35); the room sets the price's weight, 0 to 4 in quarters", () => {
   const f = formOf(beginner, {});
-  assert.equal(f.observation, "free");
-  assert.deepEqual(overridesOf({ ...f, observation: "paid" }, beginner), { ok: true, overrides: { observation: "paid" } });
-  assert.match(nextGameSummary(beginner, { observation: "paid" }), /pay to look/);
-  assert.doesNotMatch(nextGameSummary(beginner, {}), /look/);
+  assert.equal(f.readPriceWeight, "3", "lines: 3× the read price");
+  assert.deepEqual(overridesOf({ ...f, readPriceWeight: "0" }, beginner), { ok: true, overrides: { readPriceWeight: 0 } });
+  assert.deepEqual(overridesOf(f, beginner), { ok: true, overrides: {} }, "the preset's own is not sent");
+  assert.equal(overridesOf({ ...f, readPriceWeight: "0.3" }, beginner).ok, false, "quarters only");
+  assert.equal(overridesOf({ ...f, readPriceWeight: "5" }, beginner).ok, false, "at most 4");
+  assert.match(nextGameSummary(beginner, {}), /a look costs 3× the read price/);
+  assert.match(nextGameSummary(beginner, { readPriceWeight: 0 }), /looking is free/);
+  assert.doesNotMatch(JSON.stringify(f), /observation/, "no free/paid choice any more");
 });
 
 test("a trial setup on a variant of a board is described by that board, never its internal name (round 11: 'line-q-lenses')", () => {

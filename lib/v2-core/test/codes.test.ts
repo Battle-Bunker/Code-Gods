@@ -4,6 +4,7 @@ import { gammaBits, intBits, nonzeroBits, ratBits, nonzeroRatBits, sampleGamma, 
 import { rng } from "../src/rng.ts";
 import { gcd, q, toWire, type Q } from "../src/q.ts";
 import { amountCode, amountSize, factorCode, factorSize, sampleAmount, sampleDisplacement, sampleFactor } from "../src/codes.ts";
+import { mixedIntBits, mixedIntCode, mixedIntLog2Norm, stepsIntCode, stepsNonzeroBits, type IntCode } from "../src/codes.ts";
 
 test("code lengths match the specification's table (§2.3)", () => {
   assert.deepEqual([1n, 2n, 3n, 4n, 7n, 8n].map(gammaBits), [1, 3, 3, 5, 5, 7]);
@@ -83,4 +84,49 @@ test("size samplers draw each value with probability 2^−bits", () => {
   }
   const f = factorCode(o);
   agrees<Q>(() => sampleFactor(r, o), toWire, x => f.bits(factorSize(x)));
+});
+
+test("the mixed integer code normalises the law with no box (owner decision 26): Kraft sum 1 over every integer", async () => {
+  const { mixedIntBits, mixedIntLog2Norm } = await import("../src/codes.ts");
+  // Z_1 = 2^−1 + 2·2^−(2 + log2 Z)·Π_p 1/(1 − 2^−p/2) = 1/2 + 1/2: the Euler product of the factorisation code.
+  assert.ok(Math.abs(mixedIntLog2Norm(1)) < 1e-9, `log2 Z_1 = ${mixedIntLog2Norm(1)}`);
+  // The partial sums over |n| ≤ N rise towards 1 from below: what lies past any box is only the code's tail, never
+  // refused mass (|n| ≤ 10^6 held all but about 3.4·10^−5 of it).
+  let sum = 2 ** -mixedIntBits(0n), last = 0;
+  for (let n = 1n, N = 10n; N <= 100_000n; N *= 10n) {
+    for (; n <= N; n++) sum += 2 * 2 ** -mixedIntBits(n);
+    assert.ok(sum > last && sum < 1, `|n| ≤ ${N}: ${sum}`);
+    last = sum;
+  }
+  assert.ok(1 - sum < 3e-4 && 1 - sum > 0, `tail past 10^5: ${1 - sum}`);
+});
+
+// ---------------------------------------------------------------- integer codes with a chosen p(0) (line-q's law, C3)
+
+test("integer codes with a chosen p(0): complete (Kraft sum 1), symmetric, and mixed(½) is mixedInt", () => {
+  const codes: IntCode[] = [mixedIntCode(1 / 2), mixedIntCode(1 / 8), stepsIntCode(1 / 16), stepsIntCode(1 / 2)];
+  for (const c of codes) {
+    // The steps code's tail past 400 is below 1e-9; the factorisation code's past 2·10^5 holds about 1.3e-4 (big primes).
+    let sum = 2 ** -c.bits(0n);
+    const N = c.id.startsWith("steps") ? 400n : 200_000n;
+    for (let n = 1n; n <= N; n++) { assert.equal(c.bits(n), c.bits(-n)); sum += 2 * 2 ** -c.bits(n); }
+    assert.ok(sum <= 1 + 1e-12 && 1 - sum < (N === 400n ? 1e-9 : 3e-4), `${c.id}: Kraft sum ${sum}`);
+    assert.ok(Math.abs(c.log2Norm(1)) < 1e-9, `${c.id}: log2 Z_1 = ${c.log2Norm(1)}`);
+  }
+  for (const n of [0n, 1n, -6n, 7n, 360n]) assert.ok(Math.abs(mixedIntCode(1 / 2).bits(n) - mixedIntBits(n)) < 1e-12);
+  for (const t of [0.5, 0.75]) assert.ok(Math.abs(mixedIntCode(1 / 2).log2Norm(t) - mixedIntLog2Norm(t)) < 1e-9);
+  // C3: p(0) = 1/8 → 3 bits, 1/16 → 4 bits; b by steps: b = 1, 2, 3, 4 cost 0, ½, 1, 1½ bits more.
+  assert.equal(mixedIntCode(1 / 8).bits(0n), 3);
+  const b = stepsIntCode(1 / 16);
+  assert.equal(b.bits(0n), 4);
+  assert.ok(Math.abs(b.bits(1n) - (Math.log2(16 / 15) + stepsNonzeroBits(1n))) < 1e-12);
+  assert.deepEqual([2n, 3n, 4n].map(n => +(b.bits(n) - b.bits(1n)).toFixed(9)), [0.5, 1, 1.5]);
+});
+
+test("integer codes with a chosen p(0): the sampler draws 2^−bits, and 2^(−t·bits)/Z_t when tilted", () => {
+  const r = rng("int-codes-test");
+  for (const c of [mixedIntCode(1 / 8), stepsIntCode(1 / 16)]) {
+    agrees(() => c.sample(r), String, c.bits);
+    for (const t of [0.5, 0.8]) agrees(() => c.sample(r, t), String, n => t * c.bits(n) + c.log2Norm(t));
+  }
 });

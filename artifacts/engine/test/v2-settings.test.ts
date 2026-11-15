@@ -52,7 +52,10 @@ test("the beginner game (owner decisions 31, 32, 34): 600 s fixed, 3 objects, ex
   await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
   const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
   const h = await ada!.query("v2/games:header", { gameId });
-  assert.deepEqual([h.durationMode, h.worldSeconds, h.peerNoiseVariance, h.peerNoiseBits, h.readPriceWeight], ["fixed", 600, 0, 0, 3]);
+  assert.deepEqual([h.durationMode, h.worldSeconds, h.peerNoiseVariance, h.peerNoiseBits], ["fixed", 600, 0, 0]);
+  // A look at a typical line costs a fiftieth of the power: 5 a second take a tenth (decision 35), at 8 energy a second.
+  assert.ok(Math.abs(h.readPriceWeight * 13.7 / 32 - 8 / 50) < 1e-9, `weight ${h.readPriceWeight}`);
+  assert.equal(h.priceScale, 8 / 64, "summons at power ÷ 64");
   await perform(ada!, "game.startWorldNow", {}, { gameId });   // the starting objects are born with the world
   const ids = (await ada!.query("v2/spectate:objectIds", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page;
   assert.equal(ids.length, 3, "3 objects to start (decision 31)");

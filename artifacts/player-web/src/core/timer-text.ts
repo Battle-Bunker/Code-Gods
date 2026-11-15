@@ -1,6 +1,7 @@
 /** The game clock's words (game-timer.tsx), pure so it is unit tested. */
 import type { Header } from "../sdk/types.ts";
 import { clock } from "./words.ts";
+import { MIN_LIFETIME_FRACTION } from "@workspace/engine/convex/v2/duration.ts";
 import { PARKED_NOTE } from "./activity.ts";
 
 /** How long after its end a running game says the server is late. */
@@ -26,8 +27,12 @@ export function timerText(h: Header, now: number): { label: string; value: strin
       if (h.durationMode === "halfLife") {
         // Memoryless: the time left has the same spread however long the game has run, so the range never narrows.
         const { hi } = halfLifeInterval90(h.worldSeconds);
-        return { label: "Game ends", value: "any moment", note: `at a hidden time: 9 times in 10 within the next ${clock(Math.ceil(hi))}`,
-          tip: `This game ends at a hidden random moment. Every second it has the same chance of ending (half of such games are over within ${clock(h.worldSeconds)}), so the clock never counts down: however long it has run, 9 times in 10 it ends within the next ${clock(Math.ceil(hi))}.` };
+        // It cannot end in its first tenth of the half-life (trial 16; public, like the half-life itself).
+        const elapsed = h.startedAt != null ? Math.max(0, (now - h.startedAt) / 1000) : 0;
+        const wait = Math.max(0, MIN_LIFETIME_FRACTION * h.worldSeconds - elapsed);
+        const tip = `This game ends at a hidden random moment, never in its first ${clock(MIN_LIFETIME_FRACTION * h.worldSeconds)}. After that every second it has the same chance of ending, so the clock never counts down: however long it has run, 9 times in 10 it ends within the next ${clock(Math.ceil(hi))}.`;
+        if (wait > 0) return { label: "Game ends", value: "not yet", note: `it cannot end for ${clock(Math.ceil(wait))}; then any moment: 9 times in 10 within the next ${clock(Math.ceil(wait + hi))}`, tip };
+        return { label: "Game ends", value: "any moment", note: `at a hidden time: 9 times in 10 within the next ${clock(Math.ceil(hi))}`, tip };
       }
       const left = h.endsAt ? Math.max(0, (h.endsAt - now) / 1000) : h.worldSeconds;
       // Well past the end and still running: the server has not finished the game (round 9: "0:00" forever, silent).

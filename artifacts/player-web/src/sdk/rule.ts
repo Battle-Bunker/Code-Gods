@@ -4,7 +4,7 @@
  * never scores for the server: this is for drawing the viewer's own annotations (integration plan §3.1).
  */
 import type { RuleFamily, Score } from "@workspace/v2-core";
-import { valueLookup, withUniqueness, type Lookup } from "@workspace/v2-valuation";
+import { valueLookup, withUniqueness, type Lookup, type ValueTail } from "@workspace/v2-valuation";
 import { gridType } from "@workspace/v2-grid";
 import { lineType } from "@workspace/v2-linear";
 import type { RuleRef } from "@workspace/v2-views";
@@ -45,8 +45,9 @@ export function valueOf(
   if (!knots?.length) return null;
   const look = valueLookup({
     knots: knots.map(k => ({ u: k.u as (string | null)[] | null, bits: k.bits, lo: k.lo ?? k.bits, hi: k.hi ?? k.bits })),
-    tail: (tail ?? { primary: 0, secondary: 0 }) as { primary: number; secondary: number },
-  } as never);
+    // Without a tail (the gallery's points), the lookup fits one from the knots: past the best knot it keeps rising.
+    tail: (tail ?? null) as ValueTail | null,
+  });
   return uniqueness ? withUniqueness(look, uniqueness, uniqueness.objects) : look;
 }
 
