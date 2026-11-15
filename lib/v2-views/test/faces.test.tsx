@@ -206,10 +206,3 @@ test("a rule that does not score a line says what would make it score, with the 
   const expanded = text(renderToStaticMarkup(<ExpandedFace rule={ec} state={flat} />));
   assert.match(expanded, /does not score for your rule: .+\. To score: .+, for [\d,]+\.\d\d energy\./);
 });
-
-test("priced looks: a face says how fresh it is, in words", () => {
-  const t = text(renderToStaticMarkup(<CompactFace rule={tank} state={mc(-3, 10)} value={VALUE} seen={{ changesSince: 3 }} />));
-  assert.match(t, /As you last saw it: 3 changes ago\./);
-  assert.match(text(renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} value={VALUE} seen={{ changesSince: 0 }} />)), /Up to date/);
-  assert.doesNotMatch(text(renderToStaticMarkup(<CompactFace rule={tank} state={mc(-3, 10)} value={VALUE} />)), /last saw|Up to date/);
-});

@@ -32,19 +32,6 @@ export function bitsLine(a: Annotation): string {
   return a.bits === null ? "" : `${fmtBits(a.bits)} (${chanceText(a.bits)} by chance)`;
 }
 
-/**
- * How fresh a player's view of an object is, once every game prices its looks (owner decision 35, W3's PR B): each object
- * shows as the player last saw it (its birth, their own agents' changes, or a paid look), and `changesSince` counts the
- * changes made by others since. "Up to date" at 0; "As you last saw it: 3 changes ago" after.
- */
-export interface Seen { readonly changesSince: number }
-export function seenText(s: Seen): string {
-  return s.changesSince <= 0 ? "Up to date: no one has changed it since you last saw it." : `As you last saw it: ${s.changesSince === 1 ? "1 change" : `${s.changesSince.toLocaleString("en-US")} changes`} ago.`;
-}
-function SeenNote({ seen }: { seen?: Seen }): ReactElement | null {
-  return seen ? <div className="v2v-seen" data-testid="text-seen" data-stale={seen.changesSince > 0 ? "" : undefined}>{seenText(seen)}</div> : null;
-}
-
 /** One part in one line: "● main part: y-intercept 25 · 2 above 23" / "◆ tie-breaker: that prime 23". */
 export function partLine(p: Contributor): string {
   const g = `${GLYPH[p.role]} ${PART_NAME[p.role]}:`;
@@ -74,8 +61,6 @@ export interface CompactFaceProps<S, P> {
   readonly before?: S;
   /** The cheapest move that makes the object rarer, drawn as a hint: true computes it here (own rule only), or pass one. */
   readonly next?: boolean | Move<S> | null;
-  /** How fresh this view of the object is (priced looks): drawn as a line above the face when given. */
-  readonly seen?: Seen;
   /** When the object does not score (a vertical line, for a rule that reads its y-intercept): "To score: <the move>".
    *  On by default (playtest round 12: a rule that does not score says what would); false to leave it out. */
   readonly toScore?: boolean;
@@ -97,8 +82,7 @@ export function CompactFace<S, P>(props: CompactFaceProps<S, P>): ReactElement {
   }, [props.next, props.toScore, props.rule, props.state, props.value, a.score]);
   const bits = bitsLine(a);
   return (
-    <div className="v2v v2v-compact-face" data-scoring={a.score === null ? undefined : ""} data-stale={props.seen && props.seen.changesSince > 0 ? "" : undefined}>
-      <SeenNote seen={props.seen} />
+    <div className="v2v v2v-compact-face" data-scoring={a.score === null ? undefined : ""}>
       <RepView type={props.rule.type} state={props.state} rep={rep} size="compact" site={site} marks={e.marks} terms={e.terms} roles={rolesOf(parts)}
         before={props.before} next={next ? next.after : undefined} />
       {bits && <div className="v2v-face-foot"><span className="v2v-rarity" data-worst={a.score === null ? "" : undefined} title={BITS_HELP}>{bits}</span></div>}
@@ -329,8 +313,6 @@ export const shortTitle = (t: string): string => t.split(":")[0]!.replace(/^the 
 // ------------------------------------------------------------------ expanded face
 
 export interface ExpandedFaceProps<S, P> {
-  /** How fresh this view of the object is (priced looks): drawn as a line above the face when given. */
-  readonly seen?: Seen;
   readonly rule: RuleRef<S, P>;
   readonly state: S;
   readonly site?: number;
@@ -406,7 +388,6 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
 
   return (
     <div className="v2v v2v-expanded" data-scoring={a.score === null ? undefined : ""}>
-      <SeenNote seen={props.seen} />
       <header className="v2v-exp-head">
         <ObjectChip type={rule.type} state={state} />
         {bits && <span className="v2v-exp-level" data-worst={a.score === null ? "" : undefined} title={BITS_HELP}>{bits}</span>}
