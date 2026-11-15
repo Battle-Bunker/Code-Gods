@@ -176,6 +176,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `game.pause` | Pause the game | — | server · game | seated | live | write; confirm inline |
 | `rule.explain` | Explain my rule | — | server · game | seated | planning, live, paused, ended, replay | read |
 | `rule.values` | Show my rule's value curve | — | server · game | seated | planning, live, paused, ended, replay | read |
+| `rule.candidates` | List the rules that could be dealt | — | server · game | member | planning, live, paused, ended, replay | read |
 | `rule.worth` | Look up what a score is worth | score | server · game | seated | planning, live, paused, ended, replay | read |
 | `objects.list` | List objects | sort, cursor, limit | server · game | member | planning, live, paused, ended, replay | read |
 | `object.read` | Read an object in one representation | objectId, rep, site | server · game | member | planning, live, paused, ended, replay | read |

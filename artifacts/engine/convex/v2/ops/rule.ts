@@ -3,7 +3,9 @@ import { OpFailure } from "@workspace/v2-affordances";
 import { scoreFromWire } from "@workspace/v2-core";
 import { valueRecord, worthOf } from "../values";
 import { scopeOf } from "../world";
-import { defineOp, seated } from "./define";
+import { dealablePool, familyOf } from "../deal";
+import { presetOf } from "../presets";
+import { defineOp, inGame, seated } from "./define";
 
 async function myRule(env: Parameters<typeof seated>[0]) {
   const { game, member } = seated(env);
@@ -31,4 +33,19 @@ export const { op: values, as: valuesAs } = defineOp("rule.values", "query", asy
 export const { op: worth, as: worthAs } = defineOp("rule.worth", "query", async (env, a) => {
   const r = await myRule(env), w = worthOf(r.ruleKey, scoreFromWire(a.score), r.scope);
   return { bits: w.bits, lo: w.lo, hi: Number.isFinite(w.hi) ? w.hi : null };
+});
+
+/**
+ * Every rule the game's dealer could deal (v1's list_utility_candidates; the coordinator's call restoring the rival-
+ * inference reads): the preset's dealable pool, each with the card its holder reads. Public: it never says who holds
+ * which. No reads beyond the game's own record (the pool is the preset's, in code).
+ */
+export const { op: candidates, as: candidatesAs } = defineOp("rule.candidates", "query", async env => {
+  const { game } = inGame(env);
+  return {
+    rules: dealablePool(presetOf(game.preset)).map(r => ({
+      family: r.family, params: (r.params ?? {}) as Record<string, unknown>, tieBreaker: r.tieBreaker,
+      card: familyOf(r.family).card(r.params, r.tieBreaker as never),
+    })),
+  };
 });
