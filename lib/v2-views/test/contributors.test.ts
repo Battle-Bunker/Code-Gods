@@ -38,7 +38,7 @@ test("Prime Landing (primes ending in 1) on y = −x + 33: lands at 33, off the 
   assert.deepEqual(tb!.source.map(s => s.label), ["where it crosses the x-axis", "y-intercept"]);   // that prime and the y-intercept
   assert.equal(tb!.valueText, "3");   // 30 and 33 share 3
   // On the rung 31 the part says the family's own words, not its level number.
-  assert.equal(contributors(rule(primeLanding, "shared-factor", { ends: 1 }), mc(-1, 31)).parts[0]!.valueText, "lands at 31, which rounds to the prime 31");
+  assert.equal(contributors(rule(primeLanding, "shared-factor", { ends: 1 }), mc(-1, 31)).parts[0]!.valueText, "lands at 31, which rounds to the prime 31: 2 digits; the next big step is 3 digits");
 });
 
 test("Square Area on y = −x + 7: the area 24½ against the square 25 = 5 × 5; Whole Crossing and Treasure name their references", () => {
@@ -67,7 +67,7 @@ test("wording: no parameter letters, no 'distance …: 0', no steps or threshold
     [rule(primeLanding, "shared-factor", { ends: 1 }), mc(6, 25)], [rule(primeLanding, "shared-factor", { ends: 9, side: -1 }), mc(290, 59)],
     [rule(squareArea, "spf"), mc(-1, 7)], [rule(squareArea, "lpf"), mc(290, 59)],
     [rule(wholeCrossing, "shared-factor", { q: 5, r: 3 }), mc(3, 7)], [rule(treasure, "shared-factor"), mc(15, 6)], [rule(treasure, "shared-factor"), mc(15, 10)],
-    [rule(divisibilityLadder, "m-spf"), mc(12, 12)],
+    [rule(divisibilityLadder, "next-rung"), mc(12, 12)],
   ];
   for (const [r, s] of cases) {
     const letters = r.family.params.map(p => p.name);

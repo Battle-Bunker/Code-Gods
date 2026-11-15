@@ -497,6 +497,11 @@ back) or TRIAL (a declared experiment, measured and reported).
       across r. Seated with Prime Landing and Treasure (40 games): balance 1.2–1.3, peak seat 16.4 bits. Static PMI
       against Prime Landing is still 1.3–3.1, from near misses (both pay for the crossing close to one whole number);
       the seating rule (call 23) stays.
+    - **Amended** (the spec lead, 15 Nov, on the coordinator's report: under the lens preset a zoom chain by 5 reached
+      26.6 bits with a fixed factor and 29.5 greedy, at the 30-bit cap of call 25): the level is triangular in the 5s,
+      as Prime Landing's digits and Smooth Intercept's primes are. Level L needs L(L + 1)/2 fives (1, 3, 6, 10), and
+      between levels each 5 counts 1/(L + 1) of a level: u = L + (j − L(L + 1)/2)/(L + 1). Each 5 now adds less than
+      the one before, so a zoom or stretch chain bends.
 
 23. **TRIAL** (declared 15 Nov, on the lens worker's pool-dynamics check, docs/engine-v2/scripts/stretch-lens-pool-dynamics.md,
     following decisions 25, 27 and 28; the owner asked by name for "rotating the line about a point"): `rot.turn` and
@@ -537,6 +542,22 @@ back) or TRIAL (a declared experiment, measured and reported).
     prime factors: hills a shift climbs at every size, the pool's 40-bit seats) leave it. Dealt: endings 1 and 9 with
     their mirrors; never redrawn (a ladder family). A tilt moves the gradient and Prime Landing's crossing together, so
     the two contest one move. Values reach 18.0 and 17.8 bits at the sampled top; the params-equal audit compares levels.
+
+27. **TRIAL** (the spec lead's redesign under the coordinator's delegation, 15 Nov; declared to the coordinator):
+    Divisibility Ladder is a ladder with no top. Its main part is the run of n dividing y(n) = m·n + c from n = 1 (for a
+    whole gradient, a run of k needs lcm(1, …, k) to divide c), no longer stopped at 12, in triangular levels (u =
+    triangularLevel(run), as Whole Crossing's 5s). Its tie-breaker is gcd(y(n), n) where the run stops at n (0 when
+    y(n) is not whole), tied to the run (decision 29): how near the next rung is, never more than n. A first try,
+    gcd(⌊|c| / lcm(1, …, run)⌋ + 1, the gradient's whole part), failed the gate: a stretch multiplies both, and a greedy
+    chain of 8 stretches reached 75 bits.
+    The tie-breakers m-spf, m-gpf, m-prime (the gradient's own prime factors or nearness to a prime: independent wishes,
+    and the hills a stretch climbs at every size) and steep (undealt: a greedy mixed-stretch chain reached 77.6 bits)
+    leave it. The card: "y(1), y(2), y(3), … should be multiples of 1, 2, 3, … for as long as possible, not through
+    (0, 0). Longer is better, though each extra counts less."
+    - **Motivation.** The old run had a top (12: rows 1 to 3 of design-principles.md), its tie-breakers were the
+      gradient's own wishes (decision 29), and the no-straight-hill gate's greedy chain failed it (77.6 bits on steep,
+      21.3 on another).
+    - **Effects** (values: line-q best 17.9 bits, line-z 17.9 at the sampled top): see the PR for the gate.
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 

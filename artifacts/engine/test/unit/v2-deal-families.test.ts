@@ -5,7 +5,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dealablePool, freshDeal, practiceDeal } from "../../convex/v2/deal.ts";
+import { dealablePool, freshDeal, opponentGaps, practiceDeal } from "../../convex/v2/deal.ts";
 import { PRESETS } from "../../convex/v2/presets.ts";
 
 for (const preset of PRESETS) {
@@ -44,5 +44,25 @@ for (const preset of PRESETS) {
     }
     const mean = runs / families.length;
     for (const f of families) assert.ok(Math.abs((count.get(f) ?? 0) / mean - 1) < 0.35, `${f}: ${count.get(f) ?? 0} against ${mean.toFixed(0)}`);
+  });
+}
+
+// The named-opponent rule (the coordinator's (b), from the spec lead's opponent table): on a line table, one anchor
+// seat (the human's in a practice game; uniform over seats in a fresh deal), its family drawn uniformly first, sits
+// with one of its named opponents whenever the pool can deal one. Only the anchor: requiring every seat skewed the
+// families out of the uniformity band above (Smooth Intercept and Prime Gradient, named by no family, fell to 0.3–0.5).
+for (const preset of PRESETS.filter(p => p.variant.startsWith("line"))) {
+  test(`${preset.id}: the practice human, and some seat of every fresh table, sit with a named opponent`, () => {
+    const pool = dealablePool(preset), families = new Set(pool.map(r => r.family));
+    let fresh = 0, human = 0;
+    const runs = 600;
+    for (let s = 0; s < runs; s++) {
+      const deal = freshDeal(pool, 3, `seed-${s}`, preset.variant), gaps = opponentGaps(preset.variant, deal, families);
+      if (gaps.length < deal.length) fresh++;
+      const practice = practiceDeal(pool, ["human", "practice", "practice"], `seed-${s}`, preset.variant);
+      if (!opponentGaps(preset.variant, practice, families).includes(practice[0]!.family)) human++;
+    }
+    assert.equal(fresh, runs, "every fresh table has a seat with a named opponent");
+    assert.ok(human / runs > 0.97, `the human has a named opponent seated in ${(human / runs * 100).toFixed(1)}% of practice games`);
   });
 }

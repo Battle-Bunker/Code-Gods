@@ -25,7 +25,8 @@ function score(m, c, p, tie) {
       if (best === null || dist <= best.dist) best = { j, t, dist };
       if (s * dd - ab(n) > best.dist) break;           // every further level is farther
     }
-    const main = best.dist === 0n ? best.j : Q.neg(Q.of(best.dist, dd));   // on a level: the level (the more 5s, the better); else below them all
+    let L = 0; while (((L + 1) * (L + 2)) / 2 <= best.j) L++;   // level L needs L(L + 1)/2 fives (1, 3, 6, 10, …)
+    const main = best.dist === 0n ? Q.add(L, Q.of(best.j - (L * (L + 1)) / 2, L + 1)) : Q.neg(Q.of(best.dist, dd));   // on the ladder: its level; else below them all
     return [main, null];
   }
   if (Q.isZero(m)) return null;                   // a flat line never crosses: the worst score
@@ -42,8 +43,9 @@ function score(m, c, p, tie) {
     if (best === null || dist <= best.dist) best = { j, t, dist };
     if (s * dd - ab(n) > best.dist) break;           // every further level is farther
   }
-  const main = best.dist === 0n ? best.j : Q.neg(Q.of(best.dist, dd));   // on a level: the level (the more 5s, the better); else below them all
-  // main: how many 5s the line's x-axis crossing holds when it is a whole number leaving r after its 5s are divided out (more is better: a ladder with no top), else minus how far it is from the nearest such number
+  let L = 0; while (((L + 1) * (L + 2)) / 2 <= best.j) L++;   // level L needs L(L + 1)/2 fives (1, 3, 6, 10, …)
+  const main = best.dist === 0n ? Q.add(L, Q.of(best.j - (L * (L + 1)) / 2, L + 1)) : Q.neg(Q.of(best.dist, dd));   // on the ladder: its level; else below them all
+  // main: the level of 5s the line's x-axis crossing holds when it is a whole number leaving r after its 5s are divided out (level L needs L(L + 1)/2 fives; more is better: a ladder with no top), else minus how far it is from the nearest such number
   if (tie === "shared-factor") {   // take that number with its 5s divided out, ignore its sign and add 1: a bigger number dividing both it and the gradient's whole part is better
     const t1 = (best.t < 0n ? -best.t : best.t) + 1n, wm = whole(Q.sub(Q.abs(m), Q.div(1, 2)));   // |t| + 1, and the gradient's whole part ignoring sign
     return [main, common(t1, wm)];
@@ -92,5 +94,21 @@ function agent(offer) {
   // A promise: on these lines, only steps that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));
   // The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or null.
-  return climb(offer, options, score(m, c, p, tie), QUOTES);
+  const one = climb(offer, options, score(m, c, p, tie), QUOTES);
+  if (one || PROTECT.includes(offer.object)) return one;
+  // No single step helps: look two steps ahead (each step, then a shift or tilt by 1) and take the first
+  // step of the best pair, though it may lower your points for a moment. It weighs the 4 best pairs: a few more small reads.
+  // The first steps: the 6 best for your rule (options are tries with their scores, in the same order).
+  const firsts = tries.map((t, i) => [t, options[i][1]]).filter(([[, m1]]) => Q.isQ(m1))
+    .sort((a, b) => (better(a[1], b[1]) ? -1 : better(b[1], a[1]) ? 1 : 0)).slice(0, 6).map(([t]) => t);
+  const pairs = [];
+  for (const [plan, m1, c1] of firsts) {
+    const first = Array.isArray(plan) ? plan : [plan];
+    for (const k of [-1, 1]) {
+      pairs.push([[...first, move("si.shift", { k })], score(m1, Q.add(c1, k), p, tie)]);
+      pairs.push([[...first, move("si.tilt", { k })], score(Q.add(m1, k), c1, p, tie)]);
+    }
+  }
+  const two = climb(offer, pairs, score(m, c, p, tie), 4);
+  return two ? two.slice(0, -1) : null;
 }

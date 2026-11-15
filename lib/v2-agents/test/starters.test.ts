@@ -274,3 +274,29 @@ test("starters read the rule's parameters every act (drift redraws them): the sa
     }
   }
 });
+
+test("Thorough with the game's values, when no single step helps, looks two steps ahead: the same move in both languages, never failing", async () => {
+  let looked = 0;
+  for (const e of LIVE) {
+    const ts = all.find(a => a.language === "typescript" && a.family === e.family && a.kind === "thorough"), py = all.find(a => a.language === "python" && a.family === e.family && a.kind === "thorough");
+    if (!ts || !py) continue;
+    const f = familyOf(e.family), v = variantOf(e.family), params = paramsOf(e.family);
+    const tieBreaker = Object.keys(e.tieBreakers).find(tb => f.tieBreakers.some(t => t.id === tb))!;
+    const rule = { family: e.family, params, tieBreaker }, vf = findValues(v.id, rule);
+    if (!vf) continue;
+    const look = valueLookup(vf), bits = (s: LineState) => look(evaluateSite(lineType, f, params, s, v, 0, tieBreaker).score).bits;
+    for (const [i, state] of births(lineType, v, "two-step", 2).entries()) {
+      const values = { knots: vf.knots, tail: vf.tail }, value = { mine: bits(state), others: 4, points: 4 * bits(state) };
+      const records = [];
+      for (const a of [ts, py]) {
+        const { record } = await runAct(await boxes.get(a.language), { type: lineType, variant: v, state, rule, program: program(a), seed: String(i), energy: 500, income: 2, values, value });
+        assert.notEqual(record.outcome, "failed", `${shippedPath(a)} on ${lineType.encode(state)}: ${record.reason}`);
+        const { steps: _s, ...rest } = record;
+        records.push(rest);
+      }
+      assert.deepEqual(records[1], records[0], `${e.family} Thorough: the languages differ on ${lineType.encode(state)}`);
+      looked++;
+    }
+  }
+  assert.ok(looked > 10, `${looked} acts checked`);
+});

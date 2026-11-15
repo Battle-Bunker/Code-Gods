@@ -5,7 +5,7 @@
  */
 import { gcd, Qn, q, ref, type ElementRef, type ElementValue, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
 import type { LineState } from "./line.ts";
-import { digitLevel, isPrimeEnding, largestPrimeFactor, nearbyPrimes, nearestPrimeEnding, smallestPrimeFactor } from "./numbers.ts";
+import { digitLevel, digitNote, isPrimeEnding, largestPrimeFactor, nearbyPrimes, nearestPrimeEnding, smallestPrimeFactor } from "./numbers.ts";
 import { beginnerFamilies, factorLabel } from "./beginner.ts";
 import { rationalFamilies } from "./rational.ts";
 import { rational2Families } from "./rational2.ts";
@@ -48,7 +48,7 @@ function card<P>(f: { main: L<P>; tieBreakers: readonly L<P>[] }, p: P, tb: TieB
  */
 const pg = {
   main: { id: "gradient", title: "the gradient rounding to as big a dealt prime as possible", rep: "si", sense: "max",
-    sentence: (p: Ends) => `The gradient should round to ${p.side === -1 ? "minus " : ""}a prime ending in ${p.ends}, the bigger the better, in levels of digits that each need more than the last (1, 3, 6, 10 digits …); any other gradient scores below them all, the closer to one the better.` } as L<Ends>,
+    sentence: (p: Ends) => `The gradient should round to ${p.side === -1 ? "minus " : ""}a prime ending in ${p.ends}. Bigger primes are better, though each extra digit counts for less.` } as L<Ends>,
   tieBreakers: [
     { id: "shared-factor", title: "the biggest number dividing both that prime plus 1 and the y-intercept's whole part", rep: "si", sense: "max",
       sentence: () => "Tie-breaker: take the number just after that prime. The biggest number that divides both it and the y-intercept's whole part (ignoring sign) should be as big as possible (a whole part of 0 shares nothing)." },
@@ -69,7 +69,7 @@ export const primeGradient: RuleFamily<LineState, Ends> = {
     const p = on ? n : nearestPrimeEnding(x, pr.ends);
     const g = ref("cart", "ghost", { g: s * p });
     ctx.read(g);
-    ctx.term("gradient", on ? `the gradient ${Qn.toWire(m)} rounds to ${s === 1n ? "" : "minus "}the prime ${p}` : `${Qn.toWire(Qn.abs(Qn.sub(x, q(p))))} from ${s === 1n ? "" : "minus "}the prime ${p}`,
+    ctx.term("gradient", on ? `the gradient ${Qn.toWire(m)} rounds to ${s === 1n ? "" : "minus "}the prime ${p}: ${digitNote(p)}` : `${Qn.toWire(Qn.abs(Qn.sub(x, q(p))))} from ${s === 1n ? "" : "minus "}the prime ${p}`,
       on ? digitLevel(p) : Qn.neg(Qn.sub(gap(x, q(p)), q(1, 2))), [mRef]);
     const w = Qn.floor(Qn.abs(c));
     ctx.term("shared-factor", `${p + 1n} and the y-intercept's whole part ${w}: the biggest number dividing both is ${w === 0n ? 0n : gcd(p + 1n, w)}`, q(w === 0n ? 0n : gcd(p + 1n, w)), [mRef, cRef]);
