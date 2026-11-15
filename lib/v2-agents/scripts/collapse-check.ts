@@ -302,16 +302,22 @@ function togetherTest(v: VariantId, space: Space<any>, tables: readonly Rule[][]
  * objects (the shortcut climber's boards on lines, the plain starters' on grids, every grid call up to 12 bits), or
  * (c) the table's gains stalling before the midpoint for every climber. Idle shares are reported, never failed.
  */
+/** v1's default board's economy, which lines-pairs plays. */
+const V1_DEFAULT_ECONOMY = { powerPerSecond: 64, fullChargeSeconds: 30, startingEnergy: 600, opportunitiesPerSecond: 100 } as const;
+
 async function dynamics(v: VariantId, space: Space<any>, rules: readonly Rule[], tables: readonly Rule[][], beta: number, objects0: number, birthsPerSecond: number): Promise<{ verdict: Verdict; note: string }> {
   const t0 = performance.now();
-  const grid = v === "grid-4-d10";
+  const grid = v === "grid-4-d10", pair = v === "pair-q";
   const names = PLAYED[grid ? "grid" : "lines"]!;
-  const chosen = names.every(n => rules.some(r => ruleName(r) === n)) ? names.map(n => rules.find(r => ruleName(r) === n)!) : tables[0]!;
-  const economy = grid ? GRIDS_BEGINNER_ECONOMY : LINES_BEGINNER_ECONOMY;
-  const plain = (rule: Rule) => { const a = (grid ? gridStartersFor(rule.family, "typescript", rule.tieBreaker) : startersFor(rule.family, "typescript")).find(x => x.kind === "simple")!; return { language: a.language, source: a.source }; };
-  const kinds: { name: string; program: (r: Rule) => Program }[] = [{ name: "plain", program: plain }, ...(grid ? [] : [{ name: "shortcut", program: (r: Rule) => lineStarter(r.family, SHORTCUT) }])];
-  const gridCalls = grid ? callsUpTo(space.type, space.variant, 12) : [];
-  const moves = (s: any) => (grid ? gridCalls : lineShortcutMoves(space.variant, chosen[0]!, s));
+  const chosen = !pair && names.every(n => rules.some(r => ruleName(r) === n)) ? names.map(n => rules.find(r => ruleName(r) === n)!) : tables[0]!;
+  // lines-pairs plays v1's default board (artifacts/engine convex/v2/presets.ts V1_DEFAULT_BOARD): run it with
+  // --objects 10 --births 0.1 --seconds 300 to match.
+  const economy = grid ? GRIDS_BEGINNER_ECONOMY : pair ? V1_DEFAULT_ECONOMY : LINES_BEGINNER_ECONOMY;
+  const plain = (rule: Rule) => { const a = (grid ? gridStartersFor(rule.family, "typescript", rule.tieBreaker) : startersFor(rule.family, "typescript", pair ? rule.tieBreaker : undefined)).find(x => x.kind === "simple")!; return { language: a.language, source: a.source }; };
+  const kinds: { name: string; program: (r: Rule) => Program }[] = [{ name: "plain", program: plain }, ...(grid || pair ? [] : [{ name: "shortcut", program: (r: Rule) => lineStarter(r.family, SHORTCUT) }])];
+  // Grids and pairs of lines have no line shortcut climber: their frozen share is over their own calls.
+  const gridCalls = grid || pair ? callsUpTo(space.type, space.variant, 12) : [];
+  const moves = (s: any) => (grid || pair ? gridCalls : lineShortcutMoves(space.variant, chosen[0]!, s));
   const boxes = sandboxes();
   const per: Record<string, { played: Played<any>[]; frozen: number[] }> = {};
   for (const k of kinds) {
@@ -337,9 +343,9 @@ async function dynamics(v: VariantId, space: Space<any>, rules: readonly Rule[],
       ends: x.played.map(p => p.objects.end).join("/"),
     };
   };
-  const pl = of("plain"), climber = of(grid ? "plain" : "shortcut");
+  const pl = of("plain"), climber = of(grid || pair ? "plain" : "shortcut");
   const failing = dynamicsFailures({ movingPerMinute: pl.moving, frozenShare: climber.frozen, stalledEvery: kinds.every(k => of(k.name).stalled) });
-  const kindNotes = kinds.map(k => { const x = of(k.name); return `${k.name}: idle ${pct(x.idle)}, ${pct(x.moving)} of objects change in the last minute, ${pct(x.afterMid)} of gains after the midpoint${grid || k.name === "shortcut" ? `, frozen ${pct(x.frozen)}` : ""}`; });
+  const kindNotes = kinds.map(k => { const x = of(k.name); return `${k.name}: idle ${pct(x.idle)}, ${pct(x.moving)} of objects change in the last minute, ${pct(x.afterMid)} of gains after the midpoint${grid || pair || k.name === "shortcut" ? `, frozen ${pct(x.frozen)}` : ""}`; });
   return {
     verdict: failing.length ? "FAIL" : "PASS",
     note: `${failing.length ? `fails (${failing.join(", ")}); ` : ""}${kindNotes.join("; ")}; objects ${objects0} → ${pl.ends} (${Number(o.games)} games each, ${chosen.map(ruleName).join(", ")})`,

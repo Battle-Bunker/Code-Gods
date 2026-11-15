@@ -252,3 +252,23 @@ test("a vertical line the rule reads is scored where it stands: x = 5/2 slides t
     }
   }
 });
+
+test("starters read the rule's parameters every act (drift redraws them): the same agent follows A = 4, then A = 12, in one sandbox", async () => {
+  const f = familyOf("triangle-area");
+  const at = { lines: [fromMC(q(-1), q(3))] };   // y = −x + 3: a triangle of area 9/2
+  for (const language of ["typescript", "python"] as const) {
+    const simple = startersFor("triangle-area", language).find(a => a.kind === "simple")!;
+    const box = await boxes.get(language);
+    for (const A of [4, 12]) {
+      const params = { A }, tieBreaker = f.tieBreakers[0]!.id;
+      const main = (s: LineState) => evaluateSite(lineType, f, params, s, lineQ, 0, tieBreaker).score![0]!;
+      let s: LineState = at;
+      for (let t = 0; t < 6; t++) {
+        const { record, state } = await runAct(box, { type: lineType, variant: lineQ, state: s, rule: { family: "triangle-area", params, tieBreaker }, program: program(simple), seed: String(A * 100 + t), energy: 500 });
+        assert.notEqual(record.outcome, "failed", record.reason);
+        s = state;
+      }
+      assert.ok(Qn.cmp(main(s), main(at)) > 0, `${language}: with A = ${A} the area moved toward ${A} (${lineType.encode(s)})`);
+    }
+  }
+});

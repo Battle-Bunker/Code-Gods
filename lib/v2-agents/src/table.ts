@@ -15,7 +15,7 @@
  */
 import { affordanceForTool, assistantTools, type AffordanceContext } from "@workspace/v2-affordances";
 import { aiSeatSystemPrompt, commitmentBriefing, commitmentsOf, findDeals, runAssistant, type Budget, type ChatProvider, type RunResult } from "@workspace/v2-ai";
-import { hashHex, Qn, rng, ruleLayers, scoreToWire, type ObjectType, type Variant } from "@workspace/v2-core";
+import { driftParams, hashHex, Qn, rng, ruleLayers, scoreToWire, type ObjectType, type Variant } from "@workspace/v2-core";
 import {
   actCredit, affordable, agentIncome, defaultShare, energyCapacity, firstAgentShare, LINES_BEGINNER_ECONOMY, movePower, newAccount,
   opportunities, pickByEnergy, readCharge, roundShare, settle, settleOwn, spend, summonPriceScale, type Account, type Economy,
@@ -24,7 +24,7 @@ import type { Sandbox } from "@workspace/v2-sandbox";
 import { runAct, type ActRecord, type Program } from "./act.ts";
 import { births } from "./births.ts";
 import { check } from "./check.ts";
-import { valuer, type HarnessPlayer } from "./harness.ts";
+import { findValues, valuer, type HarnessPlayer } from "./harness.ts";
 import { EngineHost, type Economy as ActEconomy } from "./host.ts";
 import type { Sandboxes } from "./sandboxes.ts";
 import { editBits, summonBits } from "./summon.ts";
@@ -62,6 +62,9 @@ export interface TableInput<S> {
   readonly economy?: Economy;
   /** Default 0.1, the beginner preset's. */
   readonly birthsPerSecond?: number;
+  /** Parameter drift (the coordinator's call 18, server #723): every this many seconds each seat's rule parameters are
+   *  redrawn among the dealable ones with a value record (driftParams); the family and tie-breaker stay. Absent: none. */
+  readonly driftSeconds?: number;
   /** Owner decision 24: no two objects in the same state. A move whose result another object already holds is refused
    *  (the act pays its reads only). */
   readonly unique?: boolean;
@@ -159,7 +162,9 @@ interface Agent { id: string; seat: number; name: string; share: number; acc: Ac
 const OCCUPIED = "another object is already in that state";
 
 export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promise<TableReport> {
-  const { type, variant, seats } = input;
+  const { type, variant } = input;
+  // Copies: drift redraws a seat's rule parameters during the game.
+  const seats = input.seats.map(s => ({ ...s, rule: { ...s.rule } }));
   const econ = input.economy ?? LINES_BEGINNER_ECONOMY;
   const P = econ.powerPerSecond, T = econ.fullChargeSeconds, whole = P * T;
   // Summon and edit prices scale with the power (bits × power ÷ 64), as the server charges them.
@@ -168,7 +173,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   const r = rng("table", input.seed);
   const checks = rng("table-checks", input.seed);   // apart from r, so a model's checks never change what agents are offered
   let lines = births(type, variant, input.seed, input.lines);
-  const vals = seats.map(s => valuer(type, variant, s.rule));
+  let vals = seats.map(s => valuer(type, variant, s.rule));
   const bitsAll = (s: S) => vals.map(v => v.bits(s));
   const pointsOf = (s: S) => { const n = bitsAll(s); const t = n.reduce((a, b) => a + b, 0); return n.map(x => x * (t - x)); };
   let points = lines.map(pointsOf);
@@ -463,7 +468,20 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
       for (const [i, s] of seats.entries()) if (s.kind === "model") await modelTurn(i, k, turns);
       k++; nextTurn += AI_TURN_SECONDS;
     }
+    const was = world;
     world = Math.min(input.seconds, world + TICK_SECONDS);
+    if (input.driftSeconds && Math.floor(world / input.driftSeconds) > Math.floor(was / input.driftSeconds)) {
+      const tick = Math.floor(world / input.driftSeconds);
+      for (const [i, s] of seats.entries()) {
+        const family = type.families.find(f => f.id === s.rule.family)!;
+        s.rule = { ...s.rule, params: driftParams(family, variant, s.rule.params, input.seed, i, tick, p => findValues(variant.id, { ...s.rule, params: p as Record<string, unknown> }) !== null) as Record<string, unknown> };
+      }
+      vals = seats.map(s => valuer(type, variant, s.rule));
+      // The redraw changes everyone's points on every line: not a gain or a loss of play, so the baseline moves with it.
+      const next = lines.map(pointsOf);
+      startTotals = startTotals.map((t, i) => t + next.reduce((a, p) => a + p[i]!, 0) - points.reduce((a, p) => a + p[i]!, 0));
+      points = next;
+    }
     for (let b = opportunities(input.birthsPerSecond ?? 0.1, TICK_SECONDS, r); b > 0; b--) {
       const born = births(type, variant, `${input.seed}:${lines.length + 1}`, 1)[0]!;
       lines = [...lines, born]; points = [...points, pointsOf(born)];

@@ -6,7 +6,7 @@
  * or sit idle, or do the objects keep moving?
  *
  *   node --experimental-strip-types scripts/dynamics.ts [--table mixed] [--kind simple|thorough|bold] [--variant line-q]
- *     [--seconds 600] [--objects 3] [--births 0.0041667] [--rate 3] [--noise 0] [--games 3]
+ *     [--seconds 600] [--objects 3] [--births 0.0041667] [--rate 3] [--noise 0] [--drift 120] [--games 3]
  */
 import { parseArgs } from "node:util";
 import { readCharge } from "@workspace/v2-economy";
@@ -18,19 +18,21 @@ import { runTable } from "../src/table.ts";
 const { values: o } = parseArgs({ options: {
   table: { type: "string", default: "mixed" }, kind: { type: "string", default: "simple" }, variant: { type: "string", default: "line-q" },
   seconds: { type: "string", default: "600" }, objects: { type: "string", default: "3" }, births: { type: "string", default: String(1 / 240) },
-  rate: { type: "string", default: "3" }, noise: { type: "string", default: "0" }, games: { type: "string", default: "3" },
+  rate: { type: "string", default: "3" }, drift: { type: "string", default: "0" }, noise: { type: "string", default: "0" }, games: { type: "string", default: "3" },
 } });
 const TABLES: Record<string, string[]> = {
   mixed: ["prime-landing/big-prime", "treasure/prime-terms", "whole-crossing/k-spf"],
   conflict: ["prime-landing/big-prime", "square-area/spf", "whole-crossing/k-spf"],
   compatible: ["prime-landing/m-spf", "treasure/m-spf", "prime-gradient/prime"],
   ruler: ["ruler/far", "same-on-both-rulers/steep", "prime-gradient/c-spf"],
+  drift: ["triangle-area/legs", "crossing-check/size", "whole-crossing/k-spf"],   // two families whose parameters drift on line-q
 };
 const variant = o.variant === "line-z" ? lineZ : lineQ;
 const pool = presets.find(p => p.variant === variant.id)!.rules;
 const rules = TABLES[o.table!]!.map(id => {
   const [family, tieBreaker] = id.split("/") as [string, string];
-  return { family, params: pool.find(r => r.family === family)!.params as Record<string, unknown>, tieBreaker };
+  const dealt = pool.find(r => r.family === family)?.params ?? lineType.families.find(f => f.id === family)!.dealable(variant)[0];
+  return { family, params: dealt as Record<string, unknown>, tieBreaker };
 });
 const economy = { ...E, opportunitiesPerSecond: Number(o.rate) };
 const seconds = Number(o.seconds), minutes = Math.ceil(seconds / 60);
@@ -50,7 +52,7 @@ for (let g = 0; g < Number(o.games); g++) {
   });
   const r = await runTable(boxes, {
     type: lineType, variant, lines: Number(o.objects), seed: `d${g}`, seconds, seats, unique: true, economy,
-    birthsPerSecond: Number(o.births), noise: Number(o.noise), summonCap: E.startingEnergy,
+    birthsPerSecond: Number(o.births), noise: Number(o.noise), summonCap: E.startingEnergy, ...(Number(o.drift) > 0 ? { driftSeconds: Number(o.drift) } : {}),
     onAct: e => {
       while (born.length < e.objects) born.push(e.at);
       // Sample every player's view of every live object at each whole second up to now.
@@ -73,5 +75,5 @@ for (let g = 0; g < Number(o.games); g++) {
   per.forEach((m, i) => rows.push(`| ${i + 1} | ${m.live} | ${m.acts} | ${m.moves} | ${m.objects.size} | ${m.acts ? ((m.acts - m.moves) / m.acts).toFixed(2) : "-"} |`));
 }
 await boxes.close();
-console.log(`table ${o.table} (${TABLES[o.table!]!.join(", ")}), ${o.kind} starters, ${variant.id}, ${seconds} s, ${o.objects} objects + ${o.births}/s births, ${o.rate} opportunities/s, noise ${o.noise}; one look ≈ ${readCharge(20).toFixed(2)} energy at 20 bits`);
+console.log(`table ${o.table} (${TABLES[o.table!]!.join(", ")}), ${o.kind} starters, ${variant.id}, ${seconds} s, ${o.objects} objects + ${o.births}/s births, ${o.rate} opportunities/s, noise ${o.noise}, drift ${o.drift} s; one look ≈ ${readCharge(20).toFixed(2)} energy at 20 bits`);
 console.log(rows.join("\n"));

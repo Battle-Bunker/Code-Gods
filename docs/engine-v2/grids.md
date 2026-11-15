@@ -387,8 +387,8 @@ scored 2–4× less with starters, so the dealer (artifacts/engine/convex/v2/dea
 that pair, one family twice, Magic Eighteen with Magic Accountant, or the blocked pair Opposite Nines × Staircase (both
 exact tops were reached at once); among the deals left it takes one with the fewest aligned pairs (two of one cluster):
 the seed's first shuffle costing nothing, else the cheapest over 200 shuffles. The game records the pairs left
-(`seating`, private). The beginner grid pool pauses the big-digit families (`BEGINNER_PAUSED`; owner-decisions.md call
-19), so a beginner table is small-digit families and Crosswise Threes, with one aligned pair at three seats. Residues (totals modulo a number) are
+(`seating`, private). A three-seat beginner table is one digit cluster plus Crosswise Threes, with one aligned pair
+(owner-decisions.md call 19). Residues (totals modulo a number) are
 the perpendicular direction on grids: "every row and column adds up to a multiple of 5" has a mean |PMI| of 0.13
 against the fifteen current mains, against 1.1 to 2.6 for sizes, repeats, parity and factors.
 
