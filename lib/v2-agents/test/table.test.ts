@@ -131,3 +131,19 @@ test("on the beginner economy (power 4) starters live within their income: no ag
   assert.ok(acts > 100, `${acts} acts`);
   assert.ok(worst <= 3, `worst debt ${worst.toFixed(1)} s of income`);
 });
+
+test("drift is staggered by seat, as on the server: seat i redraws at k·D + i·D/n, and nobody in the last 90 s", async () => {
+  const D = 120, seconds = 400, at: { at: number; seat: number }[] = [];
+  const rules = [["prime-landing", "big-prime"], ["treasure", "prime-terms"], ["same-on-both-rulers", "steep"]] as const;
+  await runTable(boxes, {
+    type: lineType, variant: lineQ, lines: 3, seed: "stagger", seconds, unique: true, driftSeconds: D,
+    seats: rules.map(([f, t], k) => seat(`P${k}`, "starter", f, t)),
+    onDrift: e => at.push({ at: e.at, seat: e.seat }),
+  });
+  assert.ok(at.length > 0, "some seat redrew");
+  for (const e of at) {
+    const due = [1, 2, 3].map(k => k * D + (e.seat * D) / 3);
+    assert.ok(due.some(t => e.at >= t && e.at - t <= 1.5), `seat ${e.seat} redrew at ${e.at}, due at ${due.join(", ")}`);
+    assert.ok(e.at <= seconds - 90, `no redraw in the last 90 s (${e.at})`);
+  }
+});
