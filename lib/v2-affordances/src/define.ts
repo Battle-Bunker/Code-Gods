@@ -19,7 +19,8 @@ export const site = z.number().int().min(0).max(7).optional().describe("Which li
 export const language = z.enum(["python", "typescript"]);
 export const source = z.string().min(1).max(16384).describe("Agent source defining agent(offer) and returning mutator calls (≤ 16 KiB).");
 export const paging = {
-  cursor: z.string().max(256).nullable().optional().describe("The nextCursor of the previous page; omit for the first page."),
+  // A Convex cursor encodes the index key it stopped at: a page over (game, player, unset field) runs past 256 characters.
+  cursor: z.string().max(1024).nullable().optional().describe("The nextCursor of the previous page; omit for the first page."),
   limit: z.number().int().min(1).max(100).default(20),
 };
 export const page = <T extends z.ZodType>(row: T) => z.object({ page: z.array(row), nextCursor: z.string().nullable() });

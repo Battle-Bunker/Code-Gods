@@ -125,6 +125,8 @@ export const playObjectV = v.object({
 export const agentRowV = v.object({
   agentId: v.id("v2Agents"), name: v.string(), language: languageV, version: v.number(), share: v.number(), createdAt: v.number(),
 });
+/** The caller's live agents, a page at a time (≤ 200 a player, call 35; pages ≤ 50, R1); each row's energy is `agentEnergy`. */
+export const agentsPageV = paginationResultValidator(agentRowV);
 export const agentEnergyV = v.object({
   agentId: v.id("v2Agents"), energy: v.number(), acts: v.number(), skips: v.number(), failures: v.number(), spend: v.number(),
   pointsGained: v.number(), lastActAt: v.union(v.number(), v.null()),
