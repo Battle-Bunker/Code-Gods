@@ -20,3 +20,27 @@ export function driftParams<P>(
   const all = family.dealable(variant).filter(p => allowed?.(p) ?? true);
   return all.length ? all[rng("drift", seed, seat, tick).below(all.length)]! : current;
 }
+
+/** No redraw within this many world seconds of a fixed-length game's end. */
+export const END_GUARD_SECONDS = 90;
+
+/**
+ * The drift events due by this world second after `done` of them: event e (1, 2, …) falls at e × interval / seats and
+ * redraws seat e mod seats (so seat 0 last in each round). An event within END_GUARD_SECONDS of `endWorld` (a
+ * fixed-length game's end; null when the end is hidden) is passed over: counted, not run.
+ */
+export function driftEventsDue(intervalSeconds: number, seats: number, world: number, done: number, endWorld: number | null): { e: number; seat: number; skip: boolean }[] {
+  if (!(intervalSeconds > 0) || seats < 1) return [];
+  const step = intervalSeconds / seats, last = Math.floor(world / step + 1e-9), out = [];
+  for (let e = done + 1; e <= last; e++) out.push({ e, seat: e % seats, skip: endWorld !== null && e * step > endWorld - END_GUARD_SECONDS + 1e-9 });
+  return out;
+}
+
+/** The world second of a seat's next redraw after `world`, or null when none is left before the end guard. */
+export function nextDriftAt(intervalSeconds: number, seats: number, seat: number, world: number, endWorld: number | null): number | null {
+  if (!(intervalSeconds > 0) || seats < 1) return null;
+  const first = ((seat % seats) || seats) * intervalSeconds / seats;
+  const m = Math.max(0, Math.floor((world - first) / intervalSeconds + 1e-9) + 1);
+  const at = world < first - 1e-9 ? first : first + m * intervalSeconds;
+  return endWorld !== null && at > endWorld - END_GUARD_SECONDS + 1e-9 ? null : at;
+}
