@@ -95,6 +95,10 @@ export interface TableAct<S> {
   readonly objects: number;
   /** The calls the act returned (applied only when committed). */
   readonly calls: ActRecord["calls"];
+  /** What the act cost, the agent's balance after it, and its income a second. */
+  readonly charge: number;
+  readonly balance: number;
+  readonly income: number;
 }
 
 export interface SeatReport {
@@ -258,7 +262,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     let reads = 0;
     const { record, state } = await runAct(await sandbox(a.program.language), {
       type, variant, state: lines[object]!, rule: seats[i]!.rule, program: a.program,
-      seed: BigInt(`0x${hashHex(`${input.seed}:act:${actN++}`).slice(0, 15)}`), energy, object, liveObjects: lines.length, ...(input.actEconomy ? { economy: input.actEconomy } : {}),
+      seed: BigInt(`0x${hashHex(`${input.seed}:act:${actN++}`).slice(0, 15)}`), energy, income: agentIncome(P, a.share), object, liveObjects: lines.length, ...(input.actEconomy ? { economy: input.actEconomy } : {}),
       value: (shown => ({ mine: n[i]!, others: shown, points: n[i]! * Math.max(0, shown) }))(total - n[i]! + noiseAt(`${actKey}:value`)), history, ...(vals[i]!.values ? { values: vals[i]!.values } : {}),
       others: seats.flatMap((s, j) => (j === i || !vals[j]!.values ? [] : [{ rule: s.rule, values: vals[j]!.values! }])),
       ...(input.noise ? { disclosed: () => noiseAt(`${actKey}:read:${reads++}`) } : {}),
@@ -273,7 +277,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     if (world >= input.seconds - 60) { stats[i]!.lateActs++; if (verdict !== "committed") stats[i]!.lateIdle++; }
     a.acc = { balance: energy - charge, settledWorldSeconds: world };
     a.acts++; stats[i]!.acts++; stats[i]!.spentActs += charge;
-    input.onAct?.({ at: world, object, seat: i, outcome: record.outcome, committed: verdict === "committed", before: lines[object]!, state: verdict === "committed" ? state : lines[object]!, objects: lines.length, calls: record.calls });
+    input.onAct?.({ at: world, object, seat: i, outcome: record.outcome, committed: verdict === "committed", before: lines[object]!, state: verdict === "committed" ? state : lines[object]!, objects: lines.length, calls: record.calls, charge, balance: energy - charge, income: agentIncome(P, a.share) });
     if (verdict !== "committed") return;
     const from = type.encode(lines[object]!), to = type.encode(state), last = lastMove.get(object);
     if (last && last.by !== i && last.from === to) stats[i]!.flips++;

@@ -38,6 +38,12 @@ const boxes = sandboxes();
 const rows: string[] = [];
 for (let g = 0; g < Number(o.games); g++) {
   const per = Array.from({ length: minutes }, () => ({ acts: 0, moves: 0, objects: new Set<number>(), reads: 0, live: 0 }));
+  // Debt (seconds of income an agent owes after an act) and the dearest move; each act tells its owner the object
+  // (decision 36), so a player's view of an object is as old as the last act of theirs on it (or its birth).
+  let worstDebt = 0, dearest = 0;
+  const told: number[][] = [[], [], []], born: number[] = [];
+  const ages: number[] = [];
+  let lastT = 0;
   const seats = rules.map((rule, k) => {
     const a = startersFor(rule.family, "typescript").find(x => x.kind === o.kind)!;
     return { name: `P${k}`, kind: "starter" as const, rule, program: { language: a.language, source: a.source } };
@@ -46,12 +52,21 @@ for (let g = 0; g < Number(o.games); g++) {
     type: lineType, variant, lines: Number(o.objects), seed: `d${g}`, seconds, seats, unique: true, economy,
     birthsPerSecond: Number(o.births), noise: Number(o.noise), summonCap: E.startingEnergy,
     onAct: e => {
+      while (born.length < e.objects) born.push(e.at);
+      // Sample every player's view of every live object at each whole second up to now.
+      for (let t = Math.ceil(lastT); t <= e.at; t++) if (t > 0) for (const seat of [0, 1, 2]) for (let k = 0; k < born.length; k++) ages.push(t - Math.max(born[k]!, told[seat]![k] ?? -Infinity));
+      lastT = Math.max(lastT, Math.floor(e.at) + 1);
+      told[e.seat]![e.object] = e.at;
+      if (e.balance < 0) worstDebt = Math.max(worstDebt, -e.balance / e.income);
+      if (e.committed) dearest = Math.max(dearest, e.charge);
       const m = per[Math.min(minutes - 1, Math.floor(e.at / 60))]!;
       m.acts++; m.live = Math.max(m.live, e.objects);
       if (e.committed) { m.moves++; m.objects.add(e.object); }
     },
   });
   const spentActs = r.seats.reduce((t, s) => t + s.spent.acts, 0), acts = r.seats.reduce((t, s) => t + s.acts, 0);
+  ages.sort((x, y) => x - y);
+  rows.push(`game ${g}: worst debt ${worstDebt.toFixed(1)} s of income; dearest move ${dearest.toFixed(1)} energy; a player's view of an object: median ${ages[Math.floor(ages.length / 2)]?.toFixed(0)} s old, under 10 s ${(100 * ages.filter(x => x < 10).length / Math.max(1, ages.length)).toFixed(0)}% of the time`);
   rows.push(`game ${g}: ${acts} acts, ${spentActs.toFixed(0)} energy on acts (${(spentActs / Math.max(1, acts)).toFixed(2)} per act), points gained ${r.seats.map(s => s.gained.toFixed(0)).join(" / ")}`);
   rows.push("| minute | live objects | acts | moves | objects changed | idle share |");
   rows.push("|---|---|---|---|---|---|");
