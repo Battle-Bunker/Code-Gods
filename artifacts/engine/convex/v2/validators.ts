@@ -5,7 +5,7 @@
  */
 import { paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
-import { bidV, callV, languageV, memberKindV, offerV, overridesV, phaseV, scoreWireV, valueSnapV } from "./tables";
+import { bidV, callV, languageV, memberKindV, offerV, overridesV, phaseV, scoreWireV, valueSnapV } from "./tables.ts";
 
 export const roomPhaseV = v.union(v.literal("lobby"), phaseV);
 

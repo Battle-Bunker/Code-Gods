@@ -11,8 +11,8 @@
  */
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
-import { assistantTables } from "./assistantTables";
-import { authorV, diagnosticV, manifestV, placementV, sizeV } from "./panelShapes";
+import { assistantTables } from "./assistantTables.ts";
+import { authorV, diagnosticV, manifestV, placementV, sizeV } from "./panelShapes.ts";
 
 // ---------------------------------------------------------------- shared shapes
 
