@@ -13,6 +13,7 @@ import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 import { MAX_DT } from "./loop";
+import { timeScaleOf } from "./duration";
 import { sandboxFor } from "./runtime";
 import { birthDraws, decode, scopeOf, typeOf, variantOf } from "./world";
 import { actReadings } from "./disclose";
@@ -24,7 +25,7 @@ type Snapshot = {
   /** The world second the game ends at (private in halfLife mode; the tick only follows it). */
   endWorld: number;
   held: { objectId: string; state: string }[]; noiseKey: string | null;
-  settings: { worldSeconds: number; startingObjects: number; peerNoiseVariance?: number; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
+  settings: { worldSeconds: number; startingObjects: number; peerNoiseVariance?: number; timeScale?: number; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
   seats: { memberId: string; rule: { family: string; params: unknown; tieBreaker: string | null; ruleKey: string } }[];
   ready: ("typescript" | "python")[];
   agents: { agentId: string; memberId: string; language: "typescript" | "python"; source: string; version: number; share: number; energy: number; settledAt: number }[];
@@ -46,10 +47,12 @@ export const tick = internalAction({
       if (!snap || snap.phase !== "live" || snap.leaseId !== leaseId) return;
       const now = Date.now();
       // World time follows the wall clock to the announced end (endsAt), so a game ends when its clock says 0:00
-      // however slow the ticks run; one tick does at most MAX_DT seconds of births and opportunities.
-      const wall = snap.endsAt !== null ? snap.endWorld - (snap.endsAt - now) / 1000 : snap.worldSeconds + (now - snap.lastTickAt) / 1000;
+      // however slow the ticks run; one tick does at most MAX_DT seconds of births and opportunities. A dilated game
+      // (decision 37) runs its world `timeScale` times faster than the wall: the same game in less wall time.
+      const f = timeScaleOf(snap.settings);
+      const wall = snap.endsAt !== null ? snap.endWorld - (snap.endsAt - now) * f / 1000 : snap.worldSeconds + (now - snap.lastTickAt) * f / 1000;
       const world = Math.max(snap.worldSeconds, Math.min(snap.endWorld, wall));
-      const dt = Math.min(MAX_DT, world - snap.worldSeconds);
+      const dt = Math.min(MAX_DT * f, world - snap.worldSeconds);
       const variant = variantOf(snap.variant), econ = snap.settings.economy;
       const r = rng(snap.seed, "tick", snap.tick);
 
@@ -107,7 +110,9 @@ export const tick = internalAction({
         // Its own value now is measured afresh for this act (actInputs sends it exact; recorded as the agent read it).
         const reads = actReadings(noise, agent.memberId, seed);
         const exact = told.get(`${agent.memberId}:${s.objectId}`) ?? { history: [] };
-        const input = exact.value ? { ...exact, value: reads.value(exact.value) } : exact;
+        // Its income (W2: a starter climbs within what it earns), recorded with the act so a replay budgets alike.
+        const income = agentIncome(econ.powerPerSecond, agent.share);
+        const input = { ...(exact.value ? { ...exact, value: reads.value(exact.value) } : exact), income };
         // The seat's value function (decision 23), as the deal recorded it by ruleKey: replay re-derives it from the bundle.
         const vf = valueFnIn(seat.rule.ruleKey, scope);
         const { record } = await runAct(sandbox, {

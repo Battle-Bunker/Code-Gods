@@ -13,7 +13,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { decode, distinctBirths, heldReason, scopeOf, valuesOf, type SeatRule, type Value as ExactValue } from "./world.ts";
 import { measured, objectReading, readingNoise, shownAt } from "./disclose.ts";
-import { endWorldOf, scoreIntervalOf } from "./duration.ts";
+import { endWorldOf, scoreIntervalOf, timeScaleOf } from "./duration.ts";
 import { shouldPark } from "./activity.ts";
 import { allReady, ensureWarm, isReady, LANGUAGES } from "./readiness.ts";
 import { paysToRead, tell } from "./knowledge.ts";
@@ -290,7 +290,8 @@ export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
   const engine = await engineOf(ctx, game._id), clock = await clockOf(ctx, game._id);
   await ctx.db.patch(engine._id, { leaseId, objects: states.length });
   await ctx.db.patch(clock._id, { lastTickAt: now, worldSeconds: 0, objects: states.length });
-  await ctx.db.patch(game._id, { phase: "live", startedAt: now, endsAt: now + endWorldOf(game) * 1000 });
+  // A dilated game's world runs timeScale times faster than the wall (decision 37): it ends that much sooner.
+  await ctx.db.patch(game._id, { phase: "live", startedAt: now, endsAt: now + endWorldOf(game) * 1000 / timeScaleOf(game.settings) });
   await appendEvent(ctx, game._id, "phase", { phase: "live", worldSeconds: 0 });
   await scoreboard(ctx, { ...game, phase: "live" }, 0);
   await ctx.scheduler.runAfter(0, TICK, { gameId: game._id, leaseId });
@@ -337,7 +338,7 @@ export async function resumeGame(ctx: MutationCtx, game: Doc<"v2Games">) {
   const engine = await engineOf(ctx, game._id), clock = await clockOf(ctx, game._id);
   await ctx.db.patch(engine._id, { leaseId });
   await ctx.db.patch(clock._id, { lastTickAt: now });
-  await ctx.db.patch(game._id, { phase: "live", pausedBy: undefined, endsAt: now + Math.max(0, endWorldOf(game) - clock.worldSeconds) * 1000 });
+  await ctx.db.patch(game._id, { phase: "live", pausedBy: undefined, endsAt: now + Math.max(0, endWorldOf(game) - clock.worldSeconds) * 1000 / timeScaleOf(game.settings) });
   await appendEvent(ctx, game._id, "phase", { phase: "live", worldSeconds: clock.worldSeconds });
   await ctx.scheduler.runAfter(0, TICK, { gameId: game._id, leaseId });
   await ctx.scheduler.runAfter(WATCHDOG_MS, WATCHDOG, { gameId: game._id, leaseId });

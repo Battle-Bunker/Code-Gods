@@ -58,7 +58,9 @@ export const deals = internalQuery({
     if (!game || !me) return null;
     const clock = await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", gameId)).unique();
     // World time runs to endsAt (tick.ts); while paused it stands still at the clock's.
-    const worldAt = (at: number) => game.endsAt !== undefined ? endWorldOf(game) - (game.endsAt - at) / 1000 : Math.min(clock?.worldSeconds ?? 0, (clock?.worldSeconds ?? 0) - (Date.now() - at) / 1000);
+    // A dilated game's world runs timeScale times faster than the wall (decision 37).
+    const f = timeScaleOf(game.settings);
+    const worldAt = (at: number) => game.endsAt !== undefined ? endWorldOf(game) - (game.endsAt - at) * f / 1000 : Math.min(clock?.worldSeconds ?? 0, (clock?.worldSeconds ?? 0) - (Date.now() - at) * f / 1000);
     const since = game.createdAt;   // deals struck while planning count too
     const chat = (await ctx.db.query("v2Chat").withIndex("by_room", q => q.eq("roomId", game.roomId).gte("at", since)).order("desc").take(CHAT_ROWS))
       .reverse().map(m => ({ from: m.from, text: m.text, at: worldAt(m.at) }));
