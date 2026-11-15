@@ -15,24 +15,24 @@ export interface Economy {
 }
 
 /**
- * `Lines · beginner`. Owner decision 37: 3 opportunities a second (room-wide). The coordinator's call 13 (15 Nov) keeps
- * energy binding per act as at 25 Hz: power 8 bits/s (64 × 3/25), so a seat at 1 act/s has about 8 ⚡ an act, about 1.5
- * unit moves; a 240 s store keeps the capacity at 8 × 240 = 1920, as before, so the dearest beginner starter is still
- * payable in planning; 600 starting energy.
+ * `Lines · beginner`. Owner decision 37: 3 opportunities a second (room-wide). The coordinator's call 17 (15 Nov, from
+ * the spec lead's power study: nothing climbs past about 40 bits, about three moves per seat-minute): power 4 a second
+ * and a 240 s store. The start buys about three typical starters at the scaled summon price (bits × power ÷ 64): 3 ×
+ * the median line starter's 466 bits ÷ 16 ≈ 90 (the server derives it, artifacts/engine convex/v2/presets.ts, and a
+ * test holds the two equal).
  */
 export const LINES_BEGINNER_ECONOMY: Economy = Object.freeze({
-  powerPerSecond: 8,
+  powerPerSecond: 4,
   fullChargeSeconds: 240,
-  startingEnergy: 600,
+  startingEnergy: 90,
   opportunitiesPerSecond: 3,
 });
 
 /**
- * `Grids · beginner`: the lines' economy with 900 starting energy. A board's agent reads 16 cells, not y = mx + c, so
- * it is longer and dearer to summon; 900 lets a grid starter take about the share of the starting energy a line starter
- * takes of 600 (artifacts/engine test/unit/v2-object-types.test.ts holds the two shares close).
+ * `Grids · beginner`: the lines' economy with the start that buys about three typical grid starters (a board's agent
+ * reads 16 cells, not y = mx + c, so it is longer and dearer): 3 × the median grid starter's 701 bits ÷ 16 ≈ 130.
  */
-export const GRIDS_BEGINNER_ECONOMY: Economy = Object.freeze({ ...LINES_BEGINNER_ECONOMY, startingEnergy: 900 });
+export const GRIDS_BEGINNER_ECONOMY: Economy = Object.freeze({ ...LINES_BEGINNER_ECONOMY, startingEnergy: 130 });
 
 /** The bounds a room's economy must keep. */
 export const ECONOMY_LIMITS = Object.freeze({

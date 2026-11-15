@@ -138,7 +138,7 @@ test("operations run through defineOp: results, receipts, refusals, delegates an
     assert.equal((e as { data?: { error?: { code?: string } } }).data?.error?.code, "failed");
   }
   // An action resolves its caller through a query and returns its failure as a value (a summon dearer than the store).
-  // (About 6,600 bits, so dearer than the 600 starting energy even at the beginner game's power scale, 8 ÷ 64.)
+  // (About 6,600 bits, so dearer than the beginner start of 90 even at its power scale, 4 ÷ 64.)
   const dear = await perform(ada, "agent.summon", { language: "python", source: `def agent(offer):\n  ${"x = [1, 2, 3, 4, 5, 6, 7, 8, 9]\n  ".repeat(440)}return None\n` }, { gameId }, "action");
   assert.equal(dear.error.code, "failed", JSON.stringify(dear));
   // pitch.draft spends AI tokens: only in a room whose owner is an administrator (v2-assistant.test.ts drafts one there).

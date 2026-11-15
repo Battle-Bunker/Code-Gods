@@ -25,7 +25,7 @@ before(async () => {
   // Starting energy with room for the planning test's summons, replaces and put-backs (each priced by its program).
   // Exact sums (variance 0, as the beginner preset): this file checks that an agent is told the server's values, which
   // under noise differ by design (every agent read is a measurement of its own: disclose.ts actReadings).
-  await perform(ada!, "room.settings", { overrides: { planningSeconds: 600, worldSeconds: 600, startingEnergy: 1200, peerNoiseVariance: 0 } }, { roomId });
+  await perform(ada!, "room.settings", { overrides: { planningSeconds: 600, worldSeconds: 600, startingEnergy: 400, peerNoiseVariance: 0 } }, { roomId });
   gameId = (await perform(ada!, "game.start", {}, { roomId })).result.gameId;
 });
 
@@ -55,7 +55,7 @@ test("planning: check, summon, replace, put back, split power, destroy", async (
   const given = (await ada!.query("v2/play:agentEnergy", { agentId })).energy;
   assert.ok(Math.abs(before.energy - summoned.result.price - after.energy - given) < 1e-6, `the price is paid from the own store: ${before.energy} − ${summoned.result.price} = ${after.energy} + ${given} given to the agent`);
 
-  // Dense (about 10,000 bits, under the 16 KiB limit): dearer than Bo's 1,200 even at the game's power scale, 8 ÷ 64.
+  // Dense (about 10,000 bits, under the 16 KiB limit): dearer than Bo's 400 even at the game's power scale, 4 ÷ 64 (about 630).
   const tooDear = await perform(bo!, "agent.summon", { language: "python", source: `def agent(offer):\n  ${"x=[1,2,3,4,5,6,7,8,9]\n  ".repeat(675)}return None\n` }, scope(), "action");
   assert.equal(tooDear.error.code, "failed", "a program dearer than the store is refused");
   assert.ok(tooDear.error.data.price > tooDear.error.data.store, JSON.stringify(tooDear.error.data));

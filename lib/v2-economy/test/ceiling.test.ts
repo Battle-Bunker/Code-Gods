@@ -9,10 +9,10 @@ import assert from "node:assert/strict";
 import { chargeOwn, energyCapacity, LINES_BEGINNER_ECONOMY as E, movePower, newAccount, settleOwn } from "../src/index.ts";
 
 const power = { powerPerSecond: E.powerPerSecond, allocated: 0, fullChargeSeconds: E.fullChargeSeconds };
-const ceiling = E.powerPerSecond * E.fullChargeSeconds;   // 64 × 30 = 1,920 ⚡ on the beginner economy
+const ceiling = E.powerPerSecond * E.fullChargeSeconds;   // 4 × 240 = 960 energy on the beginner economy (call 17)
 
 test("at full power the own store fills to P·T and no further, however long the game runs", () => {
-  assert.equal(ceiling, 1920);
+  assert.equal(ceiling, 960);
   assert.equal(energyCapacity(E.powerPerSecond, E.fullChargeSeconds), ceiling);
   for (const seconds of [E.fullChargeSeconds, 600, 86_400]) assert.equal(settleOwn(newAccount(0, E.startingEnergy), seconds, power).balance, ceiling);
 });
