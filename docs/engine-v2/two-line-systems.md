@@ -251,3 +251,34 @@ three seats, tests 1–3 (test 4 waits for the pair starters). Output:
   the pool. Test 3 (plateaus) passes on the engine, unlike in the study (§4.4), at every β.
 - **Births under C3**: a parallel pair is born about once in 50 (14% under the study's law), so the families that are
   undefined on parallel lines are rarely at their worst at birth.
+
+### 8.1 The tension matrix and the starters in play (after #719)
+
+The pair starters are the agents session's (#719, the guest two-line kit). On develop a `lines-pairs` game of three
+practice partners plays end to end (artifacts/engine test/v2-game.test.ts, 8 of 8). The preset keeps v1's default board,
+with its hidden half-life end; the test pins a fixed end.
+
+**Tension matrix** (lib/v2-agents scripts/pair-tension.ts). The method is tension.ts's, on pairs. Each of the 16 rules
+gets states up to 16 bits by subset simulation. Every call with arguments ≤ 8 bits (104 directions, on either line or
+the system) is applied once, and again repeated 8 times. Output:
+[scripts/two-line-systems-tension.txt](scripts/two-line-systems-tension.txt).
+
+- When a move climbs one family, another family rises more often than it falls in **21 of the 56** ordered pairs. That
+  is not 0: there is aligned drift. But none of those pairs is one-sided (the largest margin is 41% / 34%).
+  No Fractions and Right Angle are the strongest adversaries: climbing Right Angle lowers No Fractions 67% of the time.
+  Every family falls at least a quarter of the time under some other family's climbs.
+- **A repeated basic strategy raises one family by more than 1 bit in 64% of runs**, two in 26%, three or more in 10%.
+- **Found (decision 30's pattern, open, proposed to the coordinator): Steep Ratio and High Start share a hill.**
+  - Repeating "stretch line 1 by 3" lifts both by about 1.7 bits per step. Each step is 3 bits of φ and ~14 energy.
+  - Example: from −2x + 3y = 5 with x + 2y = 1, eight steps reach y = 4374x + 10935, which gives Steep Ratio
+    (ratio-gap) 17.7 bits and High Start (steep-and-high) 17.0 bits for 110 energy. No dealt rule falls by more than
+    a few bits along the way.
+  - Why: both primaries reward the steeper line's size. Steep Ratio wants the steeper gradient large. High Start wants
+    the steeper line's y-intercept large, and its steep-and-high tie-breaker asks for the gradient too. A stretch raises
+    gradient and intercept together.
+  - It is not an easy high peak: each rule stays inside its tail bound (bits ≈ 0.4 φ). It is an unopposed shared
+    climb, worth ~1.2 joint bits per bit of φ.
+  - Candidate fixes: an adversary on that anchor. For example, High Start could read the gentler line's intercept, or
+    Steep Ratio could want the steeper line's intercept small. Either is a change to a rule, so it is the
+    coordinator's to trial.
+
