@@ -92,8 +92,8 @@ export const ruler = family("ruler", "Ruler", ["norm", "si", "tri", "gen"], rule
  * rounded down, (c² − 1)/2 is even and none of them is a rung.
  * Tie-breaker, read from that prime p: the factor p − 1 shares with the slanted side squared, rounded down (Pythagoras:
  * base² + height²). A new rung changes p − 1, so the side that shared most no longer does, and the climb starts again.
- * Dealt: k = 1, 3, 7, 9. In play (48 games, 12 a ending, no drift, 15 Nov) their mean gains were 254, 357, 282 and 364
- * (balance 1.43; a 6-game mean's standard error is 35–110); the area rounded up instead, as four more instances, gained
+ * Dealt: k = 1, 3, 7, 9. In play (72 games, 18 an ending, no drift, 15 Nov) their mean gains were 287, 338, 284 and 353
+ * (balance 1.25; a 6-game mean's standard error is 35–110); the area rounded up instead, as four more instances, gained
  * 270–320 and matched no closer. Ending 9's rungs are rarer at equal area (about a bit and a half), and dearer to reach by as
  * much: the median over rungs of a rung's bits less the code cost of the cheapest line found on it is −10.1 to −10.5
  * bits for all four endings (15 Nov), so the params-equal audit compares them as a ladder by bits less that cost.
