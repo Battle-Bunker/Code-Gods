@@ -18,7 +18,7 @@ import { aiSeatSystemPrompt, commitmentBriefing, commitmentsOf, findDeals, runAs
 import { driftParams, hashHex, Qn, rng, ruleLayers, scoreToWire, type ObjectType, type Variant } from "@workspace/v2-core";
 import {
   actCredit, affordable, agentIncome, defaultShare, energyCapacity, firstAgentShare, LINES_BEGINNER_ECONOMY, movePower, newAccount,
-  opportunities, pickByEnergy, pickObject, readCharge, roundShare, settle, settleOwn, spend, summonPriceScale, type Account, type Economy, type ObjectSelection,
+  opportunities, pickByEnergy, readCharge, roundShare, settle, settleOwn, spend, summonPriceScale, type Account, type Economy,
 } from "@workspace/v2-economy";
 import { lineClashes } from "@workspace/v2-linear";
 import type { Sandbox } from "@workspace/v2-sandbox";
@@ -77,11 +77,6 @@ export interface TableInput<S> {
   /** Owner decision 24: no two objects in the same state. A move whose result another object already holds is refused
    *  (the act pays its reads only). */
   readonly unique?: boolean;
-  /**
-   * Which line an opportunity offers (v1's objectSelection, restored; lib/v2-economy selection.ts): "uniform" (the
-   * default) or "shelter", weight 1/(1 + σ⁺) with σ the line's salience (every seat's bits on it added up).
-   */
-  readonly objectSelection?: ObjectSelection;
   /** Disclosure noise on the others' sum, σ in bits (v1's 8; 0 or absent: exact). As the server draws it (owner decision
    *  32, W3 #673): every read an agent makes (othersAfter) is an independent draw, keyed by the act and the read's count,
    *  and the act's own value (worth) is drawn once per act. The scores here stay exact. */
@@ -538,12 +533,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
       if (input.objectCap !== undefined) for (let alive = live(); alive.length > input.objectCap; alive = live()) retired.add(alive[0]!);
     }
     const offers = opportunities(econ.opportunitiesPerSecond, TICK_SECONDS, r);
-    for (let o = 0; o < offers; o++) {
-      const alive = live();
-      // Uniform draws as before (r.below), so a uniform table replays exactly; shelter weighs by salience.
-      const at = input.objectSelection === "shelter" ? pickObject(alive.map(j => bitsAll(lines[j]!).reduce((t, b) => t + b, 0)), "shelter", r)! : r.below(alive.length);
-      await act(alive[at]!);
-    }
+    for (let o = 0; o < offers; o++) { const alive = live(); await act(alive[r.below(alive.length)]!); }
   }
 
   const found = deals(chat, log, 2 * AI_TURN_SECONDS);
