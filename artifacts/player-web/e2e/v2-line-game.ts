@@ -136,7 +136,7 @@ try {
     // The first scoring move (a move can also leave your rarity and the points where they were).
     // A move row of its own: a move folded into a tug-of-war entry is hidden inside its closed <details>.
     // The act log's times read as the countdown does ("3:39 left"), not elapsed (persona walk: 0:13 beside 3:39 left).
-    await feed.locator("[data-testid^=row-move-] p").first().getByText(/^\d+:\d\d left/).waitFor({ timeout: 60_000 });
+    await feed.locator("[data-testid^=row-move-] p:visible").getByText(/^\d+:\d\d left/).first().waitFor({ timeout: 60_000 });
     // Its own row, or inside a tug-of-war entry (contested lines fold their moves under "Show the N moves").
     const mine = feed.locator("[data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed a line.*Your rarity/ }).first();
     await mine.waitFor({ state: "attached", timeout: 60_000 });
@@ -277,7 +277,8 @@ try {
       // Once the others' totals arrive (v2/play:othersAt), a move's new bits come with its points: yours × others'.
       await options.first().getByText(/→ your [\d,]+\.\d\d bits? × others'/).waitFor({ timeout: 15_000 });
       const first = await options.first().innerText();
-      assert.match(first, /[\d,]+\.\d\d energy/, `a move has its price: ${first}`);
+      // "energy" (lib/v2-views writes the bolt, \u26A1, until the annotations' sweep lands).
+      assert.match(first, /[\d,]+\.\d\d (energy|\u26A1)/u, `a move has its price: ${first}`);
       assert.match(first, /→ your [\d,]+\.\d\d bits? × others' (about )?[\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/, `a move has its new bits and points: ${first}`);
     } else await line.getByText(/No single move makes this line rarer/).waitFor();
     // 4. why another player might want the same line: the formula names the others' bits beside yours (checked above).

@@ -258,7 +258,8 @@ try {
       // Once the others' totals arrive (v2/play:othersAt), a move's new bits come with its points: yours × others'.
       await options.first().getByText(/→ your [\d,]+\.\d\d bits? × others'/).waitFor({ timeout: 15_000 });
       const first = await options.first().innerText();
-      assert.match(first, /[\d,]+\.\d\d energy/, `a move has its price: ${first}`);
+      // "energy" (lib/v2-views writes the bolt, \u26A1, until the annotations' sweep lands).
+      assert.match(first, /[\d,]+\.\d\d (energy|\u26A1)/u, `a move has its price: ${first}`);
       assert.match(first, /→ your [\d,]+\.\d\d bits? × others' (about )?[\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/, `a move has its new bits and points: ${first}`);
     } else await line.getByText(/No single move makes this grid rarer/).waitFor();
     await line.locator(".v2v-exp-body").scrollIntoViewIfNeeded();
