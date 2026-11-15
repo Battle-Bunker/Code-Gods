@@ -181,10 +181,11 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
       "    }",
     );
   } else {
+    const pres = new Set<string>();
     for (const id of lensesFor(kind, e, tieBreaker)) {
-      const l = LENSES[id];
-      if ("pre" in l && l.pre) out.push(`    ${l.pre.ts}`);
-      out.push(`    tries.push(${l.ts});   // ${l.comment}`);
+      const l: Lens = LENSES[id];
+      if (l.pre && !pres.has(l.pre.ts)) { pres.add(l.pre.ts); out.push(`    ${l.pre.ts}`); }
+      out.push(`    ${l.when ? `if (${l.when.ts}) ` : ""}tries.push(${l.ts});   // ${l.comment}`);
     }
   }
   out.push(
@@ -307,10 +308,11 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
       "                tries.append(([move(\"si.shift\", k=k), move(\"si.tilt\", k=j)], m + j, c + k))",
     );
   } else {
+    const pres = new Set<string>();
     for (const id of lensesFor(kind, e, tieBreaker)) {
-      const l = LENSES[id];
-      if ("pre" in l && l.pre) out.push(`        ${l.pre.py}`);
-      out.push(`        tries.append(${l.py})   # ${l.comment}`);
+      const l: Lens = LENSES[id];
+      if (l.pre && !pres.has(l.pre.py)) { pres.add(l.pre.py); out.push(`        ${l.pre.py}`); }
+      out.push(`        ${l.when ? `if ${l.when.py}: ` : ""}tries.append(${l.py})   # ${l.comment}`);
     }
   }
   out.push(

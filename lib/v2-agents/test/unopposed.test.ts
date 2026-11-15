@@ -78,21 +78,27 @@ test("empty, one-rule, repeated-rule and unknown tables have no shared rise", ()
   assert.deepEqual(unopposedDirections("line-q", ["square-area/spf"]), []);
 });
 
-test("the weak threshold is under a tenth of the stretch-to-367 reference", () => {
-  const ref = TENSION["line-q"]!.reference;
-  assert.deepEqual(ref.rules, ["square-area/spf", "whole-crossing/k-spf"]);
-  assert.ok(ref.gainPerEnergy >= 0.9, `reference ${ref.gainPerEnergy}`);
-  assert.ok(WEAK_BELOW <= ref.gainPerEnergy / 10);
+// The stretch-to-367 reference (the 247k case: Square Area's spf and Whole Crossing's k-spf rising together along the
+// prime ladder) set WEAK_BELOW. Whole Crossing is now a ladder of 5s on the crossing (call 24) and no longer deals
+// k-spf, so the generator records the strongest shared ladder rise of two dealt rules instead: it is far under
+// WEAK_BELOW, so no constructed ladder is a strong shared climb in the current pool.
+test("the reference is the strongest shared ladder rise of two dealt rules, and it is weak in the current pool", () => {
+  const t = TENSION["line-q"]!, ref = t.reference;
+  assert.equal(ref.rules.length, 2);
+  for (const r of ref.rules) assert.ok(t.rules.includes(r), r);
+  assert.ok(ref.gainPerEnergy < WEAK_BELOW, `reference ${ref.gainPerEnergy}`);
+  const rules = [...new Set(t.rules)];
+  const fam = (r: string) => r.split("/")[0];
+  for (let i = 0; i < rules.length; i++) for (let j = i + 1; j < rules.length; j++) {
+    if (fam(rules[i]!) === fam(rules[j]!)) continue;   // two seats of one family: Square Area's spf and lpf share their ladder by design
+    for (const u of unopposedDirections("line-q", [rules[i]!, rules[j]!])) if (u.kind === "ladder") assert.equal(u.strength, "weak", JSON.stringify(u));
+  }
 });
 
-test("the 247k table holds a strong unopposed rise: the prime ladder for Square Area and Whole Crossing", () => {
-  const un = unopposedDirections("line-q", ["prime-landing/shared-factor", "square-area/spf", "whole-crossing/k-spf"]);
-  const top = un[0]!;
-  assert.equal(top.direction, "ladder (p, 2p)");
-  assert.equal(top.kind, "ladder");
-  assert.deepEqual(top.rules, ["square-area/spf", "whole-crossing/k-spf"]);
-  assert.equal(top.strength, "strong");
-  assert.ok(top.gainPerEnergy >= 10 * WEAK_BELOW);
+test("no cheap move (the turn and the zoom included) is a strong unopposed rise for any two dealt rules", () => {
+  const rules = [...new Set(TENSION["line-q"]!.rules)];
+  for (let i = 0; i < rules.length; i++) for (let j = i + 1; j < rules.length; j++)
+    for (const u of unopposedDirections("line-q", [rules[i]!, rules[j]!])) assert.ok(u.kind === "ladder" || u.strength === "weak", JSON.stringify(u));
 });
 
 test("Square Area against Pythagorean Area (the pool's real tension) has no strong shared rise", () => {

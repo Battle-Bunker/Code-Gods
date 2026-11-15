@@ -12,7 +12,7 @@
  *         0 … maxbin of A's bits.
  * Moves   a fixed set of directions: each line-q mutator with small arguments of both signs (shift, tilt, step, slide,
  *         nudge and intercept moves by ±1, ±2, ±1/2; pivots at x0 = −1, 1, 2; every mirror axis; stretch by 2, 3, 5, 7,
- *         1/2, 1/3, −2, −1/2). Each is applied once at every state of every rule (applyPriced, so its price is real).
+ *         1/2, 1/3, −2, −1/2; turns about x0 = 0, 1 and the origin; zoom by 2, 3, −2, 1/2, 1/3). Each is applied once at every state of every rule (applyPriced, so its price is real).
  * Climbs  for an ordered pair (A, B) of rules of different families: among the (state of A's pool, direction) where the
  *         move raises A's bits, the fractions where B's bits rise / fall / stay (|Δ| < 1e-6) and the mean Δbits_B.
  * Basic strategies  the same along k = 1 … steps repeated applications of one move with a fixed argument (shift +1,
@@ -89,10 +89,14 @@ const DIRS: Dir[] = [
   ...["a", "b", "c"].flatMap(which => ["1", "-1"].map(k => dir("gen.nudge", { which, k }, `nudge ${which} ${k}`))),
   ...["x", "y"].flatMap(axis => ["1", "-1"].map(k => dir("int.move", { axis, k }, `move ${axis} ${k}`))),
   ...["2", "3", "5", "7", "1/2", "1/3", "-2", "-1/2"].map(f => dir("mach.stretch", { f }, `stretch ×${f}`)),
+  // The beginner lenses (15 Nov): turns about a pin of the line (x0 = 0, 1) and about the origin, and zooms.
+  ...["0", "1"].flatMap(centre => ["left", "1", "-1", "1/2", "-1/2"].map(turn => dir("rot.turn", { centre, turn }, `turn@${centre} ${turn}`))),
+  ...["left", "right", "3/4", "-3/4"].map(turn => dir("rot.turn", { centre: "origin", turn }, `turn@O ${turn}`)),
+  ...["2", "3", "-2", "1/2", "1/3"].map(f => dir("basis.zoom", { f }, `zoom ×${f}`)),
 ];
 const ND = DIRS.length;
 /** The basic strategies: one move with a fixed argument, repeated. */
-const STRATS: Dir[] = ["shift 1", "shift -1", "tilt 1", "tilt -1", "step 1", "pivot@-1 1", "slide (1,0)", "nudge a 1", "nudge c 1", "nudge c -1", "move x 1", "move y 1", "stretch ×2", "stretch ×3", "stretch ×1/2"]
+const STRATS: Dir[] = ["shift 1", "shift -1", "tilt 1", "tilt -1", "step 1", "pivot@-1 1", "slide (1,0)", "nudge a 1", "nudge c 1", "nudge c -1", "move x 1", "move y 1", "stretch ×2", "stretch ×3", "stretch ×1/2", "turn@0 1/2", "turn@O 3/4", "zoom ×2", "zoom ×1/2"]
   .map(id => { const d = DIRS.find(x => x.id === id); if (!d) throw new Error(id); return d; });
 const NS = STRATS.length;
 const KS = [1, 2, 4, STEPS].filter((k, i, a) => k <= STEPS && a.indexOf(k) === i);
@@ -309,7 +313,8 @@ for (let a = 0; a < NR; a++) for (let b = a + 1; b < NR; b++) {
 // ---------------------------------------------------------------- the flagged case: one prime for several rules
 
 const idx = (name: string) => { const i = RULES.findIndex(r => ruleName(r) === name); if (i < 0) throw new Error(name); return i; };
-const FLAG = ["square-area/spf", "whole-crossing/k-spf", "prime-landing/big-prime"].map(idx);
+// The 247k case's rules, those still dealt (Prime Landing's big-prime went with its redesign, 15 Nov).
+const FLAG = ["square-area/spf", "whole-crossing/k-spf", "prime-landing/big-prime"].filter(n => RULES.some(r => ruleName(r) === n)).map(idx);
 /** The line with x-intercept p and y-intercept q (p, q whole, non-zero): q·x + p·y − p·q = 0, normalised. */
 function byIntercepts(p: bigint, q: bigint): LineState {
   const n = normalise(q, p, -p * q);

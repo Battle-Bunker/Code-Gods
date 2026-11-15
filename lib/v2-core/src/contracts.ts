@@ -277,6 +277,12 @@ export interface Mutator<S, A> {
   readonly perSite: boolean;
   apply(state: S, site: number, args: A, variant: Variant): S | Invalid;
   readonly inverse: Inverse<A>;
+  /**
+   * A least fee for a call (the coordinator's call, 15 Nov: coef.swap is floored at φ of the larger number it swaps). It
+   * must be the same for a call and its inverse, read from the two states alike, so the exact potential holds (decision
+   * 19): the price is max(which + where + args, floor) + surcharge, and the top-up is reported in Price.arg.
+   */
+  floor?(before: S, after: S, site: number, args: A, variant: Variant): number;
 }
 
 /** What an agent returns. */
