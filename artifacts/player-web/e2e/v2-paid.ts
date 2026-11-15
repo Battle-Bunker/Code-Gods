@@ -85,10 +85,10 @@ async function paidGame(browser: any, preset: string, noun: { one: string; many:
     assert.match(await countdown.innerText(), /^Your rule may get new numbers in 0:[0-2]\d\.$/, "a countdown within the 20 s drift");
     // A redraw can land on the same numbers: a few chances.
     // The toast, from the game screen whatever pane is in front (round 16: none appeared), watched from now on.
-    const toasted = page.getByText("Your rule's numbers just changed", { exact: true }).first().waitFor({ timeout: 80_000 });
+    const toasted = page.getByText(/^Your rule's (target changed from \S+ to \S+|numbers just changed)$/).first().waitFor({ timeout: 80_000 });
     const notice = page.getByTestId("text-drift-notice");
     await notice.waitFor({ timeout: 75_000 });
-    assert.match(await notice.innerText(), /^Your rule's numbers just changed \(\d+ s ago\)\. Rules get new numbers now and then, so the best ones keep changing: your points now count by your new rule\. Your rule now: \S/);
+    assert.match(await notice.innerText(), /^Your rule's (target changed from \S+ to \S+|numbers just changed) \(\d+ s ago\)\. Your points are now counted by the new rule, so they may drop for a while; your agents now climb toward it\. Your rule now: \S/);
     await toasted.catch(async (e: Error) => { await page.screenshot({ path: path.join(shots, `drift-no-toast-${preset}.png`) }); throw e; });
     // What just changed says it too (round 16: a phone player sees that pane, not the goal card).
     if (await page.getByTestId("tab-feed").count()) {
