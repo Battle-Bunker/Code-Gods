@@ -169,7 +169,7 @@ test("a primary is never met by one line alone: the diagonal itself, a line thro
   assert.deepEqual(score("on-the-diagonal", null, sys(Y(2, -3), Y(-1, 6))), ["0"]);   // (3, 3)
 });
 
-test("seating: no two rules one move climbs together (the same r on the y readers, the same q on the valuation ladders, one base for Gap Ratio and Divide By)", async () => {
+test("seating: no two rules one move climbs together (the same r on the y readers, the same q on the valuation ladders, a shared prime for Gap Ratio and Divide By)", async () => {
   const { pairClash, pairClashes } = await import("../src/seating.ts");
   const rule = (family: string, params?: unknown) => ({ family, params });
   assert.ok(pairClash(rule("whole-answer", { q: 7, r: 3 }), rule("right-angle", { q: 7, r: 3 })), "PMI 3.3 bits");
@@ -184,7 +184,10 @@ test("seating: no two rules one move climbs together (the same r on the y reader
   assert.ok(pairClash(rule("forty-five", { q: 5, r: 1 }), rule("whole-answer", { q: 5, r: 4 })));
   assert.ok(!pairClash(rule("whole-answer", { q: 5, r: 2 }), rule("right-angle", { q: 7, r: 1 })), "2 or −3 against 1: no small number in both");
   assert.ok(!pairClash(rule("high-start", { q: 5, r: 2 }), rule("steep-ratio", { q: 7, r: 2 })));
-  assert.ok(!pairClash(rule("double-gap", { k: 2 }), rule("no-fractions", { k: 6 })));
+  // Sharing one prime is enough: a stretch by −3 eight times made D = −216 = 6³ and the gaps' ratio a power of 3
+  // (Divide By k 6 +18.7 bits with Gap Ratio k 3 +12.5, the tension matrix of §10).
+  assert.ok(pairClash(rule("double-gap", { k: 3 }), rule("no-fractions", { k: 6 })));
+  assert.ok(!pairClash(rule("double-gap", { k: 3 }), rule("no-fractions", { k: 10 })));
   assert.ok(pairClash(rule("whole-answer", { q: 5, r: 1 }), rule("forty-five", { q: 7, r: 1 })), "both at (0, 1)");
   assert.ok(!pairClash(rule("whole-answer", { q: 5, r: 2 }), rule("forty-five", { q: 7, r: 4 })));
   assert.ok(!pairClash(rule("whole-answer"), rule("right-angle", { q: 5, r: 1 })), "unknown parameters clash only as one family");

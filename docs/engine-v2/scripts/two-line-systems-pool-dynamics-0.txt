@@ -1,44 +1,44 @@
-game 1: forty-five/corner-smooth, high-start/start-crossing, far-crossing/far-gap; 0 redraws
-game 2: forty-five/corner-smooth, right-angle/corner-steep, steep-ratio/ratio-gap; 0 redraws
-game 3: far-crossing/far-gap, whole-answer/south-west, forty-five/corner-smooth; 0 redraws
-game 4: double-gap/gap-divisor, high-start/start-echo, forty-five/corner-smooth; 0 redraws
-game 5: high-start/start-echo, far-crossing/far-height, right-angle/corner-steep; 0 redraws
-game 6: forty-five/corner-smooth, far-crossing/far-height, whole-answer/peg-divisor; 0 redraws
-game 7: far-crossing/far-gap, forty-five/corner-gap, high-start/start-crossing; 0 redraws
-game 8: double-gap/gap-divisor, steep-ratio/ratio-prime, forty-five/corner-smooth; 0 redraws
-game 9: far-crossing/far-gap, forty-five/corner-gap, right-angle/corner-prime; 0 redraws
-game 10: far-crossing/far-height, right-angle/corner-prime, high-start/start-crossing; 0 redraws
-game 11: whole-answer/peg-divisor, right-angle/corner-steep, far-crossing/far-height; 0 redraws
-game 12: forty-five/corner-smooth, steep-ratio/ratio-gap, whole-answer/south-west; 0 redraws
-game 13: right-angle/corner-steep, far-crossing/far-gap, forty-five/corner-smooth; 0 redraws
-game 14: far-crossing/far-gap, forty-five/corner-gap, right-angle/corner-prime; 0 redraws
-game 15: steep-ratio/ratio-prime, right-angle/corner-prime, forty-five/corner-smooth; 0 redraws
-game 16: forty-five/corner-smooth, steep-ratio/ratio-prime, double-gap/gap-divisor; 0 redraws
-game 17: forty-five/corner-gap, high-start/start-echo, right-angle/corner-prime; 0 redraws
-game 18: far-crossing/far-gap, right-angle/corner-steep, double-gap/gap-prime; 0 redraws
-game 19: steep-ratio/ratio-prime, right-angle/corner-prime, forty-five/corner-smooth; 0 redraws
-game 20: no-fractions/numerator-smooth, forty-five/corner-smooth, high-start/start-echo; 0 redraws
+game 1: steep-ratio/ratio-prime, no-fractions/numerator-smooth, forty-five/corner-gap; 0 redraws
+game 2: far-crossing/far-gap, right-angle/corner-steep, forty-five/corner-smooth; 0 redraws
+game 3: whole-answer/peg-divisor, no-fractions/numerator-shared, forty-five/corner-gap; 0 redraws
+game 4: right-angle/corner-prime, forty-five/corner-smooth, no-fractions/numerator-shared; 0 redraws
+game 5: far-crossing/far-gap, right-angle/corner-prime, high-start/start-echo; 0 redraws
+game 6: high-start/start-echo, right-angle/corner-prime, no-fractions/numerator-smooth; 0 redraws
+game 7: forty-five/corner-gap, far-crossing/far-height, right-angle/corner-prime; 0 redraws
+game 8: far-crossing/far-height, forty-five/corner-gap, whole-answer/peg-divisor; 0 redraws
+game 9: forty-five/corner-smooth, high-start/start-crossing, steep-ratio/ratio-prime; 0 redraws
+game 10: right-angle/corner-prime, steep-ratio/ratio-gap, far-crossing/far-height; 0 redraws
+game 11: far-crossing/far-height, forty-five/corner-gap, high-start/start-crossing; 0 redraws
+game 12: no-fractions/numerator-smooth, forty-five/corner-gap, high-start/start-echo; 0 redraws
+game 13: forty-five/corner-smooth, whole-answer/south-west, right-angle/corner-prime; 0 redraws
+game 14: steep-ratio/ratio-gap, high-start/start-echo, double-gap/gap-divisor; 0 redraws
+game 15: whole-answer/peg-divisor, double-gap/gap-prime, far-crossing/far-gap; 0 redraws
+game 16: right-angle/corner-prime, whole-answer/south-west, high-start/start-crossing; 0 redraws
+game 17: no-fractions/numerator-shared, right-angle/corner-steep, whole-answer/south-west; 0 redraws
+game 18: right-angle/corner-steep, double-gap/gap-prime, no-fractions/numerator-shared; 0 redraws
+game 19: far-crossing/far-height, forty-five/corner-gap, double-gap/gap-divisor; 0 redraws
+game 20: whole-answer/peg-divisor, right-angle/corner-prime, forty-five/corner-smooth; 0 redraws
 pair-q pool, simple starters, climber plain, 20 games of 600 s, no drift, power 4, 3/s
 | family | games | mean points gained | moves a minute | energy at end | spent / income | own bits at end | others' bits at end | moves | share raising points | flips | energy taken back | objects moving in the last third | main-part levels per object climbed: median / max | end bits on those objects (mean, max) | seats still climbing the main part in the last third | seats whose last main-part step came in the first 120 s | valleys crossed (rung to higher rung) | main-part steps that lowered the tie-breaker | recovered, median s | redraws answered, median s | end bits under current / other params | main-part progress taken by others: episodes (climbed back) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| whole-answer | 4 | 327 | 1.6 | 148 | 92% | 5.3 | 10.7 | 16 | 100% | 8.0 | 141 | 25% | 1 / 3 | 6.0 (max 9.9) | 50% | 25% | 29 | 31% of 29 | 11%, 5 | - | 5.4 / 1.7 | 8 (63%) |
-| steep-ratio | 6 | 297 | 1.4 | 120 | 93% | 6.5 | 9.0 | 14 | 100% | 0.3 | 62 | 25% | 1 / 11 | 7.7 (max 18.0) | 50% | 17% | 80 | 11% of 82 | 0%, - | - | 6.7 / 1.2 | 5 (40%) |
-| forty-five | 16 | 255 | 2.5 | 74 | 96% | 5.2 | 9.8 | 25 | 100% | 14.9 | 459 | 34% | 1 / 4 | 5.6 (max 12.2) | 50% | 19% | 397 | 2% of 397 | 0%, - | - | 5.0 / 1.4 | 259 (85%) |
-| high-start | 7 | 233 | 4.7 | 33 | 98% | 5.0 | 9.6 | 47 | 100% | 23.6 | 594 | 33% | 1 / 4 | 5.1 (max 13.4) | 71% | 29% | 172 | 38% of 172 | 14%, 11 | - | 5.0 / 0.8 | 50 (80%) |
-| far-crossing | 11 | 205 | 2.8 | 69 | 96% | 4.2 | 10.6 | 28 | 100% | 9.1 | 304 | 39% | 2 / 7 | 4.6 (max 9.3) | 18% | 45% | 209 | 22% of 209 | 4%, 15 | - | 4.3 / 2.4 | 114 (86%) |
-| double-gap | 4 | 199 | 3.8 | 145 | 92% | 5.0 | 9.8 | 38 | 100% | 14.5 | 388 | 23% | 3 / 5 | 5.6 (max 10.5) | 50% | 25% | 142 | 13% of 148 | 0%, - | - | 5.0 / 2.5 | 25 (68%) |
-| right-angle | 11 | 190 | 2.9 | 34 | 98% | 4.5 | 10.3 | 29 | 100% | 14.1 | 475 | 39% | 2 / 4 | 4.9 (max 10.7) | 45% | 9% | 310 | 19% of 310 | 2%, 8 | - | 4.5 / 1.9 | 184 (91%) |
-| no-fractions | 1 | 179 | 5.9 | 28 | 98% | 3.9 | 9.8 | 59 | 100% | 54.0 | 623 | 40% | 1 / 1 | 2.7 (max 4.3) | 100% | 0% | 57 | 2% of 57 | 0%, - | - | 3.9 / 3.1 | 55 (98%) |
-balance: best family's mean gain over the worst's: 1.6
+| steep-ratio | 4 | 272 | 2.0 | 36 | 98% | 7.0 | 8.5 | 20 | 100% | 0.8 | 97 | 17% | 2 / 12 | 8.5 (max 18.0) | 75% | 0% | 70 | 9% of 74 | 0%, - | - | 6.9 / 1.2 | 10 (80%) |
+| forty-five | 12 | 256 | 4.5 | 21 | 99% | 5.0 | 9.4 | 45 | 100% | 31.9 | 831 | 44% | 2 / 5 | 5.1 (max 11.7) | 67% | 0% | 529 | 12% of 529 | 0%, - | - | 5.0 / 1.5 | 315 (90%) |
+| far-crossing | 8 | 243 | 2.6 | 49 | 97% | 5.2 | 9.7 | 26 | 100% | 11.6 | 294 | 45% | 1 / 9 | 5.6 (max 12.0) | 25% | 13% | 124 | 73% of 124 | 1%, 20 | - | 5.3 / 2.2 | 82 (88%) |
+| no-fractions | 7 | 227 | 2.2 | 97 | 95% | 4.8 | 9.7 | 22 | 100% | 12.7 | 256 | 37% | 1 / 3 | 5.3 (max 11.7) | 43% | 29% | 129 | 33% of 129 | 0%, - | - | 4.8 / 1.5 | 96 (92%) |
+| whole-answer | 7 | 215 | 4.5 | 42 | 98% | 4.8 | 10.1 | 45 | 100% | 33.1 | 739 | 38% | 1 / 4 | 4.9 (max 10.5) | 14% | 0% | 215 | 51% of 215 | 3%, 9 | - | 4.6 / 0.9 | 153 (93%) |
+| high-start | 7 | 198 | 2.8 | 60 | 97% | 4.7 | 10.1 | 28 | 100% | 16.1 | 420 | 33% | 1 / 3 | 4.9 (max 10.7) | 29% | 43% | 120 | 24% of 120 | 7%, 6 | - | 4.8 / 1.0 | 20 (60%) |
+| double-gap | 4 | 169 | 1.6 | 89 | 95% | 4.2 | 10.7 | 17 | 100% | 3.3 | 141 | 28% | 2 / 4 | 4.5 (max 11.0) | 75% | 0% | 53 | 38% of 58 | 0%, - | - | 4.2 / 2.1 | 28 (61%) |
+| right-angle | 11 | 143 | 3.9 | 53 | 97% | 3.8 | 9.3 | 39 | 100% | 29.0 | 632 | 43% | 1 / 4 | 4.1 (max 10.8) | 45% | 18% | 413 | 28% of 413 | 1%, 9 | - | 3.9 / 2.5 | 351 (92%) |
+balance: best family's mean gain over the worst's: 1.8
 
 | move (mutators of the act) | moves | mover's bits gained, mean | fee W (bits), mean | gained more than its fee | others' bits changed, mean | halved a seat holding ≥ 2 bits | raised another seat ≥ 1 bit |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| si.shift | 635 | 1.15 | 8.94 | 0% | -0.93 | 18% | 27% |
-| pair.turn | 355 | 2.16 | 11.66 | 0% | -1.80 | 15% | 18% |
-| pair.slide | 265 | 3.03 | 11.49 | 2% | -2.21 | 32% | 22% |
-| sys.translate | 205 | 2.98 | 11.12 | 0% | -1.96 | 30% | 11% |
-| mach.stretch | 131 | 1.96 | 16.12 | 0% | -0.22 | 15% | 26% |
-| si.tilt | 123 | 1.55 | 10.52 | 0% | -0.07 | 15% | 37% |
-| pair.combine | 1 | 0.00 | 12.36 | 0% | 0.97 | - | 0% |
+| pair.turn | 679 | 2.02 | 10.11 | 0% | -1.82 | 15% | 15% |
+| pair.slide | 593 | 3.03 | 10.69 | 0% | -2.66 | 42% | 14% |
+| si.shift | 373 | 1.46 | 10.60 | 0% | -1.01 | 33% | 37% |
+| mach.stretch | 148 | 2.22 | 14.37 | 3% | -0.62 | 23% | 26% |
+| sys.translate | 88 | 1.93 | 13.90 | 0% | -1.17 | 26% | 28% |
+| si.tilt | 81 | 1.86 | 9.98 | 5% | -0.07 | 26% | 54% |
+| pair.combine | 19 | 0.00 | 11.94 | 0% | 1.27 | 4% | 63% |
 
-peaks per game: a seat's bits median 11.78, max 17.95; an object's table total median 260.38, max 553.28; longest run of one seat's stretches on one object median 3, max 11
+peaks per game: a seat's bits median 10.97, max 17.95; an object's table total median 222.06, max 608.59; longest run of one seat's stretches on one object median 2, max 11

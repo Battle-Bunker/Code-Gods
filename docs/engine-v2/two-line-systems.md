@@ -580,24 +580,25 @@ the attained level, and an opponent. The preset stays non-default until (1) is c
 
   | β | table 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | all |
   |--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-  | 0.02 | 1 | 1 | 0 | 1 | 3 | 3 | 1 | 3 | 13/96 (14%) |
-  | 0.05 | 3 | 9 | 1 | 12 | 8 | 3 | 6 | 4 | 46/96 (48%) |
-  | 0.1 | 12 | 10 | 2 | 8 | 3 | 0 | 6 | 1 | 42/96 (44%) |
+  | 0.02 | 3 | 3 | 0 | 3 | 0 | 0 | 0 | 5 | 14/96 (15%) |
+  | 0.05 | 2 | 5 | 5 | 3 | 0 | 3 | 6 | 3 | 27/96 (28%) |
+  | 0.1 | 11 | 4 | 3 | 10 | 1 | 2 | 6 | 10 | 47/96 (49%) |
 
   (On the final pool; out of 12 searches per table.)
 
-  The share rises with β (a bigger β shrinks the reachable set W) and is about the same at 0.05 and 0.1. No
+  The share rises with β, because a bigger β shrinks the reachable set W. No
   interaction between the act charge W + βW² and a jump size shows up. A single run of the test counts the tables one
   searcher happened to crack, a binomial count near its threshold (more than 2 in 8), so one run's verdict flips
   between runs. That is why 0.02 and 0.1 passed and 0.05 failed in §9.5.
 - **How much search finds the bests.** At the dealt β 0.05, a 100,000-evaluation search reaches 95% of a table's best
-  known about half the time, so roughly 200,000 evaluations find it. That is about 1% of W's 1.6 × 10⁷ states.
+  known 28% of the time, so roughly 350,000 evaluations find it. That is about 2% of W's 1.6 × 10⁷ states.
   - *Who can search:* only a searcher who knows all three seats' rules. Test 5 shows the others' rules cannot be read
     off the disclosed sums.
-  - *Drift:* it dissolves the bests. A one-seat redraw leaves a cheap best within 95% of the new best in 1 of 11 cases.
-- **The mechanism found: axis-parallel lines.** The bests repeat exactly, often in every search, and on two to three of
-  every eight tables they contain a horizontal or vertical line (e.g. y = −4 with x = 72, for Far Crossing, Right
-  Angle and Whole Answer).
+  - *Drift:* it dissolves the bests. A one-seat redraw leaves a cheap best within 95% of the new best in 1 of 8 cases
+    at β 0.05 (0 of 3 at 0.02, 3 of 16 at 0.1).
+- **The mechanism found: axis-parallel lines.** The bests repeat exactly, often in every search. Before the tie-breaker
+  review two to three of every eight tables' bests (one or two on the final pool) contain a horizontal or vertical line,
+  e.g. y = −4 with x = 72 for Far Crossing, Right Angle and Whole Answer.
   - *Why they are common:* the law prices a zero coefficient cheaply, so 25.5% of births already have one (both births
     the test reaches from do).
   - *Why they pay several rules at once:* an axis-parallel pair makes several exact conditions true for nothing. Any
@@ -646,4 +647,53 @@ own score. Far Crossing deals 7 numbers (q 11, r 2–6 and 8; q 7, r 4).
 
 ### 10.4 Measured on the final pool
 
-FINALS
+Final pool:
+- **Play:** 40 games of 600 s without redraws, simple starters, seated as the dealer seats:
+  [0](scripts/two-line-systems-pool-dynamics-0.txt), [20](scripts/two-line-systems-pool-dynamics-20.txt).
+- **Tension:** [tension](scripts/two-line-systems-tension.txt).
+- **PMI:** [pmi](scripts/two-line-systems-pmi.txt).
+- **Test 2's tables:** [collapse](scripts/two-line-systems-collapse-pair-q.txt), and the 12-search hit rates
+  [cheap-optima](scripts/two-line-systems-cheap-optima.txt).
+
+The check table (design-principles.md), every two-line family:
+
+| Family | 1 unbounded | 2 climbed late / last step in the first 120 s (seats) | 3 tie-breaker reset by a main step | 4 instances | 5 PMI independent | 6 opposed by (lowers it) | 8 end bits mean / max | 9 gain; objects moving late |
+|---|---|---|---|---|---|---|---|---|
+| Whole Answer | PASS (valuation) | 44% / 6% (16) | 29% | 5 | 67% | Divide By 41%, Steep Ratio 39% | 5.0 / 11.2 | 283; 42% |
+| Divide By | PASS (power, triangular) | 50% / 17% (12) | 35% | 4 | 86% | Right Angle 43%, Gap Ratio 43% | 5.3 / 11.7 | 239; 36% |
+| Right Angle | PASS (residue) | 48% / 14% (21) | 21% | 10 | 74% | Gap Ratio 51%, High Start 49% | 3.9 / 10.8 | **172**; 40% |
+| Forty-Five | PASS (residue) | 67% / 4% (27) | 11% | 17 | 70% | Gap Ratio 47%, Far Crossing 44% | 5.4 / 11.7 | 286; 39% |
+| Gap Ratio | PASS (power, triangular) | 75% / 12% (8) | 28% | 4 | 54% | Forty-Five 34%, Far Crossing 34% | 5.1 / 12.5 | 206; 29% |
+| Far Crossing | PASS (residue) | 47% / 12% (17) | **67%** (was 6%) | 7 | 80% | **weak**: Divide By 26% (was 19%), Whole Answer 24% | 5.2 / 12.0 | 260; 41% |
+| High Start | PASS (valuation) | 33% / 33% (9) | **33%** (was 11%) | 5 | 82% | Divide By 37% (was 27%), Steep Ratio 33% | 4.8 / 10.7 | 196; 30% |
+| Steep Ratio | PASS (valuation) | 70% / 0% (10) | 9% | 4 | 95% | Gap Ratio 46%, High Start 32% | 8.3 / 18.0 | 277; 20% |
+
+- **Row 2:** 54% of 120 seats stepped up their main part in the last third; 11% made their last main-part step in the
+  first 120 s. Forty-Five, Gap Ratio and Steep Ratio meet two seats in three. High Start (9 seats) and Whole Answer
+  (16) are lowest.
+- **Row 3:** both redesigned families now reset well above the old 6% and 11%. Steep Ratio (9%) and Forty-Five (11%)
+  are now the weakest.
+- **Row 5:** all 57 aligned pairs (> 2 bits) of dealt rules are forbidden by the seating rule.
+- **Row 6:** High Start is now opposed (37%). Far Crossing is still weak (26%), but no longer last: its new
+  tie-breakers read the other line, so moves there lower it.
+- **Tension, and a seating fix:**
+  - In 36 of 56 ordered family pairs the column rises more often than it falls.
+  - A repeated basic strategy raises one family by more than 1 bit in 48% of runs, two in 31%, three or more in 21%.
+  - The largest joint gain was Divide By k 6 +18.7 bits with Gap Ratio k 3 +12.5 (stretching by −3 eight times:
+    D = −216 = 6³). Different bases, one shared prime. The seating rule now forbids Gap Ratio with Divide By whenever
+    their k share a prime (3 and 6, 4 and 10), not only equal bases.
+  - Play and test 2 above were measured before this change, which only removes tables.
+- **Row 8:** the highest seat's bits in 40 games are 18.0. The Divide By runaway (84) is gone.
+- **Row 9:** best family's gain over the worst, 1.67 (Forty-Five 286, Right Angle 172).
+- **Test 2:**
+
+  | β | single run | 12-search hit rate |
+  |--:|---|--:|
+  | 0.02 | PASS (1/8) | 15% |
+  | 0.05 | **FAIL (3/8)** | 28% |
+  | 0.1 | **FAIL (6/8)** | 49% |
+
+  Redraws dissolve the cheap bests: 0/3, 1/8 and 3/16 survive.
+- **Test 5:** passes.
+- **Still open: test 2** (§10.1's axis-line mechanism, and the rest). The proposal is with the coordinator. The preset
+  stays non-default.
