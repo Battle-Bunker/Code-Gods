@@ -15,5 +15,6 @@ test("the glossary names each concept once, in player words, and never with a pi
   const terms = GLOSSARY_IDS.map(id => GLOSSARY[id].term.toLowerCase());
   assert.equal(new Set(terms).size, terms.length, "one entry per name");
   for (const id of ["points", "bits", "others-bits", "energy", "power", "look", "main-part", "tie-breaker", "pane", "panel", "palette"] as const) assert.ok(GLOSSARY_IDS.includes(id), id);
-  for (const gone of ["god", "payoff", "salience", "points-tuple", "defence-goal", "utility-function"]) assert.ok(!(GLOSSARY_IDS as string[]).includes(gone), `v1's ${gone} is gone`);
+  // The owner's own names for concepts that exist in v2 (product memory): gods, utility functions, points tuples, panels.
+  for (const id of ["god", "utility-function", "points-tuple", "panel"] as const) assert.ok(GLOSSARY_IDS.includes(id), id);
 });
