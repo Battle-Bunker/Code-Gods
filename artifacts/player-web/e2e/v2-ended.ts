@@ -152,6 +152,10 @@ async function endedGame(page: Page, preset: string, noun: string) {
   const source = agent.locator("[data-testid^=text-agent-code-]");
   await source.waitFor({ timeout: 15_000 });
   assert.match(await source.innerText(), /\b(function|def|const|return)\b/, `${label}: the agent's code is readable`);
+  // After the end nothing is edited or put back; how energy works is still there to read.
+  assert.equal(await agent.locator("[data-testid^=button-agent-edit-], [data-testid^=button-put-back-]").count(), 0, `${label}: no edit after the end`);
+  await agents.getByTestId("details-energy-how").locator("summary").click();
+  assert.match(await agents.getByTestId("details-energy-how").innerText(), /power/, `${label}: how energy works`);
   ok("agents");
   // The chat, the leaderboard, the charts, the rules, the assistant, the player's own panels.
   await (await open(page, "public-chat")).getByText(said).waitFor({ timeout: 15_000 });
