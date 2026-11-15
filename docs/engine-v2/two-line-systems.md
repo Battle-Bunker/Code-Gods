@@ -298,7 +298,6 @@ frozen share is over the pair's own calls (pairs have no line shortcut climber).
 - **No convergence seen.** No object is frozen at the end: every one still has an improving move. Gains keep coming,
   about half of them after the midpoint, at every β.
 - Check (a) fails by a hair at β 0.02 and 0.05. The cause is attention, not a fixed point: births bring the board to
-  34–44 objects, and three seats change about a quarter of them in any minute. Grids at the beginner numbers
-  (3 objects) do not meet this.
+  34–44 objects, and three seats change about a quarter of them in any minute.
 - Not measured here: a shortcut climber for pairs, test 5 (disclosure), and more tables and seeds. Two games per β is
   a smoke test, not an estimate.
