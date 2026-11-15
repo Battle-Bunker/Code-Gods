@@ -14,6 +14,9 @@ export type EquationTemplate = Extract<SceneData, { kind: "equation" }>["templat
 export type EquationScene = Extract<SceneData, { kind: "equation" }> & {
   readonly steps?: readonly EquationTemplate[];
   readonly caption?: EquationTemplate;
+  /** How many of the lines (the template, then the steps) are given side by side (a system's equations), not worked:
+   *  they read "and" rather than "so", are never dropped as repeats, and a compact face shows them all. */
+  readonly given?: number;
 };
 /**
  * A row under a table's values, one cell per column (null: nothing there). `check: "whole"` ticks whole numbers and

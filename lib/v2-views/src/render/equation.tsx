@@ -50,15 +50,21 @@ function Template({ p }: { p: RenderProps<Eq> }) {
 function WorkedScene({ p }: { p: RenderProps<Eq> }) {
   const w = worked(p.scene, p.rep, p.values);
   if ("undefined" in w) return <div className="v2v-undef">{w.undefined}</div>;
-  const lines = p.size === "compact" ? w.lines.slice(-1) : w.lines;
+  // A compact face shows the given lines (a system's equations, all of them) and the last worked step.
+  const shown = w.lines.map((ps, i) => ({ ps, given: i < w.given }));
+  const lines = p.size === "compact" ? shown.filter((x, i) => x.given || i === shown.length - 1) : shown;
   const placed = new Set([
-    ...lines.flatMap(ps => ps.flatMap(x => (x.kind === "el" ? [key(x.r)] : []))),
+    ...lines.flatMap(({ ps }) => ps.flatMap(x => (x.kind === "el" ? [key(x.r)] : []))),
     ...(w.caption ?? []).flatMap(x => (typeof x === "string" ? [] : [key(x.r)])),
   ]);
   return (
     <div className="v2v-eq" data-worked="" aria-label={text(p.scene, p.values, p.rep)}>
       <div className="v2v-eq-steps">
-        {lines.map((ps, i) => <Line key={i} p={p} ps={ps} label={lineText(ps)} />)}
+        {lines.map(({ ps, given }, i) => (
+          <div key={i} className="v2v-eq-step" data-given={given ? "" : undefined} data-after-given={!given && i > 0 && lines[i - 1]!.given ? "" : undefined}>
+            <Line p={p} ps={ps} label={lineText(ps)} />
+          </div>
+        ))}
       </div>
       {w.caption && (
         <div className="v2v-eq-caption">
