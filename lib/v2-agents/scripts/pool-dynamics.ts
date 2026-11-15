@@ -358,6 +358,7 @@ for (const [f, s] of rows) console.log([
   s.cur.length ? `${mean(s.cur).toFixed(1)} / ${mean(s.alt).toFixed(1)}` : "-",
   s.taken ? `${s.taken} (${pct(s.reclimbed, s.taken)})` : "0",
 ].join(" | ").replace(/^/, "| ").concat(" |"));
+for (const [f, s] of rows) console.log(`per seat: ${f} gain ${mean(s.gained).toFixed(0)}, energy at end ${mean(s.energyEnd).toFixed(0)}, rungs stepped by third ${s.upThirds.map(x => (x / s.games).toFixed(1)).join(" / ")} a game`);
 // Families seen in fewer than 5 games, or gaining under a point, would make the ratio noise.
 const means = rows.filter(([, s]) => s.games >= 5).map(([, s]) => mean(s.gained)).filter(x => x >= 1);
 console.log(`balance: best family's mean gain over the worst's: ${means.length >= 2 ? (Math.max(...means) / Math.min(...means)).toFixed(1) : "- (too few games)"}`);
