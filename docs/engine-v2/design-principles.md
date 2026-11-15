@@ -48,7 +48,7 @@ A pull request that adds or changes a dealt rule family carries this table fille
 | | Question | Evidence required |
 |---|---|---|
 | 1 | Is the main part unbounded? | The best state found by a long search is still improvable; no state scores the main part's maximum. |
-| 2 | How long is the ladder? | Number of distinct main-part levels a starter reaches in a game, and the bits of the level it stops at. |
+| 2 | How long is the ladder, in play? | Without parameter redraws, a starter's median is at least 5 main-part levels per object in a 600 s game against two other seated rules, and it is still stepping up in the last third. A ladder that exists but is not climbed fails (the first redesigned Prime Landing: rungs ten units apart on one coefficient, median 2 levels, because the step wrecked the other seats' bits). Rungs should be one small move apart, or joined by a representation shortcut. |
 | 3 | Is the tie-breaker defined by the main part's value? | Show two main-part levels whose best tie-breaker states differ, and that stepping up the main part loses tie-breaker bits. |
 | 4 | How many dealable instances? | Count of dealt parameter sets within the equal-opportunity band; at least 4. |
 | 5 | Are instances perpendicular? | Pairwise dependence within the family and against the pool (the PMI table). |
