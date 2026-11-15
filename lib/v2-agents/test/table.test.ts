@@ -51,7 +51,7 @@ test("model seats play through the directory's tools on the server's economy: th
   assert.equal(a!.failedToolCalls, 0, "every call fits its tool's params and every result its result schema");
   assert.equal(a!.toolCalls, 18);
   assert.equal(a!.replaced, 1); assert.equal(a!.summoned, 1); assert.equal(a!.allocations, 2);
-  assert.ok(a!.spent.edits > 0 && a!.spent.edits < 40, `the one-line edit costs the change, not the program (${a!.spent.edits.toFixed(1)} ⚡)`);
+  assert.ok(a!.spent.edits > 0 && a!.spent.edits < 40, `the one-line edit costs the change, not the program (${a!.spent.edits.toFixed(1)} energy)`);
   assert.ok(a!.spent.summons > 300, "a new agent pays the full price");
   assert.ok(a!.acts + b!.acts + c!.acts > 100, "about 25 opportunities a second, drawn by energy");
   assert.equal(a!.messages, 1); assert.equal(a!.proposals, 1);

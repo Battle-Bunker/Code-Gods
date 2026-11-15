@@ -369,7 +369,7 @@ async function playPart() {
       const seats = rules.map((rule, k) => ({ name: `P${k}`, kind: "starter" as const, rule, program: program(rule.family, kind) }));
       const report = await runTable(boxes, {
         type: lineType, variant: lineQ, lines: objects, seed, seconds, seats, unique: true, birthsPerSecond: births,
-        // The longer programs cost more to summon than a player's 600 ⚡ (printed below): capped, as scripts/freeze.ts does.
+        // The longer programs cost more to summon than a player's 600 energy (printed below): capped, as scripts/freeze.ts does.
         summonCap: LINES_BEGINNER_ECONOMY.startingEnergy,
         onAct: e => {
           grow(e.objects);
@@ -393,7 +393,7 @@ async function playPart() {
       for (const s of final) { sh[klass(s)]++; sh.n++; }
       next = 0;
     }
-    console.log(`### agents: ${kind} (summon price ${rules.map(r => Math.round(summonBits("typescript", program(r.family, kind).source).energy)).join(" / ")} ⚡)\n`);
+    console.log(`### agents: ${kind} (summon price ${rules.map(r => Math.round(summonBits("typescript", program(r.family, kind).source).energy)).join(" / ")} energy)\n`);
     head(["t (s)", "objects (all seeds)", "whole", "fractional", "vertical"]);
     marks.forEach((t, i) => { const s = shares[i]!; row([t, s.n, pct(s.whole / s.n), pct(s.fraction / s.n), pct(s.vertical / s.n)]); });
     console.log(`\ncommitted moves: ${committed} (from a fractional line ${inClass.fraction}, from a whole line ${inClass.whole})\n`);
