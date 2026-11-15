@@ -44,6 +44,12 @@ differ, the owner's words win.
    −2.33). So a new adversary should reward a small reading, or the opposite direction of a shared one. A class adversary
    is at best a weak one, even on the same reading: Whole Crossing reads Prime Landing's own crossing, and the two still
    measure +2.1, because both pay for size. Check every adversary on the PMI matrix; never assume one.
+   **Opposite directions on one reading are zero-sum on every object.** A small crossing against a big one (Close
+   Landing against Prime Landing, PMI ≤ −6.4: no line holds 4 bits of both) is a two-state tug of war built in. The
+   adversary wanted is coupled through another number, with Prime Gradient's profile: a mean PMI of about −1 to −0.3
+   against the pool, and no exclusions. A "small" goal on the rationals also puts its number in a denominator, which the
+   law makes rare but a unit nudge of one coefficient reaches cheaply. Close Intercept and Close Gradient reached
+   26–35 bits for 550–1,300⚡ (docs/engine-v2/close-landing-prototype.md).
 7. **Shortcuts in representations.** Mutators that act in one representation (swap, rotate about a point, reverse,
    stretch, reflections) are priced as choices, not by path; they cause collateral damage to other rules [25, 27, 28].
 8. **Energy scale.** It is hard to reach 20 or 30 bits on an object and nothing reaches hundreds. One unopposed

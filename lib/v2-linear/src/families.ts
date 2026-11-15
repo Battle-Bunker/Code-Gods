@@ -8,6 +8,7 @@ import type { LineState } from "./line.ts";
 import { digitLevel, digitNote, isPrimeEnding, largestPrimeFactor, nearbyPrimes, nearestPrimeEnding, smallestPrimeFactor } from "./numbers.ts";
 import { beginnerFamilies, factorLabel } from "./beginner.ts";
 import { closeLanding } from "./close-landing.ts";
+import { closeGradient, closeIntercept } from "./close-readings.ts";
 import { gradientWitness } from "./witnesses.ts";
 import { rationalFamilies } from "./rational.ts";
 import { rational2Families } from "./rational2.ts";
@@ -181,5 +182,5 @@ export const crossingCheck: RuleFamily<LineState, KQ> = {
 /** The owner's first examples: a second tier beside the beginner pool (beginner.ts). Whole Intercept is in rational.ts. */
 export const ownerFamilies = [primeGradient, triangleArea, mMeetsC, crossingCheck] as const;
 /** Every line family (the line type's list): the owner's, the beginner pool's, and the rational-native ones (undealt). */
-/** Close Landing (close-landing.ts) is a prototype: valued and measured, in no pool. */
-export const families = [...ownerFamilies, ...beginnerFamilies, ...rationalFamilies, ...rational2Families, closeLanding] as const;
+/** Close Landing, Close Intercept and Close Gradient (close-landing.ts, close-readings.ts) are prototypes: valued and measured, in no pool. */
+export const families = [...ownerFamilies, ...beginnerFamilies, ...rationalFamilies, ...rational2Families, closeLanding, closeIntercept, closeGradient] as const;

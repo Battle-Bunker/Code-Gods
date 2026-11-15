@@ -325,6 +325,9 @@ export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
   await ctx.scheduler.runAfter(WATCHDOG_MS, WATCHDOG, { gameId: game._id, leaseId });
 }
 
+/** An act record without its host transcript (what a skipped act stores). */
+const withoutTranscript = ({ transcript: _, ...rest }: { transcript?: unknown; [k: string]: unknown }) => rest;
+
 /** The game ends: the lease goes, the final scoreboard and `gameEnded`, the room is free for the next game. */
 export async function endGame(ctx: MutationCtx, game: Doc<"v2Games">) {
   if (game.phase === "ended") return;
@@ -548,7 +551,9 @@ export const commit = internalMutation({
         n, tick: engine.tick, worldSeconds: world, objectId: act.objectId, number: act.number, agentId: act.agentId, memberId: act.memberId,
         seed: act.seed, energy: act.energy, liveObjects: act.liveObjects, program: { version: act.programVersion, language: agent.language },
         ...(act.input ? { input: act.input } : {}),
-        ...record, ...(outcome !== record.outcome ? { outcome, after: record.before, charged: charge } : {}),
+        // A skip keeps no transcript (the coordinator, 15 Nov: 3.3 KB of each act event, and act events were 95% of a
+        // game's writes); an act that moved or failed keeps it. Any act can be re-run from its seed and inputs.
+        ...(outcome === "skipped" ? withoutTranscript(record) : record), ...(outcome !== record.outcome ? { outcome, after: record.before, charged: charge } : {}),
         ...(holder ? { reason: heldReason(game.variant, holder.number) } : {}),
       });
       // Owner decision 36: "Players should still know everything their agents learn for free". Every act an agent runs

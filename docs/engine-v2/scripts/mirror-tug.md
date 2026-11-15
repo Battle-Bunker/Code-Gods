@@ -96,6 +96,18 @@ Readings:
   reflections, with 918 flips and 67% of objects moving in the last third. With `--no-mirror` they made 87 moves and 0
   flips, 17% of objects moved late, and the seats ended on 571–720 energy. Taking reflections out of the starters
   freezes this board. The remedy has to be in the rules or the deal, such as (b), and not in the starters.
+- **(b) on that deal halves the motion but does not end the tug** (W2, same deal and seeds, 6 games).
+
+  W2 counted two-state cycles as 2 states and 4 or more moves, so these read a little higher than pool-dynamics' (≤ 2
+  states and 6 or more moves).
+
+  | run | moves | reflections | flips | objects moving late | late moves in two-state cycles | energy at end |
+  |---|--:|--:|--:|--:|--:|--:|
+  | shipped | 1,369 | 43% | 918 | 67% | 37% | 20 |
+  | (b) | 600 | 10% | 418 | 40% | 81% | 84–89 |
+
+  The tug that remains moves to tilts, slides and pivots, and it is more purely two-state. The coordinator ruled (b) out
+  as a tug fix. Same on Both Rulers moves to its size with non-mirror instances anyway, in the lens worker's redesign.
 - **Repairs answer reflections, not tilts across a pole.** 557 of 593 repairing reflections came right after another
   seat's reflection. 36 came after any other move. The sign repair after a tilt across a pole is real but rare.
 - **(c) barely changes the price of an ordinary reflection.** On law draws the floor leaves the median at 5.2⚡ (9.7⚡ at

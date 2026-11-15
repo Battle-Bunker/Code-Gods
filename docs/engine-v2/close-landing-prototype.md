@@ -62,6 +62,44 @@ These come from the energy gate's greedy climber, run on this rule alone with th
   - **A shallow gradient** (m rounds to 1/n). It opposes Prime Gradient directly and the area through c.
 - Each should land near Prime Gradient's profile (mean PMI between −1 and −0.3, no exclusions) before any trial.
 
+## The coupled candidates: Close Intercept and Close Gradient (also prototyped, not dealt)
+
+These are in `lib/v2-linear/src/close-readings.ts`. The coordinator asked for the small intercept first, then the shallow
+gradient.
+- **Close Intercept:** the y-intercept should round to 1/n.
+- **Close Gradient:** the gradient should round to 1/n.
+- **Both:** bigger n is better, by triangular digit levels; 0 scores nothing. The tie-breaker is the other coefficient's
+  nearest whole number being a multiple of n, the bigger the multiple the better.
+- **Witnesses for the tail cap:** 1/n at n = 10^(k−1). Close Landing's witness had the same mistake as these (n itself
+  in place of the k-th digit) and is fixed with them; its caps now step at every digit.
+
+PMI against the dealt pool (the same run settings):
+
+| | CG | CI | DL | PG | PL | PS | PA | R | SOBR | SI | SA | T | WC | mean | anti-aligned of 47 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **Close Intercept** | +5.9 | | −5.9 | −1.1 | −6.1 | −6.0 | −6.1 | −6.1 | −6.4 | −6.2 | +1.0 | −1.2 | −5.4 | −4.49 | 35 |
+| **Close Gradient** | | +5.9 | −5.9 | −6.2 | +1.1 | −0.8 | +0.8 | +0.1 | −0.1 | −2.0 | −1.4 | −2.5 | +0.9 | −0.94 | 11 |
+
+The energy gate (whole beginner menu) gives these on lines-beginner and lines-lenses.
+
+| | best bits, beginner | energy for it | best bits, lenses | how |
+|---|--:|--:|--:|---|
+| Close Intercept | 26.5–32.5 | 519–982⚡ | 26.5–26.9 | nudges of b by 1 (c = ±1/b), after a stretch or a mirror |
+| Close Gradient | 27.7–34.7 | 654–1,277⚡ | 26.6–34.7 | nudges and moves along an axis (m = ±1/b) |
+| Prime Landing, for comparison | 15.8–16.9 | about 2,500⚡ | 12.9–20.1 | |
+
+**Reading: both fail, for a reason that will catch any "small" goal on the rationals.**
+- A number close to 0 is a fraction, so n sits in the line's b, a denominator. The law makes a big b rare, so these lines
+  are genuinely worth 26–35 bits, but a nudge of b by 1 costs about 6⚡. The climb stops at a local top after
+  550–1,300⚡, far below a seat's 2,500⚡, so these are the cheapest hills in the pool by about tenfold: cheap peaks.
+- Close Intercept also excludes eight families. Close Gradient has nearly the profile wanted (mean −0.94, half its
+  pairs independent), but it excludes Prime Gradient: opposite directions on one reading again.
+- The coordinator also asked for play numbers (flips, two-state cycles and rungs stepped when seated against the
+  families they oppose). They were not run, since both fail before play.
+- A size adversary on the line is better found in whole numbers. Prime Gradient already is one: a steep whole gradient
+  shrinks the crossing, the area and the distance. The dealer can seat it opposite the prime readers before a new
+  family is invented.
+
 ## Two tie-breaker forms that are not "that prime minus 1 shares a factor with the intercept"
 
 Row 7 asks for these. Each is defined by the rung's number and relates it to another aspect of the line (decision 29):
@@ -77,5 +115,38 @@ Row 7 asks for these. Each is defined by the rung's number and relates it to ano
   - It is graded, unbounded, and tied to the rung: a new p changes its digits.
   - It relates p to the height |c|.
   - Its form is a digit pattern, not a factor.
-- Neither is measured yet. Each needs its value file, the PMI row against the pool, and the collapse check's test of
-  whether one basic strategy raises it together with its main part.
+Both are now layers of their families, undealt (`near-miss` in beginner.ts, `same-ending` in beginner-areas.ts), with
+value files on line-q.
+
+### Measured (15 November)
+
+Setup:
+- An experiment copy dealt each new form in place of "shared-factor", with the TypeScript starters scoring it.
+  Prime Staircase still draws between it and step-back.
+- Focused runs: pool-dynamics `--focus <family>`, 16 games, the same seeds as the current form. Whole-pool run: 20
+  games, the same seeds as the develop baseline.
+- Row 3 is the share of the seat's main-part steps that lowered its tie-breaker. A rung that moves the tie-breaker
+  restarts its climb.
+
+| | points gained per instance (focused) | row 3: main steps that lowered the tie-breaker | rungs stepped (focused run) | gate, best bits (beginner / lenses) |
+|---|---|---|--:|---|
+| Prime Staircase, near miss | 254 / 374 / 399 / 445 | 13–31% (pool run: 44%) | 518 | 12.3–28.4 / 12.3–31.9 |
+| Prime Staircase, shared factor (now) | 248 / 339 / 351 / 490 | 0–36% (pool run: 24%) | 534 | 12.2–22.4 / 13.0–24.9 |
+| Pythagorean Area, same ending | 237 / 340 / 383 / 546 | 0–3% (pool run: 2%) | 440 | 11.3–15.5 / 17.1–24.6 |
+| Pythagorean Area, shared factor (now) | 274 / 341 / 426 / 442 | 4–61% (pool run: 63%) | 439 | 11.3–14.2 / 11.2–14.6 |
+
+Over the whole pool with both new forms dealt:
+- balance is 1.9 against 2.0;
+- two-state cycles are 44% of the last third's moves against 54%;
+- rungs stepped are 628 against 643.
+
+**Reading:**
+- **Near miss is a usable form.** It is entangled (a longer run moves the breaking term), fair, and passes the gate. It
+  reaches higher than the current form on ending 9 (28.4 and 31.9 bits, against 22.4 and 24.9): closer to the limit
+  but under it.
+- **Same ending fails row 3.** Most heights share no trailing digit with the prime, so the tie-breaker sits at 0 and a
+  new rung rarely lowers it. Pythagorean Area needs another form, such as a relation between the prime and the base
+  instead of a digit pattern.
+- The starters never climbed either tie-breaker back after a rung (recovered: 0% in nearly every row). Row 3 therefore
+  shows only the cost side.
+- Neither is dealt. A change to a dealt rule is a declared trial with the full check table, row 7 included.
