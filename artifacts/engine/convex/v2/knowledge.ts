@@ -57,6 +57,13 @@ export async function knownOf(ctx: QueryCtx, objectId: Id<"v2Objects">, memberId
 export const readsKnowledge = (game: Doc<"v2Games">, memberId: Id<"v2Members"> | string) =>
   paidLive(game) && game.roster.some(r => r.memberId === memberId);
 
+/**
+ * Whether this member's object list reads their knowledge: seated in a paid game, for the game's lifetime (a list's
+ * cursors must survive the end, when everyone is told everything exact: loop.ts exactValues).
+ */
+export const listsKnowledge = (game: Doc<"v2Games">, memberId: Id<"v2Members"> | string) =>
+  observationOf(game) === "paid" && game.roster.some(r => r.memberId === memberId);
+
 /** The knowledge index a sort reads in a paid game (the same sorts, over what the player was told). */
 export const KNOWLEDGE_SORT = {
   points: "by_game_member_points", rarity: "by_game_member_rarity", want: "by_game_member_want",

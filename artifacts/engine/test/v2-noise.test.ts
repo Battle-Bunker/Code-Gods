@@ -68,7 +68,10 @@ test("while live every others' sum is the exact one plus its state's noise, the 
   const listed = await perform(ada!, "moves.list", { limit: 50 }, { gameId }, "query");
   for (const m of listed.result.page.filter((x: any) => !x.mine)) assert.deepEqual([m.agentId, m.calls, m.charge], [null, [], null]);
 
+  // A page loaded while live keeps its cursor through the end (the app's paginated list re-runs it then).
+  const firstPage = await ada!.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 4, cursor: null } });
   assert.equal((await perform(ada!, "game.end", {}, { gameId })).ok, true);
+  await ada!.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 4, cursor: firstPage.continueCursor } });
   const ended = (await ada!.query("v2/play:moves", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page.filter((m: any) => !m.mine);
   assert.ok(ended.length > 0 && ended.every((m: any) => m.by && m.calls.length > 0), "after the end every move names its mover and calls");
   for (const objectId of ids.slice(0, 8)) {
@@ -88,4 +91,9 @@ test("while live every others' sum is the exact one plus its state's noise, the 
     assert.ok(i < 40, "the scatter is exact after the end");
     await new Promise(r => setTimeout(r, 250));
   }
+  // After the end the points sort is the exact order.
+  const byPoints = (await ada!.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: page })).page;
+  const pts: number[] = [];
+  for (const r of byPoints) pts.push((await ada!.query("v2/play:object", { objectId: r.objectId })).value.points);
+  assert.ok(pts.every((p, i) => i === 0 || p <= pts[i - 1]! + 1e-9), `the ended points sort is exact: ${pts.map(p => p.toFixed(1)).join(" ")}`);
 });
