@@ -42,3 +42,59 @@ export function tieEntangled<K>(low: readonly Reading<K>[], high: readonly Readi
 
 /** Row 4: at least `min` dealable instances. */
 export const enoughInstances = (dealable: readonly unknown[], min = 4): boolean => dealable.length >= min;
+
+/**
+ * No straight hill (the coordinator's mechanical check, 15 Nov, after Smooth Intercept ran to 59 bits by stretching by 3
+ * again and again: playtest round 21's "multiply every output by −3" to 3⁸, then a frozen board). One shortcut (a
+ * stretch, zoom or turn, or an inverse) applied repeatedly from a typical state must not keep paying the same: given the
+ * rule's bits before and after each application (`bits`, one longer than `fees`) and each application's fee, the bits
+ * gained per fee paid over the second half of the chain (the least-squares slope of bits against the fees paid so far)
+ * must be below the first half's, unless it is under STRAIGHT_FLOOR bits per fee bit (about a quarter of a bit for a
+ * typical 12-bit stretch: a chain that wanders on and off a rung, or cycles, is no hill); and the chain must gain at
+ * most `cap` bits over its start. Null when it passes, else why it fails. (Smooth Intercept by size: 0.9 bits for a
+ * 12-bit stretch, 0.075 per fee bit, at every size.)
+ */
+export const STRAIGHT_FLOOR = 0.02;
+/** The fewest applications whose bits-per-fee slope `straightHill` reads (shorter chains face only the cap). */
+export const STRAIGHT_MIN_CHAIN = 10;
+export function straightHill(bits: readonly number[], fees: readonly number[], cap = 30): string | null {
+  const n = fees.length;
+  if (n < 1 || bits.length !== n + 1) return null;
+  const gained = Math.max(...bits) - bits[0]!;
+  if (gained > cap) return `gains ${gained.toFixed(1)} bits over ${n} applications (at most ${cap})`;
+  if (n < STRAIGHT_MIN_CHAIN) return null;   // too short a chain (a cycle cut short, a refusal) to read a slope from
+  const paid = [0];
+  for (const f of fees) paid.push(paid.at(-1)! + f);
+  /** The least-squares slope of bits against fees paid, over points from..to (inclusive). */
+  const slope = (from: number, to: number) => {
+    let n2 = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
+    for (let i = from; i <= to; i++) { n2++; sx += paid[i]!; sy += bits[i]!; sxx += paid[i]! ** 2; sxy += paid[i]! * bits[i]!; }
+    const den = n2 * sxx - sx * sx;
+    return den > 0 ? (n2 * sxy - sx * sy) / den : 0;
+  };
+  const half = Math.floor(n / 2), first = slope(0, half), last = slope(half, n);
+  return last > STRAIGHT_FLOOR && last >= first ? `a straight hill: ${last.toFixed(3)} bits per fee bit over the second half, ${first.toFixed(3)} over the first` : null;
+}
+
+/**
+ * The greedy chain the gate also walks (the coordinator, 15 Nov, after Divisibility Ladder's "steep" gained 77.6 bits by
+ * stretches whose factor changed each step, where every fixed-factor chain gained under 10): from `start`, each step
+ * takes the candidate (all the arguments of one kind of shortcut) that raises the rule's bits most, never back to a state
+ * it held, until none raises them or `n` steps. Returns the bits along the chain and each step's fee, for straightHill.
+ */
+export function greedyChain<S>(start: S, candidates: (s: S) => readonly { readonly state: S; readonly fee: number }[],
+  bitsOf: (s: S) => number, key: (s: S) => string, n = 30): { bits: number[]; fees: number[] } {
+  const bits = [bitsOf(start)], fees: number[] = [], seen = new Set([key(start)]);
+  let s = start;
+  for (let i = 0; i < n; i++) {
+    let pick: { state: S; fee: number; bits: number } | null = null;
+    for (const c of candidates(s)) {
+      if (seen.has(key(c.state))) continue;
+      const b = bitsOf(c.state);
+      if (b > bits.at(-1)! + 1e-9 && (!pick || b > pick.bits)) pick = { ...c, bits: b };
+    }
+    if (!pick) break;
+    seen.add(key(pick.state)); s = pick.state; bits.push(pick.bits); fees.push(pick.fee);
+  }
+  return { bits, fees };
+}

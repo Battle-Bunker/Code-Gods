@@ -13,17 +13,19 @@
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     if m is None:              # the vertical line x = c
+        level = lambda p: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(p, 10 ** D)) / (L + 1))(len(str(p)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(p))))   # levels of digits: level L needs L(L + 1)/2
         x = p.get("side", 1) * c                      # it stands on the x-axis at x = c (minus that, on the mirror)
         landing = near(x, prime, p["ends"])             # the rung nearest there
         gap = abs(x - landing)
-        main = landing if 2 * gap < 1 or landing - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
+        main = level(landing) if 2 * gap < 1 or landing - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
         return [main, None]
+    level = lambda p: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(p, 10 ** D)) / (L + 1))(len(str(p)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(p))))   # levels of digits: level L needs L(L + 1)/2
     if m == 0:                                      # a flat line never lands: the worst score
         return None
     x = p.get("side", 1) * (-c / m)                # where y = mx + c lands on the x-axis (minus that, on the mirror)
     landing = near(x, prime, p["ends"])             # the prime ending in p["ends"] nearest there: the rung
     gap = abs(x - landing)                          # on the rung when it rounds there (within 1/2, ties up)
-    main = landing if 2 * gap < 1 or landing - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
+    main = level(landing) if 2 * gap < 1 or landing - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
     # main: the prime ending in the rule's digit that where the line lands on the x-axis rounds to (bigger is better: a ladder with no top), else minus how far it is from rounding to one
     if tie == "shared-factor":   # take the number just before that prime: a bigger number dividing both it and the y-intercept's whole part is better
         wc = whole((2 * c - 1) / 2)                # the y-intercept's whole part (rounded down)
@@ -89,4 +91,24 @@ def agent(offer):
     if offer.object in PROTECT:
         options = [(plan, s) for plan, s in options if fair(offer, plan)]
     # The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or None.
-    return climb(offer, options, score(m, c, p, tie), QUOTES)
+    one = climb(offer, options, score(m, c, p, tie), QUOTES)
+    if one or offer.object in PROTECT:
+        return one
+    # No single step helps: look two steps ahead (each step, then a shift or tilt by 1) and take the first
+    # step of the best pair, though it may lower your points for a moment. It weighs the 4 best pairs: a few more small reads.
+    # The first steps: the 6 best for your rule (options are tries with their scores, in the same order).
+    cands, firsts = [(t, o[1]) for t, o in zip(tries, options) if t[1] is not None], []
+    while cands and len(firsts) < 6:
+        best = 0
+        for i in range(1, len(cands)):
+            if better(cands[i][1], cands[best][1]):
+                best = i
+        firsts.append(cands.pop(best)[0])
+    pairs = []
+    for plan, m1, c1 in firsts:
+        first = list(plan) if isinstance(plan, (list, tuple)) else [plan]
+        for k in (-1, 1):
+            pairs.append((first + [move("si.shift", k=k)], score(m1, c1 + k, p, tie)))
+            pairs.append((first + [move("si.tilt", k=k)], score(m1 + k, c1, p, tie)))
+    two = climb(offer, pairs, score(m, c, p, tie), 4)
+    return two[:-1] if two else None

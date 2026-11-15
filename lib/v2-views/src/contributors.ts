@@ -188,7 +188,10 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
     return { ref: r, label: labelOf(rule as RuleRef<S, unknown>, r), value: v, text: v ? readable(v) : "" };
   });
   const value = term.value;
-  const valueText = isUndef(value) ? value.undefined : readable(value);
+  // A ladder family's main part on a rung is a level (Prime Landing's levels of digits, Smooth Intercept's of primes): its
+  // number means little on its own, so the family's own words for the term are said instead ("on 75: 3 of the dealt
+  // primes multiplied, level 2"). Off the ladder the distance (below 0) says it plainly.
+  const valueText = isUndef(value) ? value.undefined : rule.family.keepsParams && role === "main" && term.label && Qn.sign(value) > 0 ? typesetNote(term.label) : readable(value);
   const title = withParams(layer.title, rule.params);
   const wants = withParams(layer.sentence(rule.params), rule.params).replace(/^Tie-breaker: /, "");
   const aim = layer.sense === "min" ? "the closer, the better" : "the bigger, the better";
@@ -214,7 +217,12 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
       // the direction comes from the source and reference.
       const d = N(src) - reference.value;
       const on = layer.sense === "min" ? Qn.isZero(value) : d === 0;
-      distance = on ? `on ${reference.text}` : `${layer.sense === "min" ? readable(Qn.abs(value)) : readableN(Math.abs(d))} ${d >= 0 ? "above" : "below"} ${reference.text}`;
+      // A ladder's reading that counts as on its rung (its term above 0: Prime Landing's crossing rounding to the prime)
+      // says so first; only a reading off every rung says how far off it is (round 24: "≈ 0.49 below 11" read as a miss).
+      const onRung = !on && layer.sense === "max" && !!rule.family.keepsParams && Qn.sign(value) > 0;
+      distance = on ? `on ${reference.text}`
+        : onRung ? (Math.abs(d) <= 0.5 ? `rounds to ${reference.text}: on the rung` : `on the rung at ${reference.text}`)
+        : `${layer.sense === "min" ? readable(Qn.abs(value)) : readableN(Math.abs(d))} ${d >= 0 ? "above" : "below"} ${reference.text}`;
       const lo = Math.min(N(src), reference.value), hi = Math.max(N(src), reference.value), span = Math.max(hi - lo, 2);
       // Wide enough to show several rungs either side when the dealt ending thins them out (11, 31, 41, 61, 71, …;
       // playtest round 19 asked for the next several rungs above and below).

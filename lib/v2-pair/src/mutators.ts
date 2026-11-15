@@ -7,12 +7,16 @@
  * decision 25). Every move's reverse is proposed with the same weight, so the price list is an exact potential (owner
  * decision 19; test/potential.test.ts).
  */
-import { isInvalid, Qn, q, whichBits, type ArgCode, type Invalid, type Mutator, type Q, type Rng, type Variant } from "@workspace/v2-core";
+import { isInvalid, Qn, q, whichBits, type ArgCode, type ArgHelp, type Invalid, type Mutator, type Q, type Rng, type Variant } from "@workspace/v2-core";
 import { fromMC, inDomain, lineArgCodes, lineParams, mutators as lineMutators, normalise, type Args, type Line } from "@workspace/v2-linear";
 import { canonicalPair, facts, type PairState } from "./pair.ts";
 
 const { fields, amount, displacement, oneOf } = lineArgCodes;
 const LINES = ["1", "2"] as const;
+/** The line argument said for a person (round 23). */
+const LINE_HELP: ArgHelp = { label: "Which line", hint: "the one that changes; the other stays", example: "1", choices: { "1": "line 1", "2": "line 2" } };
+const NUM = "a number such as 2, −3 or 1/2";
+
 type M = Mutator<PairState, Args>;
 const idx = (a: Args): 0 | 1 => (a.line === "2" ? 1 : 0);
 const Qa = (a: Args, k: string): Q => a[k] as Q;
@@ -63,6 +67,7 @@ function perLine(m: Mutator<PairState, Args>): M {
   return {
     id: m.id, reps: ["eqs", "pair"], title: `${m.title} (one line)`, perSite: false,
     describe: a => `line ${a.line}: ${m.describe(rest(a))}`,
+    argHelp: v => ({ line: LINE_HELP, ...m.argHelp?.(v) }),
     args: v => lineFirst(m.args(v)),
     apply: (s, _site, a, v) => {
       const r = m.apply(s, idx(a), rest(a), v);
@@ -80,6 +85,7 @@ const PARALLEL: Invalid = { invalid: "the two lines are parallel: they have no c
 /** Elimination: add k times the other equation to this one. The answer and the number you divide by stay. */
 export const combine: M = {
   id: "pair.combine", reps: ["solve", "eqs"], title: "add a whole number of times the other equation to this one", perSite: false,
+  argHelp: () => ({ line: LINE_HELP, k: { label: "How many times the other", hint: "a whole number such as 1 or −2: that many times the other equation is added to this one", example: "1" } }),
   describe: a => `line ${a.line} += ${w(Qa(a, "k"))} × the other line's equation`,
   args: v => fields(base(v, "pair.combine"), lineChoice, amount("Z")),
   apply: (s, _site, a, v) => {
@@ -96,6 +102,7 @@ export const combine: M = {
 /** Turn this line about the crossing: its gradient grows by k, the answer stays. */
 export const turn: M = {
   id: "pair.turn", reps: ["pair", "angle"], title: "turn this line about the crossing", perSite: false,
+  argHelp: () => ({ line: LINE_HELP, k: { label: "Add to the gradient", hint: `${NUM}; the crossing stays put`, example: "1" } }),
   describe: a => `turn line ${a.line} about the crossing, gradient ${Qn.sign(Qa(a, "k")) > 0 ? "+" : "−"}${w(Qn.abs(Qa(a, "k")))}`,
   args: v => fields(base(v, "pair.turn"), lineChoice, amount(lineParams(v).argDomain)),
   apply: (s, _site, a, v) => {
@@ -111,6 +118,7 @@ export const turn: M = {
 /** Fold this line over the other: the mirror is already in the system, so the move is a choice. */
 export const reflect: M = {
   id: "pair.reflect", reps: ["pair", "angle"], title: "reflect this line in the other line", perSite: false,
+  argHelp: () => ({ line: LINE_HELP }),
   describe: a => `reflect line ${a.line} in the other line`,
   args: v => fields(base(v, "pair.reflect"), lineChoice),
   apply: (s, _site, a, v) => {
@@ -124,6 +132,7 @@ export const reflect: M = {
 /** A quarter turn about the crossing: the perpendicular to this line through the answer. */
 export const quarter: M = {
   id: "pair.quarter", reps: ["pair", "angle"], title: "turn this line a quarter turn about the crossing", perSite: false,
+  argHelp: () => ({ line: LINE_HELP }),
   describe: a => `turn line ${a.line} a quarter turn about the crossing`,
   args: v => fields(base(v, "pair.quarter"), lineChoice),
   apply: (s, _site, a, v) => {
@@ -138,6 +147,7 @@ export const quarter: M = {
 /** Slide this line parallel to itself so the crossing moves k steps along the other line. */
 export const slideAlong: M = {
   id: "pair.slide", reps: ["pair"], title: "slide this line so the crossing moves along the other line", perSite: false,
+  argHelp: () => ({ line: LINE_HELP, k: { label: "How many steps along", hint: "a whole number such as 1 or −2: how far the crossing moves along the other line", example: "1" } }),
   describe: a => `slide line ${a.line} so the crossing moves ${w(Qa(a, "k"))} step${Qn.eq(Qn.abs(Qa(a, "k")), Qn.ONE) ? "" : "s"} along the other line`,
   args: v => fields(base(v, "pair.slide"), lineChoice, amount("Z")),
   apply: (s, _site, a, v) => {
@@ -155,6 +165,7 @@ export const slideAlong: M = {
 /** Slide the whole picture: both lines by (u, v). */
 export const translate: M = {
   id: "sys.translate", reps: ["pair"], title: "slide both lines across the plane", perSite: false,
+  argHelp: () => ({ u: { label: "How far right", hint: `${NUM} (below 0 goes left)`, example: "1" }, v: { label: "How far up", hint: `${NUM} (below 0 goes down)`, example: "1" } }),
   describe: a => `slide both lines by (${w(Qa(a, "u"))}, ${w(Qa(a, "v"))})`,
   args: v => fields(base(v, "sys.translate"), {}, displacement(lineParams(v).argDomain)),
   apply: (s, _site, a, v) => {

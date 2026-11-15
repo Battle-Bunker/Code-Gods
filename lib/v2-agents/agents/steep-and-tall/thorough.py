@@ -56,4 +56,24 @@ def agent(offer):
     if offer.object in PROTECT:
         options = [(plan, s) for plan, s in options if fair(offer, plan)]
     # The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or None.
-    return climb(offer, options, score(m, c, p, tie), QUOTES)
+    one = climb(offer, options, score(m, c, p, tie), QUOTES)
+    if one or offer.object in PROTECT:
+        return one
+    # No single step helps: look two steps ahead (each step, then a shift or tilt by 1) and take the first
+    # step of the best pair, though it may lower your points for a moment. It weighs the 4 best pairs: a few more small reads.
+    # The first steps: the 6 best for your rule (options are tries with their scores, in the same order).
+    cands, firsts = [(t, o[1]) for t, o in zip(tries, options) if t[1] is not None], []
+    while cands and len(firsts) < 6:
+        best = 0
+        for i in range(1, len(cands)):
+            if better(cands[i][1], cands[best][1]):
+                best = i
+        firsts.append(cands.pop(best)[0])
+    pairs = []
+    for plan, m1, c1 in firsts:
+        first = list(plan) if isinstance(plan, (list, tuple)) else [plan]
+        for k in (-1, 1):
+            pairs.append((first + [move("si.shift", k=k)], score(m1, c1 + k, p, tie)))
+            pairs.append((first + [move("si.tilt", k=k)], score(m1 + k, c1, p, tie)))
+    two = climb(offer, pairs, score(m, c, p, tie), 4)
+    return two[:-1] if two else None

@@ -28,6 +28,7 @@ import { applyPriced, variantMutators } from "@workspace/v2-core";
 import { lineQ, lineType, normalise, type LineState } from "@workspace/v2-linear";
 import { valuer } from "../src/harness.ts";
 import { poolOf, ruleName } from "./landscape-lib.ts";
+import { OPPORTUNITY_FRACTION } from "../src/unopposed.ts";
 
 const root = join(import.meta.dirname, "..", "..", "..");
 const { values: o } = parseArgs({
@@ -45,6 +46,7 @@ interface Results {
   repeats?: Record<string, [number, number, number, number][]>;
   opportunityFractions?: number[];
   opportunity?: Record<string, string[]>;
+  exclusion?: string[];
 }
 const res = JSON.parse(readFileSync(o.json!, "utf8")) as Results;
 if (!res.repeats || !res.opportunity) throw new Error(`${o.json} has no per-direction repeats or opportunity costs: rerun scripts/tension.ts with --json`);
@@ -255,3 +257,103 @@ ${ladders.map(l => `      ${JSON.stringify(l)},`).join("\n")}
 const file = join(import.meta.dirname, "..", "src", "tension.gen.ts");
 writeFileSync(file, out);
 console.error(`wrote ${file}`);
+
+// ---------------------------------------------------------------- the opponent table (lib/v2-linear opponents.gen.ts)
+
+/**
+ * Family B opposes family A along a cheap direction d where A climbs (gain > 0 from ≥ MIN raising runs) when, for some
+ * dealt rule b of B, climbing A along d lowers b ("-") or b's opportunity cost along A's climbs reaches
+ * OPPORTUNITY_FRACTION of A's gain (src/unopposed.ts's two tests). B's share of A's climbs: over every (rule a of A,
+ * direction d) where a climbs, the mean share of B's dealt rules that oppose it (an opportunity cost counting at
+ * OPPONENT_FRACTION). Named: every family at OPPONENT_SHARE or more, and the strongest OPPONENT_TOP when they reach
+ * OPPONENT_FLOOR (most families have none at the share: one move opposes few of another's rules). B is a named opponent of A when its share reaches OPPONENT_SHARE.
+ */
+const OPPONENT_SHARE = 0.5, OPPONENT_TOP = 3, OPPONENT_FLOOR = 0.2;
+/** An opportunity cost counts when it reaches this multiple of the climber's gain (twice unopposed.ts's OPPORTUNITY_FRACTION). */
+const OPPONENT_FRACTION = 2 * OPPORTUNITY_FRACTION;
+const level = res.opportunityFractions!.findIndex(f => f >= OPPONENT_FRACTION) + 1;
+const fam = (x: string) => x.split("/")[0]!;
+const families = [...new Set(rules.map(fam))];
+const shares: Record<string, Record<string, number>> = {};
+for (const A of families) {
+  const climbs: [number, number][] = [];
+  for (let a = 0; a < NR; a++) if (fam(rules[a]!) === A) for (let d = 0; d < ND; d++) if (gains[a]![d]! > 0) climbs.push([a, d]);
+  shares[A] = {};
+  for (const B of families) {
+    if (B === A || climbs.length === 0) continue;
+    // Each climb counts the share of B's dealt rules that oppose it (so a family dealt in many instances is not favoured).
+    const bs = rules.map((r, b) => (fam(r) === B ? b : -1)).filter(b => b >= 0);
+    let n = 0;
+    for (const [a, d] of climbs) {
+      n += bs.filter(b => signatures[a]![b * ND + d] === "-" || +(opposition[a]![b * ND + d]!.replace(/\D/, "0")) >= level).length / bs.length;
+    }
+    shares[A]![B] = round(n / climbs.length);
+  }
+}
+say();
+say(`Opponents (share of a family's climbs another family opposes; named at ≥ ${OPPONENT_SHARE}, or the top ${OPPONENT_TOP} at ≥ ${OPPONENT_FLOOR}):`);
+for (const A of families) say(`  ${A}: ${Object.entries(shares[A]!).sort((x, y) => y[1] - x[1]).map(([B, s]) => `${B} ${s.toFixed(2)}`).join(", ") || "no measured climbs"}`);
+const localNamed = Object.fromEntries(families.map(A => {
+  const ranked = Object.entries(shares[A]!).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]));
+  return [A, ranked.filter(([, s], i) => s >= OPPONENT_SHARE || (i < OPPONENT_TOP && s >= OPPONENT_FLOOR)).map(([B]) => B)];
+}));
+/**
+ * Exclusion (the coordinator, 15 Nov; scripts/tension.ts): over the measured (rule a of A, rule b of B) pairs, the share
+ * where b stays at its floor on a's high ground. B is an excluding opponent of A when that share reaches
+ * OPPONENT_SHARE. The two kinds are kept apart (contest along a climb, exclusion on one object); a family is named
+ * when either holds.
+ */
+if (!res.exclusion) throw new Error(`${o.json} has no exclusion measure: rerun scripts/tension.ts with --json`);
+const exShares: Record<string, Record<string, number>> = {};
+for (const A of families) {
+  exShares[A] = {};
+  for (const B of families) {
+    if (B === A) continue;
+    let n = 0, k = 0;
+    for (let a = 0; a < NR; a++) if (fam(rules[a]!) === A) for (let b = 0; b < NR; b++) if (fam(rules[b]!) === B) {
+      const ch = res.exclusion[a]![b]!;
+      if (ch === "1" || ch === "0") { n++; if (ch === "1") k++; }
+    }
+    if (n) exShares[A]![B] = round(k / n);
+  }
+}
+say();
+say(`Exclusion (share of measured rule pairs where B stays at its floor on A's high ground; named at ≥ ${OPPONENT_SHARE}):`);
+for (const A of families) say(`  ${A}: ${Object.entries(exShares[A]!).sort((x, y) => y[1] - x[1]).map(([B, s]) => `${B} ${s.toFixed(2)}`).join(", ") || "not measured"}`);
+const excluding = Object.fromEntries(families.map(A => [A, Object.entries(exShares[A]!).filter(([, s]) => s >= OPPONENT_SHARE).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).map(([B]) => B)]));
+const named = Object.fromEntries(families.map(A => [A, [...new Set([...localNamed[A]!, ...excluding[A]!])]]));
+say();
+say("Named opponents (contest along a climb, then exclusion):");
+for (const A of families) say(`  ${A}: ${named[A]!.join(", ") || "none"}`);
+const namedBy = families.filter(B => !families.some(A => named[A]!.includes(B)));
+say(`Families no one names: ${namedBy.join(", ") || "none"}`);
+const opp = `// Generated by lib/v2-agents/scripts/gen-tension.ts (pnpm --filter @workspace/v2-agents gen-tension). Do not edit.
+/**
+ * Named opponents among the dealt line families on line-q (owner decision 30: adversaries to the climb), for the
+ * seating rule that an unbounded family has at least one named opponent at its table when the pool has one.
+ *
+ * Family B opposes family A along a cheap direction where A climbs when climbing A lowers one of B's dealt rules, or
+ * costs it at least ${OPPONENT_FRACTION} × A's gain in what it could reach one move away (lib/v2-agents unopposed.ts's tests,
+ * from scripts/tension.ts, seed ${res.seed}). LINE_OPPONENT_SHARES[A][B]: over A's climbs (rule, direction), the mean share of B's dealt rules that oppose it.
+ * By contest: the families whose share reaches ${OPPONENT_SHARE}, or failing that A's ${OPPONENT_TOP} strongest at
+ * ${OPPONENT_FLOOR} or more, strongest first. LINE_OPPONENTS adds the families that exclude A. A family missing from the
+ * table was not dealt (or had no measured climbs) when it was generated; it may be partial while families are redesigned.
+ */
+export const LINE_OPPONENT_SHARES: Readonly<Record<string, Readonly<Record<string, number>>>> = ${JSON.stringify(shares, null, 2)};
+
+/** Contest along a climb only (the shares above): the families named by it. */
+export const LINE_CONTEST_OPPONENTS: Readonly<Record<string, readonly string[]>> = ${JSON.stringify(localNamed, null, 2)};
+
+/**
+ * Exclusion (scripts/tension.ts, the coordinator's 15 Nov definition): LINE_EXCLUSION_SHARES[A][B], over the measured
+ * pairs of A's and B's dealt rules, the share where B, climbed greedily for a few cheap moves that keep A high, stays
+ * within 1 bit of its floor on A's sampled high states (A ≥ 8 bits). Two such rules cannot both be high on one object.
+ */
+export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<string, number>>>> = ${JSON.stringify(exShares, null, 2)};
+
+/** Named opponents: by contest along a climb (LINE_CONTEST_OPPONENTS) or by exclusion (share ≥ ${OPPONENT_SHARE}), contest first. */
+export const LINE_OPPONENTS: Readonly<Record<string, readonly string[]>> = ${JSON.stringify(named, null, 2)};
+`;
+const oppFile = join(root, "lib", "v2-linear", "src", "opponents.gen.ts");
+writeFileSync(oppFile, opp);
+console.error(`wrote ${oppFile}`);

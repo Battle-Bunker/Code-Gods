@@ -95,6 +95,11 @@ function startState(v: Variant, r: Rng): LineState {
   return { lines: Array.from({ length: per }, () => fromMC(num(), num())) };
 }
 
+/** Every order of a short list (at most four unit stretches: 24 orders). */
+function permutations<T>(xs: readonly T[]): T[][] {
+  if (xs.length <= 1) return [xs.slice()];
+  return xs.flatMap((x, i) => permutations([...xs.slice(0, i), ...xs.slice(i + 1)]).map(rest => [x, ...rest]));
+}
 const SIZED = ["si.shift", "si.tilt", "seq.step", "cart.pivot", "cart.slide", "gen.nudge", "int.move", "mach.stretch"];
 
 for (const v of [lineZ, lineQ, lineZ4]) {
@@ -110,16 +115,24 @@ for (const v of [lineZ, lineQ, lineZ4]) {
         const one = applyCall(lineType, v, s0, { mutator, site, args: p.single });
         if (isInvalid(one)) continue;
         rep.samples++;
-        let s = s0, fees = 0, surcharges = 0, charge = 0, ok = true;
-        for (const args of p.path) {
-          const a = applyCall(lineType, v, s, { mutator, site, args });
-          if (isInvalid(a)) { ok = false; break; }
-          fees += a.price.total - a.price.surcharge;
-          surcharges += a.price.surcharge;
-          charge += changeCharge([a.price.total]);
-          s = a.result;
+        // A stretch's unit steps in their cheapest order: a shortcut on a bigger line costs more (mutators.ts
+        // shortcutFloor), so the far move is checked against the cheapest way to make it by unit stretches.
+        const orders = mutator === "mach.stretch" ? permutations(p.path) : [p.path];
+        let best: { s: LineState; fees: number; surcharges: number; charge: number } | null = null;
+        for (const path of orders) {
+          let s = s0, fees = 0, surcharges = 0, charge = 0, ok = true;
+          for (const args of path) {
+            const a = applyCall(lineType, v, s, { mutator, site, args });
+            if (isInvalid(a)) { ok = false; break; }
+            fees += a.price.total - a.price.surcharge;
+            surcharges += a.price.surcharge;
+            charge += changeCharge([a.price.total]);
+            s = a.result;
+          }
+          if (ok && (!best || fees < best.fees)) best = { s, fees, surcharges, charge };
         }
-        if (!ok) { rep.skipped++; continue; }
+        if (!best) { rep.skipped++; continue; }
+        const { s, fees, surcharges, charge } = best;
         assert.equal(lineType.encode(s), lineType.encode(one.result), `${mutator} ${JSON.stringify(p)}: the path ends elsewhere`);
         const fee = one.price.total - one.price.surcharge;
         assert.ok(fee >= fees - 1e-9, `${mutator} ${JSON.stringify(p.single)} on ${lineType.encode(s0)}: fee ${fee} < path fees ${fees}`);

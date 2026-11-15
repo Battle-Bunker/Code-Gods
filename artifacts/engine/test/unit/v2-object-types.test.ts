@@ -39,12 +39,18 @@ test("a grid variant is read and written as a grid; it is valued only once it ha
 test("a grid representation's mutators name their arguments, with choices for cells and lines", () => {
   const ms = mutatorsOf("cells", "grid-4-d10");
   assert.deepEqual(ms.map(m => m.id), ["cells.add", "cells.swap"]);
-  assert.deepEqual(ms[0]!.args, [{ name: "cell", code: "choice" }, { name: "k", code: "integer" }]);
+  assert.deepEqual(ms[0]!.args.map(a => [a.name, a.code]), [["cell", "choice"], ["k", "integer"]]);
+  // Said for a person, as What if says it (playtest round 23): a label, a hint, an example, words for each choice.
+  const cell = ms[0]!.args[0]!;
+  assert.equal(cell.label, "Which cell");
+  assert.equal((cell as { choices?: Record<string, string> }).choices?.r0c0, "row 1, column 1");
+  const turn = mutatorsOf("cart", "line-q-lenses").find(m => m.id === "rot.turn")!;
+  assert.deepEqual(turn.args.map(a => [a.name, a.label]), [["centre", "Where to pin it"], ["turn", "How far to turn"]]);
 });
 test("Grids · beginner deals every grid family, each a main layer plus one tie-breaker, on the grid board (once grids have value functions)", async () => {
   const { presetOf } = await import("../../convex/v2/presets.ts");
   const { dealablePool, playable } = await import("../../convex/v2/deal.ts");
-  const { VALUE_RECORDS } = await import("../../convex/v2/values.gen.ts");
+  const { VALUE_INDEX: VALUE_RECORDS } = await import("../../convex/v2/values.gen.ts");
   const gridValues = VALUE_RECORDS.some(r => r.variant === "grid-4-d10");
   for (const id of ["grids-beginner", "grids-beginner-bidding"]) {
     const p = presetOf(id);

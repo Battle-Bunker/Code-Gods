@@ -62,6 +62,8 @@ export function mutatorsOf(rep: string, variantId: string) {
       const kind = nums && words ? `${domain} or choice` : nums ? domain : ws.every(w => /^[\w-]+$/.test(w)) ? "choice" : "line a,b,c";
       return combos.every(c => name in c) ? kind : `${kind}, optional`;
     };
-    return { id: m.id, reps: [...m.reps], args: names.map(name => ({ name, code: codeOf(name) })), baseBits: whichBits(variant, m.id), effect: m.title };
+    // Each argument said for a person, from the mutator's own help (the same words What if shows).
+    const help = m.argHelp?.(variant) ?? {};
+    return { id: m.id, reps: [...m.reps], args: names.map(name => ({ name, code: codeOf(name), ...help[name] })), baseBits: whichBits(variant, m.id), effect: m.title };
   });
 }

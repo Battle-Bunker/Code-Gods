@@ -6,8 +6,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { compareScores, q, rng, scoreToWire, type Q, type RuleFamily, type Score } from "@workspace/v2-core";
-import { divisibilityLadder, lineZ } from "@workspace/v2-linear";
-import { findVariant, knotsFrom, layerMeasures, lineValueFunction, massOracle, sampledOracle, tailOf, TAIL_CEILING, TAIL_FLOOR, valueLookup, VALUE_CONFIG } from "../src/index.ts";
+import { lineZ, wholeCrossing } from "@workspace/v2-linear";
+import { findVariant, knotsFrom, ladderCaps, layerMeasures, lineValueFunction, massOracle, sampledOracle, tailOf, TAIL_CEILING, TAIL_FLOOR, valueLookup, VALUE_CONFIG } from "../src/index.ts";
 import { pairTail } from "../src/value-pair.ts";
 
 /** A finite law over random scores (some components null), every state's true value by brute force. */
@@ -62,10 +62,10 @@ test("mass outside an enumeration widens the interval: a knot is certified only 
   assert.ok(knots.every(k => k.bits < 9), "nothing rarer than the outside mass is certified");
 });
 
-test("direct draws agree with the exact sums (Divisibility Ladder + m-spf on line-z, separable as a product of two laws)", () => {
-  const p = divisibilityLadder.dealable(lineZ)[0]!;
-  const exact = lineValueFunction(divisibilityLadder, p, lineZ, { tieBreaker: "m-spf", config: { drawsPerTilt: 0 } });
-  const draws = lineValueFunction(divisibilityLadder, p, lineZ, { tieBreaker: "m-spf", exact: false, config: { drawsPerTilt: 30_000 } });
+test("direct draws agree with the exact sums (Whole Crossing r = 2 + shared-factor on line-z)", () => {
+  const p = wholeCrossing.dealable(lineZ)[1]!;
+  const exact = lineValueFunction(wholeCrossing, p, lineZ, { tieBreaker: "shared-factor", config: { drawsPerTilt: 0 } });
+  const draws = lineValueFunction(wholeCrossing, p, lineZ, { tieBreaker: "shared-factor", exact: false, config: { drawsPerTilt: 30_000 } });
   const look = valueLookup(exact);
   let compared = 0;
   for (const k of draws.knots) {
@@ -173,7 +173,9 @@ test("committed value functions are intact: each content hash matches, knots ris
     const family = (findVariant(v).type.families as RuleFamily<unknown, unknown>[]).find(y => y.id === body.family)!;
     const measures = layerMeasures(family, body.tieBreaker === "none" ? null : body.tieBreaker);
     const tb = body.tieBreaker === "none" ? null : body.tieBreaker;
-    const tail = body.objectType === "pair" ? pairTail(family, tb, body.knots) : tailOf(body.knots, body.objectType === "line" ? TAIL_CEILING : Infinity, measures);
+    const { type, variant } = findVariant(v);
+    const caps = body.objectType === "line" ? ladderCaps(type as never, family as never, body.params, variant) : undefined;
+    const tail = body.objectType === "pair" ? pairTail(family, tb, body.knots) : tailOf(body.knots, body.objectType === "line" ? TAIL_CEILING : Infinity, measures, undefined, caps);
     assert.deepEqual(body.tail, tail, `${v}/${f}/${x}: the tail is the one its knots and layers imply`);
     for (const t of [body.tail.secondary, body.tail.primary]) assert.ok(t.slope > 0 && Number.isFinite(t.slope), `${v}/${f}/${x}: tail ${JSON.stringify(t)}`);
     n++;

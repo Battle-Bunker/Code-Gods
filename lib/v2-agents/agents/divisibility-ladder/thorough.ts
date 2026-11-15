@@ -1,5 +1,5 @@
 // Divisibility Ladder · Thorough
-// Main part: a run of y-values each divisible by its position: y(1) by 1, y(2) by 2, …. Tie-breaker: whichever you were dealt (the gradient's smallest prime factor; the gradient's largest prime factor; how steep the line is; the gradient close to a prime).
+// Main part: a run of y-values each divisible by its position: y(1) by 1, y(2) by 2, …. Tie-breaker: whichever you were dealt (the factor y(n) shares with n where the run stops).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -12,21 +12,12 @@
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (Q.isZero(c)) return null;                   // through (0, 0): the rule wants a line that is not
-  let main = 0;
-  for (let n = 1; n <= 12; n++) {                 // the run of n dividing y(n)
-    const y = Q.add(Q.mul(m, n), c);
-    if (!Q.isInteger(y) || !Q.isInteger(Q.div(y, n))) break;
-    main++;
-  }
-  const fm = factors(m) ?? [];                    // the gradient's prime factors ([] for 0, 1, -1)
-  // main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better)
-  if (tie === "m-spf") return [main, fm[0] ?? 1];   // the gradient's smallest prime factor big is better
-  if (tie === "m-gpf") return [main, fm.at(-1) ?? 1];   // the gradient's largest prime factor big is better
-  if (tie === "steep") return [main, Q.abs(m)];   // a steeper gradient is better
-  if (tie === "m-prime") {   // a gradient close to a prime is better
-    const mp = near(m, prime);
-    return [main, Q.neg(Q.abs(Q.sub(m, mp)))];
-  }
+  let run = 0, n = 1, y = Q.add(m, c);            // the run of n dividing y(n); it stops at n, with y = y(n)
+  for (; Q.isInteger(y) && Q.isInteger(Q.div(y, n)); n++, y = Q.add(Q.mul(m, n), c)) run++;
+  let lv = 0; while (((lv + 1) * (lv + 2)) / 2 <= run) lv++;   // level L needs L(L + 1)/2 of the run (1, 3, 6, 10, …)
+  const main = Q.add(lv, Q.of(run - (lv * (lv + 1)) / 2, lv + 1));
+  // main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better, a ladder with no top; each extra counts for less: level L needs L(L + 1)/2)
+  if (tie === "next-rung") return [main, Q.isInteger(y) ? common(y, n) : 0];   // where the run stops, at n: a bigger number dividing both n and y(n) is better (0 if y(n) is not whole)
   return [main];
 }
 
@@ -61,5 +52,21 @@ function agent(offer) {
   // A promise: on these lines, only steps that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));
   // The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or null.
-  return climb(offer, options, score(m, c, p, tie), QUOTES);
+  const one = climb(offer, options, score(m, c, p, tie), QUOTES);
+  if (one || PROTECT.includes(offer.object)) return one;
+  // No single step helps: look two steps ahead (each step, then a shift or tilt by 1) and take the first
+  // step of the best pair, though it may lower your points for a moment. It weighs the 4 best pairs: a few more small reads.
+  // The first steps: the 6 best for your rule (options are tries with their scores, in the same order).
+  const firsts = tries.map((t, i) => [t, options[i][1]]).filter(([[, m1]]) => Q.isQ(m1))
+    .sort((a, b) => (better(a[1], b[1]) ? -1 : better(b[1], a[1]) ? 1 : 0)).slice(0, 6).map(([t]) => t);
+  const pairs = [];
+  for (const [plan, m1, c1] of firsts) {
+    const first = Array.isArray(plan) ? plan : [plan];
+    for (const k of [-1, 1]) {
+      pairs.push([[...first, move("si.shift", { k })], score(m1, Q.add(c1, k), p, tie)]);
+      pairs.push([[...first, move("si.tilt", { k })], score(Q.add(m1, k), c1, p, tie)]);
+    }
+  }
+  const two = climb(offer, pairs, score(m, c, p, tie), 4);
+  return two ? two.slice(0, -1) : null;
 }

@@ -3,19 +3,39 @@ import { Qn, q, type Q } from "@workspace/v2-core";
 
 /** Numbers up to this are trial-divided in floating point (exact below 2^53), the same divisors in the same order. */
 const SAFE = BigInt(Number.MAX_SAFE_INTEGER);
+
 const LIMIT = 100_000;
 
 export function isPrime(n: bigint): boolean {
+  // Trial division where it is cheap and exact (below 10^10, every divisor up to the square root is tried); above it,
+  // Miller–Rabin with the first thirteen primes as witnesses, as the agents' helper does (lib/v2-sandbox guest
+  // helpers: exact below 3.3·10^24), so the engine and the starters agree. (Trial division to 10^5 alone called the
+  // composites above 10^10 with no small factor prime: the grids session, 15 Nov.)
   if (n < 2n) return false;
   if (n < 4n) return true;
   if (n % 2n === 0n || n % 3n === 0n) return false;
-  if (n <= SAFE) {
+  if (n < 10_000_000_000n) {
     const x = Number(n);
-    for (let d = 5; d * d <= x && d <= LIMIT; d += 6) if (x % d === 0 || x % (d + 2) === 0) return false;
+    for (let d = 5; d * d <= x; d += 6) if (x % d === 0 || x % (d + 2) === 0) return false;
     return true;
   }
-  for (let d = 5n; d * d <= n && d <= TRIAL_DIVISION_LIMIT; d += 6n) if (n % d === 0n || n % (d + 2n) === 0n) return false;
+  for (const p of WITNESSES) if (n % p === 0n) return n === p;
+  let d = n - 1n, s = 0;
+  while (d % 2n === 0n) { d /= 2n; s++; }
+  witness: for (const a of WITNESSES) {
+    let y = modPow(a, d, n);
+    if (y === 1n || y === n - 1n) continue;
+    for (let i = 1; i < s; i++) { y = (y * y) % n; if (y === n - 1n) continue witness; }
+    return false;
+  }
   return true;
+}
+const WITNESSES = [2n, 3n, 5n, 7n, 11n, 13n, 17n, 19n, 23n, 29n, 31n, 37n, 41n];
+/** b^e mod m, for m > 1. */
+function modPow(b: bigint, e: bigint, m: bigint): bigint {
+  let r = 1n, x = b % m;
+  for (let k = e; k > 0n; k >>= 1n) { if (k & 1n) r = (r * x) % m; x = (x * x) % m; }
+  return r;
 }
 
 /** The largest prime ≤ x, or null when x < 2. */
@@ -175,3 +195,41 @@ export function nearestOnLadder(x: Q, p: { q: number; r: number }): { j: number;
   }
   return best!;
 }
+
+/**
+ * A whole number's place on a ladder in triangular levels of digits (Prime Landing, Prime Gradient) (the coordinator's "each further level dearer than the
+ * last", 15 Nov: by size, 30 zooms by 7 reached a landing worth 227 bits, a straight hill in the number of digits): level
+ * ℓ needs ℓ(ℓ + 1)/2 digits (1, 3, 6, 10, … digits), and within a level the bigger prime is higher:
+ * u = ℓ + (D − ℓ(ℓ + 1)/2 + p/10^D) / (ℓ + 1) for p of D digits. It rises with p, so a bigger prime is still better.
+ */
+export function digitLevel(p: bigint): Q {
+  const D = p.toString().length;
+  let level = 0;
+  while (((level + 1) * (level + 2)) / 2 <= D) level++;
+  const rest = Qn.add(q(D - (level * (level + 1)) / 2), q(p, 10n ** BigInt(D)));
+  return Qn.add(q(level), Qn.div(rest, q(level + 1)));
+}
+
+/**
+ * A count's place in triangular levels (Whole Crossing's 5s): level ℓ needs ℓ(ℓ + 1)/2 of it (1, 3, 6, 10, …), and between
+ * levels each one more counts 1/(ℓ + 1) of a level: u = ℓ + (j − ℓ(ℓ + 1)/2)/(ℓ + 1). 0 for none.
+ */
+export function triangularLevel(j: number): Q {
+  let level = 0;
+  while (((level + 1) * (level + 2)) / 2 <= j) level++;
+  return Qn.add(q(level), Qn.div(q(j - (level * (level + 1)) / 2), q(level + 1)));
+}
+
+/**
+ * What a triangular ladder's count means to a player (the Why line; the card says only "bigger is better, though each
+ * extra counts for less"): "3 digits; the next big step is 6 digits". The big steps are the triangular numbers 1, 3, 6,
+ * 10, …, where each step counts as much as the last whole level.
+ */
+export function stepNote(n: number, one: string, many: string): string {
+  let level = 0;
+  while (((level + 1) * (level + 2)) / 2 <= n) level++;
+  const next = ((level + 1) * (level + 2)) / 2;
+  return `${n} ${n === 1 ? one : many}; the next big step is ${next} ${many}`;
+}
+/** stepNote for a prime's digits (Prime Landing, Prime Gradient). */
+export const digitNote = (p: bigint): string => stepNote((p < 0n ? -p : p).toString().length, "digit", "digits");

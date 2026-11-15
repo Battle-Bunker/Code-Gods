@@ -18,9 +18,12 @@ const DesktopDock = lazy(() => import("./desktop"));
 /** Panes read top to bottom as one page on a phone (persona walk: Results scrolled inside itself, past "What cost you"). */
 const UNCAPPED = new Set(["results"]);
 
-function StackedDock({ panes }: { panes: string[] }) {
+function StackedDock({ panes, phase }: { panes: string[]; phase: GamePhase }) {
   const name = usePaneName();
   const scroller = useRef<HTMLDivElement>(null);
+  // A new phase opens at its first pane (round 26: at the buzzer the page stayed scrolled to the bottom, on Where am I,
+  // with "How the game went" above the fold).
+  useEffect(() => { scroller.current?.scrollTo({ top: 0 }); }, [phase]);
   const nav = useRef<HTMLElement>(null);
   // A pane jumped to lands below the row of pane names, however many lines it wraps to (round 5: a three-line row hid
   // the Results headline).
@@ -40,7 +43,9 @@ function StackedDock({ panes }: { panes: string[] }) {
   }, []);
   useEffect(() => onReveal(jump), [jump]);
   return (
-    <div ref={scroller} className="h-full overflow-y-auto overflow-x-hidden" data-testid="dock-stacked">
+    // No scroll anchoring: a pane above growing as its reads arrive must not pull the reader back to where they were
+    // (round 26: scrolling "How the game went" jumped back to Where am I).
+    <div ref={scroller} className="h-full overflow-y-auto overflow-x-hidden [overflow-anchor:none]" data-testid="dock-stacked">
       {/* A phone stacks the panes; a long pane (the act log) must never trap the scroll, so each pane is shorter than
           the screen and a row of the panes' names jumps to any of them. */}
       <nav ref={nav} className="sticky top-0 z-10 flex flex-wrap gap-1 border-b bg-background px-2 py-1.5 shadow-sm" aria-label="Jump to a pane" data-testid="dock-jump">
@@ -82,7 +87,7 @@ export function Dock({ phase, panes: components, stored: Stored }: { phase: Game
     <DockScopeContext.Provider value={scope}>
       {wide
         ? <Suspense fallback={<div className="h-full" data-testid="dock-loading" />}><DesktopDock phase={phase} /></Suspense>
-        : <StackedDock panes={readingOrder(open)} />}
+        : <StackedDock panes={readingOrder(open)} phase={phase} />}
     </DockScopeContext.Provider>
   );
 }

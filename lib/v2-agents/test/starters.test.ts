@@ -16,7 +16,7 @@ import { readFileSync } from "node:fs";
 import { evaluateSite, q, Qn, scoreToWire, type Variant } from "@workspace/v2-core";
 import { valueLookup } from "@workspace/v2-valuation";
 import { firstAgentShare, GRIDS_BEGINNER_ECONOMY, LINES_BEGINNER_ECONOMY, summonPriceScale } from "@workspace/v2-economy";
-import { fromMC, lineType, lineQ, lineZ, type LineState } from "@workspace/v2-linear";
+import { fromMC, lineType, lineQ, lineZ, presets, type LineState } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
 import {
   BEGINNER_STARTING_ENERGY, GRID_BEGINNER_STARTING_ENERGY, births, CATALOGUE, check, stale, undescribed, EngineHost, exampleFor, runAct, sandboxes, scoreSource, shippedAgents, shippedPath,
@@ -273,4 +273,46 @@ test("starters read the rule's parameters every act (drift redraws them): the sa
       assert.ok(Qn.cmp(main(s), main(at)) > 0, `${language}: with A = ${A} the area moved toward ${A} (${lineType.encode(s)})`);
     }
   }
+});
+
+test("Thorough with the game's values, when no single step helps, looks two steps ahead: the same move in both languages, never failing", async () => {
+  let looked = 0;
+  for (const e of LIVE) {
+    const ts = all.find(a => a.language === "typescript" && a.family === e.family && a.kind === "thorough"), py = all.find(a => a.language === "python" && a.family === e.family && a.kind === "thorough");
+    if (!ts || !py) continue;
+    const f = familyOf(e.family), v = variantOf(e.family), params = paramsOf(e.family);
+    const tieBreaker = Object.keys(e.tieBreakers).find(tb => f.tieBreakers.some(t => t.id === tb))!;
+    const rule = { family: e.family, params, tieBreaker }, vf = findValues(v.id, rule);
+    if (!vf) continue;
+    const look = valueLookup(vf), bits = (s: LineState) => look(evaluateSite(lineType, f, params, s, v, 0, tieBreaker).score).bits;
+    for (const [i, state] of births(lineType, v, "two-step", 2).entries()) {
+      const values = { knots: vf.knots, tail: vf.tail }, value = { mine: bits(state), others: 4, points: 4 * bits(state) };
+      const records = [];
+      for (const a of [ts, py]) {
+        const { record } = await runAct(await boxes.get(a.language), { type: lineType, variant: v, state, rule, program: program(a), seed: String(i), energy: 500, income: 2, values, value });
+        assert.notEqual(record.outcome, "failed", `${shippedPath(a)} on ${lineType.encode(state)}: ${record.reason}`);
+        const { steps: _s, ...rest } = record;
+        records.push(rest);
+      }
+      assert.deepEqual(records[1], records[0], `${e.family} Thorough: the languages differ on ${lineType.encode(state)}`);
+      looked++;
+    }
+  }
+  assert.ok(looked > 10, `${looked} acts checked`);
+});
+
+test("no dealt line family's Simple starter fails on lines with huge numbers (as partners make by stretching), in either language", async () => {
+  const dealt = new Set(presets.flatMap(p => p.rules.map(r => r.family)));
+  const huge = [fromMC(q(3), q(2324522934)), fromMC(q(-2187, 2), q(-19683)), fromMC(q(6888), q(-6973568802)), fromMC(q(1, 7), q(4782969))].map(l => ({ lines: [l] }));
+  const failures: string[] = [];
+  for (const a of all.filter(x => dealt.has(x.family) && x.kind === "simple")) {
+    const live = Object.keys(CATALOGUE.find(e => e.family === a.family)!.tieBreakers).filter(tb => familyOf(a.family).tieBreakers.some(t => t.id === tb));
+    for (const [i, state] of huge.entries()) {
+      const { record } = await runAct(await boxes.get(a.language), {
+        type: lineType, variant: lineQ, state, rule: { family: a.family, params: paramsOf(a.family), tieBreaker: a.tieBreaker ?? live[0]! }, program: program(a), seed: String(i), energy: 500,
+      });
+      if (record.outcome === "failed") failures.push(`${shippedPath(a)} on ${lineType.encode(state)}: ${record.reason}`);
+    }
+  }
+  assert.deepEqual(failures, []);
 });

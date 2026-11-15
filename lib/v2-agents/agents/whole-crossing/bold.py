@@ -29,7 +29,10 @@ def score(m, c, p, tie):
             if s * dd - abs(n) > best[2]:               # every further level is farther
                 break
             j, s = j + 1, s * 5
-        main = best[0] if best[2] == 0 else -Fraction(best[2], dd)   # on a level: the level (the more 5s, the better); else below them all
+        L = 0
+        while (L + 1) * (L + 2) // 2 <= best[0]:      # level L needs L(L + 1)/2 fives (1, 3, 6, 10, ...)
+            L += 1
+        main = L + Fraction(best[0] - L * (L + 1) // 2, L + 1) if best[2] == 0 else -Fraction(best[2], dd)   # on the ladder: its level; else below them all
         return [main, None]
     if m == 0:                                      # a flat line never crosses: the worst score
         return None
@@ -49,8 +52,11 @@ def score(m, c, p, tie):
         if s * dd - abs(n) > best[2]:               # every further level is farther
             break
         j, s = j + 1, s * 5
-    main = best[0] if best[2] == 0 else -Fraction(best[2], dd)   # on a level: the level (the more 5s, the better); else below them all
-    # main: how many 5s the line's x-axis crossing holds when it is a whole number leaving r after its 5s are divided out (more is better: a ladder with no top), else minus how far it is from the nearest such number
+    L = 0
+    while (L + 1) * (L + 2) // 2 <= best[0]:      # level L needs L(L + 1)/2 fives (1, 3, 6, 10, ...)
+        L += 1
+    main = L + Fraction(best[0] - L * (L + 1) // 2, L + 1) if best[2] == 0 else -Fraction(best[2], dd)   # on the ladder: its level; else below them all
+    # main: the level of 5s the line's x-axis crossing holds when it is a whole number leaving r after its 5s are divided out (level L needs L(L + 1)/2 fives; more is better: a ladder with no top), else minus how far it is from the nearest such number
     if tie == "shared-factor":   # take that number with its 5s divided out, ignore its sign and add 1: a bigger number dividing both it and the gradient's whole part is better
         t1, wm = abs(best[1]) + 1, whole(abs(m) - Fraction(1, 2))   # |t| + 1, and the gradient's whole part ignoring sign
         return [main, common(t1, wm)]

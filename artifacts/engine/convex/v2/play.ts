@@ -9,6 +9,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { query, type QueryCtx } from "../_generated/server";
 import { slimKnots, valueFnIn, type ValueScope } from "./values";
 import { seatRules } from "./loop";
+import { keepsParams } from "./deal";
 import { decode, encode, scopeOf, typeOf, valuesOf, variantOf } from "./world";
 import { callV } from "./tables";
 import { applyCall, isInvalid } from "@workspace/v2-core";
@@ -38,7 +39,7 @@ export const myRule = query({
     const { rule: r, game } = await requireSeat(ctx, gameId);
     return {
       family: r.family, title: r.title, params: r.params, layers: r.layers, tieBreaker: r.tieBreaker, card: r.card, depends: r.depends, primary: r.primary,
-      ruleKey: r.ruleKey, contentHash: r.contentHash, drifts: r.drifts ?? 0, driftedAt: r.driftedAt ?? null, previous: r.previous ?? null, value: valueFn(r.ruleKey, scopeOf(game)), bid: r.bid ?? null, handicap: r.handicap ?? null,
+      ruleKey: r.ruleKey, contentHash: r.contentHash, drifts: r.drifts ?? 0, driftedAt: r.driftedAt ?? null, keepsParams: keepsParams(r.family), previous: r.previous ?? null, value: valueFn(r.ruleKey, scopeOf(game)), bid: r.bid ?? null, handicap: r.handicap ?? null,
     };
   },
 });

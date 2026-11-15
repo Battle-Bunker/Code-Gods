@@ -1,5 +1,5 @@
 # Divisibility Ladder · Thorough
-# Main part: a run of y-values each divisible by its position: y(1) by 1, y(2) by 2, …. Tie-breaker: whichever you were dealt (the gradient's smallest prime factor; the gradient's largest prime factor; how steep the line is; the gradient close to a prime).
+# Main part: a run of y-values each divisible by its position: y(1) by 1, y(2) by 2, …. Tie-breaker: whichever you were dealt (the factor y(n) shares with n where the run stops).
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -14,23 +14,17 @@ def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     if c == 0:                                      # through (0, 0): the rule wants a line that is not
         return None
-    main = 0
-    for n in range(1, 13):                          # the run of n dividing y(n)
+    run, n, y = 0, 1, m + c                         # the run of n dividing y(n); it stops at n, with y = y(n)
+    while y.denominator == 1 and y.numerator % n == 0:
+        run, n = run + 1, n + 1
         y = m * n + c
-        if y.denominator != 1 or y.numerator % n != 0:
-            break
-        main += 1
-    fm = factors(m) or []                           # the gradient's prime factors ([] for 0, 1, -1)
-    # main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better)
-    if tie == "m-spf":   # the gradient's smallest prime factor big is better
-        return [main, fm[0] if fm else 1]
-    if tie == "m-gpf":   # the gradient's largest prime factor big is better
-        return [main, fm[-1] if fm else 1]
-    if tie == "steep":   # a steeper gradient is better
-        return [main, abs(m)]
-    if tie == "m-prime":   # a gradient close to a prime is better
-        mp = near(m, prime)
-        return [main, -abs(m - mp)]
+    lv = 0
+    while (lv + 1) * (lv + 2) // 2 <= run:          # level L needs L(L + 1)/2 of the run (1, 3, 6, 10, ...)
+        lv += 1
+    main = lv + Fraction(run - lv * (lv + 1) // 2, lv + 1)
+    # main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better, a ladder with no top; each extra counts for less: level L needs L(L + 1)/2)
+    if tie == "next-rung":   # where the run stops, at n: a bigger number dividing both n and y(n) is better (0 if y(n) is not whole)
+        return [main, common(y, n) if y.denominator == 1 else 0]
     return [main]
 
 
@@ -70,4 +64,24 @@ def agent(offer):
     if offer.object in PROTECT:
         options = [(plan, s) for plan, s in options if fair(offer, plan)]
     # The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or None.
-    return climb(offer, options, score(m, c, p, tie), QUOTES)
+    one = climb(offer, options, score(m, c, p, tie), QUOTES)
+    if one or offer.object in PROTECT:
+        return one
+    # No single step helps: look two steps ahead (each step, then a shift or tilt by 1) and take the first
+    # step of the best pair, though it may lower your points for a moment. It weighs the 4 best pairs: a few more small reads.
+    # The first steps: the 6 best for your rule (options are tries with their scores, in the same order).
+    cands, firsts = [(t, o[1]) for t, o in zip(tries, options) if t[1] is not None], []
+    while cands and len(firsts) < 6:
+        best = 0
+        for i in range(1, len(cands)):
+            if better(cands[i][1], cands[best][1]):
+                best = i
+        firsts.append(cands.pop(best)[0])
+    pairs = []
+    for plan, m1, c1 in firsts:
+        first = list(plan) if isinstance(plan, (list, tuple)) else [plan]
+        for k in (-1, 1):
+            pairs.append((first + [move("si.shift", k=k)], score(m1, c1 + k, p, tie)))
+            pairs.append((first + [move("si.tilt", k=k)], score(m1 + k, c1, p, tie)))
+    two = climb(offer, pairs, score(m, c, p, tie), 4)
+    return two[:-1] if two else None

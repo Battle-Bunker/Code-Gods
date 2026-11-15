@@ -187,8 +187,12 @@ const range: { lo: number; hi: number; n: number }[] = [];
 
 function tally(row: Float64Array, d: number) { if (d > EPS) row[0]!++; else if (d < -EPS) row[1]!++; else row[2]!++; }
 
+/** Per rule A: its sampled states where A has at least HIGH bits (for the exclusion measure below). */
+const HIGH = MAXBIN / 2;
+const highStates: LineState[][] = RULES.map(() => []);
 for (let a = 0; a < NR; a++) {
   const states = statesFor(a);
+  highStates[a] = states.filter(s => allBits(s)[a]! >= HIGH);
   let lo = Infinity, hi = -Infinity;
   for (const s of states) {
     const b0 = allBits(s);
@@ -534,6 +538,54 @@ for (const p of pairs.filter(x => x.cls === "ALIGNED" || x.cls === "IN TENSION")
 say("```");
 say();
 
+// ---------------------------------------------------------------- exclusion (the coordinator, 15 Nov)
+
+/**
+ * Exclusion: two rules that cannot both be high on one object oppose each other in the sense the owner cares about
+ * ("hard work to find states that would give two players 20 each on the same object"), though neither's climb lowers
+ * the other (each climbs where the other already sits at its floor), so the local measures above miss it.
+ *
+ * B is excluded on A's high ground when, from A's sampled states with A ≥ HIGH bits (up to EX_STATES of them), a greedy
+ * climb of B of EX_STEPS cheap moves that keep A within 1 bit of its start leaves B within 1 bit of its floor (its
+ * median bits over law draws) in at least half of them. The check is informative only when B, climbing freely by the
+ * same rule from law draws, rises above floor + 1 in at least half of them; otherwise ".".
+ */
+const EX_STATES = 12, EX_STEPS = 3, EX_DRAWS = 40;
+const cheapDirs = DIRS.filter((_, d) => cheap[d]);
+function climbB(s0: LineState, b: number, keep: ((s: LineState) => boolean) | null): number {
+  let s = s0, best = allBits(s)[b]!;
+  for (let k = 0; k < EX_STEPS; k++) {
+    let next: LineState | null = null, nb = best;
+    for (const d of cheapDirs) {
+      const r = applyDir(s, d);
+      if (!r || (keep && !keep(r.s))) continue;
+      const v = allBits(r.s)[b]!;
+      if (v > nb + EPS) { nb = v; next = r.s; }
+    }
+    if (!next) break;
+    s = next; best = nb;
+  }
+  return best;
+}
+const exRng = rng("tension-exclusion", SEED);
+const draws = Array.from({ length: EX_DRAWS }, () => draw(exRng));
+const floorOf = RULES.map((_, b) => { const v = draws.map(s => allBits(s)[b]!).sort((x, y) => x - y); return v[Math.floor(v.length / 2)]!; });
+const freeRises = RULES.map((_, b) => draws.filter(s => climbB(s, b, null) > floorOf[b]! + 1).length >= EX_DRAWS / 2);
+const exclusion: string[] = RULES.map((_, a) => {
+  const hs = highStates[a]!.slice(0, EX_STATES);
+  return RULES.map((_b, b) => {
+    if (FAM[b] === FAM[a]) return " ";
+    if (hs.length < 4 || !freeRises[b]) return ".";
+    let low = 0;
+    for (const s of hs) {
+      const a0 = allBits(s)[a]!;
+      if (climbB(s, b, t => allBits(t)[a]! >= a0 - 1) <= floorOf[b]! + 1) low++;
+    }
+    return low >= hs.length / 2 ? "1" : "0";
+  }).join("");
+});
+console.error(`exclusion: ${exclusion.reduce((t, x) => t + [...x].filter(c => c === "1").length, 0)} excluded (A, B) of ${NR * (NR - 1)}`);
+
 if (o.json) {
   const st = (x: ReturnType<typeof pooled>) => ({ n: x.n, up: +x.up.toFixed(2), down: +x.down.toFixed(2), same: +x.same.toFixed(2), mean: +x.mean.toFixed(2) });
   writeFileSync(o.json, JSON.stringify({
@@ -555,6 +607,8 @@ if (o.json) {
     })])),
     repeatsLegend: `per rule, per direction: the direction repeated ${STEPS} times from every state, [runs, runs raising the rule, mean Δbits given a rise, mean price (fee + surcharge, bits) of the ${STEPS} moves of a raising run]`,
     opportunityLegend: `per rule A, per direction (in order): one character per rule C (in the order of rules): the number of fractions in [${OPP_F.join(", ")}] that C's opportunity cost reaches, as a share of A's gain, in at least half of A's rising runs of ${STEPS} repeats (C's cost: its best bits one move from the start, or staying, less its bits at the run's end); " " the same family, "." fewer than 8 rising runs`,
+    exclusionLegend: `per rule A: one character per rule B (in the order of rules): "1" when, from A's sampled states with A ≥ ${HIGH} bits (up to ${EX_STATES}), a greedy climb of B of ${EX_STEPS} cheap moves keeping A within 1 bit leaves B within 1 bit of its floor (median over law draws) in at least half; "0" otherwise; "." uninformative (fewer than 4 such states, or B does not rise above floor + 1 climbing freely from law draws); " " the same family`,
+    exclusion,
     opportunityFractions: OPP_F,
     opportunity: Object.fromEntries(RULES.map((_, a) => [R(a), DIRS.map((_d, d) => RULES.map((_c, c) => {
       if (FAM[c] === FAM[a]) return " ";

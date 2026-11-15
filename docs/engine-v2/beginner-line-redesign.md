@@ -76,7 +76,7 @@ same prime class, for example Pythagorean Area with q = 3 and Square Area with r
 | Whole Crossing | yes (v_q(N − r)) | about log2 q | yes (§4.7) | ~15 | Pythagorean and Square Area, Same on Both Rulers, Ruler |
 | Ruler | yes (v_q) | about q/2 | yes (§4.8) | 12 | Prime Landing, Pythagorean Area, Same on Both Rulers |
 | Square Area | yes (exponent k) | about ½·sopfr(root) | yes (§4.9) | ~8 | Pythagorean Area (other q), Whole Crossing, Prime Landing |
-| Divisibility Ladder | yes (run) | 1–3 (lcm growth) | yes (§4.10) | 8 | Prime Staircase, Treasure, Prime Gradient |
+| Divisibility Ladder | yes (run) | 1–3 (lcm growth) | yes (§4.10) | 8 | **open fail** (measured 15 Nov, #817: no family opposes more than 7% of its climbs; merged dealt by the coordinator; Prime Staircase is to be made to contest its heights) |
 
 - **Row 5 (perpendicular).** Argued in §1. The pairwise PMI table is the spec lead's.
 - **Row 8 (reach).** Log ramps keep values out of the hundreds. 20 bits needs about 6–15 rungs.
@@ -240,6 +240,17 @@ its position, and the whole part of the gradient, should end in as many of the s
 **Worked lines:**
 - y = −13x + 78: run 3, M = 3.0, A* = 13, ⌊m⌋ = −13, T = 2.
 - One stretch (×2), y = −26x + 156: run 4, M = 4.59, ⌊m⌋ = −26, T = 0: a restart.
+
+**As built (15 Nov, #817; owner-decisions trial 27):** the run of n dividing y(n), with no top, in triangular levels;
+tie-breaker gcd(y(n), n) where the run stops at n.
+
+**For later: a residue reading** (the spec lead's proposal, kept by the coordinator for later, not now). Make the rule
+"y(n) leaves 1 when divided by n", excluding c = 1 as c = 0 is excluded now. For a whole gradient a run of k then needs
+c ≡ 1 (mod lcm(1, …, k)). Prime Staircase and Divisibility Ladder would then read the same number, y(0) = c, and
+contest it along a climb; today they only exclude each other. The cost:
+- With Prime Staircase ending 9 they still exclude (c ≡ 1 (mod 10) does not end in 9).
+- With ending 1 they partly align, because 1 + t·lcm has no small factors, so it is prime more often. That would need
+  the seating rule.
 
 ---
 

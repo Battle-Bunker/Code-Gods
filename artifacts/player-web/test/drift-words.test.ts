@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { nextDriftAt } from "@workspace/v2-core";
-import { driftNotice, driftWords, targetChange } from "../src/panes/drift-words.ts";
+import { driftNotice, driftWords, redrawChoices, targetChange } from "../src/panes/drift-words.ts";
 
 test("the countdown is to the seat's OWN next redraw (W3 #745: staggered); nothing when none is left", () => {
   // Three seats at 120 s: seat 1 at 40, 160…; seat 2 at 80, 200…; seat 0 at 120, 240….
@@ -33,4 +33,10 @@ test("just after a change: what happened and what it means, in one place, then t
   assert.equal(driftNotice(rule, 160, null), null, "after 30 s it is just your rule");
   assert.equal(driftNotice({ drifts: 0, driftedAt: null, card: "x" }, 10, null), null, "never changed");
   assert.match(driftNotice({ drifts: 1, driftedAt: 100, card: "x" }, 140, null, 4)!, /\(10 s ago\)/, "wall seconds at 4×");
+});
+
+test("a ladder rule keeps its numbers (W3 #799: keepsParams): no countdown, however many it could be dealt", () => {
+  assert.equal(redrawChoices({ keepsParams: true }, 5), 0);
+  assert.equal(redrawChoices({ keepsParams: false }, 5), 5);
+  assert.equal(driftWords(40, 37, redrawChoices({ keepsParams: true }, 5)), null);
 });

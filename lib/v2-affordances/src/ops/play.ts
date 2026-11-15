@@ -100,10 +100,10 @@ export const playOps = [
   }),
   affordance({
     id: "rep.mutators", title: "List a representation's mutators", group: "objects", scope: "game",
-    description: "The mutators that belong to a representation (e.g. si: si.shift, si.tilt), each with its arguments, their codes and its base price in bits.",
+    description: "The mutators that belong to a representation (e.g. si: si.shift, si.tilt), each with its arguments (their codes, and in plain words what each is, what may be typed, an example and the words a choice takes) and its base price in bits.",
     tooltip: "The moves you can make through this view.", keywords: ["mutators", "moves", "changes", "price list"],
     params: obj({ rep }),
-    result: z.object({ mutators: z.array(z.object({ id: z.string(), reps: z.array(z.string()), args: z.array(z.object({ name: z.string(), code: z.string() })), baseBits: z.number(), effect: z.string() })) }),
+    result: z.object({ mutators: z.array(z.object({ id: z.string(), reps: z.array(z.string()), args: z.array(z.object({ name: z.string(), code: z.string(), label: z.string().optional(), hint: z.string().optional(), example: z.string().optional(), choices: z.record(z.string(), z.string()).optional() })), baseBits: z.number(), effect: z.string() })) }),
     contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({

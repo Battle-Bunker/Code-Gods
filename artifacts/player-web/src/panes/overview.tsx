@@ -23,14 +23,15 @@ export function OverviewPane() {
   const none = seated && count === 0;
   const step = !seated ? "You're watching: open Lines to see the world, and the Leaderboard to see who leads."
     : header.phase === "ended" ? "The game is over: How the game went says where you finished."
-    : none ? `Summon your first agent: it moves ${objectWord(header?.variant).many} towards your goal, and every move that helps raises your points.`
+    : none ? `Summon your first agent${header.phase === "planning" ? " with the button at the top" : ""}: it moves ${objectWord(header?.variant).many} towards your goal, and every move that helps raises your points.`
     : header.phase === "planning" ? "Your agent is ready. When the world starts, watch What just changed to see each move it makes and why your points moved."
     : "Watch What just changed: each move of your agent says what changed and why your points moved. Try a change to your agent's code in Agent code.";
   return (
     <div className="space-y-3 p-4 text-sm" data-testid="overview">
       <p className="text-base" data-testid="text-next-step">{step}</p>
       {bid && <p className="border-l-2 border-primary pl-2" data-testid="text-overview-bid">{bid}</p>}
-      {seated && none && header.phase !== "ended" && (
+      {/* In planning the planning line's own button is the one next step (round 26: three of the same button). */}
+      {seated && none && header.phase === "live" && (
         <button type="button" className="bg-primary text-primary-foreground px-3 py-1.5 font-medium" onClick={() => void summonFirst(header.gameId, openPane)} data-testid="button-overview-summon">Summon my first agent</button>
       )}
       {seated && (

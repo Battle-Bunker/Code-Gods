@@ -16,8 +16,8 @@
  * compared knot carries its interval (lo–hi), and peers differ when their intervals are more than the band apart (the
  * highest lo less the lowest hi), so two honest peers whose estimates differ by sampling noise pass.
  *
- * A ladder main (design-principles.md: a main part with no top, whose rungs are numbers the code prices, e.g. Smooth
- * Intercept's smooth numbers) is compared by bits minus the rung's code cost (the coordinator's declared TRIAL, 15 Nov):
+ * A ladder main (design-principles.md: a main part with no top, whose rungs are numbers the code prices, e.g. Prime
+ * Staircase's runs) is compared by bits minus the rung's code cost (the coordinator's declared TRIAL, 15 Nov):
  * a climb pays Δφ to reach a rung, so equal bits per unit of code cost is equal opportunity per unit of energy. Its best
  * and median knots differ by design (each peer's first rung is a different number). Prime Staircase's rung is the run's
  * length, costed as the cheapest whole line with that run; peers are compared on the rungs all their values reach. Prime
@@ -26,14 +26,14 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { VALUE_RECORDS } from "../../convex/v2/values.gen.ts";
+import { valueRecord } from "../../convex/v2/values.ts";
 import { dealablePool, familyOf } from "../../convex/v2/deal.ts";
 import { PRESETS } from "../../convex/v2/presets.ts";
 import { LINE_Q_CODES } from "@workspace/v2-linear";
 
 /**
  * Ladder families: the code cost of a rung (from the main part's value), or null where the knot is not on a rung.
- * Smooth Intercept: the rung is the y-intercept itself. Prime Staircase: the rung is the run's length
+ * Prime Staircase: the rung is the run's length
  * L (the whole part of run + 1/(2 + d)), costed as the cheapest whole line (m, c) whose run is at least L.
  */
 /** A rung: its key (knots with one key are on one rung) and its code cost. */
@@ -42,6 +42,19 @@ const LADDER_COST: Readonly<Record<string, (u: string, params: Record<string, un
   // Whole Crossing: the rung is the level j (the crossing 5^j × t, t leaving r when divided by 5). A level is a level
   // whatever r: the climb between levels is the same ×5 (a stretch or zoom), so peers are compared level by level on
   // their bits (cost 0). Subtracting the cheapest y-intercept's code instead over-corrects (t = 1 against t = 2).
+  // Smooth Intercept: the rung is the level ℓ (the whole part of u on a rung, u ≥ 1): a level is reached by one more of
+  // the dealt primes multiplied in, a stretch by one of them, whatever the set, so peers are compared level by level.
+  "smooth-intercept": u => {
+    const [n, d = "1"] = u.split("/");
+    const level = BigInt(n!) / BigInt(d);
+    return !u.startsWith("-") && level >= 1n ? [String(level), 0] : null;
+  },
+  // Prime Gradient: the rung is the level of digits (the whole part of u on a rung, u ≥ 1), compared level by level.
+  "prime-gradient": u => {
+    const [n, d = "1"] = u.split("/");
+    const level = BigInt(n!) / BigInt(d);
+    return !u.startsWith("-") && level >= 1n ? [String(level), 0] : null;
+  },
   "whole-crossing": u => (/^\d+$/.test(u) ? [u, 0] : null),
   // The two-line valuation ladders (Whole Answer, High Start, Steep Ratio; lib/v2-pair families.ts): the score is
   // q^L × (1 + 1/(1 + d)) on level L ≥ 0 (below 1 off the ladder), so the rung is L, the largest with q^L ≤ the score,
@@ -50,7 +63,6 @@ const LADDER_COST: Readonly<Record<string, (u: string, params: Record<string, un
   "whole-answer": (u, p) => valuationRung(u, p),
   "high-start": (u, p) => valuationRung(u, p),
   "steep-ratio": (u, p) => valuationRung(u, p),
-  "smooth-intercept": u => (/^\d+$/.test(u) ? [u, LINE_Q_CODES.c.bits(BigInt(u))] : null),
   "prime-staircase": (u, p) => {
     const [n, d = "1"] = u.split("/"), L = Number(BigInt(n!) / BigInt(d));
     const cost = L >= 1 ? staircaseCosts(p.ends as number)[L] : undefined;
@@ -99,7 +111,7 @@ function ladderExcess(knots: readonly { u: unknown; bits: number }[], rung: (u: 
 }
 /**
  * The median excess over the rungs every peer's values reach (Prime Staircase: run 1 for all endings, runs 2 and 3
- * only where sampling saw them), or over all its rungs where peers share none (Smooth Intercept: each set its own smooth numbers).
+ * only where sampling saw them), or over all its rungs where peers share none (a family whose peers' rungs are different numbers).
  */
 function ladderMedians(maps: readonly Map<string, number>[]): number[] {
   const shared = [...maps[0]!.keys()].filter(key => maps.every(m => m.has(key)));
@@ -130,7 +142,7 @@ test("a family's parameter peers in a dealable pool have the same top and spread
     const drifts = preset.driftSeconds > 0;
     const peers = new Map<string, { params: string; top: Est; median: Est; exact: Est | null; ladder: Map<string, number> | null }[]>();
     for (const r of dealablePool(preset)) {
-      const v = VALUE_RECORDS.find(x => x.ruleKey === r.ruleKey);
+      const v = valueRecord(r.ruleKey);
       if (!v) continue;
       const key = `${r.family}/${r.tieBreaker}`;
       peers.set(key, [...(peers.get(key) ?? []), { params: JSON.stringify(r.params), top: top(v.knots as readonly Knot[]), median: median(v.knots as readonly Knot[]), exact: familyOf(r.family).main.sense === "min" ? exactMain(v.knots as readonly Knot[]) : null,

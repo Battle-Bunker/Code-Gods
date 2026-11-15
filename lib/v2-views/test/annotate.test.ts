@@ -36,10 +36,10 @@ test("Prime Gradient (primes ending in 3): main part and tie-breaker, their valu
   const [p, tie] = a.sites[0]!.parts;
   assert.equal(a.sites[0]!.parts.length, 2);
   assert.equal(p!.name, "main part");
-  assert.equal(p!.term, "near");
-  assert.equal(Qn.toWire(p!.value as Q), "1");
-  assert.equal(p!.aim, "the closer, the better");
-  assert.equal(tie!.term, "prime");
+  assert.equal(p!.term, "gradient");
+  assert.equal(Qn.toWire(p!.value as Q), "-1/2");   // 4 is 1 from 3: ½ beyond rounding to it
+  assert.equal(p!.aim, "the bigger, the better");
+  assert.equal(tie!.term, "shared-factor");
   assert.equal(tie!.aim, "the bigger, the better");
   assert.equal(a.bits, null, "no value function: no bits");
   assert.deepEqual(annotate(rule(primeGradient, { ends: 3 }), mc(4, -3), { value: () => 3.5 }).bits, 3.5);
@@ -47,7 +47,7 @@ test("Prime Gradient (primes ending in 3): main part and tie-breaker, their valu
   // The main part owns the picture: the nearest prime ending in 3, drawn as a ghost with its distance.
   assert.deepEqual(p!.marks.filter(m => m.kind === "candidate").map(m => refKey((m as { ref: never }).ref)).sort(), ["cart.ghost(g=3)"]);
   assert.ok(a.sites[0]!.working.includes("gradient = 4"));
-  assert.ok(a.sites[0]!.working.includes("distance to 3 = 1"));
+  assert.ok(a.sites[0]!.working.some(w => /from the prime 3/.test(w)), a.sites[0]!.working.join(" | "));
 });
 
 test("WORST: the undefined sentence is the reason", () => {

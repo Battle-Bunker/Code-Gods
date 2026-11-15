@@ -17,6 +17,7 @@ import { useOpenPane } from "@/dock/open-pane";
 import { logLine } from "./log-line";
 import { VirtualRows } from "@/components/virtual-rows";
 import { DriftInFeed } from "./drift";
+import { CompactText } from "@/core/compact-text";
 
 /** What your agents noted for you, by move (each note once, on its newest move). */
 const NotesContext = createContext<ReadonlyMap<number, string[]>>(new Map());
@@ -60,9 +61,9 @@ function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<stri
             <RepView type={board.type} state={board.after} before={board.before} rep={defaultRep(board.type)} size="compact" site={board.site}
               label={`The ${objectWord(variant).one} after this move, its changed cells marked`} />
           </div>
-          <p className="text-sm text-foreground" data-testid="text-move-line">{text}</p>
+          <p className="text-sm text-foreground" data-testid="text-move-line"><CompactText text={text} /></p>
         </div>
-      ) : <p className="text-sm text-foreground" data-testid="text-move-line">{text}</p>}
+      ) : <p className="text-sm text-foreground" data-testid="text-move-line"><CompactText text={text} /></p>}
       {notes?.map(n => <AgentNote key={n} text={n} variant={variant} />)}
     </li>
   );
@@ -78,7 +79,7 @@ function TugRow({ tug, names, variant, kinds }: { tug: Extract<FeedItem<Move>, {
   return (
     <li className="space-y-1 border-l-4 border-destructive/60 px-4 py-2" data-testid={`row-tug-${tug.objectId}`}>
       <p className="text-xs text-muted-foreground tabular-nums">{timeLeft(tug.to, length)} · contested {objectWord(variant).one}</p>
-      <p className="text-sm text-foreground" data-testid="text-tug-line">{tugSentence(tug, kinds, objectWord(variant).one, length, { anonymous })}</p>
+      <p className="text-sm text-foreground" data-testid="text-tug-line"><CompactText text={tugSentence(tug, kinds, objectWord(variant).one, length, { anonymous })} /></p>
       {tugNotes.map(n => <AgentNote key={n} text={n} variant={variant} />)}
       <details>
         <summary className="cursor-pointer text-xs text-muted-foreground underline underline-offset-4">Show the {tug.moves.length} moves</summary>
@@ -160,7 +161,7 @@ function LogRowView({ r, variant, approx, length }: { r: LogEntry; variant: stri
   return (
     <div className={`h-full overflow-hidden border-b px-4 py-1.5 ${r.mine ? "" : "text-muted-foreground"}`} data-testid="row-log">
       <p className="text-[11px] tabular-nums text-muted-foreground">{timeLeft(r.worldSeconds, length)}</p>
-      <p className="line-clamp-2 text-xs text-foreground" data-testid="text-log-line">{logLine(r, { noun: objectWord(variant).one, change, approx })}</p>
+      <p className="line-clamp-2 text-xs text-foreground" data-testid="text-log-line"><CompactText text={logLine(r, { noun: objectWord(variant).one, change, approx })} /></p>
     </div>
   );
 }

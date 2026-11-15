@@ -29,7 +29,10 @@ def score(m, c, p, tie):
             if s * dd - abs(n) > best[2]:               # every further level is farther
                 break
             j, s = j + 1, s * 5
-        main = best[0] if best[2] == 0 else -Fraction(best[2], dd)   # on a level: the level (the more 5s, the better); else below them all
+        L = 0
+        while (L + 1) * (L + 2) // 2 <= best[0]:      # level L needs L(L + 1)/2 fives (1, 3, 6, 10, ...)
+            L += 1
+        main = L + Fraction(best[0] - L * (L + 1) // 2, L + 1) if best[2] == 0 else -Fraction(best[2], dd)   # on the ladder: its level; else below them all
         return [main, None]
     if m == 0:                                      # a flat line never crosses: the worst score
         return None
@@ -49,8 +52,11 @@ def score(m, c, p, tie):
         if s * dd - abs(n) > best[2]:               # every further level is farther
             break
         j, s = j + 1, s * 5
-    main = best[0] if best[2] == 0 else -Fraction(best[2], dd)   # on a level: the level (the more 5s, the better); else below them all
-    # main: how many 5s the line's x-axis crossing holds when it is a whole number leaving r after its 5s are divided out (more is better: a ladder with no top), else minus how far it is from the nearest such number
+    L = 0
+    while (L + 1) * (L + 2) // 2 <= best[0]:      # level L needs L(L + 1)/2 fives (1, 3, 6, 10, ...)
+        L += 1
+    main = L + Fraction(best[0] - L * (L + 1) // 2, L + 1) if best[2] == 0 else -Fraction(best[2], dd)   # on the ladder: its level; else below them all
+    # main: the level of 5s the line's x-axis crossing holds when it is a whole number leaving r after its 5s are divided out (level L needs L(L + 1)/2 fives; more is better: a ladder with no top), else minus how far it is from the nearest such number
     if tie == "shared-factor":   # take that number with its 5s divided out, ignore its sign and add 1: a bigger number dividing both it and the gradient's whole part is better
         t1, wm = abs(best[1]) + 1, whole(abs(m) - Fraction(1, 2))   # |t| + 1, and the gradient's whole part ignoring sign
         return [main, common(t1, wm)]
@@ -101,4 +107,24 @@ def agent(offer):
     if offer.object in PROTECT:
         options = [(plan, s) for plan, s in options if fair(offer, plan)]
     # The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or None.
-    return climb(offer, options, score(m, c, p, tie), QUOTES)
+    one = climb(offer, options, score(m, c, p, tie), QUOTES)
+    if one or offer.object in PROTECT:
+        return one
+    # No single step helps: look two steps ahead (each step, then a shift or tilt by 1) and take the first
+    # step of the best pair, though it may lower your points for a moment. It weighs the 4 best pairs: a few more small reads.
+    # The first steps: the 6 best for your rule (options are tries with their scores, in the same order).
+    cands, firsts = [(t, o[1]) for t, o in zip(tries, options) if t[1] is not None], []
+    while cands and len(firsts) < 6:
+        best = 0
+        for i in range(1, len(cands)):
+            if better(cands[i][1], cands[best][1]):
+                best = i
+        firsts.append(cands.pop(best)[0])
+    pairs = []
+    for plan, m1, c1 in firsts:
+        first = list(plan) if isinstance(plan, (list, tuple)) else [plan]
+        for k in (-1, 1):
+            pairs.append((first + [move("si.shift", k=k)], score(m1, c1 + k, p, tie)))
+            pairs.append((first + [move("si.tilt", k=k)], score(m1 + k, c1, p, tie)))
+    two = climb(offer, pairs, score(m, c, p, tie), 4)
+    return two[:-1] if two else None

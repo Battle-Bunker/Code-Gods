@@ -4,16 +4,14 @@ import { Page } from "@/site/components/layout";
 import { useAuth } from "@/site/hooks/use-auth";
 import { Action } from "@/site/components/action";
 import { invitedTo } from "@/site/lib/routes";
+import { landingSteps } from "@/site/lib/landing";
+import { DEFAULT_PRESET, presetOf } from "@workspace/engine/convex/v2/presets.ts";
 
 /**
  * The one screen a signed-out visitor sees, at every path (core/app.tsx SignInGate): sign-in is required for everything
  * on the site (owner decision 2026-11-02). Signing in comes back to the same path (useSession's login: returnTo).
  */
-const STEPS = [
-  ["Join or create a room", "A room is a table for 3 to 8 players; AI players can fill seats."],
-  ["Write a tiny agent and bargain in chat", "Agents change the shared world; deals in the public chat decide whose wishes win."],
-  ["Most points wins", "A first game lasts five minutes, with a countdown; your points are what the objects are worth to you and to the others when it ends."],
-] as const;
+const STEPS = landingSteps(presetOf(DEFAULT_PRESET));
 
 /** One sentence, three steps, one button. */
 function Landing() {

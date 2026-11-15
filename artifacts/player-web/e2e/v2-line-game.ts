@@ -94,6 +94,9 @@ try {
     if (label === "phone") await overview.screenshot({ path: path.join(shots, "score-words-phone-where-am-i.png") });
 
     // The planning line's button summons in one press (ux-lessons 1.3); it is the first a walker presses.
+    // One next step in planning (round 26): the planning line's button; Where am I points to it; the code is folded.
+    assert.equal(await page.getByTestId("button-overview-summon").count(), 0, `${label}: Where am I has no second summon button in planning`);
+    assert.equal(await page.getByTestId("input-forge-code").count(), 0, `${label}: the code is folded`);
     await page.getByTestId("button-summon-first").click();
     const status = page.getByTestId("text-forge-status");
     await status.getByText(/is summoned/).waitFor({ timeout: 60_000 });
@@ -111,6 +114,8 @@ try {
       await leave.getByTestId("text-leave-alone").getByText(/leaves line 3 alone\./).waitFor({ timeout: 10_000 });
       console.log(`${label}: ${(await leave.getByTestId("text-leave-alone-done").innerText()).trim()}`);
       // Editing the agent's code prices only the change (owner decision 21), beside the whole program's price.
+      // The code is folded on every screen (round 26): open it to edit.
+      if (!await page.getByTestId("input-forge-code").count()) await page.getByTestId("button-forge-show-code").click();
       const box = page.getByTestId("input-forge-code");
       await box.fill((await box.inputValue()) + "\nconst extra = 1;\n");
       // The price line follows the edit once the forge has re-rendered (reading it at once raced the render).
@@ -122,12 +127,9 @@ try {
       console.log(`${label}: ${priced}`);
       await box.fill(await box.inputValue().then(v => v.replace("\nconst extra = 1;\n", "")));
     }
-    if (label === "phone") {
-      // A phone folds the agent's code behind "Show the code" (a wall of code filled the screen in a persona walk).
-      assert.equal(await page.getByTestId("input-forge-code").count(), 0, "phone: the code is folded");
-      await page.getByTestId("button-forge-show-code").click();
-      await page.getByTestId("input-forge-code").waitFor();
-    }
+    // The agent's code is folded behind "Show the code" on every screen (round 26: 40 lines of comments opened the pane).
+    if (!await page.getByTestId("input-forge-code").count()) await page.getByTestId("button-forge-show-code").click();
+    await page.getByTestId("input-forge-code").waitFor();
 
     const startNow = page.getByTestId("button-start-world");
     // One tap starts the world (persona walk: a second "Press again" tap was missed on a phone).
@@ -278,8 +280,10 @@ try {
     if (await options.count()) {
       // The price and new bits arrive after the move's words (read at once, the text was only "−1 in every cell of row 4").
       // Once the others' totals arrive (v2/play:othersAt), a move's new bits come with its points: yours × others'.
-      await options.first().getByText(/→ your [\d,]+\.\d\d bits? × others'/).waitFor({ timeout: 15_000 });
-      const first = await options.first().innerText();
+      // Waited for and read as one option: a live update can redraw the first option between a wait and a read.
+      const priced = options.filter({ hasText: /→ your [\d,]+\.\d\d bits? × others' (about )?[\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/ }).first();
+      await priced.waitFor({ timeout: 15_000 });
+      const first = await priced.innerText();
       assert.match(first, /[\d,]+\.\d\d energy/, `a move has its price: ${first}`);
       assert.match(first, /→ your [\d,]+\.\d\d bits? × others' (about )?[\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/, `a move has its new bits and points: ${first}`);
     } else await line.getByText(/No single move makes this line rarer/).waitFor();
@@ -295,7 +299,7 @@ try {
     await shot(page, `game-${label}-line`);
 
 
-    await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
+    await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 }).catch(async (e: Error) => { await page.screenshot({ path: path.join(shots, `not-ended-${label}.png`) }); console.log("PHASE", await page.getByTestId("text-phase").innerText().catch(() => "?"), "ERRORS", JSON.stringify(await page.getByTestId("pane-error").allInnerTexts())); throw e; });
     const results = page.getByTestId("pane-results");
     await results.getByText(/You finished (tied for )?\S+ of 3 with/).waitFor({ timeout: 20_000 });
     await assertNoSteps(page, `${label}: the results`);
@@ -308,7 +312,7 @@ try {
     const said = await summary.innerText();
     assert.match(said, /What earned your points/i);
     assert.match(said, /What cost you/);
-    assert.match(said, /(moves marked “good for both”|is the one the others want most|Open your secret goal)/, said);
+    assert.match(said, /(“Best for points”|raised the points\. Next game, find more|is the one the others want most|Open your secret goal)/, said);
     await summary.screenshot({ path: path.join(shots, `game-${label}-summary.png`) });
     // The results say what a total is, and step to the line-by-line list.
     await results.getByTestId("text-results-note").getByText(/Each total is the sum of that player's points on every line\./).waitFor();

@@ -9,8 +9,9 @@
  * Parameters are rationals in wire form ("5/3"), so they hash and print exactly.
  */
 import { Qn, q, ref, type Q } from "@workspace/v2-core";
-import { allUndefined, distance, family, gap, more, num, undef, type Shape } from "./layers.ts";
-import { nearestInteger, nearestSquareRoot, primeFactorCount } from "./numbers.ts";
+import { allUndefined, distance, family, gap, more, num, undef, type Shape, ladder } from "./layers.ts";
+import { nearestInteger, nearestSquareRoot, primeFactorCount, stepNote } from "./numbers.ts";
+import { smoothWitness } from "./witnesses.ts";
 import { gcdTerm, onRationals } from "./rational.ts";
 
 const abs = (x: bigint): bigint => (x < 0n ? -x : x);
@@ -253,15 +254,20 @@ const SMOOTH_GLOSS = "Smooth numbers are built from small primes; 360 = 2·2·2�
 /**
  * Smooth Intercept as a ladder (design-principles.md), Prime Landing's adversary on the y-intercept: a big prime there
  * is no product of small primes. Main part, unbounded: the y-intercept (ignoring its sign) should be a number made only
- * by multiplying the dealt primes, the bigger the better (u = |c| on such a number); any other line scores below every
- * rung, minus its distance to the nearest one. Tie-breaker, read from that number s: the largest factor s + 1 shares
+ * by multiplying the dealt primes, using as many of them as possible (Ω, counting repeats), in triangular levels: level
+ * ℓ needs ℓ(ℓ + 1)/2 of them, so each level needs one more than the last (the coordinator's "each further level dearer
+ * than the last", 15 Nov: with u = |c| a stretch by a dealt prime added the same value at every size, and seats ran to
+ * 49–59 bits by repeated stretching). Between levels each extra prime counts 1/(ℓ + 1) of a level, and of two numbers
+ * with as many primes the smaller counts a little more (the owner's "small values and lots of prime factors"):
+ * u = ℓ + (Ω − ℓ(ℓ + 1)/2 + 1/(2 + |c|)) / (ℓ + 1). Any other line scores below every rung, minus its distance to the
+ * nearest one. Tie-breaker, read from that number s: the largest factor s + 1 shares
  * with the gradient's whole part (a new rung changes s + 1, and the gradient that shared most no longer does; the
  * crossing's factors were no tie-breaker: crossing at s itself, m = −1, shared everything on every rung).
  * Dealt: the primes {3, 5}, {2, 7}, {3, 7}, {3, 11}: their ladders give the same bits per unit of code cost within 0.5
  * (call 19; {2, 3}, {2, 5}, {2, 11}, {2, 13} and {5, 7} fell outside: the denser a set, the cheaper each rung).
  */
 type SP = { primes: number[] };
-const SMOOTH_SETS: SP[] = [[3, 5], [2, 7], [3, 7], [3, 11]].map(primes => ({ primes }));
+const SMOOTH_SETS: SP[] = [[3, 7], [3, 11], [3, 13], [3, 17]].map(primes => ({ primes }));
 /** The numbers ≥ 2 made only from `primes`, up to `top`, ascending. */
 function smoothUpTo(primes: readonly number[], top: bigint): bigint[] {
   const out: bigint[] = [];
@@ -280,22 +286,37 @@ export function nearestOver(x: Q, primes: readonly number[]): bigint {
   for (const n of xs) if (Qn.cmp(Qn.abs(Qn.sub(x, q(n))), Qn.abs(Qn.sub(x, q(best)))) < 0) best = n;
   return best;
 }
+/**
+ * A rung's place on Smooth Intercept's ladder: Ω, the dealt primes multiplied in s (counting repeats); the level ℓ, the
+ * largest with ℓ(ℓ + 1)/2 ≤ Ω; and u = ℓ + (Ω − ℓ(ℓ + 1)/2 + 1/(2 + s)) / (ℓ + 1), below ℓ + 1 and rising with Ω.
+ */
+export function smoothLevel(s: bigint, primes: readonly number[]): { level: number; omega: number; u: Q } {
+  let omega = 0, x = s;
+  for (const pr of primes) { const b = BigInt(pr); while (x % b === 0n) { x /= b; omega++; } }
+  let level = 0;
+  while (((level + 1) * (level + 2)) / 2 <= omega) level++;
+  const rest = Qn.add(q(omega - (level * (level + 1)) / 2), Qn.div(Qn.ONE, q(2n + s)));
+  return { level, omega, u: Qn.add(q(level), Qn.div(rest, q(level + 1))) };
+}
 const madeOf = (p: SP) => `${p.primes.slice(0, -1).map(x => `${x}s`).join(", ")} and ${p.primes.at(-1)}s`;
 const smoothInterceptShape: Shape<SP> = {
-  main: { ...more<SP>("smooth", "the y-intercept on as big a number of the dealt primes as possible", "", "si"),
-    sentence: p => `The y-intercept (ignoring its sign) should be a number made only by multiplying ${madeOf(p)}, the bigger the better; any other line scores below them all, the closer to one the better.` },
+  main: { ...more<SP>("smooth", "the y-intercept made of as many of the dealt primes as possible", "", "si"),
+    sentence: p => `The y-intercept (either sign) should be made only by multiplying ${madeOf(p)}. More of them is better, though each extra one counts for less.` },
   tieBreakers: [
     more("shared-factor", "the factor that number plus 1 shares with the gradient's whole part",
-      "Take the number just after that number. The biggest number that divides both it and the gradient's whole part should be as big as possible (a whole part of 0 shares nothing).", "si"),
+      "That number plus 1 and the gradient's whole part should share as big a factor as possible.", "si"),
   ],
 };
-export const smoothIntercept = family<SP>("smooth-intercept", "Smooth Intercept", ["si", "crossing", "cart"], smoothInterceptShape, onRationals(SMOOTH_SETS), (ctx, p) => {
+export const smoothIntercept = ladder(family<SP>("smooth-intercept", "Smooth Intercept", ["si", "crossing", "cart"], smoothInterceptShape, onRationals(SMOOTH_SETS), (ctx, p) => {
   const cRef = ref("si", "c");
   const cv = ctx.read(cRef), c = num(cv);
   if (c === null) return allUndefined(ctx, smoothInterceptShape, cv, cRef);   // vertical
   const a = Qn.abs(c), s = nearestOver(a, p.primes);
   const on = a.d === 1n && a.n === s;
-  ctx.term("smooth", on ? `on ${s}` : `off ${s} by ${Qn.toWire(Qn.abs(Qn.sub(a, q(s))))}`, on ? a : Qn.neg(Qn.abs(Qn.sub(a, q(s)))), [cRef]);
+  if (on) {
+    const { omega, u } = smoothLevel(s, p.primes);
+    ctx.term("smooth", `on ${s}: ${stepNote(omega, "dealt prime", "dealt primes")} multiplied`, u, [cRef]);
+  } else ctx.term("smooth", `off ${s} by ${Qn.toWire(Qn.abs(Qn.sub(a, q(s))))}`, Qn.neg(Qn.abs(Qn.sub(a, q(s)))), [cRef]);
   const mRef = ref("si", "m"), m = num(ctx.read(mRef))!;
   const w = Qn.floor(m), aw = w < 0n ? -w : w;
   ctx.term("shared-factor", `${s + 1n} and the gradient's whole part ${w}: the biggest number dividing both is ${aw === 0n ? 0n : gcdB(s + 1n, aw)}`, q(aw === 0n ? 0n : gcdB(s + 1n, aw)), [cRef, mRef]);
@@ -303,7 +324,7 @@ export const smoothIntercept = family<SP>("smooth-intercept", "Smooth Intercept"
   const mark = ref("cart", "yAxisMark", { y: Qn.sign(c) < 0 ? -s : s });
   ctx.read(mark);
   ctx.mark({ kind: "candidate", ref: mark, term: "smooth" });
-});
+}), smoothWitness);
 
 const steepShape: Shape<object> = {
   main: more("smaller", "the smaller of the gradient and the y-intercept",

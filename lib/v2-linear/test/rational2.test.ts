@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { evaluateSite, Qn, type Evaluation, type RuleFamily, type TieBreaker } from "@workspace/v2-core";
 import {
   beginnerPool, lineQ, lineType, lineZ, nearestLatticePoint, nearestSmooth, nearPoint, presets, rational2Families, smoothCrossing, smoothGradient, smoothIntercept, smoothSquare, steepAndTall, sunkenIntercept, targetGradient,
-  wholeArea, wholeAtT, type LineState,
+  smoothLevel, wholeArea, wholeAtT, type LineState,
 } from "../src/index.ts";
 import { abc, mc } from "./helpers.ts";
 
@@ -91,15 +91,24 @@ test("Smooth Crossing: the crossing's distance to the nearest 7-smooth number s;
   assert.equal(nearestSmooth(f(1021)), 1024n);                          // 1020 = 4·3·5·17 is not smooth
 });
 
-test("Smooth Intercept is a ladder of numbers made of the dealt primes; its tie-breaker is the factor that number plus 1 shares with the gradient's whole part", () => {
+test("Smooth Intercept is a ladder in triangular levels of the dealt primes multiplied; its tie-breaker is the factor that number plus 1 shares with the gradient's whole part", () => {
   const p = { primes: [2, 3] };
-  assert.equal(score(ev(smoothIntercept, p, mc(-2, 16))), "16,1");          // on 16 = 2⁴; 17 and 2 share 1
-  assert.equal(score(ev(smoothIntercept, p, mc(17, 16))), "16,17");         // 17 and 17 share 17
-  assert.equal(score(ev(smoothIntercept, p, mc(17, 18))), "18,1");          // a rung up, 18 = 2·3²: 19 and 17 share 1 (the climb starts again)
+  // 16 = 2⁴: 4 primes, level 2 (3 ≤ 4 < 6): u = 2 + (4 − 3 + 1/18)/3 = 127/54; 17 and 2 share 1, 17 and 17 share 17.
+  assert.equal(score(ev(smoothIntercept, p, mc(-2, 16))), "127/54,1");
+  assert.equal(score(ev(smoothIntercept, p, mc(17, 16))), "127/54,17");
+  // One more prime (32 = 2⁵): u = 2 + (2 + 1/34)/3 = 91/34, higher; 33 and 17 share 1 (the climb starts again).
+  assert.equal(score(ev(smoothIntercept, p, mc(17, 32))), "91/34,1");
+  // 18 = 2·3² holds 3 primes, fewer than 16: lower, though bigger (lots of prime factors, not size).
+  assert.equal(score(ev(smoothIntercept, p, mc(17, 18))), "121/60,1");
   assert.equal(score(ev(smoothIntercept, p, mc(-1, 367))), "-17,1");        // 367 is prime: 384 = 2⁷·3 is 17 away (324 is 43); 385 and −1 share 1
   assert.equal(score(ev(smoothIntercept, p, mc(f(1, 2), 5))), "-1,0");      // 5: 4 and 6 are 1 away, the smaller; a whole part of 0 shares nothing
-  assert.equal(score(ev(smoothIntercept, { primes: [3, 5] }, mc(19, 75))), "75,19");   // 75 = 3·5·5; 76 = 4·19 and 19 share 19
-  assert.match(smoothIntercept.card(p, "shared-factor"), /made only by multiplying 2s and 3s, the bigger the better/);
+  assert.equal(score(ev(smoothIntercept, { primes: [3, 5] }, mc(19, 75))), "463/231,19");   // 75 = 3·5·5, level 2; 76 = 4·19 and 19 share 19
+  // Each level needs one more prime than the last (1, 3, 6, 10, 15, …), and of two with as many, the smaller counts more.
+  const levels = [1, 2, 3, 4, 5, 6, 10, 15, 21].map(k => smoothLevel(3n ** BigInt(k), [3, 7]).level);
+  assert.deepEqual(levels, [1, 1, 2, 2, 2, 3, 4, 5, 6]);
+  assert.ok(Qn.cmp(smoothLevel(21n, [3, 7]).u, smoothLevel(49n, [3, 7]).u) > 0, "21 and 49 both hold 2; the smaller counts more");
+  assert.deepEqual(smoothIntercept.dealable(lineQ), [[3, 7], [3, 11], [3, 13], [3, 17]].map(primes => ({ primes })));
+  assert.match(smoothIntercept.card(p, "shared-factor"), /made only by multiplying 2s and 3s\. More of them is better, though each extra one counts for less/);
 });
 
 test("Steep and Tall: min(m, c); Ω(gcd(⌊m⌋, ⌊c⌋)), 0 when either is 0", () => {

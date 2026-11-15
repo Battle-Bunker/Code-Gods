@@ -45,3 +45,6 @@ export function driftNotice(rule: { drifts: number; driftedAt: number | null; ca
   const what = change ? `Your rule's target changed from ${change.from} to ${change.to}` : "Your rule's numbers just changed";
   return `${what} (${Math.round(ago)} s ago). ${DRIFT_MEANS} Your rule now: ${rule.card}`;
 }
+
+/** How many sets of numbers a redraw could deal this rule: none for a ladder family, which keeps its own (W3 #799). */
+export const redrawChoices = (row: { keepsParams?: boolean }, dealable: number): number => (row.keepsParams ? 0 : dealable);

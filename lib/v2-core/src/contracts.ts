@@ -212,9 +212,11 @@ export interface Layer<P> {
   /**
    * What kind of number the layer measures, where its value function needs to know (owner decision 26): "prime" for a
    * layer whose value is a prime or a prime factor (bigger better), so the value keeps rising past the measured knots
-   * at the code's own cost of a prime, STEP bits per unit. Omitted: a plain size, a count or a distance.
+   * at the code's own cost of a prime, STEP bits per unit. "ladder" for a ladder family's main part (a hill with no
+   * top, RuleFamily.keepsParams): its tail continues at the rate measured over its top knots (the coordinator's declared
+   * trial, 15 Nov: a flat tail is a top in disguise and freezes lines). Omitted: a plain size, a count or a distance.
    */
-  readonly measure?: "prime";
+  readonly measure?: "prime" | "ladder";
   /**
    * For a tie-breaker: whether it is dealt on this variant (default: always). False where it cannot decide anything
    * there, e.g. a pile of b-coins on whole-number lines, where b is always 1.
@@ -242,6 +244,18 @@ export interface RuleFamily<S, P> {
   evaluate(ctx: EvalContext<S>, params: P): void;
   /** Worked examples for the goal card (integration plan §5.7); a seeded search when absent. */
   examples?(params: P, variant: Variant): readonly S[];
+  /**
+   * A ladder family (design-principles.md rows 1 to 3 pass) keeps its dealt parameters all game: parameter drift never
+   * redraws it (the coordinator's amendment of call 18, 15 Nov: a redraw reset the climb). Absent: drift may redraw it.
+   */
+  readonly keepsParams?: boolean;
+  /**
+   * For a ladder family: a few cheap states reaching the n-th unit of its ladder (n ≥ 1: n primes, n digits, a run of
+   * n …), for the cap on its value tail (CLAUDE.md: a value tail never grows faster than the φ of the cheapest state
+   * that reaches it; the coordinator's amendment of trial 28). Any of them may be invalid on a variant; none may be
+   * empty for a unit the ladder has no cheap witness for.
+   */
+  witness?(params: P, n: number): readonly S[];
 }
 
 /** Which tie-breaker a dealt rule uses: an id of the family's, or null for the main layer alone. */
@@ -267,11 +281,29 @@ export type Inverse<A> =
   | { readonly kind: "partial"; readonly id: string; args(a: A): A; readonly note: string }
   | { readonly kind: "none"; readonly note: string };
 
+/**
+ * One argument of a move said for a person (playtest round 23: the form showed "centre", "turn", "f" and nothing about
+ * what to type). Every surface that asks for the argument (What if, the forge's links, `rep.mutators` for assistants
+ * and the CLI) reads it from here; none writes its own.
+ */
+export interface ArgHelp {
+  /** What it is, in a few plain words: "How far to turn". */
+  readonly label: string;
+  /** What may be typed, with examples: "left or right for a quarter turn, or a slope such as 1 (an eighth of a turn)". */
+  readonly hint: string;
+  /** A sensible value to start from, as the wire writes it ("left", "2", "1/2"). */
+  readonly example: string;
+  /** Plain words for each word the argument takes ("m-c" → "the gradient and the y-intercept"). */
+  readonly choices?: Readonly<Record<string, string>>;
+}
+
 export interface Mutator<S, A> {
   readonly id: string;
   readonly reps: readonly string[];
   readonly title: string;
   describe(args: A): string;
+  /** Each argument said for a person, by its wire name (what the board's variant makes it, e.g. a grid's cell names). */
+  argHelp?(variant: Variant): Readonly<Record<string, ArgHelp>>;
   /** The argument code; it may depend on the variant (integer or rational arguments). */
   args(variant: Variant): ArgCode<A>;
   readonly perSite: boolean;

@@ -149,3 +149,66 @@ test("the dealing trial's measurement: a game stores its table's unopposed direc
   assert.equal("unopposedPolicy" in header, false, "players are not shown it either");
   await perform(ada!, "game.end", {}, { gameId });
 });
+
+test("a human's new practice game ends their unfinished one (playtest round 24: abandoned deals kept ~28 worlds running); a game with another human is left alone", { timeout: 90_000 }, async () => {
+  const [ada, bo] = await humans("Abandon Ada", "Abandon Bo");
+  const practice = async () => {
+    const { roomId } = (await perform(ada!, "room.create", { name: "Practice" })).result;
+    await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
+    return (await perform(ada!, "game.start", {}, { roomId })).result.gameId as string;
+  };
+  // A game Ada shares with Bo: not hers alone, so never ended for her.
+  const shared = await perform(ada!, "room.create", { name: "Shared" });
+  await perform(bo!, "room.join", { code: shared.result.code });
+  await perform(ada!, "seats.fillPracticePartners", {}, { roomId: shared.result.roomId });
+  const sharedGame = (await perform(ada!, "game.start", {}, { roomId: shared.result.roomId })).result.gameId as string;
+  const first = await practice();
+  await perform(ada!, "game.startWorldNow", {}, { gameId: first });
+  const second = await practice();
+  const phase = async (gameId: string) => (await ada!.query("v2/games:header", { gameId })).phase;
+  // Ended in its own mutation just after the start (lobby.ts endAbandoned).
+  const ended = async (gameId: string) => { for (let i = 0; i < 40 && await phase(gameId) !== "ended"; i++) await new Promise(r => setTimeout(r, 250)); return await phase(gameId); };
+  assert.equal(await ended(first), "ended", "the abandoned practice game ends");
+  assert.notEqual(await phase(second), "ended");
+  assert.notEqual(await phase(sharedGame), "ended", "a game with another human is not hers to end");
+  // Bo's own practice game is not touched by Ada's.
+  const { roomId: boRoom } = (await perform(bo!, "room.create", { name: "Bo practice" })).result;
+  await perform(bo!, "seats.fillPracticePartners", {}, { roomId: boRoom });
+  const boGame = (await perform(bo!, "game.start", {}, { roomId: boRoom })).result.gameId as string;
+  const third = await practice();
+  assert.equal(await ended(second), "ended", "each new practice game ends the last");
+  assert.notEqual((await bo!.query("v2/games:header", { gameId: boGame })).phase, "ended");
+  for (const g of [sharedGame, third]) await perform(ada!, "game.end", {}, { gameId: g });
+  await perform(bo!, "game.end", {}, { gameId: boGame });
+});
+
+test("a new practice game starts whatever state the human's old practice games are in (round 24 follow-up: a seeded game with no engine made game.start throw)", { timeout: 120_000 }, async () => {
+  const [ada] = await humans("States Ada");
+  const phase = async (gameId: string) => (await ada!.query("v2/games:header", { gameId })).phase;
+  // Seeded practice games (no engine or clock rows, as the e2e fixtures make them) in every phase.
+  const seeded: Record<string, string> = {};
+  for (const p of ["planning", "live", "paused", "ended"] as const) {
+    seeded[p] = (await admin.mutation("v2/testing:seedGame", { owner: ada!.userId, practice: 2, phase: p })).gameId;
+  }
+  // Real practice games: one still in planning, one live.
+  const practice = async () => {
+    const { roomId } = (await perform(ada!, "room.create", { name: "Practice" })).result;
+    await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
+    const started = await perform(ada!, "game.start", {}, { roomId });
+    assert.equal(started.ok, true, JSON.stringify(started));
+    return started.result.gameId as string;
+  };
+  const planning = await practice();
+  const live = await practice();
+  await perform(ada!, "game.startWorldNow", {}, { gameId: live });
+  const latest = await practice();
+  assert.notEqual(await phase(latest), "ended");
+  // The old ones end (in their own mutation, after the start).
+  for (let i = 0; ; i++) {
+    const phases = await Promise.all([...Object.values(seeded), planning, live].map(phase));
+    if (phases.every(p => p === "ended")) break;
+    assert.ok(i < 60, `every old practice game ends: ${phases}`);
+    await new Promise(r => setTimeout(r, 500));
+  }
+  await perform(ada!, "game.end", {}, { gameId: latest });
+});

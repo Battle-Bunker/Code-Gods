@@ -11,7 +11,7 @@ import {
   type ObjectEvaluation, type ObjectType, type RuleFamily, type Score, type Term, type TieBreaker, type Undef, type Variant,
 } from "@workspace/v2-core";
 import { contributorsOf, type Contributor } from "./contributors.ts";
-import { fmtTermValue, fmtValue, isUndef } from "./format.ts";
+import { fmtTermValue, fmtValue, isUndef, labelWithArgs } from "./format.ts";
 import { markTerm, nounOf } from "./refs.ts";
 import { rendererFor } from "./scene.ts";
 
@@ -86,7 +86,7 @@ function annotateSite<S, P>(rule: RuleRef<S, P>, e: Evaluation, site: number, st
     if (decl.role === "dynamic" && decl.kind !== "number") continue; // drawn, not computed with
     if (decl.role === "coordinate" && whole.has(r.rep)) continue;
     const v = fmtValue(elementValue(rule.type, state, r, site));
-    working.push(`${decl.label}${argText(r)} = ${v}`);
+    working.push(`${labelWithArgs(decl.label, r.args)} = ${v}`);
   }
   for (const t of e.terms) working.push(`${t.label} = ${fmtTermValue(t.value)}`);
   return { site, evaluation: e, parts, working };
@@ -104,7 +104,6 @@ function sceneText<S>(type: ObjectType<S>, state: S, rep: string, site: number):
   return r.elements.filter(d => d.role === "coordinate").map(d => fmtValue(values({ rep, name: d.name }))).join(" ");
 }
 
-const argText = (r: ElementRef) => (r.args && Object.keys(r.args).length ? ` (${Object.entries(r.args).map(([k, v]) => `${k} = ${v.replace("-", "−")}`).join(", ")})` : "");
 
 export interface AnnotateOptions {
   /** The rule's value function (bits of a utility), built once with v2-valuation's valueLookup from the rule's record. */

@@ -37,7 +37,8 @@ test("Prime Landing (primes ending in 1) on y = −x + 33: lands at 33, off the 
   assert.equal(tb!.role, "tb");
   assert.deepEqual(tb!.source.map(s => s.label), ["where it crosses the x-axis", "y-intercept"]);   // that prime and the y-intercept
   assert.equal(tb!.valueText, "3");   // 30 and 33 share 3
-  assert.equal(contributors(rule(primeLanding, "shared-factor", { ends: 1 }), mc(-1, 31)).parts[0]!.valueText, "31");   // on the rung 31
+  // On the rung 31 the part says the family's own words, not its level number.
+  assert.equal(contributors(rule(primeLanding, "shared-factor", { ends: 1 }), mc(-1, 31)).parts[0]!.valueText, "lands at 31, which rounds to the prime 31: 2 digits; the next big step is 3 digits");
 });
 
 test("Square Area on y = −x + 7: the area 24½ against the square 25 = 5 × 5; Whole Crossing and Treasure name their references", () => {
@@ -65,7 +66,7 @@ test("wording: no parameter letters, no 'distance …: 0', no steps or threshold
     [rule(primeLanding, "shared-factor", { ends: 1 }), mc(6, 25)], [rule(primeLanding, "shared-factor", { ends: 9, side: -1 }), mc(290, 59)],
     [rule(squareArea, "spf"), mc(-1, 7)], [rule(squareArea, "lpf"), mc(290, 59)],
     [rule(wholeCrossing, "shared-factor", { q: 5, r: 3 }), mc(3, 7)], [rule(treasure, "m-spf"), mc(15, 6)], [rule(treasure, "m-spf"), mc(15, 7)],
-    [rule(divisibilityLadder, "m-spf"), mc(12, 12)],
+    [rule(divisibilityLadder, "next-rung"), mc(12, 12)],
   ];
   for (const [r, s] of cases) {
     const letters = r.family.params.map(p => p.name);
@@ -170,4 +171,14 @@ test("a ruler marks only the values the dealt rule asks for (playtest round 15: 
   // A sign-mirrored rule ("minus a prime ending in 7"): its marks are on its side of 0.
   assert.deepEqual(neighbours("prime", -50, 0, refFilter({ ends: 7 }, -17)), [-47, -37, -17, -7]);
   assert.deepEqual(neighbours("prime", 0, 20), [2, 3, 5, 7, 11, 13, 17, 19]);
+});
+
+test("a ladder reading that counts as on its rung says so first (round 24: 10.51 read '≈ 0.49 below 11', which looked like a miss)", () => {
+  const r = rule(primeLanding, "shared-factor", { ends: 1 });
+  // y = −x + 31.4 crosses the x-axis at 31.4, which rounds to the prime 31: on the rung.
+  const on = contributors(r, mc(-1, q(157, 5))).parts[0]!;
+  assert.equal(on.distance, "rounds to 31: on the rung");
+  assert.equal(contributors(r, mc(-1, 31)).parts[0]!.distance, "on 31", "exactly on it");
+  // Off every rung (33 rounds to 33, not a prime): how far off, as before.
+  assert.match(contributors(r, mc(-1, 33)).parts[0]!.distance ?? "", /^\S+ above 31$/);
 });

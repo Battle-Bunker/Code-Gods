@@ -13,12 +13,14 @@ import { rng } from "./rng.ts";
  * The params a seat holds after drift tick `tick` (1, 2, …): uniform over the family's dealable params on `variant`
  * (and, when `allowed` is given, those it accepts: e.g. those with a value function), the current ones included, so a
  * redraw may keep them: with a two-value grid (a rule and its mirror) a redraw is not a predictable flip a seat could
- * straddle (the coordinator, 15 Nov). `current` itself when none is allowed. Deterministic per (seed, seat, tick).
+ * straddle (the coordinator, 15 Nov). `current` itself when none is allowed, and always for a family that keeps its
+ * parameters (`keepsParams`, a ladder family). Deterministic per (seed, seat, tick).
  */
 export function driftParams<P>(
-  family: Pick<RuleFamily<unknown, P>, "dealable">, variant: Variant, current: P, seed: string, seat: number, tick: number,
+  family: Pick<RuleFamily<unknown, P>, "dealable" | "keepsParams">, variant: Variant, current: P, seed: string, seat: number, tick: number,
   allowed?: (params: P) => boolean,
 ): P {
+  if (family.keepsParams) return current;   // a ladder family is never redrawn
   const kept = (p: P) => (p !== null && typeof p === "object" ? JSON.stringify([(p as { lens?: unknown }).lens, (p as { layout?: unknown }).layout]) : "");
   const all = family.dealable(variant).filter(p => kept(p) === kept(current) && (allowed?.(p) ?? true));
   return all.length ? all[rng("drift", seed, seat, tick).below(all.length)]! : current;

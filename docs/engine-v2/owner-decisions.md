@@ -400,6 +400,13 @@ back) or TRIAL (a declared experiment, measured and reported).
     r = 1 and 2 measured peers (an exact main 3.85 and 4.23 bits; it was 1.35 for any whole number). Each mirror's symmetry is a unit test. Ending grids (1, 3, 7, 9) fail
     the audit at any floor: the code makes a prime cost about ½ bit per unit, so the first qualifying primes differ by
     up to 4 bits.
+    - **Amended** (the coordinator, 15 Nov, from playtest rounds 19 to 22: a redraw reset a ladder's climb; Prime
+      Landing redrew to its mirror and then made 102 moves for +1.06 points): a ladder family (design-principles.md rows
+      1 to 3 pass) is never redrawn: `RuleFamily.keepsParams`, read by driftParams (lib/v2-core), so the server
+      (convex/v2/drift.ts) and the in-memory table follow it. Ladder families now: Prime Staircase, Prime Landing,
+      Whole Crossing, Smooth Intercept. Only the old bounded families keep redraws until they are redesigned; when the
+      last is, the beginner presets' redraw setting goes to off. Tested: lib/v2-core principles.test.ts, artifacts/engine
+      test/unit/v2-drift.test.ts.
 
 17. **TRIAL** (declared 15 Nov, following decisions 39–42): the grid anchors' solved mains leave the dealt values.
     Opposite Nines' "every cell and its opposite add up to 9" (37 bits) and Magic Eighteen's "every row adds up to 18"
@@ -490,6 +497,11 @@ back) or TRIAL (a declared experiment, measured and reported).
       across r. Seated with Prime Landing and Treasure (40 games): balance 1.2–1.3, peak seat 16.4 bits. Static PMI
       against Prime Landing is still 1.3–3.1, from near misses (both pay for the crossing close to one whole number);
       the seating rule (call 23) stays.
+    - **Amended** (the spec lead, 15 Nov, on the coordinator's report: under the lens preset a zoom chain by 5 reached
+      26.6 bits with a fixed factor and 29.5 greedy, at the 30-bit cap of call 25): the level is triangular in the 5s,
+      as Prime Landing's digits and Smooth Intercept's primes are. Level L needs L(L + 1)/2 fives (1, 3, 6, 10), and
+      between levels each 5 counts 1/(L + 1) of a level: u = L + (j − L(L + 1)/2)/(L + 1). Each 5 now adds less than
+      the one before, so a zoom or stretch chain bends.
 
 23. **TRIAL** (declared 15 Nov, on the lens worker's pool-dynamics check, docs/engine-v2/scripts/stretch-lens-pool-dynamics.md,
     following decisions 25, 27 and 28; the owner asked by name for "rotating the line about a point"): `rot.turn` and
@@ -502,6 +514,87 @@ back) or TRIAL (a declared experiment, measured and reported).
     a player finds by pressing one button. The zoom returns only when that check passes on develop for every dealt
     family against zoom, stretch and turn. `line-q` offers ten (the turn at log2 20, the nine at log2 (9/0.95));
     the swap's floor (re-measured: 3% of swaps above their fee) stands.
+
+25. **Correction** (the spec lead, 15 Nov, after playtest rounds 21 and 22 and the pool's 59-bit seats): no straight
+    hills. Smooth Intercept scored the y-intercept's size, so a stretch by a dealt prime added the same value at every size
+    (0.9 bits a doubling); seats stretched 36–57 times on one object to 49–59 bits, and round 21 parked a line at 3⁸.
+    - **Smooth Intercept** scores how many of the dealt primes the y-intercept is made of, in triangular levels (level ℓ
+      needs ℓ(ℓ + 1)/2 of them), the smaller of two numbers with as many counting a little more (the owner's "small
+      values and lots of prime factors"). Dealt sets {3, 7}, {3, 11}, {3, 13}, {3, 17}: {2, 7} left (a 2 is cheaper per
+      level: 12 bits at level 4 against 17), and with it round 20's climb by doubling. Effects (40 games, drift off):
+      seats peak at 19.6 bits (p95 15.5; was 59 and 49), mean gain by set 269–380.
+    - **Prime Landing** keeps "bigger is better" in levels of digits (level ℓ needs ℓ(ℓ + 1)/2 digits): by size, 30 zooms
+      by 7 reached a landing worth 227 bits. A monotone relabelling: the same bits within the sampled ladder.
+    - **The check** (lib/v2-core `straightHill`, run by artifacts/engine test v2-no-straight-hill on every dealt line rule
+      against every stretch, zoom and turn its preset offers, and their inverses, 30 times from typical lines): the bits
+      gained per fee must fall along the chain (unless under 0.02 a fee bit) and the chain may gain at most 30 bits. A
+      family that fails is not dealt: Square Area's `omega` (prime factors of the square's root; a stretch adds one at
+      every size) is undealt until the grids session redesigns it.
+    - **Views**: a ladder family's main part on a rung is said in the family's words ("on 75: 3 of the dealt primes
+      multiplied, level 2"), not as its level number.
+
+26. **TRIAL** (the spec lead's redesign under the coordinator's delegation, 15 Nov; declared to the coordinator):
+    Prime Gradient is a ladder on the gradient, as Prime Landing is on the x-axis crossing. Its main part is the prime p
+    ending in k the gradient rounds to (minus one on the mirror), in levels of digits (u = digitLevel(p), each level
+    dearer than the last); off the ladder −(distance − ½). Its tie-breaker is gcd(p + 1, the y-intercept's whole part
+    ignoring sign), which a new rung restarts. The tie-breakers "prime" (the size of that prime: now the main part),
+    cPrime (the y-intercept near such a prime: an independent wish, decision 29), c-spf and c-gpf (the y-intercept's
+    prime factors: hills a shift climbs at every size, the pool's 40-bit seats) leave it. Dealt: endings 1 and 9 with
+    their mirrors; never redrawn (a ladder family). A tilt moves the gradient and Prime Landing's crossing together, so
+    the two contest one move. Values reach 18.0 and 17.8 bits at the sampled top; the params-equal audit compares levels.
+
+27. **TRIAL** (the spec lead's redesign under the coordinator's delegation, 15 Nov; declared to the coordinator):
+    Divisibility Ladder is a ladder with no top. Its main part is the run of n dividing y(n) = m·n + c from n = 1 (for a
+    whole gradient, a run of k needs lcm(1, …, k) to divide c), no longer stopped at 12, in triangular levels (u =
+    triangularLevel(run), as Whole Crossing's 5s). Its tie-breaker is gcd(y(n), n) where the run stops at n (0 when
+    y(n) is not whole), tied to the run (decision 29): how near the next rung is, never more than n. A first try,
+    gcd(⌊|c| / lcm(1, …, run)⌋ + 1, the gradient's whole part), failed the gate: a stretch multiplies both, and a greedy
+    chain of 8 stretches reached 75 bits.
+    The tie-breakers m-spf, m-gpf, m-prime (the gradient's own prime factors or nearness to a prime: independent wishes,
+    and the hills a stretch climbs at every size) and steep (undealt: a greedy mixed-stretch chain reached 77.6 bits)
+    leave it. The card: "y(1), y(2), y(3), … should be multiples of 1, 2, 3, … for as long as possible, not through
+    (0, 0). Longer is better, though each extra counts less."
+    - **Motivation.** The old run had a top (12: rows 1 to 3 of design-principles.md), its tie-breakers were the
+      gradient's own wishes (decision 29), and the no-straight-hill gate's greedy chain failed it (77.6 bits on steep,
+      21.3 on another).
+    - **Effects** (values: line-q best 17.9 bits, line-z 17.9 at the sampled top): see the PR for the gate.
+
+28. **TRIAL** (the coordinator's, declared 15 Nov, on the spec lead's rung-start measurement): a ladder's value tail
+    continues at its measured rate; no flat tail. A ladder family's main part (RuleFamily.keepsParams) takes the
+    "ladder" tail measure: past the sampled knots its value rises linearly at the slope measured over all its rungs
+    (4.3–12.6 bits per level across the pool), never held under the per-unit ceiling, which suits a coordinate, not a
+    level. The stored tails were re-fitted from the same knots (lib/v2-valuation scripts/retail.ts).
+    - **Argument.** Bits are rarity under the law, so relabelling a main part into levels changes nothing a player
+      earns (design-principles.md principle 1). The only bend in any ladder was where the sampled values ended and
+      the tail was cut to 0.5 bits per unit: Smooth Intercept's measured 5.4 bits per level became 0.1 bits per
+      stretch, which froze a line at 22.87 bits in playtest round 26. A flat tail is a top in disguise.
+    - **Amended** (the coordinator, 15 Nov, on Prime Staircase ending 9: a measured-rate tail of 12.6 bits a prime let
+      a random shift find a 41-bit state): one rule for every ladder, the standing one (CLAUDE.md): a value tail never
+      grows faster than the φ of the cheapest state that reaches it. Each ladder family declares cheap witnesses for
+      its n-th rung (RuleFamily.witness: p₁ⁿ for Smooth Intercept, 5ⁿ·t, the smallest n-digit prime, lcm(1, …, n),
+      and for Prime Staircase arithmetic runs found by search, e.g. y = 210x + 199, ten primes ending in 9 for about
+      25 bits); the tail is the measured rate, capped at each rung by the least φ of a witness at that rung or above
+      (v2-valuation ladderCaps; a test checks every dealt ladder). Prime Staircase ending 9 now tops at 22–25 bits.
+
+29. **TRIAL** (the coordinator's, declared 15 Nov): a shortcut's price grows with the size of the line it rewrites.
+    A multiplying or representation shortcut (mach.stretch, basis.zoom, rot.turn) is still priced as a choice by its
+    factor's digits (decision 25), but never below that fee × 2^((Φ − 20)/3.5), where Φ is the code length of the
+    larger of the line before and after (symmetric, so the prices stay an exact potential, decision 19). Below Φ = 20
+    bits (line-q's law draws: median 14.7, 90th percentile 20.9) nothing changes; past it the fee doubles every 3.5
+    bits. Additive moves keep their prices.
+    - **Argument.** For a multiplicative ladder under a law whose code length grows with log size, the bits a step
+      gains and the fee of the shortcut that makes it both scale with log(factor), so bits per energy was constant
+      (Smooth Intercept about 0.13 bits per ⚡ from a rung start: 9 straight steps to about 18 bits for 100⚡). With the
+      fee rising with Φ, each further step costs more, and an unopposed seat that spends a whole game's income (about
+      2,500⚡) on one ladder ends near 30 bits (the coordinator's target 25–35; a fee linear in Φ would let it reach
+      50–65). The doubling form was chosen over a power of Φ because it is one sentence: "past 20 bits, a shortcut's
+      fee doubles every 3.5 bits of the line".
+    - **The gate** (the coordinator's ruling, 15 Nov): the no-straight-hill gate is one energy question: from law
+      draws and rung starts, can a greedy climber with one seat's whole-game income (2,500⚡ on lines) spent on one
+      object take a dealt rule past 35 bits? Enforced (artifacts/engine v2-no-straight-hill.test.ts). Measured: Smooth
+      Intercept 17–27 bits (31 with the lens moves), Whole Crossing 9–13 (31–33 with zoom), Divisibility Ladder
+      15.6 (20.5), Prime Landing and Prime Gradient at most 20, Prime Staircase at most 25, every other family under
+      21. Open: Square Area's spf and lpf (58.5 bits; 141–316 with the lens moves), reported to its owner.
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 

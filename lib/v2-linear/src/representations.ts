@@ -225,7 +225,7 @@ export const crossing: Representation<LineState> = {
     el("near", "nearest whole number", "number", "derived", crossingOr(x => num(q(nearestInteger(x))))),
     el("off", "off by", "number", "derived", crossingOr(x => num(distanceToWhole(x)))),
     // The whole number leaving r when divided by q nearest the crossing (Whole Crossing's dealt residue).
-    el("dealt", "whole number", "number", "dynamic", (l, a) => crossingOr(x => num(q(nearestResidue(x, { q: Number(arg(a, "q").n), r: Number(arg(a, "r").n) }))))(l, a),
+    el("dealt", "whole number leaving r when divided by q", "number", "dynamic", (l, a) => crossingOr(x => num(q(nearestResidue(x, { q: Number(arg(a, "q").n), r: Number(arg(a, "r").n) }))))(l, a),
       { params: [{ name: "q", domain: "Z" }, { name: "r", domain: "Z" }] }),
   ],
   // 0 = 3x − 7, then 3x = 7, then x = 7/3; under it the nearest whole number and how far off it is, or "on −3" when it
