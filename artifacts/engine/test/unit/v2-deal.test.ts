@@ -147,8 +147,8 @@ test("grids: a deal seats no forbidden pair, and the fewest aligned pairs the po
       assert.deepEqual(deal, freshDeal(pool, seats, seed, preset.variant), "reproducible from its seed");
       assert.deepEqual(gridClashes(families), [], `${id}, ${seats} seats, ${seed}: no forbidden pair`);
       assert.equal(gridAlignedPairs(families).length, aligned, `${id}, ${seats} seats, ${seed}: ${gridAlignedPairs(families).join(", ")}`);
-      assert.deepEqual(seatingClashes(preset.variant, families), []);
-      assert.deepEqual(seatingAligned(preset.variant, families), gridAlignedPairs(families));
+      assert.deepEqual(seatingClashes(preset.variant, deal), []);
+      assert.deepEqual(seatingAligned(preset.variant, deal), gridAlignedPairs(families));
       if (JSON.stringify(deal) !== JSON.stringify(freshDeal(pool, seats, seed))) changed++;
       // With no bids the bid dealer deals exactly the plain deal.
       const players = Array.from({ length: seats }, (_, i) => `p${i}`);
@@ -156,7 +156,7 @@ test("grids: a deal seats no forbidden pair, and the fewest aligned pairs the po
     }
     assert.ok(changed > 0, `${id}: the seating rule changes some deals`);
   }
-  assert.deepEqual(seatingClashes("line-z", ["magic-eighteen", "opposite-nines"]), [], "lines have no seating rule");
+  assert.deepEqual(seatingClashes("line-q", [{ family: "magic-eighteen" }, { family: "opposite-nines" }]), [], "the grids' rule is not the lines'");
   // Families in no seating cluster (Grids · arithmetic): no forbidden or aligned pair but one family twice; both sit at two seats.
   assert.deepEqual(gridClashes(["divisibility", "leading-digits"]), []);
   assert.deepEqual(gridAlignedPairs(["divisibility", "leading-digits", "magic-eighteen"]), []);
@@ -166,4 +166,18 @@ test("grids: a deal seats no forbidden pair, and the fewest aligned pairs the po
     const families = freshDeal(arithmeticPool, 2, `arith-${s}`, arithmetic.variant).map(r => r.family);
     assert.deepEqual([...families].sort(), ["divisibility", "leading-digits"], `arith-${s}`);
   }
+});
+
+test("lines: a fresh deal never seats Prime Landing beside Whole Crossing on the same landings (lib/v2-linear seating.ts)", async () => {
+  const { seatingClashes } = await import("../../convex/v2/deal.ts");
+  const { lineClashes } = await import("@workspace/v2-linear");
+  const pool = dealablePool(beginner);
+  let both = 0;
+  for (let s = 0; s < 300; s++) {
+    const deal = freshDeal(pool, 5, `lines-seat-${s}`, beginner.variant);
+    assert.deepEqual(lineClashes(deal), [], `seed ${s}`);
+    assert.deepEqual(seatingClashes(beginner.variant, deal), []);
+    if (deal.some(r => r.family === "prime-landing") && deal.some(r => r.family === "whole-crossing")) both++;
+  }
+  assert.ok(both > 0, "the two families are still seated together, on landings that pull apart");
 });

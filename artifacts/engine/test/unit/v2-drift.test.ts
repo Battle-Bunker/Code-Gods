@@ -52,3 +52,19 @@ test("a redraw keeps the family and tie-breaker, may keep or change the paramete
   assert.ok(seen.has(r.ruleKey), "a redraw may keep the current value");
   assert.equal(redrawParams(r.variant, "no-such-family", null, {}, "seed", 0, 1), null, "no grid: no drift");
 });
+
+test("a redraw never seats a pair the line seating rule forbids (Prime Landing beside Whole Crossing on the same landings)", async () => {
+  const { lineClashes } = await import("@workspace/v2-linear");
+  const wc = { family: "whole-crossing", params: { q: 5, r: 1 } };   // forbidden beside Prime Landing ending 1 (side 1) and 9 (side −1)
+  let changed = 0;
+  for (let tick = 1; tick <= 60; tick++) {
+    const drawn = redrawParams("line-q", "prime-landing", "shared-factor", { ends: 9 }, "seed", 1, tick, [wc]);
+    const params = drawn?.params ?? { ends: 9 };
+    assert.deepEqual(lineClashes([wc, { family: "prime-landing", params }]), [], `tick ${tick}: ${JSON.stringify(params)}`);
+    if (drawn) changed++;
+  }
+  assert.ok(changed > 0, "it still redraws among the allowed values");
+  // Without the other seats the forbidden values are drawn too.
+  const free = Array.from({ length: 60 }, (_, t) => redrawParams("line-q", "prime-landing", "shared-factor", { ends: 9 }, "seed", 1, t + 1)?.params);
+  assert.ok(free.some(p => lineClashes([wc, { family: "prime-landing", params: p }]).length > 0));
+});

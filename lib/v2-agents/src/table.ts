@@ -20,6 +20,7 @@ import {
   actCredit, affordable, agentIncome, defaultShare, energyCapacity, firstAgentShare, LINES_BEGINNER_ECONOMY, movePower, newAccount,
   opportunities, pickByEnergy, readCharge, roundShare, settle, settleOwn, spend, summonPriceScale, type Account, type Economy,
 } from "@workspace/v2-economy";
+import { lineClashes } from "@workspace/v2-linear";
 import type { Sandbox } from "@workspace/v2-sandbox";
 import { runAct, type ActRecord, type Program } from "./act.ts";
 import { births } from "./births.ts";
@@ -483,7 +484,10 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
         const off = (i * D) / seats.length, tick = Math.floor((world - off) / D);
         if (tick < 1 || tick <= Math.floor((was - off) / D)) continue;
         const family = type.families.find(f => f.id === s.rule.family)!;
-        const next = driftParams(family, variant, s.rule.params, input.seed, i, tick, p => findValues(variant.id, { ...s.rule, params: p as Record<string, unknown> }) !== null) as Record<string, unknown>;
+        // A value the line seating rule forbids beside the other seats' rules is not drawn (lib/v2-linear seating.ts).
+        const others = seats.filter((_, j) => j !== i).map(o => o.rule), before = lineClashes(others).length;
+        const next = driftParams(family, variant, s.rule.params, input.seed, i, tick, p => findValues(variant.id, { ...s.rule, params: p as Record<string, unknown> }) !== null
+          && lineClashes([...others, { family: s.rule.family, params: p }]).length === before) as Record<string, unknown>;
         if (JSON.stringify(next) === JSON.stringify(s.rule.params)) continue;
         input.onDrift?.({ at: world, seat: i, params: next });
         s.rule = { ...s.rule, params: next };

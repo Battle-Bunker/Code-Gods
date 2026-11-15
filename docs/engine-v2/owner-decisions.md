@@ -447,7 +447,28 @@ back) or TRIAL (a declared experiment, measured and reported).
     bits, not the best and median knots: a climb pays Δφ to reach a rung, so equal bits per unit of cost is equal
     opportunity per unit of energy. Play is the judge: pool-dynamics per dealt value, best to worst mean gain within
     1.5 inside a family. First applied to Prime Landing's ladder (endings 1, 3, 7, 9: every rung's bits are its code
-    cost plus 1.0).
+    cost plus 1.0). Prime Landing has since left it (call 23: its rungs are windows, compared by best and median knot);
+    Smooth Intercept and Prime Staircase use it.
+
+23. **TRIAL** (proposed by the spec lead, declared by the coordinator to the owner, 15 Nov; #781): Prime Landing reads
+    where the line lands on the x-axis, X = −c/m, not the y-intercept. Its main part is the prime ending in k that X
+    rounds to (u = p, bigger is better; off the ladder −(|X − p| − ½)); its tie-breaker is gcd(p − 1, ⌊c⌋) ("take the
+    number just before that prime …"); climb-on is dropped (playtest round 19: 0 in 21 of 24 samples). Dealt: endings
+    1 and 9, each with its mirror (landing on −p; the reflection x → −x keeps the law). Endings 3 and 7 leave the deal:
+    at equal size their rungs are 1.4 and 0.5 bits cheaper.
+    - **Motivation.** Row 2 in play (design-principles.md): on the y-intercept the next rung was a shift of c by 10 or
+      more, which wrecked the bits of every other seated rule reading c, so starters declined it (48% of seats still
+      climbing in the last third, 0–3 rungs crossed in 80 games). An exact landing on the x-axis costs about p/2 bits
+      under C3 (2 rungs crossed in 80 games); a window (within ½) costs about log p, and the next rung is a small tilt
+      that keeps c.
+    - **Effects** (80 games, drift off, 20 per instance): 62.5% of seats still climbing late (was 48%), 12.5% plateaued
+      in the first 120 s (was 21%), 55 rungs crossed; best to worst mean gain 1.37. Values reach about 18 bits at
+      X ≈ 5,000, about a bit per doubling. The mirrors seemed to gain more at 20 games each (298 and 248 against 250
+      and 218); at 40 games each there is no gap: 254 ± 23 (ending 1), 261 ± 24 (its mirror), 274 ± 25 (ending 9),
+      267 ± 30 (its mirror), best to worst 1.08.
+    - **Seating rule** (the coordinator's call, tested: lib/v2-linear seating.ts): Whole Crossing reads the same X, so
+      Prime Landing (ending k, side s) is never seated, nor redrawn by drift, beside Whole Crossing with r ≡ s·k
+      (mod 5), where every rung of the one is exact for the other. With r ≢ s·k they pull the landing apart.
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
