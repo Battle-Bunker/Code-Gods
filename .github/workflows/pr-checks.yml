@@ -1,0 +1,52 @@
+# The fast gate on every pull request into develop, so a red test shows before the merge, not only after it (the
+# deploy workflow runs the same checks on push). Informational: it is not a required check, so a flake never blocks a
+# session; a session reads it before merging. New pushes to the same pull request cancel the run in flight.
+name: PR checks
+
+on:
+  pull_request:
+    branches: [develop]
+    paths-ignore: ['**/*.md', 'docs/**', '.agents/**', '.claude/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        with:
+          path: |
+            lib/*/tsconfig.tsbuildinfo
+            lib/*/dist
+            artifacts/*/tsconfig.tsbuildinfo
+          key: tsbuild2-${{ github.sha }}
+          restore-keys: tsbuild2-
+      - run: pnpm run typecheck
+
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The library suites, the engine's unit suites, ui-kit and player-web, and the CI scripts' tests.
+      - run: pnpm run test:offline:rest
