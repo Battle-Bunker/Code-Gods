@@ -1,6 +1,6 @@
 /**
  * Divisibility (the rule design check, docs/engine-v2/design-principles.md; grid-params.md §12): the board's halves read
- * as long numbers, climbing toward high powers of a small prime. Undealt until the coordinator replaces the beginner pool.
+ * as long numbers, climbing toward high powers of a small prime. Dealt only by the "Grids · arithmetic" playtest preset (§13).
  *
  * - The main part has no findable top (row 1): each reading is an 8-digit number and every cell sits in two readings
  *   (a row half and a column half), so the levels (each further q dividing a reading) get rarer by about log2 q bits each

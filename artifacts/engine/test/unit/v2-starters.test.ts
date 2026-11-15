@@ -1,5 +1,5 @@
 /**
- * Integration plan §5.2: every starter of every family the beginner preset deals costs at most the preset's starting
+ * Integration plan §5.2: every starter of every family the beginner presets (and the arithmetic playtest, on the beginner grid's economy) deal costs at most the preset's starting
  * energy to summon (its bits at the preset's power scale, power ÷ 64), in both languages, so a player can always summon
  * one in planning.
  */
@@ -11,7 +11,7 @@ import { dealablePool } from "../../convex/v2/deal.ts";
 import { presetOf } from "../../convex/v2/presets.ts";
 
 test("every starter of every dealable family is affordable at the start", () => {
-  for (const id of ["lines-beginner", "grids-beginner"]) {
+  for (const id of ["lines-beginner", "grids-beginner", "grids-arithmetic"]) {
     const preset = presetOf(id);
     const families = [...new Set(dealablePool(preset).map(r => r.family))];
     assert.ok(families.length > 0);
