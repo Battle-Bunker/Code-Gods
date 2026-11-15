@@ -19,7 +19,7 @@ import {
 } from "./validators";
 import { pageOpts } from "./pages";
 import { attributed, disclosed, disclosesNoise, noiseAt } from "./disclose";
-import { KNOWLEDGE_SORT, knownOf, readsKnowledge } from "./knowledge";
+import { KNOWLEDGE_SORT, knownOf, listsKnowledge, readsKnowledge } from "./knowledge";
 
 /** ≤ 20 agents per player (R3). */
 export const MAX_AGENTS = 20;
@@ -61,9 +61,15 @@ const SORT_INDEX = {
   points: "by_game_member_points", rarity: "by_game_member_rarity", want: "by_game_member_want",
   born: "by_game_member_born", recent: "by_game_member_changed",
 } as const;
-/** While live, the sorts on the others' sum and on points read the disclosed values (the exact order would leak). */
-const LIVE_SORT_INDEX = { ...SORT_INDEX, points: "by_game_member_shownPoints", want: "by_game_member_shownWant" } as const;
-export const sortIndexOf = (game: Parameters<typeof disclosesNoise>[0], sort: keyof typeof SORT_INDEX) => (disclosesNoise(game) ? LIVE_SORT_INDEX : SORT_INDEX)[sort];
+/** The sorts on the others' sum and on points read the disclosed values (the exact order would leak while live). */
+const SHOWN_SORT_INDEX = { ...SORT_INDEX, points: "by_game_member_shownPoints", want: "by_game_member_shownWant" } as const;
+/**
+ * The index a sort reads, fixed for the game's lifetime: a paginated list re-runs its loaded pages with their cursors
+ * when the game ends, and a cursor is only valid on the index it came from. At the end the disclosed fields become the
+ * exact ones (loop.ts exactValues), so the same index gives the exact order. Games stored before the noise have no key
+ * and no disclosed fields: they read the exact ones.
+ */
+export const sortIndexOf = (game: { noiseKey?: string }, sort: keyof typeof SORT_INDEX) => (game.noiseKey ? SHOWN_SORT_INDEX : SORT_INDEX)[sort];
 
 /** The objects skeleton: a page of object ids in the caller's order; each row subscribes to `object`. */
 export const objectIds = query({
@@ -71,8 +77,8 @@ export const objectIds = query({
   returns: objectIdsV,
   handler: async (ctx, { gameId, sort, paginationOpts }) => {
     const { game, member } = await requireSeat(ctx, gameId);
-    // Paid observation: the same sorts, over what the player was told (knowledge.ts).
-    const page = readsKnowledge(game, member._id)
+    // Paid observation: the same sorts, over what the player was told (knowledge.ts), for the game's lifetime.
+    const page = listsKnowledge(game, member._id)
       ? await ctx.db.query("v2Knowledge").withIndex(KNOWLEDGE_SORT[sort], q => q.eq("gameId", game._id).eq("memberId", member._id)).order("desc").paginate(pageOpts(paginationOpts))
       : await ctx.db.query("v2ObjectValues").withIndex(sortIndexOf(game, sort), q => q.eq("gameId", game._id).eq("memberId", member._id))
         .order("desc").paginate(pageOpts(paginationOpts));
