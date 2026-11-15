@@ -154,19 +154,33 @@ export function practiceFits(variant: string, deal: readonly DealtRule[], h: num
   return !partners.some((p, i) => partners.some((q, j) => i !== j && verdictOf(variant, p, q) === "compatible"
     && verdictOf(variant, human, p) === "conflict" && verdictOf(variant, human, q) === "conflict"));
 }
+/** Whether rank `a` comes before `b`, comparing in order. */
+const before = (a: readonly number[], b: readonly number[]): boolean => {
+  const k = a.findIndex((x, i) => x !== b[i]);
+  return k >= 0 && a[k]! < b[k]!;
+};
 /**
- * A practice game's deal: the first of the seed's fresh deals that fits (`practiceFits`), or the first fresh deal when
- * none of PRACTICE_TRIES does. Reproducible from the seed.
+ * A practice game's deal (playtest round 21: redrawing whole tables until they fit skewed the human's family, so
+ * Smooth Intercept took 21.5% of practice games and Prime Staircase 0.6%). The human's family is drawn uniformly over
+ * the pool's families, first; then, PRACTICE_TRIES times at most, one of its entries and the partners from the other
+ * families, keeping the best table by: no pair the seating rule forbids, then fitting (`practiceFits`), then the
+ * seating rule's cost (aligned pairs). So the entry leans to those that can share a goal; the family never does.
+ * Reproducible from the seed.
  */
 export function practiceDeal(pool: readonly DealtRule[], kinds: readonly SeatKind[], seed: string, variant: string): DealtRule[] {
   const r = dealRng(seed), h = kinds.indexOf("human");
-  let first: DealtRule[] | undefined;
+  const family = dealFrom(pool, 1, r)[0]!.family;
+  const mine = pool.filter(x => x.family === family), others = pool.filter(x => x.family !== family);
+  const rest = others.length ? others : pool;
+  let best: DealtRule[] | undefined, bestRank: number[] | undefined;
   for (let i = 0; i < PRACTICE_TRIES; i++) {
-    const deal = dealFrom(pool, kinds.length, r, rules => seatingCost(variant, rules));
-    first ??= deal;
-    if (practiceFits(variant, deal, h)) return deal;
+    const human = mine[r.below(mine.length)]!, partners = dealFrom(rest, kinds.length - 1, r);
+    const deal = [...partners.slice(0, h), human, ...partners.slice(h)];
+    const rank = [seatingClashes(variant, deal).length, practiceFits(variant, deal, h) ? 0 : 1, seatingCost(variant, deal)];
+    if (!bestRank || before(rank, bestRank)) { best = deal; bestRank = rank; }
+    if (rank.every(x => x === 0)) break;
   }
-  return first!;
+  return best!;
 }
 
 // ---------------------------------------------------------------- the dealing trial, step 2 (logging only)

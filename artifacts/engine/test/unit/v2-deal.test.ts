@@ -7,7 +7,7 @@
 import { measuredToBits, valueRecord } from "../../convex/v2/values.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dealablePool, freshDeal, isPracticeGame, practiceDeal, rotatedDeal, ruleView, type DealtRule, type PastDeal, type SeatKind } from "../../convex/v2/deal.ts";
+import { dealablePool, freshDeal, isPracticeGame, practiceDeal, rotatedDeal, ruleView, seatingClashes, type DealtRule, type PastDeal, type SeatKind } from "../../convex/v2/deal.ts";
 import { pairVerdict } from "@workspace/v2-agents/pure";
 import { presetOf } from "../../convex/v2/presets.ts";
 
@@ -114,7 +114,10 @@ for (const id of ["lines-beginner", "grids-beginner"]) test(`a practice deal in 
       assert.deepEqual(deal, practiceDeal(pool, kinds, seed, preset.variant), "reproducible from its seed");
       assert.equal(deal.length, kinds.length);
       const partners = deal.filter((_, i) => i !== h);
-      assert.ok(partners.some(p => verdict(deal[h]!, p) === "compatible"), `${id} ${kinds} ${seed}: the human shares a goal with a partner`);
+      // The human's family and entry are drawn first (playtest round 21), so the human shares a goal with a partner
+      // whenever some partner allowed beside them by the seating rule does.
+      const possible = pool.some(b => b.family !== deal[h]!.family && verdict(deal[h]!, b) === "compatible" && seatingClashes(preset.variant, [deal[h]!, b]).length === 0);
+      if (possible) assert.ok(partners.some(p => verdict(deal[h]!, p) === "compatible"), `${id} ${kinds} ${seed}: the human shares a goal with a partner`);
       for (const p of partners) for (const q of partners) if (p !== q)
         assert.ok(!(verdict(p, q) === "compatible" && verdict(deal[h]!, p) === "conflict" && verdict(deal[h]!, q) === "conflict"), `${id} ${seed}: no two partners agree against the human`);
       if (JSON.stringify(deal) !== JSON.stringify(freshDeal(pool, kinds.length, seed))) fresh++;
