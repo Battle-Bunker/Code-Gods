@@ -5,7 +5,7 @@ import {
   type ArgCode, type Invalid, type Mutator, type Q, type Rng, type Variant,
 } from "@workspace/v2-core";
 import { isqrt as isqrtBig } from "./numbers.ts";
-import { decodeLine, describeLine, encodeLine, fromMC, inDomain, intercept, isVertical, lineParams, normalise, slope, yAt, type Domain, type Line, type LineState } from "./line.ts";
+import { decodeLine, describeLine, encodeLine, fromMC, inDomain, LINE_Q_CODES, intercept, isVertical, lineParams, normalise, slope, yAt, type Domain, type Line, type LineState } from "./line.ts";
 
 export type Args = Readonly<Record<string, Q | string>>;
 
@@ -383,7 +383,7 @@ const turnWords = (t: Q | string, aboutPin: boolean): string =>
     : `${Qn.sign(t) > 0 ? "anticlockwise" : "clockwise"} by the angle of a ${unsigned(t)} gradient`;
 
 export const turn: M = {
-  id: "rot.turn", reps: ["cart", "norm"], title: "turn the line about a point", perSite: true,
+  id: "rot.turn", reps: ["cart", "norm"], title: "turn the line around a pin, like a clock hand", perSite: true,
   describe: a => `turn the line ${turnWords(a.turn!, a.centre !== "origin")} about ${a.centre === "origin" ? "the origin" : pinWords(Qa(a, "centre"))}`,
   args: v => fields(baseBits(v, true, "rot.turn"), { centre: centre(argD(v)), turn: turnField }),
   apply: (state, site, a, v) => {
@@ -416,7 +416,7 @@ export const turn: M = {
 
 const PAIRS = ["m-c", "b-c"] as const;
 export const swap: M = {
-  id: "coef.swap", reps: ["si", "gen"], title: "swap two numbers of the equation", perSite: true,
+  id: "coef.swap", reps: ["si", "gen"], title: "swap two numbers of the equation (it costs at least what the dearer of the two costs to write)", perSite: true,
   describe: a => (S(a, "pair") === "m-c" ? "swap the gradient and the y-intercept (y = mx + c becomes y = cx + m)" : "swap b and c in ax + by + c = 0"),
   args: v => fields(baseBits(v, true, "coef.swap"), { pair: oneOf(PAIRS) }),
   apply: (state, site, a, v) => {
@@ -425,6 +425,14 @@ export const swap: M = {
     return replace(state, site, S(a, "pair") === "m-c" ? normalise(C, B, A) : normalise(A, C, B), v);
   },
   inverse: { kind: "self" },
+  // Swapping two numbers keeps every digit, so Δφ is about 0 and a swap was nearly free: in play two swaps in three gained
+  // more than their fee (coordinator's call 23, 15 Nov). Its fee is at least φ of the dearer number it swaps, each read
+  // with line-q's code for a and c (the mixed code, LINE_Q_CODES.c), from both lines (the same pair, so the same floor
+  // for the swap back).
+  floor: (before, after, site, a) => Math.max(...[before, after].flatMap(s => {
+    const l = s.lines[site]!;
+    return (S(a, "pair") === "m-c" ? [l.a, l.c] : [l.b, l.c]).map(n => LINE_Q_CODES.c.bits(n));
+  })),
 };
 
 export const lean: M = {
@@ -441,8 +449,8 @@ export const lean: M = {
 };
 
 export const zoom: M = {
-  id: "basis.zoom", reps: ["tri", "norm"], title: "zoom in or out from the origin", perSite: true,
-  describe: a => `zoom by ${w(Qa(a, "f"))} from the origin (both crossings × ${w(Qa(a, "f"))}, same gradient)`,
+  id: "basis.zoom", reps: ["tri", "norm"], title: "zoom the line away from the origin or towards it, keeping its steepness", perSite: true,
+  describe: a => `zoom by ${w(Qa(a, "f"))} from the origin: where the line crosses each axis moves × ${w(Qa(a, "f"))}, and it keeps its steepness`,
   args: v => fields(baseBits(v, true, "basis.zoom"), {}, factor),
   apply: (state, site, a, v) => {
     const l = state.lines[site]!;

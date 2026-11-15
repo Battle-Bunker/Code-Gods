@@ -54,6 +54,7 @@ def agent(offer):
         tries.append((move("cart.pivot", x0=-1, k=k), m + k, c + k))   # turn the line about its point at x = -1 (m and c both change by k)
         f = k + 1 if k > 0 else k - 1
         tries.append((move("mach.stretch", f=f), m * f, c * f))   # multiply every output by f (m and c both)
+        if c != 0: tries.append((move("basis.zoom", f=f), m, c * f))   # zoom from the origin by f: the y-intercept times f, the same gradient
     # The next rung up (the ladder has no top): one jump away from 0 through the valley between, priced by its size.
     up = -1 if c < 0 else 1
     below = near(abs(c), lambda n: n >= 2 and all(f in p["primes"] for f in factors(n)))
