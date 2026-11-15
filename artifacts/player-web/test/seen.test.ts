@@ -45,3 +45,15 @@ test("keeping lines fresh is a Watcher with a small share (W2 #674: about 15 s f
   assert.equal(watcherTypeOf("grid-4-d10"), "grids");
   assert.equal(KEEP_FRESH_SHARE, 0.2);
 });
+
+test("decision 36: agents tell you what they touch, so a view a few seconds old is calm; it says how long ago in seconds", async () => {
+  const { freshness, seenShort, CALM_SECONDS } = await import("../src/panes/seen.ts");
+  assert.equal(CALM_SECONDS, 10);
+  // Changed once since, but seen 4 s ago: calm (green), and said as "seen 4 s ago".
+  assert.equal(freshness({ knownAt: 96, changesSince: 1 }, 100), "fresh");
+  assert.equal(seenShort({ knownAt: 96, changesSince: 1 }, 100), "seen 4 s ago");
+  // Seen 30 s ago and changed since: amber, with the count.
+  assert.equal(freshness({ knownAt: 70, changesSince: 2 }, 100), "stale");
+  assert.equal(seenShort({ knownAt: 70, changesSince: 2 }, 100), "seen 30 s ago · changed 2×");
+  assert.equal(seenShort({ knownAt: 0, changesSince: 0 }, 130), "seen 2 min ago · up to date");
+});

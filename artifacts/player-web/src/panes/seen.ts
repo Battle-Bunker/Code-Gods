@@ -20,17 +20,34 @@ export function seenWords(o: Seen): string | null {
   return `As you saw it at ${clock(o.knownAt!)} · ${n ? `changed ${times(n)} since` : "up to date"}`;
 }
 
-/** The row's short form: "seen 0:40 · changed 3×", "seen 0:40", or null in a free game. */
-export function seenShort(o: Seen): string | null {
+/** How long ago, in words a child reads: "4 s ago", "2 min ago". */
+export const agoText = (seconds: number): string => (seconds < 90 ? `${Math.max(0, Math.round(seconds))} s ago` : `${Math.round(seconds / 60)} min ago`);
+
+/**
+ * The row's short form: "seen 4 s ago", "seen 30 s ago · changed 2×", or null in a free game. With no world time to
+ * measure from, the world clock: "seen 0:40 · changed 3×". A calm view (seen within CALM_SECONDS) says no count.
+ */
+export function seenShort(o: Seen, worldNow?: number | null): string | null {
   if (!isPaid(o)) return null;
   const n = o.changesSince ?? 0;
-  return `${o.knownAt === null ? "not seen yet" : `seen ${clock(o.knownAt!)}`}${n ? ` · changed ${n}×` : o.knownAt === null ? "" : " · up to date"}`;
+  if (o.knownAt === null) return "not seen yet";
+  if (worldNow == null) return `seen ${clock(o.knownAt!)}${n ? ` · changed ${n}×` : " · up to date"}`;
+  const age = worldNow - o.knownAt!;
+  return `seen ${agoText(age)}${age <= CALM_SECONDS ? "" : n ? ` · changed ${n}×` : " · up to date"}`;
 }
 
-/** The mark beside it: "fresh" when nothing changed since you last saw it, "stale" otherwise; null in a free game. */
-export function freshness(o: Seen): "fresh" | "stale" | null {
+/**
+ * How old a view may be and still read as calm (decision 36: a player's agents tell them every object they touch, so a
+ * beginner's view is usually seconds old; the mark only turns amber when it is older than this and changed since).
+ */
+export const CALM_SECONDS = 10;
+
+/** The mark beside it: "fresh" when nothing changed since you last saw it or you saw it moments ago, "stale" otherwise; null in a free game. */
+export function freshness(o: Seen, worldNow?: number | null): "fresh" | "stale" | null {
   if (!isPaid(o)) return null;
-  return o.knownAt !== null && (o.changesSince ?? 0) === 0 ? "fresh" : "stale";
+  if (o.knownAt === null) return "stale";
+  if ((o.changesSince ?? 0) === 0) return "fresh";
+  return worldNow != null && worldNow - o.knownAt! <= CALM_SECONDS ? "fresh" : "stale";
 }
 
 /** "Look now (1.10 energy)", or null when there is no price (no look possible: planning, the end, a spectator). */

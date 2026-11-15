@@ -7,9 +7,9 @@
  * and "Why?" from the rule's main part. Clicking a row opens it in One line (`view.openObject`). The order is the human's
  * view state (`view.sortObjects`), so an assistant can sort it for them. A spectator sees every line by number, as text.
  */
-import { isPaid, KEEP_FRESH_SHARE, lookAllPrice, seenShort, seenWords, watcherTypeOf } from "./seen";
+import { isPaid, KEEP_FRESH_SHARE, lookAllPrice, seenShort, watcherTypeOf } from "./seen";
 import { watcherFor } from "@workspace/v2-agents/pure";
-import { FreshMark } from "./fresh-mark";
+import { SeenNote } from "./fresh-mark";
 import { bitsText, num, othersNote, pointsText, scoreFormula, blurredNote } from "@/core/words";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { stableOrder } from "./stable-order";
@@ -115,7 +115,7 @@ function LineRow({ objectId, number, rule, value, rep, scale, focused, contested
         {contested && <span className="border border-destructive/60 px-1 text-[10px] font-medium uppercase text-destructive" data-testid={`badge-contested-line-${number}`}
           title={`Your agent and another player's keep moving this ${word.one} back and forth: both of you burn energy. Talk to them.`}>tug-of-war</span>}
         {v && <span data-testid={`text-points-line-${number}`}>{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
-        {isPaid(o) && <span className="inline-flex items-center gap-1 text-muted-foreground" data-testid={`text-seen-line-${number}`} title={seenWords(o) ?? undefined}><FreshMark o={o} testId={`mark-fresh-line-${number}`} />{seenShort(o)}</span>}
+        {isPaid(o) && <SeenNote o={o} number={number} />}
       </p>
       {v && <PointsRectangle number={number} rarity={v.rarityBits} want={v.want} scale={widen(scale, v.rarityBits, v.want)} approx={blurred} />}
       {v && (
@@ -138,16 +138,20 @@ function LookAll({ ids, many, variant }: { ids: readonly string[]; many: string;
   if (!rows.some(r => isPaid(r))) return null;
   const watching = agents?.some(a => a.name === "Watcher") ?? false;
   const watcher = watcherFor(watcherTypeOf(variant), "typescript");
+  // Decision 36: your agents tell you every one they touch, so a beginner keeps up without looking; looking and a
+  // Watcher are extras for a player who wants their view sooner, never a step of the first game.
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 text-xs text-muted-foreground" data-testid="look-all">
-      <span>You see the {many} as you last saw them.</span>
-      {price !== null && <AffordanceButton id="object.look" args={{}} label={`Look at all ${ids.length} ${many} (${price.toFixed(2)} energy)`} busyLabel="Looking…" tone="secondary" className="px-2 py-1 text-xs" testId="button-look-all" />}
-      {watching
-        ? <span data-testid="text-watching">Your Watcher keeps them fresh.</span>
-        : <AffordanceButton id="agent.summon" args={{ language: "typescript", source: watcher.source, name: "Watcher", share: KEEP_FRESH_SHARE }}
-            label={`Keep my ${many} fresh`} busyLabel="Summoning…" tone="secondary" className="px-2 py-1 text-xs" testId="button-keep-fresh"
-            confirmText={`Summon a Watcher: an agent that only looks, for ${Math.round(KEEP_FRESH_SHARE * 100)}% of your power. It looks at your ${many} one by one, so you see them as they are now without paying for each look yourself.`} />}
-    </div>
+    <details className="px-3 text-xs text-muted-foreground" data-testid="look-all">
+      <summary className="cursor-pointer" data-testid="details-look-more">Your agents tell you about every {many.replace(/s$/, "")} they touch. Want to see them sooner?</summary>
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+        {price !== null && <AffordanceButton id="object.look" args={{}} label={`Look at all ${ids.length} ${many} (${price.toFixed(2)} energy)`} busyLabel="Looking…" tone="secondary" className="px-2 py-1 text-xs" testId="button-look-all" />}
+        {watching
+          ? <span data-testid="text-watching">Your Watcher keeps them fresh.</span>
+          : <AffordanceButton id="agent.summon" args={{ language: "typescript", source: watcher.source, name: "Watcher", share: KEEP_FRESH_SHARE }}
+              label={`Keep my ${many} fresh`} busyLabel="Summoning…" tone="secondary" className="px-2 py-1 text-xs" testId="button-keep-fresh"
+              confirmText={`Summon a Watcher: an agent that only looks, for ${Math.round(KEEP_FRESH_SHARE * 100)}% of your power. It looks at your ${many} one by one, so you see them sooner, without paying for each look yourself.`} />}
+      </div>
+    </details>
   );
 }
 
