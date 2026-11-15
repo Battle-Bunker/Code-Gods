@@ -107,6 +107,11 @@ export const v2Tables = {
       /** v1's paid observation (knowledge.ts): "paid" shows a seated player each object as last told; absent: free. */
       observation: v.optional(v.union(v.literal("free"), v.literal("paid"))),
     }),
+    /**
+     * The dealing trial's measurement (the coordinator's call 12, step 1): the seated rules' unopposed shared directions
+     * (lib/v2-agents unopposedDirections), computed at the deal. Never shown to players; for the collapse analysis.
+     */
+    unopposed: v.optional(v.array(v.any())),
     /** Paused by idle parking (activity.ts): resumed by the next human activity, not by the owner. */
     parked: v.optional(v.boolean()),
     /** PRIVATE: the world second the game ends at (drawn at the start in halfLife mode); absent: settings.worldSeconds. */
