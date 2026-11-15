@@ -866,8 +866,13 @@ Traced with `TRACE=1 scripts/pair-climb.ts`:
 
   Lower tails past the knots lower the high peaks no search reached, so the best known is a moderate state more
   searches find. At β 0.05 the new cheap table is table 0 (Far Crossing far-gap, Gap Ratio gap-prime, Steep Ratio
-  ratio-gap): best F 350 at −7x + y + 14 = 0 with 3x + 9y + 1 = 0, found by 9 of 12 searches. Reported to the
-  coordinator as a bug under "an optimum found is a bug".
+  ratio-gap): best F 350 at −7x + y + 14 = 0 with 3x + 9y + 1 = 0, found by 9 of 12 searches.
+- **Open: test 2 fails on pair-q at every β.** This is a bug under "an optimum found is a bug". The bar is not
+  relaxed.
+  - Merged on the coordinator's call: (i) is a correctness fix, `lines-pairs` is non-default, and a pass that came
+    from overpaid tails hiding the findable states was not a pass.
+  - The causes to take first are the rung geometry (§12.3: a single move breaks an exact rung) and row 3 for six
+    families (§12.4). Table 0 is a symptom of them.
 
 ### 12.4 The check table (design-principles.md), rows 2 and 3
 
