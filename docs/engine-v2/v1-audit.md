@@ -66,7 +66,7 @@ delegation"; a call number below means the one whose subject is named.
 | §2.1 Rival inference is a legitimate read | **STILL MISSING** (no counterpart of v1's fit_utility_mixture) | v1 archive lib/game-utilities/src/inference.ts |
 | §2.1 Bids sealed | kept (owner 18) | bids.ts |
 | §2.2 Every object unique | restored (#615); owner 24 | tick.ts:124-126; loop.ts |
-| §2.2 Every object an independent universe | kept (no v2 independence test yet) | lib/v2-core contracts |
+| §2.2 Every object an independent universe | kept, tested (test/v2-independence.test.ts) | lib/v2-core contracts |
 | §2.2 Births: Poisson | call 4; owner 31 (beginner) | world.ts; tick.ts |
 | §2.2 Integer and string objects | owner 15 | — |
 | §2.2 Grid object boards | partly (call 13: grids-more-rules, grids-arithmetic on the 4×4 digit board); colour, glyph, playing-card and larger boards **STILL MISSING** | presets.ts:144-154; lib/v2-grid has grid-4-d10, grid-2-d3 |
