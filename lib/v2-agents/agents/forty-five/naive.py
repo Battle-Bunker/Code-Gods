@@ -1,5 +1,5 @@
 # Forty-Five · Naive (for learning)
-# Main part: 45° at whole x and y, |x| + |y| on your pattern. Tie-breaker: whichever you were dealt (that |x| + |y| has many prime factors; that |x| + |y| shares a factor with the y-intercepts' gap).
+# Main part: 45° at whole x and y, |x| + |y| on your pattern. Tie-breaker: whichever you were dealt (that |x| + |y| shares a factor with the number you divide by; the y-intercepts' gap near a multiple of that |x| + |y|).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -10,14 +10,15 @@ def score(L, p, tie):
     # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
+    mod1 = lambda n: abs(int(n)) or 1   # |n|, at least 1
     if f.D == 0:   # parallel lines never cross: no score
         return None
     main, S = ladder(abs(f.x) + abs(f.y), p["q"], p["r"], f.off45 + dist(f.x))   # 45 degrees at a grid point, |x| + |y| on your ladder
     # main: the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better)
-    if tie == "corner-smooth":   # a corner whose |x| + |y| has many prime factors is better
-        return [main, omega(S)]
-    if tie == "corner-gap":   # a corner whose |x| + |y| shares a big factor with the y-intercepts' gap is better
-        return [main, None if f.ygap is None else common(S, whole(f.ygap))]
+    if tie == "corner-divisor":   # a corner whose |x| + |y| shares a big factor with the number you divide by is better
+        return [main, common(S, f.D)]
+    if tie == "corner-gap":   # a y-intercepts' gap near a multiple of the corner's |x| + |y| (not 0) is better
+        return [main, None if f.ygap is None else -off_multiple(f.ygap, mod1(S))]
     return [main]
 
 

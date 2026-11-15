@@ -1,5 +1,5 @@
 /**
- * The system's fifteen mutators (docs/engine-v2/two-line-systems.md §2): line-q's nine on either line, and six that
+ * The system's sixteen mutators (docs/engine-v2/two-line-systems.md §2): line-q's nine on either line, and seven that
  * use the two lines together. Every call names the line it moves ("line": 1 or 2, a choice of one bit, the place a line
  * object's "where" would take), and amounts are priced against the rest of the call exactly as on a line (v2-linear's
  * argument codes: a size σ costs rate(o)·σ in all, so a far move costs exactly its path of unit moves). Representation
@@ -11,7 +11,7 @@ import { isInvalid, Qn, q, whichBits, type ArgCode, type ArgHelp, type Invalid, 
 import { fromMC, inDomain, lineArgCodes, lineParams, mutators as lineMutators, normalise, type Args, type Line } from "@workspace/v2-linear";
 import { canonicalPair, facts, pairLineBits, type PairState } from "./pair.ts";
 
-const { fields, amount, displacement, oneOf } = lineArgCodes;
+const { fields, amount, displacement, factor, oneOf } = lineArgCodes;
 const LINES = ["1", "2"] as const;
 /** The line argument said for a person (round 23). */
 const LINE_HELP: ArgHelp = { label: "Which line", hint: "the one that changes; the other stays", example: "1", choices: { "1": "line 1", "2": "line 2" } };
@@ -186,6 +186,33 @@ export const translate: M = {
 };
 
 /**
+ * Zoom the whole picture about the origin by a factor (trial 32: the shortcut that joins a rung to the next). Every
+ * point (x, y) goes to (f·x, f·y): angles and gradients stay, intercepts, gaps and the crossing are multiplied by f.
+ * With a slide of the plane by the dealt remainder it takes a residue ladder's number N to f·N + r, and q·N + r is on
+ * the next level whenever N is on this one (its base-q digits gain one r). A representation shortcut (owner decision
+ * 25): the factor is priced by its digits, and the fee grows with the size of the lines rewritten (zoomFloor).
+ */
+export const zoom: M = {
+  id: "sys.zoom", reps: ["pair"], title: "zoom both lines about (0, 0)", perSite: false,
+  argHelp: () => ({ f: { label: "Zoom by", hint: "2 doubles every distance from (0, 0), 1/2 halves it", example: "2" } }),
+  describe: a => `zoom both lines by ${w(Qa(a, "f"))} about (0, 0)`,
+  args: v => fields(base(v, "sys.zoom"), {}, factor),
+  apply: (s, _site, a, v) => {
+    const f = Qa(a, "f"), lines: Line[] = [];
+    for (const l of s.lines) {
+      // a(x / f) + b(y / f) + c = 0, that is a·x + b·y + f·c = 0.
+      const C = Qn.mul(q(l.c), f), n = normalise(l.a * C.d, l.b * C.d, C.n);
+      if ("invalid" in n) return n;
+      const d = inDomain(n, lineParams(v));
+      if ("invalid" in d) return d;
+      lines.push(d);
+    }
+    return canonicalPair(lines, v);
+  },
+  inverse: { kind: "mutator", id: "sys.zoom", args: a => ({ f: Qn.inv(Qa(a, "f")) }) },
+};
+
+/**
  * Shortcut fees grow with the size of the line rewritten (the coordinator's trial 29, adopted for pairs, 15 Nov): a
  * stretch, a reflection or a quarter turn pays at least its usual fee × 2^((Φ − PAIR_SHORTCUT_PHI)/3.5), Φ the larger
  * code length of the moved line before or after (so prices stay symmetric, an exact potential), held at 2^60.
@@ -207,7 +234,17 @@ function shortcutFloor(m: M): M {
     },
   };
 }
+/** The zoom rewrites both lines: its floor reads the larger of their code lengths, before or after. */
+function zoomFloor(m: M): M {
+  return {
+    ...m,
+    floor: (before, after, _site, a, v) => {
+      const phi = Math.max(...before.lines.map(pairLineBits), ...after.lines.map(pairLineBits));
+      return (whichBits(v, m.id) + m.args(v).bits(a)) * (Number.isFinite(phi) ? pairShortcutFactor(phi) : 1);
+    },
+  };
+}
 const SHORTCUTS = new Set(["mach.stretch"]);
 export const lineMoves: readonly M[] = lineMutators.map(m => perLine(m as unknown as M)).map(m => (SHORTCUTS.has(m.id) ? shortcutFloor(m) : m));
-export const pairMoves: readonly M[] = [combine, turn, shortcutFloor(reflect), shortcutFloor(quarter), slideAlong, translate];
+export const pairMoves: readonly M[] = [combine, turn, shortcutFloor(reflect), shortcutFloor(quarter), slideAlong, translate, zoomFloor(zoom)];
 export const pairMutators: readonly M[] = [...lineMoves, ...pairMoves];

@@ -1,5 +1,5 @@
-# Steep Ratio · Example: that number shares a factor with the y-intercepts' gap
-# Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: that number shares a factor with the y-intercepts' gap.
+# Steep Ratio · Example: the y-intercepts' gap near a multiple of that number
+# Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: the y-intercepts' gap near a multiple of that number.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
@@ -9,10 +9,11 @@
 def score(L, p):
     # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
+    mod1 = lambda n: abs(int(n)) or 1   # |n|, at least 1
     if f.ratio is None:   # no ratio of gradients: no score
         return None
     main, k = valuation_ladder(f.ratio, p["q"], p["r"], 0, 2)   # the whole number of times (at least 2 either way) on your ladder
-    return [main, None if f.ygap is None else common(k, whole(f.ygap))]   # main: the level of the whole number of times as steep on your ladder (higher is better); tie-breaker: that number sharing a big factor with the y-intercepts' gap is better
+    return [main, None if f.ygap is None else -off_multiple(f.ygap, mod1(k))]   # main: the level of the whole number of times as steep on your ladder (higher is better); tie-breaker: a y-intercepts' gap near a multiple of that number (not 0) is better
 
 
 FAR = 3      # how far one move may go

@@ -1,5 +1,5 @@
-// Forty-Five · Example: that |x| + |y| shares a factor with the y-intercepts' gap
-// Main part: 45° at whole x and y, |x| + |y| on your pattern. Tie-breaker: that |x| + |y| shares a factor with the y-intercepts' gap.
+// Forty-Five · Example: the y-intercepts' gap near a multiple of that |x| + |y|
+// Main part: 45° at whole x and y, |x| + |y| on your pattern. Tie-breaker: the y-intercepts' gap near a multiple of that |x| + |y|.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
@@ -9,9 +9,10 @@
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
+  const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1
   if (Q.isZero(f.D)) return null;   // parallel lines never cross: no score
   const { score: main, n: S } = ladder(Q.add(Q.abs(f.x), Q.abs(f.y)), p.q, p.r, Q.add(f.off45, dist(f.x)));   // 45 degrees at a grid point, |x| + |y| on your ladder
-  return [main, f.ygap === null ? null : common(S, whole(f.ygap))];   // main: the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better); tie-breaker: a corner whose |x| + |y| shares a big factor with the y-intercepts' gap is better
+  return [main, f.ygap === null ? null : Q.neg(offMultiple(f.ygap, mod1(S)))];   // main: the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better); tie-breaker: a y-intercepts' gap near a multiple of the corner's |x| + |y| (not 0) is better
 }
 
 const FAR = 4;      // how far one move may go

@@ -1,26 +1,25 @@
-# Right Angle · Example: the corner's |x| + |y| has a big smallest prime factor
-# Main part: a right angle at whole x and y, y on your pattern. Tie-breaker: the corner's |x| + |y| has a big smallest prime factor.
+# Gap Ratio · Example: the y-intercepts' gap near a multiple of your next power
+# Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Tie-breaker: the y-intercepts' gap near a multiple of your next power.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
-# Try this: add "quarter" to KINDS: a quarter turn keeps the right angle.
+# Try this: add "stretch" to KINDS: it scales a line's gap.
 
 
 def score(L, p):
     # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
-    floor = lambda v: v // 1   # rounded down
-    if f.off_right is None or f.x is None:   # parallel lines never cross: no score
+    if f.ygap is None or f.xgap is None or f.origin:   # no gaps, or a line through (0, 0): no score
         return None
-    main, Yc = ladder(f.y, p["q"], p["r"], f.off_right + dist(f.x))   # a right angle at a grid point, y on your ladder
-    t = abs(f.X) + abs(Yc)   # the corner's |x| + |y|
-    return [main, spf(t)]   # main: the corner's level: a right angle at a grid point, y on your ladder (higher is better); tie-breaker: a corner whose |x| + |y| has a big smallest prime factor is better
+    main = power_ladder(p["k"], lambda t: dist(f.ygap) + abs(f.ygap - t * f.xgap))
+    lv = level_of(main, p["k"]); N = p["k"] ** (lv * (lv + 1) // 2 + 1)   # your power reached, times k
+    return [main, -off_multiple(f.ygap, N)]   # main: the gaps' level: the y-intercepts' gap whole and k, k³, k⁶, … times the x-intercepts' gap (higher is better); tie-breaker: a y-intercepts' gap near a multiple of k times your power reached (not 0) is better
 
 
-FAR = 4      # how far one move may go
+FAR = 3      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-KINDS = ["turn","slide","translate"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
+KINDS = ["shift","tilt","stretch"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 LEAVE = []      # pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 PROTECT = []    # pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
@@ -36,7 +35,8 @@ def agent(offer):
     L = pair_of(offer)          # the two lines, a*x + b*y + c = 0 each
     rule = goal(offer)          # your rule (free)
     p = rule.params
-    tries = pair_steps(L, FAR, KINDS)   # (plan, lines after): moves tried in the agent's own head
+    # Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.
+    tries = pair_steps(L, FAR, KINDS, [f for f in (p.get("q"), p.get("k")) if f])   # (plan, lines after): moves tried in the agent's own head
     options = [(plan, score(L2, p)) for plan, L2 in tries]   # each move and the score it reaches
     # A promise: on these pairs, only moves that leave the other players at least as well off.
     if offer.object in PROTECT:

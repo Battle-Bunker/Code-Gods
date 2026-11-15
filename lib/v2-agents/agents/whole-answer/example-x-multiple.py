@@ -1,19 +1,20 @@
-# Whole Answer · Example: the answer far down and to the left
-# Main part: the answer's y on your pattern. Tie-breaker: the answer far down and to the left.
+# Whole Answer · Example: the answer's x near a multiple of its y
+# Main part: the answer's y on your pattern. Tie-breaker: the answer's x near a multiple of its y.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
-# Try this: change FAR = 3 to 5: the answer slides further in one step.
+# Try this: add "slide" to KINDS: it moves x along the other line.
 
 
 def score(L, p):
     # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
+    mod1 = lambda n: abs(int(n)) or 1   # |n|, at least 1
     if f.x is None:   # parallel lines never cross: no score
         return None
-    main, Yv = valuation_ladder(f.y, p["q"], p["r"], dist(f.x))   # y on your ladder, x a whole number
-    return [main, -(f.X + Yv)]   # main: the answer's level: whole numbers, y on your ladder (higher is better); tie-breaker: an answer far down and to the left is better
+    main, Yv = valuation_ladder(f.y, p["q"], p["r"], dist(f.x))   # y on your ladder, x near a whole number
+    return [main, -off_multiple(f.x, mod1(Yv))]   # main: the answer's level: whole numbers, y on your ladder (higher is better); tie-breaker: an answer whose x is near a multiple of its y (not 0) is better
 
 
 FAR = 3      # how far one move may go

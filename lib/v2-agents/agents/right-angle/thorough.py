@@ -1,5 +1,5 @@
 # Right Angle · Thorough
-# Main part: a right angle at whole x and y, y on your pattern. Tie-breaker: whichever you were dealt (the corner's |x| + |y| has a big smallest prime factor; the corner's |x| + |y| shares a factor with the steeper gradient).
+# Main part: a right angle at whole x and y, y on your pattern. Tie-breaker: whichever you were dealt (the corner's x near a multiple of its y; the corner's y shares a factor with the steeper gradient).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -15,12 +15,12 @@ def score(L, p, tie):
     if f.off_right is None or f.x is None:   # parallel lines never cross: no score
         return None
     main, Yc = ladder(f.y, p["q"], p["r"], f.off_right + dist(f.x))   # a right angle at a grid point, y on your ladder
-    t = abs(f.X) + abs(Yc)   # the corner's |x| + |y|
+    mod1 = lambda n: abs(int(n)) or 1   # |n|, at least 1
     # main: the corner's level: a right angle at a grid point, y on your ladder (higher is better)
-    if tie == "corner-prime":   # a corner whose |x| + |y| has a big smallest prime factor is better
-        return [main, spf(t)]
-    if tie == "corner-steep":   # a corner whose |x| + |y| shares a big factor with the steeper gradient is better
-        return [main, 0 if f.ms is None else common(t, abs(f.ms) // 1)]
+    if tie == "corner-multiple":   # a corner whose x is near a multiple of its y (not 0) is better
+        return [main, -off_multiple(f.x, mod1(Yc))]
+    if tie == "corner-steep":   # a corner whose y shares a big factor with the steeper gradient is better
+        return [main, 0 if f.ms is None else common(Yc, abs(f.ms) // 1)]
     return [main]
 
 

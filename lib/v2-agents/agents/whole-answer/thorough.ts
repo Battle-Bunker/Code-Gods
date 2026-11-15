@@ -1,5 +1,5 @@
 // Whole Answer · Thorough
-// Main part: the answer's y on your pattern. Tie-breaker: whichever you were dealt (the answer's |x| + |y| and the number you divide by share a factor; the answer far down and to the left).
+// Main part: the answer's y on your pattern. Tie-breaker: whichever you were dealt (the answer's y shares a factor with the number you divide by; the answer's x near a multiple of its y).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -10,11 +10,12 @@
 function score(L, p, tie) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
+  const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1
   if (f.x === null) return null;   // parallel lines never cross: no score
-  const { score: main, n: Yv } = valuationLadder(f.y, p.q, p.r, dist(f.x));   // y on your ladder, x a whole number
+  const { score: main, n: Yv } = valuationLadder(f.y, p.q, p.r, dist(f.x));   // y on your ladder, x near a whole number
   // main: the answer's level: whole numbers, y on your ladder (higher is better)
-  if (tie === "peg-divisor") return [main, common(Q.add(Q.abs(f.X), Q.abs(Yv)), f.D)];   // |X| + |Y| sharing a big factor with the number you divide by is better
-  if (tie === "south-west") return [main, Q.neg(Q.add(f.X, Yv))];   // an answer far down and to the left is better
+  if (tie === "y-divisor") return [main, common(Yv, f.D)];   // y's number on your ladder sharing a big factor with the number you divide by is better
+  if (tie === "x-multiple") return [main, Q.neg(offMultiple(f.x, mod1(Yv)))];   // an answer whose x is near a multiple of its y (not 0) is better
   return [main];
 }
 

@@ -295,9 +295,14 @@ def _anchor(v, q, r, at_least):
     return (lo, v - lo) if v - lo <= hi - v else (hi, hi - v)
 
 
+def _window(level):
+    # A rung is a window (trial 32): level L is held within 1/(L + 2) of it, as the engine's rungWindow.
+    return Fraction(1, level + 2)
+
+
 def _climb(base, off):
     level, d = 0, off(1)
-    while level < 4096 and d == 0:
+    while level < 4096 and d <= _window(level + 1):
         level += 1
         d = off(level + 1)
     return base ** level * (1 + Fraction(1) / (1 + d))
@@ -339,8 +344,12 @@ def ladder(x, q, r, other=0, at_least=0):
 def valuation_ladder(x, q, r, other=0, at_least=0):
     v, o = Fraction(x), Fraction(other)
     level = -1
-    if o == 0 and v.denominator == 1 and v != 0 and abs(v) >= at_least:
-        m, t = v.numerator, 0
+    # The rounded number (the lower on a tie), held while within its level's window.
+    n0 = v.numerator // v.denominator
+    nr = n0 if v - n0 <= Fraction(1, 2) else n0 + 1
+    dist = o + abs(v - nr)
+    if nr != 0 and abs(nr) >= at_least:
+        m, t = nr, 0
         while m % q == 0:
             m //= q
             t += 1
@@ -348,9 +357,11 @@ def valuation_ladder(x, q, r, other=0, at_least=0):
             level = 0
             while (level + 1) * (level + 2) // 2 <= t:
                 level += 1
+        while level >= 0 and dist > _window(level):
+            level -= 1
     T = (level + 1) * (level + 2) // 2
     d = o + _anchor(v, q ** (T + 1), r * q ** T, at_least)[1]
-    n = v.numerator if level >= 0 else _anchor(v, q, r, at_least)[0]
+    n = nr if level >= 0 else _anchor(v, q, r, at_least)[0]
     return Fraction(q) ** level * (1 + Fraction(1) / (1 + d)), n
 
 
@@ -361,7 +372,7 @@ def power_ladder(k, off):
     level, best, prev = 0, None, None
     for j in range(1, 4097):
         o = Fraction(off(rung(j)))
-        if o == 0:
+        if o <= _window(j):
             level = j
         if best is None or o < best:
             best = o

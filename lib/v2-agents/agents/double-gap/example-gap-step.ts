@@ -1,22 +1,23 @@
-// Divide By · Example: the answer's numerators share a big factor
-// Main part: the number you divide by on your powers. Tie-breaker: the answer's numerators share a big factor.
+// Gap Ratio · Example: the y-intercepts' gap near a multiple of your next power
+// Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Tie-breaker: the y-intercepts' gap near a multiple of your next power.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
-// Try this: add "stretch" to KINDS and compare.
+// Try this: add "stretch" to KINDS: it scales a line's gap.
 
 // How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
-  if (f.x === null) return null;   // parallel lines never cross: no score
-  const main = powerLadder(p.k, t => Q.abs(Q.sub(Q.abs(f.D), t)));   // the number you divide by on k, k³, k⁶, …
-  const nx = Q.mul(f.x, f.D), ny = Q.mul(f.y, f.D);   // the answer's numerators
-  return [main, common(nx, ny)];   // main: the level of the number you divide by on k, k³, k⁶, … (higher is better); tie-breaker: numerators sharing a big factor are better
+  const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
+  if (f.ygap === null || f.xgap === null || f.origin) return null;   // no gaps, or a line through (0, 0): no score
+  const main = powerLadder(p.k, t => Q.add(dist(f.ygap), Q.abs(Q.sub(f.ygap, Q.mul(t, f.xgap)))));
+  const lv = levelOf(main, p.k), N = BigInt(p.k) ** BigInt((lv * (lv + 1)) / 2 + 1);   // your power reached, times k
+  return [main, Q.neg(offMultiple(f.ygap, N))];   // main: the gaps' level: the y-intercepts' gap whole and k, k³, k⁶, … times the x-intercepts' gap (higher is better); tie-breaker: a y-intercepts' gap near a multiple of k times your power reached (not 0) is better
 }
 
 const FAR = 3;      // how far one move may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["combine","turn","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
+const KINDS = ["shift","tilt","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 

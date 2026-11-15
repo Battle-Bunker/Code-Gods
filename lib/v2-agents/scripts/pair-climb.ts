@@ -25,7 +25,7 @@ const CALLS = ["1", "2"].flatMap(line => [
   { mutator: "pair.reflect", args: { line } }, { mutator: "pair.quarter", args: { line } },
   ...AMOUNTS.flatMap(k => [{ mutator: "si.shift", args: { line, k } }, { mutator: "si.tilt", args: { line, k } }, { mutator: "pair.turn", args: { line, k } }]),
   ...["1", "-1", "2", "-2", "5", "-5"].flatMap(k => [{ mutator: "pair.slide", args: { line, k } }, { mutator: "pair.combine", args: { line, k } }]),
-]).concat(["1", "-1", "5", "-5"].flatMap(u => [{ mutator: "sys.translate", args: { u, v: "0" } }, { mutator: "sys.translate", args: { u: "0", v: u } }]));
+]).concat(["2", "3", "5", "7", "11", "1/2", "1/3", "1/5", "1/7"].map(f => ({ mutator: "sys.zoom", args: { f } }))).concat(["1", "-1", "5", "-5"].flatMap(u => [{ mutator: "sys.translate", args: { u, v: "0" } }, { mutator: "sys.translate", args: { u: "0", v: u } }]));
 const step = (s: PairState, c: { mutator: string; args: Record<string, string> }) => {
   const a = applyCall(pairType, pairQ, s, { mutator: c.mutator, site: 0, args: c.args });
   return isInvalid(a) ? null : { s: a.result, fee: a.price.total, call: `${c.mutator} ${Object.values(c.args).join(",")}` };

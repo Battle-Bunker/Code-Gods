@@ -25,14 +25,15 @@ test("every family scores every kind of system (parallel, vertical, horizontal) 
   }
 });
 
-test("Whole Answer on 2x + 3y = 12, x − y = 1: the answer (3, 2), y on the valuation ladder; |X| + |Y| = 5 shares 5 with D", () => {
+test("Whole Answer on 2x + 3y = 12, x − y = 1: the answer (3, 2), y on the valuation ladder; its tie-breakers read y's number", () => {
   // q 5, r 2: y = 2 = 5⁰ × 2 is level 0; level 1 wants 10 when divided by 25 (5 × a number leaving 2), nearest 10, 8 away.
   // The score is 5⁰ × (1 + 1/(1 + 8)) = 10/9.
   const p = { q: 5, r: 2 };
-  assert.deepEqual(score("whole-answer", "peg-divisor", school, p), ["10/9", "5"]);
-  assert.deepEqual(score("whole-answer", "south-west", school, p), ["10/9", "-5"]);
-  // q 3, r 1: 2 leaves 2, off the ladder; level 0's nearest is 1, one away: (1/3) × (1 + 1/2); |3| + |1| = 4 shares 1 with D.
-  assert.deepEqual(score("whole-answer", "peg-divisor", school, { q: 3, r: 1 }), ["1/2", "1"]);
+  // Trial 33: y's number N = 2 and D = −5 share 1; x = 3 is 1 from 2 or 4, the nearest multiples of 2 other than 0.
+  assert.deepEqual(score("whole-answer", "y-divisor", school, p), ["10/9", "1"]);
+  assert.deepEqual(score("whole-answer", "x-multiple", school, p), ["10/9", "-1"]);
+  // q 3, r 1: 2 leaves 2, off the ladder; level 0's nearest is 1, one away: (1/3) × (1 + 1/2); N = 1 shares 1 with D.
+  assert.deepEqual(score("whole-answer", "y-divisor", school, { q: 3, r: 1 }), ["1/2", "1"]);
 });
 
 test("the valuation ladder: level L needs L(L + 1)/2 stretches by q, each level dearer; 0 is on none; off the ladder is below all", () => {
@@ -56,9 +57,14 @@ test("the residue ladder has no top: each level is q times rarer, every met leve
   // 18 leaves 3 when divided by 5 and 18 when divided by 25 (level 2); level 3 wants 93 when divided by 125, nearest −32, 50 away.
   assert.deepEqual(at(18, { q: 5, r: 3 }), [2, "1300/51", 18n]);
   assert.deepEqual(at(93, { q: 5, r: 3 }), [3, Qn.toWire(Qn.mul(Qn.q(125), Qn.add(Qn.q(1), Qn.inv(Qn.q(1 + Math.min(Math.abs(93 - 468), Math.abs(93 + 157))))))), 93n]);
-  // A level met beats the nearest miss of the level above: 3 (level 1) against 17.9 (level 0... of 25's 18).
-  const met = residueLadder(Qn.q(3), { q: 5, r: 3 }).u, near = residueLadder(Qn.q(179, 10), { q: 5, r: 3 }).u;
+  // A level met beats the nearest miss of the level above: 3 (level 1) against 17.6 (0.4 from 18, outside level 1's
+  // window of ⅓ and level 2's of ¼: level 0).
+  const met = residueLadder(Qn.q(3), { q: 5, r: 3 }).u, near = residueLadder(Qn.q(176, 10), { q: 5, r: 3 }).u;
   assert.ok(Qn.cmp(met, near) > 0, `${Qn.toWire(met)} > ${Qn.toWire(near)}`);
+  // A rung is a window (trial 32): within 1/(L + 2) of the level's number holds it, so small moves keep the level.
+  assert.equal(residueLadder(Qn.q(179, 10), { q: 5, r: 3 }).level, 2);    // 0.1 from 18, inside ¼
+  assert.equal(residueLadder(Qn.q(177, 10), { q: 5, r: 3 }).level, 1);    // 0.3 from 18: inside ⅓, not ¼
+  assert.equal(residueLadder(Qn.q(176, 10), { q: 5, r: 3 }).level, 0);
   // No dealt remainder is 0 or q − 1, the two that one number (0 or −1) meets at every level.
   for (const p of LADDERS) assert.ok(p.r! >= 1 && p.r! <= p.q! - 2, JSON.stringify(p));
   assert.ok(residueLadder(Qn.q(-1), { q: 5, r: 3 }).level < 2);
@@ -85,9 +91,10 @@ test("Divide By and Gap Ratio climb the powers of the dealt k; their cards say s
   assert.equal(at(25).level, 0, "25 is no rung");
   assert.deepEqual([at(124).level, Qn.toWire(at(124).u)], [0, "3/2"]);
   assert.ok(Qn.cmp(at(125).u, at(5).u) > 0 && Qn.cmp(at(5).u, at(124).u) > 0);
-  // Its tie-breakers read the numerators x·D and y·D (15 and 10 up to sign): 25 has two prime factors; they share 5.
-  assert.deepEqual(score("no-fractions", "numerator-smooth", school, { k: 5 }), ["610/121", "2"]);   // 25 = 5 × 5
-  assert.deepEqual(score("no-fractions", "numerator-shared", school, { k: 5 }), ["610/121", "5"]);
+  // Its tie-breakers read the numerators x·D = −15 and y·D = −10 against the level's number, k^T(1) × k = 25 (trial 33):
+  // −15 is 10 from −25, the nearest multiple other than 0; −10 shares 5 with 25.
+  assert.deepEqual(score("no-fractions", "numerator-step", school, { k: 5 }), ["610/121", "-10"]);
+  assert.deepEqual(score("no-fractions", "numerator-power", school, { k: 5 }), ["610/121", "5"]);
   assert.match(familyOf("no-fractions").card({ k: 3 }, null), /should be 3 or −3; better, 27; then 729/);
   assert.match(familyOf("double-gap").card({ k: 4 }, null), /4 times the x-intercepts' gap; better 64 times; then 4,096 times/);
   assert.match(familyOf("far-crossing").card({ q: 7, r: 2 }, "far-gap"), /leaving 2 when divided by 7; better if \(that number − 2\) ÷ 7 does too, and so on\..*Tie-breaker/);
@@ -102,16 +109,17 @@ test("parallel lines have no answer: the crossing families score worst", () => {
 
 test("the axes are the centre: a right angle at (0, 0), but 0 is on no dealt ladder, and the trivial corner earns nothing", () => {
   const axes = sys(L(0, 1, 0), L(1, 0, 0));
-  // y = 0 is 1 from 1 (leaves 1 when divided by 5): level 0, 1 + 1/2; the corner pegs to (0, 1), spf(1) = 1.
-  assert.deepEqual(score("right-angle", "corner-prime", axes, { q: 5, r: 1 }), ["3/2", "1"]);
-  // 0 is on no ladder: y = 0 pegs to 1 (q 3, r 1), one away: (1/3) × (1 + 1/2); |0| + |1| shares 1 with D.
-  assert.deepEqual(score("whole-answer", "peg-divisor", axes, { q: 3, r: 1 }), ["1/2", "1"]);
+  // y = 0 is 1 from 1 (leaves 1 when divided by 5): level 0, 1 + 1/2; x = 0 is 1 from ±1, the multiples of N = 1 other than 0.
+  assert.deepEqual(score("right-angle", "corner-multiple", axes, { q: 5, r: 1 }), ["3/2", "-1"]);
+  // 0 is on no ladder: y = 0 pegs to 1 (q 3, r 1), one away: (1/3) × (1 + 1/2); N = 1 shares 1 with D.
+  assert.deepEqual(score("whole-answer", "y-divisor", axes, { q: 3, r: 1 }), ["1/2", "1"]);
 });
 
 test("Steep Ratio reads the whole number of times on its ladder, at least 2 either way", () => {
   const s = sys(Y(6, 0), Y(2, 5));     // 3 times as steep
-  assert.deepEqual(score("steep-ratio", "ratio-prime", s, { q: 5, r: 3 }), ["14/13", "3"]);   // 3 = 5⁰ × 3: level 0; level 1 (15 of 25) 12 away
-  assert.deepEqual(score("steep-ratio", "ratio-prime", s, { q: 3, r: 1 }), ["78/25", "3"]);   // 3 = 3¹ × 1: level 1; level 2 (27 of 81) 24 away
+  // 3 shares 1 with D = −4 (trial 33: the tie-breaker reads the ratio's own number).
+  assert.deepEqual(score("steep-ratio", "ratio-divisor", s, { q: 5, r: 3 }), ["14/13", "1"]);   // 3 = 5⁰ × 3: level 0; level 1 (15 of 25) 12 away
+  assert.deepEqual(score("steep-ratio", "ratio-divisor", s, { q: 3, r: 1 }), ["78/25", "1"]);   // 3 = 3¹ × 1: level 1; level 2 (27 of 81) 24 away
 });
 
 test("Far Crossing's and High Start's tie-breakers aim at a multiple of q^(L+1), L the level the main part reached (row 3)", () => {
@@ -147,7 +155,7 @@ test("Far Crossing's and High Start's tie-breakers aim at a multiple of q^(L+1),
 test("a zoom of the picture (positions × n) cannot raise a capped hill past the number it is capped by", () => {
   // y = 2x + 3 and y = −x + 6 cross at (1, 4); zoom × 96 (a smooth number): c × 96.
   const base = sys(Y(2, 3), Y(-1, 6)), zoomed = sys(Y(2, 288), Y(-1, 576));
-  for (const [id, tb] of [["whole-answer", "peg-divisor"], ["double-gap", "gap-divisor"], ["high-start", "start-echo"]] as const) {
+  for (const [id, tb] of [["whole-answer", "y-divisor"], ["double-gap", "gap-divisor"], ["high-start", "start-echo"]] as const) {
     const before = score(id, tb, base), after = score(id, tb, zoomed);
     if (!before || !after) continue;
     // D is unchanged by a zoom, so a common factor with D stays at most |D| = 3.
@@ -206,4 +214,12 @@ test("pair cards: the main sentence at most 30 words, a tie-breaker at most 20, 
       assert.doesNotMatch(x, /level|the closer, the better/i, `${f.id}/${t.id}`);
     }
   }
+});
+
+test("row 3 (trial 33): every dealt tie-breaker reads the number its main part reached, so stepping up restarts it", () => {
+  // Right Angle {5, 1}: corners at y = 1 (level 1) and y = 6 (level 2: 6 leaves 1 by 5 and 6 by 25), x = 6 both. x = 6 is
+  // a multiple of 1 (on target, 0) at level 1, but 0 away from 6 at level 2 too; x = 3 is on target at level 1, 3 from 6.
+  const at = (y: number, x: number) => sys(L(1, 0, -x), L(0, 1, -y));   // x = X, y = Y: a right angle at (X, Y)
+  assert.equal(score("right-angle", "corner-multiple", at(1, 3), { q: 5, r: 1 })![1], "0");
+  assert.equal(score("right-angle", "corner-multiple", at(6, 3), { q: 5, r: 1 })![1], "-3");
 });

@@ -1,5 +1,5 @@
 # Steep Ratio · Thorough
-# Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: whichever you were dealt (that number shares a factor with the y-intercepts' gap; that number has a big smallest prime factor).
+# Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: whichever you were dealt (the y-intercepts' gap near a multiple of that number; that number shares a factor with the number you divide by).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -10,14 +10,15 @@
 def score(L, p, tie):
     # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
+    mod1 = lambda n: abs(int(n)) or 1   # |n|, at least 1
     if f.ratio is None:   # no ratio of gradients: no score
         return None
     main, k = valuation_ladder(f.ratio, p["q"], p["r"], 0, 2)   # the whole number of times (at least 2 either way) on your ladder
     # main: the level of the whole number of times as steep on your ladder (higher is better)
-    if tie == "ratio-gap":   # that number sharing a big factor with the y-intercepts' gap is better
-        return [main, None if f.ygap is None else common(k, whole(f.ygap))]
-    if tie == "ratio-prime":   # that number with a big smallest prime factor is better
-        return [main, spf(k)]
+    if tie == "ratio-gap":   # a y-intercepts' gap near a multiple of that number (not 0) is better
+        return [main, None if f.ygap is None else -off_multiple(f.ygap, mod1(k))]
+    if tie == "ratio-divisor":   # that number sharing a big factor with the number you divide by is better
+        return [main, common(k, f.D)]
     return [main]
 
 

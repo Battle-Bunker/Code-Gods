@@ -1,5 +1,5 @@
-# Right Angle · Example: the corner's |x| + |y| shares a factor with the steeper gradient
-# Main part: a right angle at whole x and y, y on your pattern. Tie-breaker: the corner's |x| + |y| shares a factor with the steeper gradient.
+# Right Angle · Example: the corner's y shares a factor with the steeper gradient
+# Main part: a right angle at whole x and y, y on your pattern. Tie-breaker: the corner's y shares a factor with the steeper gradient.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
@@ -14,8 +14,8 @@ def score(L, p):
     if f.off_right is None or f.x is None:   # parallel lines never cross: no score
         return None
     main, Yc = ladder(f.y, p["q"], p["r"], f.off_right + dist(f.x))   # a right angle at a grid point, y on your ladder
-    t = abs(f.X) + abs(Yc)   # the corner's |x| + |y|
-    return [main, 0 if f.ms is None else common(t, abs(f.ms) // 1)]   # main: the corner's level: a right angle at a grid point, y on your ladder (higher is better); tie-breaker: a corner whose |x| + |y| shares a big factor with the steeper gradient is better
+    mod1 = lambda n: abs(int(n)) or 1   # |n|, at least 1
+    return [main, 0 if f.ms is None else common(Yc, abs(f.ms) // 1)]   # main: the corner's level: a right angle at a grid point, y on your ladder (higher is better); tie-breaker: a corner whose y shares a big factor with the steeper gradient is better
 
 
 FAR = 4      # how far one move may go

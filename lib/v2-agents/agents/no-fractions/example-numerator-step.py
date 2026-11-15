@@ -1,23 +1,25 @@
-# Steep Ratio · Example: that number has a big smallest prime factor
-# Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: that number has a big smallest prime factor.
+# Divide By · Example: x times the number you divide by near a multiple of your next power
+# Main part: the number you divide by on your powers. Tie-breaker: x times the number you divide by near a multiple of your next power.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
-# Try this: change FAR = 3 to 5 so the ratio can jump to a bigger prime.
+# Try this: add "slide" to KINDS: it moves the answer, and so the numerators.
 
 
 def score(L, p):
     # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
-    if f.ratio is None:   # no ratio of gradients: no score
+    if f.x is None:   # parallel lines never cross: no score
         return None
-    main, k = valuation_ladder(f.ratio, p["q"], p["r"], 0, 2)   # the whole number of times (at least 2 either way) on your ladder
-    return [main, spf(k)]   # main: the level of the whole number of times as steep on your ladder (higher is better); tie-breaker: that number with a big smallest prime factor is better
+    main = power_ladder(p["k"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^3, k^6, ...
+    nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators
+    lv = level_of(main, p["k"]); N = p["k"] ** (lv * (lv + 1) // 2 + 1)   # your power reached, times k
+    return [main, -off_multiple(nx, N)]   # main: the level of the number you divide by on k, k³, k⁶, … (higher is better); tie-breaker: x times the number you divide by near a multiple of k times your power reached (not 0) is better
 
 
 FAR = 3      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-KINDS = ["tilt","stretch"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
+KINDS = ["combine","turn","stretch"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 LEAVE = []      # pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 PROTECT = []    # pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 

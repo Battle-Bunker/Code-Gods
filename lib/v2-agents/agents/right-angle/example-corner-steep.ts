@@ -1,5 +1,5 @@
-// Right Angle · Example: the corner's |x| + |y| shares a factor with the steeper gradient
-// Main part: a right angle at whole x and y, y on your pattern. Tie-breaker: the corner's |x| + |y| shares a factor with the steeper gradient.
+// Right Angle · Example: the corner's y shares a factor with the steeper gradient
+// Main part: a right angle at whole x and y, y on your pattern. Tie-breaker: the corner's y shares a factor with the steeper gradient.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
@@ -12,8 +12,8 @@ function score(L, p) {
   const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down
   if (f.offRight === null || f.x === null) return null;   // parallel lines never cross: no score
   const { score: main, n: Yc } = ladder(f.y, p.q, p.r, Q.add(f.offRight, dist(f.x)));   // a right angle at a grid point, y on your ladder
-  const t = Q.add(Q.abs(f.X), Q.abs(Yc));   // the corner's |x| + |y|
-  return [main, f.ms === null ? 0 : common(t, floor(Q.abs(f.ms)))];   // main: the corner's level: a right angle at a grid point, y on your ladder (higher is better); tie-breaker: a corner whose |x| + |y| shares a big factor with the steeper gradient is better
+  const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1
+  return [main, f.ms === null ? 0 : common(Yc, floor(Q.abs(f.ms)))];   // main: the corner's level: a right angle at a grid point, y on your ladder (higher is better); tie-breaker: a corner whose y shares a big factor with the steeper gradient is better
 }
 
 const FAR = 4;      // how far one move may go

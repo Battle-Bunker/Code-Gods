@@ -1,5 +1,5 @@
 // Forty-Five · Naive (for learning)
-// Main part: 45° at whole x and y, |x| + |y| on your pattern. Tie-breaker: whichever you were dealt (that |x| + |y| has many prime factors; that |x| + |y| shares a factor with the y-intercepts' gap).
+// Main part: 45° at whole x and y, |x| + |y| on your pattern. Tie-breaker: whichever you were dealt (that |x| + |y| shares a factor with the number you divide by; the y-intercepts' gap near a multiple of that |x| + |y|).
 // What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 // pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 // player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -9,11 +9,12 @@
 function score(L, p, tie) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
+  const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1
   if (Q.isZero(f.D)) return null;   // parallel lines never cross: no score
   const { score: main, n: S } = ladder(Q.add(Q.abs(f.x), Q.abs(f.y)), p.q, p.r, Q.add(f.off45, dist(f.x)));   // 45 degrees at a grid point, |x| + |y| on your ladder
   // main: the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better)
-  if (tie === "corner-smooth") return [main, omega(S)];   // a corner whose |x| + |y| has many prime factors is better
-  if (tie === "corner-gap") return [main, f.ygap === null ? null : common(S, whole(f.ygap))];   // a corner whose |x| + |y| shares a big factor with the y-intercepts' gap is better
+  if (tie === "corner-divisor") return [main, common(S, f.D)];   // a corner whose |x| + |y| shares a big factor with the number you divide by is better
+  if (tie === "corner-gap") return [main, f.ygap === null ? null : Q.neg(offMultiple(f.ygap, mod1(S)))];   // a y-intercepts' gap near a multiple of the corner's |x| + |y| (not 0) is better
   return [main];
 }
 

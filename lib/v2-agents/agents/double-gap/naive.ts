@@ -1,5 +1,5 @@
 // Gap Ratio · Naive (for learning)
-// Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Tie-breaker: whichever you were dealt (the gap shares a factor with the number you divide by; the gap has a big smallest prime factor).
+// Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Tie-breaker: whichever you were dealt (the number you divide by shares a factor with your next power; the y-intercepts' gap near a multiple of your next power).
 // What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 // pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 // player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -11,9 +11,10 @@ function score(L, p, tie) {
   const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
   if (f.ygap === null || f.xgap === null || f.origin) return null;   // no gaps, or a line through (0, 0): no score
   const main = powerLadder(p.k, t => Q.add(dist(f.ygap), Q.abs(Q.sub(f.ygap, Q.mul(t, f.xgap)))));
+  const lv = levelOf(main, p.k), N = BigInt(p.k) ** BigInt((lv * (lv + 1)) / 2 + 1);   // your power reached, times k
   // main: the gaps' level: the y-intercepts' gap whole and k, k³, k⁶, … times the x-intercepts' gap (higher is better)
-  if (tie === "gap-divisor") return [main, common(whole(f.ygap), f.D)];   // the gap sharing a big factor with the number you divide by is better
-  if (tie === "gap-prime") return [main, spf(whole(f.ygap))];   // a gap with a big smallest prime factor is better
+  if (tie === "gap-divisor") return [main, common(f.D, N)];   // the number you divide by sharing a big factor with k times your power reached is better
+  if (tie === "gap-step") return [main, Q.neg(offMultiple(f.ygap, N))];   // a y-intercepts' gap near a multiple of k times your power reached (not 0) is better
   return [main];
 }
 

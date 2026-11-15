@@ -1,5 +1,5 @@
 // Divide By · Naive (for learning)
-// Main part: the number you divide by on your powers. Tie-breaker: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor).
+// Main part: the number you divide by on your powers. Tie-breaker: whichever you were dealt (x times the number you divide by near a multiple of your next power; y times the number you divide by shares a factor with your next power).
 // What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 // pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 // player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -11,9 +11,10 @@ function score(L, p, tie) {
   if (f.x === null) return null;   // parallel lines never cross: no score
   const main = powerLadder(p.k, t => Q.abs(Q.sub(Q.abs(f.D), t)));   // the number you divide by on k, k³, k⁶, …
   const nx = Q.mul(f.x, f.D), ny = Q.mul(f.y, f.D);   // the answer's numerators
+  const lv = levelOf(main, p.k), N = BigInt(p.k) ** BigInt((lv * (lv + 1)) / 2 + 1);   // your power reached, times k
   // main: the level of the number you divide by on k, k³, k⁶, … (higher is better)
-  if (tie === "numerator-smooth") return [main, omega(Q.add(Q.abs(nx), Q.abs(ny)))];   // numerators adding up to a number with many prime factors are better
-  if (tie === "numerator-shared") return [main, common(nx, ny)];   // numerators sharing a big factor are better
+  if (tie === "numerator-step") return [main, Q.neg(offMultiple(nx, N))];   // x times the number you divide by near a multiple of k times your power reached (not 0) is better
+  if (tie === "numerator-power") return [main, common(ny, N)];   // y times the number you divide by sharing a big factor with k times your power reached is better
   return [main];
 }
 

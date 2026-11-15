@@ -1,24 +1,24 @@
-# Gap Ratio · Example: the gap has a big smallest prime factor
-# Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Tie-breaker: the gap has a big smallest prime factor.
+# Steep Ratio · Example: that number shares a factor with the number you divide by
+# Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: that number shares a factor with the number you divide by.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
-# Try this: change FAR = 3 to 5 so the gap can jump to a bigger prime.
+# Try this: add "combine" to KINDS: it changes the number you divide by.
 
 
 def score(L, p):
     # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
-    dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
-    if f.ygap is None or f.xgap is None or f.origin:   # no gaps, or a line through (0, 0): no score
+    mod1 = lambda n: abs(int(n)) or 1   # |n|, at least 1
+    if f.ratio is None:   # no ratio of gradients: no score
         return None
-    main = power_ladder(p["k"], lambda t: dist(f.ygap) + abs(f.ygap - t * f.xgap))
-    return [main, spf(whole(f.ygap))]   # main: the gaps' level: the y-intercepts' gap whole and k, k³, k⁶, … times the x-intercepts' gap (higher is better); tie-breaker: a gap with a big smallest prime factor is better
+    main, k = valuation_ladder(f.ratio, p["q"], p["r"], 0, 2)   # the whole number of times (at least 2 either way) on your ladder
+    return [main, common(k, f.D)]   # main: the level of the whole number of times as steep on your ladder (higher is better); tie-breaker: that number sharing a big factor with the number you divide by is better
 
 
 FAR = 3      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-KINDS = ["shift","tilt","stretch"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
+KINDS = ["tilt","stretch"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 LEAVE = []      # pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 PROTECT = []    # pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 

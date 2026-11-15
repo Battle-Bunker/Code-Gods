@@ -40,62 +40,65 @@ export interface PairFamilyEntry {
 const DIST = { ts: "const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it", py: "dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it" };
 const FLOOR = { ts: "const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down", py: "floor = lambda v: v // 1   # rounded down" };
 const PARALLEL = { ts: "if (f.x === null) return null;   // parallel lines never cross: no score", py: ["if f.x is None:   # parallel lines never cross: no score", "    return None"] };
+const MOD1 = { ts: "const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1", py: "mod1 = lambda n: abs(int(n)) or 1   # |n|, at least 1" };
+/** A power ladder's own number at its level: k^T(L) × k (trial 33), the next multiplication's size. */
+const POWER_N = { ts: "const lv = levelOf(main, p.k), N = BigInt(p.k) ** BigInt((lv * (lv + 1)) / 2 + 1);   // your power reached, times k", py: "lv = level_of(main, p[\"k\"]); N = p[\"k\"] ** (lv * (lv + 1) // 2 + 1)   # your power reached, times k" };
 const T = (ts: string, py: string, says: string, tryThis: string): PairTieBreakerEntry => ({ ts, py, says, tryThis });
 
 export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
   {
     family: "whole-answer", stretchBy: true, mainSays: "the answer's level: whole numbers, y on your ladder (higher is better)", simple: ["slide", "turn", "stretch"],
     main: {
-      ts: [DIST.ts, PARALLEL.ts, "const { score: main, n: Yv } = valuationLadder(f.y, p.q, p.r, dist(f.x));   // y on your ladder, x a whole number"],
-      py: [DIST.py, ...PARALLEL.py, "main, Yv = valuation_ladder(f.y, p[\"q\"], p[\"r\"], dist(f.x))   # y on your ladder, x a whole number"],
+      ts: [DIST.ts, MOD1.ts, PARALLEL.ts, "const { score: main, n: Yv } = valuationLadder(f.y, p.q, p.r, dist(f.x));   // y on your ladder, x near a whole number"],
+      py: [DIST.py, MOD1.py, ...PARALLEL.py, "main, Yv = valuation_ladder(f.y, p[\"q\"], p[\"r\"], dist(f.x))   # y on your ladder, x near a whole number"],
     },
     tieBreakers: {
-      "peg-divisor": T("common(Q.add(Q.abs(f.X), Q.abs(Yv)), f.D)", "common(abs(f.X) + abs(Yv), f.D)", "|X| + |Y| sharing a big factor with the number you divide by is better", "add \"combine\" to KINDS: it keeps the answer and the number you divide by."),
-      "south-west": T("Q.neg(Q.add(f.X, Yv))", "-(f.X + Yv)", "an answer far down and to the left is better", "change FAR = 3 to 5: the answer slides further in one step."),
+      "y-divisor": T("common(Yv, f.D)", "common(Yv, f.D)", "y's number on your ladder sharing a big factor with the number you divide by is better", "add \"combine\" to KINDS: it keeps the answer and changes the number you divide by."),
+      "x-multiple": T("Q.neg(offMultiple(f.x, mod1(Yv)))", "-off_multiple(f.x, mod1(Yv))", "an answer whose x is near a multiple of its y (not 0) is better", "add \"slide\" to KINDS: it moves x along the other line."),
     },
   },
   {
     family: "no-fractions", stretchBy: true, mainSays: "the level of the number you divide by on k, k³, k⁶, … (higher is better)", simple: ["combine", "turn", "stretch"],
     main: {
-      ts: [PARALLEL.ts, "const main = powerLadder(p.k, t => Q.abs(Q.sub(Q.abs(f.D), t)));   // the number you divide by on k, k³, k⁶, …", "const nx = Q.mul(f.x, f.D), ny = Q.mul(f.y, f.D);   // the answer's numerators"],
-      py: [...PARALLEL.py, "main = power_ladder(p[\"k\"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^3, k^6, ...", "nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators"],
+      ts: [PARALLEL.ts, "const main = powerLadder(p.k, t => Q.abs(Q.sub(Q.abs(f.D), t)));   // the number you divide by on k, k³, k⁶, …", "const nx = Q.mul(f.x, f.D), ny = Q.mul(f.y, f.D);   // the answer's numerators", POWER_N.ts],
+      py: [...PARALLEL.py, "main = power_ladder(p[\"k\"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^3, k^6, ...", "nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators", POWER_N.py],
     },
     tieBreakers: {
-      "numerator-smooth": T("omega(Q.add(Q.abs(nx), Q.abs(ny)))", "omega(abs(nx) + abs(ny))", "numerators adding up to a number with many prime factors are better", "add \"slide\" to KINDS: it moves the answer, and so the numerators."),
-      "numerator-shared": T("common(nx, ny)", "common(nx, ny)", "numerators sharing a big factor are better", "add \"stretch\" to KINDS and compare."),
+      "numerator-step": T("Q.neg(offMultiple(nx, N))", "-off_multiple(nx, N)", "x times the number you divide by near a multiple of k times your power reached (not 0) is better", "add \"slide\" to KINDS: it moves the answer, and so the numerators."),
+      "numerator-power": T("common(ny, N)", "common(ny, N)", "y times the number you divide by sharing a big factor with k times your power reached is better", "add \"stretch\" to KINDS and compare."),
     },
   },
   {
     family: "right-angle", mainSays: "the corner's level: a right angle at a grid point, y on your ladder (higher is better)", simple: ["turn", "slide", "translate"], far: 4,
     main: {
-      ts: [DIST.ts, FLOOR.ts, "if (f.offRight === null || f.x === null) return null;   // parallel lines never cross: no score", "const { score: main, n: Yc } = ladder(f.y, p.q, p.r, Q.add(f.offRight, dist(f.x)));   // a right angle at a grid point, y on your ladder", "const t = Q.add(Q.abs(f.X), Q.abs(Yc));   // the corner's |x| + |y|"],
-      py: [DIST.py, FLOOR.py, "if f.off_right is None or f.x is None:   # parallel lines never cross: no score", "    return None", "main, Yc = ladder(f.y, p[\"q\"], p[\"r\"], f.off_right + dist(f.x))   # a right angle at a grid point, y on your ladder", "t = abs(f.X) + abs(Yc)   # the corner's |x| + |y|"],
+      ts: [DIST.ts, FLOOR.ts, "if (f.offRight === null || f.x === null) return null;   // parallel lines never cross: no score", "const { score: main, n: Yc } = ladder(f.y, p.q, p.r, Q.add(f.offRight, dist(f.x)));   // a right angle at a grid point, y on your ladder", MOD1.ts],
+      py: [DIST.py, FLOOR.py, "if f.off_right is None or f.x is None:   # parallel lines never cross: no score", "    return None", "main, Yc = ladder(f.y, p[\"q\"], p[\"r\"], f.off_right + dist(f.x))   # a right angle at a grid point, y on your ladder", MOD1.py],
     },
     tieBreakers: {
-      "corner-prime": T("spf(t)", "spf(t)", "a corner whose |x| + |y| has a big smallest prime factor is better", "add \"quarter\" to KINDS: a quarter turn keeps the right angle."),
-      "corner-steep": T("f.ms === null ? 0 : common(t, floor(Q.abs(f.ms)))", "0 if f.ms is None else common(t, abs(f.ms) // 1)", "a corner whose |x| + |y| shares a big factor with the steeper gradient is better", "add \"tilt\" to KINDS: it changes a gradient directly."),
+      "corner-multiple": T("Q.neg(offMultiple(f.x, mod1(Yc)))", "-off_multiple(f.x, mod1(Yc))", "a corner whose x is near a multiple of its y (not 0) is better", "add \"quarter\" to KINDS: a quarter turn keeps the right angle."),
+      "corner-steep": T("f.ms === null ? 0 : common(Yc, floor(Q.abs(f.ms)))", "0 if f.ms is None else common(Yc, abs(f.ms) // 1)", "a corner whose y shares a big factor with the steeper gradient is better", "add \"tilt\" to KINDS: it changes a gradient directly."),
     },
   },
   {
     family: "forty-five", mainSays: "the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better)", simple: ["turn", "slide", "translate"], far: 4,
     main: {
-      ts: [DIST.ts, "if (Q.isZero(f.D)) return null;   // parallel lines never cross: no score", "const { score: main, n: S } = ladder(Q.add(Q.abs(f.x), Q.abs(f.y)), p.q, p.r, Q.add(f.off45, dist(f.x)));   // 45 degrees at a grid point, |x| + |y| on your ladder"],
-      py: [DIST.py, "if f.D == 0:   # parallel lines never cross: no score", "    return None", "main, S = ladder(abs(f.x) + abs(f.y), p[\"q\"], p[\"r\"], f.off45 + dist(f.x))   # 45 degrees at a grid point, |x| + |y| on your ladder"],
+      ts: [DIST.ts, MOD1.ts, "if (Q.isZero(f.D)) return null;   // parallel lines never cross: no score", "const { score: main, n: S } = ladder(Q.add(Q.abs(f.x), Q.abs(f.y)), p.q, p.r, Q.add(f.off45, dist(f.x)));   // 45 degrees at a grid point, |x| + |y| on your ladder"],
+      py: [DIST.py, MOD1.py, "if f.D == 0:   # parallel lines never cross: no score", "    return None", "main, S = ladder(abs(f.x) + abs(f.y), p[\"q\"], p[\"r\"], f.off45 + dist(f.x))   # 45 degrees at a grid point, |x| + |y| on your ladder"],
     },
     tieBreakers: {
-      "corner-smooth": T("omega(S)", "omega(S)", "a corner whose |x| + |y| has many prime factors is better", "add \"stretch\" to KINDS: a stretch moves the corner further out."),
-      "corner-gap": T("f.ygap === null ? null : common(S, whole(f.ygap))", "None if f.ygap is None else common(S, whole(f.ygap))", "a corner whose |x| + |y| shares a big factor with the y-intercepts' gap is better", "add \"shift\" to KINDS: it changes the gap directly."),
+      "corner-divisor": T("common(S, f.D)", "common(S, f.D)", "a corner whose |x| + |y| shares a big factor with the number you divide by is better", "add \"combine\" to KINDS: it keeps the corner and changes the number you divide by."),
+      "corner-gap": T("f.ygap === null ? null : Q.neg(offMultiple(f.ygap, mod1(S)))", "None if f.ygap is None else -off_multiple(f.ygap, mod1(S))", "a y-intercepts' gap near a multiple of the corner's |x| + |y| (not 0) is better", "add \"shift\" to KINDS: it changes the gap directly."),
     },
   },
   {
     family: "double-gap", stretchBy: true, mainSays: "the gaps' level: the y-intercepts' gap whole and k, k³, k⁶, … times the x-intercepts' gap (higher is better)", simple: ["shift", "tilt", "stretch"],
     main: {
-      ts: [DIST.ts, "if (f.ygap === null || f.xgap === null || f.origin) return null;   // no gaps, or a line through (0, 0): no score", "const main = powerLadder(p.k, t => Q.add(dist(f.ygap), Q.abs(Q.sub(f.ygap, Q.mul(t, f.xgap)))));"],
-      py: [DIST.py, "if f.ygap is None or f.xgap is None or f.origin:   # no gaps, or a line through (0, 0): no score", "    return None", "main = power_ladder(p[\"k\"], lambda t: dist(f.ygap) + abs(f.ygap - t * f.xgap))"],
+      ts: [DIST.ts, "if (f.ygap === null || f.xgap === null || f.origin) return null;   // no gaps, or a line through (0, 0): no score", "const main = powerLadder(p.k, t => Q.add(dist(f.ygap), Q.abs(Q.sub(f.ygap, Q.mul(t, f.xgap)))));", POWER_N.ts],
+      py: [DIST.py, "if f.ygap is None or f.xgap is None or f.origin:   # no gaps, or a line through (0, 0): no score", "    return None", "main = power_ladder(p[\"k\"], lambda t: dist(f.ygap) + abs(f.ygap - t * f.xgap))", POWER_N.py],
     },
     tieBreakers: {
-      "gap-divisor": T("common(whole(f.ygap), f.D)", "common(whole(f.ygap), f.D)", "the gap sharing a big factor with the number you divide by is better", "add \"stretch\" to KINDS: it scales a line's gap."),
-      "gap-prime": T("spf(whole(f.ygap))", "spf(whole(f.ygap))", "a gap with a big smallest prime factor is better", "change FAR = 3 to 5 so the gap can jump to a bigger prime."),
+      "gap-divisor": T("common(f.D, N)", "common(f.D, N)", "the number you divide by sharing a big factor with k times your power reached is better", "add \"combine\" to KINDS: it changes the number you divide by."),
+      "gap-step": T("Q.neg(offMultiple(f.ygap, N))", "-off_multiple(f.ygap, N)", "a y-intercepts' gap near a multiple of k times your power reached (not 0) is better", "add \"stretch\" to KINDS: it scales a line's gap."),
     },
   },
   {
@@ -123,12 +126,12 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
   {
     family: "steep-ratio", stretchBy: true, mainSays: "the level of the whole number of times as steep on your ladder (higher is better)", simple: ["tilt", "stretch"],
     main: {
-      ts: ["if (f.ratio === null) return null;   // no ratio of gradients: no score", "const { score: main, n: k } = valuationLadder(f.ratio, p.q, p.r, 0, 2);   // the whole number of times (at least 2 either way) on your ladder"],
-      py: ["if f.ratio is None:   # no ratio of gradients: no score", "    return None", "main, k = valuation_ladder(f.ratio, p[\"q\"], p[\"r\"], 0, 2)   # the whole number of times (at least 2 either way) on your ladder"],
+      ts: [MOD1.ts, "if (f.ratio === null) return null;   // no ratio of gradients: no score", "const { score: main, n: k } = valuationLadder(f.ratio, p.q, p.r, 0, 2);   // the whole number of times (at least 2 either way) on your ladder"],
+      py: [MOD1.py, "if f.ratio is None:   # no ratio of gradients: no score", "    return None", "main, k = valuation_ladder(f.ratio, p[\"q\"], p[\"r\"], 0, 2)   # the whole number of times (at least 2 either way) on your ladder"],
     },
     tieBreakers: {
-      "ratio-gap": T("f.ygap === null ? null : common(k, whole(f.ygap))", "None if f.ygap is None else common(k, whole(f.ygap))", "that number sharing a big factor with the y-intercepts' gap is better", "add \"shift\" to KINDS: it changes the gap directly."),
-      "ratio-prime": T("spf(k)", "spf(k)", "that number with a big smallest prime factor is better", "change FAR = 3 to 5 so the ratio can jump to a bigger prime."),
+      "ratio-gap": T("f.ygap === null ? null : Q.neg(offMultiple(f.ygap, mod1(k)))", "None if f.ygap is None else -off_multiple(f.ygap, mod1(k))", "a y-intercepts' gap near a multiple of that number (not 0) is better", "add \"shift\" to KINDS: it changes the gap directly."),
+      "ratio-divisor": T("common(k, f.D)", "common(k, f.D)", "that number sharing a big factor with the number you divide by is better", "add \"combine\" to KINDS: it changes the number you divide by."),
     },
   },
 ];
