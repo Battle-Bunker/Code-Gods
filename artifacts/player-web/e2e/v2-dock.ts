@@ -162,6 +162,16 @@ try {
     const after = await dockText(page);
     assert.equal(after, dragged, "the arrangement is stored and comes back after a reload");
     console.log(`${label}: dragged and kept across a reload: ${after}`);
+    // Maximise (v1): one pane over the others on this screen only, never stored; Escape brings the others back.
+    await page.getByTestId("button-pane-menu-feed").click();
+    await page.getByTestId("button-maximise-pane-feed").click();
+    await page.locator("[data-testid=dock-desktop][data-maximised=feed]").waitFor({ timeout: 5_000 });
+    assert.ok(await page.getByTestId("pane-feed").isVisible(), `${label}: the maximised pane shows`);
+    assert.ok(!await page.getByTestId("pane-objects").isVisible(), `${label}: the others are behind it`);
+    assert.equal(await dockText(page), after, `${label}: maximising stores nothing`);
+    await page.keyboard.press("Escape");
+    await page.locator("[data-testid=dock-desktop]:not([data-maximised])").waitFor({ timeout: 5_000 });
+    assert.ok(await page.getByTestId("pane-objects").isVisible(), `${label}: Escape restores the others`);
 
     await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
     await page.getByTestId("pane-results").getByText(/You finished/).waitFor({ timeout: 20_000 });
