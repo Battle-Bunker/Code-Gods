@@ -395,7 +395,9 @@ back) or TRIAL (a declared experiment, measured and reported).
     and parked midway; an exact main is 7.6–8.0 bits across the four; its tie-breakers reading minus
     primes and squares on the mirror); Same on Both Rulers deals T = 6 and −6 (the reflection through the origin,
     which leaves every tie-breaker as it was); Prime Gradient deals its ending 1 and minus (y → −y, the y-intercept
-    near minus a prime too), Prime Staircase its ending 3 and a run of minus primes (y → −y). Each mirror's symmetry is a unit test. Ending grids (1, 3, 7, 9) fail
+    near minus a prime too), Prime Staircase its ending 3 and a run of minus primes (y → −y). Whole Crossing deals a residue (owner decision
+    41): the crossing close to a whole number leaving r when divided by 5, r = 1 … 4; r and 5 − r are mirrors (x → −x),
+    r = 1 and 2 measured peers (an exact main 3.85 and 4.23 bits; it was 1.35 for any whole number). Each mirror's symmetry is a unit test. Ending grids (1, 3, 7, 9) fail
     the audit at any floor: the code makes a prime cost about ½ bit per unit, so the first qualifying primes differ by
     up to 4 bits.
 

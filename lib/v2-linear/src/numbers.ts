@@ -141,3 +141,11 @@ export const isPrimeEnding = (n: bigint, k: number): boolean => endsIn(n, k) && 
 
 /** Distance from x to the nearest whole number. */
 export const distanceToWhole = (x: Q): Q => Qn.abs(Qn.sub(x, q(nearestInteger(x))));
+
+/** The whole number leaving r when divided by q nearest x; on a tie the one nearer 0 (so x → −x, r → q − r mirrors it). */
+export function nearestResidue(x: Q, p: { q: number; r: number }): bigint {
+  const qq = BigInt(p.q), r = BigInt(p.r);
+  const lo = r + qq * Qn.floor(Qn.div(Qn.sub(x, q(r)), q(qq))), hi = lo + qq;
+  const c = Qn.cmp(Qn.sub(x, q(lo)), Qn.sub(q(hi), x));
+  return c < 0 ? lo : c > 0 ? hi : (lo < 0n ? -lo : lo) <= (hi < 0n ? -hi : hi) ? lo : hi;
+}
