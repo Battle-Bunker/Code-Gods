@@ -7,6 +7,7 @@
 import { GRIDS_BEGINNER_ECONOMY, LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
 import { preset as linearPreset, type PoolRule } from "@workspace/v2-linear";
 import { gridPresets } from "@workspace/v2-grid";
+import { pairPresets } from "@workspace/v2-pair";
 
 export interface PresetBid { pricing: "first" | "second"; disclosure: "none" | "handicaps" | "all"; seconds: number }
 /** The economy a preset plays (docs/energy-model.md; `lib/v2-economy` owns the maths). */
@@ -51,9 +52,9 @@ const ECONOMY: PresetEconomy = {
   opportunitiesPerSecond: LINES_BEGINNER_ECONOMY.opportunitiesPerSecond, birthsPerSecond: 0.05,
 };
 
-/** A pool by id: the line presets' (v2-linear) or the grid's (v2-grid). */
+/** A pool by id: the line presets' (v2-linear), the grid's (v2-grid) or the two-line systems' (v2-pair). */
 function poolPreset(id: string): { id: string; title: string; variant: string; rules: readonly PoolRule[] } {
-  const g = gridPresets.find(x => x.id === id);
+  const g = gridPresets.find(x => x.id === id) ?? pairPresets.find(x => x.id === id);
   return g ? { id: g.id, title: g.title, variant: g.variant, rules: g.rules as readonly PoolRule[] } : linearPreset(id);
 }
 
@@ -87,6 +88,9 @@ export const PRESETS: readonly Preset[] = [
   // A trial (docs/engine-v2/lenses-and-mutators.md §5): the beginner pool with five more ways to move a line. Not the default.
   fromPool("lines-lenses"),
   GRIDS,
+  // Two lines as one object (docs/engine-v2/two-line-systems.md): not the default. Withheld until its rules have value
+  // functions and shipped starters (deal.ts playable).
+  fromPool("lines-pairs"),
   { ...GRIDS, id: "grids-beginner-bidding", title: "Grids · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
   fromPool("grids-more-rules", { startingEnergy: GRIDS_BEGINNER_ECONOMY.startingEnergy }),
 ];

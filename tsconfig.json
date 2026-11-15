@@ -16,6 +16,9 @@
       "path": "./lib/v2-grid"
     },
     {
+      "path": "./lib/v2-pair"
+    },
+    {
       "path": "./lib/v2-valuation"
     },
     {
