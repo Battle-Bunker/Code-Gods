@@ -69,3 +69,20 @@ export const yIntercept = (l: Line): Q | null => (l.b === 0n ? null : q(-l.c, l.
 export const xIntercept = (l: Line): Q | null => (l.a === 0n ? null : q(-l.c, l.a));
 export const gradient = (l: Line): Q | null => (l.b === 0n ? null : q(-l.a, l.b));
 export const qAbs = Qn.abs;
+
+/**
+ * Which line of `prev` each line of `next` is, for the views' colours (display only: the state is an unordered set, so
+ * its canonical order can flip after a move). A line that did not change keeps its colour; else a line keeps the
+ * colour of the line with its normal (a, b) (a translate or a shift); else the moved line takes the other colour.
+ * Returns [the prev index of next's line 1, the prev index of next's line 2].
+ */
+export function matchLines(prev: PairState, next: PairState): [0 | 1, 0 | 1] {
+  const same = (x: Line, y: Line) => cmpLine(x, y) === 0, normal = (x: Line, y: Line) => x.a === y.a && x.b === y.b;
+  for (const eq of [same, normal]) for (const k of [0, 1] as const) for (const j of [0, 1] as const) {
+    if (eq(next.lines[k]!, prev.lines[j]!)) {
+      const other = (1 - j) as 0 | 1;
+      return k === 0 ? [j, other] : [other, j];
+    }
+  }
+  return [0, 1];
+}

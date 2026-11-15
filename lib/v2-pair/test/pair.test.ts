@@ -37,3 +37,12 @@ test("the steeper line: a vertical line is steepest", () => {
   const s = sys(L(1, 0, -3), L(-5, 1, 0));   // x = 3 and y = 5x
   assert.equal(s.lines[facts(s).s]!.b, 0n);
 });
+
+test("matchLines keeps each line's colour across a move that re-sorts the pair", async () => {
+  const { matchLines } = await import("../src/index.ts");
+  const before = sys(L(-1, 1, 0), L(0, 1, 0));           // y = x (line 1), y = 0 (line 2)
+  const after = sys(L(1, 1, 0), L(0, 1, 0));             // y = x turned to y = −x: it now sorts second
+  assert.equal(encodePair(after), "0,1,0;1,1,0");
+  assert.deepEqual(matchLines(before, after), [1, 0]);   // after's line 1 (y = 0) is before's line 2
+  assert.deepEqual(matchLines(before, before), [0, 1]);
+});
