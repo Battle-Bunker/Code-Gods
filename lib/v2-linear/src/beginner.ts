@@ -206,55 +206,53 @@ export const treasure = family<KT>("treasure", "Treasure", ["table", "si", "cart
  * hard to climb ... secondary rules that are entangled with the primary rule so that ... moving to a higher primary
  * energy requires starting over to climb higher on the secondary dimension").
  *
- * Main part, unbounded: the y-intercept should be a prime ending in k, the bigger the better (u = c on such a prime);
- * any other line scores below every rung, graded by its distance to the nearest one (u = −d). Every rung has a higher
- * one, each rarer under the law (a prime coefficient costs the code about ½ bit a unit, so a rung's bits rise with it and
- * the climb's price, Δφ, rises with them); a climber reaches the next rung only by landing on it, through no gentler
- * slope. (A first version scored u = p − d; sampled to 5 million, it was "make c big": the primes did not matter.)
- * Tie-breakers, read from that prime p: the factor p − 1 shares with the gradient's whole part (the best gradient
- * depends on p, so a new rung restarts the climb), and how long y(1), y(2), … go on being primes ending in k from p.
- * Dealt: k = 1, 3, 7, 9.
+ * Main part, unbounded: where the line lands on the x-axis, X = −c/m, should round to a prime ending in k, the bigger
+ * the better (u = p); any other line scores below every rung, graded by how far it is from rounding to one. Spec
+ * lead's trial (15 Nov, declared to the coordinator): it read the y-intercept until the play measurements of row 2
+ * (design-principles.md) showed the ladder was not climbed, because the next prime was a shift of c by 10 or more and
+ * every rule reading c lost its bits. On the x-axis the next rung is a small tilt, Δm = c/p − c/p′, that leaves
+ * c alone (and a shift keeps working too: c = −pm). A vertical line lands at x = k, a flat one never lands.
+ * Tie-breaker, read from that prime p: the factor p − 1 shares with the y-intercept's whole part (the best intercept
+ * depends on p, so a new rung restarts the climb). Dealt: k = 1 and 9, each on both sides (the mirror lands on minus
+ * such a prime: the reflection x → −x keeps the law, so mirrors are exact peers). Endings 3 and 7 are not dealt: at equal
+ * size their rungs are 1.4 and 0.5 bits cheaper under the law than 1 and 9 (fitted bits ≈ α + log2 p, 15 Nov).
  */
-const LANDING_ENDS: Ends[] = PRIME_ENDINGS.map(ends => ({ ends }));
+const LANDING_ENDS: Ends[] = [1, 9].flatMap(ends => [{ ends }, { ends, side: -1 as const }]);
 const landingShape: Shape<Ends> = {
-  main: withEnds(more<Ends>("landing", "the y-intercept on as big a dealt prime as possible", "", "si"),
-    p => `The y-intercept should be a prime ending in ${p.ends}, the bigger the better; any other line scores below them all, the closer to one the better.`),
+  main: withEnds(more<Ends>("landing", "where the line lands on the x-axis, on as big a dealt prime as possible", "", "crossing"),
+    p => `Where the line crosses the x-axis should round to ${minus(p)}a prime ending in ${p.ends}, the bigger the better; any other line scores below them all, the closer to one the better.`),
   tieBreakers: [
-    more<Ends>("shared-factor", "the factor that prime minus 1 shares with the gradient's whole part",
-      "That prime minus 1 and the whole part of the gradient should share as big a factor as possible (a whole part of 0 shares nothing).", "si"),
-    withEnds(more<Ends>("climb-on", "how long y(1), y(2), … go on being such primes", "", "table"),
-      p => `From that prime, y(1), y(2), y(3), … should go on being new primes ending in ${p.ends} for as long as possible.`),
+    more<Ends>("shared-factor", "the factor that prime minus 1 shares with the y-intercept's whole part",
+      "Take the number just before that prime. The biggest number that divides both it and the y-intercept's whole part should be as big as possible (a whole part of 0 shares nothing).", "si"),
   ],
 };
-/** The ladder's value: x itself on a prime ending in k, else minus its distance to the nearest one. */
+/**
+ * The ladder's value: the prime p ending in k that x rounds to (|x − p| ≤ ½, ties up), else minus how far x is from
+ * rounding to the nearest one (|x − p| − ½). A rung is a window, not a point: under C3 an exact prime p costs the code
+ * about p/2 bits, so exact rungs gave a ladder whose next rung cost about 5 bits of φ for under a bit of value
+ * (80 games: 2 rungs climbed); a window costs about log p.
+ */
 const rung = (x: Q, k: number): { p: bigint; u: Q } => {
+  const n = nearestInteger(x);
+  if (n > 0n && isPrimeEnding(n, k)) return { p: n, u: q(n) };
   const p = nearestPrimeEnding(x, k);
-  return { p, u: x.d === 1n && x.n === p ? x : Qn.neg(Qn.abs(Qn.sub(x, q(p)))) };
+  return { p, u: Qn.neg(Qn.sub(Qn.abs(Qn.sub(x, q(p))), q(1, 2))) };
 };
-export const primeLanding = family<Ends>("prime-landing", "Prime Landing", ["si", "cart", "table", "gen"], landingShape, LANDING_ENDS, (ctx, pr) => {
-  // A vertical line never meets the y-axis: it lands on the x-axis instead, and that number climbs the same ladder.
-  const vx = verticalAt(ctx);
-  if (vx) return verticalMain(ctx, landingShape, `a vertical line lands on the x-axis at ${Qn.toWire(vx.x)}: the ladder of primes ending in ${pr.ends}`, rung(vx.x, pr.ends).u, vx.from);
-  const cRef = ref("si", "c"), mRef = ref("si", "m");
-  const cv = ctx.read(cRef);
-  const c = num(cv);
-  if (c === null) return allUndefined(ctx, landingShape, cv, cRef);
-  const m = num(ctx.read(mRef))!;
-  const { p, u } = rung(c, pr.ends);
-  const mark = ref("cart", "yAxisMark", { y: p });
+export const primeLanding = family<Ends>("prime-landing", "Prime Landing", ["crossing", "si", "cart"], landingShape, LANDING_ENDS, (ctx, pr) => {
+  const xRef = ref("crossing", "x0"), cRef = ref("si", "c");
+  const xv = ctx.read(xRef);
+  const x = num(xv);
+  if (x === null) return allUndefined(ctx, landingShape, xv, xRef);   // a flat line never lands (or lies along the axis)
+  const { p, u } = rung(sided(pr, x), pr.ends);   // on the mirror, −x climbs the ladder
+  const mark = ref("cart", "xAxisMark", { x: sided(pr, q(p)) });
   ctx.read(mark);
-  ctx.term("landing", Qn.isZero(Qn.sub(c, q(p))) ? `on the prime ${p}` : `off the prime ${p} by ${Qn.toWire(Qn.abs(Qn.sub(c, q(p))))}`, u, [cRef]);
-  const w = Qn.floor(m), aw = w < 0n ? -w : w;
-  ctx.term("shared-factor", `the factor ${p - 1n} shares with the gradient's whole part ${w}`, q(aw === 0n ? 0n : gcd(p - 1n, aw)), [cRef, mRef]);
-  const run: ElementRef[] = [], seen = new Set<bigint>([p]);   // new primes only: a flat line repeats p forever
-  for (let n = 1; n <= 12; n++) {
-    const r = ref("table", "y", { x: n }), v = num(ctx.read(r))!;
-    if (v.d !== 1n || !isPrimeEnding(v.n, pr.ends) || seen.has(v.n)) break;
-    seen.add(v.n);
-    run.push(r);
-  }
-  ctx.term("climb-on", `y(1), y(2), … primes ending in ${pr.ends} from ${p}`, q(run.length), run.length ? run : [ref("table", "y", { x: 1 })]);
-  ctx.mark({ kind: "focus", ref: cRef });
+  ctx.term("landing", Qn.sign(u) > 0 ? `lands at ${Qn.toWire(x)}, which rounds to ${minus(pr)}the prime ${p}` : `lands ${Qn.toWire(Qn.abs(Qn.sub(sided(pr, x), q(p))))} from ${minus(pr)}the prime ${p}`, u, [xRef]);
+  // A vertical line has no y-intercept: its tie-breaker is undefined (it ranks last), not its landing.
+  const cv = ctx.read(cRef), c = num(cv);
+  const w = c === null ? 0n : Qn.floor(c), aw = w < 0n ? -w : w;
+  ctx.term("shared-factor", c === null ? "the y-intercept's whole part" : `the factor ${p - 1n} shares with the y-intercept's whole part ${w}`,
+    c === null ? undef(cv) : q(aw === 0n ? 0n : gcd(p - 1n, aw)), [xRef, cRef]);
+  ctx.mark({ kind: "focus", ref: xRef });
   ctx.mark({ kind: "candidate", ref: mark, term: "landing" });
 });
 

@@ -129,8 +129,9 @@ test("identity badges: the elements a part reads carry its role in every view, p
     const html = renderToStaticMarkup(<ExpandedFace rule={rule} state={s} compare={compare} initialRep={rule.family.main.rep} />);
     const roles = [...html.matchAll(/data-ref="([^"]+)"[^>]*data-role="(main|tb)"/g)].map(m => `${m[1]}:${m[2]}`);
     assert.ok(roles.some(r => r.endsWith(":main")), `${compare}: a main-part badge somewhere: ${roles}`);
-    // The y-intercept is the main part's source; any view that shows the y-intercept badges it.
-    if (/data-ref="si\.c"/.test(html)) assert.match(html, /data-ref="si\.c"[^>]*data-role="main"/, compare);
+    // The x-axis landing is the main part's source; any view that shows it badges it, and the y-intercept is the tie-breaker's.
+    if (/data-ref="crossing\.x0"/.test(html)) assert.match(html, /data-ref="crossing\.x0"[^>]*data-role="main"/, compare);
+    if (/data-ref="si\.c"/.test(html)) assert.match(html, /data-ref="si\.c"[^>]*data-role="tb"/, compare);
   }
   // A badge is said, not only drawn: its title names the part.
   const html = renderToStaticMarkup(<ExpandedFace rule={rule} state={s} initialRep={rule.family.main.rep} />);
