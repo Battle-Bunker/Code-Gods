@@ -378,3 +378,16 @@ test("simplest equals the brute-force definition (smallest denominator, then num
     if (res.ok) assert.deepEqual((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r.split("|"), want, language);
   }
 });
+
+test("climb skips instead of failing when the act has few host calls left (64 an act), in both languages", async () => {
+  // Spend 56 of the 64 calls on budget reads, then climb over steps that each need a look at the others (worth is told).
+  const rule = { family: "prime-gradient", params: { ends: 1 }, tieBreaker: "shared-factor" }, other = { family: "treasure", params: { k: 3 }, tieBreaker: "shared-factor" };
+  const ts = `function agent(offer) { for (let i = 0; i < 56; i++) offer.budget(); const opts = [11, 31, 41, 61, 71, 101].map(k => [move("si.tilt", { k }), [Q.of(k), Q.of(1)]]); return climb(offer, opts, [Q.of(-5), Q.of(0)], 6) ?? []; }`;
+  const py = `def agent(offer):\n    for _ in range(56):\n        offer.budget()\n    opts = [(move("si.tilt", k=k), [Fraction(k), Fraction(1)]) for k in (11, 31, 41, 61, 71, 101)]\n    return climb(offer, opts, [Fraction(-5), Fraction(0)], 6) or []\n`;
+  for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
+    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(0), q(3), lineQ).state, rule, energy: 1000,
+      values: findValues("line-q", rule)!, value: { mine: 0.01, others: 1, points: 0.01 }, others: [{ rule: other, values: findValues("line-q", other)! }] });
+    const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
+    assert.equal(res.ok, true, res.ok ? "" : `${language}: ${res.error}`);
+  }
+});

@@ -68,6 +68,13 @@ export interface TableInput<S> {
   /** An experiment, not in the engine: at most this many live lines. When a birth passes it the oldest live line retires:
    *  no one acts on it again and its points stay banked in every seat's total. Absent: no cap. */
   readonly objectCap?: number;
+  /** An experiment: no births in the last this many seconds of the game. Absent: births to the end. */
+  readonly birthsQuietSeconds?: number;
+  /** An experiment (retirement play): when it returns false, the seat drawn for this opportunity passes on the line
+   *  without acting or paying. `age` is the line's place among the live lines, 0 the oldest (the next to retire). */
+  readonly offerFilter?: (seat: number, object: number, ctx: { age: number; live: number; born: number; at: number }) => boolean;
+  /** A line retired (objectCap): when, and every seat's points banked from it. */
+  readonly onRetire?: (e: { at: number; object: number; born: number; points: readonly number[] }) => void;
   readonly regularBirths?: boolean;
   /** Parameter drift (the coordinator's call 18, server #723): every this many seconds each seat's rule parameters are
    *  redrawn among the dealable ones with a value record (driftParams); the family and tie-breaker stay. Absent: none.
@@ -284,6 +291,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     const a = pickByEnergy(agents, x => balance.get(x)!, r);
     if (!a) return;
     const i = a.seat, energy = balance.get(a)!;
+    if (input.offerFilter) { const alive = live(); if (!input.offerFilter(i, object, { age: alive.indexOf(object), live: alive.length, born: bornAt[object]!, at: world })) return; }
     const n = bitsAll(lines[object]!), total = n.reduce((x, y) => x + y, 0);
     const history = (byLine.get(object) ?? []).filter(m => m.by === i || m.before[i] !== m.after[i]).slice(-8)
       .map(m => ({ mine: m.by === i, pointsBefore: m.before[i]!, pointsAfter: m.after[i]! }));
@@ -523,13 +531,14 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
       points = next;
     }
     // Regular births (the beginner presets, decision 31): one every 1/rate world seconds, as convex/v2/duration.ts regularBirths.
-    const rate = input.birthsPerSecond ?? 0.1, nBorn = input.regularBirths ? Math.floor(world * rate + 1e-9) - Math.floor(was * rate + 1e-9) : opportunities(rate, TICK_SECONDS, r);
+    const rate = input.birthsPerSecond ?? 0.1, drawn = input.regularBirths ? Math.floor(world * rate + 1e-9) - Math.floor(was * rate + 1e-9) : opportunities(rate, TICK_SECONDS, r);
+    const nBorn = input.birthsQuietSeconds !== undefined && world > input.seconds - input.birthsQuietSeconds ? 0 : drawn;
     for (let b = nBorn; b > 0; b--) {
       const born = births(type, variant, `${input.seed}:${lines.length + 1}`, 1)[0]!;
       lines = [...lines, born]; points = [...points, pointsOf(born)];
       startTotals = startTotals.map((t, i) => t + points.at(-1)![i]!);   // a newborn line's points are no one's gain
       bornAt.push(world);
-      if (input.objectCap !== undefined) for (let alive = live(); alive.length > input.objectCap; alive = live()) retired.add(alive[0]!);
+      if (input.objectCap !== undefined) for (let alive = live(); alive.length > input.objectCap; alive = live()) { retired.add(alive[0]!); input.onRetire?.({ at: world, object: alive[0]!, born: bornAt[alive[0]!]!, points: points[alive[0]!]! }); }
     }
     const offers = opportunities(econ.opportunitiesPerSecond, TICK_SECONDS, r);
     for (let o = 0; o < offers; o++) { const alive = live(); await act(alive[r.below(alive.length)]!); }
