@@ -27,29 +27,41 @@
  * the rest of the pool) and reports it per parameter set. Valleys crossed: its main-part steps from a rung (a main part
  * of at least 0, as on the rung ladders, whose off-rung lines score below 0) to a higher one.
  * --from offsets the game seeds (parallel runs); --json writes the per-family numbers for merging.
+ *
+ * Lines only: --variant line-q-lenses deals the lines-lenses preset. --climber changes the starter's last line
+ * (scripts/climbers.ts): plain (the shipped starter); shortcut (when stuck: stretch, pivot, mirror); nomirror (the same
+ * without the mirrors); lens or lens:rot.turn,fold (shortcut plus the lens moves); and the options climbers, which offer
+ * moves beside the steps every act, priced by the starter's own climb: stretch (by 2, 3, 5, 7 and their inverses),
+ * moves:<ids> (lens moves), stretch+moves:<ids>.
+ * Per move kind (the mutators of each committed move): moves, the mover's own bits gained, its fee (W, bits), the share
+ * whose gain exceeded the fee, the others' bits changed, the share that halved another seat holding at least 2 bits
+ * (collateral), and the share that also raised another seat by at least a bit (a shared climb). Peaks: per game the
+ * largest bits any seat held on any object, the largest table total of an object (Σ n_i Σ_{j≠i} n_j), and the longest
+ * run of one seat's consecutive stretches on one object. Redraws: each redrawn seat's first move and the bits it won back.
  */
 import { parseArgs } from "node:util";
 import { compareScores, evaluateSite, rng, type ObjectType, type Score, type Variant } from "@workspace/v2-core";
 import { GRIDS_BEGINNER_ECONOMY, LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
 import { grid4, gridPresets, gridType } from "@workspace/v2-grid";
-import { lineQ, lineType, lineZ, presets } from "@workspace/v2-linear";
+import { lineQ, lineQLenses, lineType, lineZ, presets } from "@workspace/v2-linear";
 import { pairPresets, pairQ, pairType } from "@workspace/v2-pair";
 import { valuer } from "../src/harness.ts";
 import { sandboxes, startersFor } from "../src/index.ts";
 import { runTable } from "../src/table.ts";
+import { lensClimber, LENS_IDS, lineStarter, optionsClimber, SHORTCUT } from "./climbers.ts";
 
 const { values: o } = parseArgs({ options: {
   type: { type: "string", default: "lines" },
   games: { type: "string", default: "12" }, seconds: { type: "string", default: "600" }, drift: { type: "string", default: "120" },
   kind: { type: "string", default: "simple" }, objects: { type: "string", default: "3" }, births: { type: "string", default: String(1 / 240) },
-  variant: { type: "string", default: "line-q" }, preset: { type: "string" }, instances: { type: "boolean", default: false }, only: { type: "string" }, from: { type: "string", default: "0" }, json: { type: "string" }, focus: { type: "string" },
+  variant: { type: "string", default: "line-q" }, preset: { type: "string" }, instances: { type: "boolean", default: false }, only: { type: "string" }, from: { type: "string", default: "0" }, json: { type: "string" }, focus: { type: "string" }, climber: { type: "string", default: "plain" },
 } });
 
 interface PoolRule { readonly family: string; readonly params: unknown; readonly tieBreakers: readonly string[] }
 const setup = ((): { type: ObjectType<unknown>; variant: Variant; pool: readonly PoolRule[]; economy: typeof LINES_BEGINNER_ECONOMY } => {
   if (o.type === "grids") return { type: gridType as ObjectType<unknown>, variant: grid4, pool: (o.preset ? gridPresets.find(p => p.id === o.preset)! : gridPresets[0]).rules, economy: GRIDS_BEGINNER_ECONOMY };
   if (o.type === "pairs") return { type: pairType as ObjectType<unknown>, variant: pairQ, pool: pairPresets[0].rules, economy: LINES_BEGINNER_ECONOMY };
-  const variant = o.variant === "line-z" ? lineZ : lineQ;
+  const variant = o.variant === "line-z" ? lineZ : o.variant === "line-q-lenses" ? lineQLenses : lineQ;
   return { type: lineType as ObjectType<unknown>, variant, pool: presets.find(p => p.variant === variant.id)!.rules, economy: LINES_BEGINNER_ECONOMY };
 })();
 const { type, variant, pool, economy: E } = setup;
@@ -79,6 +91,33 @@ const R = rng("pool-dynamics", variant.id, o.from);
 const head = (s: Score) => (s === null ? null : s.slice(0, 1));
 const tail = (s: Score) => (s === null ? null : s.slice(1));
 
+const climber = o.climber!;
+const ids = (x: string) => (x === "" ? [] : x.split(","));
+const [ending, offered] = ((): [string | undefined, readonly string[]] => {
+  if (climber === "plain") return [undefined, []];
+  if (climber === "shortcut") return [SHORTCUT, []];
+  if (climber === "nomirror") return [lensClimber([], false), []];
+  if (climber === "lens") return [lensClimber(), LENS_IDS];
+  if (climber.startsWith("lens:")) return [lensClimber(ids(climber.slice(5))), ids(climber.slice(5))];
+  if (climber === "stretch") return [optionsClimber(true), []];
+  const m = /^(stretch\+)?moves:(.*)$/.exec(climber);
+  if (m) return [optionsClimber(!!m[1], ids(m[2]!)), ids(m[2]!)];
+  throw new Error(`--climber ${climber}`);
+})();
+if (ending && o.type !== "lines") throw new Error("--climber is for lines");
+for (const id of offered) if (!variant.mutators.includes(id)) throw new Error(`${id} is not offered on ${variant.id}: use --variant line-q-lenses`);
+// Bits of a seat's rule, by (family, params, tie-breaker).
+const valuers = new Map<string, (s: unknown) => number>();
+const bitsFor = (rule: { family: string; params: Record<string, unknown>; tieBreaker: string }) => {
+  const key = JSON.stringify([rule.family, rule.params, rule.tieBreaker]);
+  if (!valuers.has(key)) { const v = valuer(type, variant, rule); valuers.set(key, x => v.bits(x)); }
+  return valuers.get(key)!;
+};
+interface MoveStat { moves: number; own: number; fee: number; aboveFee: number; others: number; halved: number; exposed: number; shared: number }
+const byMove = new Map<string, MoveStat>();
+const answers = new Map<string, { n: number; won: number }>();
+const peaks: { seat: number; table: number; stretchRun: number }[] = [];
+
 for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   const choices = o.only ? pool.filter(r => o.only!.split(",").includes(r.family)) : pool;
   const picks: PoolRule[] = [];
@@ -92,7 +131,8 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   const seats = picks.map((r, k) => {
     const tieBreaker = r.tieBreakers[R.below(r.tieBreakers.length)]!;
     const a = startersFor(r.family, "typescript").find(x => x.kind === o.kind)!;
-    return { name: `P${k}`, kind: "starter" as const, rule: { family: r.family, params: r.params as Record<string, unknown>, tieBreaker }, program: { language: a.language, source: a.source } };
+    const program = ending ? lineStarter(r.family, ending) : { language: a.language, source: a.source };
+    return { name: `P${k}`, kind: "starter" as const, rule: { family: r.family, params: r.params as Record<string, unknown>, tieBreaker }, program };
   });
   const fams = seats.map(s => type.families.find(f => f.id === s.rule.family)!);
   const params = seats.map(s => s.rule.params);
@@ -105,6 +145,10 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   const lastStep = seats.map(() => -Infinity);   // each seat's last new best main part, on any object
   let live = Number(o.objects);
   const lastBalance = seats.map(() => NaN), income = seats.map(() => 0), spent = seats.map(() => 0);
+  const seatBits = (i: number, x: unknown) => bitsFor({ ...seats[i]!.rule, params: params[i] as Record<string, unknown> })(x);
+  const pending = new Set<number>();   // seats redrawn and not yet answered by a committed move
+  const runs = new Map<string, number>();   // seat:object → consecutive stretches
+  let peakSeat = 0, peakTable = 0, stretchRun = 0;
   const rep = await runTable(boxes, {
     type, variant, lines: Number(o.objects), seed: `pool-${o.type}-${g}`, seconds, seats, unique: true, economy: E,
     birthsPerSecond: Number(o.births), summonCap: E.startingEnergy, ...(drift > 0 ? { driftSeconds: drift } : {}),
@@ -113,6 +157,21 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
       lastBalance[e.seat] = e.balance; income[e.seat] = e.income; spent[e.seat]! += e.charge;
       if (!e.committed) return;
       moves.push({ at: e.at, seat: e.seat, object: e.object });
+      {
+        const b = seats.map((_, j) => seatBits(j, e.before)), a = seats.map((_, j) => seatBits(j, e.state));
+        const key = e.calls.map(c => c.mutator).join("+") || "?", fee = e.calls.reduce((t, c) => t + c.price.total, 0);
+        const m = byMove.get(key) ?? (byMove.set(key, { moves: 0, own: 0, fee: 0, aboveFee: 0, others: 0, halved: 0, exposed: 0, shared: 0 }), byMove.get(key)!);
+        const gain = a[e.seat]! - b[e.seat]!;
+        m.moves++; m.own += gain; m.fee += fee; if (gain > fee) m.aboveFee++;
+        let shared = false;
+        seats.forEach((_, j) => { if (j === e.seat) return; m.others += a[j]! - b[j]!; if (a[j]! >= b[j]! + 1) shared = true; if (b[j]! >= 2) { m.exposed++; if (a[j]! < b[j]! / 2) m.halved++; } });
+        if (shared) m.shared++;
+        const tot = a.reduce((t, x) => t + x, 0);
+        peakSeat = Math.max(peakSeat, ...a); peakTable = Math.max(peakTable, a.reduce((t, x) => t + x * (tot - x), 0));
+        const rk = `${e.seat}:${e.object}`, run = key === "mach.stretch" ? (runs.get(rk) ?? 0) + 1 : 0;
+        runs.set(rk, run); stretchRun = Math.max(stretchRun, run);
+        if (pending.delete(e.seat)) { const w = answers.get(key) ?? (answers.set(key, { n: 0, won: 0 }), answers.get(key)!); w.n++; w.won += gain; }
+      }
       const i = e.seat, st = stat(keys[i]!);
       const before = scoreOf(i, e.before), after = scoreOf(i, e.state);
       const c = climbs[i]!.get(e.object) ?? { best: before, levels: 0, lastUp: -Infinity, pending: null };
@@ -128,7 +187,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
       } else if (c.pending && compareScores(head(after), c.pending.main) < 0) c.pending = null;   // gave the step back
     },
     onDrift: e => {
-      redraws.push({ at: e.at, seat: e.seat }); params[e.seat] = e.params;
+      redraws.push({ at: e.at, seat: e.seat }); params[e.seat] = e.params; pending.add(e.seat);
       for (const c of climbs[e.seat]!.values()) if (c.levels) levelsDone[e.seat]!.push(c.levels);
       climbs[e.seat]!.clear();
     },
@@ -163,11 +222,12 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
       if (next && next.at - d.at <= Math.min(drift, seconds - d.at)) { st.latency.push(next.at - d.at); st.answered++; }
     }
   });
+  peaks.push({ seat: peakSeat, table: peakTable, stretchRun });
   console.error(`game ${g + 1}: ${seats.map(s => `${s.rule.family}/${s.rule.tieBreaker}`).join(", ")}; ${redraws.length} redraws`);
 }
 await boxes.close();
 
-console.log(`${variant.id} pool, ${o.kind} starters, ${o.games} games of ${seconds} s, ${drift > 0 ? `drift every ${drift} s` : "no drift"}, power ${E.powerPerSecond}, ${E.opportunitiesPerSecond}/s`);
+console.log(`${variant.id} pool, ${o.kind} starters, climber ${climber}, ${o.games} games of ${seconds} s, ${drift > 0 ? `drift every ${drift} s` : "no drift"}, power ${E.powerPerSecond}, ${E.opportunitiesPerSecond}/s`);
 console.log("| family | games | mean points gained | moves a minute | energy at end | spent / income | own bits at end | others' bits at end | moves | share raising points | flips | energy taken back | objects moving in the last third | main-part levels per object climbed: median / max | end bits on those objects | seats still climbing the main part in the last third | seats whose last main-part step came in the first 120 s | valleys crossed (rung to higher rung) | main-part steps that lowered the tie-breaker | recovered, median s | redraws answered, median s | end bits under current / other params |");
 console.log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
 const rows = [...stats.entries()].sort((a, b) => mean(b[1].gained) - mean(a[1].gained));
@@ -180,6 +240,19 @@ for (const [f, s] of rows) console.log([
   s.redraws ? `${s.answered}/${s.redraws}, ${s.latency.length ? median(s.latency).toFixed(1) : "-"}` : "-",
   s.cur.length ? `${mean(s.cur).toFixed(1)} / ${mean(s.alt).toFixed(1)}` : "-",
 ].join(" | ").replace(/^/, "| ").concat(" |"));
-const means = rows.map(([, s]) => mean(s.gained)).filter(x => x > 0);
-console.log(`balance: best family's mean gain over the worst's: ${(Math.max(...means) / Math.min(...means)).toFixed(1)}`);
+// Families seen in fewer than 5 games, or gaining under a point, would make the ratio noise.
+const means = rows.filter(([, s]) => s.games >= 5).map(([, s]) => mean(s.gained)).filter(x => x >= 1);
+console.log(`balance: best family's mean gain over the worst's: ${means.length >= 2 ? (Math.max(...means) / Math.min(...means)).toFixed(1) : "- (too few games)"}`);
+const fmt = (x: number) => (Number.isFinite(x) ? x.toFixed(2) : "-");
+console.log("\n| move (mutators of the act) | moves | mover's bits gained, mean | fee W (bits), mean | gained more than its fee | others' bits changed, mean | halved a seat holding ≥ 2 bits | raised another seat ≥ 1 bit |");
+console.log("|---|--:|--:|--:|--:|--:|--:|--:|");
+for (const [k, m] of [...byMove.entries()].sort((a, b) => b[1].moves - a[1].moves))
+  console.log(`| ${k} | ${m.moves} | ${fmt(m.own / m.moves)} | ${fmt(m.fee / m.moves)} | ${pct(m.aboveFee, m.moves)} | ${fmt(m.others / m.moves)} | ${pct(m.halved, m.exposed)} | ${pct(m.shared, m.moves)} |`);
+if (answers.size) {
+  console.log("\n| a redrawn seat's first move | answers | bits won back, mean |");
+  console.log("|---|--:|--:|");
+  for (const [k, w] of [...answers.entries()].sort((x, y) => y[1].n - x[1].n)) console.log(`| ${k} | ${w.n} | ${fmt(w.won / w.n)} |`);
+}
+const ps = peaks.map(p => p.seat), pt = peaks.map(p => p.table), pr = peaks.map(p => p.stretchRun);
+console.log(`\npeaks per game: a seat's bits median ${fmt(median(ps))}, max ${fmt(Math.max(...ps))}; an object's table total median ${fmt(median(pt))}, max ${fmt(Math.max(...pt))}; longest run of one seat's stretches on one object median ${median(pr)}, max ${Math.max(...pr)}`);
 if (o.json) (await import("node:fs")).writeFileSync(o.json, JSON.stringify(Object.fromEntries(stats)));
