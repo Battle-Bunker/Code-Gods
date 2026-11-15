@@ -1,5 +1,5 @@
 // Gap Ratio · Example: the gap shares a factor with the number you divide by
-// Main part: the gap on the y-axis a whole number, the dealt powers times the gap on the x-axis. Tie-breaker: the gap shares a factor with the number you divide by.
+// Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Tie-breaker: the gap shares a factor with the number you divide by.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.

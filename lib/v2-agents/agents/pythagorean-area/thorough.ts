@@ -1,5 +1,5 @@
 // Pythagorean Area · Thorough
-// Main part: the area close to A. Tie-breaker: whichever you were dealt (the slanted side squared close to a square; |c| close to a prime; both legs close to whole numbers).
+// Main part: the triangle's area on as big a dealt prime as possible. Tie-breaker: whichever you were dealt (the factor that prime minus 1 shares with the slanted side squared).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -14,14 +14,17 @@ function score(m, c, p, tie) {
   if (Q.isZero(m) || Q.isZero(c)) return null;    // no triangle: the worst score
   const legX = Q.abs(Q.div(c, m)), legY = Q.abs(c); // the triangle's base and height
   const area = Q.div(Q.mul(legX, legY), 2);
-  const main = Q.neg(Q.abs(Q.sub(area, p.A)));
-  // main: how far the triangle's area is from A (closer is better)
-  if (tie === "slanted-square") {   // a slanted side whose square is close to a square number is best
+  const x = Q.sub(area, Q.div(1, 2));             // the area rounds down to n when x rounds to n (ties up)
+  const rung = near(x, prime, p.ends);            // the prime ending in p.ends nearest there: the rung
+  const gap = Q.abs(Q.sub(x, rung));              // on the rung when the area rounds down to it
+  const level = p => { const D = Q.toString(p).length; let L = 0; while (((L + 1) * (L + 2)) / 2 <= D) L++; return Q.add(L, Q.div(Q.add(D - (L * (L + 1)) / 2, Q.div(p, Q.of(10n ** BigInt(D)))), L + 1)); };   // levels of digits: level L needs L(L + 1)/2
+  const main = Q.cmp(Q.mul(2, gap), 1) < 0 || Q.eq(Q.sub(rung, x), Q.div(1, 2)) ? level(rung) : Q.neg(Q.sub(gap, Q.div(1, 2)));
+  // main: the prime ending in the rule's digit that the triangle's area rounds down to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far the area is from rounding to one
+  if (tie === "shared-factor") {   // that prime minus 1 and the slanted side squared (rounded down): a bigger factor shared is better
     const side2 = Q.add(Q.mul(legX, legX), Q.mul(legY, legY));   // the slanted side, squared (Pythagoras)
-    return [main, Q.neg(Q.abs(Q.sub(side2, near(side2, square))))];
+    const ws = whole(Q.div(Q.sub(Q.mul(2, side2), 1), 2));   // its whole part (rounded down)
+    return [main, common(Q.sub(rung, 1), ws)];
   }
-  if (tie === "prime-height") return [main, Q.neg(Q.abs(Q.sub(legY, near(legY, prime))))];   // a height close to a prime is better
-  if (tie === "whole-legs") return [main, Q.neg(Q.add(Q.abs(Q.sub(legX, whole(legX))), Q.abs(Q.sub(legY, whole(legY)))))];   // legs close to whole numbers are best
   return [main];
 }
 
@@ -50,6 +53,25 @@ function agent(offer) {
     tries.push([move("cart.pivot", { x0: -1, k }), Q.add(m, k), Q.add(c, k)]);   // turn the line about its point at x = -1 (m and c both change by k)
     const f = k > 0 ? k + 1 : k - 1;
     tries.push([move("mach.stretch", { f }), Q.mul(m, f), Q.mul(c, f)]);   // multiply every output by f (m and c both)
+  }
+  // The next rung up (the ladder has no top): the next prime ending in p.ends above the area, aiming at the middle of
+  // its window (area t + 1/2), by a shift that keeps the gradient (c² = 2|m|·area, to the nearest half) or a tilt that
+  // keeps the y-intercept (|m| = c²/(2·area), to the nearest half, third or quarter): the climb keeps whichever lands.
+  if (!Q.isZero(m) && !Q.isZero(c)) {
+    const area = Q.div(Q.mul(c, c), Q.mul(2, Q.abs(m)));
+    for (let t = Q.add(near(area, prime, p.ends), 10), i = 0; i < 100; t = Q.add(t, 10), i++) if (prime(t)) {
+      const mid = Q.add(t, Q.div(1, 2));             // the middle of its window
+      const r = root(whole(Q.mul(8, Q.mul(Q.abs(m), mid))));   // 2·√(2|m|·mid), rounded down: c to the nearest half
+      for (const h of [r, Q.add(r, 1)]) {
+        const c2 = Q.mul(Q.cmp(c, 0) < 0 ? -1 : 1, Q.div(h, 2));
+        tries.push([move("si.shift", { k: Q.sub(c2, c) }), m, c2]);
+      }
+      for (const d of [2, 3, 4]) {
+        const m2 = Q.mul(Q.cmp(m, 0) < 0 ? -1 : 1, Q.div(whole(Q.mul(d, Q.div(Q.mul(c, c), Q.mul(2, mid)))), d));
+        if (!Q.isZero(m2)) tries.push([move("si.tilt", { k: Q.sub(m2, m) }), m2, c]);
+      }
+      break;
+    }
   }
   tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
   let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches

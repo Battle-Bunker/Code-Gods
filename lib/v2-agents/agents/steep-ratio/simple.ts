@@ -1,5 +1,5 @@
 // Steep Ratio · Simple
-// Main part: one line a whole number of times as steep as the other, on the dealt ladder. Tie-breaker: whichever you were dealt (that number shares a factor with the y-intercepts' gap; that number is a big prime).
+// Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: whichever you were dealt (that number shares a factor with the y-intercepts' gap; that number has a big smallest prime factor).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others

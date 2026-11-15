@@ -78,7 +78,7 @@ export function medianLookBits(variant: string): number {
  * buys STARTERS_AT_START of them at the scaled price (the coordinator's call 17), so it follows the power like the read
  * weight.
  */
-export const MEDIAN_STARTER_BITS: Readonly<Record<string, number>> = { "line-q": 559, "line-q-lenses": 559, "grid-4-d10": 701 };
+export const MEDIAN_STARTER_BITS: Readonly<Record<string, number>> = { "line-q": 601, "line-q-lenses": 601, "grid-4-d10": 701 };
 export const STARTERS_AT_START = 3;
 /** The beginner start at this power: STARTERS_AT_START typical starters at the scaled summon price, to the nearest 10. */
 export function beginnerStart(variant: string, powerPerSecond: number): number {
@@ -143,8 +143,10 @@ export const PRESETS: readonly Preset[] = [
   fromPool("lines-lenses", V1_DEFAULT_BOARD),
   GRIDS,
   // Two lines as one object (docs/engine-v2/two-line-systems.md): not the default. Its families carry dealt numbers
-  // (a remainder, a divisor, a ratio: §8.3), redrawn every 120 s as the beginner presets' (the coordinator's call 18).
-  fromPool("lines-pairs", { ...V1_DEFAULT_BOARD, driftSeconds: 120 }),
+  // (a remainder, a divisor, a ratio: §8.3); every one is a ladder (keepsParams), so drift never redraws them (§11).
+  // Two-line systems on the beginner economy (the coordinator, 15 Nov, playtest rounds 24–25: games ended at hidden
+  // moments after 0:45–6:32): ten minutes fixed, as the line beginner game, with its start.
+  fromPool("lines-pairs", { ...BEGINNER_WORLD, startingEnergy: BEGINNER.startingEnergy }),
   { ...GRIDS, id: "grids-beginner-bidding", title: "Grids · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
   // Grid starters are dearer: 900 to start, so a starter takes about the share of it a line starter takes of 600.
   fromPool("grids-more-rules", { ...V1_DEFAULT_BOARD, startingEnergy: 900 }),

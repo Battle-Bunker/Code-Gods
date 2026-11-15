@@ -67,25 +67,17 @@ test("a redraw never seats a pair the line seating rule forbids (Prime Landing b
 
 test("a ladder family is never redrawn (the coordinator's amendment of call 18): its seat keeps its dealt parameters", async () => {
   const { familyOf } = await import("../../convex/v2/deal.ts");
-  for (const [family, tb, params] of [["prime-landing", "shared-factor", { ends: 1 }], ["prime-staircase", "shared-factor", { ends: 3 }], ["whole-crossing", "shared-factor", { q: 5, r: 2 }], ["smooth-intercept", "shared-factor", { primes: [3, 7] }]] as const) {
+  for (const [family, tb, params] of [["prime-landing", "shared-factor", { ends: 1 }], ["prime-staircase", "shared-factor", { ends: 3 }], ["whole-crossing", "shared-factor", { q: 5, r: 2 }], ["smooth-intercept", "shared-factor", { primes: [3, 7] }], ["treasure", "shared-factor", { k: 3 }]] as const) {
     assert.equal(familyOf(family).keepsParams, true, family);
     for (let tick = 1; tick <= 12; tick++) assert.equal(redrawParams("line-q", family, tb, params, "seed", 1, tick), null, `${family} tick ${tick}`);
   }
   // A bounded family still drifts.
-  assert.ok(Array.from({ length: 12 }, (_, t) => redrawParams("line-q", "treasure", "prime-terms", { k: 2, T: 11 }, "seed", 1, t + 1)).some(x => x !== null));
+  assert.ok(Array.from({ length: 12 }, (_, t) => redrawParams("line-q", "same-on-both-rulers", "steep", { T: 6 }, "seed", 1, t + 1)).some(x => x !== null));
 });
 
-test("a pair redraw never seats a pair the seating rule forbids (lib/v2-pair seating.ts)", async () => {
-  const { pairClash } = await import("@workspace/v2-pair");
-  // Right Angle beside Whole Answer {q 5, r 1}: never r 1. High Start beside Whole Answer at q 7 and Steep Ratio at
-  // q 5: every High Start value shares a q with one of them, so it keeps its parameters.
-  const ra = { family: "right-angle", params: { q: 5, r: 2 } }, wa = { family: "whole-answer", params: { q: 5, r: 1 } };
-  let moved = 0;
-  for (let tick = 1; tick <= 40; tick++) {
-    const next = redrawParams("pair-q", ra.family, "corner-prime", ra.params, "seed", 1, tick, [wa]);
-    if (next) { moved++; assert.ok(!pairClash({ family: ra.family, params: next.params }, wa), JSON.stringify(next.params)); }
-    const others = [{ family: "whole-answer", params: { q: 7, r: 4 } }, { family: "steep-ratio", params: { q: 5, r: 4 } }];
-    assert.equal(redrawParams("pair-q", "high-start", "start-echo", { q: 5, r: 2 }, "seed", 1, tick, others), null);
+test("a pair rule is a ladder: drift never redraws its numbers (a redraw reset the climb; keepsParams)", () => {
+  for (let tick = 1; tick <= 20; tick++) {
+    assert.equal(redrawParams("pair-q", "right-angle", "corner-prime", { q: 5, r: 2 }, "seed", 1, tick), null);
+    assert.equal(redrawParams("pair-q", "high-start", "start-echo", { q: 5, r: 1 }, "seed", 1, tick, [{ family: "whole-answer", params: { q: 7, r: 4 } }]), null);
   }
-  assert.ok(moved > 0, "Right Angle still drifts");
 });

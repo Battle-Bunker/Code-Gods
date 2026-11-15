@@ -631,8 +631,26 @@ back) or TRIAL (a declared experiment, measured and reported).
       fresh deals within sampling noise on every preset (lines ≤ 12% of uniform, where two fresh samples differ by up
       to 15%; grids and two-line systems identical). On grids the practice deal is now the real grid deal, whose
       seating rule shapes which families sit together, so the human's family there is no longer uniform (the round-21
-      test now covers lines and two-line systems). The dynamics of the new practice tables: the agents session will
-      re-measure with the objects-changed column.
+      test now covers lines and two-line systems). The dynamics of the new practice tables (the agents session, server
+      pacing, 24 games per row): lines 2.00 / 2.08 / 2.07 objects changed a minute by third, 10% of minutes with no
+      change; grids 2.74 / 2.24 / 2.25, 8% of minutes with no change. The boards no longer freeze (the old practice
+      deal's Whole Crossing tables changed 0–1 objects in most minutes).
+
+31. **TRIAL** (the coordinator's, declared 15 Nov, on two-line-systems.md §10.1): the axis-line basin is fixed in the
+    law, not rule by rule. In a two-line system a zero coefficient is rarer: a by p(0) = 1/64 and b by p(0) = 1/256 (line-q's
+    are 1/8 and 1/16; c unchanged), lib/v2-pair pair.ts `PAIR_CODES`.
+    - **Motivation.** A horizontal and a vertical line make a right angle, a crossing at a grid point and a whole
+      x-intercept for nothing: one cheap configuration paid Right Angle, Whole Answer and Far Crossing together, and a
+      quarter of systems were born with one (the pair law already used line-q's C3, but two lines double the chance).
+    - **Effects** (§11). Births with an axis line: 25.2% → 2.8%; the rules read such lines as before. With it the
+      coordinator adopted for pairs:
+      - trial 28: ladder tails along the level (log of the score), capped by witnesses' φ;
+      - trial 29: shortcut floors at Φ = 21, the pair law's 90th percentile per line;
+      - the energy gate: pairs' highest 28.7 bits;
+      - test 2 by the twelve-search hit rate: a table is cheap at 4 of 12, the variant fails above a quarter.
+
+      Test 2 passes at β 0.02 and 0.05 and fails at 0.1. The one findable table (no axis line) is a low joint best
+      (7.5–10.5 bits a seat) found in about 30,000 evaluations by a searcher who knows all three rules.
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 

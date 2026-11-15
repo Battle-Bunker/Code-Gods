@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dynamicsFailures, failureCount, oneClosedForm, rampFails, riseTogether, singleFails, stalled, tableCheap, togetherFails } from "../src/collapse.ts";
+import { CHEAP, dynamicsFailures, failureCount, oneClosedForm, rampFails, riseTogether, singleFails, stalled, tableCheap, togetherFails } from "../src/collapse.ts";
 
 test("rules rise together when two gain by the midpoint and more by the end; a third falling as much is an adversary", () => {
   assert.deepEqual(riseTogether([0, 0, 10], [3, 3, 10], [6, 5, 10]), { together: true, adversary: false });
@@ -25,9 +25,10 @@ test("a rule ramps only when all three conditions hold", () => {
   assert.equal(rampFails({ topCostShare: 0.98, growth: 0.05, corr: 0.99 }), false);
 });
 
-test("a table is cheap at 95% of the reference", () => {
-  assert.equal(tableCheap(95, 100), true);
-  assert.equal(tableCheap(94, 100), false);
+test("a table is cheap when at least one in three of its 12 searches reaches 95% of the best known (the coordinator, 15 Nov)", () => {
+  assert.equal(CHEAP.searches, 12);
+  assert.equal(tableCheap(4, 12), true);
+  assert.equal(tableCheap(3, 12), false);
 });
 
 test("one closed form: one free coordinate, the others in at most two classes up to sign", () => {

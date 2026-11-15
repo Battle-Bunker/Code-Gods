@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { isInvalid } from "@workspace/v2-core";
 import { lineBits, lineParams } from "@workspace/v2-linear";
-import { canonicalPair, decodePair, encodePair, facts, pairQ, pairType } from "../src/index.ts";
+import { canonicalPair, decodePair, encodePair, facts, PAIR_CODES, pairLineBits, pairQ, pairType } from "../src/index.ts";
 import { L, sys } from "./helpers.ts";
 
 test("a system is an unordered set: the same two lines either way round are one object", () => {
@@ -22,9 +22,12 @@ test("a wire string that is not canonical is refused", () => {
   assert.throws(() => decodePair("0,1,0;0,1,0"));
 });
 
-test("φ is the sum of the two lines' codes", () => {
+test("φ is the sum of the two lines' codes, with a zero coefficient rarer than on line-q (the trial of §11)", () => {
   const s = sys(L(2, 3, -12), L(1, -1, 1));
-  assert.equal(pairType.readLength(s, pairQ), s.lines.reduce((t, l) => t + lineBits(l, lineParams(pairQ)), 0));
+  assert.equal(pairType.readLength(s, pairQ), s.lines.reduce((t, l) => t + pairLineBits(l), 0));
+  // A horizontal line (a = 0) costs log2(64) = 6 bits for its a, against log2(8) = 3 on line-q.
+  assert.equal(PAIR_CODES.a.bits(0n), 6);
+  assert.ok(pairLineBits(L(0, 1, -3)) > lineBits(L(0, 1, -3), lineParams(pairQ)));
 });
 
 test("the answer is Cramer's: 2x + 3y = 12 and x − y = 1 cross at (3, 2), dividing by −5", () => {

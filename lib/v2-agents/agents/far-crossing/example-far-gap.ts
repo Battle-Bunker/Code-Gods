@@ -1,5 +1,5 @@
-// Far Crossing · Example: the gap between the x-intercepts a multiple of q to your level
-// Main part: the steeper line crosses the x-axis at a whole number on the dealt ladder. Tie-breaker: the gap between the x-intercepts a multiple of q to your level.
+// Far Crossing · Example: the x-intercepts' gap near a multiple of your number
+// Main part: the steeper line crosses the x-axis on your pattern. Tie-breaker: the x-intercepts' gap near a multiple of your number.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.

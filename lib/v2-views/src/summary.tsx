@@ -57,6 +57,29 @@ export interface SummaryInput<S> {
   readonly movesRead?: number | null;
   /** The contested objects' moves (≤ 10): each is said as climbed together or undone. */
   readonly climbs?: readonly SummaryClimb[];
+  /** How the game went for the player: their total over world seconds, the game's length, the energy left unspent. */
+  readonly pace?: SummaryPace;
+}
+
+export interface SummaryPace {
+  readonly points: readonly { readonly x: number; readonly y: number }[];
+  readonly endWorld: number;
+  readonly energyLeft: number;
+  readonly capacity: number;
+}
+
+/** "2:00" for 120 world seconds. */
+const clockOf = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+/** When the total last rose (by more than a hundredth of it), and what the last third added. */
+function paceFacts(p: SummaryPace): { stalledAt: number | null; lastThird: number; full: boolean } {
+  const pts = [...p.points].sort((a, b) => a.x - b.x);
+  const end = pts.at(-1)?.y ?? 0;
+  let lastRise = 0;
+  for (let i = 1; i < pts.length; i++) if (pts[i]!.y > pts[i - 1]!.y + Math.max(0.01, Math.abs(end) / 100)) lastRise = pts[i]!.x;
+  const cut = (p.endWorld * 2) / 3;
+  const atCut = [...pts].reverse().find(q => q.x <= cut)?.y ?? 0;
+  return { stalledAt: pts.length > 1 && lastRise <= cut ? lastRise : null, lastThird: end - atCut, full: p.capacity > 0 && p.energyLeft >= 0.9 * p.capacity };
 }
 
 export interface Summary<S = unknown> {
@@ -116,11 +139,20 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
   let next: Summary<S>["next"];
   const top = tugs[0];
   const together = contested.find(c => c.kind === "together");
-  if (top) {
-    const lesson = `open a ${noun} you share in One ${noun} and order its moves by “Best for points”: your points there are your bits × theirs, so the top move counts their bits as well as yours and gives them less reason to undo it.${top.practice ? "" : " Tell them in chat which way you are climbing."}`;
-    next = { number: top.number, text: input.rotates
-      ? `Next game, ${lesson}`
-      : `This game ${youAnd(top.withNames).replace(/^You/, "you")} pulled ${noun} ${top.number} back and forth (${top.flips} pulls, ${fmtEnergy(top.mySpend)}). Next game, ${lesson}` };
+  const pace = input.pace ? paceFacts(input.pace) : null;
+  // The facts of this game first, then one thing to try that follows from them (rounds 26 and 28: the same words every
+  // game, even across a rotation's games).
+  const tugFact = top ? `This game ${youAnd(top.withNames).replace(/^You/, "you")} pulled ${noun} ${top.number} back and forth (${top.flips} pulls, ${fmtEnergy(top.mySpend)}).` : "";
+  const stallFact = pace?.stalledAt != null
+    ? `Your points stopped rising at ${clockOf(pace.stalledAt)}${pace.full ? `, and your energy sat full (${fmtEnergy(input.pace!.energyLeft)} unspent) for the rest of the game` : ""}.`
+    : "";
+  const lead = (s: string) => (s ? `${s} ` : "");
+  if (stallFact && (pace!.full || !top)) {
+    next = { number: top?.number ?? null, text: `${lead(tugFact)}${stallFact} Next game, when your points stop rising, change what your agent tries: pick another of its starting points in Agent code, or summon a second agent that tries different moves, so your energy keeps buying moves.` };
+  } else if (top) {
+    next = { number: top.number, text: `${lead(tugFact)}${lead(stallFact)}Next game, open a ${noun} you share in One ${noun} and order its moves by “Best for points”: your points there are your bits × theirs, so the top move counts their bits as well as yours and gives them less reason to undo it.${top.practice ? "" : " Tell them in chat which way you are climbing."}` };
+  } else if (pace && pace.stalledAt === null && pace.lastThird > 0) {
+    next = { number: null, text: `Your agent was still raising your points at the end (+${fmtNum(pace.lastThird)} points in the last third). Next game, give it a bigger share of your power from the start, in My agents, so it climbs sooner.` };
   } else if (together) {
     next = { number: together.number, text: `On ${noun} ${together.number} your moves and the others' all raised the points. Next game, find more ${noun}s like it: in ${cap(noun)}s, the others' bits on each ${noun} show which ones they want too; climb those one move at a time.` };
   } else {

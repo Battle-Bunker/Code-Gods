@@ -1,5 +1,5 @@
-# Gap Ratio · Example: the gap is a big prime
-# Main part: the gap on the y-axis a whole number, the dealt powers times the gap on the x-axis. Tie-breaker: the gap is a big prime.
+# Gap Ratio · Example: the gap has a big smallest prime factor
+# Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Tie-breaker: the gap has a big smallest prime factor.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.

@@ -9,7 +9,7 @@
  */
 import { isInvalid, Qn, q, whichBits, type ArgCode, type ArgHelp, type Invalid, type Mutator, type Q, type Rng, type Variant } from "@workspace/v2-core";
 import { fromMC, inDomain, lineArgCodes, lineParams, mutators as lineMutators, normalise, type Args, type Line } from "@workspace/v2-linear";
-import { canonicalPair, facts, type PairState } from "./pair.ts";
+import { canonicalPair, facts, pairLineBits, type PairState } from "./pair.ts";
 
 const { fields, amount, displacement, oneOf } = lineArgCodes;
 const LINES = ["1", "2"] as const;
@@ -185,6 +185,29 @@ export const translate: M = {
   inverse: { kind: "mutator", id: "sys.translate", args: a => ({ u: Qn.neg(Qa(a, "u")), v: Qn.neg(Qa(a, "v")) }) },
 };
 
-export const lineMoves: readonly M[] = lineMutators.map(m => perLine(m as unknown as M));
-export const pairMoves: readonly M[] = [combine, turn, reflect, quarter, slideAlong, translate];
+/**
+ * Shortcut fees grow with the size of the line rewritten (the coordinator's trial 29, adopted for pairs, 15 Nov): a
+ * stretch, a reflection or a quarter turn pays at least its usual fee × 2^((Φ − PAIR_SHORTCUT_PHI)/3.5), Φ the larger
+ * code length of the moved line before or after (so prices stay symmetric, an exact potential), held at 2^60.
+ * PAIR_SHORTCUT_PHI is the pair law's 90th percentile of one line's code length (21.2 bits). Additive moves are unchanged.
+ */
+export const PAIR_SHORTCUT_PHI = 21, PAIR_SHORTCUT_DOUBLING = 3.5;
+export const pairShortcutFactor = (phi: number): number => Math.min(2 ** 60, Math.max(1, 2 ** ((phi - PAIR_SHORTCUT_PHI) / PAIR_SHORTCUT_DOUBLING)));
+/** The moved line in `after`: the one that is not the unmoved line of `before` (the pair may have re-sorted). */
+const movedAfter = (before: PairState, after: PairState, i: 0 | 1) => {
+  const kept = before.lines[other(i)]!;
+  return after.lines.find(l => l.a !== kept.a || l.b !== kept.b || l.c !== kept.c) ?? after.lines[i]!;
+};
+function shortcutFloor(m: M): M {
+  return {
+    ...m,
+    floor: (before, after, _site, a, v) => {
+      const i = idx(a), phi = Math.max(pairLineBits(before.lines[i]!), pairLineBits(movedAfter(before, after, i)));
+      return (whichBits(v, m.id) + m.args(v).bits(a)) * (Number.isFinite(phi) ? pairShortcutFactor(phi) : 1);   // the whole usual fee, scaled
+    },
+  };
+}
+const SHORTCUTS = new Set(["mach.stretch"]);
+export const lineMoves: readonly M[] = lineMutators.map(m => perLine(m as unknown as M)).map(m => (SHORTCUTS.has(m.id) ? shortcutFloor(m) : m));
+export const pairMoves: readonly M[] = [combine, turn, shortcutFloor(reflect), shortcutFloor(quarter), slideAlong, translate];
 export const pairMutators: readonly M[] = [...lineMoves, ...pairMoves];
