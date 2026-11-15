@@ -282,3 +282,23 @@ the system) is applied once, and again repeated 8 times. Output:
     Steep Ratio could want the steeper line's intercept small. Either is a change to a rule, so it is the
     coordinator's to trial.
 
+
+**Collapse test 4 (dynamics in play).** lib/v2-agents collapse-check.ts now plays pairs with the shipped Simple
+starters. It runs them on the preset's own board: v1's economy, 10 starting objects, a birth every 10 s, 300 s. The
+frozen share is over the pair's own calls (pairs have no line shortcut climber). Each β was played twice, on one table
+(Whole Answer/south-west, Far Crossing/far-prime, High Start/start-factors). Output:
+[scripts/two-line-systems-collapse-dynamics.txt](scripts/two-line-systems-collapse-dynamics.txt).
+
+| β | 4. dynamics | idle | objects changing in the last minute | gains after the midpoint | frozen at the end | objects |
+|--:|---|--:|--:|--:|--:|---|
+| 0.02 | **FAIL** (a) | 94% | 25% (floor 25%) | 44% | 0% | 10 → 34 / 44 |
+| 0.05 | **FAIL** (a) | 95% | 23% | 47% | 0% | 10 → 39 / 34 |
+| 0.1 | PASS | 94% | 32% | 51% | 0% | 10 → 38 / 34 |
+
+- **No convergence seen.** No object is frozen at the end: every one still has an improving move. Gains keep coming,
+  about half of them after the midpoint, at every β.
+- Check (a) fails by a hair at β 0.02 and 0.05. The cause is attention, not a fixed point: births bring the board to
+  34–44 objects, and three seats change about a quarter of them in any minute. Grids at the beginner numbers
+  (3 objects) do not meet this.
+- Not measured here: a shortcut climber for pairs, test 5 (disclosure), and more tables and seeds. Two games per β is
+  a smoke test, not an estimate.
