@@ -50,7 +50,7 @@ test("a grid representation's mutators name their arguments, with choices for ce
 test("Grids · beginner deals every grid family, each a main layer plus one tie-breaker, on the grid board (once grids have value functions)", async () => {
   const { presetOf } = await import("../../convex/v2/presets.ts");
   const { dealablePool, playable } = await import("../../convex/v2/deal.ts");
-  const { VALUE_RECORDS } = await import("../../convex/v2/values.gen.ts");
+  const { VALUE_INDEX: VALUE_RECORDS } = await import("../../convex/v2/values.gen.ts");
   const gridValues = VALUE_RECORDS.some(r => r.variant === "grid-4-d10");
   for (const id of ["grids-beginner", "grids-beginner-bidding"]) {
     const p = presetOf(id);

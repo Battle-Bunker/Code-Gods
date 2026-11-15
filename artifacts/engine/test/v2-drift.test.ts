@@ -10,7 +10,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { admin, humans, perform } from "./v2-helpers.ts";
-import { VALUE_RECORDS } from "../convex/v2/values.gen.ts";
+import { VALUE_INDEX as VALUE_RECORDS } from "../convex/v2/values.gen.ts";
 import { familyOf } from "../convex/v2/deal.ts";
 
 test("every driftSeconds, a seat's parameters are redrawn; the rule, the values and the record follow", { timeout: 180_000 }, async () => {

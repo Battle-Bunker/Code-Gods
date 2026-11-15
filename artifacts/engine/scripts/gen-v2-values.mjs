@@ -3,7 +3,9 @@
  * Bundles the committed value functions (lib/v2-valuation/values/<variant>/<family>/*.json, spec §7.0, owner decision 23)
  * into convex/v2/values.gen.ts: what the server needs to look up a state's bits at its actual score (the knots and the
  * tail rule; `valueLookup` from @workspace/v2-valuation), without the diagnostics, and the uniqueness tables
- * (lib/v2-valuation/uniqueness, owner decision 24).
+ * (lib/v2-valuation/uniqueness, owner decision 24). Each rule's curve is a JSON string, parsed on its first lookup
+ * (values.ts): nearly every server module loads this file, and parsing all the curves as object literals took about
+ * 260 ms per cold load, near the 1 s limit under load (playtest round 24); the strings load in a fifth of that.
  *
  *   node scripts/gen-v2-values.mjs           write the file
  *   node scripts/gen-v2-values.mjs --check   exit 1 if it is stale
@@ -18,15 +20,13 @@ const OUT = join(root, "convex", "v2", "values.gen.ts");
 const UNIQ = join(root, "..", "..", "lib", "v2-valuation", "uniqueness");
 
 export function generate() {
-  const rows = [];
+  const rows = [], curves = {};
   for (const variant of readdirSync(SRC).sort())
     for (const family of readdirSync(join(SRC, variant)).sort())
       for (const file of readdirSync(join(SRC, variant, family)).filter(f => f.endsWith(".json")).sort()) {
         const v = JSON.parse(readFileSync(join(SRC, variant, family, file), "utf8"));
-        rows.push({
-          ruleKey: v.ruleKey, variant: v.variant, family: v.family, params: v.params, tieBreaker: v.tieBreaker,
-          knots: v.knots, tail: v.tail, contentHash: v.contentHash,
-        });
+        rows.push({ ruleKey: v.ruleKey, variant: v.variant, family: v.family, params: v.params, tieBreaker: v.tieBreaker, contentHash: v.contentHash });
+        curves[v.ruleKey] = JSON.stringify({ knots: v.knots, tail: v.tail });
       }
   const uniqueness = existsSync(UNIQ) ? readdirSync(UNIQ).filter(f => f.endsWith(".json")).sort().map(f => {
     const t = JSON.parse(readFileSync(join(UNIQ, f), "utf8"));
@@ -37,7 +37,11 @@ import type { ValueFunction } from "@workspace/v2-valuation";
 
 export type ValueRecord = Pick<ValueFunction, "ruleKey" | "variant" | "family" | "params" | "tieBreaker" | "knots" | "tail" | "contentHash">;
 
-export const VALUE_RECORDS: readonly ValueRecord[] = ${JSON.stringify(rows)};
+/** Every rule with a value function, without its curve (values.ts \`valueRecord\` adds it). */
+export const VALUE_INDEX: readonly Omit<ValueRecord, "knots" | "tail">[] = ${JSON.stringify(rows)};
+
+/** Each rule's curve (\`{ knots, tail }\`) as JSON, by ruleKey: parsed on its first lookup, not when the module loads. */
+export const CURVES: Readonly<Record<string, string>> = ${JSON.stringify(curves)};
 
 /** The uniqueness correction per variant (spec §2.6): apply with withUniqueness(lookup, table, objects in the game). */
 export const UNIQUENESS: readonly { variant: string; ns: readonly number[]; heldMass: readonly number[] }[] = ${JSON.stringify(uniqueness)};

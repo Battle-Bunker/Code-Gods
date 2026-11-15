@@ -5,7 +5,8 @@ import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { q, scoreFromWire as scoreFrom } from "@workspace/v2-core";
 import { valueLookup } from "@workspace/v2-valuation";
-import { UNIQUENESS, VALUE_RECORDS } from "../../convex/v2/values.gen.ts";
+import { UNIQUENESS } from "../../convex/v2/values.gen.ts";
+import { valueRecord } from "../../convex/v2/values.ts";
 import { dealablePool } from "../../convex/v2/deal.ts";
 import { presetOf } from "../../convex/v2/presets.ts";
 
@@ -16,7 +17,7 @@ test("the bundled value functions are up to date with lib/v2-valuation/values", 
 test("every rule the beginner preset deals has a value function, and its lookups rise with the score", () => {
   const preset = presetOf("lines-beginner");
   for (const r of dealablePool(preset)) {
-    const rec = VALUE_RECORDS.find(x => x.ruleKey === r.ruleKey);
+    const rec = valueRecord(r.ruleKey);
     assert.ok(rec, `${r.family}+${r.tieBreaker}: no value function`);
     const look = valueLookup(rec);
     assert.equal(look(null).bits, 0);
@@ -36,7 +37,7 @@ test("values in a game carry the uniqueness correction at the game's object coun
   assert.equal(valueObjects(preset), 4, "the beginner game's N (decisions 31, 34)");
   const objects = valueObjects(settings);
   assert.equal(objects, Math.round(settings.startingObjects + settings.economy.birthsPerSecond * settings.worldSeconds / 2));
-  const rec = VALUE_RECORDS.find(x => x.ruleKey === dealablePool(preset)[0]!.ruleKey)!;
+  const rec = valueRecord(dealablePool(preset)[0]!.ruleKey)!;
   const rare = rec.knots.at(-1)!, scope = { variant: rec.variant, objects };
   const one = worthOf(rec.ruleKey, scoreFrom(rare.u), { variant: rec.variant, objects: 1 }).bits;
   const many = worthOf(rec.ruleKey, scoreFrom(rare.u), scope).bits;
@@ -48,4 +49,14 @@ test("values in a game carry the uniqueness correction at the game's object coun
   // What the agents and the app are sent applies the same correction (host.ts gameLookup, sdk/rule.ts valueOf).
   const f = valueFnIn(rec.ruleKey, scope)!;
   assert.equal(withUniqueness(valueLookup(f), f.uniqueness!, f.uniqueness!.objects)(scoreFrom(rare.u)).bits, many);
+});
+
+test("values.gen.ts is current, and keeps each curve a JSON string parsed on first lookup (playtest round 24: parsing every curve at load cost ~260 ms per cold module)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { generate } = await import("../../scripts/gen-v2-values.mjs");
+  assert.equal(readFileSync(new URL("../../convex/v2/values.gen.ts", import.meta.url), "utf8"), generate(), "stale: run node scripts/gen-v2-values.mjs");
+  const { VALUE_INDEX, CURVES } = await import("../../convex/v2/values.gen.ts");
+  assert.ok(VALUE_INDEX.length > 0 && VALUE_INDEX.every(r => !("knots" in r) && typeof CURVES[r.ruleKey] === "string"));
+  const r = valueRecord(VALUE_INDEX[0]!.ruleKey)!;
+  assert.ok(r.knots.length > 0 && valueRecord(r.ruleKey) === r, "parsed once, then cached");
 });

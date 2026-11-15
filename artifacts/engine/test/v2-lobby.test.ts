@@ -149,3 +149,33 @@ test("the dealing trial's measurement: a game stores its table's unopposed direc
   assert.equal("unopposedPolicy" in header, false, "players are not shown it either");
   await perform(ada!, "game.end", {}, { gameId });
 });
+
+test("a human's new practice game ends their unfinished one (playtest round 24: abandoned deals kept ~28 worlds running); a game with another human is left alone", { timeout: 90_000 }, async () => {
+  const [ada, bo] = await humans("Abandon Ada", "Abandon Bo");
+  const practice = async () => {
+    const { roomId } = (await perform(ada!, "room.create", { name: "Practice" })).result;
+    await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
+    return (await perform(ada!, "game.start", {}, { roomId })).result.gameId as string;
+  };
+  // A game Ada shares with Bo: not hers alone, so never ended for her.
+  const shared = await perform(ada!, "room.create", { name: "Shared" });
+  await perform(bo!, "room.join", { code: shared.result.code });
+  await perform(ada!, "seats.fillPracticePartners", {}, { roomId: shared.result.roomId });
+  const sharedGame = (await perform(ada!, "game.start", {}, { roomId: shared.result.roomId })).result.gameId as string;
+  const first = await practice();
+  await perform(ada!, "game.startWorldNow", {}, { gameId: first });
+  const second = await practice();
+  const phase = async (gameId: string) => (await ada!.query("v2/games:header", { gameId })).phase;
+  assert.equal(await phase(first), "ended", "the abandoned practice game ends");
+  assert.notEqual(await phase(second), "ended");
+  assert.notEqual(await phase(sharedGame), "ended", "a game with another human is not hers to end");
+  // Bo's own practice game is not touched by Ada's.
+  const { roomId: boRoom } = (await perform(bo!, "room.create", { name: "Bo practice" })).result;
+  await perform(bo!, "seats.fillPracticePartners", {}, { roomId: boRoom });
+  const boGame = (await perform(bo!, "game.start", {}, { roomId: boRoom })).result.gameId as string;
+  const third = await practice();
+  assert.equal(await phase(second), "ended", "each new practice game ends the last");
+  assert.notEqual((await bo!.query("v2/games:header", { gameId: boGame })).phase, "ended");
+  for (const g of [sharedGame, third]) await perform(ada!, "game.end", {}, { gameId: g });
+  await perform(bo!, "game.end", {}, { gameId: boGame });
+});
