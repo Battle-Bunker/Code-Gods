@@ -28,7 +28,7 @@
  */
 import { writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { applyPriced, rng, variantMutators, walkStep, type Rng } from "@workspace/v2-core";
+import { applyPriced, evaluateObject, rng, variantMutators, walkStep, type Rng } from "@workspace/v2-core";
 import { lineLaw, lineQ, lineType, normalise, type LineState } from "@workspace/v2-linear";
 import { valuer } from "../src/harness.ts";
 import { poolOf, ruleName, type Rule } from "./landscape-lib.ts";
@@ -193,6 +193,15 @@ const highStates: LineState[][] = RULES.map(() => []);
 for (let a = 0; a < NR; a++) {
   const states = statesFor(a);
   highStates[a] = states.filter(s => allBits(s)[a]! >= HIGH);
+  // A ladder's high ground from its own witnesses (RuleFamily.witness): cheap states on its higher rungs, which the
+  // subset simulation can miss (Divisibility Ladder's sampled states top at 7.7 bits).
+  const fam = lineType.families.find(f => f.id === FAM[a]);
+  if (fam?.keepsParams && fam.witness) {
+    for (let n = 1; n <= 16; n++) for (const w of fam.witness(RULES[a]!.params as never, n)) {
+      const c = lineType.canonical(w as LineState, lineQ);
+      if (!("invalid" in c) && allBits(c as LineState)[a]! >= HIGH) highStates[a]!.push(c as LineState);
+    }
+  }
   let lo = Infinity, hi = -Infinity;
   for (const s of states) {
     const b0 = allBits(s);
@@ -570,18 +579,53 @@ function climbB(s0: LineState, b: number, keep: ((s: LineState) => boolean) | nu
 const exRng = rng("tension-exclusion", SEED);
 const draws = Array.from({ length: EX_DRAWS }, () => draw(exRng));
 const floorOf = RULES.map((_, b) => { const v = draws.map(s => allBits(s)[b]!).sort((x, y) => x - y); return v[Math.floor(v.length / 2)]!; });
-const freeRises = RULES.map((_, b) => draws.filter(s => climbB(s, b, null) > floorOf[b]! + 1).length >= EX_DRAWS / 2);
+/**
+ * "At its floor" (the coordinator, 15 Nov: no threshold moved, the definition made structural): for a ladder family B,
+ * below its second rung (main part < 2: on no rung, or only the first, which law draws reach often); otherwise within
+ * 1 bit of its median over law draws, as before.
+ */
+const ladderB = RULES.map((_, b) => !!lineType.families.find(f => f.id === FAM[b])?.keepsParams);
+const mainOf = (s: LineState, b: number): number => {
+  const fam = lineType.families.find(f => f.id === FAM[b])!;
+  const u = evaluateObject(lineType, fam as never, RULES[b]!.params, s, lineQ, RULES[b]!.tieBreaker).score?.[0];
+  return u ? Number(u.n) / Number(u.d) : -Infinity;
+};
+function climbMain(s0: LineState, b: number, keep: ((s: LineState) => boolean) | null): number {
+  let s = s0, best = mainOf(s, b);
+  for (let k = 0; k < EX_STEPS; k++) {
+    let next: LineState | null = null, nb = best;
+    for (const d of cheapDirs) {
+      const r = applyDir(s, d);
+      if (!r || (keep && !keep(r.s))) continue;
+      const v = mainOf(r.s, b);
+      if (v > nb + EPS) { nb = v; next = r.s; }
+    }
+    if (!next) break;
+    s = next; best = nb;
+  }
+  return best;
+}
+const atFloor = (s: LineState, b: number, keep: ((t: LineState) => boolean) | null): boolean =>
+  ladderB[b] ? climbMain(s, b, keep) < 2 : climbB(s, b, keep) <= floorOf[b]! + 1;
+/**
+ * Exclusion, per pair: on each of A's high states, B is climbed twice by the same 3-move climb, freely and keeping A
+ * within 1 bit. The state counts when the free climb takes B off its floor and the constrained one does not: the
+ * constraint, not the start, holds B down. "1" when that holds on at least half of the states where B can rise freely;
+ * "." when fewer than 4 such states.
+ */
 const exclusion: string[] = RULES.map((_, a) => {
   const hs = highStates[a]!.slice(0, EX_STATES);
   return RULES.map((_b, b) => {
     if (FAM[b] === FAM[a]) return " ";
-    if (hs.length < 4 || !freeRises[b]) return ".";
-    let low = 0;
+    let free = 0, held = 0;
     for (const s of hs) {
+      if (atFloor(s, b, null)) continue;
+      free++;
       const a0 = allBits(s)[a]!;
-      if (climbB(s, b, t => allBits(t)[a]! >= a0 - 1) <= floorOf[b]! + 1) low++;
+      if (atFloor(s, b, t => allBits(t)[a]! >= a0 - 1)) held++;
     }
-    return low >= hs.length / 2 ? "1" : "0";
+    if (free < 4) return ".";
+    return held >= free / 2 ? "1" : "0";
   }).join("");
 });
 console.error(`exclusion: ${exclusion.reduce((t, x) => t + [...x].filter(c => c === "1").length, 0)} excluded (A, B) of ${NR * (NR - 1)}`);
@@ -607,7 +651,7 @@ if (o.json) {
     })])),
     repeatsLegend: `per rule, per direction: the direction repeated ${STEPS} times from every state, [runs, runs raising the rule, mean Δbits given a rise, mean price (fee + surcharge, bits) of the ${STEPS} moves of a raising run]`,
     opportunityLegend: `per rule A, per direction (in order): one character per rule C (in the order of rules): the number of fractions in [${OPP_F.join(", ")}] that C's opportunity cost reaches, as a share of A's gain, in at least half of A's rising runs of ${STEPS} repeats (C's cost: its best bits one move from the start, or staying, less its bits at the run's end); " " the same family, "." fewer than 8 rising runs`,
-    exclusionLegend: `per rule A: one character per rule B (in the order of rules): "1" when, from A's sampled states with A ≥ ${HIGH} bits (up to ${EX_STATES}), a greedy climb of B of ${EX_STEPS} cheap moves keeping A within 1 bit leaves B within 1 bit of its floor (median over law draws) in at least half; "0" otherwise; "." uninformative (fewer than 4 such states, or B does not rise above floor + 1 climbing freely from law draws); " " the same family`,
+    exclusionLegend: `per rule A: one character per rule B (in the order of rules): "1" when, on A's high states (A ≥ ${HIGH} bits, sampled and from its ladder witnesses, up to ${EX_STATES}), a greedy climb of B of ${EX_STEPS} cheap moves takes B off its floor freely but not when it keeps A within 1 bit, on at least half of the states where it can rise freely (B's floor: a ladder below its second rung, main part < 2; otherwise within 1 bit of its median over law draws); "0" otherwise; "." fewer than 4 states where B rises freely; " " the same family`,
     exclusion,
     opportunityFractions: OPP_F,
     opportunity: Object.fromEntries(RULES.map((_, a) => [R(a), DIRS.map((_d, d) => RULES.map((_c, c) => {

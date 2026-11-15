@@ -25,9 +25,7 @@ test("contest along a climb names, for each family, the dealt families opposing 
  * Open fails of design-principles.md row 6, each a coordinator's ruling to deal the family unopposed for now. An entry
  * whose family gains an opponent fails the test below: remove it then.
  */
-const OPEN_ROW_6: Record<string, string> = {
-  "divisibility-ladder": "coordinator, 15 Nov (#817): merged dealt; its climbs barely move any other rule (at most 7% opposed). Prime Staircase is to be made to contest its heights.",
-};
+const OPEN_ROW_6: Record<string, string> = {};
 
 test("the named opponents are the contest opponents and the families that exclude it (at least half of the measured rule pairs)", () => {
   for (const [a, opponents] of Object.entries(LINE_OPPONENTS)) {
