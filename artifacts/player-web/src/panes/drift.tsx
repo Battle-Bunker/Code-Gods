@@ -10,17 +10,8 @@ import { useWorldNow } from "./fresh-mark";
 import { nextDriftAt } from "@workspace/v2-core";
 import { DRIFT_MEANS, driftNotice, driftWords, targetChange } from "./drift-words";
 
-/**
- * Each game's rule parameters by drift count, as this page saw them: what a redraw changed from (a reload knows only
- * the numbers now, and the notice then says "numbers" without naming the target).
- */
-const seenParams = new Map<string, Map<number, unknown>>();
-function changeOf(gameId: string, drifts: number, params: unknown) {
-  const byCount = seenParams.get(gameId) ?? new Map<number, unknown>();
-  seenParams.set(gameId, byCount);
-  if (!byCount.has(drifts)) byCount.set(drifts, params);
-  return drifts > 0 ? targetChange(byCount.get(drifts - 1), params) : null;
-}
+/** What the last redraw changed: the server's `previous` (W3 #750), so it survives a reload. */
+const changeOf = (row: { params: unknown; previous?: { params: unknown } | null }) => targetChange(row.previous?.params, row.params);
 
 /** The countdown to this seat's own next redraw (W3 #745) and the notice after one; nulls when there is nothing to say. */
 function useDrift(): { countdown: string | null; notice: string | null } {
@@ -36,7 +27,7 @@ function useDrift(): { countdown: string | null; notice: string | null } {
     : nextDriftAt(header.driftSeconds ?? 0, header.roster.length, seat, worldNow, header.durationMode === "fixed" ? header.worldSeconds : null);
   return {
     countdown: driftWords(nextAt, worldNow, choices, scale),
-    notice: driftNotice(my.row, worldNow, changeOf(header.gameId, my.row.drifts, my.row.params), scale),
+    notice: driftNotice(my.row, worldNow, changeOf(my.row), scale),
   };
 }
 
@@ -73,9 +64,8 @@ export function DriftToast() {
     if (!header || drifts === undefined) return;
     const was = seen.current?.gameId === header.gameId ? seen.current.drifts : null;
     seen.current = { gameId: header.gameId, drifts };
-    // Recorded every time, so the numbers before a redraw are known whichever panes are open.
-    const change = changeOf(header.gameId, drifts, my!.row.params);
     if (was !== null && drifts > was && header.phase === "live") {
+      const change = changeOf(my!.row);
       toast({ duration: 15_000, title: change ? `Your rule's target changed from ${change.from} to ${change.to}` : "Your rule's numbers just changed",
         description: `${DRIFT_MEANS} Your rule now: ${my!.row.card}` });
     }
