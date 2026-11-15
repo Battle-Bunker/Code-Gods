@@ -568,6 +568,13 @@ back) or TRIAL (a declared experiment, measured and reported).
       earns (design-principles.md principle 1). The only bend in any ladder was where the sampled values ended and
       the tail was cut to 0.5 bits per unit: Smooth Intercept's measured 5.4 bits per level became 0.1 bits per
       stretch, which froze a line at 22.87 bits in playtest round 26. A flat tail is a top in disguise.
+    - **Amended** (the coordinator, 15 Nov, on Prime Staircase ending 9: a measured-rate tail of 12.6 bits a prime let
+      a random shift find a 41-bit state): one rule for every ladder, the standing one (CLAUDE.md): a value tail never
+      grows faster than the φ of the cheapest state that reaches it. Each ladder family declares cheap witnesses for
+      its n-th rung (RuleFamily.witness: p₁ⁿ for Smooth Intercept, 5ⁿ·t, the smallest n-digit prime, lcm(1, …, n),
+      and for Prime Staircase arithmetic runs found by search, e.g. y = 210x + 199, ten primes ending in 9 for about
+      25 bits); the tail is the measured rate, capped at each rung by the least φ of a witness at that rung or above
+      (v2-valuation ladderCaps; a test checks every dealt ladder). Prime Staircase ending 9 now tops at 22–25 bits.
 
 29. **TRIAL** (the coordinator's, declared 15 Nov): a shortcut's price grows with the size of the line it rewrites.
     A multiplying or representation shortcut (mach.stretch, basis.zoom, rot.turn) is still priced as a choice by its
@@ -582,7 +589,12 @@ back) or TRIAL (a declared experiment, measured and reported).
       2,500⚡) on one ladder ends near 30 bits (the coordinator's target 25–35; a fee linear in Φ would let it reach
       50–65). The doubling form was chosen over a power of Φ because it is one sentence: "past 20 bits, a shortcut's
       fee doubles every 3.5 bits of the line".
-    - **Effects:** see the PR (bits against energy per ladder from rung starts; in play).
+    - **The gate** (the coordinator's ruling, 15 Nov): the no-straight-hill gate is one energy question: from law
+      draws and rung starts, can a greedy climber with one seat's whole-game income (2,500⚡ on lines) spent on one
+      object take a dealt rule past 35 bits? Enforced (artifacts/engine v2-no-straight-hill.test.ts). Measured: Smooth
+      Intercept 17–27 bits (31 with the lens moves), Whole Crossing 9–13 (31–33 with zoom), Divisibility Ladder
+      15.6 (20.5), Prime Landing and Prime Gradient at most 20, Prime Staircase at most 25, every other family under
+      21. Open: Square Area's spf and lpf (58.5 bits; 141–316 with the lens moves), reported to its owner.
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 

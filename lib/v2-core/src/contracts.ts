@@ -249,6 +249,13 @@ export interface RuleFamily<S, P> {
    * redraws it (the coordinator's amendment of call 18, 15 Nov: a redraw reset the climb). Absent: drift may redraw it.
    */
   readonly keepsParams?: boolean;
+  /**
+   * For a ladder family: a few cheap states reaching the n-th unit of its ladder (n ≥ 1: n primes, n digits, a run of
+   * n …), for the cap on its value tail (CLAUDE.md: a value tail never grows faster than the φ of the cheapest state
+   * that reaches it; the coordinator's amendment of trial 28). Any of them may be invalid on a variant; none may be
+   * empty for a unit the ladder has no cheap witness for.
+   */
+  witness?(params: P, n: number): readonly S[];
 }
 
 /** Which tie-breaker a dealt rule uses: an id of the family's, or null for the main layer alone. */

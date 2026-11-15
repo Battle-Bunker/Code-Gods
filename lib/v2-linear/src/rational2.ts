@@ -11,6 +11,7 @@
 import { Qn, q, ref, type Q } from "@workspace/v2-core";
 import { allUndefined, distance, family, gap, more, num, undef, type Shape, ladder } from "./layers.ts";
 import { nearestInteger, nearestSquareRoot, primeFactorCount, stepNote } from "./numbers.ts";
+import { smoothWitness } from "./witnesses.ts";
 import { gcdTerm, onRationals } from "./rational.ts";
 
 const abs = (x: bigint): bigint => (x < 0n ? -x : x);
@@ -323,7 +324,7 @@ export const smoothIntercept = ladder(family<SP>("smooth-intercept", "Smooth Int
   const mark = ref("cart", "yAxisMark", { y: Qn.sign(c) < 0 ? -s : s });
   ctx.read(mark);
   ctx.mark({ kind: "candidate", ref: mark, term: "smooth" });
-}));
+}), smoothWitness);
 
 const steepShape: Shape<object> = {
   main: more("smaller", "the smaller of the gradient and the y-intercept",

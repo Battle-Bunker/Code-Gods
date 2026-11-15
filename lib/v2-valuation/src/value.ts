@@ -223,6 +223,13 @@ export interface TailFit {
   readonly unclamped?: number;
   /** "prime": the layer declares a prime-valued measure, so the tail is the code's own cost of a prime (Layer.measure). */
   readonly measure?: "prime" | "ladder";
+  /**
+   * A ladder's cap (the coordinator's amendment of trial 28): points [u, φ] from cheap witness states (RuleFamily.witness),
+   * ascending in u, each φ the least code length of a witness at u or above. A score u is never worth more than the cap
+   * at the first point at or above it: "at least u" is never rarer than a state that reaches it. Beyond the last point,
+   * no cap.
+   */
+  readonly caps?: readonly (readonly [number, number])[];
 }
 
 /** What the rule's layers declare they measure (Layer.measure), per component of the score. */
@@ -429,7 +436,11 @@ function fitTail(pts: readonly { u: Q; y: number }[], ceiling: number, measure?:
  * coefficient), makes every size tail a log ramp of at most that many bits per doubling, so a value never grows faster
  * than the φ of the cheapest state that reaches it (CLAUDE.md, decision 30).
  */
-export function tailOf(knots: readonly Pick<ValueKnot, "u" | "bits">[], ceiling = Infinity, measures: TailMeasures = {}, sizeRate?: number): ValueTail {
+export function tailOf(knots: readonly Pick<ValueKnot, "u" | "bits">[], ceiling = Infinity, measures: TailMeasures = {}, sizeRate?: number, caps?: readonly (readonly [number, number])[]): ValueTail {
+  const t = tailOf0(knots, ceiling, measures, sizeRate);
+  return caps?.length && t.primary.measure === "ladder" ? { ...t, primary: { ...t.primary, caps } } : t;
+}
+function tailOf0(knots: readonly Pick<ValueKnot, "u" | "bits">[], ceiling: number, measures: TailMeasures, sizeRate?: number): ValueTail {
   const parsed = knots.map(k => ({ u: scoreFromWire(k.u), bits: k.bits })).filter(k => k.u !== null);
   const best = parsed[parsed.length - 1];
   if (!best) return { secondary: fitTail([], ceiling, measures.secondary, sizeRate), primary: fitTail([], ceiling, measures.primary, sizeRate) };
@@ -442,6 +453,43 @@ export function tailOf(knots: readonly Pick<ValueKnot, "u" | "bits">[], ceiling 
   return { secondary: fitTail(same.map(k => ({ u: k.u![1]!, y: k.bits })), ceiling, measures.secondary, sizeRate),
     // A ladder's rate is measured over all its rungs (the top few alone are noisy where the samples run out).
     primary: fitTail(measures.primary === "ladder" ? firsts : firsts.slice(-6), ceiling, measures.primary, sizeRate) };
+}
+
+/**
+ * A ladder family's cap points (TailFit.caps): for n = 1, 2, … its witnesses (RuleFamily.witness) valid on the variant,
+ * each scored (its main part u) and priced (its code length φ); then for each u the least φ at u or above, so the cap is
+ * a staircase that never falls. Stops after 4 units with no witness, or once φ passes 400 bits.
+ */
+export function ladderCaps<S, P>(type: ObjectType<S>, family: RuleFamily<S, P>, params: P, variant: Variant): [number, number][] {
+  if (!family.keepsParams || !family.witness) return [];
+  const pts: [number, number][] = [];
+  let missed = 0;
+  for (let n = 1; n <= 80 && missed < 4; n++) {
+    let any = false;
+    for (const w of family.witness(params, n)) {
+      const s = type.canonical(w, variant);
+      if (typeof s === "object" && s !== null && "invalid" in s) continue;
+      const u = evaluateObject(type, family, params, s, variant, null).score?.[0];
+      const phi = type.readLength(s, variant);
+      if (!u || !Number.isFinite(phi)) continue;
+      pts.push([toNumber(u), phi]);
+      any = true;
+    }
+    missed = any ? 0 : missed + 1;
+    if (pts.length && Math.min(...pts.slice(-3).map(p => p[1])) > 400) break;
+  }
+  pts.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  // The least φ at u or above, from the top down; one point per u.
+  const out: [number, number][] = [];
+  let least = Infinity;
+  for (let i = pts.length - 1; i >= 0; i--) {
+    least = Math.min(least, pts[i]![1]);
+    // u to 6 decimals; φ rounded down to 3, so the stored cap never exceeds a witness's code length.
+    const u = +pts[i]![0].toFixed(6), phi = Math.floor(least * 1000) / 1000;
+    if (!out.length || out[0]![0] !== u) out.unshift([u, phi]);
+    else out[0] = [u, phi];
+  }
+  return out;
 }
 
 export interface Lookup {
@@ -484,6 +532,12 @@ export function valueLookup(vf: { readonly knots: readonly Pick<ValueKnot, "u" |
     if (s !== null && u[0] && s[0]) {
       const t = compareScores([u[0]], [s[0]]) === 0 ? (u[1] && s[1] ? { fit: tail.secondary, from: s[1], to: u[1] } : null) : { fit: tail.primary, from: s[0], to: u[0] };
       if (t) bits += t.fit.slope * (along(t.fit.form, t.to) - along(t.fit.form, t.from));
+      // A ladder's cap: never more than the code length of a cheap state at this rung or above (TailFit.caps), whether
+      // the tail runs along the main part or along the tie-breaker at the best knot's rung.
+      if (tail.primary.caps) {
+        const x = toNumber(u[0]), cap = tail.primary.caps.find(([cu]) => cu >= x - 1e-6);   // points are stored to 6 decimals
+        if (cap) bits = Math.min(bits, cap[1]);
+      }
     }
     // Floats end somewhere: a score past them is worth the largest finite number of bits, never Infinity or NaN.
     return { bits: Math.min(Number.isNaN(bits) ? k.bits : Math.max(bits, k.bits), Number.MAX_VALUE), lo: k.lo, hi: Infinity, at: "beyond" };
@@ -633,7 +687,7 @@ export function lineValueFunction<P>(family: RuleFamily<LineState, P>, params: P
     schema: 7 as const, kind: "value-function" as const,
     ruleKey: ruleKey(lineType as ObjectType<unknown>, variant, family.id, params, tieBreaker),
     objectType: lineType.id, objectTypeVersion: lineType.version, variant: variant.id, variantHash: valuesHash(variant),
-    family: family.id, params, tieBreaker, seed, config: cfg, knots, tail: tailOf(knots, TAIL_CEILING, layerMeasures(family, tb)),
+    family: family.id, params, tieBreaker, seed, config: cfg, knots, tail: tailOf(knots, TAIL_CEILING, layerMeasures(family, tb), undefined, ladderCaps(lineType, family, params, variant)),
     diagnostics: { exact: exact.map(o => ({ name: o.name, outside: o.outside ?? 0 })), sampled, candidates },
   };
   return { ...body, contentHash: hashHex(canonicalJson(body)) };

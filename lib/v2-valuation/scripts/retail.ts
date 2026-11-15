@@ -10,7 +10,8 @@ import { readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { canonicalJson, hashHex } from "@workspace/v2-core";
 import { lineType } from "@workspace/v2-linear";
-import { layerMeasures, TAIL_CEILING, tailOf } from "../src/value.ts";
+import { ladderCaps, layerMeasures, TAIL_CEILING, tailOf } from "../src/value.ts";
+import { findVariant } from "../src/index.ts";
 
 const ROOT = join(import.meta.dirname, "../values");
 const want = process.argv.slice(2).filter(a => a !== "--");
@@ -21,10 +22,10 @@ for (const variant of readdirSync(ROOT).filter(v => v.startsWith("line"))) {
     if (!existsSync(dir)) continue;
     for (const f of readdirSync(dir).filter(x => x.endsWith(".json"))) {
       const v = JSON.parse(readFileSync(join(dir, f), "utf8"));
-      const tail = tailOf(v.knots, TAIL_CEILING, layerMeasures(fam, v.tieBreaker));
+      const tail = tailOf(v.knots, TAIL_CEILING, layerMeasures(fam, v.tieBreaker), undefined, ladderCaps(lineType, fam, v.params, findVariant(variant).variant));
       const { contentHash: _h, ...body } = { ...v, tail };
       writeFileSync(join(dir, f), JSON.stringify({ ...body, contentHash: hashHex(canonicalJson(body)) }) + "\n");
-      console.log(`${variant} ${fam.id} ${canonicalJson(v.params)} ${v.tieBreaker}: primary ${JSON.stringify(v.tail.primary)} → ${JSON.stringify(tail.primary)}`);
+      console.log(`${variant} ${fam.id} ${canonicalJson(v.params)} ${v.tieBreaker}: primary ${tail.primary.form} ${tail.primary.slope.toFixed(2)}/level, caps ${(tail.primary.caps ?? []).slice(0, 8).map(([u, p]) => `${u.toFixed(2)}:${p.toFixed(0)}`).join(" ")}`);
     }
   }
 }
