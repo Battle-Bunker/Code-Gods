@@ -766,4 +766,31 @@ The statistic (lib/v2-agents src/collapse.ts `CHEAP`, the coordinator's call):
 - a table is cheap when at least half its searches reach 95% of that best;
 - the variant fails when more than a quarter of its tables are cheap.
 
-TEST2
+Final pool (§11.1–11.4), searches hitting 95% of the best known per table (of 12)
+([collapse](scripts/two-line-systems-collapse-pair-q.txt)):
+
+| β | t0 | t1 | t2 | t3 | t4 | t5 | t6 | t7 | cheap (≥ 4 of 12) | verdict |
+|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|---|
+| 0.02 | 1 | 2 | 0 | 2 | 3 | 2 | 10 | 1 | 1/8 | PASS |
+| 0.05 | 0 | 0 | 1 | 6 | 3 | 2 | 11 | 0 | 2/8 | PASS |
+| 0.1 | 1 | 2 | 9 | 8 | 9 | 1 | 11 | 3 | 4/8 | **FAIL** |
+
+- **At the dealt β 0.05 test 2 passes.** At β 0.1 (the smallest W) it fails.
+- **Test 5** passes.
+- **Drift:** pair rules no longer drift, so there are no redraws to check.
+
+**The findable table with no axis line** (the coordinator's question). Table 6 is Far Crossing (far-height), Divide By
+(numerator-shared) and Right Angle (corner-prime), cheap at every β
+([cheap-optima](scripts/two-line-systems-cheap-optima.txt), β 0.05).
+- **Its best:** −3x + 4y + 13 = 0 with 2x + y + 6 = 0, crossing at the small grid point (−1, −4).
+- **One crossing serves three rules.**
+  - The number you divide by is D = −11, so both numerators (11 and 44) share 11: Divide By's tie-breaker.
+  - The corner's |x| + |y| = 5 is prime: Right Angle's tie-breaker.
+  - The height −4 is what Far Crossing's tie-breaker reads.
+- **Not a high peak:** the seats are at 7.5, 8.4 and 10.5 bits (F 458).
+- **Search cost:** at 10,000 evaluations a search 4 of 12 times; at 30,000, 10 of 12; at 100,000, 11 of 12. About
+  0.1% of W.
+- **Table 3 for comparison** (High Start, Forty-Five, Divide By): its best (x + 2y = 28 with 7x + 3y = −13) also
+  crosses at a small grid point, (−10, 19), with D = −11. It needs about 100,000 evaluations (6 of 12).
+- **The mechanism:** a small grid crossing whose determinant is a prime pays the tie-breakers that read the crossing's
+  numbers and D at once. It is low and specific to the three seated rules, and it takes knowing all three rules.
