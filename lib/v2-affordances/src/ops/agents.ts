@@ -1,6 +1,6 @@
 /** The viewer's agents: checking, summoning, replacing and destroying them, and splitting power (spec §6.1). */
 import { z } from "zod/v4";
-import { affordance, id, language, none, obj, ok, requestId, source } from "../define.ts";
+import { affordance, id, language, none, obj, ok, page, paging, requestId, source } from "../define.ts";
 import { IN_GAME, type AffordanceContext, type Availability } from "../types.ts";
 
 const energyCheck = (ctx: AffordanceContext): Availability =>
@@ -21,9 +21,9 @@ const checkReport = z.object({
 export const agentOps = [
   affordance({
     id: "agents.list", title: "List my agents", group: "agents", scope: "game",
-    description: "The caller's agents (≤ 20): name, language, power share, energy, acts and current program version. Energy below 0 is debt: an agent may borrow up to one full store of energy to finish a change; its own income repays the debt within a full-charge time, and while it owes it gets no new opportunities. If you lower its power or remove it, the debt moves with the power to your own store.",
+    description: "Pages through the caller's live agents (≤ 200 a player, ≤ 50 a page, oldest first): name, language, power share, energy, acts and current program version. Energy below 0 is debt: an agent may borrow up to one full store of energy to finish a change; its own income repays the debt within a full-charge time, and while it owes it gets no new opportunities. If you lower its power or remove it, the debt moves with the power to your own store.",
     tooltip: "Your agents and their energy.", keywords: ["agents", "my agents", "bots"],
-    params: none, result: z.object({ agents: z.array(agentRow) }),
+    params: obj({ ...paging }), result: page(agentRow),
     contexts: [...IN_GAME, "ended"], caller: "seated", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({

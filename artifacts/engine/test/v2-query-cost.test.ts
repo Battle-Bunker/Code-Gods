@@ -21,7 +21,7 @@ before(async () => {
   const [ada, bo, cy] = await humans("Gate Ada", "Gate Bo", "Gate Cy");
   player = ada!;
   const seeded = await admin.mutation("v2/testing:seedGame", { owner: ada!.userId, humans: [bo!.userId, cy!.userId], objects: 1000, moves: 300, tugs: 100 });
-  const agentId = (await ada!.query("v2/play:agents", { gameId: seeded.gameId }))[0].agentId;
+  const agentId = (await ada!.query("v2/play:agents", { gameId: seeded.gameId, paginationOpts: { numItems: 50, cursor: null } })).page[0].agentId;
   const assistant = await admin.mutation("v2/testing:seedAssistant", { roomId: seeded.roomId, userId: ada!.userId, turns: 40 });
   fixture = { roomId: seeded.roomId, gameId: seeded.gameId, objectId: seeded.objects[500], agentId, ...assistant };
 }, { timeout: 120_000 });
@@ -75,7 +75,7 @@ test("cold queries survive tick commits in a live game", { timeout: 240_000 }, a
   const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
   await perform(ada!, "game.startWorldNow", {}, { gameId });
   const objectId = (await ada!.query("v2/spectate:objectIds", { gameId, paginationOpts: { numItems: 1, cursor: null } })).page[0].objectId;
-  const agentId = (await ada!.query("v2/play:agents", { gameId }))[0]?.agentId ?? "none";
+  const agentId = (await ada!.query("v2/play:agents", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page[0]?.agentId ?? "none";
   const assistant = await admin.mutation("v2/testing:seedAssistant", { roomId, userId: ada!.userId, turns: 2 });
   const live: V2Fixture = { roomId, gameId, objectId, agentId, ...assistant };
   const cold = V2_BUDGETS.filter(b => b.cold && (b.query !== "v2/play:agentPrograms" || agentId !== "none"));

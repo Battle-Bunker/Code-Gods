@@ -17,15 +17,17 @@ const ARITHMETIC = new Set(["divisibility", "leading-digits"]);
 /**
  * The tie-breakers the beginner pool deals: only those tied to what the main part singles out (owner decision 29; the
  * coordinator's call 14). The families keep their older tie-breakers (primes, zeros, corners, a column's total …), but
- * the pool no longer deals them.
+ * the pool no longer deals them. Opposite Nines' big-on-top and Strangers' ones and prime-strangers are undealt
+ * (15 Nov): the energy gate found cheap peaks of 37–45 bits for 99–211⚡ on them (bounded counts on a 0–9 board). Until
+ * the grid ladder redesign, Strangers deals one tie-breaker and Opposite Nines two, below row 3a's three.
  */
 export const BEGINNER_DEALT: Readonly<Record<string, readonly string[]>> = {
   "mirrormancer": ["mirror-columns", "one-apart", "small-middle"],
   "magic-eighteen": ["columns", "diagonals", "different-numbers"],
-  "opposite-nines": ["mirror-nines", "different-splits", "big-on-top"],
+  "opposite-nines": ["mirror-nines", "different-splits"],
   "two-pair": ["apart", "diagonal-pairs", "small-pairs"],
   "spread-of-three": ["spread-diagonal", "spread-small", "square-different"],
-  "strangers": ["ones", "prime-strangers", "across-strangers"],
+  "strangers": ["across-strangers"],
   "leapfrog": ["same-way", "columns-leap", "middle-factors"],
   "crosswise-threes": ["bigger-side", "other-fold", "fold-factors"],
 };

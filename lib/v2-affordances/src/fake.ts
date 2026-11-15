@@ -375,7 +375,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "moves.list": (_e, a) => page([], a),
   "log.list": (_e, a) => page([], a),
   "pitch.draft": (e, a) => ({ draft: `Proposal to ${a.to?.length ? a.to.join(", ") : "everyone"}: let's protect lines whose gradient suits ${gameOf(e).rules[e.userId]}.${a.aim ? ` ${a.aim}` : ""}` }),
-  "agents.list": e => ({ agents: gameOf(e).agents.filter(a => a.ownerId === e.userId).map(a => ({ agentId: a.agentId, name: a.name, language: a.language, share: a.share, energy: a.energy, acts: a.acts, version: a.versions.length - 1 })) }),
+  "agents.list": (e, a) => page(gameOf(e).agents.filter(x => x.ownerId === e.userId).map(x => ({ agentId: x.agentId, name: x.name, language: x.language, share: x.share, energy: x.energy, acts: x.acts, version: x.versions.length - 1 })), a),
   "agent.programs": (e, a) => ({ versions: agentOf(e, a.agentId).versions.map((v, version) => ({ version, ...v, acts: 0 })).reverse() }),
   "agent.check": (e, a) => {
     const defined = a.language === "python" ? /def\s+agent\s*\(/.test(a.source) : /function\s+agent\s*\(/.test(a.source);

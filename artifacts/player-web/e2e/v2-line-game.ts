@@ -220,6 +220,20 @@ try {
     await goal.getByTestId("text-goal-main").waitFor();
     if (!await goal.locator(".v2v-part").first().isVisible()) await goal.getByText(/A worked example/).first().click();
     await goal.locator(".v2v-part").first().waitFor();
+    // v1's "How rare is each rule score?" (the owner: a card tells a player their precise incentives) and its example
+    // to randomise or edit.
+    await goal.getByTestId("details-rarity-scale").locator("summary").click();
+    const rows = await goal.getByTestId("list-rarity-scale").locator("li").allInnerTexts();
+    assert.ok(rows.length >= 2 && rows.every(r => /: 1 in [\d.,]+.* by chance \([\d.]+ bits?\)$/.test(r)), `${label}: the rarity table: ${rows.join(" | ")}`);
+    if (label === "desktop") {
+      await goal.getByTestId("button-edit-example").click();
+      await goal.getByTestId("input-example-m").fill("-3");
+      await goal.getByTestId("input-example-c").fill("12");
+      await goal.getByTestId("button-apply-example").click();
+      await goal.getByText(/y = −3x \+ 12/).first().waitFor({ timeout: 5_000 });
+      await goal.getByTestId("button-randomise-example").click();
+      await goal.getByTestId("button-reset-example").waitFor();
+    }
     assert.equal(await goal.getByText(/Steps to the top|step \d+ of \d+/).count(), 0, "no steps on the goal card");
     if (label === "phone") await goal.screenshot({ path: path.join(shots, "score-words-phone-goal-card.png") });
     await page.locator("[data-testid^=marks-line-]").first().waitFor({ timeout: 30_000 });
@@ -313,15 +327,17 @@ try {
       assert.equal(await options.filter({ hasText: /× others'/ }).count(), 0, `${label}: no free sums for the others while live`);
       const quote = line.getByTestId("button-quote-what-if");
       assert.match(await quote.innerText(), /\((free|[\d.]+ energy)\)/, `${label}: the quote's price before the press`);
-      // Agents keep moving the line: a quote holds for the state it was asked from, so ask until one lands on it.
-      for (let i = 0; i < 6; i++) {
-        await quote.click();
-        await line.getByTestId("button-quote-what-if").getByText(/^Quote again/).waitFor({ timeout: 15_000 });
-        if (await line.locator("[data-testid=text-quote-state][data-fresh]").count()) break;
-      }
+      // Agents keep moving the line: a quote holds for the state it was asked from, so quote and read it as one, again
+      // until one is read before the line moves on.
       // Waited for and read as one option: a live update can redraw the first option between a wait and a read.
       const priced = options.filter({ hasText: /→ your [\d,]+\.\d\d bits? × others' about [\d,]+\.\d\d bits? ≈ [\d,]+\.\d\d points?/ }).first();
-      await priced.waitFor({ timeout: 15_000 });
+      let quoted = false;
+      for (let i = 0; i < 10 && !quoted; i++) {
+        await quote.click();
+        await line.getByTestId("button-quote-what-if").getByText(/^Quote again/).waitFor({ timeout: 15_000 });
+        quoted = await priced.waitFor({ timeout: 3_000 }).then(() => true, () => false);
+      }
+      assert.ok(quoted, `${label}: a quote priced the moves for the others`);
       const first = await priced.innerText();
       assert.match(first, /[\d,]+\.\d\d energy/, `a move has its price: ${first}`);
       assert.match(first, /→ your [\d,]+\.\d\d bits? × others' (about )?[\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/, `a move has its new bits and points: ${first}`);
