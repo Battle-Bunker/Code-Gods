@@ -16,7 +16,7 @@ function score(m, c, p) {
     return [main, null];
   }
   const main = Q.neg(Q.abs(Q.sub(Q.add(Q.mul(m, p.k), c), p.T)));   // y(k) = m·k + c
-  const mp = near(m, prime);                  // the prime nearest the gradient
+  const mp = Q.mul(p.T < 0 ? -1 : 1, near(Q.mul(p.T < 0 ? -1 : 1, m), prime));   // the prime (minus a prime when T is below zero) nearest the gradient
   return [main, Q.neg(Q.abs(Q.sub(m, mp)))];   // main: how far y(k) is from T (closer is better); tie-breaker: a gradient close to a prime is better
 }
 

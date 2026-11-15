@@ -65,33 +65,34 @@ test("the beginner game (owner decisions 31, 32, 34): 600 s fixed, 3 objects, ex
   assert.equal(echoed.ok, true, JSON.stringify(echoed));
 });
 
-test("a room dilated by 10 plays the same game ten times faster: every rate × 10, every length ÷ 10, energies kept (decision 37)", { timeout: 240_000 }, async () => {
+test("a room dilated by 10 plays the same game ten times faster: 600 world seconds of the preset's settings in about a minute (decision 37)", { timeout: 240_000 }, async () => {
   const [ada] = await humans("Dilated Ada");
   const { roomId } = (await perform(ada!, "room.create", { name: "Dilated room" })).result;
   await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
   await admin.mutation("v2/lobby:setTimeScale", { roomId, factor: 10 });
   const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
   const h = await ada!.query("v2/games:header", { gameId });
-  assert.deepEqual([h.timeScale, h.planningSeconds, h.worldSeconds, h.scoreIntervalSeconds], [10, 6, 60, 1]);
+  // The game itself is the preset's: its world lasts 600 s at power 4, 3 opportunities a second, a 90 start.
+  assert.deepEqual([h.timeScale, h.planningSeconds, h.worldSeconds, h.scoreIntervalSeconds, h.priceScale], [10, 60, 600, 10, 4 / 64]);
   const settings = await admin.query("v2/testing:settingsOf", { gameId });
   const e = settings.economy;
-  assert.deepEqual([e.powerPerSecond, e.opportunitiesPerSecond, e.fullChargeSeconds, settings.startingEnergy], [40, 30, 24, 90]);
-  assert.ok(Math.abs(e.birthsPerSecond - 10 / 240) < 1e-12);
-  const mine = await ada!.query("v2/play:me", { gameId });
-  assert.ok(Math.abs(mine.capacity - 4 * 240) < 1e-6 || mine.capacity < 4 * 240, "a store holds what it would undilated (less what agents hold)");
-  assert.equal(h.priceScale, 4 / 64, "a summon costs the same energy: the price scale is the undilated power's");
+  assert.deepEqual([e.powerPerSecond, e.opportunitiesPerSecond, e.fullChargeSeconds, settings.startingEnergy], [4, 3, 240, 90]);
+  // Planning's 60 world seconds take 6 wall seconds.
+  assert.ok(Math.abs((h.planningEndsAt - h.startedAt) / 1000 - 6) < 1, `planning ends ${(h.planningEndsAt - h.startedAt) / 1000} s after the start`);
   const started = Date.now();
   await perform(ada!, "game.startWorldNow", {}, { gameId });
+  const live = await ada!.query("v2/games:header", { gameId });
+  assert.ok(Math.abs((live.endsAt - started) / 1000 - 60) < 5, `600 world seconds end about 60 wall seconds on: ${(live.endsAt - started) / 1000}`);
   for (let i = 0; (await ada!.query("v2/games:header", { gameId })).phase !== "ended"; i++) {
     assert.ok(i < 300, "the dilated game ends");
     await new Promise(r => setTimeout(r, 500));
   }
-  assert.ok(Date.now() - started < 120_000, `ten minutes of game in about one: ${Math.round((Date.now() - started) / 1000)} s`);
+  const wall = (Date.now() - started) / 1000;
+  assert.ok(wall < 120, `ten minutes of game in about one: ${Math.round(wall)} s`);
+  assert.equal((await admin.query("v2/testing:clock", { gameId })).worldSeconds, 600, "the whole world was played");
+  // Standings every 10 world seconds where the tick allows (a tick covers 15 world seconds at 10×).
   const history = await ada!.query("v2/games:standingsHistory", { gameId, after: -1 });
-  // Published every dilated second where the tick allows (a tick still runs every 1.5 s of wall time, with ten times the
-  // acts): at least a second apart, far more often than the undilated game's 6 publications of a 60 s world.
-  // (The last row is the final scoreboard, published at the end whenever it falls.)
-  const worlds = history.map((r: any) => r.worldSeconds).slice(0, -1);
-  assert.ok(worlds.every((w: number, i: number) => i === 0 || w - worlds[i - 1] >= 1 - 1e-9), `a second apart at least: ${worlds.join(", ")}`);
-  assert.ok(history.length >= 20, `published at the dilated interval: ${history.length} rows`);
+  const worlds = history.map((r: any) => r.worldSeconds).slice(0, -1);   // the last is the final scoreboard
+  assert.ok(worlds.every((w: number, i: number) => i === 0 || w - worlds[i - 1] >= 10 - 1e-9), `ten world seconds apart at least: ${worlds.join(", ")}`);
+  assert.ok(history.length >= 25, `published through the whole world: ${history.length} rows to ${worlds.at(-1)}`);
 });

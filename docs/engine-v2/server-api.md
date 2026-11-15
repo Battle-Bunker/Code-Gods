@@ -95,12 +95,14 @@ least h/10 (the coordinator's trial 16). Presets are fixed, as v1's beginner set
 games last 600 s with 3 objects and one birth per 240 s (decisions 31, 34). The header carries `durationMode` and
 `scoreIntervalSeconds`.
 
-Time dilation (owner decision 37; v2-economy `dilate(settings, factor)`): a room's `overrides.timeScale`, set only by
-the internal `v2/lobby:setTimeScale` (simulations, the collapse script, model-seat tables, local playtests; never in room
-setup), dilates its next games when they start: every rate × the factor (power, opportunities, births), every length ÷
-it (planning, world, full charge, score interval, half-life, the bid phase), energies and prices unchanged (the summon
-scale uses the undilated power). AI turns and idle parking divide their wall times by it. The header carries
-`timeScale`.
+Time dilation (owner decision 37): a room's `overrides.timeScale`, set only by the internal `v2/lobby:setTimeScale`
+(simulations, the collapse script, model-seat tables, local playtests; never in room setup), is a clock rate for its
+next games: the game keeps the preset's settings and its world runs `timeScale` times faster than the wall, so a 600 s
+game at 10 plays all 600 world seconds (the same opportunities, births and energy) in 60 wall seconds. Every world
+length turned into a wall deadline divides by it (`endsAt`, `planningEndsAt`, the bid phase, AI turns, idle parking),
+and one tick covers MAX_DT × it of world. World seconds stay game seconds everywhere (header, logs, knowledge); wall =
+world ÷ timeScale. The header carries `timeScale`. (v2-economy `dilate(settings, factor)` is the equivalent transform
+for simulations without a clock.)
 
 Parameter drift (the coordinator's trial, call 18; `drift.ts`): `settings.driftSeconds` (120 on the beginner presets,
 0 elsewhere; a `room.settings` override, 0 off; `dilate` divides it). Drift k happens at world second k × driftSeconds,

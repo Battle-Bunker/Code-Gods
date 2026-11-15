@@ -61,6 +61,7 @@ const fields = (mode: SettingsForm["durationMode"]): { key: TextField; label: st
     ? { key: "worldMinutes", label: "Half-life (minutes)", hint: "Half of games end within this; the end is a hidden random moment." }
     : { key: "worldMinutes", label: "Game length (minutes)", hint: "How long the world runs." },
   { key: "startingEnergy", label: "Starting energy", hint: "What each player has to summon agents with." },
+  { key: "driftSeconds", label: "Rules get new numbers every (seconds)", hint: "Each player's rule keeps its kind but may get a new target; a rule with one set of numbers keeps it. 0: never." },
   { key: "scoreIntervalSeconds", label: "Totals counted every (seconds)", hint: "How often the standings are counted and published.", list: "score-interval-options" },
 ];
 

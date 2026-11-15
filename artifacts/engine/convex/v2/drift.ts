@@ -2,7 +2,7 @@
  * Parameter drift (the coordinator's declared TRIAL, the spec lead's call 18; playtest round 13: with fixed rules a
  * beginner game settles within a minute or two and stays flat). Every `driftSeconds` of world time (0: off; 120 on the
  * beginner presets; `dilate` scales it), on the same tick for every seat, each seat whose dealt rule has other
- * parameter values with precomputed values gets its parameters redrawn: never its family, lens or tie-breaker. The
+ * parameter values with precomputed values gets its parameters redrawn (they may stay as they were): never its family, lens or tie-breaker. The
  * rule document and card update, every object's values are recomputed under the new rules, standings follow at the
  * next score interval, the event log records the redraw (`drift`, then a `values` event per object, which the replay
  * folds), and agents see the new parameters on their next act (the tick reads the seats' rules every tick).
@@ -27,8 +27,8 @@ export function driftDue(intervalSeconds: number, world: number, done: number): 
 
 /**
  * A seat's redrawn parameters at drift `tick`, or null when it keeps them: the spec lead's `driftParams` (v2-core),
- * uniform over the family's other dealable parameter values on the variant that have precomputed values (with its
- * tie-breaker), seeded by the game, the seat's index and the tick, so the record replays it.
+ * uniform over the family's dealable parameter values on the variant that have precomputed values (with its
+ * tie-breaker), the current ones included (a two-value grid is no predictable flip), seeded by the game, the seat's index and the tick, so the record replays it.
  */
 export function redrawParams(variantId: string, family: string, tieBreaker: string | null, current: unknown, seed: string, seat: number, tick: number):
   { params: unknown; ruleKey: string; contentHash: string } | null {

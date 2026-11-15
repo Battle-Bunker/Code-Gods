@@ -13,7 +13,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { decode, distinctBirths, heldReason, scopeOf, valuesOf, type SeatRule, type Value as ExactValue } from "./world.ts";
 import { measured, objectReading, readingNoise, shownAt } from "./disclose.ts";
-import { endWorldOf, scoreIntervalOf } from "./duration.ts";
+import { endWorldOf, scoreIntervalOf, timeScaleOf } from "./duration.ts";
 import { shouldPark } from "./activity.ts";
 import { allReady, ensureWarm, isReady, LANGUAGES } from "./readiness.ts";
 import { paysToRead, tell } from "./knowledge.ts";
@@ -232,6 +232,27 @@ async function driftRules(ctx: MutationCtx, game: Doc<"v2Games">, world: number,
     await appendEvent(ctx, game._id, "values", { objectId: st.objectId, number: object.number, values: after.map(({ memberId, score, rarityBits }) => ({ memberId, score, rarityBits })) });
   }
   await applyToPlayers(ctx, game._id, changes);
+  if (paysToRead(game)) for (const d of drifted) await reknow(ctx, game, seats, d.memberId as Id<"v2Members">);
+}
+
+/**
+ * After a redraw, a player's knowledge shows their OWN bits under their new parameters on the states they last saw
+ * (their rule applied to what they know: nothing new about the world), with the others' sum as last told and points
+ * from the two; their scatter follows. `learnedAt` is unchanged: nothing was seen anew.
+ */
+async function reknow(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[], memberId: Id<"v2Members">) {
+  const scope = scopeOf(game).objects;
+  const digest = await ctx.db.query("v2Digests").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", memberId)).unique();
+  const packed = digest ? [...digest.packed] : [];
+  for await (const k of ctx.db.query("v2Knowledge").withIndex("by_game_member_born", q => q.eq("gameId", game._id).eq("memberId", memberId))) {
+    const mine = valuesOf(decode(k.state, game.variant), game.variant, seats, scope).find(x => x.memberId === memberId);
+    if (!mine) continue;
+    await ctx.db.patch(k._id, { score: mine.score, rarityBits: mine.rarityBits, points: mine.rarityBits * Math.max(0, k.want) });
+    const at = 3 * (k.number - 1);
+    while (packed.length < at) packed.push(0);
+    packed.splice(at, 3, k.number, mine.rarityBits, k.want);
+  }
+  if (digest) await ctx.db.patch(digest._id, { packed, version: digest.version + 1 });
 }
 
 /**
@@ -290,7 +311,8 @@ export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
   const engine = await engineOf(ctx, game._id), clock = await clockOf(ctx, game._id);
   await ctx.db.patch(engine._id, { leaseId, objects: states.length });
   await ctx.db.patch(clock._id, { lastTickAt: now, worldSeconds: 0, objects: states.length });
-  await ctx.db.patch(game._id, { phase: "live", startedAt: now, endsAt: now + endWorldOf(game) * 1000 });
+  // A dilated game's world runs timeScale times faster than the wall (decision 37): it ends that much sooner.
+  await ctx.db.patch(game._id, { phase: "live", startedAt: now, endsAt: now + endWorldOf(game) * 1000 / timeScaleOf(game.settings) });
   await appendEvent(ctx, game._id, "phase", { phase: "live", worldSeconds: 0 });
   await scoreboard(ctx, { ...game, phase: "live" }, 0);
   await ctx.scheduler.runAfter(0, TICK, { gameId: game._id, leaseId });
@@ -337,7 +359,7 @@ export async function resumeGame(ctx: MutationCtx, game: Doc<"v2Games">) {
   const engine = await engineOf(ctx, game._id), clock = await clockOf(ctx, game._id);
   await ctx.db.patch(engine._id, { leaseId });
   await ctx.db.patch(clock._id, { lastTickAt: now });
-  await ctx.db.patch(game._id, { phase: "live", pausedBy: undefined, endsAt: now + Math.max(0, endWorldOf(game) - clock.worldSeconds) * 1000 });
+  await ctx.db.patch(game._id, { phase: "live", pausedBy: undefined, endsAt: now + Math.max(0, endWorldOf(game) - clock.worldSeconds) * 1000 / timeScaleOf(game.settings) });
   await appendEvent(ctx, game._id, "phase", { phase: "live", worldSeconds: clock.worldSeconds });
   await ctx.scheduler.runAfter(0, TICK, { gameId: game._id, leaseId });
   await ctx.scheduler.runAfter(WATCHDOG_MS, WATCHDOG, { gameId: game._id, leaseId });

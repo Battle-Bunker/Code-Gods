@@ -35,7 +35,7 @@ test("Prime Landing (primes ending in 7) on y = 6x + 19: c, its nearest such pri
   assert.equal(main!.distance, "2 above 17");
   assert.equal(main!.aim, "the closer, the better");
   const at = main!.ruler!.refs.map(r => r.at);
-  assert.ok(at.includes(17) && at.includes(23), `the reference 17 and the primes above are on the ruler: ${at}`);
+  assert.ok(at.includes(17) && at.includes(37) && !at.includes(23), `the reference 17 and the qualifying primes (ending in 7) are on the ruler: ${at}`);
   assert.equal(main!.ruler!.refs.find(r => r.strong)?.at, 17);
   assert.equal(main!.ruler!.value, 19);
   assert.equal(tb!.role, "tb");
@@ -58,7 +58,7 @@ test("Square Area on y = −x + 7: the area 24½ against the square 25 = 5 × 5;
   // as the main part's target and ◆ as the tie-breaker's input is explained where it is read.
   const wtb = contributors(rule(wholeCrossing, "k-gpf"), mc(3, 7)).parts[1]!;
   assert.match(wtb.sentence, /of −2, the (nearest )?whole number the main part is measured to/, wtb.sentence);
-  const tr = contributors(rule(treasure, "m-spf"), mc(15, 6)).parts[0]!;
+  const tr = contributors(rule(treasure, "m-spf", { k: 2, T: 37 }), mc(15, 6)).parts[0]!;
   assert.equal(tr.source[0]!.text, "36");
   assert.equal(tr.source[0]!.label, "y(2)");
   assert.equal(tr.reference?.value, 37);
@@ -157,4 +157,22 @@ test("rational lines: every pool family's parts and moves typeset their fraction
   }
   assert.ok(fractionalStep > 0, "some candidate moves by a fraction");
   assert.ok(stretchByDenominator > 0, "some candidate stretches by a denominator, clearing the fractions");
+});
+
+test("a ruler marks only the values the dealt rule asks for (playtest round 15: 'a prime ending in 7' marked 2, 3, 5, 11, 13)", async () => {
+  const { primeLanding, fromMC, lineQ, lineType } = await import("@workspace/v2-linear");
+  const { q } = await import("@workspace/v2-core");
+  const { contributors, neighbours, refFilter } = await import("../src/contributors.ts");
+  const params = (primeLanding as never as { dealable: (v: unknown) => unknown[] }).dealable(lineQ)[0];
+  const rule = { type: lineType, family: primeLanding, params, variant: lineQ } as never;
+  const main = contributors(rule, { lines: [fromMC(q(3), q(-1))] }).parts[0]!;
+  const ticks = main.ruler!.refs.map(r => r.at);
+  assert.ok(ticks.includes(7), String(ticks));
+  for (const t of ticks) assert.equal(Math.abs(t) % 10, 7, `every mark ends in 7: ${ticks}`);
+  assert.ok(ticks.length >= 2, `a few qualifying neighbours: ${ticks}`);
+  // A tie-breaker about another prime keeps every prime (the ending is the main part's, said by its reference).
+  assert.deepEqual(refFilter({ ends: 7 }, 5), { sign: 1 });
+  // A sign-mirrored rule ("minus a prime ending in 7"): its marks are on its side of 0.
+  assert.deepEqual(neighbours("prime", -50, 0, refFilter({ ends: 7 }, -17)), [-47, -37, -17, -7]);
+  assert.deepEqual(neighbours("prime", 0, 20), [2, 3, 5, 7, 11, 13, 17, 19]);
 });

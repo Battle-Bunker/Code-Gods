@@ -93,22 +93,24 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     mainSays: "how far the gradient is from the nearest prime ending in the rule's digit (closer is better)",
     main: {
       ts: [
-        "const nearest = near(m, prime, p.ends);         // the prime ending in p.ends nearest the gradient",
+        "const s = p.side ?? 1;                          // 1, or −1 on the mirror: minus a prime",
+        "const nearest = near(Q.mul(s, m), prime, p.ends);   // the prime ending in p.ends nearest the gradient (times s)",
         "if (nearest === null) return null;              // none within 10,000: hopeless",
-        `const main = ${neg("Q.abs(Q.sub(m, nearest))")};`,
+        `const main = ${neg("Q.abs(Q.sub(Q.mul(s, m), nearest))")};`,
       ],
       py: [
-        "nearest = near(m, prime, p[\"ends\"])             # the prime ending in p[\"ends\"] nearest the gradient",
+        "s = p.get(\"side\", 1)                           # 1, or -1 on the mirror: minus a prime",
+        "nearest = near(s * m, prime, p[\"ends\"])         # the prime ending in p[\"ends\"] nearest the gradient (times s)",
         "if nearest is None:                             # none within 10,000: hopeless",
         "    return None",
-        "main = -abs(m - nearest)",
+        "main = -abs(s * m - nearest)",
       ],
     },
     tieBreakers: {
       prime: { ts: "nearest", py: "nearest", says: "a bigger prime is better", lenses: ["tilt"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less; does it still jump past wider gaps between primes?" },
       cPrime: {
-        pre: { ts: ["const cp = near(c, prime, p.ends);          // the prime ending in p.ends nearest the y-intercept"], py: ["cp = near(c, prime, p[\"ends\"])             # the prime ending in p[\"ends\"] nearest the y-intercept"] },
-        ts: neg("Q.abs(Q.sub(c, cp))"), py: "-abs(c - cp)", says: "a y-intercept close to such a prime too is better",
+        pre: { ts: ["const cp = near(Q.mul(s, c), prime, p.ends);   // the prime ending in p.ends nearest the y-intercept (times s)"], py: ["cp = near(s * c, prime, p[\"ends\"])         # the prime ending in p[\"ends\"] nearest the y-intercept (times s)"] },
+        ts: neg("Q.abs(Q.sub(Q.mul(s, c), cp))"), py: "-abs(s * c - cp)", says: "a y-intercept close to such a prime too is better",
         lenses: ["shift", "tilt"], steps: 3, tryThis: "remove the \"tilt\" line: moving the line up and down never changes the gradient.",
       },
       "c-spf": {
@@ -279,7 +281,8 @@ export const CATALOGUE: readonly FamilyEntry[] = [
         "const run = [];                                 // the different primes ending in p.ends it starts with",
         "let stopped = false, miss = null;               // miss: the size of the first term that is not such a prime",
         "for (let n = 0; n < 12; n++) {                  // y(0) ... y(11)",
-        "  const t = Q.add(Q.mul(m, n), c), isPrime = prime(t) && Q.toString(t).endsWith(String(p.ends));",
+        "  const t = Q.mul(p.side ?? 1, Q.add(Q.mul(m, n), c));   // y(n), or −y(n) on the mirror (minus primes)",
+        "  const isPrime = prime(t) && Q.toString(t).endsWith(String(p.ends));",
         "  if (!stopped && isPrime && !run.some(r => Q.eq(r, t))) run.push(t); else stopped = true;",
         "  if (!isPrime && miss === null) miss = Q.abs(t);",
         "}",
@@ -288,7 +291,7 @@ export const CATALOGUE: readonly FamilyEntry[] = [
       py: [
         "run, stopped, miss = [], False, None            # miss: the size of the first term that is not such a prime",
         "for n in range(12):                             # y(0) ... y(11)",
-        "    t = m * n + c",
+        "    t = p.get(\"side\", 1) * (m * n + c)        # y(n), or -y(n) on the mirror (minus primes)",
         "    is_prime = prime(t) and t % 10 == p[\"ends\"]",
         "    if not stopped and is_prime and t not in run:",
         "        run.append(t)                           # the different primes ending in p[\"ends\"] it starts with",
@@ -341,19 +344,19 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     tieBreakers: {
       "prime-terms": {
         pre: {
-          ts: ["const primes = new Set([1, 2, 3, 4, 5, 6, 7, 8].map(x => Q.add(Q.mul(m, x), c)).filter(prime).map(Q.toString));   // y(1) ... y(8)"],
-          py: ["primes = {m * x + c for x in range(1, 9) if prime(m * x + c)}   # y(1) ... y(8)"],
+          ts: ["const primes = new Set([1, 2, 3, 4, 5, 6, 7, 8].map(x => Q.mul(p.T < 0 ? -1 : 1, Q.add(Q.mul(m, x), c))).filter(prime).map(Q.toString));   // y(1) ... y(8), minus them when T is below zero"],
+          py: ["sg = -1 if p[\"T\"] < 0 else 1", "primes = {sg * (m * x + c) for x in range(1, 9) if prime(sg * (m * x + c))}   # y(1) ... y(8), minus them when T is below zero"],
         },
         ts: "primes.size", py: "len(primes)", says: "more different primes among y(1) ... y(8) is better",
         lenses: ["shift", "tilt", "turnAtK"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less (a step of n costs more than n steps of 1); does it still climb?",
       },
       "prime-gradient": {
-        pre: { ts: ["const mp = near(m, prime);                  // the prime nearest the gradient"], py: ["mp = near(m, prime)                        # the prime nearest the gradient"] },
+        pre: { ts: ["const mp = Q.mul(p.T < 0 ? -1 : 1, near(Q.mul(p.T < 0 ? -1 : 1, m), prime));   // the prime (minus a prime when T is below zero) nearest the gradient"], py: ["sg = -1 if p[\"T\"] < 0 else 1", "mp = sg * near(sg * m, prime)               # the prime (minus a prime when T is below zero) nearest the gradient"] },
         ts: neg("Q.abs(Q.sub(m, mp))"), py: "-abs(m - mp)", says: "a gradient close to a prime is better",
         lenses: ["turnAtK", "tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: turning about x = k keeps the treasure and only changes the gradient.",
       },
       "square-start": {
-        pre: { ts: ["const sq = near(c, square);                 // the square number nearest the y-intercept (0 below it)"], py: ["sq = near(c, square)                       # the square number nearest the y-intercept (0 below it)"] },
+        pre: { ts: ["const sq = Q.mul(p.T < 0 ? -1 : 1, near(Q.mul(p.T < 0 ? -1 : 1, c), square));   // the square (minus a square when T is below zero) nearest the y-intercept"], py: ["sg = -1 if p[\"T\"] < 0 else 1", "sq = sg * near(sg * c, square)              # the square (minus a square when T is below zero) nearest the y-intercept"] },
         ts: neg("Q.abs(Q.sub(c, sq))"), py: "-abs(c - sq)", says: "a y-intercept close to a square number is better",
         lenses: ["turnAtK", "shift", "tilt"], steps: 3, tryThis: "remove the \"shift\" line: turning about x = k moves the y-intercept by k at a time and keeps the treasure.",
       },
@@ -371,10 +374,10 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   },
   {
     family: "prime-landing",
-    mainSays: "how far the y-intercept is from the nearest prime ending in the rule's digit (closer is better)",
+    mainSays: "how far the y-intercept is from the nearest prime ending in the rule's digit, or minus one on the mirror (closer is better)",
     main: {
-      ts: ["const landing = near(c, prime, p.ends);         // the prime ending in p.ends nearest the y-intercept", `const main = ${neg("Q.abs(Q.sub(c, landing))")};`],
-      py: ["landing = near(c, prime, p[\"ends\"])             # the prime ending in p[\"ends\"] nearest the y-intercept", "main = -abs(c - landing)"],
+      ts: ["const s = p.side ?? 1;                           // 1, or −1 on the mirror: minus a prime", "const landing = Q.mul(s, near(Q.mul(s, c), prime, p.ends));   // the (minus) prime ending in p.ends nearest", `const main = ${neg("Q.abs(Q.sub(c, landing))")};`],
+      py: ["s = p.get(\"side\", 1)                           # 1, or -1 on the mirror: minus a prime", "landing = s * near(s * c, prime, p[\"ends\"])   # the (minus) prime ending in p[\"ends\"] nearest", "main = -abs(c - landing)"],
     },
     vertical: {
       main: {
@@ -389,9 +392,9 @@ export const CATALOGUE: readonly FamilyEntry[] = [
       },
     },
     tieBreakers: {
-      "big-prime": { ts: "landing", py: "landing", says: "a bigger prime is better", lenses: ["shift"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less; does it still jump past wider gaps between primes?" },
+      "big-prime": { ts: "Q.abs(landing)", py: "abs(landing)", says: "a bigger prime is better", lenses: ["shift"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less; does it still jump past wider gaps between primes?" },
       "prime-gradient": {
-        pre: { ts: ["const mp = near(m, prime, p.ends);          // the prime ending in p.ends nearest the gradient"], py: ["mp = near(m, prime, p[\"ends\"])             # the prime ending in p[\"ends\"] nearest the gradient"] },
+        pre: { ts: ["const mp = Q.mul(p.side ?? 1, near(Q.mul(p.side ?? 1, m), prime, p.ends));   // the (minus) prime ending in p.ends nearest the gradient"], py: ["mp = p.get(\"side\", 1) * near(p.get(\"side\", 1) * m, prime, p[\"ends\"])   # the (minus) prime ending in p[\"ends\"] nearest the gradient"] },
         ts: neg("Q.abs(Q.sub(m, mp))"), py: "-abs(m - mp)", says: "a gradient close to such a prime too is better",
         lenses: ["tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: tilting never moves the y-intercept, so the landing stays.",
       },

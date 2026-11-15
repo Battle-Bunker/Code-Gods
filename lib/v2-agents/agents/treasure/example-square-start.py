@@ -16,7 +16,8 @@ def score(m, c, p):
         main = -abs(c - p["k"])                        # how far across from (k, T) it passes
         return [main, None]
     main = -abs(m * p["k"] + c - p["T"])           # y(k) = m*k + c
-    sq = near(c, square)                       # the square number nearest the y-intercept (0 below it)
+    sg = -1 if p["T"] < 0 else 1
+    sq = sg * near(sg * c, square)              # the square (minus a square when T is below zero) nearest the y-intercept
     return [main, -abs(c - sq)]   # main: how far y(k) is from T (closer is better); tie-breaker: a y-intercept close to a square number is better
 
 

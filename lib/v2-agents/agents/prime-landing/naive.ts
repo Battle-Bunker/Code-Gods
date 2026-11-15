@@ -13,12 +13,13 @@ function score(m, c, p, tie) {
     const main = Q.neg(Q.abs(Q.sub(c, landing)));
     return [main, null];
   }
-  const landing = near(c, prime, p.ends);         // the prime ending in p.ends nearest the y-intercept
+  const s = p.side ?? 1;                           // 1, or −1 on the mirror: minus a prime
+  const landing = Q.mul(s, near(Q.mul(s, c), prime, p.ends));   // the (minus) prime ending in p.ends nearest
   const main = Q.neg(Q.abs(Q.sub(c, landing)));
-  // main: how far the y-intercept is from the nearest prime ending in the rule's digit (closer is better)
-  if (tie === "big-prime") return [main, landing];   // a bigger prime is better
+  // main: how far the y-intercept is from the nearest prime ending in the rule's digit, or minus one on the mirror (closer is better)
+  if (tie === "big-prime") return [main, Q.abs(landing)];   // a bigger prime is better
   if (tie === "prime-gradient") {   // a gradient close to such a prime too is better
-    const mp = near(m, prime, p.ends);          // the prime ending in p.ends nearest the gradient
+    const mp = Q.mul(p.side ?? 1, near(Q.mul(p.side ?? 1, m), prime, p.ends));   // the (minus) prime ending in p.ends nearest the gradient
     return [main, Q.neg(Q.abs(Q.sub(m, mp)))];
   }
   if (tie === "next-prime") {   // y(1) (ignoring sign) close to such a prime too is better

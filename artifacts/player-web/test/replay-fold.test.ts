@@ -175,3 +175,29 @@ test("a replay calls an agent what the live game did, from the summon's name (ro
   assert.deepEqual(frameAt(named, END).agents("m1").map(a => a.name), ["Simple"]);
   assert.deepEqual(frameAt(ix, END).agents("m1").map(a => a.name), ["Agent 1"], "an older file without the name keeps the numbered name");
 });
+
+test("parameter drift (call 18): the replay's rule card is the one in force at the playhead, from gameStarted through each drift", () => {
+  // Catches: the replay showing the END rule from the first second (the file's rules are the end state), or a drift lost.
+  const events: [string, unknown][] = [
+    ["gameStarted", { variant: "line-z", players: [
+      { memberId: "m1", family: "triangle-area", params: { A: "4" }, tieBreaker: null, ruleKey: "k-start", contentHash: "h0" },
+      { memberId: "m2", family: "triangle-area", params: { A: "6" }, tieBreaker: null, ruleKey: "k2", contentHash: "h2" },
+    ] }],
+    ["phase", { phase: "live", worldSeconds: 0 }],
+    ["tick", { tick: 1, worldSeconds: 60, standings: standings(1, 1) }],
+    ["drift", { worldSeconds: 120, k: 1, seats: [{ memberId: "m1", family: "triangle-area", params: { A: "9" }, tieBreaker: null, ruleKey: "k-end", contentHash: "h1", card: "Ada's card after the drift" }] }],
+    ["tick", { tick: 2, worldSeconds: 130, standings: standings(1, 1) }],
+    ["gameEnded", { worldSeconds: 130, standings: standings(1, 1) }],
+  ];
+  const file = { ...FILE, rules: [{ ...FILE.rules[0]!, family: "triangle-area", params: { A: "9" }, ruleKey: "k-end", card: "Ada's card after the drift" }, FILE.rules[1]!],
+    events: events.map(([kind, data], seq) => ({ seq, kind, data })) };
+  const x = indexReplay(file);
+  const before = frameAt(x, 3).rule("m1")!, after = frameAt(x, 5).rule("m1")!;
+  assert.deepEqual(before.params, { A: "4" }, "before the drift: the dealt numbers");
+  assert.equal(before.drifts, 0);
+  assert.notEqual(before.card, "Ada's card after the drift");
+  assert.deepEqual(after.params, { A: "9" });
+  assert.equal(after.card, "Ada's card after the drift");
+  assert.deepEqual([after.drifts, after.driftedAt], [1, 120]);
+  assert.deepEqual(frameAt(x, 5).rule("m2")!.params, { A: "6" }, "a seat the drift did not redraw keeps its rule");
+});

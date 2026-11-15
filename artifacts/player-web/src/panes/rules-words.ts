@@ -23,6 +23,8 @@ export interface RulesInput {
   peerNoiseBits?: number;
   /** Every game pays to look (owner decision 35): the read price's weight (0: looking is free). */
   readPriceWeight?: number;
+  /** Parameter drift (call 18): world seconds between new numbers for every rule; 0 or absent: never. */
+  driftSeconds?: number;
 }
 
 /** "45 seconds", "1 minute", "5 minutes", "2 minutes 30 seconds". */
@@ -71,6 +73,7 @@ export function rulesFacts(r: RulesInput): [string, string][] {
     ["Power", powerText(r.powerPerSecond)],
     ["Energy fills in", duration(r.fullChargeSeconds)],
     ["Totals counted", `every ${duration(r.scoreIntervalSeconds ?? 10)}`],
+    ...(r.driftSeconds ? [["Rules' numbers", `may change every ${duration(r.driftSeconds)}: the same kind of rule, a new target (a rule with one set of numbers keeps it)`] as [string, string]] : []),
     ...(r.readPriceWeight === undefined ? [] : [["Looking", r.readPriceWeight === 0 ? "free: you see everything as it is" : `costs energy (${r.readPriceWeight}× the read price); you see each one as you last looked`] as [string, string]]),
     ["Others' bits", (r.peerNoiseBits ?? 8) === 0 ? "exact" : `blurred while live (about ${r.peerNoiseBits ?? 8} bits); totals exact`],
   ];

@@ -18,13 +18,16 @@ def score(m, c, p, tie):
     main = -abs(m * p["k"] + c - p["T"])           # y(k) = m*k + c
     # main: how far y(k) is from T (closer is better)
     if tie == "prime-terms":   # more different primes among y(1) ... y(8) is better
-        primes = {m * x + c for x in range(1, 9) if prime(m * x + c)}   # y(1) ... y(8)
+        sg = -1 if p["T"] < 0 else 1
+        primes = {sg * (m * x + c) for x in range(1, 9) if prime(sg * (m * x + c))}   # y(1) ... y(8), minus them when T is below zero
         return [main, len(primes)]
     if tie == "prime-gradient":   # a gradient close to a prime is better
-        mp = near(m, prime)                        # the prime nearest the gradient
+        sg = -1 if p["T"] < 0 else 1
+        mp = sg * near(sg * m, prime)               # the prime (minus a prime when T is below zero) nearest the gradient
         return [main, -abs(m - mp)]
     if tie == "square-start":   # a y-intercept close to a square number is better
-        sq = near(c, square)                       # the square number nearest the y-intercept (0 below it)
+        sg = -1 if p["T"] < 0 else 1
+        sq = sg * near(sg * c, square)              # the square (minus a square when T is below zero) nearest the y-intercept
         return [main, -abs(c - sq)]
     if tie == "m-spf":   # the gradient's smallest prime factor big is better
         fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)

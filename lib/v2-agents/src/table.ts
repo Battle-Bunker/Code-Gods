@@ -63,8 +63,11 @@ export interface TableInput<S> {
   /** Default 0.1, the beginner preset's. */
   readonly birthsPerSecond?: number;
   /** Parameter drift (the coordinator's call 18, server #723): every this many seconds each seat's rule parameters are
-   *  redrawn among the dealable ones with a value record (driftParams); the family and tie-breaker stay. Absent: none. */
+   *  redrawn among the dealable ones with a value record (driftParams); the family and tie-breaker stay. Absent: none.
+   *  Staggered as the server does it: seat i of n redraws at k × interval + i × interval / n (k ≥ 1), and no seat
+   *  redraws in the last `driftQuietSeconds` (default 90) of the game. */
   readonly driftSeconds?: number;
+  readonly driftQuietSeconds?: number;
   /** Owner decision 24: no two objects in the same state. A move whose result another object already holds is refused
    *  (the act pays its reads only). */
   readonly unique?: boolean;
@@ -83,6 +86,8 @@ export interface TableInput<S> {
   readonly actEconomy?: ActEconomy;
   /** Called after every act, for measurements (scripts/collapse-check.ts): what it did and the line's state after it. */
   readonly onAct?: (e: TableAct<S>) => void;
+  /** Called after each parameter redraw (driftSeconds), per seat whose parameters changed. */
+  readonly onDrift?: (e: { readonly at: number; readonly seat: number; readonly params: Record<string, unknown> }) => void;
 }
 
 /** One act as `onAct` sees it. `committed` is false for an act that changed nothing or could not pay. */
@@ -469,14 +474,25 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
       k++; nextTurn += AI_TURN_SECONDS;
     }
     const was = world;
+    let redrawn = false;
     world = Math.min(input.seconds, world + TICK_SECONDS);
-    if (input.driftSeconds && Math.floor(world / input.driftSeconds) > Math.floor(was / input.driftSeconds)) {
-      const tick = Math.floor(world / input.driftSeconds);
+    const D = input.driftSeconds ?? 0, quiet = input.driftQuietSeconds ?? 90;
+    if (D > 0 && world <= input.seconds - quiet) {
       for (const [i, s] of seats.entries()) {
+        // Seat i's redraws fall at k·D + i·D/n: the k-th is due when (world − i·D/n) / D passes k.
+        const off = (i * D) / seats.length, tick = Math.floor((world - off) / D);
+        if (tick < 1 || tick <= Math.floor((was - off) / D)) continue;
         const family = type.families.find(f => f.id === s.rule.family)!;
-        s.rule = { ...s.rule, params: driftParams(family, variant, s.rule.params, input.seed, i, tick, p => findValues(variant.id, { ...s.rule, params: p as Record<string, unknown> }) !== null) as Record<string, unknown> };
+        const next = driftParams(family, variant, s.rule.params, input.seed, i, tick, p => findValues(variant.id, { ...s.rule, params: p as Record<string, unknown> }) !== null) as Record<string, unknown>;
+        if (JSON.stringify(next) === JSON.stringify(s.rule.params)) continue;
+        input.onDrift?.({ at: world, seat: i, params: next });
+        s.rule = { ...s.rule, params: next };
+        vals[i] = valuer(type, variant, s.rule);
+        redrawn = true;
       }
-      vals = seats.map(s => valuer(type, variant, s.rule));
+    }
+    if (redrawn) {
+      redrawn = false;
       // The redraw changes everyone's points on every line: not a gain or a loss of play, so the baseline moves with it.
       const next = lines.map(pointsOf);
       startTotals = startTotals.map((t, i) => t + next.reduce((a, p) => a + p[i]!, 0) - points.reduce((a, p) => a + p[i]!, 0));

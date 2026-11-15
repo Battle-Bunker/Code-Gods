@@ -115,9 +115,35 @@ function unitLabel(label: string): string {
   return m ? m[1]! : label.replace(/'s .*$/, "");
 }
 
-/** The natural values of a reference's kind near v (presentation only: the reference itself is the rule's). */
-function neighbours(kind: string, lo: number, hi: number): number[] {
-  if (/prime/.test(kind)) return primesNear(lo, hi);
+/** What the dealt rule asks of its reference (playtest round 15: a ruler for "a prime ending in 7" marked 2, 3, 5, 11). */
+export interface RefFilter {
+  /** The last digit a qualifying value ends in (the dealt `ends`). */
+  readonly ends?: number;
+  /** The side of 0 the qualifying values are on (a sign-mirrored rule: "minus a prime ending in 7"). */
+  readonly sign?: 1 | -1;
+}
+/**
+ * The filter a part's reference shows: the rule's own nearest qualifying value says which values qualify. The dealt
+ * ending applies when the reference has it (a tie-breaker about prime factors keeps every prime); the sign is the
+ * reference's own.
+ */
+export function refFilter(params: unknown, reference: number): RefFilter {
+  const ends = typeof (params as { ends?: unknown } | null)?.ends === "number" ? (params as { ends: number }).ends : undefined;
+  const sign = reference < 0 ? -1 : 1;
+  const digitOk = ends !== undefined && Number.isInteger(reference) && Math.abs(reference) % 10 === ends;
+  return { ...(digitOk ? { ends } : {}), sign };
+}
+
+/**
+ * The natural values of a reference's kind between lo and hi (presentation only: the reference itself is the rule's),
+ * those the dealt rule asks for: its ending, and on its side of 0 (negative primes for a mirrored rule).
+ */
+export function neighbours(kind: string, lo: number, hi: number, filter: RefFilter = {}): number[] {
+  if (/prime/.test(kind)) {
+    const mirrored = filter.sign === -1;
+    const found = mirrored ? primesNear(-hi, -lo).map(p => -p) : primesNear(lo, hi);
+    return found.filter(p => filter.ends === undefined || Math.abs(p) % 10 === filter.ends).sort((a, b) => a - b);
+  }
   if (/square/.test(kind)) {
     const out: number[] = [];
     for (let r = Math.max(0, Math.floor(Math.sqrt(Math.max(0, lo)))); r * r <= hi; r++) if (r * r >= lo) out.push(r * r);
@@ -186,7 +212,10 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
       const d = N(src) - reference.value;
       distance = Qn.isZero(value) ? `on ${reference.text}` : `${readable(Qn.abs(value))} ${d >= 0 ? "above" : "below"} ${reference.text}`;
       const lo = Math.min(N(src), reference.value), hi = Math.max(N(src), reference.value), span = Math.max(hi - lo, 2);
-      const pad = Math.max(span, 6), near = neighbours(kind, lo - pad, hi + pad).filter(x => x !== reference!.value);
+      // Wide enough to show a few qualifying neighbours when the dealt ending thins them out (7, 17, 37, 47, …).
+      const filter = refFilter(rule.params, reference.value);
+      const pad = Math.max(span, filter.ends === undefined ? 6 : 24);
+      const near = neighbours(kind, lo - pad, hi + pad, filter).filter(x => x !== reference!.value);
       ruler = {
         value: N(src), valueText: (s => `${s.label} ${s.text}`)(source.find(s => s.value)!),
         refs: [{ at: reference.value, label: reference.text, strong: true }, ...near.map(x => ({ at: x, label: readableN(x) }))],

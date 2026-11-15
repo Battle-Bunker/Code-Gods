@@ -297,6 +297,16 @@ export const setRule = internalMutation({
   },
 });
 
+/** A member's own bits on a state under their current rule (drift's knowledge check). */
+export const ownBitsAt = internalQuery({
+  args: { gameId: v.id("v2Games"), memberId: v.id("v2Members"), state: v.string() },
+  handler: async (ctx, { gameId, memberId, state }) => {
+    fixtures();
+    const game = (await ctx.db.get(gameId))!, seats = await seatRulesOf(ctx, game);
+    return valuesOfState(decodeState(state, game.variant), game.variant, seats, scopeOfGame(game).objects).find(x => x.memberId === memberId)?.rarityBits ?? null;
+  },
+});
+
 /** How many stored value rows disagree with the values the game's current rules give their objects (drift's check). */
 export const staleValues = internalQuery({
   args: { gameId: v.id("v2Games") },
@@ -512,7 +522,7 @@ export const knowledgeOf = internalQuery({
   handler: async (ctx, { gameId, memberId }) => {
     fixtures();
     const rows = await ctx.db.query("v2Knowledge").withIndex("by_game_member_born", q => q.eq("gameId", gameId).eq("memberId", memberId)).collect();
-    return rows.map(r => ({ objectId: r.objectId, version: r.version, learnedAt: r.learnedAt }));
+    return rows.map(r => ({ objectId: r.objectId, version: r.version, learnedAt: r.learnedAt, state: r.state, rarityBits: r.rarityBits, want: r.want, points: r.points }));
   },
 });
 

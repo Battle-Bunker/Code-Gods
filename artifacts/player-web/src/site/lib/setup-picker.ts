@@ -15,6 +15,8 @@ export interface Overrides {
   peerNoiseVariance?: number;
   /** Looks are always paid (owner decision 35): the read price's weight, 0 to 4 in quarters (0: looking is free). */
   readPriceWeight?: number;
+  /** Parameter drift (call 18): world seconds between new numbers for every seat's rule; 0: never. */
+  driftSeconds?: number;
 }
 
 export { PEER_NOISE_VARIANCE_OPTIONS };
@@ -54,7 +56,7 @@ export function setupBlurb(p: Preset): string {
 
 export interface SettingsForm {
   planningSeconds: string; worldMinutes: string; startingEnergy: string;
-  durationMode: DurationMode; scoreIntervalSeconds: string; peerNoiseVariance: string; readPriceWeight: string;
+  durationMode: DurationMode; scoreIntervalSeconds: string; peerNoiseVariance: string; readPriceWeight: string; driftSeconds: string;
 }
 export type FormField = keyof SettingsForm;
 
@@ -69,6 +71,7 @@ export function formOf(p: Preset, o: Overrides): SettingsForm {
     scoreIntervalSeconds: String(o.scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS),
     peerNoiseVariance: String(o.peerNoiseVariance ?? p.peerNoiseVariance),
     readPriceWeight: String(o.readPriceWeight ?? p.readPriceWeight),
+    driftSeconds: String(o.driftSeconds ?? p.driftSeconds),
   };
 }
 
@@ -92,6 +95,8 @@ export function overridesOf(f: SettingsForm, p: Preset): { ok: true; overrides: 
   if (energy === null || energy < 0) errors.startingEnergy = "Starting energy is 0 or more.";
   const interval = num(f.scoreIntervalSeconds), noise = num(f.peerNoiseVariance);
   if (interval === null || !Number.isInteger(interval) || interval < 1 || interval > 3600) errors.scoreIntervalSeconds = "Totals are counted every 1 to 3,600 whole seconds.";
+  const drift = num(f.driftSeconds);
+  if (drift === null || !Number.isInteger(drift) || drift < 0 || drift > 3600) errors.driftSeconds = "New numbers every 0 to 3,600 whole seconds (0: never).";
   const weight = num(f.readPriceWeight);
   const ownWeight = weight !== null && Math.abs(weight - p.readPriceWeight) < 1e-9;   // the preset's own (derived from its power) stays as it is
   if (weight === null || (!ownWeight && (weight < 0 || weight > 4 || !Number.isInteger(weight * 4)))) errors.readPriceWeight = "The price of a look is 0 to 4 times the read price, in quarters.";
@@ -105,6 +110,7 @@ export function overridesOf(f: SettingsForm, p: Preset): { ok: true; overrides: 
   if (interval !== DEFAULT_SCORE_INTERVAL_SECONDS) o.scoreIntervalSeconds = interval!;
   if (noise !== p.peerNoiseVariance) o.peerNoiseVariance = noise!;
   if (!ownWeight) o.readPriceWeight = weight!;
+  if (drift !== p.driftSeconds) o.driftSeconds = drift!;
   return { ok: true, overrides: o };
 }
 
@@ -120,6 +126,7 @@ export function nextGameSummary(p: Preset, o: Overrides): string {
     noise === 0 ? "others' sums exact" : `others' sums blurred (about ±${Math.round(Math.sqrt(noise) * 10) / 10} bits each reading)`,
     `totals every ${o.scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS} s`,
     lookWords(o.readPriceWeight ?? p.readPriceWeight),
+    ...((o.driftSeconds ?? p.driftSeconds) > 0 ? [`the rules' numbers may change every ${minutes(o.driftSeconds ?? p.driftSeconds)} min`] : []),
   ];
   return `${parts.join(" · ")}.`;
 }

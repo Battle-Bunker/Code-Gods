@@ -385,6 +385,16 @@ back) or TRIAL (a declared experiment, measured and reported).
     band of par are dealt (no normalisation of scores). Motive: rule design (#690, §A12) found tables of perpendicular,
     parameterised rules settle with fixed parameters (flat from 50–100 s, 4–13% of objects moving late) and keep moving
     when each seat's value is redrawn every 50 s (54–100% moving late); to be repeated under the scarce-power economy.
+    Drifting values for the beginner line families (the coordinator, 15 Nov), equal opportunity by construction:
+    mirrors. The law is even in a and c (C3), so a parameter and its mirror under a reflection that keeps the law are
+    exact peers (v1's 0.5-bit audit passes within sampling noise). Prime Landing deals "a prime ending in 7" and
+    "minus a prime ending in 7" (y → −y); Treasure deals T = ±11 and ±13 (y → −y; at ±37 a seat could not cross between a target and its mirror in 120 s
+    and parked midway; an exact main is 7.6–8.0 bits across the four; its tie-breakers reading minus
+    primes and squares on the mirror); Same on Both Rulers deals T = 6 and −6 (the reflection through the origin,
+    which leaves every tie-breaker as it was); Prime Gradient deals its ending 1 and minus (y → −y, the y-intercept
+    near minus a prime too), Prime Staircase its ending 3 and a run of minus primes (y → −y). Each mirror's symmetry is a unit test. Ending grids (1, 3, 7, 9) fail
+    the audit at any floor: the code makes a prime cost about ½ bit per unit, so the first qualifying primes differ by
+    up to 4 bits.
 
 17. **TRIAL** (declared 15 Nov, following decisions 39–42): the grid anchors' solved mains leave the dealt values.
     Opposite Nines' "every cell and its opposite add up to 9" (37 bits) and Magic Eighteen's "every row adds up to 18"
