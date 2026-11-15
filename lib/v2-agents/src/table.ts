@@ -63,6 +63,8 @@ export interface TableInput<S> {
   readonly economy?: Economy;
   /** Default 0.1, the beginner preset's. */
   readonly birthsPerSecond?: number;
+  /** Births on a regular schedule (the beginner presets) rather than at random at that rate. */
+  readonly regularBirths?: boolean;
   /** Parameter drift (the coordinator's call 18, server #723): every this many seconds each seat's rule parameters are
    *  redrawn among the dealable ones with a value record (driftParams); the family and tie-breaker stay. Absent: none.
    *  Staggered as the server does it: seat i of n redraws at k × interval + i × interval / n (k ≥ 1), and no seat
@@ -512,7 +514,9 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
       startTotals = startTotals.map((t, i) => t + next.reduce((a, p) => a + p[i]!, 0) - points.reduce((a, p) => a + p[i]!, 0));
       points = next;
     }
-    for (let b = opportunities(input.birthsPerSecond ?? 0.1, TICK_SECONDS, r); b > 0; b--) {
+    // Regular births (the beginner presets, decision 31): one every 1/rate world seconds, as convex/v2/duration.ts regularBirths.
+    const rate = input.birthsPerSecond ?? 0.1, nBorn = input.regularBirths ? Math.floor(world * rate + 1e-9) - Math.floor(was * rate + 1e-9) : opportunities(rate, TICK_SECONDS, r);
+    for (let b = nBorn; b > 0; b--) {
       const born = births(type, variant, `${input.seed}:${lines.length + 1}`, 1)[0]!;
       lines = [...lines, born]; points = [...points, pointsOf(born)];
       startTotals = startTotals.map((t, i) => t + points.at(-1)![i]!);   // a newborn line's points are no one's gain
