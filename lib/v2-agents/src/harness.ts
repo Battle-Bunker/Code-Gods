@@ -244,11 +244,11 @@ export function formatReport(r: HarnessReport): string {
     "|---|---|---|---|---|---|--:|",
     ...r.rules.map(x => `| ${x.player} | ${x.rule} | ${utilityCell(x, 0)} | ${utilityCell(x, 1)} | ${x.bits ? `${f1(x.bits.start)} → ${f1(x.bits.end)} / ${f1(x.bits.top)}` : "– (no value function)"} | ${x.bits ? `${x.bits.beyond.start} → ${x.bits.beyond.end}` : "–"} | ${x.bitsGained === null ? "–" : f1(x.bitsGained)} |`),
     "",
-    "| Player | Points gained (start → end) | ⚡ lost to reversals (times) | Others' rarity kept by its moves | Notes |",
+    "| Player | Points gained (start → end) | energy lost to reversals (times) | Others' rarity kept by its moves | Notes |",
     "|---|--:|--:|--:|--:|",
     ...r.points.map(x => `| ${x.player} | ${f1(x.gained)} (${f1(x.start)} → ${f1(x.end)}) | ${f1(x.reversalEnergy)} (${x.reversals}) | ${x.othersKept === null ? "–" : `${Math.round(100 * x.othersKept)}%`} | ${x.notes} |`),
     "",
-    "| Player | Acts (made / skipped / failed) | ⚡ spent | ⚡ on reads, by view | ⚡ on changes, by view |",
+    "| Player | Acts (made / skipped / failed) | energy spent | energy on reads, by view | energy on changes, by view |",
     "|---|---|--:|---|---|",
     ...r.spend.map(s => `| ${s.player} | ${s.acts.committed} / ${s.acts.skipped} / ${s.acts.failed} | ${f1(s.spent)} | ${byView(s.reads)} | ${byView(s.changes)}${s.firstFailure ? ` (first failure: ${s.firstFailure})` : ""} |`),
   ];

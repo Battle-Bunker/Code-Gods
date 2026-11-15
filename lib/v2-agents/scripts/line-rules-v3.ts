@@ -401,7 +401,7 @@ function distinctTest(vs: Valuer[], win: L[]) {
 }
 
 /** Test 4: scripted seats on 24 objects for 300 s. Each second each seat makes its best affordable unit move by
- * gain per ⚡ in its own points rate (n_i · Σ_{j≠i} n_j summed over objects), uniqueness enforced. */
+ * gain per energy in its own points rate (n_i · Σ_{j≠i} n_j summed over objects), uniqueness enforced. */
 function dynamicsTest(vs0: Valuer[], seed: string, opt: { phase?: (t: number) => Valuer[]; rebirthEvery?: number } = {}) {
   let vs = vs0;
   const r = rng("v3-dyn", seed); const objs: L[] = []; const occ = new Set<number>();
@@ -496,10 +496,10 @@ if (want("rules")) {
   say("\n## Rules: ramp test (windows |a|, |c| ≤ H, 1 ≤ b ≤ H), and bits within a line's share of a game\n");
   const w1 = windowLines(12), w2 = windowLines(24);
   const big = reach(BIRTHS[0]!, LINE_SHARE, o.moves === "mutators" ? 1_000_000 : 3_000_000);
-  say(`Reachable lines from birth ${show(BIRTHS[0]!)} with ${LINE_SHARE} ⚡ (unit steps): ${big.states.length}${big.capped ? `+ (stopped at ${big.spent.toFixed(0)} ⚡)` : ""}`);
+  say(`Reachable lines from birth ${show(BIRTHS[0]!)} with ${LINE_SHARE} energy (unit steps): ${big.states.length}${big.capped ? `+ (stopped at ${big.spent.toFixed(0)} energy)` : ""}`);
   const rs = BIRTHS.slice(0, 6).map(b => reach(b, LINE_SHARE));
   const reaches = rs.map(r => r.states);
-  say(`The cheapest 150,000 lines from each of 6 births reach ${rs.map(r => r.spent.toFixed(0)).join(", ")} ⚡ (of ${LINE_SHARE}); 'best bits in reach' below is over these.`);
+  say(`The cheapest 150,000 lines from each of 6 births reach ${rs.map(r => r.spent.toFixed(0)).join(", ")} energy (of ${LINE_SHARE}); 'best bits in reach' below is over these.`);
   say("| rule | top H=12 (bits @ line) | top H=24 | edge | grows | corr(bits, φ) tail | ramp | lines ≥ cap | median best bits in reach | median birth bits |");
   say("|---|---|---|---|---|---|---|---|---|---|");
   for (const v of VS) {

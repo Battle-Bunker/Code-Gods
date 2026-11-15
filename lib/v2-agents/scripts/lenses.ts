@@ -481,7 +481,7 @@ if (want("topology")) {
   say(`\nRoute cost between ${NSRC} newborn lines (drawn from π) and ${targets.length} targets (half from π, half lines of 18–30 bits).`);
   say(`"Gain" is the baseline's cheapest route cost over this set's cheapest route cost, per pair.\n`);
   const base = dists[0]!, nine = dists[1]!;
-  say(`| Mutator set | Median route ⚡ | Gain over additive-only: median | p90 | Share ≥ 1.5× | Gain over the nine: median | p90 | Share ≥ 1.25× | Lines within 30 ⚡ | 60 ⚡ | 120 ⚡ |`);
+  say(`| Mutator set | Median route energy | Gain over additive-only: median | p90 | Share ≥ 1.5× | Gain over the nine: median | p90 | Share ≥ 1.25× | Lines within 30 energy | 60 energy | 120 energy |`);
   say(`|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|`);
   const qtl = (xs: number[], p: number) => { const s = xs.slice().sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.floor(p * s.length))]!; };
   SETS.forEach((set, si) => {
@@ -516,7 +516,7 @@ if (want("topology")) {
   const ex: { s: number; t: number; g: number; a: number; b: number }[] = [];
   sources.forEach((s, k) => targets.forEach(t => { if (t !== s) ex.push({ s, t, g: dists[1]![k]![t]! / dists[all]![k]![t]!, a: dists[1]![k]![t]!, b: dists[all]![k]![t]! }); }));
   ex.sort((x, y) => y.g - x.g);
-  say(`| From | To | The nine ⚡ | All eighteen ⚡ | Gain |`);
+  say(`| From | To | The nine energy | All eighteen energy | Gain |`);
   say(`|---|---|--:|--:|--:|`);
   for (const e of ex.slice(0, 6)) say(`| ${show(states[e.s]!)} | ${show(states[e.t]!)} | ${Math.round(e.a)} | ${Math.round(e.b)} | ${f2(e.g)} |`);
 }
@@ -604,7 +604,7 @@ if (want("collateral")) {
   say(`\nRules: ${pick.map(z => `${rules[z]!.family}/${rules[z]!.tieBreaker}`).join(", ")}. Mean over the ${NSRC} sources of the best table total`);
   say(`reachable within the budget, and the mean number of lines a searcher must score to know it (the reachable set).\n`);
   const F = Float64Array.from(states, (_, i) => { const n = pick.map(z => bits[z]![i]!); return n.reduce((a, x, k) => a + x * n.reduce((b, y, l) => b + (l === k ? 0 : y), 0), 0); });
-  say(`| Mutator set | Best within 30 ⚡ | lines | 60 ⚡ | lines | 120 ⚡ | lines | Box optimum |`);
+  say(`| Mutator set | Best within 30 energy | lines | 60 energy | lines | 120 energy | lines | Box optimum |`);
   say(`|---|--:|--:|--:|--:|--:|--:|--:|`);
   const boxBest = Math.max(...F);
   SETS.forEach((set, si) => {
@@ -650,7 +650,7 @@ if (want("turn")) {
     if (turn < pivotOne) turnWins++;
     if (turn < Math.min(pivotOne, pivotPath)) turnWinsPath++;
     ratios.push(Math.min(pivotOne, pivotPath) / turn);
-    if (ex.length < 4 && Math.min(pivotOne, pivotPath) / turn > 3) ex.push(`${show(l)} → gradient ${fr(m2)} about x = ${fr(X0[xi]!)}: pivot ${Math.round(Math.min(pivotOne, pivotPath))} ⚡, turn ${Math.round(turn)} ⚡`);
+    if (ex.length < 4 && Math.min(pivotOne, pivotPath) / turn > 3) ex.push(`${show(l)} → gradient ${fr(m2)} about x = ${fr(X0[xi]!)}: pivot ${Math.round(Math.min(pivotOne, pivotPath))} energy, turn ${Math.round(turn)} energy`);
   }
   ratios.sort((a, b) => a - b);
   say(`- ${n} cases. One turn is cheaper than one pivot act in ${pct(turnWins / n)} of them, and cheaper than the pivot path`);
@@ -671,7 +671,7 @@ if (want("dynamics")) {
   });
   say(`\n## 4. Dynamics: three selfish climbers sharing one line`);
   say(`\nRules: ${rules.map(rl => `${rl.family}/${rl.tieBreaker}`).join(", ")}. From each of ${NSRC} newborn lines, the three take turns;`);
-  say(`each takes the offered call that raises its own bits most per ⚡ (charge W + 0.05·W², W ≤ 40), or passes when none`);
+  say(`each takes the offered call that raises its own bits most per energy (charge W + 0.05·W², W ≤ 40), or passes when none`);
   say(`does. 300 turns. A fixed point is three passes in a row. "Lines" is the number of distinct lines the object visited;`);
   say(`"revisits" the share of moves onto a line it had held before (a tug of war).\n`);
   say(`| Mutator set | Runs that reach a fixed point | Mean turns to it | Mean distinct lines | Revisits | Mean table total at the end | Mean bits each at the end |`);
@@ -735,7 +735,7 @@ if (want("balance")) {
   say(`\n## 5. Balance and dynamics: the nine against the nine + the five as built (line-q-lenses)`);
   say(`\n${rules.length} rules of the beginner pool (every family with each tie-breaker that has values on line-q), ${NT} seeded`);
   say(`three-rule tables of three different families, ${NSRC} newborn lines each. On each line the three take turns as selfish`);
-  say(`climbers: each takes the offered call that raises its own bits most per ⚡ (charge W + 0.05·W², W ≤ 40), or passes;`);
+  say(`climbers: each takes the offered call that raises its own bits most per energy (charge W + 0.05·W², W ≤ 40), or passes;`);
   say(`300 turns; a fixed point is three passes in a row. "Time-mean" is a seat's bits averaged over the 300 turns. Values took`);
   say(`${f1((performance.now() - t2) / 1000)} s.\n`);
   interface Run { end: number[]; mean: number[]; fixed: boolean; distinct: number; rev: number; moves: number; lensMoves: number[]; ownMoves: number[] }
@@ -830,7 +830,7 @@ if (want("balance")) {
   }
   const q2 = (xs: number[], p: number) => { const s2 = xs.slice().sort((a, b) => a - b); return s2[Math.min(s2.length - 1, Math.floor(p * s2.length))]!; };
   say(`\nCheap peaks: the cheapest energy from a newborn line to a line within 90% of its table's best total in the box`);
-  say(`(${ratios.length} table–line pairs). The nine: median ${Math.round(q2(c9s, 0.5))} ⚡, p10 ${Math.round(q2(c9s, 0.1))}; the fourteen: median`);
-  say(`${Math.round(q2(c14s, 0.5))} ⚡, p10 ${Math.round(q2(c14s, 0.1))}. Nine over fourteen: median ${f2(q2(ratios, 0.5))}, p90 ${f2(q2(ratios, 0.9))},`);
+  say(`(${ratios.length} table–line pairs). The nine: median ${Math.round(q2(c9s, 0.5))} energy, p10 ${Math.round(q2(c9s, 0.1))}; the fourteen: median`);
+  say(`${Math.round(q2(c14s, 0.5))} energy, p10 ${Math.round(q2(c14s, 0.1))}. Nine over fourteen: median ${f2(q2(ratios, 0.5))}, p90 ${f2(q2(ratios, 0.9))},`);
   say(`max ${f2(q2(ratios, 1))}; ${pct(ratios.filter(x => x >= 1.5).length / ratios.length)} of pairs at least 1.5× cheaper.`);
 }

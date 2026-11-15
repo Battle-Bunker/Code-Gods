@@ -217,7 +217,7 @@ for (let a = 0; a < NR; a++) {
       const b1 = allBits(mv.s);
       for (let c = 0; c < NR; c++) if (b1[c]! > bestNear[c]!) bestNear[c] = b1[c]!;
     }
-    // Every direction repeated STEPS times: the sustained climb along it (A's gain; tension-gen's gain per ⚡), and
+    // Every direction repeated STEPS times: the sustained climb along it (A's gain; tension-gen's gain per energy), and
     // the others' opportunity cost when it rises.
     for (let d = 0; d < ND; d++) {
       let x: LineState | null = s, price = 0;

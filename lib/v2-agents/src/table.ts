@@ -58,7 +58,7 @@ export interface TableInput<S> {
   readonly seed: string;
   /** World seconds (the beginner preset: 300). */
   readonly seconds: number;
-  /** Default: the beginner economy (64 power, 30 s to full, 600 ⚡ to start, 25 opportunities a second). */
+  /** Default: the beginner economy (64 power, 30 s to full, 600 energy to start, 25 opportunities a second). */
   readonly economy?: Economy;
   /** Default 0.1, the beginner preset's. */
   readonly birthsPerSecond?: number;
@@ -194,7 +194,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   function pay(i: number, price: number, kind: "summons" | "edits") {
     const own = settledOwn(i);
     if (input.summonCap !== undefined) price = Math.min(price, input.summonCap);
-    if (own.balance < price) throw new Error(`That costs ${Math.round(price * 10) / 10} ⚡; you have ${Math.round(own.balance * 10) / 10} in your own store. Move power from your agents to your store first (power.allocate), then pay.`);
+    if (own.balance < price) throw new Error(`That costs ${Math.round(price * 10) / 10} energy; you have ${Math.round(own.balance * 10) / 10} in your own store. Move power from your agents to your store first (power.allocate), then pay.`);
     players[i]!.own = spend(own, price);
     stats[i]![kind === "summons" ? "spentSummons" : "spentEdits"] += price;
   }
@@ -428,7 +428,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   async function modelTurn(i: number, k: number, of: number) {
     const m = input.model!, seat = seats[i]!, family = type.families.find(f => f.id === seat.rule.family)!;
     const tools = assistantTools(context(i)).filter(t => (TABLE_TOOLS as readonly string[]).includes(affordanceForTool(t.name)?.id ?? ""));
-    const briefing = `Turn ${k + 1} of ${of}. The game is live at ${Math.round(world)} s. You have ${Math.round(settledOwn(i).balance)} ⚡ in your own store and ${mine(i).length} agent(s). Act, then stop.`
+    const briefing = `Turn ${k + 1} of ${of}. The game is live at ${Math.round(world)} s. You have ${Math.round(settledOwn(i).balance)} energy in your own store and ${mine(i).length} agent(s). Act, then stop.`
       + `\n\n${commitmentBriefing(ledger(i))}`;
     const run = await runAssistant({
       provider: typeof m.provider === "function" ? m.provider(seat.name) : m.provider, system: aiSeatSystemPrompt({ name: seat.name, rule: family.card(seat.rule.params, seat.rule.tieBreaker), affordances: tools }),
