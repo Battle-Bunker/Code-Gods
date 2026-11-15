@@ -395,3 +395,164 @@ Collapse check ([dynamics](scripts/two-line-systems-collapse-dynamics.txt),
   - The dealer weights a family by its number of dealt (numbers, tie-breaker) entries, and can seat one family twice
     with different numbers.
   - A bid card shows a family's first dealt numbers.
+
+## 9. Ladders, the design-principles check, and the seating rule (15 November)
+
+The coordinator's orders after #771: apply design-principles.md rows 1, 3 and 4 to every two-line family (the owner's
+principles, not a trial; owner-decisions.md under trial 22), measure row 2 in play, guard the valuation ladders
+(approved (a) ladders joined by a stretch, (b) starter shortcuts, (i) triangular rungs), and merge with the table.
+
+### 9.1 What changed
+
+- **Main parts are ladders with no top** (lib/v2-pair families.ts). Three kinds:
+  - *residue ladder* (Right Angle's corner y, Forty-Five's |x| + |y|, Far Crossing's x-intercept): level j when the
+    number leaves the dealt r mod q, then mod q², …, mod q^j (each level q times rarer);
+  - *power ladder* (Divide By's |D|, Gap Ratio's y-gap over x-gap): level j at exactly k^j (the levels are not nested:
+    k² is not k), d to k^(j+1); on no level, d to the nearest power;
+  - *valuation ladder* (Whole Answer's y, High Start's gentler y-intercept, Steep Ratio's ratio): q^t·m with m ≡ r
+    (mod q), level L the highest with L(L+1)/2 ≤ t (triangular rungs, approval (i)): the first rung is one stretch by q
+    away, the next two, then three, so a stretch shortcut gets dearer per level.
+  Within a level the score is q^L × (1 + 1/(1 + d)), d the distance to the next level's class.
+- **Tie-breakers read what the main part attained** (row 3): Whole Answer's gcd(|X| + |n|, D) and X + n, Divide By's
+  ω(|xD| + |yD|) and gcd(xD, yD), Right Angle's spf(|X| + |n|) and gcd(|X| + |n|, ⌊|m|⌋), Forty-Five's ω(n) and
+  gcd(n, y-gap), Gap Ratio's gcd and spf of the gap, Far Crossing's n and spf(n), High Start's and Steep Ratio's
+  readings of their n. A step up the main part moves n and restarts the tie-breaker's climb.
+- **Dealt numbers** (row 4; `DEALT_NUMBERS`): measured at q 5 or 7 with every r for the valuation ladders (q 3 is too
+  cheap: a cost-blind climber reached 34–51 bits), q 5, 7, 11 for the residue ladders. Dealt where the climber's reach
+  is within 1 bit of the family's and the equal-opportunity audit passes (intervals, 1 bit under drift): Whole Answer 8,
+  High Start 3, Steep Ratio 6, Divide By 4 (k 4, 5, 8, 9 of 2–11), Right Angle 10, Forty-Five 17, Gap Ratio 4 (k 3–6
+  of 2–7), Far Crossing 8.
+- **Bug found in review and fixed: the power ladder had a top.** It reused the residue ladder's climb, which passes
+  level j only when level j is met; powers are not nested, so |D| = k² scored level 0 (below |D| = k and even below
+  k² − 1). Divide By and Gap Ratio therefore stopped at level 1, failing row 1. The ladder now meets every power (engine,
+  and the kit's `powerLadder` / `power_ladder`); their values were recomputed and their numbers re-chosen.
+- **Pair tails** grow at most 1 bit per doubling (`PAIR_SIZE_RATE`, the 8,238-bit bug of §8.3).
+- **Starters** use the kit's ladder helpers (`ladder`, `valuationLadder`, `powerLadder`), stretch by their own q or k
+  (`pairSteps(..., factors)`), and translate; Right Angle and Forty-Five reach 4 on their translate and slide moves.
+- **Seating** (lib/v2-pair seating.ts, deal.ts, drift.ts): see §9.4.
+
+### 9.2 The check table
+
+Measured on the pool of §9.1, after the power-ladder fix and with the seating rule (§9.4):
+
+- **Play:** 40 games of 600 s without redraws (pool-dynamics `--drift 0`, simple starters, three families a game; each seat
+  a random dealt rule; no table the seating rule forbids):
+  [0](scripts/two-line-systems-pool-dynamics-0.txt), [10](scripts/two-line-systems-pool-dynamics-10.txt),
+  [20](scripts/two-line-systems-pool-dynamics-20.txt), [30](scripts/two-line-systems-pool-dynamics-30.txt).
+- **The tension matrix:** [tension](scripts/two-line-systems-tension.txt).
+- **PMI:** [pmi](scripts/two-line-systems-pmi.txt), on every value function on disk, candidates included.
+
+Row 7 is not in design-principles.md.
+
+| Family | 1 unbounded | 2 climbed late / last step in the first 120 s (seats) | 3 tie-breaker from the main | 4 instances | 5 PMI: independent pairs | 6 opposed by (lowers it) | 8 end bits mean / max | 9 gain; objects moving late |
+|---|---|---|---|---|---|---|---|---|
+| Whole Answer | PASS: valuation ladder | 65% / 6% (17) | PASS: reads n; 25% of main steps lowered it | 8 | 69% | Divide By 41%, Steep Ratio 39% | 5.2 / 11.5 | 261; 34% |
+| Divide By | PASS: power ladder | 50% / **33%** (12) | PASS: numerators over D; 35% | 4 | 91% | Gap Ratio 44%, Right Angle 43% | 4.5 / 15.0 | **166**; 20% |
+| Right Angle | PASS: residue ladder | 60% / 5% (20) | PASS: reads n; 8% | 10 | 74% | Gap Ratio 50%, Steep Ratio 46% | 4.4 / 12.5 | 232; 38% |
+| Forty-Five | PASS: residue ladder | 54% / 8% (26) | PASS: reads n; 13% | 17 | 69% | Gap Ratio 47%, Steep Ratio 43% | 5.7 / 12.2 | 251; 32% |
+| Gap Ratio | PASS: power ladder | 73% / 0% (11) | PASS: reads the gap; 27% | 4 | 55% (335 anti-aligned) | Steep Ratio 34%, Forty-Five 34% | 5.2 / 12.6 | 212; 33% |
+| Far Crossing | PASS: residue ladder | 56% / 6% (18) | **weak**: reads n; 6% | 8 | 83% | **weak**: Whole Answer 18%, Right Angle 18% | 4.6 / 12.3 | 278; 31% |
+| High Start | PASS: valuation ladder | 75% / 25% (4: too few) | **weak**: reads n; 11% | **FAIL: 3** | 80% | **weak**: Divide By 27%, Steep Ratio 25% | 4.3 / 6.7 | 222; 38% |
+| Steep Ratio | PASS: valuation ladder | 58% / **33%** (12) | PASS: reads the ratio; 19% | 6 | 96% | Gap Ratio 45%, High Start 33% | 6.5 / 17.6 | 206; 27% |
+
+- **Row 1.** Every main part is a ladder: no state scores a maximum, and the next level is always one class away. The
+  power ladder had a top until the review fix (§9.1).
+- **Row 2.** Recorded honestly.
+  - *Criterion:* at least two seats in three still stepping up their main part in the last third, and no seat on a
+    level it reached in the first two minutes.
+  - *Overall:* 59% of 120 seats stepped late; 12% made their last main-part step in the first 120 s.
+  - *Families:* Gap Ratio (73%) and High Start (75%, only 4 seats) meet the first clause. Whole Answer (65%) is close.
+    The rest are at 50–60%.
+  - *Second clause:* Divide By and Steep Ratio fail it, with a third of their seats done early.
+  - *Contest:* every family's progress is contested (below).
+- **Row 3.** The share of a family's main-part steps that lowered its tie-breaker. Wherever it is well above 0, a step
+  up resets the tie-breaker. Far Crossing (6%) and High Start (11%) are weak: their tie-breakers (n itself, the factors
+  of n) mostly rise with the step.
+- **Row 4.** At least 4 everywhere but High Start.
+  - *Rule:* a number is dealt when its value functions pass the engine's equal-opportunity audit (intervals, 1 bit
+    under drift) and a greedy climber's reach is within 1 bit of the dealt set's median
+    ([scripts/two-line-systems-reach.txt](scripts/two-line-systems-reach.txt)).
+  - *High Start:* its median knots spread 3.5–7.5 bits across its ten numbers, and only three pass; the nearest four miss
+    by 0.09 bits.
+  - *The statistic:* the median knot by index moves with where a value function's knots cluster, so it may be the wrong
+    statistic for a ladder. That is the coordinator's call.
+- **Row 5.** The share of a family's pairs with other families' rules that are independent (|PMI| ≤ 1 bit). Of the
+  aligned pairs (> 2 bits) between dealt rules, all 61 are forbidden by the seating rule (§9.4).
+- **Row 6.** The families whose climbs lower it most often, from the tension matrix (each family's best tie-breaker).
+  Far Crossing and High Start are weakly opposed (under 30%).
+- **Row 8.** Nothing near 30 bits: the highest end bits in 40 games are 17.6 (Steep Ratio).
+- **Row 9.** Mean points gained, best family over worst: **1.67** (Far Crossing 278, Divide By 166). Without the seating
+  rule, on the same fixed pool, it was 1.29.
+
+### 9.3 Right Angle and Forty-Five: the starter, not the rule
+
+Their low late stepping was the starter's. Focus runs (12 games each, the family at seat 0 with each dealt number in
+turn, before the power-ladder fix):
+
+- **Right Angle.** The Simple starter climbed late in about 50% of seats, the Thorough starter about 70%.
+- **Forty-Five.** The Simple starter, widened to reach 4 on its translate and slide moves, climbed late in about 75% of
+  seats; Thorough about 58%.
+
+A wider search reaches the next level, so the rule has rungs to climb late. The Simple starters are widened (reach 4),
+and with them the 40 games above put Right Angle at 60% and Forty-Five at 54% (39% and 50% before the widening).
+
+### 9.4 Guards on the valuation ladders, and the seating rule
+
+- **No level pays more than its φ.** Pure stretching by q from a birth (gain per energy falls with the level):
+
+  | Family (q) | start | after 15 stretches | energy |
+  |---|--:|--:|--:|
+  | High Start (7) | 4.7 | 24.4 | 393 |
+  | Steep Ratio (5) | 6.1 | 19.6 | 319 |
+  | Whole Answer (7) | 6.8 | 22.1 | 800 |
+
+  Before triangular rungs, one level per stretch let High Start reach 59.3 bits in play; with them, play peaks at 17.6.
+- **Contest.** In 40 games, another seat's move took main-part progress on an object a family had climbed 12 (High
+  Start) to 582 (Forty-Five) times, counted as episodes. The climber climbed back in 48% (Far Crossing) to 89%
+  (Forty-Five) of them.
+- **Two seated rules raised by one move (found, fixed).**
+  - *PMI* (every value function on disk): 8,538 of 11,408 different-family pairs independent, 445 anti-aligned, **128
+    aligned** (> 2 bits). All are among Whole Answer, High Start, Right Angle and Forty-Five, save 4 of Divide By with
+    Steep Ratio candidates. They share a residue r (Right Angle {7, 3} × Whole Answer {7, 3}: 3.3 bits) or meet at a
+    small number (Right Angle {11, 9} × Whole Answer {7, 5} at y = −2: 2.3 bits). Each reads a y that one stretch or
+    translate moves for both.
+  - *Tension matrix*:
+    - In 34 of 56 ordered family pairs the column rises more often than it falls.
+    - A repeated basic strategy raises one family by more than 1 bit in 47% of runs, two in 30%, three or more in 23%.
+    - The largest joint gain is Gap Ratio +13.5 with Divide By +11.3 bits: stretching one line by 3 eight times makes
+      D = −81 and the gaps' ratio a power of 3. That is a base-3 pair (k 3 with k 9), which the seating rule forbids.
+      The matrix scores every family's best rule and does not apply seating.
+  - *The fix: a seating rule for pairs* (lib/v2-pair seating.ts). Forbidden at one table:
+    - one family twice;
+    - two of Whole Answer, High Start and Right Angle with the same r, or whose classes meet at a number 0 < |n| ≤ 3;
+    - Whole Answer and Forty-Five meeting the same way;
+    - two valuation ladders with the same q (a stretch by q climbs both);
+    - Gap Ratio with Divide By on one base (k 2 and 4, 3 and 9).
+
+    The deal takes the first shuffle without one, as the grids' and lines' rules do (deal.ts); the game records any left,
+    and drift never redraws a seat into one (drift.ts, develop's rule for lines). Every aligned pair of dealt rules that
+    PMI found is forbidden.
+
+### 9.5 Collapse check
+
+Test 5 (disclosure) passes at every β: 40/40 unidentified in 3,000 probes. Test 2 (no cheap optimum) is run with drift
+off (the fixed deal) and on (one-seat redraws: does the cheap best survive?):
+
+| β | 2. no cheap optimum (drift off) | one-seat redraws that leave a cheap best within 95% of the new best (drift on) | 5. disclosure |
+|--:|---|---|---|
+| 0.02 | PASS: 1/8 tables cheap; search median 73% of best | 1/1 | PASS |
+| 0.05 | **FAIL**: 4/8 tables cheap; 96% | 8/10 | PASS |
+| 0.1 | PASS: 1/8; 87% | 2/2 | PASS |
+
+([scripts/two-line-systems-collapse-pair-q.txt](scripts/two-line-systems-collapse-pair-q.txt).)
+
+**Bug (reported, open): test 2 still finds cheap optima at β 0.05.**
+
+- **What fails.** A 5,000-evaluation search with a game's energy matches or beats the reference best on 4 of 8 tables.
+  On two of them it beats the reference by 15% and 55%, so the reference search there is itself weak.
+- **Drift does not dissolve them.** 8 of 10 one-seat redraws leave the cheap best within 95% of the new best.
+- **The seating rule does not reach it.** It removed the aligned pairs (row 5), but the failure is in the shape of the
+  joint landscape.
+- **History.** Before this work the same test failed at every β (§8.3). Now it passes at 0.02 and 0.1.
+- **For the coordinator: the mechanism is not yet found.** The cheap bests are small-coefficient systems, e.g.
+  (0, 1, −5, 1, 1, −81).

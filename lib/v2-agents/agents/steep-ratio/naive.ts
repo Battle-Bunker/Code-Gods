@@ -1,5 +1,5 @@
 // Steep Ratio · Naive (for learning)
-// Main part: one line a whole number of times as steep as the other, with the dealt remainder. Tie-breaker: whichever you were dealt (that number shares a factor with the y-intercepts' gap; that number is a big prime).
+// Main part: one line a whole number of times as steep as the other, on the dealt ladder. Tie-breaker: whichever you were dealt (that number shares a factor with the y-intercepts' gap; that number is a big prime).
 // What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 // pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 // player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -9,9 +9,8 @@
 function score(L, p, tie) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   if (f.ratio === null) return null;   // no ratio of gradients: no score
-  const k = nearestLeaving(f.ratio, p.q, p.r, 2);   // the whole number of times with your remainder (at least 2 either way)
-  const main = Q.neg(Q.abs(Q.sub(f.ratio, k)));
-  // main: how far the steeper line is from a whole number of times as steep as the other, with your remainder (closer is better)
+  const { score: main, n: k } = valuationLadder(f.ratio, p.q, p.r, 0, 2);   // the whole number of times (at least 2 either way) on your ladder
+  // main: the level of the whole number of times as steep on your ladder (higher is better)
   if (tie === "ratio-gap") return [main, f.ygap === null ? null : common(k, whole(f.ygap))];   // that number sharing a big factor with the y-intercepts' gap is better
   if (tie === "ratio-prime") return [main, spf(k)];   // that number with a big smallest prime factor is better
   return [main];
@@ -19,12 +18,13 @@ function score(L, p, tie) {
 
 const FAR = 2;      // how far one move may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["tilt","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+const KINDS = ["tilt","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 
 function agent(offer) {
   const L = pairOf(offer);          // the two lines, a·x + b·y + c = 0 each
   const { params: p, tieBreaker: tie } = goal(offer);   // your rule and tie-breaker (free)
-  const tries = pairSteps(L, FAR, KINDS);   // [plan, lines after]: moves tried in the agent's own head
+  // Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.
+  const tries = pairSteps(L, FAR, KINDS, [p.q ?? p.k].filter(Boolean));   // [plan, lines after]: moves tried in the agent's own head
   let top = score(L, p, tie), plans = [];
   for (const [plan, L2] of tries) {
     const s = score(L2, p, tie);

@@ -1,5 +1,5 @@
 # Far Crossing · Naive (for learning)
-# Main part: the steeper line crosses the x-axis at a whole number with the dealt remainder. Tie-breaker: whichever you were dealt (the steeper line crosses the x-axis far to the right; the steeper line's x-intercept is a big prime).
+# Main part: the steeper line crosses the x-axis at a whole number on the dealt ladder. Tie-breaker: whichever you were dealt (the steeper line crosses the x-axis far to the right; the steeper line's x-intercept is a big prime).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -11,9 +11,8 @@ def score(L, p, tie):
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     if f.rs is None:   # the steeper line is flat: no score
         return None
-    R = nearest_leaving(f.rs, p["q"], p["r"])   # the whole number that leaves your remainder
-    main = -abs(f.rs - R)
-    # main: how far the steeper line's x-intercept is from a whole number with your remainder (closer is better)
+    main, R = ladder(f.rs, p["q"], p["r"])   # the x-intercept on your ladder
+    # main: the level of the steeper line's x-intercept on your ladder (higher is better)
     if tie == "far-right":   # an x-intercept far to the right is better
         return [main, R]
     if tie == "far-prime":   # an x-intercept with a big smallest prime factor is better
@@ -23,7 +22,7 @@ def score(L, p, tie):
 
 FAR = 2      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-KINDS = ["shift","tilt"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+KINDS = ["shift","tilt"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 
 
 def agent(offer):

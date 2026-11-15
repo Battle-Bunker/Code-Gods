@@ -1,25 +1,33 @@
 /**
- * Equal reach of the pair families' dealt numbers (owner decision 42: balance across a rule's dealt values; the
+ * Equal reach of the pair families' numbers (owner decision 42: balance across a rule's dealt values; the
  * coordinator's call 18: only values within a band of par are dealt), as grid-params.md measured the grids'. For every
- * family, dealt number and tie-breaker with a value function: from `starts` births (π), a greedy climber takes the
+ * family, number and tie-breaker with a committed value function (dealt or a candidate, lib/v2-valuation values/pair-q): from `starts` births (π), a greedy climber takes the
  * call (arguments ≤ 8 bits) that most raises its own bits, `moves` times or until none does; the median bits reached.
  * A family's par is the median over its dealt numbers; a number is IN the band when its median is within `band` bits
  * of par for every tie-breaker.
  *
- *   node --experimental-strip-types scripts/pair-reach.ts [--starts 40] [--moves 30] [--band 1] [--json file]
+ *   node --experimental-strip-types scripts/pair-reach.ts [--starts 40] [--moves 30] [--band 1] [--family a,b] [--json file]
  */
-import { writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { applyPriced, canonicalJson, rng, variantMutators } from "@workspace/v2-core";
 import { pairLaw, pairQ, pairType, type PairState } from "@workspace/v2-pair";
 import { valuer } from "../src/harness.ts";
 import { callsUpTo } from "./climbers.ts";
-import { poolOf } from "./landscape-lib.ts";
+
 
 const { values: o } = parseArgs({
-  options: { starts: { type: "string", default: "40" }, moves: { type: "string", default: "30" }, band: { type: "string", default: "1" }, json: { type: "string" } },
+  options: { starts: { type: "string", default: "40" }, moves: { type: "string", default: "30" }, band: { type: "string", default: "1" }, family: { type: "string" }, json: { type: "string" } },
   args: process.argv.slice(2).filter(a => a !== "--"),
 });
+/** Every pair value function on disk: dealt numbers and measured candidates. */
+const VALUES = join(import.meta.dirname, "..", "..", "v2-valuation", "values", "pair-q");
+const only = o.family ? new Set(o.family.split(",")) : null;
+const RULES = readdirSync(VALUES).filter(f => !only || only.has(f)).flatMap(f => readdirSync(join(VALUES, f)).map(file => {
+  const v = JSON.parse(readFileSync(join(VALUES, f, file), "utf8"));
+  return { family: v.family as string, params: v.params as Record<string, unknown>, tieBreaker: v.tieBreaker as string };
+}));
 const STARTS = Number(o.starts), MOVES = Number(o.moves), BAND = Number(o.band);
 const MS = variantMutators(pairType, pairQ);
 const DIRS = callsUpTo(pairType, pairQ, 8).map(c => { const m = MS.find(x => x.id === c.mutator)!; return { m, args: m.args(pairQ).decode(c.args) }; });
@@ -48,8 +56,8 @@ function reach(bits: (s: PairState) => number): number {
 }
 
 const rows: { family: string; params: unknown; tieBreaker: string; median: number }[] = [];
-for (const rule of poolOf("pair-q").rules) {
-  rows.push({ family: rule.family, params: rule.params, tieBreaker: rule.tieBreaker!, median: reach(valuer(pairType, pairQ, rule).bits) });
+for (const rule of RULES) {
+  rows.push({ family: rule.family, params: rule.params, tieBreaker: rule.tieBreaker, median: reach(valuer(pairType, pairQ, rule).bits) });
   console.error(`${rule.family} ${canonicalJson(rule.params)} ${rule.tieBreaker}: ${rows.at(-1)!.median.toFixed(2)}`);
 }
 

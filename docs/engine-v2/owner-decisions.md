@@ -448,6 +448,11 @@ back) or TRIAL (a declared experiment, measured and reported).
     divided by q) on Whole Answer's x, Far Crossing, High Start and Steep Ratio; the number you divide by (k) on No
     Fractions; the gap ratio (k) on Double Gap. Right Angle and Forty-Five keep none. Only the numbers of equal reach
     and equal value are dealt (two-line-systems.md §8.3). `lines-pairs` stays non-default.
+    **Applied 15 Nov (the owner's principles, design-principles.md rows 1, 3 and 4, not a trial):** every two-line main
+    part is now a ladder with no top (a residue ladder mod q^j, a power ladder over k^j, or a valuation ladder whose
+    rungs are q, q³, q⁶, … times a number leaving r), every tie-breaker reads the number the main part attained, and
+    every family deals at least 4 numbers. A seating rule (lib/v2-pair seating.ts) keeps two rules that one move climbs
+    together from one table, and drift never redraws into such a pair. Measured in two-line-systems.md §9.
 
 19. **TRIAL** (declared 15 Nov): for a ladder main part (design-principles.md: a main with no top whose rungs are numbers
     the code prices), the equal-opportunity audit (v2-params-equal) compares bits minus the rung's code cost within 0.5
