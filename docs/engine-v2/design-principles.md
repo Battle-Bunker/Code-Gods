@@ -15,6 +15,9 @@ differ, the owner's words win.
 1. **Unbounded upside in the main part.** Every rule's main part is a hill with no top: there is always a better
    state, and each further step is rarer and costs more to reach. No caps and no maxima; cost alone limits a climb
    [26, 30]. "As close as possible to X" where X can be hit exactly is a bounded main part and fails.
+   Bits are rarity under the law, so relabelling a main part into levels (triangular or any other) changes nothing a
+   player earns. A climb bends only if each next unit is itself rarer under the law or costs more to reach (15 Nov:
+   Smooth Intercept's triangular levels left +1.5 bits per stretch by 3, straight for 9 steps).
 2. **Long ladders that are hard to climb.** A main part has many distinct levels within a game's reach, and the
    next level is always harder than the last. A rule that is solved in the first two minutes fails.
 3. **The secondary is entangled with the main part.** A tie-breaker reads a quantity that the main part's attained
