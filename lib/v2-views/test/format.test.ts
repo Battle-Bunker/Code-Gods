@@ -47,5 +47,5 @@ test("live, with the others' numbers blurred: the formula says about and ≈, ne
 
 test("live, a blurred others' sum can be negative; points are never (own × max(0, sum), W3 #608)", async () => {
   const { scoreFormula } = await import("../src/format.ts");
-  assert.equal(scoreFormula(6.8, -2.4, true), "your 6.80 bits × others' about −2.40 bits ≈ 0.00 points");
+  assert.equal(scoreFormula(6.8, -2.4, true), "your 6.80 bits × others' about 0.00 bits ≈ 0.00 points");
 });

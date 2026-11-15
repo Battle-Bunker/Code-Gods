@@ -88,3 +88,12 @@ test("every note speaks the game's own noun (ux-lessons 2.8): a grid game never 
   for (const t of grid) { assert.match(t, /\bgrids?\b/); assert.doesNotMatch(t, /\blines?\b/, t); }
   assert.equal(totalSumNote("grid"), "Your total is the sum of your points on every grid.");
 });
+
+test("a blurred others' sum below zero reads as what the server scores: none (round 11: 'about −8.21')", async () => {
+  const { scoreFormula } = await import("../src/core/words.ts");
+  const { pointsText } = await import("../src/panes/move-line.ts");
+  assert.doesNotMatch(scoreFormula(5, -8.21, true), /−|-\d/);
+  assert.match(scoreFormula(5, -8.21, true), /others' about 0(\.00)? bits? ≈ 0(\.00)? points/);
+  const snap = (want: number) => ({ rarityBits: 5, want, points: 5 * Math.max(0, want) });
+  assert.doesNotMatch(pointsText(snap(-3.5), snap(2), "line", true), /−|-\d/, "nor the others' bits before");
+});

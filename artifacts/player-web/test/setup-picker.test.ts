@@ -98,3 +98,10 @@ test("paid looks are a room setting (v1's paid observation): free by default, se
   assert.match(nextGameSummary(beginner, { observation: "paid" }), /pay to look/);
   assert.doesNotMatch(nextGameSummary(beginner, {}), /look/);
 });
+
+test("a trial setup on a variant of a board is described by that board, never its internal name (round 11: 'line-q-lenses')", () => {
+  const lenses = PRESETS.find(p => p.variant === "line-q-lenses");
+  assert.ok(lenses, "the lenses trial is deployed");
+  assert.match(setupBlurb(lenses!), /^Fraction lines, /);
+  for (const p of PRESETS) assert.doesNotMatch(setupBlurb(p), /\b[a-z]+-[a-z0-9]+(-[a-z0-9]+)*\b/, `${p.id}: ${setupBlurb(p)}`);
+});

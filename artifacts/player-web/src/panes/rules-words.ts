@@ -50,7 +50,7 @@ export function rulesParagraphs(r: RulesInput): string[] {
       : `Each game starts with ${duration(r.planningSeconds)} of planning`)
       + ", when you write and summon your first agent and nothing moves yet. "
       + (r.durationMode === "halfLife"
-        ? `Then the world runs, and it ends at a hidden random moment: half of games end within ${duration(r.worldSeconds)} of the world starting, and the clock shows a range, not an exact time. Your final points`
+        ? `Then the world runs, and it ends at a hidden random moment: half of games end within ${duration(r.worldSeconds)} of the world starting, and the clock never counts down to it. Your final points`
         : `Then the world runs for ${duration(r.worldSeconds)} and the game ends. Your final points`)
       + " are the points of every line alive then, added up: "
       + "the same figure as your points during the game, which rise and fall as the lines change.",
