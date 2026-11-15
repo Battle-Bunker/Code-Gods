@@ -113,9 +113,11 @@ export const { op: boardAt, as: boardAtAs } = defineOp("game.boardAt", "action",
     const chunk: Chunk = await env.ctx.runQuery(CHUNK, { userId: c.userId!, scope: c.scope, cursor });
     if ("refused" in chunk) throw new OpFailure(chunk.refused);
     foldBoard(chunk.rows, a.world, board);
-    if (chunk.cursor === null) break;
+    if (chunk.cursor === null) { cursor = null; break; }
     cursor = chunk.cursor;
   }
+  // Read newest first: a log longer than the cap would leave the oldest objects out, so refuse rather than half-answer.
+  if (cursor !== null) throw new OpFailure("This game's log is too long to rebuild a board from; use log.list for its history.");
   const all = [...board.values()].sort((x, y) => x.number - y.number).filter(o => a.after === undefined || o.number > a.after);
   const objects = all.slice(0, a.limit);
   return { world: a.world, objects, nextAfter: all.length > a.limit ? objects.at(-1)!.number : null };

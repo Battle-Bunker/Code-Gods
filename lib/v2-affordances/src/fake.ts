@@ -313,9 +313,10 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   },
   "game.boardAt": (e, a) => {
     const g = gameOf(e);
-    const objects = Object.entries(g.objects).map(([objectId, o]) => ({ objectId, number: numberOf(g, objectId), state: null, own: bitsOf(g, e.userId, o), others: null, points: null }))
-      .sort((x, y) => x.number - y.number).filter(o => a.after === undefined || o.number > a.after).slice(0, a.limit);
-    return { world: a.world, objects, nextAfter: null };
+    const all = Object.entries(g.objects).map(([objectId, o]) => ({ objectId, number: numberOf(g, objectId), state: null, own: bitsOf(g, e.userId, o), others: null, points: null }))
+      .sort((x, y) => x.number - y.number).filter(o => a.after === undefined || o.number > a.after);
+    const objects = all.slice(0, a.limit);
+    return { world: a.world, objects, nextAfter: all.length > a.limit ? objects.at(-1)!.number : null };
   },
   "rule.values": () => ({ points: knots() }),
   "rule.worth": (_e, a) => {
