@@ -7,7 +7,10 @@
  * next score interval, the event log records the redraw (`drift`, then a `values` event per object, which the replay
  * folds), and agents see the new parameters on their next act (the tick reads the seats' rules every tick).
  *
- * Drift k happens at world second k × driftSeconds, so a client counts down to the next one from the clock alone.
+ * Staggered (the coordinator's trial under call 18, after playtest round 16's sawtooth leaderboard): seat k of n is
+ * redrawn at world seconds k × driftSeconds / n + m × driftSeconds, so one seat's rule changes every driftSeconds / n
+ * and each seat's every driftSeconds. In a fixed-length game no redraw falls in the last END_GUARD_SECONDS (round 16:
+ * a redraw at the buzzer collapsed the final scores). A client counts down from the clock alone (`nextDriftAt`).
  * Pure; any runtime.
  */
 import { canonicalJson, driftParams } from "@workspace/v2-core";
@@ -18,12 +21,8 @@ import { valueRecord } from "./values.ts";
 /** A game's drift interval in world seconds (0: off; games stored before drift have none). */
 export const driftSecondsOf = (game: { settings: { driftSeconds?: number } }) => Math.max(0, game.settings.driftSeconds ?? 0);
 
-/** The drift due at this world second, if any: k ≥ 1 when k × interval has passed and fewer than k drifts were done. */
-export function driftDue(intervalSeconds: number, world: number, done: number): number | null {
-  if (!(intervalSeconds > 0)) return null;
-  const k = Math.floor(world / intervalSeconds + 1e-9);
-  return k > done ? k : null;
-}
+// The schedule is pure and shared with the app (its countdown): lib/v2-core drift.ts.
+export { END_GUARD_SECONDS, driftEventsDue, nextDriftAt } from "@workspace/v2-core";
 
 /**
  * A seat's redrawn parameters at drift `tick`, or null when it keeps them: the spec lead's `driftParams` (v2-core),

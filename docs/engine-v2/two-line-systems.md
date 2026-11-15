@@ -302,14 +302,14 @@ frozen share is over the pair's own calls (pairs have no line shortcut climber).
 - Not measured here: a shortcut climber for pairs, test 5 (disclosure), and more tables and seeds. Two games per β is
   a smoke test, not an estimate.
 
-### 8.2 Trial: High Start on the gentler line (owner-decisions trial 20)
+### 8.2 Trial: High Start on the gentler line (owner-decisions trial 21)
 
 High Start now reads the gentler line's y-intercept, and its tie-breaker "high and rising" reads the gentler line's
 gradient. Re-run before the dealt numbers (§8.3), the tension matrix shows the climb shared with Steep Ratio gone.
 High Start's climbs raise Steep Ratio 28% of the time and lower it 38%; Steep Ratio's climbs raise High Start 21% and
 lower it 21%. The shared hill of §8.1 does not appear in the repeated strategies.
 
-### 8.3 Dealt numbers and drift (owner-decisions trial 21)
+### 8.3 Dealt numbers and drift (owner-decisions trial 22)
 
 **Families.** Six families carry a number from their card, redrawn every 120 s on `lines-pairs` (drift, call 18):
 
