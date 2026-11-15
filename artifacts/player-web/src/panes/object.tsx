@@ -5,6 +5,8 @@
  * `view.compareRepresentations`), so an assistant can switch them for them; "Draw every line in Lines this way" pins the
  * representation for the rule's family (`view.pinRepresentation`).
  */
+import { isPaid, seenWords } from "./seen";
+import { AffordanceButton } from "@/site/components/action";
 import { useMemo } from "react";
 import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
@@ -78,6 +80,13 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
           {v && <BitsHelp testId="button-bits-help-line" />}
         </p>
         {v && <p className="text-xs text-muted-foreground" data-testid="text-line-formula">{whyLine({ rarity: v.rarityBits, want: v.want }, {}, word.one, blurred)}</p>}
+        {/* Paid looks (W3 #643): this is the line as last seen; a look pays to see it as it is now. */}
+        {isPaid(o) && (
+          <p className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
+            <span data-testid="text-line-seen">{seenWords(o)}</span>
+            <AffordanceButton id="object.look" args={{ objectId }} label="Look now" busyLabel="Looking…" tone="quiet" className="px-2 py-0.5 text-xs" testId="button-look-line" />
+          </p>
+        )}
       </div>
       <ExpandedFace rule={rule} state={state} value={my!.bits ?? undefined} active={active} compare={compared}
         moves={candidates} others={othersAt} climb={<ClimbHistory climb={climb} noun={word.one} approx={blurred} />}
