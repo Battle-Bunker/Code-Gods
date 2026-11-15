@@ -96,8 +96,10 @@ priority." So, in v2 work (decision 15):
   archive branch: no legacy copies, no adapters, no frozen v1 directories kept "for reference" on `develop`. The only
   game features the owner asked to delete are integer and string objects. A session, not the owner, also deleted paid
   looks, hold rarity, score noise and the other setups and credited the owner's decision 15 for it
-  (`docs/engine-v2/v1-audit.md`); those are open with the owner, and no session deletes a game feature again without
-  the owner's own words.
+  (`docs/engine-v2/v1-audit.md`). Since then paid looks and score noise are restored, and the owner settled hold
+  rarity on 15 November: not added unless there is a good reason, and the measurement found none (decision 43). The
+  other setups (v1's other grid boards) are still open with the owner. No session deletes a game feature again
+  without the owner's own words. The status of every v1 behaviour is the table in `docs/engine-v2/v1-audit.md`.
 - No compatibility with stored games, old calibration tables, old settings or the old event log.
 - Every operation is an affordance in one directory (`lib/v2-affordances`, owner decision 16) that generates the
   assistant tools, MCP, CLI, command palette and buttons; never add an operation to one surface by hand.
