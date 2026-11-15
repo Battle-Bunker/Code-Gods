@@ -46,7 +46,7 @@ test("model seats play through the directory's tools on the server's economy: th
     type: lineType, variant: lineZ, lines: 6, seed: "t", seconds: 24,
     // The scenario's timing (24 s, 25 opportunities a second, a summon payable after the manoeuvre) is the 25 Hz economy;
     // the beginner preset now runs at 3 Hz with power 8 (the coordinator's call 13), which this tool-plumbing test does not need.
-    economy: { powerPerSecond: 64, fullChargeSeconds: 30, startingEnergy: 700, opportunitiesPerSecond: 25 },
+    economy: { powerPerSecond: 64, fullChargeSeconds: 30, startingEnergy: 720, opportunitiesPerSecond: 25 },
     seats: [seat("Ada", "model", "treasure", "shared-factor"), seat("Bo", "model", "prime-staircase", "shared-factor"), seat("Cy", "naive", "prime-landing", "shared-factor")],
     model: { provider: (p => (name: string) => p[name === "Ada" ? 0 : 1]!)([perTurn(ada), perTurn(bo)]), budget: new Budget({ tokens: 10_000_000, usd: 5 }) },
   });
@@ -76,7 +76,7 @@ test("without the manoeuvre a second summon is refused: the store holds too litt
     seats: [seat("Ada", "model", "treasure", "shared-factor"), seat("Cy", "naive", "prime-landing", "shared-factor")],
     model: { provider: mockProvider(ada), budget: new Budget({ tokens: 10_000_000, usd: 5 }) },
     // At power 64 (summon prices at their calibrated bits) the store after the first summon holds less than a second one.
-    economy: { powerPerSecond: 64, fullChargeSeconds: 30, startingEnergy: 700, opportunitiesPerSecond: 25 },
+    economy: { powerPerSecond: 64, fullChargeSeconds: 30, startingEnergy: 720, opportunitiesPerSecond: 25 },
   });
   assert.equal(report.seats[0]!.failedToolCalls, 1);
   assert.equal(report.seats[0]!.summoned, 0);

@@ -61,7 +61,7 @@ def agent(offer):
         tries.append((move("si.shift", k=k), m, c + k))   # move the line up or down
         tries.append((move("si.tilt", k=k), m + k, c))   # make it steeper or flatter
     tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
-    tries += shortcuts(m, c)   # other views: mirrors, a slide, turns, one intercept moved
+    tries += shortcuts(m, c, rule.mutators)   # other views the game offers: mirrors, a slide, turns, one intercept moved
     options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:

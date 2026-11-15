@@ -190,6 +190,8 @@ class Offer:
         return Record({
             "object": r.get("object", "line"), "family": r["family"], "params": r["params"], "tieBreaker": r.get("tieBreaker"), "card": r["card"],
             "layers": [Record(dict(l)) for l in r.get("layers", [])],
+            # The moves this game offers, by id (absent from an older host: None).
+            "mutators": list(r["mutators"]) if r.get("mutators") is not None else None,
         })
 
     def my_score(self):
