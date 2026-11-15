@@ -29,11 +29,11 @@ test("Whole Answer on 2x + 3y = 12, x − y = 1: the answer (3, 2), y on the val
   // q 5, r 2: y = 2 = 5⁰ × 2 is level 0; level 1 wants 10 when divided by 25 (5 × a number leaving 2), nearest 10, 8 away.
   // The score is 5⁰ × (1 + 1/(1 + 8)) = 10/9.
   const p = { q: 5, r: 2 };
-  // Trial 35: y's number N = 2 and D = −5 share 1; x = 3 is 1 from 2 or 4, the nearest multiples of 2 other than 0.
-  assert.deepEqual(score("whole-answer", "y-divisor", school, p), ["10/9", "1"]);
+  // Trial 35: D = −5 is 1 from −4 or −6, and x = 3 is 1 from 2 or 4, the nearest multiples of y's number 2 other than 0.
+  assert.deepEqual(score("whole-answer", "divisor-multiple", school, p), ["10/9", "-1"]);
   assert.deepEqual(score("whole-answer", "x-multiple", school, p), ["10/9", "-1"]);
-  // q 3, r 1: 2 leaves 2, off the ladder; level 0's nearest is 1, one away: (1/3) × (1 + 1/2); N = 1 shares 1 with D.
-  assert.deepEqual(score("whole-answer", "y-divisor", school, { q: 3, r: 1 }), ["1/2", "1"]);
+  // q 3, r 1: 2 leaves 2, off the ladder; level 0's nearest is 1, one away: (1/3) × (1 + 1/2); D is a multiple of N = 1.
+  assert.deepEqual(score("whole-answer", "divisor-multiple", school, { q: 3, r: 1 }), ["1/2", "0"]);
 });
 
 test("the valuation ladder: level L needs L(L + 1)/2 stretches by q, each level dearer; 0 is on none; off the ladder is below all", () => {
@@ -111,15 +111,15 @@ test("the axes are the centre: a right angle at (0, 0), but 0 is on no dealt lad
   const axes = sys(L(0, 1, 0), L(1, 0, 0));
   // y = 0 is 1 from 1 (leaves 1 when divided by 5): level 0, 1 + 1/2; x = 0 is 1 from ±1, the multiples of N = 1 other than 0.
   assert.deepEqual(score("right-angle", "corner-multiple", axes, { q: 5, r: 1 }), ["3/2", "-1"]);
-  // 0 is on no ladder: y = 0 pegs to 1 (q 3, r 1), one away: (1/3) × (1 + 1/2); N = 1 shares 1 with D.
-  assert.deepEqual(score("whole-answer", "y-divisor", axes, { q: 3, r: 1 }), ["1/2", "1"]);
+  // 0 is on no ladder: y = 0 pegs to 1 (q 3, r 1), one away: (1/3) × (1 + 1/2); D = −1 is a multiple of N = 1.
+  assert.deepEqual(score("whole-answer", "divisor-multiple", axes, { q: 3, r: 1 }), ["1/2", "0"]);
 });
 
 test("Steep Ratio reads the whole number of times on its ladder, at least 2 either way", () => {
   const s = sys(Y(6, 0), Y(2, 5));     // 3 times as steep
-  // 3 shares 1 with D = −4 (trial 35: the tie-breaker reads the ratio's own number).
-  assert.deepEqual(score("steep-ratio", "ratio-divisor", s, { q: 5, r: 3 }), ["14/13", "1"]);   // 3 = 5⁰ × 3: level 0; level 1 (15 of 25) 12 away
-  assert.deepEqual(score("steep-ratio", "ratio-divisor", s, { q: 3, r: 1 }), ["78/25", "1"]);   // 3 = 3¹ × 1: level 1; level 2 (27 of 81) 24 away
+  // D = −4 is 1 from −3 (trial 35: the tie-breaker reads the ratio's own number, 3).
+  assert.deepEqual(score("steep-ratio", "ratio-divisor", s, { q: 5, r: 3 }), ["14/13", "-1"]);   // 3 = 5⁰ × 3: level 0; level 1 (15 of 25) 12 away
+  assert.deepEqual(score("steep-ratio", "ratio-divisor", s, { q: 3, r: 1 }), ["78/25", "-1"]);   // 3 = 3¹ × 1: level 1; level 2 (27 of 81) 24 away
 });
 
 test("Far Crossing's and High Start's tie-breakers aim at a multiple of q^(L+1), L the level the main part reached (row 3)", () => {
@@ -155,7 +155,7 @@ test("Far Crossing's and High Start's tie-breakers aim at a multiple of q^(L+1),
 test("a zoom of the picture (positions × n) cannot raise a capped hill past the number it is capped by", () => {
   // y = 2x + 3 and y = −x + 6 cross at (1, 4); zoom × 96 (a smooth number): c × 96.
   const base = sys(Y(2, 3), Y(-1, 6)), zoomed = sys(Y(2, 288), Y(-1, 576));
-  for (const [id, tb] of [["whole-answer", "y-divisor"], ["double-gap", "gap-divisor"], ["high-start", "start-echo"]] as const) {
+  for (const [id, tb] of [["double-gap", "gap-divisor"], ["high-start", "start-echo"]] as const) {
     const before = score(id, tb, base), after = score(id, tb, zoomed);
     if (!before || !after) continue;
     // D is unchanged by a zoom, so a common factor with D stays at most |D| = 3.

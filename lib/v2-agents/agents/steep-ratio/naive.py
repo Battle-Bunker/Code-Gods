@@ -1,5 +1,5 @@
 # Steep Ratio · Naive (for learning)
-# Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: whichever you were dealt (the y-intercepts' gap near a multiple of that number; that number shares a factor with the number you divide by).
+# Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: whichever you were dealt (the y-intercepts' gap near a multiple of that number; the number you divide by near a multiple of that number).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -16,8 +16,8 @@ def score(L, p, tie):
     # main: the level of the whole number of times as steep on your ladder (higher is better)
     if tie == "ratio-gap":   # a y-intercepts' gap near a multiple of that number (not 0) is better
         return [main, None if f.ygap is None else -off_multiple(f.ygap, mod1(k))]
-    if tie == "ratio-divisor":   # that number sharing a big factor with the number you divide by is better
-        return [main, common(k, f.D)]
+    if tie == "ratio-divisor":   # the number you divide by near a multiple of that number (not 0) is better
+        return [main, -off_multiple(f.D, mod1(k))]
     return [main]
 
 

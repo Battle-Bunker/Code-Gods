@@ -277,19 +277,30 @@ export function tieBreakerBits(lv: TieBreakerLevels, level: number, t: number): 
     const [t1, b1] = pts[i]!;
     if (t <= t1) { const [t0, b0] = pts[i - 1]!; return b0 + ((t - t0) / (t1 - t0)) * (b1 - b0); }
   }
-  // Past the measured range, on the axis the rate was fitted on (log₂(1 + t − t₀), t₀ the level's first point): a
-  // doubling of the climb from the floor, not of the step past the last point, which over-paid a far act (a stretch by
-  // 11 took Steep Ratio's tie-breaker from 12 to 132 and its seat from 12.7 to 28.3 bits).
-  const t0 = pts[0]![0], [tl, bl] = pts[pts.length - 1]!;
-  return bl + c.slope * (Math.log2(1 + t - t0) - Math.log2(1 + tl - t0));
+  // Past the measured range, on the axis the rate was fitted on (tieBreakerAxis): a doubling of the climb from the floor,
+  // not of the step past the last point, which over-paid a far act (a stretch by 11 took Steep Ratio's tie-breaker from
+  // 12 to 132 and its seat from 12.7 to 28.3 bits).
+  const [tl, bl] = pts[pts.length - 1]!, x = tieBreakerAxis(pts);
+  return bl + c.slope * Math.max(0, x(t) - x(tl));
 }
 
 /**
  * The per-level tie-breaker curves from weighted draws of the law (TieBreakerLevels): for each level with at least
  * `minDraws` draws, the survival of the tie-breaker among them, thinned to rises of a quarter bit, kept while at least
  * `minDraws` draws lie at or above the point (the rest is noise), and the rate past it fitted on log₂(1 + t − t₀) over the
- * kept points (at least TAIL_FLOOR: a tie-breaker past its measured range still pays like a number's size).
+ * kept points on its axis (tieBreakerAxis; at least TAIL_FLOOR). A level with fewer than three kept points is left out.
  */
+/**
+ * The axis a level's tie-breaker rate is measured on. A size (some value above 0): doublings of the climb from the
+ * level's floor, log₂(1 + t − t₀). A distance to a target (every value at most 0, best 0): halvings of the distance,
+ * −log₂(1 + |t|), so its climb ends at the target. On a size's axis a distance's floor (a sampled −10¹⁹) made every
+ * ordinary state worth 25 bits.
+ */
+function tieBreakerAxis(pts: readonly (readonly [number, number])[]): (t: number) => number {
+  const t0 = pts[0]![0];
+  return pts[pts.length - 1]![0] <= 0 ? t => -Math.log2(1 + Math.abs(Math.min(t, 0))) : t => Math.log2(1 + t - t0);
+}
+
 export function tieBreakerLevels(draws: readonly { u: Score; w: number }[], base: number, minDraws = 40): TieBreakerLevels {
   const by = new Map<number, { t: number; w: number }[]>();
   for (const d of draws) {
@@ -316,9 +327,9 @@ export function tieBreakerLevels(draws: readonly { u: Score; w: number }[], base
     surv.reverse();   // ascending in t
     const pts: [number, number][] = [];
     for (const p of surv) if (!pts.length || p[1] >= pts[pts.length - 1]![1] + 0.25) pts.push([round6(p[0]), round6(p[1])]);
-    if (!pts.length) continue;
-    const t0 = pts[0]![0];
-    const fit = pts.length >= 3 ? leastSquares(pts.map(([t, b]) => ({ x: Math.log2(1 + t - t0), y: b }))) : null;
+    // Fewer than three points is no curve: the level carries the one below.
+    if (pts.length < 3) continue;
+    const x = tieBreakerAxis(pts), fit = leastSquares(pts.map(([t, b]) => ({ x: x(t), y: b })));
     curves.push({ level: L, pts, slope: round6(Math.max(fit?.slope ?? 0, TAIL_FLOOR)) });
   }
   return { base, curves };

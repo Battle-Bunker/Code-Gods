@@ -53,7 +53,7 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
       py: [DIST.py, MOD1.py, ...PARALLEL.py, "main, Yv = valuation_ladder(f.y, p[\"q\"], p[\"r\"], dist(f.x))   # y on your ladder, x near a whole number"],
     },
     tieBreakers: {
-      "y-divisor": T("common(Yv, f.D)", "common(Yv, f.D)", "y's number on your ladder sharing a big factor with the number you divide by is better", "add \"combine\" to KINDS: it keeps the answer and changes the number you divide by."),
+      "divisor-multiple": T("Q.neg(offMultiple(f.D, mod1(Yv)))", "-off_multiple(f.D, mod1(Yv))", "the number you divide by near a multiple of y's number on your ladder (not 0) is better", "add \"combine\" to KINDS: it keeps the answer and changes the number you divide by."),
       "x-multiple": T("Q.neg(offMultiple(f.x, mod1(Yv)))", "-off_multiple(f.x, mod1(Yv))", "an answer whose x is near a multiple of its y (not 0) is better", "add \"slide\" to KINDS: it moves x along the other line."),
     },
   },
@@ -131,7 +131,7 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     },
     tieBreakers: {
       "ratio-gap": T("f.ygap === null ? null : Q.neg(offMultiple(f.ygap, mod1(k)))", "None if f.ygap is None else -off_multiple(f.ygap, mod1(k))", "a y-intercepts' gap near a multiple of that number (not 0) is better", "add \"shift\" to KINDS: it changes the gap directly."),
-      "ratio-divisor": T("common(k, f.D)", "common(k, f.D)", "that number sharing a big factor with the number you divide by is better", "add \"combine\" to KINDS: it changes the number you divide by."),
+      "ratio-divisor": T("Q.neg(offMultiple(f.D, mod1(k)))", "-off_multiple(f.D, mod1(k))", "the number you divide by near a multiple of that number (not 0) is better", "add \"combine\" to KINDS: it changes the number you divide by."),
     },
   },
 ];

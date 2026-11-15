@@ -1,5 +1,5 @@
 // Whole Answer · Naive (for learning)
-// Main part: the answer's y on your pattern. Tie-breaker: whichever you were dealt (the answer's y shares a factor with the number you divide by; the answer's x near a multiple of its y).
+// Main part: the answer's y on your pattern. Tie-breaker: whichever you were dealt (the number you divide by near a multiple of the answer's y; the answer's x near a multiple of its y).
 // What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 // pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 // player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -13,7 +13,7 @@ function score(L, p, tie) {
   if (f.x === null) return null;   // parallel lines never cross: no score
   const { score: main, n: Yv } = valuationLadder(f.y, p.q, p.r, dist(f.x));   // y on your ladder, x near a whole number
   // main: the answer's level: whole numbers, y on your ladder (higher is better)
-  if (tie === "y-divisor") return [main, common(Yv, f.D)];   // y's number on your ladder sharing a big factor with the number you divide by is better
+  if (tie === "divisor-multiple") return [main, Q.neg(offMultiple(f.D, mod1(Yv)))];   // the number you divide by near a multiple of y's number on your ladder (not 0) is better
   if (tie === "x-multiple") return [main, Q.neg(offMultiple(f.x, mod1(Yv)))];   // an answer whose x is near a multiple of its y (not 0) is better
   return [main];
 }

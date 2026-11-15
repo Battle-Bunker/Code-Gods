@@ -264,19 +264,21 @@ export const wholeAnswer = family({
   id: "whole-answer", title: "Whole Answer", depends: ["pair", "solve"],
   main: main("answer", "the answer's y on your pattern", p => `The answer: x near whole, and y near a whole number leaving ${p.r} when divided by ${p.q}; better, ${p.q} times one; then ${times(p.q!, 3)}; then ${times(p.q!, 6)}.`, "pair", "max"),
   tieBreakers: [
-    tb("y-divisor", "the answer's y shares a factor with the number you divide by", "The answer's y (on your pattern, rounded) and the number you divide by: their biggest common factor.", "solve", "shared"),
+    tb("divisor-multiple", "the number you divide by near a multiple of the answer's y", "The number you divide by: near a multiple of the answer's y (on your pattern, rounded), other than 0.", "solve", "small"),
     tb("x-multiple", "the answer's x near a multiple of its y", "The answer's x: near a multiple of its y (on your pattern, rounded), other than 0.", "pair", "small"),
   ],
   params: DEALT_NUMBERS["whole-answer"],
   witness: (p, n) => valuationAt(p, n).flatMap(N => [squareAt(N), fortyFiveAt(N)]),
   evaluate: (ctx, p) => {
     const a = answer(ctx), d = read(ctx, D)!;
-    if (!a) return void (ctx.term("answer", "the answer", PARALLEL, [PX, PY]), allUndefined(ctx, ["y-divisor", "x-multiple"], PARALLEL, [X, Y]));
+    if (!a) return void (ctx.term("answer", "the answer", PARALLEL, [PX, PY]), allUndefined(ctx, ["divisor-multiple", "x-multiple"], PARALLEL, [X, Y]));
     // The peg: y's number on the ladder (stretching both lines by q multiplies it by q), x's nearest whole number.
     const l = valuationLadder(a.y, p, distanceToWhole(a.x));
     ctx.term("answer", `the answer's y: ${stepsUp(l.level, 0)}`, l.u, [PX, PY]);
     // Trial 35: each tie-breaker a relation to the level's own number N (row 3): stepping up changes N and restarts it.
-    ctx.term("y-divisor", "the common factor of N (y on the ladder) and the number you divide by", shared(l.n, d.n), [PY, D]);
+    // Near a multiple, not a common factor: a stretch by q multiplies y and D together, so a common factor would climb
+    // with the main part (an aligned hill, 52 bits on the energy gate); a distance to a multiple grows with it instead.
+    ctx.term("divisor-multiple", "how far D is from a multiple of N (y on the ladder), other than 0", offMultiple(d, mod1(l.n)), [PY, D]);
     ctx.term("x-multiple", "how far x is from a multiple of N (y on the ladder), other than 0", offMultiple(a.x, mod1(l.n)), [PX, PY]);
     ctx.mark({ kind: "focus", ref: P });
   },
@@ -448,7 +450,7 @@ export const steepRatio = family({
   main: main("ratio", "one line a whole number of times as steep, on your pattern", p => `The steeper line is near a whole number of times as steep as the other, that number leaving ${p.r} when divided by ${p.q}; better, ${p.q} times one; then ${times(p.q!, 3)}.`, "si", "max"),
   tieBreakers: [
     tb("ratio-gap", "the y-intercepts' gap near a multiple of that number", "The y-intercepts' gap: near a multiple of that number of times (rounded), other than 0.", "si", "small"),
-    tb("ratio-divisor", "that number shares a factor with the number you divide by", "That number of times (rounded) and the number you divide by: their biggest common factor.", "solve", "shared"),
+    tb("ratio-divisor", "the number you divide by near a multiple of that number", "The number you divide by: near a multiple of that number of times (rounded), other than 0.", "solve", "small"),
   ],
   params: DEALT_NUMBERS["steep-ratio"],
   witness: (p, n) => valuationAt(p, n).filter(K => K >= 2n || K <= -2n).map(K => sysOf(mc(q(K), q(1)), mc(q(1), q(0)))),   // K times as steep
@@ -459,7 +461,8 @@ export const steepRatio = family({
     ctx.term("ratio", `the number of times as steep: ${stepsUp(l.level, 0)}`, l.u, [RATIO]);
     // Trial 35: relations to the level's own number, the ratio K rounded.
     ctx.term("ratio-gap", "how far the y-intercepts' gap is from a multiple of K, other than 0", g === null ? U("a vertical line has no y-intercept") : offMultiple(g, mod1(k)), [RATIO, YGAP]);
-    ctx.term("ratio-divisor", "the common factor of K and the number you divide by", shared(k, read(ctx, D)!.n), [RATIO, D]);
+    // Near a multiple, not a common factor: a stretch of the steeper line multiplies K and D together (aligned).
+    ctx.term("ratio-divisor", "how far D is from a multiple of K, other than 0", offMultiple(read(ctx, D)!, mod1(k)), [RATIO, D]);
   },
 });
 

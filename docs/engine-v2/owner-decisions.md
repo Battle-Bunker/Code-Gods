@@ -700,13 +700,16 @@ back) or TRIAL (a declared experiment, measured and reported).
     - **Stepping up changes N, so it restarts the climb,** as Far Crossing's and High Start's tie-breakers already did.
     - **Retired:** the smallest prime factor of |x| + |y|, how many prime factors a numerator has, and the like. These
       read the object alone and were the same whatever level the main part reached.
+    - **Common factors that climb with the main part are out.** A stretch that multiplies both numbers would climb the
+      tie-breaker with the main part, an aligned hill: Whole Answer reached 52 bits on the energy gate with "y and D share
+      a factor". Those tie-breakers became "near a multiple", whose distance grows with the same stretch.
     - **The new tie-breakers.**
-      - Whole Answer: y's number and D share a factor; x near a multiple of y.
+      - Whole Answer: D near a multiple of y's number; x near a multiple of y.
       - Divide By: x·D near a multiple of N; y·D shares a factor with N.
       - Right Angle: the corner's x near a multiple of its y; its y shares a factor with the steeper gradient.
       - Forty-Five: |x| + |y| shares a factor with D; the y-intercepts' gap near a multiple of |x| + |y|.
       - Gap Ratio: D shares a factor with N; the y-intercepts' gap near a multiple of N.
-      - Steep Ratio: the y-intercepts' gap near a multiple of the ratio; the ratio shares a factor with D.
+      - Steep Ratio: the y-intercepts' gap near a multiple of the ratio; D near a multiple of the ratio.
     - **Effects:** §13.
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)

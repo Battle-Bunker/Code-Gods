@@ -1,5 +1,5 @@
-// Steep Ratio · Example: that number shares a factor with the number you divide by
-// Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: that number shares a factor with the number you divide by.
+// Steep Ratio · Example: the number you divide by near a multiple of that number
+// Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: the number you divide by near a multiple of that number.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
@@ -11,7 +11,7 @@ function score(L, p) {
   const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1
   if (f.ratio === null) return null;   // no ratio of gradients: no score
   const { score: main, n: k } = valuationLadder(f.ratio, p.q, p.r, 0, 2);   // the whole number of times (at least 2 either way) on your ladder
-  return [main, common(k, f.D)];   // main: the level of the whole number of times as steep on your ladder (higher is better); tie-breaker: that number sharing a big factor with the number you divide by is better
+  return [main, Q.neg(offMultiple(f.D, mod1(k)))];   // main: the level of the whole number of times as steep on your ladder (higher is better); tie-breaker: the number you divide by near a multiple of that number (not 0) is better
 }
 
 const FAR = 3;      // how far one move may go

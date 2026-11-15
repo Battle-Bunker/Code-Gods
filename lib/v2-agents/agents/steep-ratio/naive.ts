@@ -1,5 +1,5 @@
 // Steep Ratio · Naive (for learning)
-// Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: whichever you were dealt (the y-intercepts' gap near a multiple of that number; that number shares a factor with the number you divide by).
+// Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: whichever you were dealt (the y-intercepts' gap near a multiple of that number; the number you divide by near a multiple of that number).
 // What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 // pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 // player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -13,7 +13,7 @@ function score(L, p, tie) {
   const { score: main, n: k } = valuationLadder(f.ratio, p.q, p.r, 0, 2);   // the whole number of times (at least 2 either way) on your ladder
   // main: the level of the whole number of times as steep on your ladder (higher is better)
   if (tie === "ratio-gap") return [main, f.ygap === null ? null : Q.neg(offMultiple(f.ygap, mod1(k)))];   // a y-intercepts' gap near a multiple of that number (not 0) is better
-  if (tie === "ratio-divisor") return [main, common(k, f.D)];   // that number sharing a big factor with the number you divide by is better
+  if (tie === "ratio-divisor") return [main, Q.neg(offMultiple(f.D, mod1(k)))];   // the number you divide by near a multiple of that number (not 0) is better
   return [main];
 }
 
