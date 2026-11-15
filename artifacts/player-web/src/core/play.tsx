@@ -37,6 +37,7 @@ import { planningLine, SUMMON_FIRST } from "./planning-line";
 import { countedNote, exactTotalNote, isTied, ownEnergy, ordinal, pointsText, scoreSentence, totalNote, totalSumNote } from "./words";
 import { objectWord } from "../sdk/object-types.ts";
 import { LineByLine, TiedMark } from "./score-help";
+import { SAFE_MODE } from "./safe-mode";
 
 const PHASE = { planning: "Planning", live: "Running", paused: "Paused", ended: "Ended" } as const;
 
@@ -141,7 +142,17 @@ function GameBody({ header, owner }: { header: Header; owner: boolean }) {
 function GameDock({ phase }: { phase: GamePhase }): ReactNode {
   const waiting = useReplayControls()?.index === null;
   if (waiting) return null;
-  return <div className="min-h-0 flex-1" data-testid="dock"><StableDock phase={phase} panes={PANE_COMPONENTS} stored={StoredPanelPane} /></div>;
+  return (
+    <>
+      {SAFE_MODE && <p className="shrink-0 px-3 py-1 text-xs text-muted-foreground" data-testid="text-safe-mode">Safe mode: your panels are off</p>}
+      <div className="min-h-0 flex-1" data-testid="dock"><StableDock phase={phase} panes={PANE_COMPONENTS} stored={SAFE_MODE ? SafeModePanel : StoredPanelPane} /></div>
+    </>
+  );
+}
+
+/** A stored panel's pane in safe mode: it does not run. */
+function SafeModePanel({ slug }: { slug: string }) {
+  return <p className="p-4 text-sm text-muted-foreground" data-testid="stored-panel-safe-mode">Safe mode is on (?panels=off), so "{slug}" does not run. Open the page without ?panels=off to run your panels.</p>;
 }
 
 function Screen({ header }: { header: Header }) {
