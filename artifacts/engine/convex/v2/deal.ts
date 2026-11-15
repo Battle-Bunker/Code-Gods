@@ -86,13 +86,18 @@ export function dealKeyOf(preset: Preset, pool: readonly DealtRule[]): string {
  * the seats, has its family drawn first and sits with one of its named opponents (`anchoredDeal`).
  */
 export function freshDeal(pool: readonly DealtRule[], seats: number, seed: string, variant?: string): DealtRule[] {
+  return anchoredFreshDeal(pool, seats, seed, variant).deal;
+}
+/** freshDeal, and which seat was its anchor (null for a plain deal): for the tests of the named-opponent rule. */
+export function anchoredFreshDeal(pool: readonly DealtRule[], seats: number, seed: string, variant?: string): { deal: DealtRule[]; anchor: number | null } {
   const r = dealRng(seed);
   if (variant && hasOpponents(variant) && seats > 1) {
     // The named-opponent rule, anchored (the coordinator's (b)): only the anchor's opponent is sought. Seeking the
     // other seats' too pushed the families out of the uniformity band (test/unit/v2-deal-families.test.ts).
-    return anchoredDeal(pool, seats, r.below(seats), r, variant, (deal, anchorGap) => [seatingCost(variant, deal), anchorGap]);
+    const a = r.below(seats);
+    return { deal: anchoredDeal(pool, seats, a, r, variant, (deal, anchorGap) => [seatingCost(variant, deal), anchorGap]), anchor: a };
   }
-  return dealFrom(pool, seats, r, variant ? rules => seatingCost(variant, rules) : undefined);
+  return { deal: dealFrom(pool, seats, r, variant ? rules => seatingCost(variant, rules) : undefined), anchor: null };
 }
 
 /**
@@ -107,9 +112,11 @@ function anchoredDeal(pool: readonly DealtRule[], seats: number, a: number, r: R
   const family = dealFrom(pool, 1, r)[0]!.family, families = familySet(pool);
   const mine = pool.filter(x => x.family === family), others = pool.filter(x => x.family !== family);
   const rest = others.length ? others : pool;
+  // The anchor's named opponent is seated first, drawn by its weight (opponentWeights); the other seats are uniform.
+  const named = opponentWeights(variant, families, family);
   let best: DealtRule[] | undefined, bestRank: number[] | undefined;
   for (let i = 0; i < ANCHOR_TRIES; i++) {
-    const anchor = mine[r.below(mine.length)]!, partners = dealFrom(rest, seats - 1, r);
+    const anchor = mine[r.below(mine.length)]!, partners = named.length && seats > 1 ? withOpponent(rest, seats - 1, named, r) : dealFrom(rest, seats - 1, r);
     const deal = [...partners.slice(0, a), anchor, ...partners.slice(a)];
     const k = rank(deal, opponentGaps(variant, deal, families).includes(family) ? 1 : 0);
     if (!bestRank || before(k, bestRank)) { best = deal; bestRank = k; }
@@ -151,6 +158,28 @@ export function opponentGaps(variant: string, rules: readonly SeatedRule[], pool
     const named = (LINE_OPPONENTS[f] ?? []).filter(o => poolFamilies.has(o));
     return named.length > 0 && !named.some(o => seated.has(o));
   });
+}
+/**
+ * The anchor family's named opponents the pool can deal, each with its weight in the draw: 1 over the number of the
+ * pool's families whose lists name it (the coordinator, 15 Nov). A family that opposes nearly everyone (Treasure, in
+ * nearly every list) is then seated no more often than any other; the lists are measurements and stay as measured.
+ */
+function opponentWeights(variant: string, families: ReadonlySet<string>, family: string): { family: string; weight: number }[] {
+  if (findVariant(variant).type.id !== "line") return [];
+  const named = (LINE_OPPONENTS[family] ?? []).filter(o => families.has(o) && o !== family);
+  const lists = (o: string) => [...families].filter(f => (LINE_OPPONENTS[f] ?? []).includes(o)).length;
+  return named.map(o => ({ family: o, weight: 1 / Math.max(1, lists(o)) }));
+}
+/** `seats` partners from `rest`: one of the anchor's named opponents drawn by weight, at a random seat; the others uniform over the other families. */
+function withOpponent(rest: readonly DealtRule[], seats: number, named: readonly { family: string; weight: number }[], r: Rng): DealtRule[] {
+  const total = named.reduce((t, x) => t + x.weight, 0);
+  let u = r.unit() * total, o = named[named.length - 1]!.family;
+  for (const x of named) { u -= x.weight; if (u < 0) { o = x.family; break; } }
+  const entries = rest.filter(x => x.family === o), others = rest.filter(x => x.family !== o);
+  const opponent = entries[r.below(entries.length)]!;
+  const filled = seats > 1 ? dealFrom(others.length ? others : rest, seats - 1, r) : [];
+  const at = r.below(seats);
+  return [...filled.slice(0, at), opponent, ...filled.slice(at)];
 }
 /** Whether the variant deals by the named-opponent rule (the anchored deal): lines, whose opponent table exists. */
 const hasOpponents = (variant: string) => findVariant(variant).type.id === "line";
