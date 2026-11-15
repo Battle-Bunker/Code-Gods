@@ -23,9 +23,10 @@ def score(m, c, p, tie):
         lv += 1
     main = lv + Fraction(run - lv * (lv + 1) // 2, lv + 1)
     # main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better, a ladder with no top; each extra counts for less: level L needs L(L + 1)/2)
-    if tie == "next-rung":   # where the run stops, at n: a bigger number dividing both n and y(n) is better (0 if y(n) is not whole)
-        return [main, common(y, n) if y.denominator == 1 else 0]
-    return [main]
+    def tier(t):   # each tie-breaker, in order (None: ranks last)
+        if t == "next-rung":   # where the run stops, at n: a bigger number dividing both n and y(n) is better (0 if y(n) is not whole)
+            return common(y, n) if y.denominator == 1 else 0
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 4      # how far one change may go

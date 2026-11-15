@@ -10,13 +10,15 @@
 function score(m, c, p, tie) {
   const main = Q.neg(Q.abs(Q.sub(m, c)));
   // main: how far apart the gradient and the y-intercept are (closer is better)
-  if (tie === "size") return [main, Q.abs(c)];   // a bigger y-intercept is better
-  if (tie === "meetPrime") {   // meeting at a prime is best
-    const cp = near(c, prime);
-    if (cp === null) return null;
-    return [main, Q.neg(Q.abs(Q.sub(c, cp)))];
-  }
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+    if (t === "size") return Q.abs(c);   // a bigger y-intercept is better
+    if (t === "meetPrime") {   // meeting at a prime is best
+      const cp = near(c, prime);
+      if (cp === null) return null;
+      return Q.neg(Q.abs(Q.sub(c, cp)));
+    }
+    return null;
+  })];
 }
 
 const FAR = 3;      // how far one change may go

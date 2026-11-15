@@ -15,9 +15,10 @@ def score(m, c, p, tie):
     main = min(m, c)                                # the smaller of the two
     fm, fc = m // 1, c // 1                         # each rounded down
     # main: the smaller of the gradient and the y-intercept (bigger is better)
-    if tie == "shared":   # those two rounded down sharing many prime factors is better
-        return [main, shared(fm, fc)]
-    return [main]
+    def tier(t):   # each tie-breaker, in order (None: ranks last)
+        if t == "shared":   # those two rounded down sharing many prime factors is better
+            return shared(fm, fc)
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 3      # how far one change may go

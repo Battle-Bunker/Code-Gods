@@ -18,6 +18,7 @@ import { logLine } from "./log-line";
 import { VirtualRows } from "@/components/virtual-rows";
 import { DriftInFeed } from "./drift";
 import { CompactText } from "@/core/compact-text";
+import { filterMoves, mutatorYield, type FeedWho } from "./feed-filter";
 
 /** What your agents noted for you, by move (each note once, on its newest move). */
 const NotesContext = createContext<ReadonlyMap<number, string[]>>(new Map());
@@ -97,7 +98,17 @@ function ConcernsFeed() {
   const agents = useMyAgents();
   const moves = useMoves();
   const names = useMemo(() => new Map((agents ?? []).map(a => [a.agentId as string, a.name])), [agents]);
-  const items = useMemo(() => foldTugs(moves.results), [moves.results]);
+  const [who, setWho] = useState<FeedWho>("all");
+  const [numberText, setNumberText] = useState("");
+  const [minText, setMinText] = useState("");
+  const filter = useMemo(() => {
+    const n = numberText.trim() === "" ? null : Number(numberText);
+    const min = Number(minText);
+    return { who, number: n !== null && Number.isFinite(n) ? n : null, minImpact: Number.isFinite(min) ? min : 0 };
+  }, [who, numberText, minText]);
+  const shown = useMemo(() => filterMoves(moves.results, filter), [moves.results, filter]);
+  const filtering = who !== "all" || filter.number !== null || filter.minImpact > 0;
+  const items = useMemo(() => foldTugs(shown), [shown]);
   const notes = useMemo(() => noteLines(moves.results.map(m => ({ seq: m.seq, agentId: m.agentId, notes: m.notes }))), [moves.results]);
   // Who each seat is (a person, a practice partner, an AI player): practice partners read no chat.
   const kinds = useMemo(() => new Map((header?.roster ?? []).map(r => [r.memberId as string, r.kind as string])), [header?.roster]);
@@ -114,6 +125,9 @@ function ConcernsFeed() {
   }
   return (
     <div data-testid="feed">
+      <FeedFilters who={who} setWho={setWho} numberText={numberText} setNumberText={setNumberText} minText={minText} setMinText={setMinText} noun={objectWord(header.variant).one} />
+      <CostAgainstYield moves={moves.results} variant={header.variant} />
+      {filtering && items.length === 0 && <p className="p-4 text-sm text-muted-foreground" data-testid="feed-filtered-empty">No loaded move matches these filters.</p>}
       <NotesContext.Provider value={notes}><AnonymousContext.Provider value={!replaying && header.phase !== "ended"}>
       <ol className="divide-y">
         {items.map(i => i.kind === "tug"
@@ -126,6 +140,44 @@ function ConcernsFeed() {
       )}
       {moves.status === "LoadingMore" && <p className="border-t py-2 text-center text-xs text-muted-foreground">Loading earlier moves…</p>}
     </div>
+  );
+}
+
+/** Which moves the act log shows (v1's feed filters): whose, on which object, and how much they changed your points. */
+function FeedFilters(p: { who: FeedWho; setWho: (w: FeedWho) => void; numberText: string; setNumberText: (t: string) => void; minText: string; setMinText: (t: string) => void; noun: string }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-2 text-xs text-muted-foreground" role="group" aria-label="Filter the moves" data-testid="feed-filters">
+      <label className="flex items-center gap-1">Moved by
+        <select className="rounded border bg-background px-1 py-0.5 text-foreground" value={p.who} onChange={e => p.setWho(e.target.value as FeedWho)} data-testid="select-feed-who">
+          <option value="all">anyone</option><option value="mine">your agents</option><option value="others">other players</option>
+        </select>
+      </label>
+      <label className="flex items-center gap-1">{p.noun[0]!.toUpperCase() + p.noun.slice(1)}
+        <input inputMode="numeric" className="w-14 rounded border bg-background px-1 py-0.5 text-foreground" placeholder="any" value={p.numberText} onChange={e => p.setNumberText(e.target.value)} data-testid="input-feed-object" />
+      </label>
+      <label className="flex items-center gap-1">Points changed by at least
+        <input inputMode="decimal" className="w-14 rounded border bg-background px-1 py-0.5 text-foreground" placeholder="0" value={p.minText} onChange={e => p.setMinText(e.target.value)} data-testid="input-feed-min" />
+      </label>
+    </div>
+  );
+}
+
+/** Your loaded moves grouped by what your agents called: energy spent against points gained (v1's "cost against yield"). */
+function CostAgainstYield({ moves, variant }: { moves: readonly Move[]; variant: string }) {
+  const rows = useMemo(() => mutatorYield(moves), [moves]);
+  if (!rows.length) return null;
+  const titleOf = (key: string) => key.split(", then ").map(id => objectTypeOf(variant).mutators.find(m => m.id === id)?.title ?? id).join(", then ");
+  return (
+    <details className="border-b px-4 py-2 text-xs" data-testid="feed-yield">
+      <summary className="cursor-pointer text-muted-foreground underline underline-offset-4">Cost against yield, by kind of move</summary>
+      <table className="mt-2 w-full tabular-nums">
+        <thead><tr className="text-left text-muted-foreground"><th className="font-normal">Your agents' move</th><th className="font-normal text-right">Moves</th><th className="font-normal text-right">Energy</th><th className="font-normal text-right">Points gained</th></tr></thead>
+        <tbody>{rows.map(r => (
+          <tr key={r.mutator} data-testid="row-feed-yield"><td>{titleOf(r.mutator)}</td><td className="text-right">{r.moves}</td><td className="text-right">{num(r.spent)}</td><td className="text-right">{r.gained > 0 ? "+" : ""}{num(r.gained)}</td></tr>
+        ))}</tbody>
+      </table>
+      <p className="mt-1 text-muted-foreground">From the moves loaded here; load earlier moves to count more.</p>
+    </details>
   );
 }
 

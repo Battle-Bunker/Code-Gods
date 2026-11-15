@@ -16,9 +16,11 @@ function score(m, c, p, tie) {
   const area = Q.div(Q.mul(legX, legY), 2);
   const main = Q.neg(Q.abs(Q.sub(area, p.A)));
   // main: how far the triangle's area is from A (closer is better)
-  if (tie === "legs") return [main, -(legX.d + legY.d - 2n)];   // legs that are whole numbers are best
-  if (tie === "even") return [main, Q.neg(Q.abs(Q.sub(legX, legY)))];   // legs of equal length are best
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+    if (t === "legs") return -(legX.d + legY.d - 2n);   // legs that are whole numbers are best
+    if (t === "even") return Q.neg(Q.abs(Q.sub(legX, legY)));   // legs of equal length are best
+    return null;
+  })];
 }
 
 const FAR = 2;      // how far one change may go

@@ -19,17 +19,19 @@ function score(m, c, p, tie) {
   for (let x = 0; Q.cmp(x, X) <= 0; x++) if (Q.isInteger(Q.add(Q.mul(m, x), c))) ways.push(x);
   const main = Q.neg(Q.abs(ways.length - p.ways));
   // main: how far the number of ways to pay is from the target (closer is better)
-  if (tie === "big-piles") {   // a bigger smaller pile, in every way to pay, is better
-    if (!ways.length) return [main, null];      // no way to pay: no piles
-    const y = Q.add(Q.mul(m, ways.at(-1)), c);  // the fewest coins of b
-    return [main, Q.cmp(ways[0], y) < 0 ? ways[0] : y];
-  }
-  if (tie === "big-bill") return [main, Q.mul(c, b)];   // a bigger bill N = b·c is better
-  if (tie === "prime-coins") {   // both coins (a = -b·m and b) close to primes is better
-    const off = x => Q.abs(Q.sub(x, near(x, prime)));   // how far x is from the nearest prime
-    return [main, Q.neg(Q.add(off(Q.mul(m, -b)), off(b)))];
-  }
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+    if (t === "big-piles") {   // a bigger smaller pile, in every way to pay, is better
+      if (!ways.length) return null;      // no way to pay: no piles
+      const y = Q.add(Q.mul(m, ways.at(-1)), c);  // the fewest coins of b
+      return Q.cmp(ways[0], y) < 0 ? ways[0] : y;
+    }
+    if (t === "big-bill") return Q.mul(c, b);   // a bigger bill N = b·c is better
+    if (t === "prime-coins") {   // both coins (a = -b·m and b) close to primes is better
+      const off = x => Q.abs(Q.sub(x, near(x, prime)));   // how far x is from the nearest prime
+      return Q.neg(Q.add(off(Q.mul(m, -b)), off(b)));
+    }
+    return null;
+  })];
 }
 
 const FAR = 4;      // how far one change may go

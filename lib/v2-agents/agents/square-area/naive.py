@@ -18,13 +18,14 @@ def score(m, c, p, tie):
     main = -abs(area - sq)
     f = factors(root(sq))                           # the prime factors of that square's root
     # main: how far the triangle's area is from a square number (closer is better)
-    if tie == "spf":   # a root whose smallest prime factor is big is better
-        return [main, f[0] if f else 1]
-    if tie == "lpf":   # a root whose largest prime factor is big is better
-        return [main, f[-1] if f else 1]
-    if tie == "omega":   # more prime factors in the root are better
-        return [main, len(f)]
-    return [main]
+    def tier(t):   # each tie-breaker, in order (None: ranks last)
+        if t == "spf":   # a root whose smallest prime factor is big is better
+            return f[0] if f else 1
+        if t == "lpf":   # a root whose largest prime factor is big is better
+            return f[-1] if f else 1
+        if t == "omega":   # more prime factors in the root are better
+            return len(f)
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 3      # how far one change may go

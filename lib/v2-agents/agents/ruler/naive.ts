@@ -50,13 +50,15 @@ function rungOf(d2, ends) {
 function score(m, c, p, tie) {
   if (m === null) {               // the vertical line x = c
     const [rung, two, main] = rungOf(Q.mul(c, c), p.ends);   // its distance from (0, 0) is |c|
-    return [main, null];
+    return [main, ...(tie ? tie.split(">") : []).map(t => null)];
   }
   const d2 = Q.div(Q.mul(c, c), Q.add(Q.mul(m, m), 1));   // the distance from (0, 0), squared: c² / (m² + 1)
   const [rung, two, main] = rungOf(d2, p.ends);   // the product it rounds down to (or the nearest one's window), its two primes
   // main: the product of two different same-length primes ending in the rule's digit that the distance from (0, 0), squared, rounds down to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far it is from rounding down to one
-  if (tie === "closeness") return [main, two === null ? null : Q.neg(Q.abs(Q.sub(Q.mul(Q.of(two[0]), Q.mul(m, m)), Q.of(two[1]))))];   // the smaller prime times the gradient squared, as close as possible to the bigger prime (never equal: the closer the better, without end)
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+    if (t === "closeness") return two === null ? null : Q.neg(Q.abs(Q.sub(Q.mul(Q.of(two[0]), Q.mul(m, m)), Q.of(two[1]))));   // the smaller prime times the gradient squared, as close as possible to the bigger prime (never equal: the closer the better, without end)
+    return null;
+  })];
 }
 
 const FAR = 3;      // how far one change may go

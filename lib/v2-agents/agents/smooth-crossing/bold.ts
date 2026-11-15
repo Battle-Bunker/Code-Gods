@@ -16,7 +16,7 @@ function score(m, c, p, tie) {
     if (s0 === null) return null;                // none within 10,000: hopeless
     const s = Q.cmp(c, 0) < 0 ? Q.neg(s0) : s0;   // the sign kept
     const main = Q.neg(Q.abs(Q.sub(c, s)));
-    return [main, null];
+    return [main, ...(tie ? tie.split(">") : []).map(t => null)];
   }
   if (Q.isZero(m)) return null;                   // a flat line never crosses: the worst score
   const x = Q.neg(Q.div(c, m));                   // where y = mx + c crosses the x-axis
@@ -25,8 +25,10 @@ function score(m, c, p, tie) {
   const s = Q.cmp(x, 0) < 0 ? Q.neg(s0) : s0;   // the sign kept
   const main = Q.neg(Q.abs(Q.sub(x, s)));
   // main: how far the x-axis crossing is from a 7-smooth number (closer is better)
-  if (tie === "shared") return [main, shared(s, whole(c))];   // that smooth number sharing many prime factors with the whole number nearest the y-intercept is better
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+    if (t === "shared") return shared(s, whole(c));   // that smooth number sharing many prime factors with the whole number nearest the y-intercept is better
+    return null;
+  })];
 }
 
 const FAR = 4;      // how far one change may go

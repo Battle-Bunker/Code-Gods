@@ -36,6 +36,8 @@ export const overridesV = v.object({
   readPriceWeight: v.optional(v.number()),
   /** Parameter drift's interval in world seconds (drift.ts; 0: off). */
   driftSeconds: v.optional(v.number()),
+  /** How long a player's pause lasts, wall seconds (v1's pauseSeconds; absent: 180). */
+  pauseSeconds: v.optional(v.number()),
   /**
    * Time dilation (owner decision 37): every rate × this, every duration ÷ it (v2-economy dilate), so the room's games
    * run this many times faster with the same per-act quantities. For simulations and local playtests only: set by the
@@ -123,6 +125,8 @@ export const v2Tables = {
       scoreIntervalSeconds: v.optional(v.number()),
       /** Parameter drift's interval in world seconds (drift.ts; 0 or absent: off). */
       driftSeconds: v.optional(v.number()),
+      /** How long a player's pause lasts, wall seconds (v1's pauseSeconds; absent: 180). */
+      pauseSeconds: v.optional(v.number()),
       /** Births on a regular schedule, birth j at j / rate (decision 31; duration.ts regularBirths); absent: stochastic. */
       regularBirths: v.optional(v.boolean()),
       /** The game's time dilation (decision 37): its settings are already dilated by it; wall-clock pacing divides by it. */
@@ -155,6 +159,8 @@ export const v2Tables = {
     /** Wall-clock deadlines: planning's end, and the world's end (null while paused; recomputed on resume). */
     planningEndsAt: v.optional(v.number()), endsAt: v.optional(v.number()),
     startedAt: v.optional(v.number()), endedAt: v.optional(v.number()), pausedBy: v.optional(v.id("v2Members")),
+    /** When a player's pause ends by itself (v1: pauseSeconds after it began); absent unless a player paused. */
+    pauseEndsAt: v.optional(v.number()),
     /** Each dealt rule's artefact content hash, by member (the header of spec §9.1). */
     artefacts: v.array(v.object({ memberId: v.id("v2Members"), ruleKey: v.string(), contentHash: v.string() })),
     /** Whether this game's deal continues the room's rotation (plan §5.9: not after a won bid). */

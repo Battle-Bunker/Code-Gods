@@ -44,6 +44,8 @@ export const headerV = v.object({
   startedAt: v.union(v.number(), v.null()), endedAt: v.union(v.number(), v.null()),
   roster: v.array(v.object({ memberId: v.id("v2Members"), name: v.string(), kind: memberKindV })),
   pausedBy: v.union(v.id("v2Members"), v.null()),
+  /** When a player's pause ends by itself (v1's pauseSeconds), or null when not paused by a player. */
+  pauseEndsAt: v.union(v.number(), v.null()),
   /** The caller's seat in this game, or null for a spectator. */
   me: v.union(v.id("v2Members"), v.null()),
   summary: v.union(v.object({ winner: v.union(v.id("v2Members"), v.null()), objects: v.number(), acts: v.number() }), v.null()),

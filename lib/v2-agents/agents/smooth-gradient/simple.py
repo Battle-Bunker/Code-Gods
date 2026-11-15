@@ -18,9 +18,10 @@ def score(m, c, p, tie):
     s = -s0 if m < 0 else s0                # the sign kept
     main = -abs(m - s)
     # main: how far the gradient is from a 7-smooth number (closer is better)
-    if tie == "shared":   # that smooth number sharing many prime factors with the whole number nearest the y-intercept is better
-        return [main, shared(s, whole(c))]
-    return [main]
+    def tier(t):   # each tie-breaker, in order (None: ranks last)
+        if t == "shared":   # that smooth number sharing many prime factors with the whole number nearest the y-intercept is better
+            return shared(s, whole(c))
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 2      # how far one change may go

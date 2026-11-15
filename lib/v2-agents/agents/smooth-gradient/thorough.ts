@@ -16,8 +16,10 @@ function score(m, c, p, tie) {
   const s = Q.cmp(m, 0) < 0 ? Q.neg(s0) : s0;   // the sign kept
   const main = Q.neg(Q.abs(Q.sub(m, s)));
   // main: how far the gradient is from a 7-smooth number (closer is better)
-  if (tie === "shared") return [main, shared(s, whole(c))];   // that smooth number sharing many prime factors with the whole number nearest the y-intercept is better
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+    if (t === "shared") return shared(s, whole(c));   // that smooth number sharing many prime factors with the whole number nearest the y-intercept is better
+    return null;
+  })];
 }
 
 const FAR = 3;      // how far one change may go

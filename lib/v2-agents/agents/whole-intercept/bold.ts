@@ -18,9 +18,11 @@ function score(m, c, p, tie) {
   const main = Q.neg(Q.abs(Q.sub(c, n)));
   const f = factors(n);                           // its prime factors, smallest first
   // main: how far the y-intercept is from a whole number (closer is better)
-  if (tie === "spf") return [main, spf(n)];   // a bigger smallest prime factor is better (a big prime is best)
-  if (tie === "omega") return [main, f.length];   // more prime factors are better
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+    if (t === "spf") return spf(n);   // a bigger smallest prime factor is better (a big prime is best)
+    if (t === "omega") return f.length;   // more prime factors are better
+    return null;
+  })];
 }
 
 const FAR = 4;      // how far one change may go

@@ -96,13 +96,14 @@ def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     if m is None:              # the vertical line x = c
         rung, two, main = rung_of(c * c, p["ends"])        # its distance from (0, 0) is |c|
-        return [main, None]
+        return [main] + [None for t in (tie.split(">") if tie else [])]
     d2 = c * c / (m * m + 1)                        # the distance from (0, 0), squared
     rung, two, main = rung_of(d2, p["ends"])         # the product it rounds down to (or the nearest one's window), its two primes
     # main: the product of two different same-length primes ending in the rule's digit that the distance from (0, 0), squared, rounds down to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far it is from rounding down to one
-    if tie == "closeness":   # the smaller prime times the gradient squared, as close as possible to the bigger prime (never equal: the closer the better, without end)
-        return [main, None if two is None else -abs(two[0] * m * m - two[1])]
-    return [main]
+    def tier(t):   # each tie-breaker, in order (None: ranks last)
+        if t == "closeness":   # the smaller prime times the gradient squared, as close as possible to the bigger prime (never equal: the closer the better, without end)
+            return None if two is None else -abs(two[0] * m * m - two[1])
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 2      # how far one change may go

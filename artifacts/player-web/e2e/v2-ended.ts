@@ -152,6 +152,10 @@ async function endedGame(page: Page, preset: string, noun: string) {
   const source = agent.locator("[data-testid^=text-agent-code-]");
   await source.waitFor({ timeout: 15_000 });
   assert.match(await source.innerText(), /\b(function|def|const|return)\b/, `${label}: the agent's code is readable`);
+  // After the end nothing is edited or put back; how energy works is still there to read.
+  assert.equal(await agent.locator("[data-testid^=button-agent-edit-], [data-testid^=button-put-back-]").count(), 0, `${label}: no edit after the end`);
+  await agents.getByTestId("details-energy-how").locator("summary").click();
+  assert.match(await agents.getByTestId("details-energy-how").innerText(), /power/, `${label}: how energy works`);
   ok("agents");
   // The chat, the leaderboard, the charts, the rules, the assistant, the player's own panels.
   await (await open(page, "public-chat")).getByText(said).waitFor({ timeout: 15_000 });
@@ -217,12 +221,15 @@ async function phoneEnd(browser: any) {
     await page.mouse.wheel(0, 700);
     await page.waitForTimeout(500);
     const box = await earned.boundingBox();
-    seen = !!box && box.y >= 0 && box.y < 844;
+    // Reached once it has come into view or past it: a 700 px step is wider than the pane under the sticky header.
+    seen = !!box && box.y < 844;
     const top = await scroller.evaluate((el: HTMLElement) => el.scrollTop);
     assert.ok(top >= last, `phone: the wheel moves the page down (${last} → ${top}), never back`);
     last = top;
   }
-  assert.ok(seen, "phone: the wheel reaches What earned your points");
+  if (!seen) await page.screenshot({ path: path.join(shots, "ended-phone-missed.png") });
+  const room = await scroller.evaluate((el: HTMLElement) => `${el.scrollTop} of ${el.scrollHeight - el.clientHeight}`);
+  assert.ok(seen, `phone: the wheel reaches What earned your points (scrolled ${room}, ${await earned.count()} found)`);
   await page.screenshot({ path: path.join(shots, "ended-phone.png") });
   assert.deepEqual(errors, [], "phone: no page errors");
   await context.close();

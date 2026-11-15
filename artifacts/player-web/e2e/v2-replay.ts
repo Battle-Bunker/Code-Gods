@@ -129,6 +129,21 @@ async function driveReplay(page: Page, label: string, final: Record<string, stri
   await page.waitForTimeout(800);
   assert.equal(await applied(page), paused, `${label}: a paused replay stays put`);
   assert.ok(paused > second, `${label}: the pause kept the playhead (${paused})`);
+  // v1's keys (focus off the speed menu first: keys never act inside a field): → steps, Home goes to the start, space plays.
+  await page.getByTestId("text-replay-clock").click();
+  await page.keyboard.press("ArrowRight");
+  await waitApplied(page, n => n > paused, "→ steps forward");
+  await page.keyboard.press("Home");
+  await waitApplied(page, n => n === 0, "Home goes to the start");
+  await page.keyboard.press(" ");
+  await page.locator('[data-testid="replay-bar"][data-playing]').waitFor({ timeout: 5_000 });
+  await page.keyboard.press(" ");
+  await page.getByTestId("button-replay-play").waitFor();
+  if (label === "desktop") {
+    // "Download": the game's whole record as a file.
+    const [file] = await Promise.all([page.waitForEvent("download", { timeout: 15_000 }), page.getByTestId("button-replay-download").click()]);
+    assert.match(file.suggestedFilename(), /^code-gods-replay-.+\.json$/, `${label}: the replay downloads`);
+  }
   // Every pane holds up once moves show (round 9: "What just changed" failed with "o.notes is not iterable").
   const feed = page.getByTestId("pane-feed");
   if (await feed.count()) await feed.locator("[data-testid=text-move-line], [data-testid=text-tug-line], [data-testid=feed-empty]").first().waitFor({ timeout: 10_000 });
@@ -140,7 +155,7 @@ async function driveReplay(page: Page, label: string, final: Record<string, stri
     const as = page.getByTestId("select-replay-as");
     const other = as.locator("option:not(:checked)").first();
     const name = (await other.innerText()).trim();
-    const card = page.getByTestId("goal-card").locator(".v2v-goal-card");
+    const card = page.getByTestId("goal-card").getByTestId("text-goal-main");
     const myCard = await card.innerText();
     await as.selectOption(await other.getAttribute("value"));
     await page.getByTestId("text-my-total").getByText(`${name}:`).waitFor({ timeout: 10_000 });
@@ -225,6 +240,14 @@ try {
   await page.goto(`${SITE}/rooms/${code}/games/${gameId}?replay`);
   await page.locator('[data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 30_000 });
   await page.waitForURL(u => !new URL(u).searchParams.has("replay"), { timeout: 10_000 });
+  // A moment link ("Copy a link to this moment") opens the replay at that world time, watched as that player.
+  const otherId = await page.getByTestId("select-replay-as").locator("option:not(:checked)").first().getAttribute("value");
+  await page.goto(`${SITE}/rooms/${code}/games/${gameId}?replay&t=12&as=${otherId}`);
+  await page.locator('[data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 30_000 });
+  await page.waitForFunction(id => (document.querySelector('[data-testid="select-replay-as"]') as HTMLSelectElement | null)?.value === id, otherId, { timeout: 10_000 })
+    .catch(async (e: Error) => { console.log("AS", otherId, await page.getByTestId("select-replay-as").inputValue(), "URL", page.url(), "TOASTS", await page.locator("[role=status], li[data-state]").allInnerTexts(), "CLOCK", await page.getByTestId("text-replay-clock").innerText()); throw e; });
+  await page.getByTestId("text-replay-clock").getByText(/^0:1[2-9]/).waitFor({ timeout: 10_000 });
+  await page.waitForURL(u => !new URL(u).searchParams.has("t"), { timeout: 10_000 });
   assert.deepEqual(phone.errors, [], "phone: no page errors");
   await phone.context.close();
 } finally {
