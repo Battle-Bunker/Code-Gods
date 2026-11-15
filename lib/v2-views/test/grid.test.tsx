@@ -173,3 +173,13 @@ test("a changed cell is marked and its old digit shown; the chip is the board; t
   assert.equal(defaultRep(gridType), "cells");
   assert.equal(repText(gridType, B, "cells"), "3 1 1 3 / 0 4 8 0 / 2 2 2 2 / 9 0 0 3");
 });
+
+test("overlapping big groups (a board's halves read as numbers): only a picked one is labelled on the board; notes are one line per element", () => {
+  const halves = [[0, 1, 2, 3, 4, 5, 6, 7], [8, 9, 10, 11, 12, 13, 14, 15], [0, 1, 4, 5, 8, 9, 12, 13], [2, 3, 6, 7, 10, 11, 14, 15]];
+  const groups = halves.map((cells, k) => ({ cells, el: ref("t", `h${k}`) }));
+  const vals = { h0: 31130480, h1: 22229003, h2: 31042290, h3: 13802203 };
+  const html = drawScene({ groups }, { vals, marks: [{ kind: "focus", ref: ref("t", "h1") }, { kind: "note", ref: ref("t", "h1"), text: "= 3² × 2469889" }, { kind: "note", ref: ref("t", "h1"), text: "one more 3: add 4 or take away 23" }] });
+  assert.match(html, /class="group-label"[^>]*>22229003</, "the picked half is labelled");
+  assert.doesNotMatch(html, /class="group-label"[^>]*>31130480</, "an unpicked half is not drawn over the digits");
+  assert.match(html.replace(/<[^>]+>/g, ""), /= 3² × 2469889; one more 3: add 4 or take away 23/, "both notes on one line");
+});
