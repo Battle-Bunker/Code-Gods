@@ -121,13 +121,13 @@ export const rulersWitness = (p: PD, n: number): LineState[] => {
   const P = n === 1 ? BigInt(p.d) : BigInt(p.d) * 10n ** BigInt(n - 1) + BigInt(p.d), s = p.side === -1 ? -1n : 1n;
   return ([[0, s * P], [-1, 2n * s * P], [2, -s * P]] as const).map(([m, c]) => ({ lines: [fromMC(q(m), q(c))] }));
 };
-const palindromes = (p: PD) => `${p.side === -1 ? "minus " : ""}a palindrome starting and ending in ${p.d} (like ${p.d}, ${p.d}${p.d}, ${p.d}1${p.d})`;
+const palindromes = (p: PD) => `${p.side === -1 ? "minus " : ""}a number reading the same backwards, starting and ending in ${p.d} (${p.d}, ${p.d}${p.d}, ${p.d}1${p.d})`;
 const rulersShape: Shape<PD> = {
   main: { ...more<PD>("palindrome", "the unchanged number on as big a palindrome as possible", "", "mach"),
-    sentence: p => `The line should cross y = x at ${palindromes(p)}, the bigger the better; otherwise, the closer the better.` },
+    sentence: p => `The line should cross y = x at ${palindromes(p)}: bigger is better; otherwise closer is better.` },
   tieBreakers: [
     more<PD>("shared-factor", "the biggest number dividing both the palindrome's digit sum and the y-intercept's whole part",
-      "The palindrome's digits added up and the y-intercept's whole part should share the biggest factor possible.", "si"),
+      "That number's digits added up and the y-intercept's whole part should share the biggest factor possible.", "si"),
   ],
 };
 export const sameOnBothRulers = ladder(family<PD>("same-on-both-rulers", "Same on Both Rulers", ["mach", "si", "gen"], rulersShape, RULERS, (ctx, p) => {
