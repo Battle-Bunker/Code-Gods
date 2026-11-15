@@ -174,7 +174,10 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     beginner game to 3 and 1 spawn per 4 minutes so it ends at 5. I want to concentrate human attention more on specific
     battlefields for the beginner game." (Both beginner presets: 3 starting objects, one birth per 240 s; it replaces the
     coordinator's calls 8 and 9 on the count and births. At the beginner length of 300 s that ends at 4 objects, not 5;
-    the coordinator is asking the owner whether the game should be longer.)
+    the coordinator is asking the owner whether the game should be longer.) Implemented (15 Nov, after playtest round 16
+    found 8 lines in one game: v1's stochastic births give a 600 s game 0 to 9 births, mean 2.5): the beginner presets
+    have births on a regular schedule, birth j at j / rate (240 and 480 s), so a beginner game ends at exactly 5 objects; the
+    other presets keep v1's stochastic births (convex/v2/duration.ts `regularBirths`, preset `regularBirths`).
 
 32. On disclosure noise (relayed by the coordinator, 15 November): "Regarding noise/blur it sounds like the mistake was
     fixing the noise offset per value and across players so that it produced a cumulative and shared bias. It seems like

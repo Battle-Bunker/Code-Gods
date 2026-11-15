@@ -48,6 +48,8 @@ export interface Preset {
   readPriceWeight: number;
   /** Parameter drift (drift.ts; the coordinator's trial, call 18): world seconds between redraws, 0 off; 120 on the beginner games. */
   driftSeconds: number;
+  /** Births on a regular schedule, birth j at j / birthsPerSecond (decision 31: "1 spawn per 4 minutes so it ends at 5"); else v1's stochastic births. */
+  regularBirths?: boolean;
   economy: PresetEconomy;
   bid?: PresetBid;
 }
@@ -109,7 +111,7 @@ function fromPool(id: string, extra: Partial<Preset> & { id?: string; title?: st
  * The beginner games: ten minutes (owner decision 34, "The beginner game should be 10m long"), so with decision 31's
  * births 5 objects by the end; exact readings (decision 32, "it should be zero for the beginner game").
  */
-const BEGINNER_WORLD = { worldSeconds: 600, peerNoiseVariance: 0, driftSeconds: 120 };
+const BEGINNER_WORLD = { worldSeconds: 600, peerNoiseVariance: 0, driftSeconds: 120, regularBirths: true };
 const BEGINNER = fromPool("lines-beginner", { ...BEGINNER_WORLD, startingEnergy: beginnerStart("line-q", ECONOMY.powerPerSecond) });
 /**
  * The beginner grid (docs/engine-v2/grids.md): the 4×4 board of digits. A board's agents read 16 cells, not y = mx + c,

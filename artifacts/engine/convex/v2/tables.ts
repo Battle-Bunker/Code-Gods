@@ -123,6 +123,8 @@ export const v2Tables = {
       scoreIntervalSeconds: v.optional(v.number()),
       /** Parameter drift's interval in world seconds (drift.ts; 0 or absent: off). */
       driftSeconds: v.optional(v.number()),
+      /** Births on a regular schedule, birth j at j / rate (decision 31; duration.ts regularBirths); absent: stochastic. */
+      regularBirths: v.optional(v.boolean()),
       /** The game's time dilation (decision 37): its settings are already dilated by it; wall-clock pacing divides by it. */
       timeScale: v.optional(v.number()),
       /** The weight on a look's read price (knowledge.ts, decision 35); absent (games stored before it): 0, free. */
