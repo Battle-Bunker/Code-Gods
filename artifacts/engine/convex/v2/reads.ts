@@ -3,17 +3,23 @@
  * (lib/v2-agents EngineHost), free for the human; each carries `bits`, what an agent would pay. A seated reader is
  * answered under their own rule (a score, a quote's score after); a spectator's reads need no rule.
  */
+import { knownOf, readsKnowledge } from "./knowledge.ts";
 import { OpFailure } from "@workspace/v2-affordances";
 import { EngineHost } from "@workspace/v2-agents/pure";
 import { rng, whichBits } from "@workspace/v2-core";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { decode, typeOf, variantOf } from "./world.ts";
 
-export async function objectIn(ctx: QueryCtx, game: Doc<"v2Games">, objectId: string) {
+export async function objectIn(ctx: QueryCtx, game: Doc<"v2Games">, objectId: string, memberId?: Id<"v2Members">) {
   const id = ctx.db.normalizeId("v2Objects", objectId);
   const object = id ? await ctx.db.get(id) : null;
   if (!object || object.gameId !== game._id) throw new OpFailure(`No object ${objectId} in this game.`, "objects.list");
+  // Paid observation (knowledge.ts): a seated player reads the object as they were last told it.
+  if (memberId && readsKnowledge(game, memberId)) {
+    const k = await knownOf(ctx, object._id, memberId);
+    if (k) return { object, state: k.state };
+  }
   const st = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", object._id)).unique())!;
   return { object, state: st.state };
 }

@@ -62,6 +62,7 @@ import type * as v2_duration from "../v2/duration.js";
 import type * as v2_failure from "../v2/failure.js";
 import type * as v2_gallery from "../v2/gallery.js";
 import type * as v2_games from "../v2/games.js";
+import type * as v2_knowledge from "../v2/knowledge.js";
 import type * as v2_layout from "../v2/layout.js";
 import type * as v2_lobby from "../v2/lobby.js";
 import type * as v2_loop from "../v2/loop.js";
@@ -179,6 +180,7 @@ declare const fullApi: ApiFromModules<{
   "v2/failure": typeof v2_failure;
   "v2/gallery": typeof v2_gallery;
   "v2/games": typeof v2_games;
+  "v2/knowledge": typeof v2_knowledge;
   "v2/layout": typeof v2_layout;
   "v2/lobby": typeof v2_lobby;
   "v2/loop": typeof v2_loop;

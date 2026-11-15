@@ -19,6 +19,7 @@ import {
 } from "./validators";
 import { pageOpts } from "./pages";
 import { attributed, disclosed, disclosesNoise, noiseAt } from "./disclose";
+import { KNOWLEDGE_SORT, knownOf, readsKnowledge } from "./knowledge";
 
 /** ≤ 20 agents per player (R3). */
 export const MAX_AGENTS = 20;
@@ -70,8 +71,11 @@ export const objectIds = query({
   returns: objectIdsV,
   handler: async (ctx, { gameId, sort, paginationOpts }) => {
     const { game, member } = await requireSeat(ctx, gameId);
-    const page = await ctx.db.query("v2ObjectValues").withIndex(sortIndexOf(game, sort), q => q.eq("gameId", game._id).eq("memberId", member._id))
-      .order("desc").paginate(pageOpts(paginationOpts));
+    // Paid observation: the same sorts, over what the player was told (knowledge.ts).
+    const page = readsKnowledge(game, member._id)
+      ? await ctx.db.query("v2Knowledge").withIndex(KNOWLEDGE_SORT[sort], q => q.eq("gameId", game._id).eq("memberId", member._id)).order("desc").paginate(pageOpts(paginationOpts))
+      : await ctx.db.query("v2ObjectValues").withIndex(sortIndexOf(game, sort), q => q.eq("gameId", game._id).eq("memberId", member._id))
+        .order("desc").paginate(pageOpts(paginationOpts));
     return { ...page, page: page.page.map(r => ({ objectId: r.objectId, number: r.number })) };
   },
 });
@@ -99,6 +103,15 @@ export const object = query({
   handler: async (ctx, { objectId }) => {
     const { object, state } = await objectAndState(ctx, objectId);
     const { game, member } = await requireGameMember(ctx, object.gameId);
+    // Paid observation (knowledge.ts): the object as the player was last told it; its activity (changes since) is public.
+    if (readsKnowledge(game, member._id)) {
+      const k = await knownOf(ctx, object._id, member._id);
+      return {
+        objectId: object._id, number: object.number, bornAt: object.bornAt, state: k?.state ?? "", version: k?.version ?? 0, changedAt: state.changedAt,
+        value: k ? { score: k.score, rarityBits: k.rarityBits, want: k.want, points: k.points, version: k.version } : null,
+        knownAt: k?.learnedAt ?? null, changesSince: state.version - (k?.version ?? 0),
+      };
+    }
     const value = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", object._id).eq("memberId", member._id)).unique();
     return {
       objectId: object._id, number: object.number, bornAt: object.bornAt, state: state.state, version: state.version, changedAt: state.changedAt,
@@ -165,6 +178,8 @@ export const moves = query({
   handler: async (ctx, { gameId, paginationOpts }) => {
     const { game, member } = await requireSeat(ctx, gameId);
     const page = await ctx.db.query("v2Moves").withIndex("by_game_member_seq", q => q.eq("gameId", game._id).eq("memberId", member._id)).order("desc").paginate(pageOpts(paginationOpts));
+    // Paid observation (knowledge.ts): only the player's own agents' moves; another's move is content they did not pay for.
+    if (readsKnowledge(game, member._id)) page.page = page.page.filter(m => m.mine);
     return {
       ...page,
       // Live, another player's move carries no mover, agent, calls or cost (attributed: v1's public log).
@@ -194,7 +209,7 @@ export const moves = query({
  * caller's own moves while live, on every move after the end. `play:log` and the `log.list` affordance share it.
  */
 export async function logPage(ctx: QueryCtx, game: Doc<"v2Games">, memberId: Id<"v2Members">, paginationOpts: PaginationOptions) {
-  const i = game.roster.findIndex(r => r.memberId === memberId), live = disclosesNoise(game);
+  const i = game.roster.findIndex(r => r.memberId === memberId), live = disclosesNoise(game), paid = readsKnowledge(game, memberId);
   const page = await ctx.db.query("v2Log").withIndex("by_game_seq", q => q.eq("gameId", game._id)).order("desc").paginate(pageOpts(paginationOpts));
   const view = (bits: readonly number[] | undefined, noise: number | undefined) => {
     if (i < 0 || !bits) return { own: null, others: null, points: null };
@@ -205,10 +220,14 @@ export async function logPage(ctx: QueryCtx, game: Doc<"v2Games">, memberId: Id<
     ...page,
     page: page.page.map(r => {
       const mine = !!r.by && r.by === memberId, open = r.kind === "move" && attributed(game, mine);
-      const now = view(r.bits, r.noise), was = view(r.bitsBefore, r.noiseBefore);
+      // Paid observation (knowledge.ts): another player's move shows only that it happened ("activity is public;
+      // content is paid"); a birth is public.
+      const hidden = paid && r.kind === "move" && !mine;
+      const none = { own: null, others: null, points: null };
+      const now = hidden ? none : view(r.bits, r.noise), was = hidden ? none : view(r.bitsBefore, r.noiseBefore);
       return {
         seq: r.seq, worldSeconds: r.worldSeconds, kind: r.kind, objectId: r.objectId, number: r.number, version: r.version,
-        stateBefore: r.stateBefore ?? null, state: r.state, mine, ...now, ownBefore: was.own, othersBefore: was.others, pointsBefore: was.points,
+        stateBefore: hidden ? null : r.stateBefore ?? null, state: hidden ? null : r.state, mine, ...now, ownBefore: was.own, othersBefore: was.others, pointsBefore: was.points,
         by: open && r.by ? { memberId: r.by, name: game.roster.find(x => x.memberId === r.by)?.name ?? "A player" } : null,
         agentId: open ? r.agentId ?? null : null, calls: open ? r.calls ?? null : null, charge: open ? r.charge ?? null : null,
       };
@@ -236,6 +255,7 @@ export const tugs = query({
   returns: tugsV,
   handler: async (ctx, { gameId }) => {
     const { game, member } = await requireSeat(ctx, gameId);
+    if (readsKnowledge(game, member._id)) return [];   // paid observation: built on others' moves' content
     const rows = await ctx.db.query("v2Tugs").withIndex("by_game_member_flips", q => q.eq("gameId", game._id).eq("memberId", member._id).gte("flips", MIN_TUG_FLIPS))
       .order("desc").take(MAX_TUGS);
     const nameOf = (id: string) => game.roster.find(r => r.memberId === id)?.name ?? "A player";
@@ -278,7 +298,9 @@ export const othersAt = query({
     if (calls.length > MAX_CANDIDATES) fail("BAD_REQUEST", `Ask for at most ${MAX_CANDIDATES} moves`);
     const { game, member } = await requireSeat(ctx, object.gameId);
     const seats = await seatRules(ctx, game);
-    const now = decode(state.state, game.variant), type = typeOf(game.variant), variant = variantOf(game.variant);
+    // Paid observation: candidates from the state the player was told, not the live one (knowledge.ts).
+    const from = readsKnowledge(game, member._id) ? (await knownOf(ctx, object._id, member._id))?.state ?? state.state : state.state;
+    const now = decode(from, game.variant), type = typeOf(game.variant), variant = variantOf(game.variant);
     const after = [];
     for (const call of calls) {
       const r = applyCall(type, variant, now, call);
@@ -293,7 +315,7 @@ export const othersAt = query({
       const taken = holder ? (await ctx.db.get(holder.objectId))?.number ?? null : null;
       after.push({ state: wire, want, taken });
     }
-    return { state: state.state, after };
+    return { state: from, after };
   },
 });
 
@@ -317,8 +339,10 @@ export const objectMoves = query({
     const { game, member } = await requireSeat(ctx, gameId);
     const object = await ctx.db.query("v2Objects").withIndex("by_game", q => q.eq("gameId", game._id).eq("number", number)).unique();
     if (!object) return [];
-    const rows = await ctx.db.query("v2Moves").withIndex("by_game_member_object", q => q.eq("gameId", game._id).eq("memberId", member._id).eq("objectId", object._id))
+    const all = await ctx.db.query("v2Moves").withIndex("by_game_member_object", q => q.eq("gameId", game._id).eq("memberId", member._id).eq("objectId", object._id))
       .order("desc").take(MAX_OBJECT_MOVES);
+    // Paid observation: only the player's own agents' moves (knowledge.ts).
+    const rows = readsKnowledge(game, member._id) ? all.filter(m => m.mine) : all;
     return rows.map(m => ({
       seq: m.seq, number: m.number, worldSeconds: m.worldSeconds, stateAfter: m.stateAfter, mine: m.mine,
       // The others' sum and the points as disclosed while live (disclose.ts), exact after the end.

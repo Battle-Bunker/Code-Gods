@@ -42,7 +42,7 @@ const PAY_NOW_MIN_SHARE = 0.001;
  * capacity, or it earns nothing), and `payNow`, the agents' shares that would pay at once (power.allocate moves the
  * energy an agent holds above its new capacity into the store), or null when no split would.
  */
-async function pay(ctx: MutationCtx, game: Doc<"v2Games">, player: Doc<"v2Players">, world: number, price: number): Promise<Account> {
+export async function pay(ctx: MutationCtx, game: Doc<"v2Games">, player: Doc<"v2Players">, world: number, price: number, what = "That program"): Promise<Account> {
   const terms = powerTerms(game, player);
   const own = settleOwn(ownOf(player), Math.max(world, player.settledAt), terms);
   if (own.balance >= price) return spend(own, price);
@@ -50,7 +50,7 @@ async function pay(ctx: MutationCtx, game: Doc<"v2Games">, player: Doc<"v2Player
   const secondsToPay = perSecond > 0 && capacity >= price ? (price - own.balance) / perSecond : null;
   const payNow = await payNowShares(ctx, game, player, world, price - own.balance);
   const r1 = (x: number) => Math.round(x * 10) / 10;
-  throw new OpFailure(`That program costs ${r1(price)} ⚡; you have ${r1(own.balance)}.`,
+  throw new OpFailure(`${what} costs ${r1(price)} ⚡; you have ${r1(own.balance)}.`,
     payNow ? "Pull power back from your agents to pay now (power.allocate with the shares in data.payNow), or wait while energy accrues; a shorter program costs less."
       : "Energy accrues while the game runs; a shorter program costs less.",
     { price, store: own.balance, perSecond, capacity, secondsToPay, payNow: payNow ? { shares: payNow } : null });

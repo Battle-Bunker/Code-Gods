@@ -94,6 +94,14 @@ v1's game settings as room settings (`room.settings` overrides): `durationMode` 
 Idle parking (v1's, `activity.ts`): 30 minutes after the last human activity (`account.touch`, which the app calls on
 real interaction; room create and join; the owner's start, rematch and resume) a live game parks at its next commit:
 paused with `parked` (header), no ticks, no AI turns, no autopilot. The next human activity resumes every parked game.
+Paid observation (v1's `observation: "paid"`, a room setting, default free; `knowledge.ts`): a seated player of a
+paid live game sees each object as last told (`v2Knowledge`): at its birth, by their own agents' changes and complete
+reads, or by `object.look` (one object or all, each at its full read's price from their own store). `play:object`
+adds `knownAt` and `changesSince` (activity is public); the sorts, `objects.list`, object reads, quotes and scores,
+`othersAt`, the check's samples and `spectate:object` read the told state; the act log, `moves.list` and `objectMoves`
+show only the player's own agents' moves; the public log shows another player's move without state or bits; tugs are
+empty. After the end everything is open.
+
 Sandbox readiness (v1's, `readiness.ts`): players never wait for a sandbox to boot. A game's start warms every
 language in the background (`v2RuntimeReadiness`, keyed by the pinned runtime); `agent.check` answers "still starting"
 instead of waiting; the tick skips agents of languages not ready; planning holds past its deadline until every language

@@ -2,6 +2,7 @@
 import { v } from "convex/values";
 import { internalQuery } from "../_generated/server";
 import { resolveContext, userById } from "./access";
+import { knownOf, readsKnowledge } from "./knowledge";
 
 export const context = internalQuery({
   args: { userId: v.string(), scope: v.any(), agentId: v.optional(v.string()) },
@@ -11,8 +12,11 @@ export const context = internalQuery({
     const rule = (await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", r.game!._id).eq("memberId", r.member!._id)).unique())!;
     const objects = await ctx.db.query("v2Objects").withIndex("by_game", q => q.eq("gameId", r.game!._id)).take(3);
     const samples = [];
+    // Paid observation (knowledge.ts): the samples are the objects as the player was last told them.
+    const paid = readsKnowledge(r.game, r.member._id);
     for (const o of objects) {
-      const st = await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", o._id)).unique();
+      const known = paid ? await knownOf(ctx, o._id, r.member._id) : null;
+      const st = known ?? await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", o._id)).unique();
       if (st) samples.push({ objectId: o._id as string, state: st.state });
     }
     // The agent whose program this would replace (the caller's own, live), for the edit price.

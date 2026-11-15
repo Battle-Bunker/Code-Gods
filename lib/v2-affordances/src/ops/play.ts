@@ -122,6 +122,13 @@ export const playOps = [
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
+    id: "object.look", title: "Look at objects", group: "objects", scope: "game",
+    description: "In a game with paid looks (the room's observation setting): see one object as it is now, or every object when no objectId is given, paying each one's full read at the read price from the caller's own store. Until a look, an object shows as the caller was last told it: at its birth, by their own agents' changes and complete reads, or by an earlier look. Refused, with the price and the store, when the store cannot pay; keep some power for yourself to look.",
+    tooltip: "Pay to see objects as they are now.", keywords: ["look", "refresh", "see", "observe", "update view"],
+    params: obj({ objectId: id.optional(), requestId: requestId.optional() }), result: z.object({ looked: z.number().int(), price: z.number() }),
+    contexts: ["live", "paused"], caller: "seated", effect: "write", confirm: "inline", runs: "server",
+  }),
+  affordance({
     id: "moves.list", title: "List moves that concern me", group: "objects", scope: "game",
     description: "Pages through the moves that changed the caller's points or were made by the caller's agents: calls, states before and after, points before and after, charge.",
     tooltip: "What happened to your objects.", keywords: ["log", "moves", "history", "what happened"],
@@ -136,7 +143,7 @@ export const playOps = [
     params: obj({ ...paging }),
     result: page(z.object({
       seq: z.number().int(), worldSeconds: z.number(), kind: z.enum(["born", "move"]), objectId: id, number: z.number().int(), version: z.number().int(),
-      stateBefore: z.string().nullable(), state: z.string(), mine: z.boolean(),
+      stateBefore: z.string().nullable(), state: z.string().nullable().describe("null: another player's move in a paid game while it runs"), mine: z.boolean(),
       own: z.number().nullable(), others: z.number().nullable(), points: z.number().nullable(),
       ownBefore: z.number().nullable(), othersBefore: z.number().nullable(), pointsBefore: z.number().nullable(),
       by: z.object({ memberId: id, name: z.string() }).nullable(), agentId: id.nullable(), calls: z.array(call).nullable(), charge: z.number().nullable(),

@@ -5,6 +5,13 @@ import { decode, encode, scopeOf, typeOf, valueOf } from "../world.ts";
 import { elementValue, representation } from "@workspace/v2-core";
 import { text as equationText } from "@workspace/v2-views/equation-text";
 import { disclosed } from "../disclose.ts";
+import { knownOf, lookPrice, observationOf, readsKnowledge, tell } from "../knowledge.ts";
+import { OpFailure } from "@workspace/v2-affordances";
+import { pay } from "../agents.ts";
+import { appendEvent } from "../loop.ts";
+
+/** At most this many objects one look covers (a game's objects; v1 paged larger boards). */
+const MAX_LOOK = 400;
 import type { Id } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";
 
@@ -14,7 +21,7 @@ async function myRuleRow(ctx: QueryCtx, gameId: Id<"v2Games">, memberId: Id<"v2M
 
 export const { op: read, as: readAs } = defineOp("object.read", "query", async (env, a) => {
   const { game, member } = inGame(env);
-  const { state } = await objectIn(env.ctx, game, a.objectId);
+  const { state } = await objectIn(env.ctx, game, a.objectId, member._id);
   const r = ask(await hostFor(env.ctx, game, member, state), { op: "view", rep: a.rep, site: a.site ?? 0 });
   // An equation as a person writes it, by the views' one writer ("y = −x + 12", never "−1x" or "+ 0").
   const type = typeOf(game.variant), s = decode(state, game.variant);
@@ -25,7 +32,7 @@ export const { op: read, as: readAs } = defineOp("object.read", "query", async (
 
 export const { op: element, as: elementAs } = defineOp("object.element", "query", async (env, a) => {
   const { game, member } = inGame(env);
-  const { state } = await objectIn(env.ctx, game, a.objectId);
+  const { state } = await objectIn(env.ctx, game, a.objectId, member._id);
   const ref = { rep: a.rep, name: a.name, ...(a.args ? { args: a.args } : {}), ...(a.site !== undefined ? { site: a.site } : {}) };
   const r = ask(await hostFor(env.ctx, game, member, state), { op: "element", ref });
   return { ref: `${a.rep}.${a.name}`, value: r.value, bits: r.bits };
@@ -33,7 +40,7 @@ export const { op: element, as: elementAs } = defineOp("object.element", "query"
 
 export const { op: quote, as: quoteAs } = defineOp("object.quote", "query", async (env, a) => {
   const { game, member, player } = seated(env);
-  const { state } = await objectIn(env.ctx, game, a.objectId);
+  const { state } = await objectIn(env.ctx, game, a.objectId, member._id);
   const host = await hostFor(env.ctx, game, member, state, player.energy);
   const calls = a.calls.map(c => ({ mutator: c.mutator, site: c.site ?? 0, args: c.args }));
   const q = ask(host, { op: "quote", calls });
@@ -49,9 +56,41 @@ export const { op: quote, as: quoteAs } = defineOp("object.quote", "query", asyn
 
 export const { op: score, as: scoreAs } = defineOp("object.score", "query", async (env, a) => {
   const { game, member } = seated(env);
-  const { object, state } = await objectIn(env.ctx, game, a.objectId);
+  const { object, state } = await objectIn(env.ctx, game, a.objectId, member._id);
   const s = ask(await hostFor(env.ctx, game, member, state), { op: "myScore" });
+  // Paid observation (knowledge.ts): the value as the player was last told it.
+  if (readsKnowledge(game, member._id)) {
+    const k = await knownOf(env.ctx, object._id, member._id);
+    return { score: k?.score ?? null, terms: s.terms, number: object.number, bits: k?.rarityBits ?? 0, points: k?.points ?? 0 };
+  }
   const value = await env.ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", object._id).eq("memberId", member._id)).unique();
   // The utility and its bits as the commit valued them (decision 23); the terms are the host's.
   return { score: value?.score ?? null, terms: s.terms, number: object.number, bits: value?.rarityBits ?? 0, points: value ? disclosed(game, value).points : 0 };
+});
+
+/**
+ * A paid look (paid observation, knowledge.ts): one object, or every object, at its full read's price from the caller's
+ * own store, and the caller is told it as it is now.
+ */
+export const { op: look, as: lookAs } = defineOp("object.look", "mutation", async (env, a) => {
+  const { game, member, player } = seated(env);
+  if (observationOf(game) !== "paid") throw new OpFailure("This game shows every object as it is; there is nothing to pay for.");
+  if (game.phase === "ended") throw new OpFailure("The game is over: every object is open.");
+  const clock = (await env.ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", game._id)).unique())!;
+  const objects = a.objectId ? [(await objectIn(env.ctx, game, a.objectId)).object]
+    : await env.ctx.db.query("v2Objects").withIndex("by_game", q => q.eq("gameId", game._id)).take(MAX_LOOK);
+  const seen = [];
+  for (const o of objects) {
+    const st = (await env.ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", o._id)).unique())!;
+    const value = (await env.ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", o._id).eq("memberId", member._id)).unique())!;
+    seen.push({ o, st, value });
+  }
+  const price = seen.reduce((t, s) => t + lookPrice(game.variant, s.st.state), 0);
+  const paid = await pay(env.ctx, game, player, clock.worldSeconds, price, seen.length === 1 ? "That look" : `Looking at all ${seen.length}`);
+  await env.ctx.db.patch(player._id, { energy: paid.balance, settledAt: paid.settledWorldSeconds });
+  for (const { o, st, value } of seen) {
+    await tell(env.ctx, game, member._id, { objectId: o._id, number: o.number, state: st.state, version: st.version, score: value.score, rarityBits: value.rarityBits, want: value.shownWant ?? value.want, points: value.shownPoints ?? value.points }, clock.worldSeconds);
+  }
+  await appendEvent(env.ctx, game._id, "command", { kind: "look", memberId: member._id, objects: seen.map(s => s.o._id), price, worldSeconds: clock.worldSeconds });
+  return { looked: seen.length, price };
 });

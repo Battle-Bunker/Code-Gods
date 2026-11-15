@@ -28,6 +28,7 @@ export const durationModeV = v.union(v.literal("fixed"), v.literal("halfLife"));
 export const overridesV = v.object({
   planningSeconds: v.optional(v.number()), worldSeconds: v.optional(v.number()), startingEnergy: v.optional(v.number()),
   durationMode: v.optional(durationModeV), scoreIntervalSeconds: v.optional(v.number()), peerNoiseBits: v.optional(v.number()),
+  observation: v.optional(v.union(v.literal("free"), v.literal("paid"))),
 });
 /** A player's view of an object at one moment (a move's before and after). */
 /** A player's value of a state: the utility (as its wire), its worth in bits, the others' worth and the points. */
@@ -103,6 +104,8 @@ export const v2Tables = {
       durationMode: v.optional(durationModeV),
       /** World seconds between published standings (v1's scoreIntervalSeconds; absent: 10). */
       scoreIntervalSeconds: v.optional(v.number()),
+      /** v1's paid observation (knowledge.ts): "paid" shows a seated player each object as last told; absent: free. */
+      observation: v.optional(v.union(v.literal("free"), v.literal("paid"))),
     }),
     /** Paused by idle parking (activity.ts): resumed by the next human activity, not by the owner. */
     parked: v.optional(v.boolean()),
@@ -133,6 +136,20 @@ export const v2Tables = {
     language: languageV, version: v.string(), state: v.union(v.literal("warming"), v.literal("ready"), v.literal("failed")),
     reason: v.optional(v.string()), at: v.number(),
   }).index("by_language_version", ["language", "version"]),
+
+  /**
+   * Paid observation (knowledge.ts): what a player was last told of an object in a paid game, and their value of it as
+   * disclosed then (`want` and `points` with the noise). Written only in paid games.
+   */
+  v2Knowledge: defineTable({
+    gameId: v.id("v2Games"), memberId: v.id("v2Members"), objectId: v.id("v2Objects"), number: v.number(),
+    state: v.string(), version: v.number(), learnedAt: v.number(), score: scoreWireV, rarityBits: v.number(), want: v.number(), points: v.number(),
+  }).index("by_object_member", ["objectId", "memberId"])
+    .index("by_game_member_points", ["gameId", "memberId", "points"])
+    .index("by_game_member_rarity", ["gameId", "memberId", "rarityBits"])
+    .index("by_game_member_want", ["gameId", "memberId", "want"])
+    .index("by_game_member_born", ["gameId", "memberId", "number"])
+    .index("by_game_member_learned", ["gameId", "memberId", "learnedAt"]),
 
   /** When a human last acted (activity.ts: idle parking); one row, key "global". */
   v2Activity: defineTable({ key: v.string(), lastHumanActivityAt: v.number() }).index("by_key", ["key"]),

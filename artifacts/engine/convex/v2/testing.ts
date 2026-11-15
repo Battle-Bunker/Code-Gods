@@ -459,6 +459,16 @@ export const setReadiness = internalMutation({
   },
 });
 
+/** An object's live state and version (what a paid game's players are not shown). */
+export const stateOf = internalQuery({
+  args: { objectId: v.id("v2Objects") },
+  handler: async (ctx, { objectId }) => {
+    fixtures();
+    const st = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", objectId)).unique())!;
+    return { state: st.state, version: st.version };
+  },
+});
+
 /** Ends a seeded game as the loop would leave it (phase only). */
 export const markEnded = internalMutation({
   args: { gameId: v.id("v2Games") },
