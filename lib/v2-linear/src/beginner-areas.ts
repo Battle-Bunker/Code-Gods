@@ -3,9 +3,9 @@
  * beginner.ts unchanged, 15 Nov, so their redesign against design-principles.md does not collide with the others').
  */
 import { gcd, Qn, q, ref, type Q } from "@workspace/v2-core";
-import { fromMC, type LineState } from "./line.ts";
-import { allUndefined, distance, factorLabel, family, gap, ladder, more, notOnWhole, num, prime, squareGap, undef, undealt, verticalAt, VERTICAL_NO, type Shape } from "./layers.ts";
-import { digitLevel, distanceToPrime, isPrime, isPrimeEnding, largestPrimeFactor, nearestInteger, nearestPrimeEnding, nearestSquareRoot, PRIME_ENDINGS, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
+import { fromMC, normalise, type LineState } from "./line.ts";
+import { allUndefined, distance, factorLabel, family, gap, ladder, more, num, prime, squareGap, undealt, verticalAt, VERTICAL_NO, type Shape } from "./layers.ts";
+import { digitLevel, digitNote, distanceToPrime, isPrime, isPrimeEnding, largestPrimeFactor, nearestInteger, nearestPrimeEnding, nearestSquareRoot, PRIME_ENDINGS, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
 
 // ---------------------------------------------------------------- Square Area (the owner's example 2)
 
@@ -36,47 +36,79 @@ export const squareArea = family("square-area", "Square Area", ["tri", "cart"], 
   ctx.mark({ kind: "candidate", ref: sqRef, term: "square" });
 });
 
-// ---------------------------------------------------------------- Ruler, Exact Change, Pythagorean Area (restored, decision 22)
-// Deleted on 14 November because no exact sum valued them; owner decision 22 keeps rules whose values are sampled.
+// ---------------------------------------------------------------- Ruler (restored, decision 22; a ladder since 15 Nov)
 
-const rulerShape: Shape<object> = {
-  main: distance("ruler", "distance² from (0, 0) close to a square", "The shortest distance from (0, 0) to the line, squared, should be as close as possible to a square number.", "norm"),
+/**
+ * Ruler as a ladder (design-principles.md; the redesign of beginner-line-redesign.md §4.8, on Pythagorean Area's
+ * pattern). Main part, unbounded: the distance from (0, 0) to the line, squared (c²/(a² + b²), so a vertical or level
+ * line reads honestly too), rounded down, should be a prime ending in k, the bigger the better, in levels of digits
+ * (u = digitLevel(p), as Prime Landing's); any other line scores below every rung, minus how far its distance² is from
+ * the nearest window [p, p + 1). A rung is a window, not a point: the next one is a small shift or tilt away, and no
+ * repeated stretch or turn keeps the distance² on a prime. The §4.8 draft (how many times q divides the distance²) was a
+ * v_q ladder, which a repeated zoom or stretch by q climbs a bit a step with no end (Pythagorean Area's lesson); the old
+ * main part (distance² close to a square) had a top.
+ * Tie-breaker, read from that prime p: the factor p − 1 shares with the y-intercept's whole part (ignoring its sign). A new
+ * rung changes p − 1, so the y-intercept that shared most no longer does and the climb starts again; a turn about (0, 0)
+ * keeps the distance (the ruler's own shortcut) and moves the y-intercept, so the tie-breaker climbs on a rung.
+ * Adversary, by construction: Pythagorean Area, on the same number on a 45° line (y = ±x + c: distance² and the
+ * triangle's area are both c²/2), so another ending there excludes it and the same ending is a forbidden pair (seating.ts).
+ * Measured (scripts/tension.ts, regenerated 15 Nov with the pool's ladders): Treasure (0.66) and Prime Landing (0.66) are
+ * its named opponents, the share of their dealt rules that a Ruler climb lowers; Pythagorean Area 0.49. A Ruler that wants
+ * the line close to (0, 0) (1 ÷ distance²) would fail the mechanical row 1 check, which searches whole y-intercepts
+ * outward from 0.
+ * Dealt: k = 1, 3, 7, 9.
+ */
+const RULER_ENDS: Ends[] = PRIME_ENDINGS.map(ends => ({ ends }));
+const rulerShape: Shape<Ends> = {
+  main: { ...more<Ends>("ruler", "distance² from (0, 0) on as big a dealt prime as possible", "", "norm"),
+    // Under 30 words with the tie-breaker (the coordinator's ask).
+    sentence: p => `Distance² from (0,0), rounded down: a prime ending in ${p.ends}. Bigger is better, each extra digit counts for less.` },
   tieBreakers: [
-    notOnWhole(more("far", "that whole distance", "That distance should be as big as possible.", "norm")),
-    distance("prime-gradient", "the gradient close to a prime", "The gradient should be as close as possible to a prime.", "si"),
-    distance("square-area", "the triangle's area close to a square", "The triangle cut off the axes should have an area as close as possible to a square number.", "tri"),
+    more<Ends>("shared-factor", "the factor that prime minus 1 shares with the y-intercept's whole part",
+      "Prime minus 1 and y-intercept share a big factor.", "si"),
   ],
 };
-export const ruler = family("ruler", "Ruler", ["norm", "si", "tri", "gen"], rulerShape, [{}], ctx => {
-  const mRef = ref("si", "m"), d2Ref = ref("norm", "dist2"), area = ref("tri", "area");
-  // A vertical line x = k is |k| from (0, 0): its distance² reads honestly; the gradient and the triangle do not exist.
-  const vx = verticalAt(ctx);
-  if (vx) {
-    const d2 = num(ctx.read(d2Ref))!;
-    let kv = nearestSquareRoot(d2);
-    if (kv === 0n) kv = 1n;
-    ctx.term("ruler", `distance from distance² to ${kv * kv}`, gap(d2, q(kv * kv)), [d2Ref]);
-    ctx.term("far", "the whole distance nearest", q(kv), [d2Ref]);
-    for (const id of ["prime-gradient", "square-area"]) ctx.term(id, id, { undefined: VERTICAL_NO }, vx.from);
-    ctx.mark({ kind: "note", ref: d2Ref, text: `a vertical line: distance² ${Qn.toWire(d2)}, nearest square ${kv * kv}` });
-    return;
+/**
+ * Witnesses for the tail cap (as Pythagorean Area's areaWitness): for n digits, up to three lines a·x + b·y + c = 0 whose
+ * distance², c²/(a² + b²), rounds down to an n-digit prime ending in k, with c = 2^i·3^j (cheap under the code), a ≤ 12
+ * and b ≤ 8: φ grows by about 1.7 bits a digit. Empty for a number of digits no such line reaches.
+ */
+const RULER_SMOOTH23: bigint[] = (() => {
+  const out: bigint[] = [];
+  for (let t = 1n; t < 10n ** 48n; t *= 2n) for (let u = t; u < 10n ** 48n; u *= 3n) out.push(u);
+  return out.sort((x, y) => (x < y ? -1 : x > y ? 1 : 0));
+})();
+export function rulerWitness(p: Ends, n: number): LineState[] {
+  const lo = 10n ** BigInt(n - 1), hi = 10n ** BigInt(n), out: LineState[] = [];
+  for (let b = 0n; b <= 8n && out.length < 3; b++) for (let a = 0n; a <= 12n && out.length < 3; a++) {
+    if (a === 0n && b === 0n) continue;
+    const D = a * a + b * b;
+    for (const c of RULER_SMOOTH23) {
+      const d2 = (c * c) / D;
+      if (d2 >= hi) break;
+      if (d2 < lo || !isPrimeEnding(d2, p.ends)) continue;
+      const l = normalise(a, b, c);
+      if (!("invalid" in l)) out.push({ lines: [l] });
+      break;
+    }
   }
-  const mv = ctx.read(mRef);
-  const m = num(mv);
-  if (m === null || Qn.isZero(m)) return allUndefined(ctx, rulerShape, m === null ? mv : { kind: "undefined", reason: "a flat line's distance is its height: the rule wants a sloping line" }, mRef);
+  return out;
+}
+export const ruler = ladder(family<Ends>("ruler", "Ruler", ["norm", "si", "gen"], rulerShape, RULER_ENDS, (ctx, pr) => {
+  const d2Ref = ref("norm", "dist2"), cRef = ref("si", "c");
   const d2 = num(ctx.read(d2Ref))!;
   ctx.read(ref("norm", "foot"));
-  // The nearest square k² with k ≥ 1.
-  let k = nearestSquareRoot(d2);
-  if (k === 0n) k = 1n;
-  const av = ctx.read(area);
-  ctx.term("ruler", `distance from distance² to ${k * k}`, gap(d2, q(k * k)), [d2Ref]);
-  ctx.term("far", "the whole distance nearest", q(k), [d2Ref]);
-  ctx.term("prime-gradient", "distance from the gradient to a prime", distanceToPrime(m), [mRef]);
-  ctx.term("square-area", "distance from the area to a square", num(av) === null ? undef(av) : squareGap(num(av)!).d, [area]);
+  const { p, u } = areaRung(d2, pr.ends);   // the same floor window as the area's
+  ctx.term("ruler", Qn.sign(u) > 0 ? `distance² ${Qn.toWire(d2)}, which rounds down to the prime ${p}: ${digitNote(p)}` : `distance² ${Qn.toWire(d2)}, ${Qn.toWire(Qn.neg(u))} from the window of the prime ${p}`, u, [d2Ref]);
+  // A vertical line has no y-intercept: its tie-breaker is undefined (it ranks last), not its distance.
+  const vx = verticalAt(ctx);
+  if (vx) ctx.term("shared-factor", "the y-intercept's whole part", { undefined: VERTICAL_NO }, vx.from);
+  else {
+    const c = num(ctx.read(cRef))!, w = Qn.floor(Qn.abs(c));
+    ctx.term("shared-factor", `${p - 1n} and the y-intercept's whole part ${w}: the biggest number dividing both is ${w === 0n ? 0n : gcd(p - 1n, w)}`, q(w === 0n ? 0n : gcd(p - 1n, w)), [d2Ref, cRef]);
+  }
   ctx.mark({ kind: "focus", ref: ref("norm", "foot") });
-  ctx.mark({ kind: "note", ref: d2Ref, text: `distance² ${Qn.toWire(d2)}, nearest square ${k * k}` });
-});
+}), rulerWitness);
 
 /**
  * Pythagorean Area as a ladder (design-principles.md; the redesign of beginner-line-redesign.md §4.6). Main part,

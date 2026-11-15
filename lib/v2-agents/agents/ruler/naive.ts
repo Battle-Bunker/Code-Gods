@@ -1,5 +1,5 @@
 // Ruler · Naive (for learning)
-// Main part: distance² from (0, 0) close to a square. Tie-breaker: whichever you were dealt (that whole distance; the gradient close to a prime; the triangle's area close to a square).
+// Main part: distance² from (0, 0) on as big a dealt prime as possible. Tie-breaker: whichever you were dealt (the factor that prime minus 1 shares with the y-intercept's whole part).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -10,25 +10,23 @@
 function score(m, c, p, tie) {
   if (m === null) {               // the vertical line x = c
     const d2 = Q.mul(c, c);                         // its distance from (0, 0), squared
-    const sq = near(d2, square) || 1;               // the square number nearest it (1 at the least)
-    const main = Q.neg(Q.abs(Q.sub(d2, sq)));
-    const far = root(sq);                           // that square's root: a whole distance
-    return [main, tie === "far" ? (far) : null];
+    const x = Q.sub(d2, Q.div(1, 2));
+    const rung = near(x, prime, p.ends);
+    const gap = Q.abs(Q.sub(x, rung));
+    const level = p => { const D = Q.toString(p).length; let L = 0; while (((L + 1) * (L + 2)) / 2 <= D) L++; return Q.add(L, Q.div(Q.add(D - (L * (L + 1)) / 2, Q.div(p, Q.of(10n ** BigInt(D)))), L + 1)); };   // levels of digits: level L needs L(L + 1)/2
+    const main = Q.cmp(Q.mul(2, gap), 1) < 0 || Q.eq(Q.sub(rung, x), Q.div(1, 2)) ? level(rung) : Q.neg(Q.sub(gap, Q.div(1, 2)));
+    return [main, null];
   }
-  if (Q.isZero(m)) return null;                   // a flat line: the rule wants a sloping one
   const d2 = Q.div(Q.mul(c, c), Q.add(Q.mul(m, m), 1));   // the distance from (0, 0), squared: c² / (m² + 1)
-  const sq = near(d2, square) || 1;               // the square number nearest it (1 at the least)
-  const main = Q.neg(Q.abs(Q.sub(d2, sq)));
-  const far = root(sq);                           // that square's root: a whole distance
-  // main: how far the distance from (0, 0), squared, is from a square number (closer is better)
-  if (tie === "far") return [main, far];   // a bigger whole distance is better
-  if (tie === "prime-gradient") {   // a gradient close to a prime is better
-    const mp = near(m, prime);                  // the prime nearest the gradient
-    return [main, Q.neg(Q.abs(Q.sub(m, mp)))];
-  }
-  if (tie === "square-area") {   // a triangle whose area is close to a square number is better
-    const area = Q.div(Q.mul(c, c), Q.mul(2, Q.abs(m)));   // the triangle cut off the axes (none when c = 0)
-    return [main, Q.isZero(c) ? null : Q.neg(Q.abs(Q.sub(area, near(area, square))))];
+  const x = Q.sub(d2, Q.div(1, 2));               // d2 rounds down to n when x rounds to n (ties up)
+  const rung = near(x, prime, p.ends);            // the prime ending in p.ends nearest there: the rung
+  const gap = Q.abs(Q.sub(x, rung));              // on the rung when d2 rounds down to it
+  const level = p => { const D = Q.toString(p).length; let L = 0; while (((L + 1) * (L + 2)) / 2 <= D) L++; return Q.add(L, Q.div(Q.add(D - (L * (L + 1)) / 2, Q.div(p, Q.of(10n ** BigInt(D)))), L + 1)); };   // levels of digits: level L needs L(L + 1)/2
+  const main = Q.cmp(Q.mul(2, gap), 1) < 0 || Q.eq(Q.sub(rung, x), Q.div(1, 2)) ? level(rung) : Q.neg(Q.sub(gap, Q.div(1, 2)));
+  // main: the prime ending in the rule's digit that the distance from (0, 0), squared, rounds down to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far it is from rounding down to one
+  if (tie === "shared-factor") {   // that prime minus 1 and the y-intercept's whole part: a bigger factor shared is better
+    const wc = whole(Q.div(Q.sub(Q.mul(2, Q.abs(c)), 1), 2));   // the y-intercept's whole part, ignoring its sign
+    return [main, common(Q.sub(rung, 1), wc)];
   }
   return [main];
 }
@@ -46,6 +44,8 @@ function agent(offer) {
     if (k === 0) continue;
     tries.push([move("si.shift", { k }), m, Q.add(c, k)]);   // move the line up or down
     tries.push([move("si.tilt", { k }), Q.add(m, k), c]);   // make it steeper or flatter
+    const [t0, u, r] = [[3, 4, 5], [4, 3, 5], [5, 12, 13], [12, 5, 13]][(Math.abs(k) - 1) % 4], t = k > 0 ? t0 : -t0, du = Q.sub(u, Q.mul(m, t));
+    if (!Q.isZero(du)) tries.push([move("rot.turn", { centre: "origin", turn: Q.of(t, u) }), Q.div(Q.add(Q.mul(m, u), t), du), Q.div(Q.mul(c, r), du)]);   // turn the line about (0, 0) by the angle whose tangent is t/u (its distance from (0, 0) stays)
   }
   let top = score(m, c, p, tie), plans = [];
   for (const [plan, m2, c2] of tries) {
