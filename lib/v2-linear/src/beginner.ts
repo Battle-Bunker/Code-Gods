@@ -197,7 +197,7 @@ export const primeLanding = family<Ends>("prime-landing", "Prime Landing", ["cro
   // A vertical line has no y-intercept: its tie-breaker is undefined (it ranks last), not its landing.
   const cv = ctx.read(cRef), c = num(cv);
   const w = c === null ? 0n : Qn.floor(c), aw = w < 0n ? -w : w;
-  ctx.term("shared-factor", c === null ? "the y-intercept's whole part" : `the factor ${p - 1n} shares with the y-intercept's whole part ${w}`,
+  ctx.term("shared-factor", c === null ? "the y-intercept's whole part" : `${p - 1n} and the y-intercept's whole part ${w}: the biggest number dividing both is ${aw === 0n ? 0n : gcd(p - 1n, aw)}`,
     c === null ? undef(cv) : q(aw === 0n ? 0n : gcd(p - 1n, aw)), [xRef, cRef]);
   ctx.mark({ kind: "focus", ref: xRef });
   ctx.mark({ kind: "candidate", ref: mark, term: "landing" });

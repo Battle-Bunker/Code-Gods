@@ -861,7 +861,7 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     tieBreakers: {
       "shared-factor": {
         pre: { ts: ["const wm = whole(Q.div(Q.sub(Q.mul(2, m), 1), 2));   // the gradient's whole part (rounded down)"], py: ["wm = whole((2 * m - 1) / 2)                # the gradient's whole part (rounded down)"] },
-        ts: "common(Q.add(s, 1), wm)", py: "common(s + 1, wm)", says: "that number plus 1 sharing a bigger factor with the gradient's whole part is better",
+        ts: "common(Q.add(s, 1), wm)", py: "common(s + 1, wm)", says: "take the number just after that number: a bigger number dividing both it and the gradient's whole part is better",
         lenses: ["tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: tilting never moves the y-intercept, so the rung stays.",
       },
     },
