@@ -18,12 +18,13 @@ function score(L, p, tie) {
 
 const FAR = 2;      // how far one move may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["shift","tilt"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+const KINDS = ["shift","tilt"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 
 function agent(offer) {
   const L = pairOf(offer);          // the two lines, a·x + b·y + c = 0 each
   const { params: p, tieBreaker: tie } = goal(offer);   // your rule and tie-breaker (free)
-  const tries = pairSteps(L, FAR, KINDS);   // [plan, lines after]: moves tried in the agent's own head
+  // Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.
+  const tries = pairSteps(L, FAR, KINDS, [p.q ?? p.k].filter(Boolean));   // [plan, lines after]: moves tried in the agent's own head
   let top = score(L, p, tie), plans = [];
   for (const [plan, L2] of tries) {
     const s = score(L2, p, tie);

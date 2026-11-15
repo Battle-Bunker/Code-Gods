@@ -1,5 +1,5 @@
 # High Start · Naive (for learning)
-# Main part: the gentler line crosses the y-axis at a whole number on the dealt ladder. Tie-breaker: whichever you were dealt (the gentler line high and rising; that y-intercept shares many prime factors with the number you divide by).
+# Main part: the gentler line crosses the y-axis on the dealt ladder. Tie-breaker: whichever you were dealt (the gentler line high and rising; that y-intercept shares many prime factors with the number you divide by).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -12,7 +12,7 @@ def score(L, p, tie):
     floor = lambda v: v // 1   # rounded down
     if f.cg is None or f.mg is None:   # the gentler line is upright: no score
         return None
-    main, H = ladder(f.cg, p["q"], p["r"])   # the y-intercept on your ladder
+    main, H = valuation_ladder(f.cg, p["q"], p["r"])   # the y-intercept on your ladder
     # main: the level of the gentler line's y-intercept on your ladder (higher is better)
     if tie == "high-and-rising":   # the smaller of the gentler line's y-intercept and its gradient's whole part big is better
         return [main, min(H, floor(f.mg))]
@@ -23,14 +23,15 @@ def score(L, p, tie):
 
 FAR = 2      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-KINDS = ["shift","tilt"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+KINDS = ["shift","tilt","stretch"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 
 
 def agent(offer):
     L = pair_of(offer)          # the two lines, a*x + b*y + c = 0 each
     rule = goal(offer)          # your rule (free)
     p, tie = rule.params, rule.tie_breaker
-    tries = pair_steps(L, FAR, KINDS)   # (plan, lines after): moves tried in the agent's own head
+    # Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.
+    tries = pair_steps(L, FAR, KINDS, [f for f in (p.get("q"), p.get("k")) if f])   # (plan, lines after): moves tried in the agent's own head
     top, plans = score(L, p, tie), []
     for plan, L2 in tries:
         s = score(L2, p, tie)

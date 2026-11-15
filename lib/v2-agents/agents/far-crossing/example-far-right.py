@@ -17,7 +17,7 @@ def score(L, p):
 
 FAR = 3      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-KINDS = ["shift","tilt"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+KINDS = ["shift","tilt"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 LEAVE = []      # pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 PROTECT = []    # pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
@@ -33,7 +33,8 @@ def agent(offer):
     L = pair_of(offer)          # the two lines, a*x + b*y + c = 0 each
     rule = goal(offer)          # your rule (free)
     p = rule.params
-    tries = pair_steps(L, FAR, KINDS)   # (plan, lines after): moves tried in the agent's own head
+    # Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.
+    tries = pair_steps(L, FAR, KINDS, [f for f in (p.get("q"), p.get("k")) if f])   # (plan, lines after): moves tried in the agent's own head
     options = [(plan, score(L2, p)) for plan, L2 in tries]   # each move and the score it reaches
     # A promise: on these pairs, only moves that leave the other players at least as well off.
     if offer.object in PROTECT:

@@ -80,9 +80,10 @@
 #                                ratio (steeper gradient over the other), ygap, xgap (the gaps between the intercepts),
 #                                off_right, off45 (how far from a right angle, from 45 degrees), origin (a line through
 #                                (0, 0)).
-#   pair_steps(L, far, kinds)    the steps of the given kinds ("shift", "tilt", "stretch", "turn", "slide", "combine",
-#                                "reflect", "quarter") on either line, each (plan, lines after); steps the game would
-#                                refuse are left out.
+#   pair_steps(L, far, kinds, factors)  the steps of the given kinds ("shift", "tilt", "stretch", "turn", "slide",
+#                                "combine", "reflect", "quarter" on either line; "translate", both lines slid together),
+#                                each (plan, lines after); steps the game would refuse are left out. factors: extra
+#                                stretch factors (a ladder's x q).
 #   spf(n), omega(n), common(a, b)  a whole number's smallest prime factor (1 for 0 and +-1), its number of prime
 #                                factors counting repeats (0 for 0 and +-1), and the biggest factor a and b share (0 if
 #                                either is 0).
@@ -93,6 +94,9 @@
 #                                leaving r when divided by q, rr (in base q) when divided by q^2, rrr by q^3, ... and
 #                                other is 0; score = q^L * (1 + 1/(1 + d)), L the highest level met, d how far from
 #                                the next; n = nearest_leaving(v, q, r, at_least).
+#   valuation_ladder(v, q, r, other, at_least)  (score, n): level L when v is the whole number q^L * m with m leaving r
+#                                when divided by q (and other is 0), so a stretch by q climbs one level; score = q^L *
+#                                (1 + 1/(1 + d)), d how far from level L + 1 (off the ladder: below every level).
 #   power_ladder(k, off)         the same over k, k^2, k^3, ...: off(t) is how far the state is from the level whose
 #                                number is t; returns the score.
 #
@@ -270,6 +274,21 @@ def ladder(x, q, r, other=0, at_least=0):
             R = R * q + r
         return o + _anchor(v, q ** j, R, at_least)[1]
     return _climb(q, off), _anchor(v, q, r, at_least)[0]
+
+
+def valuation_ladder(x, q, r, other=0, at_least=0):
+    v, o = Fraction(x), Fraction(other)
+    level = -1
+    if o == 0 and v.denominator == 1 and v != 0 and abs(v) >= at_least:
+        m, L = v.numerator, 0
+        while m % q == 0:
+            m //= q
+            L += 1
+        if m % q == r:
+            level = L
+    d = o + _anchor(v, q ** (level + 2), r * q ** (level + 1), at_least)[1]
+    n = v.numerator if level >= 0 else _anchor(v, q, r, at_least)[0]
+    return Fraction(q) ** level * (1 + Fraction(1) / (1 + d)), n
 
 
 def power_ladder(k, off):
@@ -450,7 +469,7 @@ def solved(L):
         origin=c1 == 0 or c2 == 0)
 
 
-def pair_steps(L, far, kinds):
+def pair_steps(L, far, kinds, factors=()):
     ln = [[int(x) for x in l] for l in L]
 
     def norm(a, b, c):
@@ -516,6 +535,31 @@ def pair_steps(L, far, kinds):
                 A, B, C = a + k * ja, b + k * jb, c + k * jc
                 if (A != 0 or B != 0) and _gcd(_gcd(A, B), C) == 1:
                     add(call("pair.combine", line=line, k=k), norm(A, B, C))
+    # A stretch of either line by each extra factor (a ladder's shortcut: x q climbs one rung), beyond 2 ... far + 1.
+    if "stretch" in kinds:
+        for i in (0, 1):
+            a, b, c = ln[i]
+            if b == 0:
+                continue
+            m, k0 = Fraction(-a, b), Fraction(-c, b)
+            for f in factors:
+                if abs(f) > far + 1:
+                    r = pair(i, from_mc(m * f, k0 * f))
+                    if r:
+                        out.append((call("mach.stretch", line=str(i + 1), f=f), r))
+    # Both lines slid across the plane by (u, 0) or (0, v): the crossing moves with them.
+    if "translate" in kinds:
+        for k in range(-far, far + 1):
+            if k == 0:
+                continue
+            for u, v in ((k, 0), (0, k)):
+                moved = [norm(a, b, c - a * u - b * v) for a, b, c in ln]
+                if None in moved or moved[0] == moved[1]:
+                    continue
+                r = sorted(moved)
+                if r == sorted(ln):
+                    continue
+                out.append((call("sys.translate", u=u, v=v), [[Fraction(x) for x in t] for t in r]))
     return out
 
 

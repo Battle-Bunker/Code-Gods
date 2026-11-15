@@ -11,7 +11,7 @@ def score(L, p, tie):
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     if f.ratio is None:   # no ratio of gradients: no score
         return None
-    main, k = ladder(f.ratio, p["q"], p["r"], 0, 2)   # the whole number of times (at least 2 either way) on your ladder
+    main, k = valuation_ladder(f.ratio, p["q"], p["r"], 0, 2)   # the whole number of times (at least 2 either way) on your ladder
     # main: the level of the whole number of times as steep on your ladder (higher is better)
     if tie == "ratio-gap":   # that number sharing a big factor with the y-intercepts' gap is better
         return [main, None if f.ygap is None else common(k, whole(f.ygap))]
@@ -22,14 +22,15 @@ def score(L, p, tie):
 
 FAR = 2      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-KINDS = ["tilt","stretch"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+KINDS = ["tilt","stretch"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 
 
 def agent(offer):
     L = pair_of(offer)          # the two lines, a*x + b*y + c = 0 each
     rule = goal(offer)          # your rule (free)
     p, tie = rule.params, rule.tie_breaker
-    tries = pair_steps(L, FAR, KINDS)   # (plan, lines after): moves tried in the agent's own head
+    # Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.
+    tries = pair_steps(L, FAR, KINDS, [f for f in (p.get("q"), p.get("k")) if f])   # (plan, lines after): moves tried in the agent's own head
     top, plans = score(L, p, tie), []
     for plan, L2 in tries:
         s = score(L2, p, tie)

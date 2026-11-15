@@ -16,7 +16,7 @@ function score(L, p) {
 
 const FAR = 3;      // how far one move may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["combine","turn"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+const KINDS = ["combine","turn","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
@@ -28,7 +28,8 @@ function agent(offer) {
   contested(offer, 3);
   const L = pairOf(offer);          // the two lines, a·x + b·y + c = 0 each
   const { params: p } = goal(offer);   // your rule (free)
-  const tries = pairSteps(L, FAR, KINDS);   // [plan, lines after]: moves tried in the agent's own head
+  // Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.
+  const tries = pairSteps(L, FAR, KINDS, [p.q ?? p.k].filter(Boolean));   // [plan, lines after]: moves tried in the agent's own head
   let options = tries.map(([plan, L2]) => [plan, score(L2, p)]);   // each move and the score it reaches
   // A promise: on these pairs, only moves that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));

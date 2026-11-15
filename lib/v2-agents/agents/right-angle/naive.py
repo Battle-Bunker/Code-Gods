@@ -25,14 +25,15 @@ def score(L, p, tie):
 
 FAR = 2      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-KINDS = ["turn","slide"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+KINDS = ["turn","slide","translate"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 
 
 def agent(offer):
     L = pair_of(offer)          # the two lines, a*x + b*y + c = 0 each
     rule = goal(offer)          # your rule (free)
     p, tie = rule.params, rule.tie_breaker
-    tries = pair_steps(L, FAR, KINDS)   # (plan, lines after): moves tried in the agent's own head
+    # Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.
+    tries = pair_steps(L, FAR, KINDS, [f for f in (p.get("q"), p.get("k")) if f])   # (plan, lines after): moves tried in the agent's own head
     top, plans = score(L, p, tie), []
     for plan, L2 in tries:
         s = score(L2, p, tie)

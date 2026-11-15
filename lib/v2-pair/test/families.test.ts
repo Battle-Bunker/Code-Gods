@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateObject, Qn, scoreToWire, tieBreakersOn } from "@workspace/v2-core";
-import { LADDERS, pairFamilies, pairPresets, pairQ, pairType, residueAnchor, residueLadder, type PairParams, type PairState } from "../src/index.ts";
+import { LADDERS, pairFamilies, pairPresets, pairQ, pairType, residueAnchor, residueLadder, valuationLadder, type PairParams, type PairState } from "../src/index.ts";
 import { L, Y, sys } from "./helpers.ts";
 
 const school = sys(L(2, 3, -12), L(1, -1, -1));   // 2x + 3y = 12, x − y = 1: the answer (3, 2), D = ±5
@@ -25,14 +25,28 @@ test("every family scores every kind of system (parallel, vertical, horizontal) 
   }
 });
 
-test("Whole Answer on 2x + 3y = 12, x − y = 1: the answer (3, 2) is at level 1 of x's ladder; |X| + |Y| = 5 shares 5 with D, X + Y = 5", () => {
-  // q 5, r 3: x = 3 leaves 3 when divided by 5 (level 1); level 2 wants 18 when divided by 25, nearest −7, 10 away.
-  // The score is 5¹ × (1 + 1/(1 + 10)) = 60/11.
-  const p = { q: 5, r: 3 };
-  assert.deepEqual(score("whole-answer", "peg-divisor", school, p), ["60/11", "5"]);
-  assert.deepEqual(score("whole-answer", "south-west", school, p), ["60/11", "-5"]);
-  // Dealt "x leaves 1 when divided by 3": level 0, the peg is x = 4, one away (1 + 1/2); |4| + |2| = 6 shares 1 with D.
-  assert.deepEqual(score("whole-answer", "peg-divisor", school, { q: 3, r: 1 }), ["3/2", "1"]);
+test("Whole Answer on 2x + 3y = 12, x − y = 1: the answer (3, 2), y on the valuation ladder; |X| + |Y| = 5 shares 5 with D", () => {
+  // q 5, r 2: y = 2 = 5⁰ × 2 is level 0; level 1 wants 10 when divided by 25 (5 × a number leaving 2), nearest 10, 8 away.
+  // The score is 5⁰ × (1 + 1/(1 + 8)) = 10/9.
+  const p = { q: 5, r: 2 };
+  assert.deepEqual(score("whole-answer", "peg-divisor", school, p), ["10/9", "5"]);
+  assert.deepEqual(score("whole-answer", "south-west", school, p), ["10/9", "-5"]);
+  // q 3, r 1: 2 leaves 2, off the ladder; level 0's nearest is 1, one away: (1/3) × (1 + 1/2); |3| + |1| = 4 shares 1 with D.
+  assert.deepEqual(score("whole-answer", "peg-divisor", school, { q: 3, r: 1 }), ["1/2", "1"]);
+});
+
+test("the valuation ladder: a stretch by q climbs one level, levels are disjoint, 0 is on none, off the ladder is below all", () => {
+  const at = (v: number, p: PairParams) => { const l = valuationLadder(Qn.q(v), p); return [l.level, Qn.toWire(l.u)]; };
+  // 2, 10, 50, 250 (q 5, r 2) are levels 0, 1, 2, 3: each ×5.
+  assert.deepEqual([2, 10, 50, 250].map(v => at(v, { q: 5, r: 2 })[0]), [0, 1, 2, 3]);
+  // 0 and 7 (7 = 5⁰ × 7 leaves 2, so level 0 too) and 3 (leaves 3: off the ladder).
+  assert.equal(at(0, { q: 5, r: 2 })[0], -1);
+  assert.equal(at(3, { q: 5, r: 2 })[0], -1);
+  // Every level beats every lower one: 10 (level 1) beats 2 (level 0) beats 3 (off).
+  const u = (v: number) => valuationLadder(Qn.q(v), { q: 5, r: 2 }).u;
+  assert.ok(Qn.cmp(u(10), u(2)) > 0 && Qn.cmp(u(2), u(3)) > 0 && Qn.cmp(u(250), u(50)) > 0);
+  // A level's score is at most 2 q^L, below the next level's least (q^(L+1)), so the score doubles at most once a level.
+  assert.ok(Qn.cmp(u(50), Qn.q(50)) <= 0 && Qn.cmp(u(50), Qn.q(25)) > 0);
 });
 
 test("the residue ladder has no top: each level is q times rarer, every met level beats every state below it", () => {
@@ -79,14 +93,14 @@ test("the axes are the centre: a right angle at (0, 0), but 0 is on no dealt lad
   const axes = sys(L(0, 1, 0), L(1, 0, 0));
   // y = 0 is 1 from 1 (leaves 1 when divided by 5): level 0, 1 + 1/2; the corner pegs to (0, 1), spf(1) = 1.
   assert.deepEqual(score("right-angle", "corner-prime", axes, { q: 5, r: 1 }), ["3/2", "1"]);
-  // A dealt remainder coprime to q keeps the peg off the origin: x = 0 pegs to 1 (q 3, r 1), and |1| + |0| shares 1 with D.
-  assert.deepEqual(score("whole-answer", "peg-divisor", axes, { q: 3, r: 1 }), ["3/2", "1"]);
+  // 0 is on no ladder: y = 0 pegs to 1 (q 3, r 1), one away: (1/3) × (1 + 1/2); |0| + |1| shares 1 with D.
+  assert.deepEqual(score("whole-answer", "peg-divisor", axes, { q: 3, r: 1 }), ["1/2", "1"]);
 });
 
 test("Steep Ratio reads the whole number of times on its ladder, at least 2 either way", () => {
   const s = sys(Y(6, 0), Y(2, 5));     // 3 times as steep
-  assert.deepEqual(score("steep-ratio", "ratio-prime", s, { q: 5, r: 3 }), ["60/11", "3"]);   // level 1, 18 (25's) 15 away, −7 10 away
-  assert.deepEqual(score("steep-ratio", "ratio-prime", s, { q: 3, r: 1 }), ["3/2", "2"]);      // −2 is 5 away, 4 is 1 away: 4, spf 2
+  assert.deepEqual(score("steep-ratio", "ratio-prime", s, { q: 5, r: 3 }), ["14/13", "3"]);   // 3 = 5⁰ × 3: level 0; level 1 (15 of 25) 12 away
+  assert.deepEqual(score("steep-ratio", "ratio-prime", s, { q: 3, r: 1 }), ["24/7", "3"]);    // 3 = 3¹ × 1: level 1; level 2 (9 of 27) 6 away
 });
 
 test("a zoom of the picture (positions × n) cannot raise a capped hill past the number it is capped by", () => {

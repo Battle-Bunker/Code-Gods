@@ -63,6 +63,28 @@ export function residueLadder(v: Q, p: P, other: Q = q(0), minAbs = 0n): { level
   const { level, u } = climb(qq, j => Qn.add(other, anchorB(v, qq ** BigInt(j), rungRemainder(qq, r, j), minAbs).off));
   return { level, u, n: anchorB(v, qq, r, minAbs).n };
 }
+/**
+ * The valuation ladder (the coordinator's call, 15 Nov: rungs joined by a representation shortcut, decision 25): level L
+ * when v is the whole number q^L × m with m leaving r when divided by q (and `other` is 0). A stretch by q (one move,
+ * priced as a choice) multiplies the number by q and climbs one level; levels are disjoint, 0 is on none (m ≠ 0), and
+ * level L + 1 is about q times rarer than level L. The score is q^L × (1 + 1/(1 + d)), d how far from level L + 1 (the
+ * class r·q^(L+1) when divided by q^(L+2)); off the ladder, (1/q) × (1 + 1/(1 + d)) with d how far from level 0, below
+ * every level. n: the number itself on the ladder, else the nearest number leaving r when divided by q.
+ */
+export function valuationLadder(v: Q, p: P, other: Q = q(0), minAbs = 0n): { level: number; u: Q; n: bigint } {
+  const qq = BigInt(p.q!), r = BigInt(p.r!);
+  let level = -1;
+  if (Qn.isZero(other) && v.d === 1n && v.n !== 0n && absB(v.n) >= minAbs) {
+    let m = v.n, L = 0;
+    while (m % qq === 0n) { m /= qq; L++; }
+    if (((m % qq) + qq) % qq === r) level = L;
+  }
+  const next = BigInt(level + 1), d = Qn.add(other, anchorB(v, qq ** (next + 1n), r * qq ** next, minAbs).off);
+  const u = Qn.mul(level >= 0 ? q(qq ** BigInt(level)) : q(1n, qq), Qn.add(q(1), Qn.inv(Qn.add(q(1), d))));
+  return { level, u, n: level >= 0 ? v.n : anchorB(v, qq, r, minAbs).n };
+}
+/** "is a whole number leaving 2 when divided by 7; better still 7 times such a number, then 49 times, and so on". */
+export const valuationWords = (p: P) => `a whole number leaving ${p.r} when divided by ${p.q}; better still ${p.q} times such a number, then ${p.q! * p.q!} times, and so on`;
 /** The power ladder: off(j) is the distance from k^j (with `other` added). */
 export const powerLadder = (k: number, off: (target: bigint) => Q): { level: number; u: Q } => climb(BigInt(k), j => off(BigInt(k) ** BigInt(j)));
 /** "leaves 3 when divided by 7; better still, leaves 24 when divided by 49, then 171 when divided by 343, and so on". */
@@ -73,6 +95,8 @@ export function ladderWords(p: P): string {
 /** "4 (or −4); better still 16, then 64, and so on". */
 const powerWords = (k: number, sign = true) => `${k}${sign ? ` (or −${k})` : ""}; better still ${k * k}, then ${k ** 3}, and so on`;
 /** The residue ladders measured for the pool: q 5, 7 or 11, r from 1 to q − 2 (never 0 or q − 1: those have a top). */
+/** The valuation ladders measured for the pool: q 3, 5 or 7 and every r from 1 to q − 1 (a level never meets 0). */
+export const VALUATIONS: readonly P[] = [3, 5, 7].flatMap(q => Array.from({ length: q - 1 }, (_, i) => ({ q, r: i + 1 })));
 export const LADDERS: readonly P[] = [5, 7, 11].flatMap(q => Array.from({ length: q - 2 }, (_, i) => ({ q, r: i + 1 })));
 
 /**
@@ -86,14 +110,14 @@ export const LADDERS: readonly P[] = [5, 7, 11].flatMap(q => Array.from({ length
  */
 const R = (q: number, ...rs: number[]) => rs.map(r => ({ q, r }));
 export const DEALT_NUMBERS: Readonly<Record<string, readonly P[]>> = {
-  "whole-answer": [...R(5, 1, 2, 3), ...R(7, 2, 3, 4), ...R(11, 2, 3, 4, 5, 6, 7, 8, 9)],
+  "whole-answer": VALUATIONS,
   "no-fractions": [3, 4, 6, 9, 10, 11].map(k => ({ k })),
   "right-angle": [...R(5, 1, 2, 3), ...R(7, 1, 2, 3, 5), ...R(11, 1, 2, 9)],
   "forty-five": [...R(5, 1, 2, 3), ...R(7, 1, 2, 3, 4, 5), ...R(11, 1, 2, 3, 4, 5, 6, 7, 9)],
   "double-gap": [2, 3, 4, 5].map(k => ({ k })),
   "far-crossing": [...R(7, 4), ...R(11, 2, 3, 4, 5, 6, 8, 9)],
-  "high-start": [...R(5, 2), ...R(7, 3), ...R(11, 2, 3, 4, 5, 6, 7)],
-  "steep-ratio": [11, 13, 17, 19, 23].map(q => ({ q, r: 1 })),
+  "high-start": VALUATIONS,
+  "steep-ratio": VALUATIONS,
 };
 /**
  * The whole number n leaving r when divided by q (n − r a multiple of q, negatives included: −2 leaves 1 when divided
@@ -163,7 +187,7 @@ function answer(ctx: Ctx): { x: Q; y: Q; X: bigint; Y: bigint } | null {
 
 export const wholeAnswer = family({
   id: "whole-answer", title: "Whole Answer", depends: ["pair", "solve"],
-  main: main("answer", "the answer is whole numbers, x on the dealt ladder", p => `Solve the two equations: the answer (x, y) should be whole numbers, and x ${ladderWords(p)}. The closer, the better.`, "pair", "max"),
+  main: main("answer", "the answer is whole numbers, y on the dealt ladder", p => `Solve the two equations: the answer (x, y) should be whole numbers, y ${valuationWords(p)}. The closer, the better.`, "pair", "max"),
   tieBreakers: [
     tb("peg-divisor", "the answer shares a factor with the number you divide by", "The answer's whole numbers, added up as distances (|x| + |y|), should share as big a factor as possible with the number you divide by when you solve.", "solve", "shared"),
     tb("south-west", "the answer far down and to the left", "The answer's x + y should be as small (as negative) as possible.", "pair", "small"),
@@ -172,11 +196,11 @@ export const wholeAnswer = family({
   evaluate: (ctx, p) => {
     const a = answer(ctx), d = read(ctx, D)!;
     if (!a) return void (ctx.term("answer", "the answer's ladder", PARALLEL, [PX, PY]), allUndefined(ctx, ["peg-divisor", "south-west"], PARALLEL, [X, Y]));
-    // The peg: x's whole number with the dealt remainder, y's nearest whole number.
-    const l = residueLadder(a.x, p, distanceToWhole(a.y));
-    ctx.term("answer", `the answer's level: whole numbers with x that ${ladderWords(p)}`, l.u, [PX, PY]);
-    ctx.term("peg-divisor", "the common factor of |X| + |Y| (X with the remainder) and the number you divide by", shared(absB(l.n) + absB(a.Y), d.n), [PX, Y, D]);
-    ctx.term("south-west", "X + Y (X with the remainder)", q(l.n + a.Y), [PX, Y]);
+    // The peg: y's number on the ladder (stretching both lines by q multiplies it by q), x's nearest whole number.
+    const l = valuationLadder(a.y, p, distanceToWhole(a.x));
+    ctx.term("answer", `the answer's level: whole numbers, y ${valuationWords(p)}`, l.u, [PX, PY]);
+    ctx.term("peg-divisor", "the common factor of |X| + |Y| (Y on the ladder) and the number you divide by", shared(absB(a.X) + absB(l.n), d.n), [X, PY, D]);
+    ctx.term("south-west", "X + Y (Y on the ladder)", q(a.X + l.n), [X, PY]);
     ctx.mark({ kind: "focus", ref: P });
   },
 });
@@ -317,7 +341,7 @@ export const farCrossing = family({
  */
 export const highStart = family({
   id: "high-start", title: "High Start", depends: ["si", "solve"],
-  main: main("start", "the gentler line crosses the y-axis at a whole number on the dealt ladder", p => `The gentler line should cross the y-axis at a whole number that ${ladderWords(p)}. The closer, the better.`, "si", "max"),
+  main: main("start", "the gentler line crosses the y-axis on the dealt ladder", p => `The gentler line should cross the y-axis at ${valuationWords(p)}. The closer, the better.`, "si", "max"),
   tieBreakers: [
     tb("high-and-rising", "the gentler line high and rising", "The smaller of that y-intercept and the gentler gradient's whole part should be as big as possible.", "si", "big"),
     tb("start-factors", "that y-intercept shares many prime factors with the number you divide by", "The common factor of that y-intercept and the number you divide by should have as many prime factors as possible.", "solve", "smooth"),
@@ -326,8 +350,8 @@ export const highStart = family({
   evaluate: (ctx, p) => {
     const c = read(ctx, CG), m = read(ctx, MG), d = read(ctx, D)!;
     if (c === null || m === null) { const why = U("the gentler line is vertical: it has no y-intercept"); return void (ctx.term("start", "y-intercept", why, [CG]), allUndefined(ctx, ["high-and-rising", "start-factors"], why, [CG])); }
-    const l = residueLadder(c, p);
-    ctx.term("start", `the gentler line's y-intercept's level: a whole number that ${ladderWords(p)}`, l.u, [CG]);
+    const l = valuationLadder(c, p);
+    ctx.term("start", `the gentler line's y-intercept's level: ${valuationWords(p)}`, l.u, [CG]);
     const h = l.n, mf = Qn.floor(m);
     ctx.term("high-and-rising", "the smaller of the y-intercept and the gradient's whole part", q(h < mf ? h : mf), [CG, MG]);
     ctx.term("start-factors", "how many prime factors the y-intercept shares with D", omega(h === 0n || d.n === 0n ? 0n : gcdB(h, d.n)), [CG, D]);
@@ -336,7 +360,7 @@ export const highStart = family({
 
 export const steepRatio = family({
   id: "steep-ratio", title: "Steep Ratio", depends: ["si"],
-  main: main("ratio", "one line a whole number of times as steep as the other, on the dealt ladder", p => `The steeper line should be a whole number of times as steep as the other (2, 3, 4 … times, or −2, −3 …), a number that ${ladderWords(p)}. The closer, the better.`, "si", "max"),
+  main: main("ratio", "one line a whole number of times as steep as the other, on the dealt ladder", p => `The steeper line should be a whole number of times as steep as the other (2, 3, … or −2, −3, … times): ${valuationWords(p)}. The closer, the better.`, "si", "max"),
   tieBreakers: [
     tb("ratio-gap", "that number shares a factor with the y-intercepts' gap", "That whole number of times should share as big a factor as possible with the gap between the y-intercepts.", "si", "shared"),
     tb("ratio-prime", "that number is a big prime", "That whole number of times should have as big a smallest prime factor as possible.", "si", "prime"),
@@ -345,8 +369,8 @@ export const steepRatio = family({
   evaluate: (ctx, p) => {
     const r = read(ctx, RATIO), g = read(ctx, YGAP);
     if (r === null) { const why = U("a ratio needs two lines with gradients, the gentler not flat"); return void (ctx.term("ratio", "ratio", why, [RATIO]), allUndefined(ctx, ["ratio-gap", "ratio-prime"], why, [RATIO])); }
-    const l = residueLadder(r, p, q(0), 2n), k = l.n;
-    ctx.term("ratio", `the ratio of gradients' level: a whole number of times that ${ladderWords(p)}`, l.u, [RATIO]);
+    const l = valuationLadder(r, p, q(0), 2n), k = l.n;
+    ctx.term("ratio", `the ratio of gradients' level: ${valuationWords(p)}`, l.u, [RATIO]);
     ctx.term("ratio-gap", "the common factor of that number and the y-intercepts' gap", g === null ? U("a vertical line has no y-intercept") : shared(k, near(g)), [RATIO, YGAP]);
     ctx.term("ratio-prime", "the smallest prime factor of that number", spf(k), [RATIO]);
   },
