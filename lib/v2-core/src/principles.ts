@@ -75,3 +75,26 @@ export function straightHill(bits: readonly number[], fees: readonly number[], c
   const half = Math.floor(n / 2), first = slope(0, half), last = slope(half, n);
   return last > STRAIGHT_FLOOR && last >= first ? `a straight hill: ${last.toFixed(3)} bits per fee bit over the second half, ${first.toFixed(3)} over the first` : null;
 }
+
+/**
+ * The greedy chain the gate also walks (the coordinator, 15 Nov, after Divisibility Ladder's "steep" gained 77.6 bits by
+ * stretches whose factor changed each step, where every fixed-factor chain gained under 10): from `start`, each step
+ * takes the candidate (all the arguments of one kind of shortcut) that raises the rule's bits most, never back to a state
+ * it held, until none raises them or `n` steps. Returns the bits along the chain and each step's fee, for straightHill.
+ */
+export function greedyChain<S>(start: S, candidates: (s: S) => readonly { readonly state: S; readonly fee: number }[],
+  bitsOf: (s: S) => number, key: (s: S) => string, n = 30): { bits: number[]; fees: number[] } {
+  const bits = [bitsOf(start)], fees: number[] = [], seen = new Set([key(start)]);
+  let s = start;
+  for (let i = 0; i < n; i++) {
+    let pick: { state: S; fee: number; bits: number } | null = null;
+    for (const c of candidates(s)) {
+      if (seen.has(key(c.state))) continue;
+      const b = bitsOf(c.state);
+      if (b > bits.at(-1)! + 1e-9 && (!pick || b > pick.bits)) pick = { ...c, bits: b };
+    }
+    if (!pick) break;
+    seen.add(key(pick.state)); s = pick.state; bits.push(pick.bits); fees.push(pick.fee);
+  }
+  return { bits, fees };
+}

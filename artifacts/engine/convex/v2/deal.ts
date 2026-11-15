@@ -155,9 +155,17 @@ function verdictOf(variant: string, a: DealtRule, b: DealtRule): PairVerdict | u
  * partners compatible with each other while both conflict with the human.
  */
 export function practiceFits(variant: string, deal: readonly DealtRule[], h: number): boolean {
+  return sharesGoal(variant, deal, h) && !ganged(variant, deal, h);
+}
+/** Whether some partner's rule is compatible with the human's (they can climb together). */
+function sharesGoal(variant: string, deal: readonly DealtRule[], h: number): boolean {
+  const human = deal[h]!;
+  return deal.some((p, i) => i !== h && verdictOf(variant, human, p) === "compatible");
+}
+/** Whether two partners agree with each other and are both in conflict with the human. */
+function ganged(variant: string, deal: readonly DealtRule[], h: number): boolean {
   const human = deal[h]!, partners = deal.filter((_, i) => i !== h);
-  if (!partners.some(p => verdictOf(variant, human, p) === "compatible")) return false;
-  return !partners.some((p, i) => partners.some((q, j) => i !== j && verdictOf(variant, p, q) === "compatible"
+  return partners.some((p, i) => partners.some((q, j) => i !== j && verdictOf(variant, p, q) === "compatible"
     && verdictOf(variant, human, p) === "conflict" && verdictOf(variant, human, q) === "conflict"));
 }
 /** Whether rank `a` comes before `b`, comparing in order. */
@@ -169,8 +177,8 @@ const before = (a: readonly number[], b: readonly number[]): boolean => {
  * A practice game's deal (playtest round 21: redrawing whole tables until they fit skewed the human's family, so
  * Smooth Intercept took 21.5% of practice games and Prime Staircase 0.6%). The human's family is drawn uniformly over
  * the pool's families, first; then, PRACTICE_TRIES times at most, one of its entries and the partners from the other
- * families, keeping the best table by: no pair the seating rule forbids, then fitting (`practiceFits`), then the
- * seating rule's cost (aligned pairs). So the entry leans to those that can share a goal; the family never does.
+ * families, keeping the best table by: no pair the seating rule forbids, then no two partners against the human, then
+ * a partner sharing the human's goal (together `practiceFits`), then the seating rule's cost (aligned pairs). So the entry leans to those that can share a goal; the family never does.
  * Reproducible from the seed.
  */
 export function practiceDeal(pool: readonly DealtRule[], kinds: readonly SeatKind[], seed: string, variant: string): DealtRule[] {
@@ -182,7 +190,9 @@ export function practiceDeal(pool: readonly DealtRule[], kinds: readonly SeatKin
   for (let i = 0; i < PRACTICE_TRIES; i++) {
     const human = mine[r.below(mine.length)]!, partners = dealFrom(rest, kinds.length - 1, r);
     const deal = [...partners.slice(0, h), human, ...partners.slice(h)];
-    const rank = [seatingClashes(variant, deal).length, practiceFits(variant, deal, h) ? 0 : 1, seatingCost(variant, deal)];
+    // Never two partners against the human, even where no partner can share the human's goal (a family with no
+    // compatible partner in the pool, e.g. Square Area while Divisibility Ladder's "steep" is undealt); then sharing.
+    const rank = [seatingClashes(variant, deal).length, ganged(variant, deal, h) ? 1 : 0, sharesGoal(variant, deal, h) ? 0 : 1, seatingCost(variant, deal)];
     if (!bestRank || before(rank, bestRank)) { best = deal; bestRank = rank; }
     if (rank.every(x => x === 0)) break;
   }
