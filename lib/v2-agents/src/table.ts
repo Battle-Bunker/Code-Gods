@@ -35,6 +35,17 @@ export const TICK_SECONDS = 1.5, AI_TURN_SECONDS = 20;
 /** The server's cap (convex/v2/play.ts MAX_AGENTS: v1's 200 a player, call 35). */
 const MAX_AGENTS = 200;
 
+/** What a scripted player sees and does on its turn (TableInput.playerTurns). */
+export interface PlayerApi {
+  readonly at: number;
+  /** Every seat's total points now, in seat order (the public standings). */
+  readonly standings: readonly number[];
+  /** The seat's own agents and their programs. */
+  readonly agents: readonly { readonly id: string; readonly source: string }[];
+  /** Replace an agent's program, paying the edit price from the player's store; the price, or null when it cannot pay. */
+  replace(agentId: string, source: string): number | null;
+}
+
 export type SeatKind = "naive" | "starter" | "model";
 export interface TableSeat {
   readonly name: string;
@@ -94,6 +105,12 @@ export interface TableInput<S> {
   /** Experiments only (scripts/power-check.ts): summon and edit prices times this, as if SUMMON_ENERGY_PER_BIT scaled. */
   readonly summonScale?: number;
   readonly model?: TableModel;
+  /**
+   * Scripted players (measurement only, scripts/competitive.ts): every `every` world seconds, `turn` is called for each
+   * seat it names, with what a real player sees between acts (the public standings, exact as the beginner presets
+   * publish them every interval) and one action, replacing an agent's program at the edit price from its own store.
+   */
+  readonly playerTurns?: { readonly every: number; readonly seats: readonly number[]; readonly turn: (seat: number, api: PlayerApi) => void };
   /** Called after each model turn (for logs). */
   readonly onTurn?: (seat: string, at: number, run: RunResult) => void;
   /** The act's price constants (κ, β), for experiments; default v2-economy's (host.ts SPEC_ECONOMY). */
@@ -494,8 +511,21 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   // ------------------------------------------------------------ the game
 
   const turns = Math.ceil(input.seconds / AI_TURN_SECONDS);
-  let nextTurn = 0, k = 0;
+  let nextTurn = 0, k = 0, nextPlayerTurn = input.playerTurns?.every ?? Infinity;
   while (world < input.seconds - 1e-9) {
+    if (input.playerTurns && world >= nextPlayerTurn) {
+      nextPlayerTurn += input.playerTurns.every;
+      for (const i of input.playerTurns.seats) input.playerTurns.turn(i, {
+        at: world, standings: seats.map((_, j) => totalOf(j)), agents: mine(i).map(a => ({ id: a.id, source: a.program.source })),
+        replace: (agentId, source) => {
+          const x = mine(i).find(a => a.id === agentId)!;
+          const price = scale * editBits(x.program.language, x.program.source, source).energy;
+          try { pay(i, price, "edits"); } catch { return null; }
+          x.program = { ...x.program, source }; x.programs.push(x.program); stats[i]!.replaced++;
+          return price;
+        },
+      });
+    }
     if (input.model && world >= nextTurn) {
       for (const [i, s] of seats.entries()) if (s.kind === "model") await modelTurn(i, k, turns);
       k++; nextTurn += AI_TURN_SECONDS;
