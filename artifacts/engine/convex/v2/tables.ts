@@ -323,6 +323,11 @@ export const v2Tables = {
     failures: v.number(), spend: v.number(), pointsGained: v.number(), lastActAt: v.optional(v.number()),
     /** The balance is as of this world second. */
     settledAt: v.number(),
+    /**
+     * The agents pane's sparkline (v1's, A6): the balance just after each act, oldest first, at most one a tick and the
+     * last AGENT_HISTORY (loop.ts). Hot, like the rest of this row: it changes when the row does.
+     */
+    history: v.optional(v.array(v.object({ at: v.number(), energy: v.number() }))),
   }).index("by_agent", ["agentId"]),
   /** Every program an agent has run (the put-back comparison). */
   v2AgentPrograms: defineTable({

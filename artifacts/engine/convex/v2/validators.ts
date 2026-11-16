@@ -134,6 +134,8 @@ export const agentEnergyV = v.object({
   pointsGained: v.number(), lastActAt: v.union(v.number(), v.null()),
   /** As the own store's: the agent's income and capacity, and `energy` settled to the world second `settledAt`. */
   perSecond: v.number(), capacity: v.number(), settledAt: v.number(),
+  /** The balance just after each act, oldest first (≤ AGENT_HISTORY); between samples it grows at perSecond up to capacity. */
+  history: v.array(v.object({ at: v.number(), energy: v.number() })),
 });
 export const agentProgramsV = v.array(v.object({
   version: v.number(), language: languageV, source: v.string(), price: v.number(), summonedAt: v.number(), acts: v.number(), pointsGained: v.number(),

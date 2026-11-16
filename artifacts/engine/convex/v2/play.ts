@@ -176,7 +176,7 @@ export const agentEnergy = query({
     const now = world === null ? { balance: e.energy, settledWorldSeconds: e.settledAt } : settle({ balance: e.energy, settledWorldSeconds: e.settledAt }, Math.max(e.settledAt, world), perSecond, capacity);
     return {
       agentId: agent._id, energy: now.balance, acts: e.acts, skips: e.skips, failures: e.failures, spend: e.spend, pointsGained: e.pointsGained, lastActAt: e.lastActAt ?? null,
-      perSecond, capacity, settledAt: now.settledWorldSeconds,
+      perSecond, capacity, settledAt: now.settledWorldSeconds, history: e.history ?? [],
     };
   },
 });
