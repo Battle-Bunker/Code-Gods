@@ -5,7 +5,7 @@
  * them and every client of theirs follows. How they are laid out on a desktop is the view state's `dock` (`dockFor`).
  * Player words only: points, rarity in bits, energy, power, "line".
  */
-import { defaultDock, dockGroups, dockInsert, dockKindOf, dockWithout, type DockNode, type Place, type ViewState } from "@workspace/v2-affordances";
+import { defaultDock, dockGroups, dockInsert, dockKindOf, dockWithout, formatDock, parseDock, type DockNode, type Place, type ViewState } from "@workspace/v2-affordances";
 
 /** A game's phase, or "replay": an ended game watched at a playhead (the replay's own arrangement). */
 export type GamePhase = "planning" | "live" | "paused" | "ended" | "replay";
@@ -88,6 +88,52 @@ export function defaultPanes(phase: GamePhase): OpenPane[] {
       { pane: "agents", place: "bottom" }, { pane: "race", place: "bottom" },
     ];
   }
+}
+
+/**
+ * A spectator's arrangement before they change anything (v1's spectator page: Leaderboard with roster, Objects, Public
+ * chat): the goal card, the act log and the agents are a seated player's, empty for someone watching. Before the world
+ * the leaderboard has nothing, so How to play stands in; after the end the results lead.
+ */
+export function spectatorPanes(phase: GamePhase): OpenPane[] {
+  switch (phase) {
+    case "planning": return [{ pane: "objects", place: "main" }, { pane: "rules", place: "left" }, { pane: "public-chat", place: "right" }];
+    case "ended": return [{ pane: "results", place: "main" }, { pane: "race", place: "left" }, { pane: "public-chat", place: "right" }];
+    case "replay": return defaultPanes(phase);
+    default: return [{ pane: "objects", place: "main" }, { pane: "race", place: "left" }, { pane: "public-chat", place: "right" }];
+  }
+}
+
+/**
+ * The view the dock shows and plans from: a spectator who has arranged nothing sees `spectatorPanes`, so the panes on
+ * screen and the operations that keep them (openPlan, closePlan) agree; a seated player's, or anyone's own arrangement,
+ * is the view itself.
+ */
+export function viewerView<V extends Pick<ViewState, "panes" | "dock">>(view: V, phase: GamePhase, seated: boolean): V {
+  if (seated || phase === "replay" || view.panes.some(docked)) return view;
+  const kind = dockKindOf(phase) ?? "live";
+  return { ...view, panes: spectatorPanes(phase), dock: { ...view.dock, [kind]: view.dock?.[kind] ?? SPECTATOR_TREES[kind] } };
+}
+
+/** The spectator's screens side by side (each a third or so: no pane behind a tab), as `spectatorPanes` places them. */
+const SPECTATOR_DOCKS: Readonly<Record<"planning" | "live" | "ended", string>> = {
+  planning: "row(rules 28, objects 44, public-chat 28)",
+  live: "row(race 28, objects 44, public-chat 28)",
+  ended: "row(race 28, results 44, public-chat 28)",
+};
+const SPECTATOR_TREES = Object.fromEntries(Object.entries(SPECTATOR_DOCKS).map(([k, t]) => [k, parseDock(t)])) as Record<string, DockNode>;
+
+/**
+ * The view operations that store a spectator's default screen and panes before their first change (the server would
+ * otherwise start it from the player's): none for a seated player, an own arrangement, or a screen already stored.
+ */
+export function spectatorArrange(view: Pick<ViewState, "panes" | "dock">, phase: GamePhase, seated: boolean): ViewOp[] {
+  const kind = dockKindOf(phase) ?? "live";
+  if (seated || phase === "replay" || view.panes.some(docked) || view.dock?.[kind] || !SPECTATOR_TREES[kind]) return [];
+  return [
+    { id: "view.arrangeDock", args: { dock: formatDock(SPECTATOR_TREES[kind]!), phase } },
+    ...spectatorPanes(phase).map((p): ViewOp => ({ id: "view.openPane", args: { pane: p.pane, place: p.place } })),
+  ];
 }
 
 const inPhase = (id: string, phase: GamePhase) => (isPaneId(id) ? PANES[id].phases.includes(phase) : storedSlugOf(id) !== null || fileIdOf(id) !== null);

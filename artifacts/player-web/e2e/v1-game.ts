@@ -349,11 +349,15 @@ try {
       await a.waitForURL(GAME_URL, { timeout: 120_000 });
       await a.getByTestId("game-bar").getByTestId("text-watching").waitFor({ timeout: 60_000 });
       assert.equal(await a.getByTestId("button-summon-first").count(), 0, "a spectator has nothing to summon");
+      // v1's spectator page: the lines, the leaderboard (How to play before the world) and public chat; no goal card.
+      await a.getByTestId("button-jump-public-chat").waitFor({ timeout: 10_000 });
+      const panes = (await a.locator("[data-testid^=button-jump-]").evaluateAll((els: Element[]) => els.map(e => e.getAttribute("data-testid")!.slice("button-jump-".length)))).sort();
+      assert.ok(["objects,public-chat,rules", "objects,public-chat,race"].includes(panes.join()), `the spectator's panes: ${panes.join()}`);
       await shot(a, "game2-spectator-alice");
       await noHorizontalScroll(a, "phone spectator");
     });
 
-    await missing(["e2e-site-smoke-10"], "spectator: live Game details shows the settings and timings, with the world clock moving (v2 shows who held which rule only after the end)", async () => {
+    await check("spectator: live Game details shows the settings and timings, with the world clock moving (v2 shows who held which rule only after the end)", async () => {
       await a.getByTestId("text-world-t").waitFor({ timeout: 3_000 });
     });
 
