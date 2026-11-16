@@ -35,7 +35,7 @@ export interface SetupGroup { label: string; presets: Preset[] }
 /** The picker's groups: the setups, then the Lab for an admin (or when the room already plays a Lab preset). */
 export function setupGroups(presets: readonly Preset[], who: { admin: boolean; current: string }): SetupGroup[] {
   const lab = presets.filter(p => isLab(p) && (who.admin || p.id === who.current));
-  return [{ label: "Setups", presets: presets.filter(p => !isLab(p)) }, ...(lab.length ? [{ label: "Lab (admins only)", presets: lab }] : [])];
+  return [{ label: "System setups", presets: presets.filter(p => !isLab(p)) }, ...(lab.length ? [{ label: "Lab (admins only)", presets: lab }] : [])];
 }
 
 

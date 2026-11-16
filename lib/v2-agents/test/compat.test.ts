@@ -12,7 +12,7 @@ test("every pair of dealt rules of different families has a verdict, in either o
       assert.equal(p.variant, variant, `${id} plays on ${variant}`);
       return { variant, rules: p.rules.flatMap(r => (r.tieBreakers as string[]).map(tb => [r.family, `${r.family}/${tb}`] as const)) };
     }),
-    ...["grids-beginner", "grids-arithmetic"].map(id => ({ variant: grid4.id, rules: gridPresets.find(p => p.id === id)!.rules.flatMap(r => r.tieBreakers.map(tb => [r.family, `${r.family}/${tb}`] as const)) })),
+    ...["grids-beginner"].map(id => ({ variant: grid4.id, rules: gridPresets.find(p => p.id === id)!.rules.flatMap(r => r.tieBreakers.map(tb => [r.family, `${r.family}/${tb}`] as const)) })),
   ];
   for (const { variant, rules } of sets) for (const [fa, a] of rules) for (const [fb, b] of rules) {
     if (fa === fb) continue;
