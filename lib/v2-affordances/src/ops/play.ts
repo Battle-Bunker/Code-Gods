@@ -75,6 +75,23 @@ export const playOps = [
     contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
+    id: "rule.fit", title: "Fit the others' rules", group: "play", scope: "game",
+    description: "Which rules the other players hold (v1's fit_utility_mixture), from the others' summed bits you have seen: the likeliest sets of rules with their probabilities, each family's chance of being held, and a least-squares spectrum. Hints (a family, maybe params, a probability) and excluded families steer it. Offered only on lines whose disclosure noise is at least ±8 bits.",
+    tooltip: "Guess what the others want.", keywords: ["fit", "infer", "rivals", "who wants what", "mixture", "guess rules"],
+    params: obj({
+      hints: z.array(z.object({ family: z.string(), params: z.record(z.string(), z.unknown()).optional(), probability: z.number().min(0).max(1) })).max(20).optional(),
+      exclude: z.array(z.string()).max(50).optional().describe("Families you are sure nobody holds."),
+      top: z.number().int().min(1).max(20).default(5),
+    }),
+    result: z.object({
+      observations: z.number().int(), sigma: z.number(), exact: z.boolean(),
+      hypotheses: z.array(z.object({ posterior: z.number(), rms: z.number(), rules: z.array(z.object({ family: z.string(), params: z.record(z.string(), z.unknown()), tieBreaker: z.string().nullable(), card: z.string() })) })),
+      families: z.array(z.object({ family: z.string(), probability: z.number() })),
+      spectrum: z.array(z.object({ family: z.string(), params: z.record(z.string(), z.unknown()), tieBreaker: z.string().nullable(), weight: z.number() })),
+    }),
+    contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server", action: true,
+  }),
+  affordance({
     id: "rule.worth", title: "Look up what a score is worth", group: "play", scope: "game",
     description: "The value in bits of one score of the caller's rule (a score tuple as object.score returns it), with the calibration's lower and upper bounds.",
     tooltip: "How rare a score is.", keywords: ["worth", "rarity", "bits", "how rare", "value"],

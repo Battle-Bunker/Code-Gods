@@ -63,6 +63,7 @@ import type * as v2_disclose from "../v2/disclose.js";
 import type * as v2_drift from "../v2/drift.js";
 import type * as v2_duration from "../v2/duration.js";
 import type * as v2_failure from "../v2/failure.js";
+import type * as v2_fit from "../v2/fit.js";
 import type * as v2_gallery from "../v2/gallery.js";
 import type * as v2_games from "../v2/games.js";
 import type * as v2_knowledge from "../v2/knowledge.js";
@@ -184,6 +185,7 @@ declare const fullApi: ApiFromModules<{
   "v2/drift": typeof v2_drift;
   "v2/duration": typeof v2_duration;
   "v2/failure": typeof v2_failure;
+  "v2/fit": typeof v2_fit;
   "v2/gallery": typeof v2_gallery;
   "v2/games": typeof v2_games;
   "v2/knowledge": typeof v2_knowledge;
