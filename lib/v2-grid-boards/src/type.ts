@@ -5,6 +5,9 @@ import { boardRepresentations } from "./representations.ts";
 import { boardMutators } from "./mutators.ts";
 import { chessmaster } from "./families/chessmaster.ts";
 import { colourBonds, colourMirror, honestMinesweeper, kingdom, parityPainter, pictureFrame, setSpotter } from "./families/annotated-colours.ts";
+import { originalMagicEighteen, originalMirrormancer, originalOppositeNines, originalTwoPair } from "./families/v1-numbers-a.ts";
+import { originalCrosswiseThrees, originalLeapfrog, originalSpreadThree, originalStrangers } from "./families/v1-numbers-b.ts";
+import { originalKingsAndSubjects, originalMagicAccountant, originalNumberBonds, originalSteppingStones } from "./families/v1-numbers-c.ts";
 
 export function boardVariant(size: number, symbols: SymbolSet, colours: ColourSet): Variant {
   return {
@@ -49,7 +52,13 @@ export function makeBoardType(v: Variant): ObjectType<BoardState> {
 }
 
 /** The board families, shared by every board size (one object each, so the deal finds one family per id; (each family's own params say which of them the variant can deal). */
-export const BOARD_FAMILIES = [chessmaster(), parityPainter(), colourMirror(), pictureFrame(), colourBonds(), honestMinesweeper(), kingdom(), setSpotter()];
+export const BOARD_FAMILIES = [
+  chessmaster(), parityPainter(), colourMirror(), pictureFrame(), colourBonds(), honestMinesweeper(), kingdom(), setSpotter(),
+  // v1's number families (the beginner eight and four more), as v1 had them: they read numbers only.
+  originalMirrormancer(), originalMagicEighteen(), originalOppositeNines(), originalTwoPair(),
+  originalSpreadThree(), originalStrangers(), originalLeapfrog(), originalCrosswiseThrees(),
+  originalMagicAccountant(), originalNumberBonds(), originalSteppingStones(), originalKingsAndSubjects(),
+];
 
 export const board4Type = makeBoardType(board4rgb);
 export const board5Type = makeBoardType(board5rgby);

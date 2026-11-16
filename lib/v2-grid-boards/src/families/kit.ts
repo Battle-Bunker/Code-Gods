@@ -28,6 +28,10 @@ export function readBoard(ctx: Ctx, n: number): Cells {
   const c = Array.from({ length: n * n }, (_, i) => (ctx.read(ref("cells", `${cellName(n, i)}.colour`)) as { text: string }).text);
   return { n, v, c, refs };
 }
+/** Marks the cells a tie-breaker counts, under its own id (the main layer marks without a term). */
+export const markFor = (ctx: Ctx, id: string, cells: Cells, which: Iterable<number>): void => {
+  for (const i of new Set(which)) ctx.mark({ kind: "focus", ref: cells.refs[i]!, term: id });
+};
 export const term = (ctx: Ctx, id: string, label: string, x: number, refs: readonly ElementRef[]) => ctx.term(id, label, q(x), [...refs]);
 /** The names of a board's colours, in rainbow order. */
 export const colourNames = (palette: readonly number[]): string[] => palette.map(i => COLOURS[i]!.name);

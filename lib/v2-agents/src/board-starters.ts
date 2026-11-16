@@ -11,6 +11,9 @@
 import { BOARD_FAMILIES } from "@workspace/v2-grid-boards";
 import type { RuleFamily } from "@workspace/v2-core";
 import type { AgentKind, ShippedAgent, ShippedLanguage } from "./starters.ts";
+import { BOARD_CATALOGUE_A } from "./board-catalogue-a.ts";
+import { BOARD_CATALOGUE_B } from "./board-catalogue-b.ts";
+import { BOARD_CATALOGUE_C } from "./board-catalogue-c.ts";
 
 /** Code lines in each language. */
 interface Lines { readonly ts: readonly string[]; readonly py: readonly string[] }
@@ -28,7 +31,7 @@ export interface BoardFamilyEntry {
 const NEIGHBOURS_TS = "const right = i => (i % B.n < B.n - 1 ? i + 1 : -1), down = i => (i + B.n < B.n * B.n ? i + B.n : -1);";
 const NEIGHBOURS_PY = "right = lambda i: i + 1 if i % B.n < B.n - 1 else -1\ndown = lambda i: i + B.n if i + B.n < B.n * B.n else -1";
 
-export const BOARD_CATALOGUE: readonly BoardFamilyEntry[] = [
+const COLOUR_CATALOGUE: readonly BoardFamilyEntry[] = [
   {
     family: "chessmaster", moves: ["colours"], mainSays: "2×2 chessboards of your two colours",
     main: {
@@ -236,6 +239,9 @@ export const BOARD_CATALOGUE: readonly BoardFamilyEntry[] = [
     tieBreakers: {},
   },
 ];
+
+/** Every board family's agents: the colour families' (above) and v1's number families' (board-catalogue-a/b/c.ts). */
+export const BOARD_CATALOGUE: readonly BoardFamilyEntry[] = [...COLOUR_CATALOGUE, ...BOARD_CATALOGUE_A, ...BOARD_CATALOGUE_B, ...BOARD_CATALOGUE_C];
 
 const familyOf = (id: string): RuleFamily<unknown, unknown> => {
   const f = BOARD_FAMILIES.find(x => x.id === id);
