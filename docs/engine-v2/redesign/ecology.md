@@ -1,122 +1,109 @@
 # The game as an ecosystem: diagnosis and one proposal (analyst: ecology, 16 November)
 
 Words used: **bits** are a rule's score for an object's state. **Lift** is energy spent raising an object to a rarer,
-higher-scoring state. A **knock** is a move that lowers someone else's bits. Nothing here was simulated; the toy
-numbers are arithmetic, not measurements.
+higher-scoring state. A **knock** is a move that lowers someone else's bits.
+
+Every claim carries a label. **[built]**: true by construction, from the rules or arithmetic. **[seen]**: happened in
+a narrow simulation (a dozen games a row, three seats, six hand-written one-step strategies, no talk, no adaptation).
+That shows a thing *can* happen, not that the game is like that. **[guess]**: my conjecture. I simulated nothing.
 
 ## 1. Diagnosis
 
-**The wrong thing is scarce.** A seat earns about 3,000 energy a game. A move's fee is about 9. A whole par game of
-lift (25 bits) costs about 25. So energy buys *moves* (about 340 of them), and height is almost free. Players run out
-of worthwhile climbs in two minutes and still have nine tenths of their energy. An ecosystem with surplus energy and
-nothing to invest it in spends it on conflict: that is the flip-flopping, and it is why "build, and knock when that
-pays more" dominates. The knock costs its maker nothing they wanted.
+**The wrong thing is scarce.** A seat earns about 3,000 energy a game; a move's fee is about 9; a par game of lift (25
+bits) costs about 25 **[built]**. So energy rations *moves* (about 340), and height is almost free. The simulated
+climbers ran out of climbs they could see in two minutes with most of their energy unspent **[seen]**. Surplus with no
+outlet goes into conflict, and that is the flip-flopping and the knocking **[guess]**.
 
-**Land is too scarce.** What players really compete for is the single state of each object. With three to five
-objects and three rules there is no room for niches, so every improvement for one seat is a knock for another. More
-objects was the only lever that turned undoing into climbing (`tug-of-war.md`).
+**Land is tight.** Players compete for the single state of each object. With three to five objects and three rules,
+one seat's improvement is often another's loss **[built]**. More objects was the one lever that reduced undoing
+without freezing the board **[seen]**.
 
-**The score is a photograph.** Final score is the standing at the last instant (or at the instant an object retires).
+**The score is a photograph.** Final score is the standing at the last instant, or when an object retires **[built]**.
 So a state held for five minutes and knocked at the end earns nothing, and a knock just before the photograph cannot be
-repaired. That is the "rug pulled back to zero", and it is exactly why the vandal reaches 42% on grids once objects
-retire. Living things are paid in flow: what they harvest while they hold a place.
+repaired **[built]**. That is the "rug pulled back to zero". Living things are paid in flow.
 
-**The product is a partnership, with an outsider.** "My bits × the others' bits" is the sum of one shared product per
-pair of players, credited equally to both. That part works: a knock on my partner costs me as much as it costs them
-from our pair. The hole is the player with no bits on the object. They own no share, so they can destroy the other
-two's partnership for the fee. That is the hostage problem, and it is specific: it is the outsider's, not everyone's.
-
-**Present, missing, faked.**
+**The product is a partnership, with an outsider.** "My bits × the others' bits" is one shared product per pair of
+players, credited equally to both **[built]**. A knock on my partner costs me as much as it costs them from our pair.
+A player with no bits on the object owns no share, so wrecking the other two's partnership costs them only the fee
+**[built]**. The hostage problem is the outsider's.
 
 | Ecosystem feature | In the game today |
 |---|---|
-| A limiting resource | Missing: energy is 100 times too plentiful; land is too tight |
-| Growth invites predation | Present, but predation is free, so it is constant |
-| Costly defence | Missing (locks are paused). "Repair is dearer than damage" is faked: true only where a state is higher in energy than its neighbours, which is never on grids and half the time on lines |
-| Turnover and succession | Trialled; it works (two-state cycles fall from 58% to 3% of late moves) |
-| A strategy does worse as it gets common | Faked: all-knock tables lose 36–72% of their points, but rank within a table is a fixed pie, so nobody is deterred |
-| Coalitions that form and defect | Missing: nothing to pay into jointly |
+| A limiting resource | Energy is about 100 times the bit scale **[built]** |
+| Growth invites predation | A knock costs a fee, whatever the height **[built]** |
+| Costly defence | None (locks are paused). Undoing a knock costs more only if the knock lowered the object's energy **[built]**; most simulated knocks did not **[seen]** |
+| Turnover and succession | Trialled; two-state cycles became rare **[seen]** |
+| A strategy does worse as it gets common | Unknown. Rank in a table is a fixed pie **[built]**, so shared losses deter nobody who plays for rank |
+| Coalitions that form and defect | Nothing to pay into jointly **[built]** |
 
 ## 2. The proposal: five rules
 
-1. **Points are paid as a flow.** Keep the product. Every second, each live object pays each player their own bits ×
-   the others' bits. The final score is the running total. *Wanted property:* damage is bounded by how long it lasts;
-   earned points cannot be taken; last-second and pre-retirement wrecking earn nothing; climbing early is rewarded.
+1. **Points are paid as a flow.** Keep the product. Each second, each live object pays each player their own bits ×
+   the others' bits; the final score is the running total. *Structure:* damage is bounded by how long it lasts; earned
+   points cannot be taken; the last second is worth one second **[built]**.
 2. **Energy is the limiting resource, and lift is the main expense.** A game's income should lift about one par game
-   of height, with move fees small beside it. How (the energy function, the exchange rate) is the other analysts' job.
-   The ecology needs only this: a seat can never afford everything, and there is always a higher step for sale.
-   *Wanted property:* climbing, knocking and defending draw on one budget, so knocking limits itself by what it
-   displaces. No rule against it is needed.
-3. **A knock is an ordinary move.** No surcharge, no penalty, no "breaking costs extra". The knocker pays the fee and
-   loses their own share of the object. The victims lose the flow until someone repairs, plus the lift to climb back.
-4. **Locks are the only defence, as the owner specified.** Energy placed on a predicate; breaking the predicate means
-   paying the lock off; upkeep drains it; anyone may add to it. *Wanted property:* this puts an energy cost on exactly
-   the structure a rule rewards, which no global energy function can see on grids. So sideways knocks stop being free
-   where someone cared enough to pay. A floor lock ("intercept at least 100") is a ratchet: it lets the climb continue
-   and blocks the undo, which ends flip-flopping by a player's choice instead of a designer's patch. A lock is also a
-   public good between partners, so coalitions form, and one partner can free-ride on the other's upkeep.
-5. **Every object has a fixed life.** One born every 30 seconds, each living about 150 seconds, so about five alive
-   (the measured board). Its locks die with it. *Wanted property:* succession. No state can be held for a whole game,
-   several distinct high states must be found, and a lock is never worth more than the life left.
+   of height, with fees small beside it. How is the other analysts' job. *Structure:* climbing, knocking and defending
+   draw on one budget, so each knock has a price in height forgone **[built]**.
+3. **A knock is an ordinary move.** No penalty. The knocker pays the fee and loses their own share **[built]**.
+4. **Locks are the only defence, as the owner specified.** *Structure:* a lock puts an energy cost on exactly the
+   pattern its makers care about, which no global energy function can see **[built]**. A floor lock is a ratchet: the
+   climb continues, the undo is blocked **[built]**. Partners can both pay in, or one can free-ride **[built]**.
+5. **Every object has a fixed life** (one born every 30 seconds, about five alive). Its locks die with it.
+   *Structure:* no state can be held for a whole game; a lock is never worth more than the life left **[built]**.
 
-Standing stays as rank by points within the table.
+## 3. What this structure makes possible (arithmetic, not a forecast)
 
-## 3. Why no single strategy would dominate (toy model)
+**Three uses of one move.** A and B hold 10 bits each on an object with 100 seconds left; C holds none.
 
-**One object, three uses of the same 10 energy.** A and B each hold 10 bits; C holds none. A and B earn 100 a second
-each. The object has 100 seconds left.
+- C **knocks** B down 5 bits: A and B each lose 50 a second until repaired. Repaired in 10 seconds, C gains 500 on each.
+- C **joins** with 1 bit, keeping theirs: C earns 20 a second, A and B 10 more each. C gains 1,000 on each rival.
+- Under the photograph, a last-second knock is permanent and worth five joins **[built]**.
 
-- C **knocks** B down 5 bits. A and B each drop to 50 a second. If repair takes 10 seconds, C gains 500 on each rival.
-- C **joins** (finds a nearby state worth 1 bit to C that keeps theirs). C earns 20 a second, A and B 110. Over the
-  object's life C gains 2,000 points, and 1,000 on each rival.
-- Under today's photograph scoring, the same knock made at the last second is permanent, and beats joining five to one.
+**One leader (110), two trailers (95 each).** A raid takes 80 off the leader.
 
-So under flow, knocking wins only where repair is slow or the rules truly oppose.
-
-**One leader, two trailers.** Leader 110, trailers 95 and 95. A raid takes 80 off the leader.
-
-| The two trailers | Today (the raid costs spare energy) | Proposed (the raid costs 40 of the raider's own lift) |
+| The two trailers | Raid paid from spare energy | Raid costs 40 of the raider's own lift |
 |---|---|---|
-| Neither raids | 110 / 95 / 95: leader wins | 110 / 95 / 95: leader wins |
-| One raids | 30 / 95 / 95: raider cannot lose by raiding | 30 / **55** / 95: the bystander wins |
-| Both raid | 0 / 95 / 95: everyone raids, always | 0 / 55 / 55: trailers share the win, on half the points |
+| Neither raids | 110 / 95 / 95 | 110 / 95 / 95 |
+| One raids | 30 / 95 / 95: raiding cannot hurt the raider | 30 / 55 / 95: the bystander gains most |
+| Both raid | 0 / 95 / 95 | 0 / 55 / 55 |
 
-Today raiding is never worse, so it is everyone's strategy (the measured dominance). When energy is scarce the raid
-is a volunteer's problem: the leader must be checked, the one who pays for it does not win, and two who pay together
-do. That is a coalition that forms and invites defection. The leader's reply is a lock, which costs lift, so being
-ahead taxes itself. Builder, raider and guard each win in some company and lose in other company.
+With spare energy, a raid is free to its maker. With scarce energy, checking a leader is a cost someone must
+volunteer, and the one who does not pay gains most **[built, for these numbers]**. Whether real play then mixes
+building, raiding and guarding is a **[guess]**.
 
-## 4. What it deletes
+## 4. How this could be wrong
 
-- The end-of-game photograph, and "banking" points at retirement.
-- Hold rarity, the fragility-averse "defender", tie-breaker tiers and the convex surcharge as answers to fragility.
-- The attempt to make the energy function see patterns so that repair is dearer than damage everywhere. Size handles
-  height; locks handle everything else.
-- Starter-side cures for flip-flopping, and probably the 35-bit gate, if rule 2 is done at the source.
+- **Assumptions.** That conflict comes from spare energy; that repair is quick; that players can tell who leads and
+  who knocked (they cannot: moves are unattributed); that players play for rank.
+- **The strongest other explanation.** The standstill and the flip-flopping may belong to one-step greedy programs,
+  not to the game. A climber that looks further may never run out of climbs, and then the surplus story is false.
+- **What a cleverer player does that I have not reasoned through.** Under flow, a knock repeated every few seconds
+  keeps an object down for the price of the fees, and an outsider loses nothing by it: harassment replaces the single
+  late knock. A lock can be used to attack, holding an object in a state that zeroes a rival. Two players can shut
+  the third out of every object and split the pairs. A player can rush each newborn object and abandon it.
+- **What would change my mind.** The re-scoring below showing no change; an adaptive or frontier-AI seat told to win
+  by any means finding a routine; people playing it and the board going quiet.
 
-## 5. The two most serious risks
+## 5. What it deletes
 
-1. **A conveyor belt.** Flow plus locks plus fixed lives could settle into "climb, lock, wait, repeat" on each new
-   object: a static exam on a timer. Turnover guarantees movement, not variety. Only diverse, opposed rules do.
-2. **The balance may tip either way.** If lift is dear, nobody raids and locks are dead weight. If knocks stay cheap
-   beside lift, the attacker picks one spot while the defender must cover every object and every pattern, and
-   one-for-one locks cannot keep up. Nor does anything here give the outsider a stake.
+The end-of-game photograph and banking at retirement. Hold rarity, the convex surcharge and tie-breaker tiers as
+answers to fragility. The attempt to make the energy function see patterns. Probably the 35-bit gate, if rule 2 is
+done at the source.
 
-## 6. The cheap experiment
+## 6. The two most serious risks
 
-Re-score the turnover games already run (`competitive.ts`, 5 live, a birth every 30 seconds) by the running total
-of points over time instead of the final standing. The agents already choose moves by points now, so no behaviour
-changes. The proposal predicts the grid vandal falls from 42% to an even share or less, and the one knocker among
-naive players from 50% towards 33%. If the knocker still wins half, flow scoring does not remove the dominance and
-everything rests on rule 2.
+1. **A conveyor belt.** "Climb, lock, wait, repeat" on each new object: a static exam on a timer.
+2. **The balance tips.** Dear lift may mean nobody raids and locks are dead weight. Cheap knocks favour the attacker,
+   who picks one spot while the defender covers every object and pattern.
 
-## 7. What the old game did that worked
+## 7. The cheap experiment, and how to keep finding out
 
-It ended at a hidden random moment, so any second might be the photograph: flow scoring by another route, lost with
-fixed ten-minute games. Its own study (`coordination-incentives.md`) found time-averaged scoring cut a
-last-30-seconds wrecker from 69% wins to 6%.
+Re-score the turnover games already run by running total instead of final standing (the simulated agents already
+choose by points now, so their moves do not change). If the vandal's and the knocker's win shares do not fall, flow
+scoring is not doing what rule 1 claims. This tests one claim against six strategies; it cannot clear the design. After
+it: seats that adapt between games, a frontier-AI seat asked to break it, then people.
 
-## 8. Unsure
+## 8. What the old game did
 
-How fast repairs happen in play (the 10 seconds is a guess). Whether one-for-one locks defend enough. Whether five
-live objects is enough land for three players.
+It ended at a hidden random moment, so any second might be the photograph **[built]**. Its own study found
+time-averaged scoring took a last-30-seconds wrecker from 69% wins to 6% **[seen]**, in an equally narrow model.
