@@ -43,9 +43,11 @@ for (const preset of gridPresets) test(`every dealt secondary of ${preset.title}
 
 test("Mirrormancer says which mirror pairs make a row's gap", () => {
   const family = gridType.families.find(f => f.id === "mirrormancer")!;
-  const ev = evaluateObject(gridType, family, {}, gridType.decode("3113/0480/2222/9003"), grid4, "one-apart");
-  const notes = ev.sites[0]!.marks.flatMap(m => (m.kind === "note" && m.ref.rep === "mirror" ? [`${m.ref.name}: ${m.text}`] : []));
-  assert.deepEqual(notes, ["gap1: off by 4: 4 vs 8", "gap3: off by 6: 9 vs 3"]);
+  const notes = (axis: string) => evaluateObject(gridType, family, { axis }, gridType.decode("3113/0480/2222/9003"), grid4, "one-apart")
+    .sites[0]!.marks.flatMap(m => (m.kind === "note" && m.ref.rep === "mirror" ? [`${m.ref.name}: ${m.text}`] : []));
+  assert.deepEqual(notes("rows"), ["gap1: off by 4: 4 vs 8", "gap3: off by 6: 9 vs 3"]);
+  // Dealt the columns, it says the same of each column, top against bottom.
+  assert.deepEqual(notes("columns"), ["cgap0: off by 8: 3 vs 9, 0 vs 2", "cgap1: off by 3: 1 vs 0, 4 vs 2", "cgap2: off by 7: 1 vs 0, 8 vs 2", "cgap3: off by 2: 0 vs 2"]);
 });
 
 test("Opposite Nines says how far each pair is from 9; Strangers names the touching pairs that are not strangers", () => {
