@@ -1,5 +1,5 @@
 // Mirrormancer · Bold
-// Main part: every row (or column) reads the same backwards. Secondary preference: the middle lines' total.
+// Main part: every row (or column) reads the same backwards. Secondary preference: the middle columns' (or rows') total.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can

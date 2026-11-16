@@ -1,5 +1,5 @@
-# Mirrormancer · Example: the middle lines' total
-# Main part: every row (or column) reads the same backwards. Secondary preference: the middle lines' total.
+# Mirrormancer · Example: the middle columns' (or rows') total
+# Main part: every row (or column) reads the same backwards. Secondary preference: the middle columns' (or rows') total.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you

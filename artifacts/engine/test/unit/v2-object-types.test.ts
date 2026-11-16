@@ -70,7 +70,7 @@ test("Grids · beginner deals every grid family, each a main layer plus one tie-
     const pool = dealablePool(p);
     if (gridValues) {
       assert.deepEqual([...new Set(pool.map(r => r.family))].sort(), [...p.families].sort(), "every grid family deals");
-      assert.equal(pool.length, 21, "8 families × 3 tie-breakers, less the 3 undealt for cheap peaks (15 Nov)");
+      assert.equal(pool.length, 27, "8 families × 3 tie-breakers, less the 3 undealt for cheap peaks (15 Nov), with Mirrormancer's and Magic Eighteen's three twice (rows or columns, 16 Nov)");
     } else {
       // Decision 23: only rules with a value function deal; until grid value functions land the preset is withheld.
       assert.equal(pool.length, 0);

@@ -1,5 +1,5 @@
-# Magic Eighteen · Example: the first line the other way's total
-# Main part: every row (or column) adds up to the target. Secondary preference: the first line the other way's total.
+# Magic Eighteen · Example: the first column's (or row's) total
+# Main part: every row (or column) adds up to the target. Secondary preference: the first column's (or row's) total.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
