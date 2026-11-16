@@ -43,6 +43,7 @@ and turn the call into `check`. Never weaken an assertion to get green. With the
 | `e2e/v1-assistant-games.ts` | the in-client assistant (mock) in game 1, then a fresh one in game 2 in the same document (assistant-games) | `pnpm --filter @workspace/player-web e2e:v1-assistant-games` | ~1 min |
 | `e2e/v1-auto-update.ts` | an open page updates itself after a deploy (never over unsaved text) and keeps its route; redeploys build A at the end (auto-update) | `pnpm --filter @workspace/player-web e2e:v1-auto-update` | ~1 min |
 | `e2e/v1-account-mode.ts` | the app built for another origin (localhost): consent on /connect, a room and a game from there, reloads, sign-out revokes, no cookies (account-mode) | `pnpm --filter @workspace/player-web e2e:v1-account-mode` | ~2 min (builds the app) |
+| `e2e/v1-agents.ts` | My agents in a running game: actual cost per move, the summon-time estimate, Destroy and its confirmation (debt-shots) | `pnpm --filter @workspace/player-web e2e:v1-agents` | ~1 min |
 
 `SKIP_DEPLOY=1` reuses the build already uploaded; `LIST_XFAIL=1` lists the expected failures at the end; failure
 screenshots go to `e2e/shots/v1/FAIL-*.png`. A session that changes a behaviour one of these suites covers runs that
