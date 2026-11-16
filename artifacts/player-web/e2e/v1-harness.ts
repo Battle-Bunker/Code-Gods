@@ -76,11 +76,17 @@ export async function clientOf(page: Page) {
   return client;
 }
 
-/** The room's next game's settings, as its owner (the room.settings affordance). */
+/**
+ * Extra room settings every suite applies to the games it starts, from ROOM_SETTINGS (JSON), e.g.
+ * ROOM_SETTINGS='{"turnover":true}': to run the ported scenarios with a feature's setting on before it merges.
+ */
+export const EXTRA_SETTINGS: Record<string, unknown> = process.env.ROOM_SETTINGS ? JSON.parse(process.env.ROOM_SETTINGS) : {};
+
+/** The room's next game's settings, as its owner (the room.settings affordance), with EXTRA_SETTINGS on top. */
 export async function roomSettings(page: Page, code: string, overrides: Record<string, unknown>) {
   const client = await clientOf(page);
   const found = await client.query("v2/rooms:byCode" as never, { code } as never) as { roomId: string };
-  const out = await client.mutation("v2/ops/room:settings" as never, { args: { overrides }, roomId: found.roomId } as never) as { ok: boolean; error?: { message: string } };
+  const out = await client.mutation("v2/ops/room:settings" as never, { args: { overrides: { ...overrides, ...EXTRA_SETTINGS } }, roomId: found.roomId } as never) as { ok: boolean; error?: { message: string } };
   assert.ok(out.ok, `room.settings: ${out.error?.message}`);
   return found.roomId;
 }

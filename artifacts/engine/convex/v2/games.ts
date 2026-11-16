@@ -33,8 +33,12 @@ export function headerView(game: Doc<"v2Games">, me: Doc<"v2Members">["_id"] | n
     timeScale: timeScaleOf(game.settings),
     // Parameter drift (drift.ts): drift k at world second k × driftSeconds, so the app counts down from the clock.
     driftSeconds: driftSecondsOf(game),
-    // Line turnover (retirement-design.md): at most this many live lines, the oldest retiring; null: none retire.
-    liveCap: game.settings.turnover?.liveCap ?? null,
+    // Line turnover (retirement-design.md): at most liveCap live lines, a birth every birthSeconds, the oldest retiring
+    // with its points kept in the totals (banked) or not; null: every line stays live.
+    turnover: game.settings.turnover ? {
+      liveCap: game.settings.turnover.liveCap, banked: game.settings.turnover.retiredPoints === "banked",
+      birthSeconds: game.settings.regularBirths && game.settings.economy.birthsPerSecond > 0 ? 1 / game.settings.economy.birthsPerSecond : null,
+    } : null,
   };
 }
 

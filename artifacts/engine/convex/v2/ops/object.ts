@@ -83,8 +83,10 @@ export const { op: look, as: lookAs } = defineOp("object.look", "mutation", asyn
   if (game.phase === "planning") throw new OpFailure("The world has not started: there is nothing to look at yet.");
   if (game.phase === "ended") throw new OpFailure("The game is over: every object is open.");
   const clock = (await env.ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", game._id)).unique())!;
+  // A retired line (turnover) is not looked at: it no longer changes. Looking at every line reads the live ones.
   const objects = a.objectId ? [(await objectIn(env.ctx, game, a.objectId)).object]
-    : await env.ctx.db.query("v2Objects").withIndex("by_game", q => q.eq("gameId", game._id)).take(MAX_LOOK);
+    : await env.ctx.db.query("v2Objects").withIndex("by_game_live", q => q.eq("gameId", game._id).eq("retiredAt", undefined)).take(MAX_LOOK);
+  if (objects.some(o => o.retiredAt !== undefined)) throw new OpFailure("That line has retired: it no longer changes, so there is nothing new to see.");
   const seen = [];
   for (const o of objects) {
     const st = (await env.ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", o._id)).unique())!;
@@ -110,6 +112,7 @@ export const { op: whatIf, as: whatIfAs } = defineOp("object.whatIf", "mutation"
   const { game, member, player } = seated(env);
   if (game.phase !== "live" && game.phase !== "paused") throw new OpFailure("A What if quote is for a running game.");
   const { object } = await objectIn(env.ctx, game, a.objectId);
+  if (object.retiredAt !== undefined) throw new OpFailure("That line has retired: no move can be made on it.");
   const state = (await env.ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", object._id)).unique())!;
   const clock = await env.ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
   const world = clock?.worldSeconds ?? 0;

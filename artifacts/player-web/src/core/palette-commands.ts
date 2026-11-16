@@ -35,7 +35,7 @@ export const SETUP_READS: ReadonlySet<string> = new Set(["setups.page", "setups.
 /** Reads the avatar menu shows (who you are, your connected apps). */
 export const ACCOUNT_READS: ReadonlySet<string> = new Set(["account.whoami", "account.connections"]);
 /** Reads the palette answers itself, in a notice (a command's status). */
-export const NOTICE_READS: ReadonlySet<string> = new Set(["receipt.get"]);
+export const NOTICE_READS: ReadonlySet<string> = new Set(["receipt.get", "server.info"]);
 
 export interface PaletteHost {
   perform(id: AffordanceId, args: unknown): Promise<OpOutcome>;
@@ -50,6 +50,9 @@ export interface PaletteHost {
   noun?: { one: string; many: string };
   /** The viewer's stored panels (their one live list), so each enabled one can be opened as a pane. */
   storedPanels?: readonly { slug: string; title: string; enabled: boolean }[];
+  /** Who is signed in, and the room in view's code (v1's "Who am I"). */
+  me?: { name: string; email?: string | null };
+  roomCode?: string;
   /** Opens the assistant and focuses its composer (v1's Ctrl+`), optionally on a new conversation or at its picker. */
   focusAssistant?(request?: { thread?: "new" | "pick" }): Promise<unknown>;
   /** The file panels (src/panels/*.tsx) this copy of the app has; none in safe mode. */
@@ -80,10 +83,22 @@ function soleParam(id: AffordanceId): { name: string; kind: "string" | "number" 
   return null;
 }
 
-function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
+/** "You are Ada (ada@example.com), the owner and a player in room ABC123." (v1's whoami, from what the page knows). */
+export function whoAmI(ctx: AffordanceContext, host: Pick<PaletteHost, "me" | "roomCode">): string {
+  const p = ctx.principal;
+  if (!p.signedIn) return "You are not signed in.";
+  const who = host.me ? `${host.me.name}${host.me.email ? ` (${host.me.email})` : ""}` : "signed in";
+  const roles = [p.owner ? "the owner" : null, p.seated ? "a player" : p.member ? "a spectator" : null].filter(Boolean);
+  const where = host.roomCode ? (p.member ? `, ${roles.join(" and ")} in room ${host.roomCode}` : `, not a member of room ${host.roomCode}`) : "";
+  return `You are ${who}${where}${p.admin ? ". You are an administrator" : ""}.`;
+}
+
+function performerFor(e: PaletteEntry, host: PaletteHost, ctx: AffordanceContext): Performer {
   const id = e.id as AffordanceId;
   if (ROOM_READS.has(id) && host.roomPath) return { kind: "navigate", to: host.roomPath };
   if (SETUP_READS.has(id) && host.roomPath) return { kind: "navigate", to: `${host.roomPath}/configure#section-setup` };
+  // v1's "Who am I": who you are signed in as and what you are here; your connected apps are under the avatar.
+  if (id === "account.whoami") return { kind: "form", page: { kind: "info", title: e.title, lines: [whoAmI(ctx, host), "Your account and connected apps are in the menu under your avatar (top right)."] } };
   if (ACCOUNT_READS.has(id)) return { kind: "form", page: { kind: "info", title: e.title, lines: ["Your account and connected apps are in the menu under your avatar (top right)."] } };
   if (id === "room.list") return { kind: "navigate", to: "/" };
   // The room's settings are a page of their own (v1's "Configure the room's setup"): every question, with a Review.
@@ -109,6 +124,8 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
   if (id === "agent.leaveAlone" && panes) {
     return { kind: "submit", run: () => requestForge({ kind: "leave", numbers: [] }, p => panes.open(p)) };
   }
+  // v1's Server info sheet: what this server runs, in a notice.
+  if (id === "server.info") return { kind: "submit", run: async () => { const out = await run(host, id, {}); host.notify?.(serverInfoWords(out)); return out; } };
   if (!e.needsInput) return { kind: "submit", run: () => run(host, id, {}) };
   const sole = soleParam(id);
   if (sole) {
@@ -132,6 +149,14 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
 export function receiptWords(result: unknown): string {
   const r = result as { applied: boolean; operation: string | null };
   return r.applied ? `That command (${r.operation}) went through.` : "That command did not apply: it is safe to send it again.";
+}
+
+/** The server's builds, sandboxes and tick in one line (v1's Server info). */
+export function serverInfoWords(result: unknown): string {
+  const r = result as { builds: Record<"app" | "functions", { build: string } | null>; sandboxes: { language: string; state: string; reason: string | null }[]; engine: { tickMs: number } };
+  const builds = `app ${r.builds.app?.build ?? "not recorded"}, functions ${r.builds.functions?.build ?? "not recorded"}`;
+  const sandboxes = r.sandboxes.map(s => `${s.language} ${s.state}${s.reason ? ` (${s.reason})` : ""}`).join(", ");
+  return `Builds: ${builds}. Sandboxes: ${sandboxes}. A tick every ${r.engine.tickMs / 1000} s.`;
 }
 
 /** What a field's operation says once done. */
@@ -164,7 +189,7 @@ const OPENS_CONTROL = new Set<AffordanceId>(["agent.leaveAlone"]);
 
 /** The palette's commands for this context. */
 export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Command[] {
-  const rows: Command[] = paletteFor(ctx).map(e => { const performer = performerFor(e, host); return {
+  const rows: Command[] = paletteFor(ctx).map(e => { const performer = performerFor(e, host, ctx); return {
     id: e.id,
     human: { title: nouned(e.title, host.noun), tooltip: nouned(e.tooltip, host.noun) },
     group: e.group,
