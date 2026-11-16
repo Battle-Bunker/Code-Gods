@@ -9,7 +9,7 @@
  */
 import { rng } from "@workspace/v2-core";
 import { fromMC, lineType, lineZ, type LineState } from "@workspace/v2-linear";
-import { dealablePool, offers as offersOf, ruleView } from "./deal";
+import { dealablePool, knownFamily, offers as offersOf, ruleView } from "./deal";
 import { valueObjects, valueOf as valueAt } from "./world";
 import { ConvexError, v } from "convex/values";
 import { components } from "../_generated/api";
@@ -138,7 +138,11 @@ export const seedGame = internalMutation({
       objects.push(objectId);
       const version = a.versions ? 1 + (5 * i) % 7 : 1;
       await ctx.db.insert("v2ObjectStates", { objectId, gameId, state: lineType.encode(state), version, changedAt: i });
-      const evals = rules.map(({ dealt }) => valueAt(state, lineZ.id, dealt, valueObjects({ startingObjects: preset.startingObjects, worldSeconds: preset.worldSeconds, economy: preset.economy })));
+      // A dynamic rule's energy is an estimate per object and seat (milliseconds each): a 1,000-object fixture would run
+      // past a mutation's time limit, so the fixture gives it a cheap stand-in (its reads, not its values, are under test).
+      const evals = rules.map(({ dealt }, k) => knownFamily(dealt.family)?.dynamic
+        ? { score: null, rarityBits: 1 + ((i * 7 + k * 3) % 11) }
+        : valueAt(state, lineZ.id, dealt, valueObjects({ startingObjects: preset.startingObjects, worldSeconds: preset.worldSeconds, economy: preset.economy })));
       const total = evals.reduce((s, e) => s + e.rarityBits, 0);
       // The object's birth in the public log (v1's), every seat's bits in roster order.
       await ctx.db.insert("v2Log", { gameId, seq: i, worldSeconds: i, kind: "born", objectId, number: i + 1, version: 1, state: lineType.encode(state), bits: evals.map(e => e.rarityBits), noise: 0 });
