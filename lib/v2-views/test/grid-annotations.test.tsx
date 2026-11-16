@@ -145,3 +145,14 @@ test("picking out a unit that is not drawn on the board (how far a box is from t
   assert.match(html, /data-ref="cells\.r0c0"[^>]*data-member=""/);
   assert.doesNotMatch(html, /data-ref="cells\.r3c3"[^>]*data-member=""/);
 });
+
+test("the fold and leap views say what their pair numbers are (a signed difference), and the notes say what each pair should be", () => {
+  for (const [rep, words] of [["fold", /minus the cell it folds onto/], ["leaps", /minus/]] as const) {
+    const html = renderToStaticMarkup(<RepView type={gridType} state={B} rep={rep} size="expanded" />);
+    assert.match(html, new RegExp(`class="v2v-legend"[^>]*>[^<]*${words.source}`), rep);
+  }
+  const fam = gridType.families.find(f => f.id === "crosswise-threes")!;
+  const notes = annotate({ type: gridType, family: fam, params: {}, variant: grid4, tieBreaker: "bigger-side" }, B).sites[0]!.marks
+    .flatMap(m => (m.kind === "note" && m.term === undefined ? [m.text] : []));
+  assert.ok(notes.length > 0 && notes.every(t => /^\d+ apart, not 3$/.test(t)), notes.join(" | "));
+});
