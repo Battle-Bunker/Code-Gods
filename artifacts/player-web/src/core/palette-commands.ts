@@ -27,6 +27,8 @@ export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
   "game.boardAt": "feed",
   // The rules anyone could hold (v1's list_utility_candidates): beside what the others care about (W5's "Possible gods").
   "rule.fit": "others-care", "rule.candidates": "others-care",
+  // A script's runs (v1's run_code results, A15): the Code results pane.
+  "code.get": "code-output", "code.list": "code-output", "code.objects": "code-output",
 };
 /** Reads the room page shows (its members, past games, the rotation, the bid phase). */
 export const ROOM_READS: ReadonlySet<string> = new Set(["room.get", "room.history", "game.rotation", "bid.state"]);
@@ -35,7 +37,7 @@ export const SETUP_READS: ReadonlySet<string> = new Set(["setups.page", "setups.
 /** Reads the avatar menu shows (who you are, your connected apps). */
 export const ACCOUNT_READS: ReadonlySet<string> = new Set(["account.whoami", "account.connections"]);
 /** Reads the palette answers itself, in a notice (a command's status). */
-export const NOTICE_READS: ReadonlySet<string> = new Set(["code.get", "code.list", "code.objects", "code.scripts", "receipt.get", "server.info"]);
+export const NOTICE_READS: ReadonlySet<string> = new Set(["code.scripts", "receipt.get", "server.info"]);
 
 export interface PaletteHost {
   perform(id: AffordanceId, args: unknown): Promise<OpOutcome>;

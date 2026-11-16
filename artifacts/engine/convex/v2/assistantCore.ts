@@ -103,12 +103,13 @@ export const turnStatus = internalQuery({
 
 const SUMMARY = 160;
 export const recordCall = internalMutation({
-  args: { turnId: v.id("v2AssistantTurns"), index: v.number(), tool: v.string(), argsJson: v.string(), ok: v.boolean(), summary: v.string() },
+  args: { turnId: v.id("v2AssistantTurns"), index: v.number(), tool: v.string(), argsJson: v.string(), ok: v.boolean(), summary: v.string(), resultJson: v.optional(v.string()) },
   handler: async (ctx, a) => {
     const turn = await ctx.db.get(a.turnId);
     if (!turn) return;
     await ctx.db.insert("v2AssistantCalls", { turnId: a.turnId, threadId: turn.threadId, index: a.index, tool: a.tool,
-      argsJson: clip(a.argsJson, LIMITS.argsChars), ok: a.ok, summary: clip(a.summary, SUMMARY), createdAt: Date.now() });
+      argsJson: clip(a.argsJson, LIMITS.argsChars), ok: a.ok, summary: clip(a.summary, SUMMARY), createdAt: Date.now(),
+      ...(a.resultJson !== undefined ? { resultJson: clip(a.resultJson, LIMITS.resultChars) } : {}) });
   },
 });
 

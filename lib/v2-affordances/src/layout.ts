@@ -124,6 +124,22 @@ const replayOf = (v: ViewState) => {
   return v.replay;
 };
 
+/** The game screen in view, whose dock a layout command changes. */
+function screenOf(ctx: AffordanceContext): DockKind {
+  const kind = dockKindOf(ctx.context);
+  if (!kind) throw new OpFailure("Open a game first: only a game screen has a dock.");
+  return kind;
+}
+/** v1's "Two panels": the first two shown panes stacked on the left; every other pane as tabs of one group on the right. */
+function twoPanels(tree: DockNode): DockNode {
+  const shown = dockGroups(tree).map(l => l.group.active);
+  const left = shown.slice(0, 2);
+  const rest = dockPanes(tree).filter(p => !left.includes(p));
+  const stack: DockNode = left.length < 2 ? { tabs: left, active: left[0]! } : { split: "column", sizes: [50, 50], children: left.map(p => ({ tabs: [p], active: p })) };
+  if (!rest.length) return stack;
+  return { split: "row", sizes: [40, 60], children: [stack, { tabs: rest, active: shown.find(p => rest.includes(p)) ?? rest[0]! }] };
+}
+
 export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
   "view.openPane": (v, a, ctx) => opened(v, a.pane, a.place, ctx),
   // Closing the object or replay pane closes what it showed, so nothing acts on a pane the human cannot see.
@@ -148,6 +164,14 @@ export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
       return { ...v, dock: { ...rest, [kind]: tree } };
     }
     catch (e) { if (e instanceof DockSyntaxError) throw new OpFailure(e.message); throw e; }
+  },
+  "view.twoPanels": (v, _a, ctx) => {
+    const kind = screenOf(ctx);
+    return { ...v, dock: { ...v.dock, [kind]: twoPanels(v.dock[kind] ?? defaultDock(kind)) } };
+  },
+  "view.resetLayout": (v, _a, ctx) => {
+    const { [screenOf(ctx)]: _old, ...rest } = v.dock;
+    return { ...v, dock: rest };
   },
   "view.pinRepresentation": (v, a) => ({ ...v, pins: { ...v.pins, [a.family ?? "*"]: a.rep } }),
   "view.showRepresentation": (v, a, ctx) => ({ ...opened(v, "object", undefined, ctx), focus: { objectId: a.objectId, reps: [a.rep] } }),
