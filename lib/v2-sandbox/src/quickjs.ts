@@ -59,6 +59,7 @@ export class QuickJSEngine implements Engine {
     // Captured before untrusted code can replace JSON.stringify (getString is NUL-terminated; JSON escapes NULs).
     const stringify = keep(context.unwrapResult(context.evalCode("JSON.stringify")));
     let ticks = 0n, executing = false, usedRandom = false;
+    let stepsLeft = () => stepBudget;   // the agent's steps left (in 10,000s): set when the agent starts
     const random = new SplitMix64(seed);   // Math.random = top 53 bits / 2^53
     /** Copy a guest string primitive exactly, if it is one and at most `max` characters. */
     const copy = (handle: QuickJSHandle, max: number): string | null | undefined => {
@@ -74,6 +75,9 @@ export class QuickJSEngine implements Engine {
     try {
       context.setProp(context.global, "__clock", fn("__clock", () => context.newNumber(Number((EPOCH_US + ++ticks) / 1000n))));
       context.setProp(context.global, "__elapsed", fn("__elapsed", () => context.newNumber(Number(++ticks) / 1000)));
+      // The step budget and what is left of it, so a program can do less work instead of failing (not a host call).
+      context.setProp(context.global, "__stepsLeft", fn("__stepsLeft", () => context.newNumber(stepsLeft())));
+      context.setProp(context.global, "__stepBudget", fn("__stepBudget", () => context.newNumber(stepBudget)));
       context.setProp(context.global, "__entropy", fn("__entropy", () => {
         if (executing) usedRandom = true;
         return context.newNumber(Number(random.next() >> 11n) / 2 ** 53);
@@ -104,6 +108,7 @@ export class QuickJSEngine implements Engine {
       const interruptLimit = Math.ceil(stepBudget / TICKS_PER_INTERRUPT);
       let interrupts = 0;
       const stepsOut = () => interrupts >= interruptLimit;
+      stepsLeft = () => Math.max(0, stepBudget - interrupts * TICKS_PER_INTERRUPT);
       // Wall time, as Python's check and the worker's hard wall measure it.
       const expired = () => stepsOut() || performance.now() - started >= wallMs;
       const limit = () => fail("LIMIT", stepsOut() ? stepLimit(stepBudget) : timeLimit(wallMs));
