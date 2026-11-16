@@ -20,6 +20,8 @@ export interface V2Budget {
   reads: string;
   /** Its answer does not depend on what a tick writes. */
   cold: boolean;
+  /** Answers an ended game only (it refuses a live one): the live game's measurement leaves it out. */
+  endedOnly?: true;
 }
 
 export const V2_BUDGETS: readonly V2Budget[] = [
@@ -28,7 +30,7 @@ export const V2_BUDGETS: readonly V2Budget[] = [
   // The fixture holds the room's id, not its code: measured on a code nobody holds (the lookup is one index read either way).
   { query: "v2/rooms:byCode", args: () => ({ code: "ZZZZZZ" }), reads: "1 v2Rooms by_code + the caller's v2Members row", cold: true },
   { query: "v2/rooms:chat", args: f => ({ roomId: f.roomId, ...page }), reads: "v2Chat by_room page", cold: true },
-  { query: "v2/rooms:round", args: f => ({ roomId: f.roomId }), reads: "≤ 16 ended game headers + their v2Standings", cold: true },
+  { query: "v2/rooms:round", args: f => ({ roomId: f.roomId }), reads: "≤ 16 ended game headers + their v2Standings; for the rotation line, the room's v2Members (≤ 16) and ≤ 16 game headers (lobby.ts rotationFor)", cold: true },
   { query: "v2/rooms:history", args: f => ({ roomId: f.roomId, ...page }), reads: "v2Games by_room_phase page", cold: true },
   { query: "v2/games:header", args: f => ({ gameId: f.gameId }), reads: "1 v2Games + the caller's member and player rows", cold: true },
   { query: "v2/games:standings", args: f => ({ gameId: f.gameId }), reads: "1 v2Standings", cold: false },
@@ -36,10 +38,11 @@ export const V2_BUDGETS: readonly V2Budget[] = [
   { query: "v2/play:myRule", args: f => ({ gameId: f.gameId }), reads: "the caller's v2Rules row", cold: true },
   { query: "v2/play:candidates", args: f => ({ gameId: f.gameId }), reads: "the v2Games row and the caller's v2Members row (the pool is the preset's, in code)", cold: true },
   { query: "v2/play:me", args: f => ({ gameId: f.gameId }), reads: "the caller's v2Players row", cold: false },
+  { query: "v2/games:readiness", args: f => ({ gameId: f.gameId }), reads: "1 v2Games + the caller's v2Members + v2Players by_game (≤ 16)", cold: true },
   { query: "v2/games:details", args: f => ({ gameId: f.gameId }), reads: "1 v2Games (+ after the end v2Rules by_game_member, ≤ 16)", cold: true },
   { query: "v2/play:objectIds", args: f => ({ gameId: f.gameId, sort: "points", ...page }), reads: "v2ObjectValues by_game_member_<sort> page, or by_game_member_quadrant_<sort> with a filter (the index prefix)", cold: false },
   { query: "v2/play:object", args: f => ({ objectId: f.objectId }), reads: "v2Objects + v2ObjectStates + the caller's v2ObjectValues", cold: false },
-  { query: "v2/play:othersAt", args: f => ({ objectId: f.objectId, calls: [{ mutator: "si.shift", site: 0, args: { k: "1" } }, { mutator: "si.tilt", site: 0, args: { k: "1" } }] }), reads: "v2Objects + v2ObjectStates + the caller's seat + the seated players' v2Rules (≤ 16) + ≤ 4 v2ObjectStates by_game_state (+ their v2Objects)", cold: false },
+  { query: "v2/play:othersAt", args: f => ({ objectId: f.objectId, calls: [{ mutator: "si.shift", site: 0, args: { k: "1" } }, { mutator: "si.tilt", site: 0, args: { k: "1" } }] }), reads: "v2Objects + v2ObjectStates + the caller's seat + the seated players' v2Rules (≤ 16) + ≤ 4 v2ObjectStates by_game_state (+ their v2Objects)", cold: true, endedOnly: true },
   { query: "v2/play:objectMoves", args: f => ({ gameId: f.gameId, number: 1 }), reads: "1 v2Objects by_game + the caller's v2Moves by_game_member_object, ≤ 50", cold: false },
   { query: "v2/play:agents", args: f => ({ gameId: f.gameId, ...page }), reads: "the caller's live v2Agents by_game_member_live page (≤ 50 of ≤ 200; no program source on the row)", cold: true },
   { query: "v2/play:agentEnergy", args: f => ({ agentId: f.agentId }), reads: "1 v2Agents + 1 v2AgentEnergy", cold: false },
@@ -56,6 +59,10 @@ export const V2_BUDGETS: readonly V2Budget[] = [
   { query: "v2/replays:stored", args: f => ({ gameId: f.gameId }), reads: "1 v2Games", cold: true },
   { query: "v2/connect:pending", args: () => ({ request: "gate-request-key-that-is-not-real" }), reads: "1 oauthRequests + the caller's v2Members (≤ 32) + their rooms", cold: true },
   { query: "v2/setups:presets", args: () => ({}), reads: "none (the deployed presets) + the caller's user row", cold: true },
+  { query: "v2/setups:mine", args: () => page, reads: "the caller's v2Setups by_owner_name page (≤ 50 exist)", cold: true },
+  { query: "v2/setups:shared", args: () => page, reads: "one v2Setups by_name page (everyone's, by name)", cold: true },
+  // The fixture has no saved setup: measured on an id that names none (the lookup is one document either way).
+  { query: "v2/setups:get", args: () => ({ setupId: "no-such-setup" }), reads: "1 v2Setups (anyone's) + the caller's user row", cold: true },
   { query: "v2/gallery:family", args: () => ({ preset: "lines-beginner", family: "prime-landing" }), reads: "none (the bundled artefacts) + the caller's user row", cold: true },
   { query: "v2/rooms:aiQuotas", args: f => ({ roomId: f.roomId }), reads: "member + 1 v2RoomQuotas", cold: true },
   { query: "v2/assistant:status", args: f => ({ roomId: f.roomId }), reads: "room + member + owner + quotas + prefs + v2AiUsage + latest turn + queue (≤ 10)", cold: true },

@@ -9,7 +9,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { admin, humans } from "./v2-helpers.ts";
+import { admin, humans, perform } from "./v2-helpers.ts";
 
 test("while live: settings and timings, no rule of anyone's", async () => {
   const [ada, bo, sy] = await humans("Details Ada", "Details Bo", "Details Sy");
@@ -35,4 +35,29 @@ test("after the end: every seat's rule with its name and card, and the timings",
   assert.deepEqual(new Set(d.rules.map((r: any) => r.name)), new Set(["Details End Ada", "Details End Bo", d.rules.find((r: any) => r.name !== "Details End Ada" && r.name !== "Details End Bo").name]));
   for (const r of d.rules) assert.ok(r.card.length > 0 && r.title.length > 0 && r.memberId, JSON.stringify(r));
   assert.ok(d.endedAt !== null);
+});
+
+test("the end reason (v1's): none while live, the owner's after they end it", async () => {
+  const [ada] = await humans("Details Reason Ada");
+  const { gameId } = await admin.mutation("v2/testing:seedGame", { owner: ada!.userId });
+  assert.equal((await ada!.query("v2/games:details", { gameId })).endReason, null);
+  await perform(ada!, "game.end", {}, { gameId });
+  const d = await ada!.query("v2/games:details", { gameId });
+  assert.equal(d.endReason, "owner");
+  assert.ok(d.endedAt !== null && d.startedAt !== null);
+});
+
+// v1's "Who is here" ✓: which seats are ready. Partners are always ready; a human is once they say so.
+test("readiness: every seat's ready flag, a human's only once they mark ready", async () => {
+  const [ada] = await humans("Readiness Ada");
+  const { roomId } = (await perform(ada!, "room.create", { name: "Readiness room" })).result;
+  await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
+  const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
+  const header = await ada!.query("v2/games:header", { gameId });
+  const before = await ada!.query("v2/games:readiness", { gameId });
+  assert.equal(before.length, header.roster.length);
+  for (const r of before) assert.equal(r.ready, r.memberId !== header.me, "partners ready, Ada not yet");
+  await perform(ada!, "game.ready", { ready: true }, { gameId });
+  assert.ok((await ada!.query("v2/games:readiness", { gameId })).every((r: any) => r.ready));
+  await perform(ada!, "game.end", {}, { gameId });
 });

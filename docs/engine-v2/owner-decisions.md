@@ -830,6 +830,23 @@ back) or TRIAL (a declared experiment, measured and reported).
     limits hold even for the baseline: a value function is honest (no extrapolated tail paying beyond what was measured),
     and a family with a cheap peak in the hundreds of bits is reported to the coordinator before it is dealt.
 
+38. **CALL** (the coordinator's, 16 Nov, not the owner's): in the tree valuation of tuple rules (decision 45), each
+    part below the level adds at most `TREE_INNER_BITS` = 2 bits (`lib/v2-valuation` tree-value.ts). Measured by the
+    spec lead with the rule design session's families: uncapped, an exact hit was worth 4 to 14 bits of closeness, most
+    of the score, so a greedy climber with one seat's whole-game energy stopped at the first exact hit with 2,000 to
+    3,100⚡ unspent (Mixed Intercept 17.8 bits, 3 to 5 levels up). Capped at 2, the level carries the score and climbs go
+    on (Mixed Intercept 33 to 43 levels up for 1,600 to 3,000⚡; Fraction Gradient 5 to 12; Prime Intercept 6 to 11),
+    and a cheap move from a climbed line keeps 95 to 100% of the bits. Capping only lowers bits, so bits ≤ φ still holds
+    (tested). The rule design session's gap-unit grading of closeness is the alternative, kept as an option. (c′)
+    pricing stays with the owner and is not shipped. With it, Prime Landing and Whole Crossing read a flat line's
+    height in place of its (missing) crossing, so a tilt to flat is not a one-move knock to nothing.
+
+39. **CALL** (the coordinator's, 16 Nov): **Grids · arithmetic is withdrawn** from the setups. A lattice reduction finds
+    Divisibility's top boards by formula (an optimum found, reported as a bug): powers of 3 on halves reach 46 powers on
+    **1110/1212/1116/0261**, against search's 28–40, and the attack applies to every divisibility goal on readings
+    linear in the digits (grid-params.md §14). The preset was a v2 invention, not part of the original baseline.
+    Divisibility and Leading Digits keep their code and values, undealt, for the grid design session.
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.

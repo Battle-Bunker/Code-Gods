@@ -9,6 +9,7 @@ import { chipRep, defaultRep, repText, RepView } from "@workspace/v2-views";
 import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMoves, useMyAgents, useMyRule, variantOf, type Move, useOthersBlurred, usePublicLog, type LogEntry } from "@/sdk";
 import { num, timeLeft } from "@/core/words";
 import { useReplaying } from "@/core/affordance-runtime";
+import { useAffordance } from "@workspace/v2-affordances/react";
 import { callWords, moveSentence, moveWho } from "./move-line";
 import { foldTugs, tugSentence, type FeedItem } from "./tug-of-war";
 import { noteLines, tugNoteNumber } from "./move-notes";
@@ -36,10 +37,11 @@ function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<stri
   const blurred = useOthersBlurred();
   const g = useGame(); const length = g ? fixedLength(g) : null;
   const notes = useContext(NotesContext).get(move.seq);
-  // A grid's change is drawn (a small board, the changed cells marked), not written as sixteen digits.
+  const openObject = useAffordance("view.openObject");
+  // A grid's change (digits or a coloured board) is drawn (a small board, the changed cells marked), not written out.
   const board = useMemo(() => {
     const type = objectTypeOf(variant);
-    if (type.id !== "grid") return null;
+    if (type.representations[0]?.scene !== "grid") return null;   // a grid of digits, or a coloured board
     try { return { type, before: decodeState(move.stateBefore, variant), after: decodeState(move.stateAfter, variant), site: move.calls[0]?.site ?? 0 }; } catch { return null; }
   }, [move, variant]);
   const text = useMemo(() => {
@@ -65,6 +67,11 @@ function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<stri
           <p className="text-sm text-foreground" data-testid="text-move-line"><CompactText text={text} /></p>
         </div>
       ) : <p className="text-sm text-foreground" data-testid="text-move-line"><CompactText text={text} /></p>}
+      {/* v1: a move opens the object it changed, which then says it was opened from this move. */}
+      <button type="button" className="text-xs underline text-muted-foreground hover:text-foreground" data-testid={`button-open-move-${move.seq}`}
+        onClick={() => { void openObject.run({ objectId: move.objectId, from: text }).catch(() => {}); }}>
+        Open this {objectWord(variant).one}
+      </button>
       {notes?.map(n => <AgentNote key={n} text={n} variant={variant} />)}
     </li>
   );
@@ -212,7 +219,7 @@ function LogRowView({ r, variant, approx, length }: { r: LogEntry; variant: stri
   const change = useMemo(() => {
     // A board written out is sixteen digits (round 6): a grid's row says which grid and your points only.
     // A paid game's other players' moves carry no state while live (their content is paid).
-    if (objectTypeOf(variant).id === "grid" || r.state === null) return null;
+    if (objectTypeOf(variant).representations[0]?.scene === "grid" || r.state === null) return null;   // digits or a coloured board
     try {
       const after = lineText(decodeState(r.state, variant), "", 0, variant);
       return { before: r.stateBefore ? lineText(decodeState(r.stateBefore, variant), "", 0, variant) : "", after };

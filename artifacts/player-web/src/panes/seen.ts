@@ -60,7 +60,8 @@ export function lookAllPrice(rows: readonly ({ lookPrice?: number } | undefined)
 }
 
 /** The Watcher a board needs (lib/v2-agents watcherFor): one program per object type. */
-export const watcherTypeOf = (variant: string): "lines" | "grids" => (variant.startsWith("grid") ? "grids" : "lines");
+/** A coloured board ("board-…", lib/v2-grid-boards) is read through its cells as the digit grid is: the grids Watcher. */
+export const watcherTypeOf = (variant: string): "lines" | "grids" => (variant.startsWith("grid") || variant.startsWith("board-") ? "grids" : "lines");
 /** Its share of power: lines about 15 s fresh, most turns left to the climber (W2, #674). */
 export const KEEP_FRESH_SHARE = 0.2;
 

@@ -37,8 +37,28 @@ const PMI_ALIGNED = 2, PMI_ALIGNED_SHARE = 0.2, PMI_MAX = 4, PMI_MEAN = 1;
  * (3a, 4, 13:<layer>), "<preset> <row>" for a pool's (5, 7-kind:<kind>, 7-form:<form>).
  */
 const EXEMPT: Readonly<Record<string, string>> = {
+  // The coloured boards' original-rules baseline (lib/v2-grid-boards, "Grids · original colours"; coordinator's call 37):
+  // v1's colour families as v1 had them, with v1's secondaries (one or none) and v1's parameters. To be redesigned with
+  // the owner later, not by a session.
+  "chessmaster 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "chessmaster 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "parity-painter 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "colour-mirror 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "colour-mirror 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "picture-frame 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "picture-frame 4": "16 Nov, boards worker: grid baseline (call 37); one symbol dealt for equal opportunity, 0–2 fail the energy gate",
+  "colour-bonds 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "colour-bonds 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "honest-minesweeper 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "honest-minesweeper 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "kingdom 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "kingdom 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "set-spotter 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "set-spotter 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "grids-original-colours 5-unmeasured": "16 Nov, boards worker: no PMI table for board-4-base10-rgb yet (baseline, call 37)",
+
   // Row 3a: one or two dealt secondaries. The owner's instruction (15 Nov): at least three per family. Lines: the spec
-  // lead's repertoire work; grids-arithmetic: the grids session (pairs: three or more since trial 37).
+  // lead's repertoire work; grids-arithmetic withdrawn 16 Nov (pairs: three or more since trial 37).
   "prime-landing 3a": "15 Nov, spec lead: repertoire in progress",
   "smooth-intercept 3a": "15 Nov, spec lead: repertoire in progress",
   "square-area 3a": "15 Nov, grids session: Square Area redesign",
@@ -49,10 +69,8 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "prime-staircase 3a": "15 Nov, spec lead: repertoire in progress",
   "ruler 3a": "15 Nov, grids session",
   "pythagorean-area 3a": "15 Nov, grids session",
-  "divisibility 3a": "15 Nov, grids session",
   "opposite-nines 3a": "15 Nov, grids session: big-on-top undealt for a cheap peak (#902); grid repertoires after the deadline",
   "strangers 3a": "15 Nov, grids session: ones and prime-strangers undealt for cheap peaks (#902); grid repertoires after the deadline",
-  "leading-digits 3a": "15 Nov, grids session",
   // Row 1 (not checked here for grids): every beginner grid main part has a global top on the 0–9 board, as v1's did.
   // Leapfrog and Two Pair reached theirs in real games within 10 minutes (round 34, baseline 2); kept dealt as the v1
   // baseline by the coordinator (16 Nov). See docs/engine-v2/grid-v1-v2-compare.md, "Known reachable tops".
@@ -81,7 +99,6 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "lines-lenses 5-unmeasured": "15 Nov, spec lead: PMI table for line-q-lenses",
   "grids-beginner 5-unmeasured": "15 Nov, grids session: PMI table for grid-4-d10",
   "grids-more-rules 5-unmeasured": "15 Nov, grids session: PMI table for grid-4-d10",
-  "grids-arithmetic 5-unmeasured": "15 Nov, grids session: PMI table for grid-4-d10",
   "lines-pairs 5-unmeasured": "15 Nov, pairs session: PMI table for pair-q",
   // Decision 13. Prime Staircase's shared factor needs a run of two primes, which law draws do not reach: it reads 0
   // on all of them. Whether it takes many values on the rungs is not measured here.

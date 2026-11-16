@@ -5,17 +5,18 @@ import { OpFailure } from "@workspace/v2-affordances";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { MAX_MEMBERS, MAX_PLAYERS, normaliseCode, userById } from "./access";
-import { bidDealer, dealDefence, defencePool, isGridVariant, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, policyDeal, practiceDeal, type SeatKind, rotatedDeal, ruleView, hasSeatingRule, seatingAligned, seatingClashes, type DealtRule, type PastDeal } from "./deal.ts";
+import { bidDealer, playable, dealDefence, defencePool, isGridVariant, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, policyDeal, practiceDeal, type SeatKind, rotatedDeal, ruleView, hasSeatingRule, seatingAligned, seatingClashes, type DealtRule, type PastDeal } from "./deal.ts";
 import { dealWithBids, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
 import { isPreset, presetOf, TURNOVER_DEFAULTS, type Preset, type PresetBid, type Turnover } from "./presets.ts";
 import { DEFAULT_PENALTY_WEIGHT, typeOf } from "./world.ts";
 import { valueHead } from "./values.ts";
+import { bidders } from "./bids.ts";
 import { summonPracticePartners } from "./agents.ts";
 import { makeFunctionReference } from "convex/server";
 import { newNoiseKey } from "./disclose.ts";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, drawEnd, timeScaleOf } from "./duration.ts";
 import { ensureWarm } from "./readiness.ts";
-import { DEFAULT_PAUSE_SECONDS, endGame } from "./loop.ts";
+import { bornAtStart, DEFAULT_PAUSE_SECONDS, endGame } from "./loop.ts";
 import { unopposedDirections } from "@workspace/v2-agents/pure";
 
 const PLANNING_ENDS = makeFunctionReference<"mutation", { gameId: Id<"v2Games"> }>("v2/loop:planningEnds");
@@ -105,11 +106,20 @@ function enoughFamilies(room: Doc<"v2Rooms">, seats: number) {
   if (left < seats && all >= seats) throw new OpFailure(`${seats} players, but this room deals only ${left} rule families: two players would hold the same family.`, "Allow more rules in the room's settings (Rules never dealt).");
 }
 
+/** A deployed preset (v2/setups:presets lists them) that can deal: room.create, room.settings and setups.save. */
+export function checkPreset(preset: string | undefined) {
+  if (preset !== undefined && !isPreset(preset)) throw new OpFailure(`No preset ${preset}.`, "Pick one of the deployed presets (v2/setups:presets).");
+  if (preset !== undefined && !playable(presetOf(preset))) throw new OpFailure(`${presetOf(preset).title} is not playable yet: its rules have no value functions on this deployment.`, "Pick one of the deployed presets (v2/setups:presets).");
+}
+
 /**
  * Sets the preset and the overrides. Overrides, when given, replace the old ones (`{}` restores the preset's values);
- * a new preset starts without the old preset's overrides unless the call gives some.
+ * a new preset starts without the old preset's overrides unless the call gives some. `setup`: they come from that
+ * saved setup (room.settings `setupId`), whose name the room then shows; without it the change is by hand and the
+ * room shows no setup. A playtest room's time scale (decision 37: an admin's, never a room setting) is kept across
+ * every change.
  */
-export async function changeSettings(ctx: MutationCtx, room: Doc<"v2Rooms">, a: { preset?: string; overrides?: Doc<"v2Rooms">["overrides"] }) {
+export async function changeSettings(ctx: MutationCtx, room: Doc<"v2Rooms">, a: { preset?: string; overrides?: Doc<"v2Rooms">["overrides"]; setup?: Doc<"v2Rooms">["setup"] }) {
   if (a.preset !== undefined && !isPreset(a.preset)) throw new OpFailure(`No preset ${a.preset}.`, "Pick one of the deployed presets.");
   if (room.bidding) throw new OpFailure("The bid phase is open: the settings change once it closes.");
   if (a.overrides?.defenceGoals && !isGridVariant(presetOf(a.preset ?? room.preset).variant))
@@ -134,7 +144,8 @@ export async function changeSettings(ctx: MutationCtx, room: Doc<"v2Rooms">, a: 
   }
   await ctx.db.patch(room._id, {
     ...(a.preset !== undefined ? { preset: a.preset } : {}),
-    overrides: a.overrides ?? (presetChanged ? {} : room.overrides),
+    overrides: { ...(a.overrides ?? (presetChanged ? {} : room.overrides)), ...(room.overrides.timeScale !== undefined ? { timeScale: room.overrides.timeScale } : {}) },
+    setup: a.setup,
     revision: room.revision + 1,
   });
 }
@@ -253,19 +264,6 @@ export const setTimeScale = internalMutation({
   },
 });
 
-/** The humans who bid: seated (not spectating) and human (practice partners and AI players do not bid). */
-export const bidders = (members: readonly Doc<"v2Members">[]) => members.filter(m => m.kind === "human" && !m.spectator);
-
-/**
- * v1's open bidding: the other seated bidders' bids as they stand, for the bid screen and `bid.state` alike; none when
- * the room bids sealed (the default). A bid of a member who now watches or has left is not shown: it no longer counts.
- */
-export function openBids(bidding: NonNullable<Doc<"v2Rooms">["bidding"]>, rows: readonly Doc<"v2RoomBids">[], members: readonly Doc<"v2Members">[], me: Id<"v2Members">) {
-  if ((bidding.visibility ?? "sealed") !== "open") return [];
-  const seated = new Map(bidders(members).map(m => [m._id as string, m.name]));
-  return rows.filter(r => r.memberId !== me && r.bids.length > 0 && seated.has(r.memberId)).map(r => ({ memberId: r.memberId, name: seated.get(r.memberId)!, bids: r.bids }));
-}
-
 /**
  * Closes the phase and deals with its bids (only the bids of members still seated count). Idempotent: a phase already
  * closed or reopened is left alone. A room that can no longer be dealt (too few seats) closes the phase without a game.
@@ -335,7 +333,7 @@ export const endAbandoned = internalMutation({
   args: { gameId: v.id("v2Games") },
   handler: async (ctx, { gameId }) => {
     const game = await ctx.db.get(gameId);
-    if (game && game.phase !== "ended") await endGame(ctx, game);
+    if (game && game.phase !== "ended") await endGame(ctx, game, "abandoned");
   },
 });
 
@@ -462,6 +460,8 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
   });
   await ctx.db.patch(room._id, { gameId, lastGameId: gameId, games: number, revision: room.revision + 1 });
   const game = (await ctx.db.get(gameId))!;
+  // The board exists from the start (v1): planning shows the starting objects and every player's points.
+  await bornAtStart(ctx, game);
   // Agent sandboxes boot in the background during planning (readiness.ts): nobody waits for them.
   await ensureWarm(ctx);
   await summonPracticePartners(ctx, game);

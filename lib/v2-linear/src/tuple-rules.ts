@@ -112,11 +112,13 @@ type Third<P> = { layer: L<P>; value: (r: { m: Q | null; c: Q | null; x: Q; n: b
 function tupleFamily<P extends object>(o: {
   id: string; title: string; depends: string[]; versions: P[]; rep: string;
   main: (p: P) => string; close: (p: P) => string;
-  read: (ctx: Parameters<Parameters<typeof family>[5]>[0], p: P) => { x: Q; m: Q | null; c: Q | null; from: ReturnType<typeof ref>[]; sign?: number } | { none: ElementValueLike; from: ReturnType<typeof ref> };
+  read: (ctx: Parameters<Parameters<typeof family>[5]>[0], p: P) => { x: Q; m: Q | null; c: Q | null; from: ReturnType<typeof ref>[]; sign?: number; flat?: boolean } | { none: ElementValueLike; from: ReturnType<typeof ref> };
   nearest: (x: Q, p: P) => { size: Q; n: bigint; at: Q; why: string; next?: Q };
   thirds: Third<P>[];
   /** Where the reading and its targets are drawn (the annotation contract, #960): the measure's start, a target's element. */
   marks?: { from: ReturnType<typeof ref>; target: (at: Q) => ReturnType<typeof ref> };
+  /** The marks when the reading says `flat` (a flat line read by its height): drawn on the y-axis instead. */
+  flatMarks?: { from: ReturnType<typeof ref>; target: (at: Q) => ReturnType<typeof ref> };
   /** Each third part's own reading (its focus), by layer id. */
   thirdReads?: Readonly<Record<string, ReturnType<typeof ref>>>;
 }) {
@@ -135,13 +137,15 @@ function tupleFamily<P extends object>(o: {
     // Marks, each with its layer's term (the annotation contract, #960); every cited element is read first.
     const reading = r.from[0]!;
     ctx.mark({ kind: "focus", ref: reading, term: "target" });
-    if (o.marks) {
+    const mk = r.flat ? o.flatMarks : o.marks;
+    if (mk) {
+      // A mark on a view outside depends is drawn, never read or charged (#1022); inside depends it is read first.
+      const cite = (x: ReturnType<typeof ref>) => { if (o.depends.includes(x.rep)) ctx.read(x); return x; };
       const signed = (v: Q) => (r.sign !== undefined && r.sign < 0 ? Qn.neg(v) : v);
-      const tgt = o.marks.target(signed(t.at));
-      ctx.read(tgt); ctx.read(o.marks.from);
+      const tgt = cite(mk.target(signed(t.at)));
       ctx.mark({ kind: "candidate", ref: tgt, term: "target" });
-      if (t.next) { const nx = o.marks.target(signed(t.next)); ctx.read(nx); ctx.mark({ kind: "candidate", ref: nx, term: "target" }); }
-      ctx.mark({ kind: "measure", from: o.marks.from, to: tgt, term: "closeness" });
+      if (t.next) ctx.mark({ kind: "candidate", ref: cite(mk.target(signed(t.next))), term: "target" });
+      ctx.mark({ kind: "measure", from: cite(mk.from), to: tgt, term: "closeness" });
     } else ctx.mark({ kind: "note", ref: reading, term: "closeness", text: `${Qn.toWire(r.x)} is ${Qn.toWire(d)} from ${Qn.toWire(t.at)}` });
     for (const th of o.thirds) {
       const at = o.thirdReads?.[th.layer.id];
@@ -152,14 +156,26 @@ function tupleFamily<P extends object>(o: {
 type ElementValueLike = unknown;
 const lineMC = (ctx: Parameters<Parameters<typeof family>[5]>[0]) => ({ m: num(ctx.read(ref("si", "m"))), c: num(ctx.read(ref("si", "c"))) });
 
+/**
+ * The x-crossing's size, the reading of Prime Landing and Whole Crossing (tuple). A flat line never crosses the x-axis:
+ * it reads its height |c| instead (the coordinator's call, 16 Nov: a tilt to flat made the score undefined, a 0% knock),
+ * so a flat line still has a nearest target. Only the x-axis line itself (y = 0) and a vertical line score nothing.
+ */
+function crossingOrHeight(ctx: Parameters<Parameters<typeof family>[5]>[0]) {
+  const xr = ref("crossing", "x0"), xv = ctx.read(xr), x = num(xv), mc = lineMC(ctx);
+  if (x !== null) return { x: Qn.abs(x), sign: Qn.sign(x), ...mc, from: [xr] };
+  if (mc.m !== null && mc.c !== null && Qn.sign(mc.m) === 0 && Qn.sign(mc.c) !== 0) return { x: Qn.abs(mc.c), sign: Qn.sign(mc.c), flat: true, ...mc, from: [ref("si", "c")] };
+  return { none: xv, from: xr };
+}
 type K = { ends: number };
 /** Prime Landing, recast: the prime ending in k nearest the x-crossing's size. */
 export const landingTuple = tupleFamily<K>({
-  id: "landing-tuple", title: "Prime Landing (tuple)", depends: ["crossing", "si", "cart"], versions: [1, 3, 7, 9].map(ends => ({ ends })), rep: "crossing",
-  main: p => `Find where the line crosses the x-axis, ignoring a minus sign, and the prime ending in ${p.ends} nearest to it. Primary: that prime, bigger is better.`,
+  id: "landing-tuple", title: "Prime Landing (tuple)", depends: ["crossing", "si"], versions: [1, 3, 7, 9].map(ends => ({ ends })), rep: "crossing",
+  main: p => `Find where the line crosses the x-axis, ignoring a minus sign (a flat line never crosses it: use its height instead), and the prime ending in ${p.ends} nearest to it. Primary: that prime, bigger is better.`,
   close: () => "How far the crossing is from that prime: closer is better.",
-  read: ctx => { const xr = ref("crossing", "x0"), xv = ctx.read(xr), x = num(xv); if (x === null) return { none: xv, from: xr }; return { x: Qn.abs(x), sign: Qn.sign(x), ...lineMC(ctx), from: [xr] }; },
+  read: crossingOrHeight,
   marks: { from: ref("cart", "xInt"), target: at => ref("cart", "xAxisMark", { x: at }) },
+  flatMarks: { from: ref("cart", "yInt"), target: at => ref("cart", "yAxisMark", { y: at }) },
   thirdReads: { "intercept-multiple": ref("si", "c"), "gradient-log": ref("si", "m"), "intercept-whole": ref("si", "c") },
   nearest: (x, p) => { const n = nearestPrimeEnding(x, p.ends); return { size: q(n), n, at: q(n), why: `nearest prime ending in ${p.ends}: ${n}` }; },
   thirds: [
@@ -200,13 +216,15 @@ type PD = { digits: "odd" | "even"; meets: 1 | -1 };
 export const rulersTuple = tupleFamily<PD>({
   id: "rulers-tuple", title: "Same on Both Rulers (tuple)", depends: ["si"], rep: "si",
   versions: (["odd", "even"] as const).flatMap(digits => ([1, -1] as const).map(meets => ({ digits, meets }))),
-  main: p => `Find where the line meets y = ${p.meets === 1 ? "x" : "−x"}, ignoring a minus sign. A palindrome reads the same backwards (7, 44, 343, 1221); find the one with an ${p.digits} number of digits nearest to it. Primary: that palindrome, bigger is better.`,
+  main: p => `Find where the line meets y = ${p.meets === 1 ? "x" : "−x"}, ignoring a minus sign (a line parallel to it never meets it: use its y-intercept instead). A palindrome reads the same backwards (7, 44, 343, 1221); find the one with an ${p.digits} number of digits nearest to it. Primary: that palindrome, bigger is better.`,
   close: () => "How far the meeting point is from that palindrome: closer is better.",
   read: (ctx, p) => {
     const mRef = ref("si", "m"), { m, c } = lineMC(ctx);
     if (m === null || c === null) return { none: { undefined: "a vertical line" }, from: mRef };
     const den = Qn.sub(q(p.meets), m);
-    if (Qn.sign(den) === 0) return { none: { undefined: "parallel: it never meets" }, from: mRef };
+    // A parallel line never meets it: it reads its y-intercept's size instead (the coordinator's call, 16 Nov), so a
+    // tilt or reflection onto the parallel is not a one-move knock to nothing. Only y = ±x itself scores nothing.
+    if (Qn.sign(den) === 0) return Qn.sign(c) === 0 ? { none: { undefined: "the line itself: it meets everywhere" }, from: mRef } : { x: Qn.abs(c), m, c, from: [mRef, ref("si", "c")] };
     return { x: Qn.abs(Qn.div(c, den)), m, c, from: [mRef, ref("si", "c")] };
   },
   thirdReads: { "gradient-digits": ref("si", "m"), "intercept-multiple": ref("si", "c") },
@@ -219,12 +237,13 @@ export const rulersTuple = tupleFamily<PD>({
 /** Whole Crossing, recast: the 5s-ladder number nearest the x-crossing; its count of 5s. */
 type QR = { q: number; r: number };
 export const crossingTuple = tupleFamily<QR>({
-  id: "crossing-tuple", title: "Whole Crossing (tuple)", depends: ["crossing", "si", "cart"], rep: "crossing",
+  id: "crossing-tuple", title: "Whole Crossing (tuple)", depends: ["crossing", "si"], rep: "crossing",
   versions: [3, 5, 7].flatMap(qq => Array.from({ length: qq - 1 }, (_, i) => ({ q: qq, r: i + 1 }))),
-  main: p => `Find where the line crosses the x-axis, ignoring a minus sign. Ladder numbers are those that, once every ${p.q} is divided out, leave ${p.r} when divided by ${p.q} (for example ${p.r}, ${p.r + p.q}, ${p.q * p.r}, ${p.q * p.q * p.r}). Find the ladder number nearest the crossing. Primary: how many ${p.q}s it holds, more is better.`,
+  main: p => `Find where the line crosses the x-axis, ignoring a minus sign (a flat line never crosses it: use its height instead). Ladder numbers are those that, once every ${p.q} is divided out, leave ${p.r} when divided by ${p.q} (for example ${p.r}, ${p.r + p.q}, ${p.q * p.r}, ${p.q * p.q * p.r}). Find the ladder number nearest the crossing. Primary: how many ${p.q}s it holds, more is better.`,
   close: () => "How far the crossing is from that ladder number: closer is better.",
-  read: ctx => { const xr = ref("crossing", "x0"), xv = ctx.read(xr), x = num(xv); if (x === null) return { none: xv, from: xr }; return { x: Qn.abs(x), sign: Qn.sign(x), ...lineMC(ctx), from: [xr] }; },
+  read: crossingOrHeight,
   marks: { from: ref("cart", "xInt"), target: at => ref("cart", "xAxisMark", { x: at }) },
+  flatMarks: { from: ref("cart", "yInt"), target: at => ref("cart", "yAxisMark", { y: at }) },
   thirdReads: { "intercept-multiple": ref("si", "c"), "gradient-log": ref("si", "m"), "intercept-whole": ref("si", "c") },
   nearest: (x, p) => { const o = nearestOnLadder(x, p); const at = o.at < 0n ? -o.at : o.at; return { size: q(o.j), n: at, at: q(at), why: `nearest ladder number: ${at} = ${p.q}^${o.j} × ${o.t}` }; },
   thirds: [

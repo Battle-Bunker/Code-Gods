@@ -154,7 +154,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `chat.send` | Send a chat message | text | server · room | member | room, planning, live, paused, ended | write |
 | `chat.list` | Read the chat | cursor, limit | server · room | member | room, planning, live, paused, ended, replay | read |
 | `game.rotation` | Show who gets which rule next | — | server · room | member | room, ended | read |
-| `room.settings` | Change the room's settings | preset, overrides | server · room | owner | room | write; confirm summary |
+| `room.settings` | Change the room's settings | preset, overrides, setupId | server · room | owner | room | write; confirm summary |
 | `room.aiQuotas` | Set the room's AI quotas | ai, assistant | server · room | owner | room, planning, live, paused, ended, replay | write; confirm inline |
 | `seats.fillPracticePartners` | Fill empty seats with practice partners | — | server · room | owner | room | write |
 | `seats.addAi` | Add an AI player | template | server · room | owner | room | write; spends aiBudget; confirm summary |
@@ -164,6 +164,11 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `game.startWorldNow` | End planning now | — | server · game | owner | planning | write |
 | `game.resume` | Resume the game | — | server · game | owner | paused | write |
 | `game.end` | End the game | — | server · game | owner | planning, live, paused | destructive; confirm modal |
+| `setups.page` | List saved setups | mine, cursor, limit | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
+| `setups.get` | Show a saved setup | setupId | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
+| `setups.save` | Save a setup | name, preset, overrides, setupId | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write |
+| `setups.duplicate` | Duplicate a saved setup | setupId, name | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write |
+| `setups.remove` | Delete a saved setup | setupId | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | destructive; confirm inline |
 | `bid.state` | Show the bid phase | — | server · room | seated | room | read |
 | `bid.place` | Bid on a rule family | family, percent | server · room | seated | room | write; confirm inline |
 | `bid.withdraw` | Withdraw a bid | family | server · room | seated | room | write |
@@ -207,7 +212,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `view.pinRepresentation` | Show objects in a representation | rep, family | client · room | member | planning, live, paused, ended, replay | write |
 | `view.showRepresentation` | Switch an object's representation | objectId, rep | client · room | member | planning, live, paused, ended, replay | write |
 | `view.compareRepresentations` | Compare representations side by side | objectId, reps | client · room | member | planning, live, paused, ended, replay | write |
-| `view.openObject` | Open an object | objectId | client · room | member | planning, live, paused, ended, replay | write |
+| `view.openObject` | Open an object | objectId, from | client · room | member | planning, live, paused, ended, replay | write |
 | `view.sortObjects` | Sort objects | sort | client · room | member | planning, live, paused, ended, replay | write |
 | `view.filterObjects` | Filter objects | mine, minBits, show | client · room | member | planning, live, paused, ended, replay | write |
 | `view.showGlossary` | Explain a term | term | client · none | anyone | signedOut, home, room, planning, live, paused, ended, replay, admin | write |
@@ -219,6 +224,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `replay.step` | Step the replay | by | client · game | member | replay | write |
 | `replay.watchAs` | Watch the replay as a player | memberId | client · game | member | replay | write |
 | `replay.speed` | Set the replay speed | speed | client · game | member | replay | write |
+| `server.info` | Show server info | — | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
 | `receipt.get` | Check a command's status | id | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
 | `account.whoami` | Show who I am | — | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
 | `account.connections` | List connected assistants | — | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |

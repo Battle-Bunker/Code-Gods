@@ -74,3 +74,17 @@ test("coordinator, 16 Nov: compact lines are short and never cut; the plane mark
   assert.match(html, /Halfway between 31 and 41: past 36, the nearest is 41/);
   assert.doesNotMatch(text(html), /counts first/);
 });
+
+test("the points tree: each layer's bits in its own words, the corrections, and the total; no 'counts first'", () => {
+  const s = mc(q(1, 31), q(32));
+  const parts = [{ layer: "target", bits: 4.6 }, { layer: "close", bits: 5.1 }, { layer: "times", bits: 0 }, { layer: "uniqueness", bits: -0.5 }];
+  const html = renderToStaticMarkup(<ExpandedFace rule={rule} state={s} improvement={false} initialRep="cart" parts={parts} />);
+  const t = text(html);
+  assert.match(html, /data-testid="points-tree"/);
+  assert.match(t, /● y-intercept 32: nearest 31, next 41 4\.60 bits/);
+  assert.match(t, /◆ .*1 above 31 \+5\.10 bits/);
+  assert.match(t, /▲ .*exactly \+0\.00 bits/);
+  assert.match(t, /others holding the same .*−0\.50 bits/);
+  assert.match(t, /together 9\.20 bits/);
+  assert.doesNotMatch(t, /counts first/);
+});

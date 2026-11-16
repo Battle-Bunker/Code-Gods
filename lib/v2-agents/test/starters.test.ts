@@ -113,6 +113,9 @@ test("both languages make the same moves, and no shipped agent fails on newborn 
       for (const a of [ts, py]) {
         const { record } = await runAct(await boxes.get(a.language), {
           type: lineType, variant, state, rule: { family: a.family, params: paramsOf(a.family), tieBreaker }, program: program(a), seed: String(i), energy: 500,
+          // The languages' logic, with steps to spare: Thorough's and Bold's scoring cutoff counts TypeScript's steps and
+          // not Python's; step-budget.test.ts holds every starter under the shipped limit.
+          limits: { stepBudget: 3_000_000, wallMs: 30_000 },
         });
         assert.notEqual(record.outcome, "failed", `${shippedPath(a)} on ${variant.id} ${lineType.encode(state)}: ${record.reason}`);
         const { steps: _s, ...rest } = record;

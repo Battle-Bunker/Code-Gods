@@ -359,6 +359,14 @@ on a level reached in the first two minutes (drift off; powers of 3 on halves is
 1.2–1.3 with drift off. Its card is one sentence and its view shows each reading, its power and "one more 3: add 18 or
 take away 9". It has no opponent with balance under 2 (row 6 open).
 
+**Withdrawn (16 November): an optimum found by formula.** The grid tuple-rules worker found Divisibility's top boards by
+lattice reduction (fpylll LLL and BKZ, a few seconds): digits d in [0, 9]^16, the four readings W·d ≡ 0 mod q^e, closest
+vector around a board of 4s and 5s. Powers of 3 on halves reach 46 powers, e.g. **1110/1212/1116/0261** (transposition
+symmetric, so the left half equals the top half and the four readings are two; its rows are distinct multisets, so no
+repeats penalty), against the 28–40 that search found above; powers of 7 on halves reach 22. The attack applies to every
+divisibility goal on readings linear in the digits. The coordinator withdrew the Grids · arithmetic preset; Divisibility
+and Leading Digits keep their code and values, undealt, for the grid design session.
+
 **Every goal tried, and why it failed.**
 
 | Goal | Failure |

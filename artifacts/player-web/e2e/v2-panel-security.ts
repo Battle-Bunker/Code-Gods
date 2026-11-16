@@ -170,7 +170,7 @@ await check("moving a panel's pane does not restart its frame", async () => {
   await frame(page, "sec-live").locator("body").evaluate(() => { (window as unknown as { __mark: number }).__mark = 7; });
   for (const place of ["Move to the left", "Move to the right"]) {
     await page.getByTestId(`button-pane-menu-${pane}`).click();
-    await page.getByRole("menuitem", { name: place }).click();
+    await page.getByRole("option", { name: place }).click();
     await sleep(1500);
   }
   assert(await page.getByTestId("stored-panel-stopped").count() === 0, "the moved frame was stopped as a navigation");

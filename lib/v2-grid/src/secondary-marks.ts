@@ -88,7 +88,8 @@ const MARKERS: Readonly<Record<string, Marker>> = {
     boxes(n).forEach((cs, k) => {
       const box = ref("boxes", `box${k}`), xs = cs.map(i => v[i]!);
       const hi = Math.max(...xs), lo = Math.min(...xs);
-      note(ctx, "apart", box, `biggest ${hi} minus smallest ${lo}: ${hi - lo}`);
+      // On the box's own line (the main part's note on how it pairs up), so each box is said once.
+      note(ctx, "apart", ref("boxes", `pairs${k}`), `${hi} − ${lo} = ${hi - lo} apart`);
       const [a, b, c, d] = xs;
       if (a === d && b === c && a !== b) focus(ctx, "diagonal-pairs", box);
       cs.filter(i => v[i] === lo).forEach(i => focus(ctx, "small-pairs", cell(n, i)));

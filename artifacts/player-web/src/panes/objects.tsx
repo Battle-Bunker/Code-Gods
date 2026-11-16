@@ -28,7 +28,7 @@ import { listMaxHeight } from "@/lib/virtual-window";
 import { contestedLines, foldTugs } from "./tug-of-war";
 import { toast } from "@/hooks/use-toast";
 import { AffordanceButton } from "@/site/components/action";
-import { digestScale, payoffRect, serverSort, SHOWS, SORTS, whyLine, widen, type PayoffScale } from "./lines";
+import { digestScale, listFooter, payoffRect, serverSort, SHOWS, SORTS, whyLine, widen, type PayoffScale } from "./lines";
 
 /** The rectangle's box: the side the largest value fills, and room for its two edge labels. */
 const SIDE = 44, LABEL_W = 42, LABEL_H = 13;
@@ -231,8 +231,14 @@ function SeatedLines() {
       <LookAll ids={loadedIds} many={objectWord(header?.variant).many} one={objectWord(header?.variant).one} variant={header?.variant ?? ""} />
       <VirtualRows rows={results} rowHeight={ROW_H} maxHeight={maxHeight} keyOf={r => r.objectId} onNearEnd={onNearEnd} testId="lines-list"
         render={r => <LineRow objectId={r.objectId} number={r.number} rule={rule} value={my?.bits ?? null} rep={rep} scale={scale} focused={view.focus?.objectId === r.objectId} contested={contested.has(r.objectId)} onOpen={onOpen} variant={header?.variant ?? ""} />} />
+      <ListFooter text={listFooter({ shown: results.length, packed: digest?.packed, show: view.objects.filter.show ?? "all", more: status !== "Exhausted", many: objectWord(header?.variant).many })} />
     </div>
   );
+}
+
+/** How many rows are shown of how many (v1 objects-scroll's "N of M"); scrolling to the end loads the next page. */
+function ListFooter({ text }: { text: string }) {
+  return <p className="px-3 pb-1 text-xs text-muted-foreground" data-testid="text-objects-footer" aria-live="polite">{text}</p>;
 }
 
 function SpectatorRow({ objectId, number, variant }: { objectId: string; number: number; variant: string }) {
@@ -261,6 +267,7 @@ function SpectatorLines() {
       <p className="px-3 text-xs text-muted-foreground">You're watching: every {word.one} in the world, by number. The players' points on them are theirs alone.</p>
       <VirtualRows rows={results} rowHeight={SPECTATOR_ROW_H} maxHeight={maxHeight} keyOf={r => r.objectId} onNearEnd={onNearEnd} testId="lines-list"
         render={r => <SpectatorRow objectId={r.objectId} number={r.number} variant={variant} />} />
+      <ListFooter text={listFooter({ shown: results.length, packed: undefined, show: "all", more: status !== "Exhausted", many: word.many })} />
     </div>
   );
 }

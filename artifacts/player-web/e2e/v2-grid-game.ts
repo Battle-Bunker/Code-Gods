@@ -11,6 +11,7 @@
  *   meaning in another representation) → the goal card shows the ladder and the next step → the game ends on its own
  *   and the results lead with "You finished …".
  * The room's game is shortened to 5 s planning and 30 world seconds (room.settings, as its owner).
+ * With GRID_SETUP=grids-original-colours it walks the old game's coloured 4×4 board (lib/v2-grid-boards) instead.
  * With GRID_SETUP=grids-beginner-bidding the walk bids first: the practice game opens the bid phase, the walker bids
  * 10% on the first family offered and presses "Done bidding", and is dealt that family on the board.
  *
@@ -69,6 +70,8 @@ async function shorten(page: Page, code: string) {
 }
 
 const SETUP = process.env.GRID_SETUP ?? "grids-beginner";
+/** The setups that read exact (noise variance 0); the coloured boards' baseline keeps v1's σ 8. */
+const EXACT = !SETUP.startsWith("grids-original");
 const BIDDING = SETUP.endsWith("-bidding");
 
 /** The walker's dealt rule family in a game, through their own session. */
@@ -172,7 +175,7 @@ try {
     // The first scoring move (a move can also leave the step and the points where they were).
     // A move row of its own: a move folded into a tug-of-war entry is hidden inside its closed <details>.
     // Its own row, or inside a tug-of-war entry (contested grids fold their moves under "Show the N moves").
-    const mine = feed.locator("[data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed a grid.*Your rarity/ }).first();
+    const mine = feed.locator("[data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed (a grid|grid \d+).*Your rarity/ }).first();
     await mine.waitFor({ state: "attached", timeout: 60_000 }).catch(async (e: Error) => { await page.screenshot({ path: path.join(shots, `grid-${label}-no-move.png`) }); console.log(`${label}: feed says: ${(await feed.innerText()).slice(0, 600)}`); throw e; });
     const folded = mine.locator("xpath=ancestor::details[1]");
     if (await folded.count() && (await folded.getAttribute("open")) === null) await folded.locator("summary").click();
@@ -185,8 +188,11 @@ try {
     assert.match(sentence, /Points on this grid [−\d.,]+ → [−\d.,]+|Points on this grid stayed|No points on this grid/, `the move says the points before → after: ${sentence}`);
     assert.match(sentence, FORMULA, `the move says yours × others' = points: ${sentence}`);
     // The beginner preset reads exact (owner decision 32, noise variance 0): no "about" (the line game covers a noisy room).
-    assert.doesNotMatch(sentence, /\babout\b/, `${label}: an exact room writes exact figures: ${sentence}`);
-    assert.match(sentence, /others' −?[\d,]+\.\d\d bits? [=≈] /, `${label}: the others' bits, exact: ${sentence}`);
+    // "Grids · original colours" keeps v1's disclosure noise (σ 8), so the others' bits are "about".
+    if (EXACT) {
+      assert.doesNotMatch(sentence, /\babout\b/, `${label}: an exact room writes exact figures: ${sentence}`);
+      assert.match(sentence, /others' −?[\d,]+\.\d\d bits? [=≈] /, `${label}: the others' bits, exact: ${sentence}`);
+    } else assert.match(sentence, /others' about −?[\d,]+\.\d\d bits?/, `${label}: the others' bits, blurred: ${sentence}`);
     assert.doesNotMatch(sentence, /payoff|object|\p{Extended_Pictographic}/iu);
     assert.doesNotMatch(sentence, /\d\.\d (bits?|points?|energy)/, `every measure has 2 decimal places: ${sentence}`);
     // The change is drawn as a small board beside the sentence, not written as sixteen digits (coordinator, round 6).
