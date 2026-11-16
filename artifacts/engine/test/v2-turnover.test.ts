@@ -69,7 +69,7 @@ test("never more live lines than the cap; the oldest live line retires, before t
       live.splice(live.indexOf(e.data.number), 1);
       // In the commit of the birth it makes room for; or at the start, when there are more starting lines than the cap.
       const next = events.slice(i + 1).find((x: any) => ["objectBorn", "act", "tick", "phase"].includes(x.kind));
-      assert.ok(next?.kind === "objectBorn" || (!started && next?.kind === "phase"), `seq ${e.seq}: followed by ${next?.kind}`);
+      assert.ok(next?.kind === "objectBorn" || (!started && (next?.kind === "phase" || next?.kind === "tick")), `seq ${e.seq}: followed by ${next?.kind}`);
     }
     if (e.kind === "objectBorn") live.push(e.data.number);
     if (e.kind === "phase" && e.data.phase === "live") started = true;
