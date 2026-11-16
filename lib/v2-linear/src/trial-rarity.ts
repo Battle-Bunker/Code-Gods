@@ -17,7 +17,8 @@
  *   CLOSE  −log2 P(at least this close to T | in T's cell), read off S: [S(T − δ) − S(T + δ)] / [S(lo) − S(hi)],
  *          δ = |r − T| + res/2 (so the formula needs nothing but S)
  *   THIRD  the same on the second reading, with its own target's cell
- *   bits = −log2( S(hi) + (S(lo) − S(hi)) · 2^−(close + third) )
+ *   bits = level + close + third (the tree, the default), or the lexicographic rarity
+ *          −log2( S(hi) + (S(lo) − S(hi)) · 2^−(close + third) ) (RARITY_LEX)
  * The reading's survival is parameter-free: for a single coefficient it is a sum (`coefSurvival`); for any other
  * reading it is two numbers fitted once from direct samples of the law (`fitReading`). A drawn rule only places
  * targets, so nothing is tabled per instance.
@@ -29,10 +30,17 @@ import { isPrimeN, smoothUpTo } from "./trial.ts";
 export interface RarityDials {
   /** The law's exponent: bits of rarity per doubling of a top or a bottom number (H's g). Above 1. */
   readonly g: number;
-  /** The closeness resolution, in units of the reading (an exact hit is worth log2(W / res)). */
+  /** The closeness resolution, in units of the reading (within res/2 of a target counts as on it). */
   readonly res: number;
+  /**
+   * How the parts combine. "tree" (the owner's choice, 15 November: "level plus closeness ... a tree structure"):
+   * bits = level + closeness + third, each a conditional rarity. "lexicographic": one rarity of doing at least this
+   * well with the parts ranked left to right (then an exact hit is worth at most one level step).
+   */
+  readonly combine: "tree" | "lexicographic";
 }
-export const RARITY: RarityDials = { g: 2, res: 1 };
+export const RARITY: RarityDials = { g: 2, res: 1, combine: "tree" };
+export const RARITY_LEX: RarityDials = { ...RARITY, combine: "lexicographic" };
 
 // ------------------------------------------------------------------ the law
 
@@ -188,8 +196,12 @@ export function rarityBits(rule: RarityRule, l: MC, d: RarityDials = RARITY): Ra
     const r2 = rule.third.reading.read(l);
     if (r2 !== null) third = closeness(r2, rule.third.targets(t.T).around(r2), survivalOf(rule.third.reading, d), d);
   }
-  const Slo = S(lo), Shi = Math.min(Slo, S(hi));
-  return { bits: -Math.log2(Shi + (Slo - Shi) * 2 ** -(close + third)), level: -Math.log2(Slo), close, third, T: t.T };
+  const Slo = S(lo), Shi = Math.min(Slo, S(hi)), level = -Math.log2(Slo);
+  // Tree: each part is a conditional rarity (in this basin or a higher one; at least this close given the basin; the
+  // second reading at least this good given both, which under this law is independent of the first reading when it
+  // reads the other coefficient).
+  const bits = d.combine === "tree" ? level + close + third : -Math.log2(Shi + (Slo - Shi) * 2 ** -(close + third));
+  return { bits, level, close, third, T: t.T };
 }
 export const rarityOfLine = (rule: RarityRule, line: Line, d: RarityDials = RARITY): RarityBits => {
   const l = mcOf(line);

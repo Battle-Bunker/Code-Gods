@@ -320,7 +320,7 @@ function TrialPanel({ line }: { line: Line }) {
         <Pill on={mode === "linear"} onClick={() => setMode("linear")}>linear height (g a unit)</Pill>
         <Pill on={mode === "rarity"} onClick={() => setMode("rarity")}>scale-free rarity (bits)</Pill>
       </div>
-      <p className="rm-muted">{mode === "rarity" ? "Bits: the rarity, under the law with chance 2^−H, of doing at least this well; parts: level, closeness, third. " : ""}Worth of the best trophy less {D.k} × the cheapest price to reach it ({mode === "log"
+      <p className="rm-muted">{mode === "rarity" ? "Bits = level + closeness + third, each a rarity under the law with chance 2^−H (level: this basin or a higher one; closeness: at least this close, given the basin; third: the second reading, given both). " : ""}Worth of the best trophy less {D.k} × the cheapest price to reach it ({mode === "log"
         ? `g = ${D.g} energy a doubling; friction ${D.alphaS} along the size direction, ${D.alphaD} across it; prices are the game's fees`
         : `g = ${D.g} a unit, α = ${D.alpha.toFixed(4)}, ${D.w} energy a bit`}).
         Suffix <input className="rm-num" value={suffix} onChange={e => setSuffix(e.target.value)} size={4} aria-label="trial gradient suffix" />{" "}

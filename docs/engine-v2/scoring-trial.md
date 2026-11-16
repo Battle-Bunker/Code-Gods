@@ -286,3 +286,46 @@ for the crossing.
   would fix it (parameter-free, so still nothing per instance).
 - **Crossing**: two equal tails give a log correction, so a straight line in log-log is only an approximation (0.76
   fitted against an asymptotic 1).
+
+## The tree combination (now the rarity mode's default; the coordinator's correction, 16 November)
+
+The section above combined the parts as one lexicographic rarity, "doing at least this well". The owner chose the tree
+on 15 November ("level plus closeness ... a tree structure ... with 3 branching levels"), and the tree is now the
+default (`RARITY`; the lexicographic form is `RARITY_LEX`). The parts are:
+- **level** = −log2 S(lo): this basin or a higher one;
+- **closeness** = −log2 of the chance of being at least this close, given the basin;
+- **third** = the second reading at least this good, given both;
+- **bits** = level + closeness + third [built].
+
+Each part is a ratio of masses read from S, so it is still a formula of the reading and the drawn targets. An exact
+hit's closeness is log2(basin mass ÷ the target's own mass), integers included [built]. The third part's conditional
+rarity matches samples within 0.4 bits, because under the law the gradient is independent of the intercept's basin
+[seen, tested].
+
+The tree is checked against samples by the same tests as before: a coefficient's level is within 0.22 bits and its
+closeness within 0.1 bits where cells are well sampled. The atoms still break composite readings: an area or
+distance² exact hit is mispriced by 1 to 5 bits, and in the tree that error goes straight into the bits [seen].
+
+| Line (bits; tree = level + close + third) | A gradient prime ending 1 | B 3s and 17s, third: m near a divisor | C area square | lexicographic A / B / C |
+|---|---|---|---|---|
+| on targets y = 101x + 867 | 11.54 = 6.59 + 4.95 | 18.15 = 9.79 + 8.09 + 0.27 | 13.61 = 7.23 + 6.38 | 7.00 / 10.28 / 7.25 |
+| one unit off y = 102x + 866 | 9.96 (close 3.37) | 16.56 (close 6.50) | 7.66 (close 0.43) | 6.97 / 10.28 / 7.24 |
+| halfway to the next targets y = 116x + 1122 | 6.59 | 9.97 | 8.04 | 6.59 / 9.84 / 7.49 |
+| one doubling up y = 202x + 1734 | 8.18 | 10.90 | 8.55 | 7.85 / 10.48 / 7.69 |
+| ten times y = 1010x + 8670 | 10.45 | 14.96 | 11.12 | 10.13 / 13.31 / 8.75 |
+| ten times, on targets y = 1021x + 7803 | 14.46 | 25.35 | 9.22 | 10.15 / 13.45 / 8.60 |
+
+**Do the cards matter now? Yes, by several bits** [seen in this example]:
+- On a target against halfway to the next one: A 11.5 against 6.6, B 18.2 against 10.0.
+- One unit off costs a bit and a half (A 1.6, B 1.6): modest, as principle 11 asks.
+- Climbing has temporary losses. Doubling up from the targets lowers A from 11.5 to 8.2 and B from 18.2 to 10.9,
+  until new targets are hit at the larger size (ten times, on targets: A 14.5, B 25.4).
+- Precision competes with size: A on its target at 101 (11.5) beats A off target at 1010 (10.5). The level staircase
+  stays as the common structure.
+
+**New costs** [seen]:
+- **Exact hits are now worth a lot**: B's exact hit at 867 is worth 8.1 bits, nearly as much as climbing the whole
+  ladder to 867 (9.8). That is log2 of the basin's mass over the target's: wide gaps between targets give big exact
+  hits.
+- **A rule on a composite reading is fragile to a unit change in the coefficients**: C loses 6 bits when m moves from
+  101 to 102 (the area moves by 37). Its closeness is measured in units of area, not of the line.
