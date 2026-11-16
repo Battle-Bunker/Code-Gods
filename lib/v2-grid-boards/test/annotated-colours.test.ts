@@ -26,7 +26,8 @@ test("Picture Frame: edge 1 or 4, middle −1 or −4", () => {
 
 test("Colour Bonds: touching same-colour pairs adding up to 10", () => {
   // 3R+7R across ✓; 7R+3G across ✗ (colours); 3R above 7R ✓.
-  assert.deepEqual(score(colourBonds(), "3R,7R,3G,0B/7R,0B,0B,0B/0B,0B,0B,0B/0B,0B,0B,0B", {}), [2]);
+  assert.deepEqual(score(colourBonds(), "3R,7R,3G,0B/7R,0B,0B,0B/0B,0B,0B,0B/0B,0B,0B,0B", { target: 10 }), [2]);
+  assert.deepEqual(colourBonds().dealable(board4rgb), [{ target: 10 }]);
 });
 
 test("Honest Minesweeper: a cell scores its number when it equals the mines around it (corners count)", () => {

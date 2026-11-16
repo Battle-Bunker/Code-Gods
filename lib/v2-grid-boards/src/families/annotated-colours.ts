@@ -103,21 +103,23 @@ export function pictureFrame(): RuleFamily<BoardState, FrameParams> {
 
 // ---------------------------------------------------------------- Colour Bonds (arithmetic.ts)
 
-export function colourBonds(): RuleFamily<BoardState, None> {
-  const shape: Shape<None> = {
-    main: more<None>("colour-bonds", "touching pairs of one colour that make the magic number",
-      "Make touching cells of one colour whose numbers add up to the magic number (one more than the biggest a cell can hold: 10 on digits). Each such pair scores 1."),
+/** The old card's TARGET: one more than the biggest a cell can hold (10 on digits, 16 on hex, 14 on cards). */
+export interface BondParams { readonly target: number }
+export function colourBonds(): RuleFamily<BoardState, BondParams> {
+  const shape: Shape<BondParams> = {
+    main: more<BondParams>("colour-bonds", "touching pairs of one colour that make the magic number",
+      p => `Make touching cells of one colour whose numbers add up to ${p.target}. Each such pair scores 1.`),
     tieBreakers: [],
   };
-  return family<None>("colour-bonds", "Colour Bonds", shape, () => [{}], ctx => {
+  return family<BondParams>("colour-bonds", "Colour Bonds", shape, v => [{ target: vmax(v) + 1 }], (ctx, p) => {
     const n = sizeOf(ctx);
-    const cells = readBoard(ctx, n), target = vmax(ctx.variant) + 1;
+    const cells = readBoard(ctx, n);
     let bonds = 0;
     const lit: number[] = [];
     for (let i = 0; i < n * n; i++) for (const o of [i % n < n - 1 ? i + 1 : -1, i + n < n * n ? i + n : -1]) {
-      if (o >= 0 && cells.v[i]! + cells.v[o]! === target && cells.c[i] === cells.c[o]) { bonds++; lit.push(i, o); }
+      if (o >= 0 && cells.v[i]! + cells.v[o]! === p.target && cells.c[i] === cells.c[o]) { bonds++; lit.push(i, o); }
     }
-    term(ctx, "colour-bonds", `touching same-colour pairs that add up to ${target}`, bonds, cells.refs);
+    term(ctx, "colour-bonds", `touching same-colour pairs that add up to ${p.target}`, bonds, cells.refs);
     focus(ctx, cells, lit);
   });
 }

@@ -42,7 +42,7 @@ export function makeBoardType(v: Variant): ObjectType<BoardState> {
       const n2 = n * n, c = paletteOf(v)[0]!;
       return isCard(boardParams(v).symbols) ? { sym: Array(n2).fill(0), col: Array(n2).fill(c), cards: true } : { sym: Array(n2).fill(0), col: Array(n2).fill(c) };
     },
-    representations: boardRepresentations(n),
+    representations: boardRepresentations(n, isCard(boardParams(v).symbols)),
     mutators: boardMutators(n, paletteOf(v).length, isCard(boardParams(v).symbols)),
     families: BOARD_FAMILIES,
   };
