@@ -16,6 +16,10 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { appendEvent, clockOf, powerTerms, programOf } from "./loop.ts";
 import { liveAgentsOf, MAX_AGENTS } from "./play.ts";
+import { makeFunctionReference } from "convex/server";
+
+/** A human's new program is checked in the background for its per-turn estimate (v1's "estimate was N"). */
+const ESTIMATE = makeFunctionReference<"action", { programId: string }>("v2/checkNode:estimate");
 
 type Language = "typescript" | "python";
 
@@ -97,7 +101,8 @@ export async function summonAgent(ctx: MutationCtx, game: Doc<"v2Games">, player
     version: 0, share, createdAt: now,
   });
   await ctx.db.insert("v2AgentEnergy", { agentId, gameId: game._id, energy: moved.agent.balance, acts: 0, skips: 0, failures: 0, spend: 0, pointsGained: 0, settledAt: world });
-  await ctx.db.insert("v2AgentPrograms", { agentId, version: 0, language: a.language, source: a.source, sourceHash, price, summonedAt: now, acts: 0, pointsGained: 0 });
+  const programId = await ctx.db.insert("v2AgentPrograms", { agentId, version: 0, language: a.language, source: a.source, sourceHash, price, summonedAt: now, acts: 0, pointsGained: 0 });
+  if (player.kind === "human") await ctx.scheduler.runAfter(0, ESTIMATE, { programId });
   await ctx.db.patch(player._id, { energy: moved.own.balance, settledAt: world, allocated: roundShare(player.allocated + share), agents: player.agents + 1 });
   // The agent's name, so a replay calls it what the live game did (round 10: "Agent 1" for "Simple").
   await appendEvent(ctx, game._id, "command", { kind: "summon", memberId: player.memberId, agentId, name, language: a.language, sourceHash, version: 0, price, share, worldSeconds: world });
@@ -120,7 +125,8 @@ export async function reprogram(ctx: MutationCtx, game: Doc<"v2Games">, player: 
   const own = await pay(ctx, game, player, world, price);
   const version = agent.version + 1, sourceHash = hashHex(a.source);
   await ctx.db.patch(agent._id, { language: a.language, sourceHash, version });
-  await ctx.db.insert("v2AgentPrograms", { agentId: agent._id, version, language: a.language, source: a.source, sourceHash, price, summonedAt: Date.now(), acts: 0, pointsGained: 0 });
+  const programId = await ctx.db.insert("v2AgentPrograms", { agentId: agent._id, version, language: a.language, source: a.source, sourceHash, price, summonedAt: Date.now(), acts: 0, pointsGained: 0 });
+  if (player.kind === "human") await ctx.scheduler.runAfter(0, ESTIMATE, { programId });
   await ctx.db.patch(player._id, { energy: own.balance, settledAt: own.settledWorldSeconds });
   await appendEvent(ctx, game._id, "command", { kind: a.kind, memberId: player.memberId, agentId: agent._id, language: a.language, sourceHash, version, price, ...(a.from !== undefined ? { from: a.from } : {}), worldSeconds: world });
   return { version, price };
