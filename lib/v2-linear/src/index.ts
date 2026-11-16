@@ -6,6 +6,7 @@ export * from "./families.ts";
 export * from "./beginner.ts";
 export * from "./rational.ts";
 export * from "./rational2.ts";
+export * from "./frac-twin-fractions.ts";
 export * from "./type.ts";
 export * from "./presets.ts";
 export * from "./sums.ts";
