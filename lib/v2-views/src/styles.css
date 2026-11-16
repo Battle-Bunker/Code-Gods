@@ -366,9 +366,6 @@
 .v2v-move-option[data-first] { border-style: dashed; border-color: var(--v2v-cand); }
 .v2v-move-words { font-weight: 600; }
 .v2v-move-price { text-align: right; white-space: nowrap; }
-/* An astronomical price (a line far out) may break anywhere rather than push the page sideways. */
-.v2v-move-price, .v2v-move-bits { min-width: 0; overflow-wrap: anywhere; }
-@media (max-width: 480px) { .v2v-move-price { white-space: normal; } }
 .v2v-move-changes { font-size: 12px; color: var(--v2v-muted); }
 .v2v-move-bits { font-size: 12px; color: var(--v2v-muted); text-align: right; }
 .v2v-moves-hint { margin: 4px 0 0; font-size: 12px; color: var(--v2v-muted); }

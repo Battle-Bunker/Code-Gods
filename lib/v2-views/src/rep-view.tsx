@@ -53,7 +53,7 @@ export interface RepViewProps<S> {
   /** The elements each part of the viewer's rule reads (its sources): badged here and wherever they project by meaning. */
   readonly roles?: readonly { readonly ref: ElementRef; readonly role: "main" | "tb" }[];
   /** The parts of the viewer's rule with their marks: a mark is drawn with its part's glyph, so a mark never relies on colour. */
-  readonly parts?: readonly { readonly role: "main" | "tb"; readonly marks: readonly Mark[] }[];
+  readonly parts?: readonly { readonly depth: number; readonly marks: readonly Mark[] }[];
 }
 
 /**
@@ -65,10 +65,10 @@ function gridMarks(repId: string, scene: GridScene, marks: readonly Mark[]): rea
   return marks.filter(m => markRefs(m).every(r => r.rep === repId || (m.kind === "focus" && cells.has(refKey({ ...r, site: undefined })))));
 }
 
-/** A mark's part, by identity (a mark is in at most one part: annotate.ts). */
-function markRoleOf(parts: NonNullable<RepViewProps<unknown>["parts"]>): (m: Mark) => "main" | "tb" | null {
-  const by = new Map<Mark, "main" | "tb">();
-  for (const p of parts) for (const m of p.marks) by.set(m, p.role);
+/** A mark's part's depth (0: the main part), by identity: a mark is in at most one part (annotate.ts). */
+function markDepthOf(parts: NonNullable<RepViewProps<unknown>["parts"]>): (m: Mark) => number | null {
+  const by = new Map<Mark, number>();
+  for (const p of parts) for (const m of p.marks) by.set(m, p.depth);
   return m => by.get(m) ?? null;
 }
 
@@ -118,7 +118,7 @@ export function RepView<S>(props: RepViewProps<S>): ReactElement {
         onHover: props.onHover ? r => props.onHover!(r ? meaningOf(r) : null, r) : undefined,
         labelOf: r => labelOf(type, r),
         roleOf,
-        markRole: props.parts ? markRoleOf(props.parts) : undefined,
+        markDepth: props.parts ? markDepthOf(props.parts) : undefined,
       })}
     </div>
   );

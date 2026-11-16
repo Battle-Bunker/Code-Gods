@@ -17,6 +17,7 @@ import type { ReactElement, ReactNode } from "react";
 import type { ElementRef, ElementValue, GridScene } from "@workspace/v2-core";
 import { fmtQ, fmtValue } from "../format.ts";
 import { markRefs } from "../refs.ts";
+import { partGlyph } from "../contributors.ts";
 import type { RenderProps, SceneRenderer } from "../scene.ts";
 import { compactMarks, elAttrs, hover, key, markState, NOTE_MAX, numberOf, Readouts } from "./common.tsx";
 
@@ -96,8 +97,8 @@ function Scene({ p }: { p: P }): ReactElement {
     else {
       const e = listedBy.get(k) ?? { label: p.labelOf(m.ref), texts: [] };
       // Each note says which part of the rule it is about when the parts are known (● main part, ◆ secondary).
-      const role = p.markRole?.(m);
-      const text = role ? `${role === "main" ? "●" : "◆"} ${m.text}` : m.text;
+      const depth = p.markDepth?.(m) ?? null;
+      const text = depth !== null ? `${partGlyph(depth)} ${m.text}` : m.text;
       if (!e.texts.includes(text)) e.texts.push(text);
       listedBy.set(k, e);
     }
@@ -126,12 +127,12 @@ function Scene({ p }: { p: P }): ReactElement {
   bottom.forEach((r, col) => { if (lit(r)) for (let row = 0; row < s.rows; row++) members.add(row * s.cols + col); });
   for (const gr of s.groups ?? []) if (lit(gr.el)) for (const c of gr.cells) members.add(c);
 
-  // Each focus is drawn with its part's glyph (● main part, ◆ secondary), so a mark never relies on colour alone.
+  // Each focus is drawn with its part's glyph (● main part, ◆ secondary, ▲ third …), so a mark never relies on colour alone.
   const glyphs = (r: ElementRef): string => {
-    if (!p.markRole) return "";
+    if (!p.markDepth) return "";
     const k = key(r);
-    const roles = new Set(marks.filter(m => m.kind === "focus" && key(m.ref) === k).map(m => p.markRole!(m)));
-    return (roles.has("main") ? "●" : "") + (roles.has("tb") ? "◆" : "");
+    const depths = [...new Set(marks.filter(m => m.kind === "focus" && key(m.ref) === k).map(m => p.markDepth!(m)))].filter((d): d is number => d !== null);
+    return depths.sort((a, b) => a - b).map(partGlyph).join("");
   };
   const title = (r: ElementRef, extra = "") => <title>{`${p.labelOf(r)}: ${shown(r)}${extra}`}</title>;
 

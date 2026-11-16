@@ -70,3 +70,10 @@ test("a focused cell carries its part's glyph (● main part, ◆ secondary), so
   const html = renderToStaticMarkup(<RepView type={gridType} state={B} rep="cells" size="expanded" marks={sa.marks} terms={sa.evaluation.terms} parts={sa.parts} />);
   assert.match(html, /data-ref="cells\.r0c0"[^]*?class="mark-glyph"[^>]*>◆</, "the secondary's focus on row 1, column 1 has ◆");
 });
+
+test("a third preference's marks carry ▲: glyphs follow the part's depth", () => {
+  const sa = annotate(rule("corner>last"), B).sites[0]!;
+  assert.equal(sa.parts.length, 3);
+  const html = renderToStaticMarkup(<RepView type={gridType} state={B} rep="cells" size="expanded" marks={sa.marks} terms={sa.evaluation.terms} parts={sa.parts} />);
+  assert.match(html, /▲ last note/);
+});
