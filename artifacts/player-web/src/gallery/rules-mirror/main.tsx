@@ -10,7 +10,7 @@ import { StrictMode, useEffect, useMemo, useRef, useState, type ReactElement, ty
 import { createRoot } from "react-dom/client";
 import { q, Qn, rng, ruleLayers, type Q, type Score } from "@workspace/v2-core";
 import { describeLine, encodeLine, fromMC, intercept, isVertical, lineQ, lineType, normalise, shift, slope, tilt, type Line, type LineState } from "@workspace/v2-linear";
-import { areaSquare, gradientPrime, height as trialHeight, interceptSmooth, isPrimeN, mcOf, rarityHeight, rarityOfLine, rarityRules, sidewaysSampled, targetRule, targetsPrimesEnding, targetsSmooth, targetsSquares, TRIAL, TRIAL_LOG, trialScore, type TrialRule } from "@workspace/v2-linear";
+import { areaSquare, dynamicEnergy, dynamicExamples, gradientPrime, height as trialHeight, interceptSmooth, isPrimeN, mcOf, rarityHeight, rarityOfLine, rarityRules, sidewaysSampled, targetRule, targetsPrimesEnding, targetsSmooth, targetsSquares, TRIAL, TRIAL_LOG, trialScore, type TrialRule } from "@workspace/v2-linear";
 import { valueLookup, type Lookup, type ValueFunction } from "@workspace/v2-valuation";
 import { annotate, ExpandedFace, ObjectChip, partName, type RuleRef, type ValuePart } from "@workspace/v2-views";
 import { chanceText, exactOrDecimal, fmtBits, fmtQ, isApprox, rarerThanText } from "@workspace/v2-views/format";
@@ -329,8 +329,8 @@ function Rule({ f, line, onLine }: { f: MirrorFamily; line: Line; onLine: (l: Li
  * family chosen above has no trial form yet.
  */
 function TrialPanel({ line }: { line: Line }) {
-  const [suffix, setSuffix] = useState("1"), [primes, setPrimes] = useState("3, 17"), [mode, setMode] = useState<"linear" | "log" | "rarity" | "sideways">("log");
-  const D = mode === "log" || mode === "sideways" ? TRIAL_LOG : TRIAL;
+  const [suffix, setSuffix] = useState("1"), [primes, setPrimes] = useState("3, 17"), [mode, setMode] = useState<"linear" | "log" | "rarity" | "sideways" | "dynamic">("log");
+  const D = mode === "log" || mode === "sideways" || mode === "dynamic" ? TRIAL_LOG : TRIAL;
   const rules = useMemo<TrialRule[]>(() => {
     const out: TrialRule[] = [];
     try { out.push(gradientPrime(suffix.trim())); } catch { /* not a drawable suffix */ }
@@ -340,7 +340,7 @@ function TrialPanel({ line }: { line: Line }) {
     return out;
   }, [suffix, primes]);
   const H = trialHeight(line, D);
-  const rows = useMemo(() => (mode === "rarity" ? [] : rules.map(r => ({ r, s: trialScore(r, line, D) }))), [rules, line, D, mode]);
+  const rows = useMemo(() => (mode === "rarity" || mode === "dynamic" ? [] : rules.map(r => ({ r, s: trialScore(r, line, D) }))), [rules, line, D, mode]);
   const rarity = useMemo(() => {
     if (mode !== "rarity") return null;
     const ps = primes.split(/[ ,]+/).filter(Boolean).map(Number);
@@ -354,6 +354,7 @@ function TrialPanel({ line }: { line: Line }) {
     return [targetRule(`A: |m| near a prime ending ${suffix.trim()}`, "m", targetsPrimesEnding(suffix.trim())), targetRule(`B: |c| near a number built from ${ps.join(", ")}`, "c", targetsSmooth(ps)), targetRule("C: area near a perfect square", "area", targetsSquares)]
       .map(r => ({ r, s: sidewaysSampled(r, line, 40) }));
   }, [mode, suffix, primes, line]);
+  const dynamic = useMemo(() => (mode === "dynamic" ? dynamicExamples.map(u => ({ u, e: dynamicEnergy(line, u) })) : null), [mode, line]);
   const mc = mcOf(line);
   return (
     <div className="rm-verdict" data-testid="trial">
@@ -363,6 +364,7 @@ function TrialPanel({ line }: { line: Line }) {
         <Pill on={mode === "linear"} onClick={() => setMode("linear")}>linear height (g a unit)</Pill>
         <Pill on={mode === "rarity"} onClick={() => setMode("rarity")}>scale-free rarity (bits)</Pill>
         <Pill on={mode === "sideways"} onClick={() => setMode("sideways")}>lift + sideways (energy)</Pill>
+        <Pill on={mode === "dynamic"} onClick={() => setMode("dynamic")}>dynamic (energy)</Pill>
       </div>
       <p className="rm-muted">{mode === "rarity" ? "Bits = level + closeness + third, each a rarity under the law with chance 2^−H (level: this basin or a higher one; closeness: at least this close, given the basin; third: the second reading, given both). " : ""}Worth of the best trophy less {D.k} × the cheapest price to reach it ({mode === "log"
         ? `g = ${D.g} energy a doubling; friction ${D.alphaS} along the size direction, ${D.alphaD} across it; prices are the game's fees`
@@ -370,7 +372,14 @@ function TrialPanel({ line }: { line: Line }) {
         Suffix <input className="rm-num" value={suffix} onChange={e => setSuffix(e.target.value)} size={4} aria-label="trial gradient suffix" />{" "}
         primes <input className="rm-num" value={primes} onChange={e => setPrimes(e.target.value)} size={8} aria-label="trial intercept primes" /></p>
       {mode === "sideways" && <p className="rm-muted">Energy = the line's height + sideways: the mean cheapest price, from 40 random lines at the same height, into the class of lines at least as good for the rule (fees plus lift; routes of up to two shortcuts and one finishing move).</p>}
+      {mode === "dynamic" && <p className="rm-muted">Energy = the mean, over 30 random lines whose numbers the rule reads are this line's size (the others random), of the cheapest price found from each to any line at least as good for the rule: the direct route onto this line, every single move with a solved amount, and the rule's own search heuristics. Fresh randomness each time, so it jitters. No tables, no levels, no lift; continuous utilities (the owner's, 16 November).</p>}
       <table className="rm-trial"><tbody>
+        {dynamic?.map(({ u, e }) => (
+          <tr key={u.id} data-testid="trial-row" data-family={u.id} data-score={e.energy.toFixed(4)}>
+            <td title={u.label}>{u.id}</td><td><b>{Number.isFinite(e.energy) ? e.energy.toFixed(0) : "—"}</b></td>
+            <td className="rm-muted">{`utility ${e.u.toFixed(2)}: ${u.label}; ${e.samples.filter(x => x.cost < x.direct).length} of ${e.samples.length} starts beat the direct route`}</td>
+          </tr>
+        ))}
         {sideways?.map(({ r, s }) => (
           <tr key={r.label} data-testid="trial-row" data-family={r.label.slice(0, 1)} data-score={s.energy.toFixed(4)}>
             <td title={r.label}>{r.label.split(":")[0]}</td><td><b>{s.energy.toFixed(0)}</b></td>

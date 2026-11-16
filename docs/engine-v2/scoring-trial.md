@@ -627,3 +627,111 @@ How it could be wrong: the routes found are upper bounds (two moves, a few aims 
 gaps, most likely the large ones; the rarity measure (whole parts 1 to 4096) is a choice, and a law-sized measure would
 give larger bits for g ≥ 8; levels at T ≈ 100 hold one to three members (Smooth Intercept's single level hides g ≥ 4 to
 16 behind one factor of 82); one suffix, one prime set and one Prime Top parameter; friction only.
+
+
+## Dynamic energy (no tables, no levels, no lift; the owner, 16 November, late)
+
+Code: `lib/v2-linear/src/trial-dynamic.ts`; report: `lib/v2-linear/scripts/dynamic-trial.ts` (`SIZE_BY=bits` for the
+other size rule); the rules mirror's trial panel has a "dynamic (energy)" pill. Built:
+
+- energy(s, F) = the mean over K = 30 starts x of min(direct(x → s), floor(x), heuristics(x)).
+- A family F is a continuous utility of the line's readings, the readings it `reads`, and its `searches` (heuristics
+  that propose target readings; parameterised by the family's drawn parameters).
+- Start: a random line whose read numbers have s's size (magnitude: a whole number whose log2 is uniform in
+  [log2|v|, log2|v| + 0.5), never below s, so no climb in size is added); the numbers F does not read come from the law.
+- direct (the ceiling): solved moves onto s itself (one, or tilt and shift in either order). Floor, shared by every
+  family: each single move with a solved amount onto one of s's readings (either sign), and the shortcuts (the four
+  mirrors, stretch by 2, 3, ½, ⅓, −1). Heuristics: every proposal tried, so adding one never raises the energy on the same
+  starts (built; tested).
+- Fresh randomness each estimate. Price: the log trial's friction.
+- Five example utilities: bigger |c|; |m| near a prime ending in 1 (log2 p − √distance); |c| near a number made of 3s and
+  7s (Ω − √distance); the owner's example with k = 3, length read as log2|n|; a tied conjunction (min of the prime
+  utility and log2 gcd(p + 1, ⌊|c|⌋)).
+
+In the climb table, "exact" sits on the target and "near" a little off it (lower utility). [floor only] is the energy
+with the generic floor alone, on the same starts: it shows how overvalued a family is before its heuristics exist.
+Seen narrowly (one parameter per family, one state per size):
+
+#### (2) Energy along a climb (K = 30, band 0.5 bits; mean of 5 fresh estimates ± the sd of one; [floor only, same starts])
+
+| family | T ≈ 100: exact (u) | near (u) | T ≈ 1000: exact (u) | near (u) | T ≈ 10000: exact (u) | near (u) |
+|---|---|---|---|---|---|---|
+| bigger-c | 0 ± 0 (100.00) [0] | 0 ± 0 (99.00) [0] | 0 ± 0 (1000.00) [0] | 0 ± 0 (999.00) [0] | 0 ± 0 (10000.00) [0] | 0 ± 0 (9999.00) [0] |
+| prime-gradient-1 | 28 ± 4 (6.66) [51] | 26 ± 2 (6.16) [61] | 31 ± 2 (9.95) [148] | 27 ± 4 (9.45) [126] | 59 ± 10 (13.28) [235] | 52 ± 8 (12.78) [197] |
+| smooth-3-7 | 56 ± 6 (4.00) [57] | 57 ± 2 (3.50) [138] | 146 ± 12 (4.00) [180] | 134 ± 6 (3.50) [224] | 259 ± 12 (6.00) [269] | 250 ± 15 (5.50) [336] |
+| owner-k3 | 55 ± 7 (25.36) [55] | 61 ± 6 (22.53) [108] | 180 ± 12 (57.06) [180] | 169 ± 9 (52.82) [220] | 281 ± 23 (101.44) [281] | 284 ± 12 (95.78) [324] |
+| tied-gcd-1 | 63 ± 6 (5.67) [656] | 68 ± 6 (5.67) [1945] | 352 ± 11 (8.95) [7196] | 376 ± 18 (8.95) [21485] | 3356 ± 274 (12.28) [82778] | 3077 ± 349 (12.28) [209662] |
+
+#### (1) Cost: 6 ms per estimate on average (max 33), 518 utility evaluations (max 1074); K = 30, Node v22.23.4
+
+#### (3) Non-monotonicity (a state and a small change of a read number: share where the higher-utility one scores lower; and by more than twice the jitter of one estimate)
+
+| family | pairs | higher u, lower energy | by more than 2 sd |
+|---|---|---|---|
+| bigger-c | 18 | 44% | 0% |
+| prime-gradient-1 | 18 | 11% | 0% |
+| smooth-3-7 | 18 | 17% | 11% |
+| owner-k3 | 18 | 17% | 0% |
+| tied-gcd-1 | 12 | 75% | 33% |
+
+#### (4) Hunt for overvaluation (per start: the estimate's price / a deeper search's (depth 4, beam 6); the worst six)
+
+| family, T, state | estimate | deep | ratio | deep route |
+|---|---|---|---|---|
+| prime-gradient-1, 10000, exact | 403 | 15 | 26.70 | mach.stretch → mach.stretch |
+| smooth-3-7, 1000, exact | 238 | 25 | 9.64 | mach.stretch → mach.stretch → si.shift |
+| prime-gradient-1, 10000, exact | 124 | 17 | 7.39 | mach.stretch → mach.stretch |
+| smooth-3-7, 1000, exact | 276 | 38 | 7.24 | mach.stretch → si.shift |
+| smooth-3-7, 1000, exact | 219 | 33 | 6.61 | mach.stretch → cross.shift |
+| tied-gcd-1, 100, exact | 76 | 12 | 6.54 | mach.stretch → mach.stretch |
+
+Starts where the deeper search is cheaper by more than 1.5×: 69 of 600. Energy ratio estimate / deep: bigger-c 100 exact 0.00; bigger-c 100 near 0.00; bigger-c 1000 exact 0.00; bigger-c 1000 near 0.00; bigger-c 10000 exact 0.00; bigger-c 10000 near 0.00; prime-gradient-1 100 exact 1.03; prime-gradient-1 100 near 1.22; prime-gradient-1 1000 exact 1.21; prime-gradient-1 1000 near 1.51; prime-gradient-1 10000 exact 2.06; prime-gradient-1 10000 near 1.46; smooth-3-7 100 exact 1.12; smooth-3-7 100 near 1.30; smooth-3-7 1000 exact 1.69; smooth-3-7 1000 near 1.22; smooth-3-7 10000 exact 1.17; smooth-3-7 10000 near 1.10; owner-k3 100 exact 1.21; owner-k3 100 near 1.25; owner-k3 1000 exact 1.31; owner-k3 1000 near 1.37; owner-k3 10000 exact 1.07; owner-k3 10000 near 1.05; tied-gcd-1 100 exact 1.11; tied-gcd-1 100 near 1.08; tied-gcd-1 1000 exact 1.05; tied-gcd-1 1000 near 1.15; tied-gcd-1 10000 exact 1.06; tied-gcd-1 10000 near 1.00.
+
+#### (5) Sensitivity at T ≈ 1000, exact (mean of 5 ± sd)
+
+| family | band 0.25, K 30 | band 0.5, K 30 | band 1, K 30 | band 0.5, K 10 | band 0.5, K 60 |
+|---|---|---|---|---|---|
+| prime-gradient-1 | 32 ± 4 | 33 ± 3 | 33 ± 6 | 29 ± 4 | 34 ± 4 |
+| smooth-3-7 | 162 ± 13 | 154 ± 7 | 173 ± 15 | 142 ± 7 | 150 ± 9 |
+| owner-k3 | 164 ± 6 | 172 ± 15 | 189 ± 16 | 148 ± 23 | 173 ± 6 |
+| tied-gcd-1 | 184 ± 17 | 360 ± 34 | 586 ± 68 | 319 ± 40 | 349 ± 22 |
+
+#### (6) Do sums over 20 objects separate two standings? (10 fresh sums each; z = difference of means / sd of one sum)
+
+| standing | sum (mean ± sd) | z against A |
+|---|---|---|
+| A: 20 objects at T ≈ 1000, on target | 3560 ± 106 | |
+| B: the same, a little off target | 3480 ± 116 | 0.69 |
+| C: on target at T ≈ 500 | 2418 ± 71 | 10.74 |
+
+1. **Cheap** (seen): about 6 ms and 500 utility evaluations per estimate in Node.
+2. **Bigger is better scores 0** (built: starts are never smaller than the state). The other families rise with size,
+   with jitter of about 5 to 10% of one estimate.
+3. **Without its heuristics a family is overvalued, by very different amounts** (seen narrowly): prime gradient 2 to 5
+   times, smooth and the owner's example up to 2.4 times near target, the tied conjunction 10 to 60 times (floor 82,778
+   against 3,356 at T ≈ 10,000). A conjunction is the extreme case: no single solved move onto s's readings satisfies
+   both parts, so the generic floor almost always falls back to the direct route.
+4. **The deeper search still finds cheaper routes**: 69 of 600 starts are cheaper by more than 1.5 times; energy ratio
+   up to 2.1 (prime gradient at T ≈ 10,000). The pattern is a shortcut stretch followed by a solved move (stretch →
+   stretch, stretch → shift): the reference tries shortcuts and solved moves, never one after the other. That is a
+   heuristic to add (built: adding it can only lower the energy).
+5. **Sums separate size, barely utility** (seen narrowly): 20 objects on target at T ≈ 1,000 against the same objects
+   at T ≈ 500 differ by z = 10.7 (sd of one sum 106 against a difference of 1,142). Against the same objects a little
+   off target, z = 0.7. Reason: a state a quarter off target and its target are about equally hard to reach from a
+   random object of their size, so a small loss of utility costs little energy (built, by the min over routes).
+6. **Non-monotonicity:** a small change that raises utility lowers the energy by more than 2 sd in 0 to 11% of pairs
+   for the one-number families, but 33% for the tied conjunction (12 pairs).
+7. **Size by bits (top plus bottom) is exploitable; magnitude is the default** (seen narrowly, my trial choice, declared
+   here). With bits, a state a little off target with a fraction (m = p + ¼) scored about three times its on-target
+   neighbour (prime gradient 82 against 29 at T ≈ 100; 20-object sums 6,457 off target against 3,501 on, z = −20.8).
+   Its starts are fractions too, and tidying them costs, so a player could raise a score by adding bottom bits. By
+   magnitude the same pairs score about equal (26 against 28).
+8. **The random walk numbers are a repair cost, a different quantity.** The first version started from s after three
+   random menu moves. That measured the cost of repairing a random disturbance (prime gradient 94 to 206, smooth 43 to
+   54), and it scaled with the walk's length (73, 117 and 207 for walks of 1, 3 and 6).
+
+How it could be wrong: one parameter and one state per family and size; the heuristics are mine and simple, and better
+ones lower energies by unknown amounts (item 4); "near" is a single offset (a quarter, or a half for the owner's
+example); the deeper search is itself bounded (depth 4, beam 6), so overvaluation may be larger than seen; the owner's
+"length" read as log2|n| and the conjunction as a minimum are my readings; whole starts under magnitude ignore how
+fractions are distributed at a size.
