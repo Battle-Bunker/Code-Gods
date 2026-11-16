@@ -25,7 +25,12 @@ test("every seated player reads every move, unattributed while live, with their 
   await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
   const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
   await perform(ada!, "game.startWorldNow", {}, { gameId });
-  await new Promise(r => setTimeout(r, 10_000));
+  // Until the first move: the practice partners' starters skip most offers early on (85–98% skips in the playtests;
+  // the first move can take 30 world seconds), so a fixed 10 s often saw births only.
+  for (let i = 0; !(await ada!.query("v2/play:log", { gameId, paginationOpts: page })).page.some((r: any) => r.kind === "move"); i++) {
+    assert.ok(i < 90, "a practice partner moves within 90 s");
+    await new Promise(r => setTimeout(r, 1000));
+  }
   await perform(ada!, "game.pause", {}, { gameId });   // a still board, so both read the same rows
 
   const [a, b] = [(await ada!.query("v2/play:log", { gameId, paginationOpts: page })).page, (await bo!.query("v2/play:log", { gameId, paginationOpts: page })).page];
