@@ -23,7 +23,7 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { quadrantOf } from "./disclose.ts";
 import { decode, typeOf, variantOf } from "./world.ts";
 
-import { paidLive, paysToRead, readPriceWeightOf } from "./read-price.ts";
+import { paidLive, paysToRead, readPriceWeightOf } from "./readPrice.ts";
 export { paidLive, paysToRead, readPriceWeightOf };
 
 /** Bits to read the whole object (φ): what an act must read to tell its owner, and what a look costs at the read price. */

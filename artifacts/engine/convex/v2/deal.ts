@@ -28,7 +28,7 @@ import { findVariant, objectTypes, ruleKey } from "@workspace/v2-valuation";
 import { gridAlignedPairs, gridClashes, gridSeatingCost } from "@workspace/v2-grid";
 import { LINE_EXCLUSION_SHARES, LINE_OPPONENTS, lineClashes, lineSeatingCost, type SeatedRule } from "@workspace/v2-linear";
 import { pairClashes, pairSeatingCost } from "@workspace/v2-pair";
-import { valueHead } from "./values-head.ts";
+import { valueHead } from "./valuesHead.ts";
 import type { Preset } from "./presets.ts";
 
 /** A rule as dealt: enough to evaluate it (family, params, tie-breaker) and to find its value function. */

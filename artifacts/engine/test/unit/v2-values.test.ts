@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { q, scoreFromWire as scoreFrom } from "@workspace/v2-core";
 import { valueLookup } from "@workspace/v2-valuation";
-import { UNIQUENESS } from "../../convex/v2/values-index.gen.ts";
+import { UNIQUENESS } from "../../convex/v2/valuesIndex.gen.ts";
 import { valueRecord } from "../../convex/v2/values.ts";
 import { dealablePool } from "../../convex/v2/deal.ts";
 import { presetOf } from "../../convex/v2/presets.ts";
@@ -51,15 +51,15 @@ test("values in a game carry the uniqueness correction at the game's object coun
   assert.equal(withUniqueness(valueLookup(f), f.uniqueness!, f.uniqueness!.objects)(scoreFrom(rare.u)).bits, many);
 });
 
-test("the value files are current; the curves are one string parsed on the first lookup (16 Nov: a 511-key object literal cost ~0.4 s per cold module)", async () => {
+test("the value files are current; the curves are one string, a rule's slice parsed on its first lookup (16 Nov: a 511-key object literal cost ~0.4 s per cold module)", async () => {
   const { readFileSync } = await import("node:fs");
   const { generate } = await import("../../scripts/gen-v2-values.mjs");
   const out = generate();
-  assert.equal(readFileSync(new URL("../../convex/v2/values-index.gen.ts", import.meta.url), "utf8"), out.index, "stale: run node scripts/gen-v2-values.mjs");
-  assert.equal(readFileSync(new URL("../../convex/v2/values-curves.gen.ts", import.meta.url), "utf8"), out.curves, "stale: run node scripts/gen-v2-values.mjs");
-  const { VALUE_INDEX } = await import("../../convex/v2/values-index.gen.ts");
-  const { CURVES_JSON } = await import("../../convex/v2/values-curves.gen.ts");
-  assert.equal(typeof CURVES_JSON, "string");
+  assert.equal(readFileSync(new URL("../../convex/v2/valuesIndex.gen.ts", import.meta.url), "utf8"), out.index, "stale: run node scripts/gen-v2-values.mjs");
+  assert.equal(readFileSync(new URL("../../convex/v2/valuesCurves.gen.ts", import.meta.url), "utf8"), out.curves, "stale: run node scripts/gen-v2-values.mjs");
+  const { VALUE_INDEX } = await import("../../convex/v2/valuesIndex.gen.ts");
+  const { CURVES } = await import("../../convex/v2/valuesCurves.gen.ts");
+  assert.equal(typeof CURVES, "string");
   assert.ok(VALUE_INDEX.length > 0 && VALUE_INDEX.every(r => !("knots" in r)));
   const r = valueRecord(VALUE_INDEX[0]!.ruleKey)!;
   assert.ok(r.knots.length > 0 && valueRecord(r.ruleKey) === r, "parsed once, then cached");

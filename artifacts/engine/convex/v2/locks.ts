@@ -26,8 +26,8 @@ const SWEEP = 32;
 /** A lock keeps its last this many additions and withdrawals (its totals, and each member's, are kept whole). */
 export const LOCK_HISTORY = 48;
 
-export { locksOn, ratesOf } from "./lock-settings.ts";
-import { locksOn, ratesOf } from "./lock-settings.ts";
+export { locksOn, ratesOf } from "./lockSettings.ts";
+import { locksOn, ratesOf } from "./lockSettings.ts";
 
 /**
  * An object's lock documents, by number: at most LOCKS_PER_OBJECT live ones, plus any that decayed since the last sweep

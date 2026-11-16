@@ -10,14 +10,14 @@ import { bidDealer, playable, dealDefence, defencePool, isGridVariant, dealableP
 import { dealWithBids, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
 import { isPreset, presetOf, TURNOVER_DEFAULTS, type Preset, type PresetBid, type Turnover } from "./presets.ts";
 import { DEFAULT_PENALTY_WEIGHT, typeOf } from "./world.ts";
-import { valueHead } from "./values-head.ts";
+import { valueHead } from "./valuesHead.ts";
 import { bidders } from "./bids.ts";
 import { summonPracticePartners } from "./agents.ts";
 import { makeFunctionReference } from "convex/server";
 import { newNoiseKey } from "./disclose.ts";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, drawEnd, timeScaleOf } from "./duration.ts";
 import { ensureWarm } from "./readiness.ts";
-import { dealHistory, membersOf, roomPool, rotationFor } from "./room-deal.ts";
+import { dealHistory, membersOf, roomPool, rotationFor } from "./roomDeal.ts";
 export { membersOf, roomPool, rotationFor };
 import { bornAtStart, DEFAULT_PAUSE_SECONDS, endGame } from "./loop.ts";
 import { unopposedDirections } from "@workspace/v2-agents/pure";

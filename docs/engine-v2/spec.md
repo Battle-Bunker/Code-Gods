@@ -212,7 +212,7 @@ grids when their cells are). A strategy cannot thrive by finding one good state 
   bits b by shift(N)·ramp(b), with shift(N) = log2(1/(1 − E[M_N])) and the ramp rising from 0 at log2 N over max(2,
   2·shift) bits. The ramp keeps the corrected value monotone in the score and leaves the crowded region alone. The
   per-variant tables of E[M_N] (N = 2 … 1,000; `pnpm --filter @workspace/v2-valuation uniqueness`) are bundled with
-  the value functions (`UNIQUENESS` in values-index.gen.ts). Σπ² is 0.068 on line-z, 0.012 on line-q and 1.5·10^−12 on
+  the value functions (`UNIQUENESS` in valuesIndex.gen.ts). Σπ² is 0.068 on line-z, 0.012 on line-q and 1.5·10^−12 on
   grid-4-d10. So line-q shifts by 0.10 bits at 10 objects, 0.23 at 40 and 0.86 at 1,000, and grids need no correction.
 - **Identity, not near-duplicates.** "Unique" is exact equality of the canonical state. A stronger notion (lines that
   differ only slightly, the same primary utility) would be arbitrary per rule, would distort the law more, and would
@@ -748,7 +748,7 @@ function is defined at every score, and a lookup past the best knot is extrapola
 One JSON file per rule key, committed under `lib/v2-valuation/values/<variant>/<family>/<params-hash>-<tie-breaker>.json`
 (schema 7: `ruleKey`, the variant and its hash, family, params, tie-breaker, seed, config, the knots, the tail and a
 `contentHash` of everything else), written by `pnpm --filter @workspace/v2-valuation values`. The engine bundles them
-(`artifacts/engine/convex/v2/values-index.gen.ts` and `values-curves.gen.ts`, `scripts/gen-v2-values.mjs`, `--check` in CI); the game header records each
+(`artifacts/engine/convex/v2/valuesIndex.gen.ts` and `valuesCurves.gen.ts`, `scripts/gen-v2-values.mjs`, `--check` in CI); the game header records each
 dealt rule's `contentHash` (§9).
 
 ### 7.7 Values at run time

@@ -8,7 +8,7 @@
  * What would break: an agent never acting or never committing; values or points diverging from the record; an act
  * whose outcome depends on anything the record does not hold (a replay that cannot reproduce the game).
  */
-import { UNIQUENESS, VALUE_INDEX } from "../convex/v2/values-index.gen.ts";
+import { UNIQUENESS, VALUE_INDEX } from "../convex/v2/valuesIndex.gen.ts";
 import { valueRecord } from "../convex/v2/values.ts";
 import { valueObjects } from "../convex/v2/world.ts";
 import { actReadings } from "../convex/v2/disclose.ts";

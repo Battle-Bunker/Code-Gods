@@ -1,18 +1,16 @@
 /**
- * What a score is worth (owner decision 23): each dealt rule's value function (convex/v2/values-index.gen.ts and values-curves.gen.ts, keyed by the
+ * What a score is worth (owner decision 23): each dealt rule's value function (convex/v2/valuesIndex.gen.ts and valuesCurves.gen.ts, keyed by the
  * same ruleKey as the deal), looked up at a score's utility: bits = −log2 of the stationary mass of states at least
  * that good, with its interval. No levels, ladders or caps. Pure; any runtime.
  */
 import type { Score } from "@workspace/v2-core";
 import type { ObjectType } from "@workspace/v2-core";
 import { findVariant, meanHinge, valueLookup, valuesVariant, withUniqueness } from "@workspace/v2-valuation";
-import { UNIQUENESS, type ValueRecord } from "./values-index.gen.ts";
-import { CURVES_JSON } from "./values-curves.gen.ts";
-import { valueHead } from "./values-head.ts";
+import { UNIQUENESS, type ValueRecord } from "./valuesIndex.gen.ts";
+import { CURVES } from "./valuesCurves.gen.ts";
+import { valueHead } from "./valuesHead.ts";
 
 export { valueHead };
-/** Every rule's curve, parsed from the one string on the first lookup (a string loads in a fraction of an object literal's time). */
-let CURVES: Readonly<Record<string, Pick<ValueRecord, "knots" | "tail" | "tree">>> | null = null;
 const RECORDS = new Map<string, ValueRecord>();
 const LOOKUPS = new Map<string, ReturnType<typeof valueLookup>>();
 
@@ -20,10 +18,11 @@ const LOOKUPS = new Map<string, ReturnType<typeof valueLookup>>();
 export function valueRecord(ruleKey: string): ValueRecord | null {
   let r = RECORDS.get(ruleKey);
   if (!r) {
-    CURVES ??= JSON.parse(CURVES_JSON) as Record<string, Pick<ValueRecord, "knots" | "tail" | "tree">>;
-    const head = valueHead(ruleKey), curve = CURVES[ruleKey];
-    if (!head || curve === undefined) return null;
-    RECORDS.set(ruleKey, r = { ...head, ...curve } as ValueRecord);
+    // The curves are one string (a string loads in a fraction of an object literal's time); a rule parses its own slice.
+    const head = valueHead(ruleKey);
+    if (!head) return null;
+    const { curve: [start, end], measuredTo: _m, ...rest } = head;
+    RECORDS.set(ruleKey, r = { ...rest, ...(JSON.parse(CURVES.slice(start, end)) as Pick<ValueRecord, "knots" | "tail" | "tree">) } as ValueRecord);
   }
   return r;
 }
@@ -34,7 +33,7 @@ export function valueRecord(ruleKey: string): ValueRecord | null {
  */
 export interface ValueScope { variant: string; objects: number }
 
-/** The uniqueness correction's table for a variant (values-index.gen.ts), with the game's object count: what an agent host takes. */
+/** The uniqueness correction's table for a variant (valuesIndex.gen.ts), with the game's object count: what an agent host takes. */
 export function uniquenessOf(scope: ValueScope): { ns: number[]; heldMass: number[]; objects: number } | null {
   // A variant that differs from another only in its menu shares that variant's law, so its table (Variant.valuesOf).
   let id = scope.variant;
