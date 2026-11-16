@@ -3,12 +3,14 @@ import { OpFailure } from "@workspace/v2-affordances";
 import { makeFunctionReference } from "convex/server";
 import { callerOf, defineOp } from "./define";
 import { pageOf } from "./paging";
+import { MAX_SCRIPTS } from "../codeData";
 
 const RUN = makeFunctionReference<"action", Record<string, unknown>, Record<string, unknown> & { refused?: string }>("v2/codeRun:run");
 
 export const { op: run, as: runAs } = defineOp("code.run", "action", async (env, a) => {
   const c = callerOf(env);
-  const out = await env.ctx.runAction(RUN, { userId: c.userId!, scope: c.scope, language: a.language, source: a.source, dataset: a.dataset, ...(a.params !== undefined ? { params: a.params } : {}), ...(a.title ? { title: a.title } : {}) });
+  const out = await env.ctx.runAction(RUN, { userId: c.userId!, scope: c.scope, ...(a.language ? { language: a.language } : {}), ...(a.source !== undefined ? { source: a.source } : {}),
+    ...(a.script !== undefined ? { script: a.script } : {}), ...(a.saveAs !== undefined ? { saveAs: a.saveAs } : {}), dataset: a.dataset, ...(a.params !== undefined ? { params: a.params } : {}), ...(a.title ? { title: a.title } : {}) });
   if (out.refused) throw new OpFailure(out.refused);
   return out as never;
 });
@@ -32,4 +34,18 @@ export const { op: list, as: listAs } = defineOp("code.list", "query", async (en
     page: page.page.map(r => ({ runId: r._id, title: r.title, language: r.language, dataset: r.dataset, status: r.status, ms: r.ms, at: r.at })),
     nextCursor: page.isDone ? null : page.continueCursor,
   };
+});
+
+/** The caller's saved scripts (≤ MAX_SCRIPTS, by name): one index range. */
+export const { op: scripts, as: scriptsAs } = defineOp("code.scripts", "query", async env => {
+  const userId = callerOf(env).userId!;
+  const rows = await env.ctx.db.query("v2CodeScripts").withIndex("by_user_name", q => q.eq("userId", userId)).take(MAX_SCRIPTS);
+  return { scripts: rows.map(r => ({ name: r.name, language: r.language, title: r.title, updatedAt: r.updatedAt })) };
+});
+
+export const { op: deleteScript, as: deleteScriptAs } = defineOp("code.deleteScript", "mutation", async (env, a) => {
+  const userId = callerOf(env).userId!;
+  const row = await env.ctx.db.query("v2CodeScripts").withIndex("by_user_name", q => q.eq("userId", userId).eq("name", a.name)).unique();
+  if (row) await env.ctx.db.delete(row._id);
+  return { deleted: !!row };
 });

@@ -50,3 +50,19 @@ test("the read rules: no replay while live, no act log for a spectator", async (
   const spectator = await perform(sy, "code.run", { language: "javascript", source: "function main(d) { return d; }", dataset: "my-moves" }, { gameId }, "action");
   assert.equal(spectator.ok, false); assert.match(spectator.error.message, /seated player/);
 });
+
+test("saved scripts (v1's saveAs / script): saved after a good run, run again by name, listed, deleted, the author's own", async () => {
+  const name = `count-${Date.now()}`;
+  const saved = await perform(ada, "code.run", { language: "typescript", source: COUNT, dataset: "my-moves", saveAs: name, title: "Count mine" }, { gameId }, "action");
+  assert.equal(saved.result.saved, name, JSON.stringify(saved.result));
+  const bad = await perform(ada, "code.run", { language: "javascript", source: "function main() { throw new Error('x'); }", dataset: "none", saveAs: `${name}-bad` }, { gameId }, "action");
+  assert.equal(bad.result.saved, null, "a run with an error saves nothing");
+  const again = await perform(ada, "code.run", { script: name, dataset: "my-moves" }, { gameId }, "action");
+  assert.equal(again.ok, true, JSON.stringify(again));
+  assert.deepEqual([again.result.title, again.result.resultPreview], ["Count mine", saved.result.resultPreview]);
+  const list = (await perform(ada, "code.scripts", {}, {}, "query")).result.scripts.map((s: any) => s.name);
+  assert.ok(list.includes(name) && !list.includes(`${name}-bad`), list.join(", "));
+  assert.equal((await perform(bo, "code.run", { script: name, dataset: "my-moves" }, { gameId }, "action")).ok, false, "another human's script is not theirs to run");
+  assert.equal((await perform(ada, "code.deleteScript", { name }, {})).result.deleted, true);
+  assert.equal((await perform(ada, "code.run", { script: name, dataset: "none" }, { gameId }, "action")).ok, false, "deleted");
+});

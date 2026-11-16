@@ -547,6 +547,8 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "code.run": () => { throw new OpFailure("The offline server does not run code."); },
   "code.get": () => { throw new OpFailure("No such run of yours."); },
   "code.list": () => ({ page: [], nextCursor: null }),
+  "code.scripts": () => ({ scripts: [] }),
+  "code.deleteScript": () => ({ deleted: false }),
   "panel.list": e => ({
     panels: Object.values(e.state.panels ?? {}).filter(p => p.userId === e.userId).map(p => ({
       panelId: p.panelId, slug: p.slug, title: p.title, placement: p.placement, size: p.size, currentVersion: p.versions.at(-1)!.version,

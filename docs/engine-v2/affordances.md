@@ -244,7 +244,9 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `panel.rollback` | Roll a panel back | slug, version | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write; confirm inline |
 | `panel.setEnabled` | Show or hide a panel | slug, enabled | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write |
 | `panel.remove` | Delete a panel | slug | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | destructive; confirm modal |
-| `code.run` | Run code over the game's data | language, source, dataset, params, title | server (action) · game | member | planning, live, paused, ended, replay | write |
+| `code.run` | Run code over the game's data | language, source, script, saveAs, dataset, params, title | server (action) · game | member | planning, live, paused, ended, replay | write |
 | `code.get` | Show a code run | runId | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
 | `code.list` | List my code runs | cursor, limit | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
+| `code.scripts` | List my saved scripts | — | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
+| `code.deleteScript` | Delete a saved script | name | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | destructive; confirm modal |
 <!-- directory:end -->
