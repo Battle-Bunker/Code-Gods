@@ -25,3 +25,9 @@ test("a failed live read comes back by itself (round 24: panes stayed broken unt
   assert.equal(w.text, "This pane could not load: the server took too long (it is busy right now). It comes back by itself when the server answers; Try again asks it now.");
   assert.equal(liveSourceOf(cause), null, "an error that is not a live read has no source");
 });
+
+test("the game's bars say what failed in plain words, never the server's raw text (a real game: raw Convex text until the game ended)", () => {
+  const e = new LiveError(new Error("[CONVEX Q(v2/play:standings)] [Request ID: 9] Server Error Function execution timed out"), {}, {});
+  const w = paneErrorWords(e, "Your totals");
+  assert.equal(w.text, "Your totals could not load: the server took too long (it is busy right now). It comes back by itself when the server answers; Try again asks it now.");
+});
