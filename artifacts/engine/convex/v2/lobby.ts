@@ -16,7 +16,7 @@ import { makeFunctionReference } from "convex/server";
 import { newNoiseKey } from "./disclose.ts";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, drawEnd, timeScaleOf } from "./duration.ts";
 import { ensureWarm } from "./readiness.ts";
-import { DEFAULT_PAUSE_SECONDS, endGame } from "./loop.ts";
+import { bornAtStart, DEFAULT_PAUSE_SECONDS, endGame } from "./loop.ts";
 import { unopposedDirections } from "@workspace/v2-agents/pure";
 
 const PLANNING_ENDS = makeFunctionReference<"mutation", { gameId: Id<"v2Games"> }>("v2/loop:planningEnds");
@@ -460,6 +460,8 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
   });
   await ctx.db.patch(room._id, { gameId, lastGameId: gameId, games: number, revision: room.revision + 1 });
   const game = (await ctx.db.get(gameId))!;
+  // The board exists from the start (v1): planning shows the starting objects and every player's points.
+  await bornAtStart(ctx, game);
   // Agent sandboxes boot in the background during planning (readiness.ts): nobody waits for them.
   await ensureWarm(ctx);
   await summonPracticePartners(ctx, game);
