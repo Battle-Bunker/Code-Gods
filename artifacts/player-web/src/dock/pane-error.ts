@@ -27,15 +27,16 @@ export class LiveError extends Error {
 /** The failed read's query and arguments, or null for any other error. */
 export const liveSourceOf = (e: unknown): { query: unknown; args: unknown } | null => (e instanceof LiveError ? { query: e.query, args: e.args } : null);
 
-export function paneErrorWords(error: unknown): PaneErrorWords {
+/** `what` names what failed ("This pane", "Your totals"): never the server's raw text for a server failure. */
+export function paneErrorWords(error: unknown, what = "This pane"): PaneErrorWords {
   const message = error instanceof Error ? error.message : String(error);
   if (/^\[CONVEX [QMA]\(|Server Error|timed out/i.test(message)) {
     const slow = /timed out/i.test(message);
     const live = error instanceof LiveError;
     return {
-      text: `${slow ? "This pane could not load: the server took too long (it is busy right now)." : "This pane could not load: the server had a problem."}${live ? " It comes back by itself when the server answers; Try again asks it now." : ""}`,
+      text: `${what} could not load: ${slow ? "the server took too long (it is busy right now)." : "the server had a problem."}${live ? " It comes back by itself when the server answers; Try again asks it now." : ""}`,
       reload: !live,
     };
   }
-  return { text: `This pane could not load: ${message}`, reload: false };
+  return { text: `${what} could not load: ${message}`, reload: false };
 }

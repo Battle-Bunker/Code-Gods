@@ -31,5 +31,17 @@ export const notFoundMsg = (e: unknown, fallback: string): string => !e || errCo
  */
 export const transient = (e: unknown): boolean => e instanceof Error && !(e instanceof ConvexError);
 export const reload = () => window.location.reload();
+/**
+ * What a game page whose header failed says: the room's own sentences for "no game" and "not in this room"; a timeout
+ * or server error in plain words (never the server's raw text), with a Try again that asks the header afresh.
+ */
+export function gameErrorWords(e: unknown): { text: string; again: boolean } {
+  const c = errCode(e);
+  if (c === "NOT_FOUND") return { text: "No such game here. It may belong to another room.", again: false };
+  if (c === "FORBIDDEN") return { text: "Join the room to watch or play its games.", again: false };
+  if (!transient(e)) return { text: errMsg(e), again: false };
+  const slow = /timed out/i.test(e instanceof Error ? e.message : "");
+  return { text: `This game could not load: ${slow ? "the server took too long (it is busy right now)." : "the server had a problem."} It comes back by itself when the server answers; Try again asks it now.`, again: true };
+}
 export const rid = () => crypto.randomUUID();
 export const fmt = (n: number, d = 0) => n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d });

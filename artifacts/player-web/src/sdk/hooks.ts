@@ -73,6 +73,12 @@ export function useOthersBlurred(): boolean {
   return !replay && !!header && header.phase !== "ended" && blursOthers(header);
 }
 
+/** Every rule this game's dealer could deal (v2/play:candidates; v1's "Possible gods"): never who holds which. */
+export function useRuleCandidates() {
+  const { gameId } = useGameScope();
+  return useLiveValue(api.v2.play.candidates, gameId ? { gameId } : "skip");
+}
+
 /** The viewer's private rule: family, parameters, card, value function, the primary representation. */
 export function useMyRule(): MyRule | undefined {
   const { gameId, seated } = useGameScope();
@@ -164,6 +170,12 @@ export function useMyAgents(): Agent[] | undefined {
   const frame = replay?.frame, member = replay?.member;
   const replayed = useMemo(() => (frame && member ? frame.agents(member) : null), [frame, member]);
   return replayed ?? live?.page;
+}
+/** All of the viewer's agents, page by page (≤ 200 a player, 50 a page: W3 #898), for My agents; none in a replay. */
+export function useMyAgentPages() {
+  const { gameId, seated } = useGameScope();
+  const replay = useReplaySource();
+  return useLivePaged(api.v2.play.agents, gameId && seated && !replay ? { gameId } : "skip", 50);
 }
 /** An agent's energy account; not in the record, so none in a replay. */
 export function useAgentEnergy(agentId: string | null | undefined) {
