@@ -262,3 +262,23 @@ test("Divisibility Ladder is a ladder with no top: the run goes past 12, each ex
   assert.equal(dl(q(1, 2), 3)["next-rung"], "0");   // y(1) = 7/2: not whole
   assert.ok(divisibilityLadder.keepsParams);
 });
+
+test("Same on Both Rulers marks the meeting point and its palindrome on the plane without reading it: depends and reads unchanged (no scoring cost)", () => {
+  const e = evaluateSite(lineType, sameOnBothRulers, { meets: 1, digits: "odd" }, mc(0, 120), lineQ, 0, null);
+  assert.deepEqual([...sameOnBothRulers.depends], ["si", "gen"]);
+  assert.ok(e.reads.every(r => r.rep !== "cart"), "the plane is not read");
+  assert.ok(e.marks.some(m => m.kind === "focus" && m.ref.name === "pointAtX" && m.ref.args?.q === "120" && m.term === "palindrome"));
+  assert.ok(e.marks.some(m => m.kind === "candidate" && m.ref.name === "xAxisMark" && m.ref.args?.x === "121" && m.term === "palindrome"));
+});
+
+test("a mark outside depends must still name a real element; inside depends it must still be read", () => {
+  const bad = (cite: { rep: string; name: string }): RuleFamily<LineState, object> => ({
+    ...sameOnBothRulers as unknown as RuleFamily<LineState, object>,
+    evaluate(ctx) {
+      for (const l of [sameOnBothRulers.main, ...sameOnBothRulers.tieBreakers]) ctx.term(l.id, l.id, q(0), []);
+      ctx.mark({ kind: "focus", ref: cite });
+    },
+  });
+  assert.throws(() => evaluateSite(lineType, bad({ rep: "cart", name: "nope" }), {}, mc(1, 2), lineQ), /Unknown element/);
+  assert.throws(() => evaluateSite(lineType, bad({ rep: "si", name: "m" }), {}, mc(1, 2), lineQ), /without reading it/);
+});

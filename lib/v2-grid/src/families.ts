@@ -7,7 +7,7 @@
  */
 import { q, ref, type ElementRef, type RuleFamily } from "@workspace/v2-core";
 import { at, type GridState } from "./grid.ts";
-import { countCells, diagonals, distance, family, offTotals, sumOf, term, isPrimeCell, more, primesTie, readCells, readNum, totalOf, zerosTie, type Ctx, type Shape } from "./family-kit.ts";
+import { countCells, upTo, diagonals, distance, family, offTotals, sumOf, term, isPrimeCell, more, primesTie, readCells, readNum, totalOf, zerosTie, type Ctx, type Shape } from "./family-kit.ts";
 import { moreGridFamilies } from "./more-families.ts";
 import { paramGridFamilies } from "./param-families.ts";
 import { divisibility } from "./divisibility.ts";
@@ -86,7 +86,7 @@ export function magicEighteen(n: number): RuleFamily<GridState, T> {
       more("odd", "odd numbers on the board", "As many cells as possible should hold an odd number.", "cells"),
       distance<T>("columns", "every column adds up to the target too", p => `The columns should add up to ${p.T} too.`, "tally"),
       distance<T>("diagonals", "both diagonals add up to the target too", p => `Both diagonals should add up to ${p.T} too.`, "cells"),
-      more("different-numbers", "rows of all different numbers", "Each row should hold four different numbers.", "cells"),
+      upTo(more("different-numbers", "rows of all different numbers", "Each row should hold four different numbers.", "cells"), n),
     ],
   };
   return family<T>("magic-eighteen", "Magic Eighteen", ["tally", "cells"], shape, [{ T: 18 }], (ctx, p) => {
@@ -122,8 +122,8 @@ export function oppositeNines(n: number): RuleFamily<GridState, T> {
       more("odd", "odd numbers on the board", "As many cells as possible should hold an odd number.", "cells"),
       distance<T>("mirror-nines", "each number and its mirror in the row add up to the target",
         p => `Each number and the number mirrored across the middle of its row should add up to ${p.T} too.`, "cells"),
-      more<T>("different-splits", "different ways the pairs split the target",
-        p => `The pairs that add up to ${p.T} should split it in as many different ways as possible, like ${splitExample(p.T)}.`, "cells"),
+      upTo(more<T>("different-splits", "different ways the pairs split the target",
+        p => `The pairs that add up to ${p.T} should split it in as many different ways as possible, like ${splitExample(p.T)}.`, "cells"), p => Math.min(pairs(n).length, Math.floor(p.T / 2) + 1)),
       more("big-on-top", "pairs with the bigger number in the top half", "In each pair, the bigger number should be in the top half.", "cells"),
     ],
   };
@@ -155,7 +155,7 @@ export function twoPair(n: number): RuleFamily<GridState, None> {
       more("apart", "how far apart each box's pairs are", "In each box the two pairs should be as far apart as possible (biggest minus smallest, added up).", "cells"),
       primesTie(),
       more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells"),
-      more("diagonal-pairs", "boxes with each pair on a diagonal", "In each corner box, each pair should sit on a diagonal of the box, like 3 8 over 8 3.", "cells"),
+      upTo(more("diagonal-pairs", "boxes with each pair on a diagonal", "In each corner box, each pair should sit on a diagonal of the box, like 3 8 over 8 3.", "cells"), boxes(n).length),
       distance<None>("small-pairs", "the smaller pair in each box", () => "The smaller pair in each corner box should be as small as possible.", "cells"),
     ],
   };
@@ -195,10 +195,10 @@ export function spreadOfThree(n: number): RuleFamily<GridState, None> {
       primesTie(),
       zerosTie(),
       more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells"),
-      more("spread-diagonal", "squares with their biggest and smallest on a diagonal",
-        "In as many 2×2 squares as possible, the biggest and the smallest number should sit diagonally.", "cells"),
+      upTo(more("spread-diagonal", "squares with their biggest and smallest on a diagonal",
+        "In as many 2×2 squares as possible, the biggest and the smallest number should sit diagonally.", "cells"), windows(n).length),
       distance<None>("spread-small", "each square's smallest number", () => "The smallest number in each 2×2 square should be as small as possible.", "cells"),
-      more("square-different", "squares of four different numbers", "As many 2×2 squares as possible should hold four different numbers.", "cells"),
+      upTo(more("square-different", "squares of four different numbers", "As many 2×2 squares as possible should hold four different numbers.", "cells"), windows(n).length),
     ],
   };
   return family<None>("spread-of-three", "Spread of Three", ["windows", "cells"], shape, [{}], ctx => {
@@ -232,7 +232,7 @@ export function strangersFamily(n: number): RuleFamily<GridState, None> {
       primesTie(),
       more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells"),
       more("prime-strangers", "strangers that are both prime", "As many strangers as possible should both be prime numbers, like 3 and 7.", "cells"),
-      more("across-strangers", "strangers across the corner boxes' borders", "Touching numbers in different corner boxes should be strangers too.", "cells"),
+      upTo(more("across-strangers", "strangers across the corner boxes' borders", "Touching numbers in different corner boxes should be strangers too.", "cells"), 2 * n * (n - 1) - 4 * boxes(n).length),
     ],
   };
   return family<None>("strangers", "Strangers", ["boxes", "cells"], shape, [{}], ctx => {
@@ -270,11 +270,11 @@ export function leapfrog(n: number): RuleFamily<GridState, None> {
       more("first-column", "the first column's total", "The first column should add up to as much as possible.", "cells"),
       primesTie(),
       zerosTie(),
-      more("same-way", "rows whose leaps all go the same way", "In each row, both leaps should go the same way: both up or both down.", "cells"),
+      upTo(more("same-way", "rows whose leaps all go the same way", "In each row, both leaps should go the same way: both up or both down.", "cells"), n),
       distance<None>("columns-leap", "down the columns: each number one apart from the number two cells below",
         () => "Each number and the number two cells down its column should be one apart too.", "cells"),
-      more("middle-factors", "numbers between leap partners sharing a factor with both",
-        "Each number between two leap partners should share a factor with both, like 6 between 4 and 9.", "cells"),
+      upTo(more("middle-factors", "numbers between leap partners sharing a factor with both",
+        "Each number between two leap partners should share a factor with both, like 6 between 4 and 9.", "cells"), n * (n - 2)),
     ],
   };
   return family<None>("leapfrog", "Leapfrog", ["leaps", "cells"], shape, [{}], ctx => {
@@ -307,10 +307,10 @@ export function crosswiseThrees(n: number): RuleFamily<GridState, None> {
       more("fold-line", "the fold line's total", "The cells on the fold line should add up to as much as possible.", "fold"),
       primesTie(),
       zerosTie(),
-      more("bigger-side", "folded pairs with the bigger number on the top-left side", "In each fold pair, the bigger number should be on the top-left side of the fold.", "cells"),
+      upTo(more("bigger-side", "folded pairs with the bigger number on the top-left side", "In each fold pair, the bigger number should be on the top-left side of the fold.", "cells"), folds(n).length),
       distance<None>("other-fold", "cells folded on the other diagonal three apart",
         () => "Fold the board on its other diagonal too: those numbers should be 3 apart as well.", "cells"),
-      more("fold-factors", "folded pairs sharing a factor", "As many fold pairs as possible should share a factor, like 3 and 6.", "cells"),
+      upTo(more("fold-factors", "folded pairs sharing a factor", "As many fold pairs as possible should share a factor, like 3 and 6.", "cells"), folds(n).length),
     ],
   };
   return family<None>("crosswise-threes", "Crosswise Threes", ["fold", "cells"], shape, [{}], ctx => {

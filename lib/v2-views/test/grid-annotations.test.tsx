@@ -101,6 +101,14 @@ test("a secondary's notes on many units stay on the board: its card says its val
   assert.ok(part.sentence.length < 200, part.sentence);
 });
 
+test("a bounded count's ruler ends where the count can end: Two Pair's boxes with diagonal pairs run to 4 (playtest baseline-2 #5)", () => {
+  const fam = gridType.families.find(f => f.id === "two-pair")!;
+  const r: RuleRef<GridState, unknown> = { type: gridType, family: fam, params: {}, variant: grid4, tieBreaker: "diagonal-pairs" };
+  const part = annotate(r, board("7031", "7021", "3313", "3213")).sites[0]!.parts[1]!;
+  assert.ok(part.ruler, "a ruler");
+  assert.equal(Math.max(...part.ruler!.refs.map(x => x.at)), 4, part.ruler!.refs.map(x => x.at).join(","));
+});
+
 test("a view whose groups carry numbers says what those numbers are (the circled box totals)", () => {
   const html = renderToStaticMarkup(<RepView type={gridType} state={B} rep="boxes" size="expanded" />);
   assert.match(html, /class="v2v-legend"[^>]*>[^<]*box totals/);
