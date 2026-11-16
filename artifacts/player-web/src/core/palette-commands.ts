@@ -137,7 +137,7 @@ const FIELD_LABELS: Record<string, string> = { text: "Your message", code: "Room
 export function paneLabel(p: PaneId, noun?: { one: string; many: string }): string {
   if (noun && p === "objects") return noun.many[0]!.toUpperCase() + noun.many.slice(1);
   if (noun && p === "object") return `One ${noun.one}`;
-  return lined(PANES[p].title, noun);
+  return lined(PANES[p].title, noun) ?? PANES[p].title;
 }
 /** A pane's words written for lines ("Which lines earn you points") in the game's own words. */
 export function lined(text: string | undefined, noun?: { one: string; many: string }): string | undefined {
