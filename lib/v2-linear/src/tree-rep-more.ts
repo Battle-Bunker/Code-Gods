@@ -5,7 +5,7 @@
  * lowest terms; a whole gradient has B = 1). The targets are the fractions t/B in lowest terms whose top t ends in a
  * drawn suffix. (1) The VALUE of the target nearest the reading (the y-intercept's or the x-crossing's size), the
  * bigger the better: the repair of the stopped session's draft, whose primary was the top t, which one tilt by 1/1000
- * multiplied by about 1000 (tree-rep.md item 3; true by construction). Reading a size, a nudge moves the primary by
+ * multiplied by about 1000 (tree-rep.md item 3; true by construction). TreeReading a size, a nudge moves the primary by
  * about its own size. (2) How close. (3) The gradient's top near the target's top / the other reading's bottom near B
  * / the gradient times the target near 1, in doublings.
  *

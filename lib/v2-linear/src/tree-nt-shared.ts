@@ -78,7 +78,7 @@ export function suffixPrimesNear(x: Q, suffix: string, skip: (p: bigint) => bool
 
 export const NOTHING = { undefined: "nothing to read" } as const;
 /** What a tree family reads of the line: the reading's size, where it was read, and the line's gradient and y-intercept. */
-export interface Reading {
+export interface TreeReading {
   readonly x: Q;
   readonly from: readonly ElementRef[];
   /** The reading's sign before its size was taken (reflections keep a score: targets are marked on the reading's own side). */
@@ -99,14 +99,14 @@ export interface Target {
   readonly near: readonly Q[];
 }
 /** A further layer: it records its own term and its marks (its reading's focus, its working as a note). */
-export interface Further<P, T extends Target> { readonly layer: L<P>; evaluate(ctx: Ctx, r: Reading, t: T, p: P): void }
+export interface Further<P, T extends Target> { readonly layer: L<P>; evaluate(ctx: Ctx, r: TreeReading, t: T, p: P): void }
 
 export const lineMC = (ctx: Ctx) => ({ m: num(ctx.read(ref("si", "m"))), c: num(ctx.read(ref("si", "c"))) });
 /**
  * The x-crossing's size, as Prime Landing (tuple) reads it: a flat line never crosses the x-axis and reads its height
  * instead (the coordinator's call, 16 Nov: a tilt to flat is then not a knock to nothing). Only y = 0 itself reads nothing.
  */
-export function crossingOrHeight(ctx: Ctx): Reading | { none: ElementValue; from: ElementRef } {
+export function crossingOrHeight(ctx: Ctx): TreeReading | { none: ElementValue; from: ElementRef } {
   const xr = ref("crossing", "x0"), xv = ctx.read(xr), x = num(xv), mc = lineMC(ctx);
   if (x !== null) return { x: Qn.abs(x), sign: Qn.sign(x) < 0 ? -1 : 1, ...mc, from: [xr] };
   if (mc.m !== null && mc.c !== null && Qn.sign(mc.m) === 0 && Qn.sign(mc.c) !== 0) return { x: Qn.abs(mc.c), sign: Qn.sign(mc.c), flat: true, ...mc, from: [ref("si", "c")] };
@@ -128,12 +128,12 @@ export function treeFamily<P extends object, T extends Target>(o: {
   space: ParamSpace<P>; featured: readonly P[];
   main: (p: P) => string; mainTitle: string;
   close: (p: P) => string; closeTitle: string;
-  read: (ctx: Ctx, p: P) => Reading | { none: ElementValue; from: ElementRef };
+  read: (ctx: Ctx, p: P) => TreeReading | { none: ElementValue; from: ElementRef };
   /** The target nearest the reading's size x (the whole reading too, for a ruler that depends on the line). */
-  nearest: (x: Q, p: P, r: Reading) => T;
+  nearest: (x: Q, p: P, r: TreeReading) => T;
   /** Where the reading and a target are drawn (the annotation contract, #960): the measure's start, a target's element. */
   /** null: the reading has no point on the plane to draw (a sum, an area): its working is a note on the reading. */
-  draw: (r: Reading, p: P) => { from: ElementRef; target: (at: Q) => ElementRef } | null;
+  draw: (r: TreeReading, p: P) => { from: ElementRef; target: (at: Q) => ElementRef } | null;
   thirds: readonly Further<P, T>[];
 }): TreeNtFamily<P> {
   const shape: Shape<P> = {
@@ -166,7 +166,7 @@ export function treeFamily<P extends object, T extends Target>(o: {
 // ---------------------------------------------------------------- shared by the later tree families
 
 /** A reading computed from the gradient and the y-intercept (read in y = mx + c): null where the line has none. */
-export function siReading(ctx: Ctx, of: (m: Q, c: Q) => Q | null, why: string): Reading | { none: ElementValue; from: ElementRef } {
+export function siReading(ctx: Ctx, of: (m: Q, c: Q) => Q | null, why: string): TreeReading | { none: ElementValue; from: ElementRef } {
   const mr = ref("si", "m"), cr = ref("si", "c"), mv = ctx.read(mr), cv = ctx.read(cr), m = num(mv), c = num(cv);
   if (m === null || c === null) return { none: m === null ? mv : cv, from: m === null ? mr : cr };
   const x = of(m, c);
@@ -174,7 +174,7 @@ export function siReading(ctx: Ctx, of: (m: Q, c: Q) => Q | null, why: string): 
   return { x: Qn.abs(x), sign: Qn.sign(x) < 0 ? -1 : 1, m, c, from: [mr, cr] };
 }
 /** The y-intercept's size as a reading (a vertical line has none). */
-export function interceptReading(ctx: Ctx): Reading | { none: ElementValue; from: ElementRef } {
+export function interceptReading(ctx: Ctx): TreeReading | { none: ElementValue; from: ElementRef } {
   const cr = ref("si", "c"), cv = ctx.read(cr), c = num(cv);
   if (c === null) return { none: cv, from: cr };
   return { x: Qn.abs(c), sign: Qn.sign(c) < 0 ? -1 : 1, m: num(ctx.read(ref("si", "m"))), c, from: [cr] };
