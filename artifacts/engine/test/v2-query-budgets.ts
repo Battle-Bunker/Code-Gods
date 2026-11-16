@@ -28,7 +28,7 @@ export const V2_BUDGETS: readonly V2Budget[] = [
   // The fixture holds the room's id, not its code: measured on a code nobody holds (the lookup is one index read either way).
   { query: "v2/rooms:byCode", args: () => ({ code: "ZZZZZZ" }), reads: "1 v2Rooms by_code + the caller's v2Members row", cold: true },
   { query: "v2/rooms:chat", args: f => ({ roomId: f.roomId, ...page }), reads: "v2Chat by_room page", cold: true },
-  { query: "v2/rooms:round", args: f => ({ roomId: f.roomId }), reads: "≤ 16 ended game headers + their v2Standings", cold: true },
+  { query: "v2/rooms:round", args: f => ({ roomId: f.roomId }), reads: "≤ 16 ended game headers + their v2Standings; for the rotation line, the room's v2Members (≤ 16) and ≤ 16 game headers (lobby.ts rotationFor)", cold: true },
   { query: "v2/rooms:history", args: f => ({ roomId: f.roomId, ...page }), reads: "v2Games by_room_phase page", cold: true },
   { query: "v2/games:header", args: f => ({ gameId: f.gameId }), reads: "1 v2Games + the caller's member and player rows", cold: true },
   { query: "v2/games:standings", args: f => ({ gameId: f.gameId }), reads: "1 v2Standings", cold: false },
