@@ -28,9 +28,9 @@ export const playOps = [
   }),
   affordance({
     id: "game.standings", title: "Show the standings", group: "play", scope: "game",
-    description: "Every player's points, bid handicap and net total (total less the handicap's share), ranked by net total, as of the last scoreboard (at most 10 s old).",
+    description: "Every player's points, bid handicap and net total (total less the handicap's share), ranked by net total, as of the last scoreboard (at most 10 s old). While a game whose bid results are private runs, other players show their net only (handicapsHidden).",
     tooltip: "Who is ahead.", keywords: ["leaderboard", "scores", "ranking", "points"],
-    params: none, result: z.object({ rows: z.array(z.object({ memberId: id, name: z.string(), points: z.number(), handicap: z.number().int(), net: z.number(), rank: z.number().int() })) }),
+    params: none, result: z.object({ rows: z.array(z.object({ memberId: id, name: z.string(), points: z.number(), handicap: z.number().int(), net: z.number(), rank: z.number().int() })), handicapsHidden: z.boolean() }),
     contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({

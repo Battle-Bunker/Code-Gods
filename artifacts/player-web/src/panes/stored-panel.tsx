@@ -3,8 +3,9 @@
  *
  * The iframe (`sandbox="allow-scripts"`: an opaque origin, no same-origin access, no popups, forms or top navigation)
  * loads {base}panel-frame.html, which has its own CSP (connect-src 'none'); the page's CSP (frame-src 'self') stops the
- * frame navigating itself off-origin. The host answers the frame's SDK hooks (./panel-host.tsx); panels have no
- * operations of their own.
+ * frame navigating itself off-origin. The host answers the frame's SDK hooks (./panel-host.tsx). A panel acts only
+ * through `act`: a few affordances (src/frame/action-policy.ts), checked here (./panel-actions.ts), confirmed by the
+ * player in the app where the policy says so (./panel-policy.tsx), and performed as the player through the runtime.
  *
  * Handshake: the frame's document posts `ready` (with the nonce from its URL and its SDK version) to this window, once.
  * The host answers `boot` with a MessagePort, and everything after that travels over the port. A document the frame
@@ -15,10 +16,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useGameScope, useMyPanels, usePanelCode } from "@/sdk";
 import { acceptMessage, checkCall, frameVersionProblem, isFrameMessage, MORE_MAX, WATCHES_MAX, type BridgePanel, type HostMessage } from "@/frame/protocol";
 import { HostWatches, type HostLink, type HostWatch } from "./panel-host";
+import { useRuntime } from "@/core/affordance-runtime";
+import type { PanelInfo } from "@/frame/action-policy";
+import { checkAct, performPanelAction } from "./panel-actions";
+import { panelKey, policyStore } from "./panel-policy";
 
 export const frameUrl = (nonce: string) => `${import.meta.env.BASE_URL}panel-frame.html#n=${nonce}`;
 type FrameState = { kind: "booting" | "ready" | "failed" | "crashed" | "stopped"; message?: string };
 
+/** A panel's actions running at once (not waiting for the player). */
+const RUNNING_MAX = 2;
 const note = (text: string, testId: string) => <p className="p-4 text-sm text-muted-foreground" data-testid={testId}>{text}</p>;
 
 /** The pane: the panel's metadata from the viewer's panel list, then its current version's code. */
@@ -32,13 +39,14 @@ export function StoredPanelPane({ slug }: { slug: string }) {
   if (!meta) return note(`There is no panel "${slug}" any more. Close this pane, or open "Your panels" to write it again.`, "stored-panel-missing");
   if (!meta.enabled) return note(`"${meta.title}" is turned off. Turn it on in "Your panels" to see it here.`, "stored-panel-off");
   if (code === null) return note(`"${meta.title}" has no code to show.`, "stored-panel-missing");
-  return <PanelFrame slug={slug} title={meta.title} panel={panel} />;
+  return <PanelFrame slug={slug} title={meta.title} panel={panel} info={{ key: panelKey(meta.panelId), currentVersion: meta.currentVersion, lastForeignVersion: meta.lastForeignVersion }} />;
 }
 
 const dark = () => document.documentElement.classList.contains("dark");
 
-function PanelFrame({ slug, title, panel }: { slug: string; title: string; panel: BridgePanel | undefined }) {
+function PanelFrame({ slug, title, panel, info }: { slug: string; title: string; panel: BridgePanel | undefined; info: PanelInfo }) {
   const scope = useGameScope();
+  const rt = useRuntime();
   const iframe = useRef<HTMLIFrameElement>(null);
   // One nonce per bridge; the iframe is keyed on it, so another room or game loads a fresh frame document.
   const nonce = useMemo(() => crypto.randomUUID(), [scope.roomId, scope.gameId, scope.seated]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -46,12 +54,12 @@ function PanelFrame({ slug, title, panel }: { slug: string; title: string; panel
   const [height, setHeight] = useState(120);
   const [state, setState] = useState<FrameState>({ kind: "booting" });
   const [watches, setWatches] = useState<HostWatch[]>([]);
-  const latest = useRef({ panel, scope });
-  latest.current = { panel, scope };
+  const latest = useRef({ panel, scope, info, rt });
+  latest.current = { panel, scope, info, rt };
   // `more` holds each paged watch's loadMore; `pending`, a `more` that came before its watch had mounted.
   const bridge = useRef<{ port?: MessagePort; sent?: string; ready: boolean; stop: (why?: string) => void; boot: () => void;
-    more: Map<string, (n: number) => void>; pending: Map<string, number>; watching: Set<string> }>(
-    { ready: false, stop: () => {}, boot: () => {}, more: new Map(), pending: new Map(), watching: new Set() });
+    more: Map<string, (n: number) => void>; pending: Map<string, number>; watching: Set<string>; running: number }>(
+    { ready: false, stop: () => {}, boot: () => {}, more: new Map(), pending: new Map(), watching: new Set(), running: 0 });
 
   const link = useMemo<HostLink>(() => ({
     post: (message: HostMessage) => bridge.current.port?.postMessage(message),
@@ -73,6 +81,7 @@ function PanelFrame({ slug, title, panel }: { slug: string; title: string; panel
       stopped = true;
       b.port?.close();
       b.port = undefined;
+      policyStore.dropPanel(latest.current.info.key);
       b.more.clear();
       b.pending.clear();
       b.watching.clear();
@@ -106,6 +115,22 @@ function PanelFrame({ slug, title, panel }: { slug: string; title: string; panel
             b.watching.delete(message.id); b.more.delete(message.id); b.pending.delete(message.id);
             setWatches(ws => ws.filter(w => w.id !== message.id));
             return;
+          case "act": {
+            const reply = (outcome: Extract<HostMessage, { type: "acted" }>["outcome"]) => { if (!stopped) b.port?.postMessage({ type: "acted", id: message.id, outcome } satisfies HostMessage); };
+            const command = checkAct(message.op, message.args);
+            if ("error" in command) { reply({ ok: false, error: { code: "refused", message: command.error } }); return; }
+            // Allowed actions run at once: at most RUNNING_MAX at a time per frame (a loop of them is refused, not queued).
+            if (b.running >= RUNNING_MAX) { reply({ ok: false, error: { code: "busy", message: `A panel can have at most ${RUNNING_MAX} actions running at once.` } }); return; }
+            const { info: asking } = latest.current;
+            void policyStore.ask(asking, command).then(async decision => {
+              if (stopped) return;
+              if (decision === "declined") { reply({ ok: false, error: { code: "declined", message: "The player declined." } }); return; }
+              if (decision === "busy") { reply({ ok: false, error: { code: "busy", message: "This panel already has actions waiting for the player." } }); return; }
+              b.running++;
+              try { reply(await performPanelAction(latest.current.rt.perform, command)); } finally { b.running--; }
+            });
+            return;
+          }
           case "more": {
             if (!b.watching.has(message.id)) return;
             const n = Math.min(MORE_MAX, Math.max(1, Math.trunc(message.n)));

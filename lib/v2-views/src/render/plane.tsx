@@ -571,6 +571,36 @@ function Scene({ p }: { p: P }) {
     );
   }
 
+  // The halfway points between neighbouring targets a layer marks on an axis (pool-plan v2's primary: 11, 31, 41): past
+  // one, the nearest target changes, which is the thing a player most needs to see (coordinator, 16 Nov).
+  const byTerm = new Map<string, { axis: "x" | "y"; at: Q }[]>();
+  for (const m of marks) {
+    if (m.kind !== "candidate" || !m.term || !/^[xy]AxisMark$/.test(m.ref.name)) continue;
+    const axis = m.ref.name === "xAxisMark" ? "x" : "y", arg = m.ref.args?.[axis];
+    if (arg === undefined) continue;
+    const list = byTerm.get(`${m.term}:${axis}`) ?? [];
+    list.push({ axis, at: Qn.parse(arg) });
+    byTerm.set(`${m.term}:${axis}`, list);
+  }
+  for (const [k, list] of byTerm) {
+    if (list.length < 2) continue;
+    const axis = list[0]!.axis;
+    const sorted = list.map(x => x.at).sort((a, b) => Qn.cmp(a, b)).filter((x, i, a) => i === 0 || !Qn.eq(x, a[i - 1]!));
+    for (let i = 0; i + 1 < sorted.length; i++) {
+      const lo = sorted[i]!, hi = sorted[i + 1]!, mid = Qn.div(Qn.add(lo, hi), Qn.from(2)), m = N(mid);
+      const inView = axis === "y" ? m >= v.y0 && m <= v.y1 && v.x0 <= 0 && v.x1 >= 0 : m >= v.x0 && m <= v.x1 && v.y0 <= 0 && v.y1 >= 0;
+      if (!inView) continue;
+      const X = axis === "y" ? v.sx(0) : v.sx(m), Y = axis === "y" ? v.sy(m) : v.sy(0);
+      back.push(
+        <g key={`half${k}${i}`} className="halfway" data-halfway="">
+          <line x1={axis === "y" ? X - 9 : X} x2={axis === "y" ? X + 9 : X} y1={axis === "y" ? Y : Y - 9} y2={axis === "y" ? Y : Y + 9} />
+          {p.size === "expanded" && <text className="halfway-label label-halo" x={axis === "y" ? X - 12 : X + 3} y={axis === "y" ? Y + 3 : Y - 11} textAnchor={axis === "y" ? "end" : "start"}>halfway</text>}
+          <title>{`Halfway between ${readable(lo)} and ${readable(hi)}: past ${readable(mid)}, the nearest is ${readable(Qn.sign(mid) < 0 ? lo : hi)}`}</title>
+        </g>,
+      );
+    }
+  }
+
   const caption = p.size === "expanded" && !v.equal
     ? `Scales differ: across, one square is ${tickText(v.xStep)}; up, one square is ${tickText(v.yStep)}.`
     : null;

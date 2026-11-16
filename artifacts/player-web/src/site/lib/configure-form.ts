@@ -22,6 +22,8 @@ export interface Draft {
   startingObjects: number; birthsPerSecond: number; opportunitiesPerSecond: number;
   powerPerSecond: number; fullChargeSeconds: number; stepBudget: number; interactionComputeMs: number;
   excludedFamilies: string[]; bidPricing: "first" | "second"; bidVisibility: "sealed" | "open"; bidDisclosure: "none" | "handicaps" | "all";
+  /** Line turnover (engine docs/engine-v2/retirement-design.md): 0 is off, and 0 births-every is the setup's births. */
+  liveCap: number; birthSeconds: number; retiredPoints: "banked" | "dropped"; retiredHolds: boolean;
 }
 export type FieldKey = keyof Draft;
 export type Overrides = Partial<Draft>;
@@ -144,6 +146,30 @@ export const FIELDS: Readonly<Record<FieldKey, FieldSpec>> = {
     meaning: "How many new random objects appear per second of world time.",
     consequence: "Raising it brings more fresh objects to claim, and totals grow faster.",
   },
+  liveCap: {
+    label: "Live objects at most", section: "population", tier: "more", control: "number", suggested: [0, 3, 5, 8], unit: "objects", limit: { min: 0, max: 50, int: true },
+    question: "How many objects are live at once?",
+    meaning: "New in v2 (line turnover): when a new object would make more than this many live, the oldest retires first. No agent acts on a retired object again. 0 means no limit.",
+    consequence: "A small number with frequent births keeps fresh objects coming and stops players pulling one object back and forth for the whole game.",
+  },
+  birthSeconds: {
+    label: "A new object every", section: "population", tier: "more", control: "number", suggested: [0, 15, 30, 60, 240], unit: "s", limit: { min: 0, max: 3600, int: true },
+    question: "Should a new object arrive on a fixed beat?",
+    meaning: "New in v2: one new object every this many seconds of world time, on a regular schedule, in place of the rate above. 0 keeps the setup's births.",
+    consequence: "With a live limit, this sets how long each object lives.",
+  },
+  retiredPoints: {
+    label: "Retired objects' points", section: "population", tier: "more", control: "segmented", suggested: ["banked", "dropped"],
+    question: "Do a retired object's points still count?",
+    meaning: "New in v2: kept, a retired object's points stay in every player's total as they stood when it retired. Dropped, they leave the totals.",
+    consequence: "Kept rewards what was built before an object retired; dropped makes only the live objects matter.",
+  },
+  retiredHolds: {
+    label: "Retired objects keep their place", section: "population", tier: "more", control: "switch",
+    question: "Does a retired object keep its state taken?",
+    meaning: "New in v2: no two objects may be in the same state. On, a retired object still holds its last state, so no other object can move there.",
+    consequence: "Off frees retired objects' states for the live ones.",
+  },
   opportunitiesPerSecond: {
     label: "World speed", section: "time", tier: "ask", control: "number", suggested: [3, 25, 100, 300, 1000], unit: "acts per second", limit: { min: 0, max: 1000 },
     question: "How fast does the world move?",
@@ -223,6 +249,7 @@ export function presetDraft(p: Preset): Draft {
     powerPerSecond: p.economy.powerPerSecond, fullChargeSeconds: p.economy.fullChargeSeconds,
     stepBudget: DEFAULT_STEP_BUDGET, interactionComputeMs: DEFAULT_COMPUTE_MS,
     excludedFamilies: [], bidPricing: p.bid?.pricing ?? "first", bidVisibility: "sealed", bidDisclosure: p.bid?.disclosure ?? "none",
+    liveCap: p.turnover?.liveCap ?? 0, birthSeconds: 0, retiredPoints: p.turnover?.retiredPoints ?? "banked", retiredHolds: p.turnover?.retiredHolds ?? true,
   };
 }
 /** The room's next game: the preset with the room's overrides on top (a stored field the page does not know is ignored). */
@@ -283,12 +310,13 @@ const NAMED: Partial<Record<FieldKey, Record<string, string>>> = {
 };
 /** A stepped choice's label: "Normal (5 min)", "every 10 s", "Exact", "2×". */
 const BID_WORDS: Record<string, string> = {
+  banked: "Kept", dropped: "Dropped",
   first: "First price", second: "Second price", sealed: "Sealed", open: "Open", none: "Own result only", handicaps: "Everyone's handicap", all: "The whole auction",
 };
 export function choiceLabel(key: FieldKey, v: number | string | boolean): string {
   if (key === "durationMode") return v === "fixed" ? "Fixed duration" : "Half-life";
-  if ((key === "bidPricing" || key === "bidVisibility" || key === "bidDisclosure") && typeof v === "string") return BID_WORDS[v] ?? v;
-  if (typeof v === "boolean") return key === "defenceGoals" ? (v ? "On: everyone" : "Off") : v ? "Offered" : "Off";
+  if ((key === "bidPricing" || key === "bidVisibility" || key === "bidDisclosure" || key === "retiredPoints") && typeof v === "string") return BID_WORDS[v] ?? v;
+  if (typeof v === "boolean") return key === "defenceGoals" ? (v ? "On: everyone" : "Off") : key === "retiredHolds" ? (v ? "On" : "Off") : v ? "Offered" : "Off";
   const named = NAMED[key]?.[String(v)];
   if (typeof v === "number") {
     if (key === "worldSeconds") return named ? `${named} (${duration(v)})` : duration(v);
@@ -301,6 +329,8 @@ export function choiceLabel(key: FieldKey, v: number | string | boolean): string
     if (key === "opportunitiesPerSecond") return named ? `${named} (${n(v)}/s)` : `${n(v)}/s`;
     if (key === "birthsPerSecond") return v === 0 ? "None" : v < 1 ? `1 every ${n(Math.round(1 / v))} s` : `${n(v)}/s`;
     if (key === "fullChargeSeconds") return duration(v);
+    if (key === "liveCap") return v === 0 ? "No limit" : n(v);
+    if (key === "birthSeconds") return v === 0 ? "The setup's" : `every ${duration(v)}`;
     if (key === "powerPerSecond") return `${n(v)}/s`;
     return n(v);
   }

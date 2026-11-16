@@ -70,6 +70,8 @@ export const headerV = v.object({
   priceScale: v.number(),
   /** Parameter drift's interval in world seconds (drift.ts; 0: off): drift k happens at world second k × it. */
   driftSeconds: v.number(),
+  /** Line turnover (retirement-design.md): at most this many live lines, the oldest retiring; null: every line stays. */
+  liveCap: v.union(v.number(), v.null()),
   /** The game's time dilation (decision 37): 1 unless a simulation or local playtest sped it up. */
   timeScale: v.number(),
   /** Paused because nobody acted for 30 minutes: any human activity (`account.touch`) resumes it. */
@@ -78,6 +80,8 @@ export const headerV = v.object({
 export const standingsV = v.object({
   seq: v.number(), worldSeconds: v.number(),
   rows: v.array(v.object({ memberId: v.id("v2Members"), name: v.string(), total: v.number(), handicap: v.number(), net: v.number(), rank: v.number() })),
+  /** v1's private bid results while live: other players' rows show their net only (handicap 0, total = net). */
+  handicapsHidden: v.boolean(),
 });
 export const standingsHistoryV = v.array(v.object({ seq: v.number(), worldSeconds: v.number(), totals: v.array(v.object({ memberId: v.id("v2Members"), net: v.number() })) }));
 

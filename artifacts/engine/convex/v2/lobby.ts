@@ -7,7 +7,7 @@ import { internalMutation, type MutationCtx, type QueryCtx } from "../_generated
 import { MAX_MEMBERS, MAX_PLAYERS, normaliseCode, userById } from "./access";
 import { bidDealer, dealDefence, defencePool, isGridVariant, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, policyDeal, practiceDeal, type SeatKind, rotatedDeal, ruleView, hasSeatingRule, seatingAligned, seatingClashes, type DealtRule, type PastDeal } from "./deal.ts";
 import { dealWithBids, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
-import { isPreset, presetOf } from "./presets.ts";
+import { isPreset, presetOf, TURNOVER_DEFAULTS, type Preset, type Turnover } from "./presets.ts";
 import { DEFAULT_PENALTY_WEIGHT, typeOf } from "./world.ts";
 import { valueHead } from "./values.ts";
 import { summonPracticePartners } from "./agents.ts";
@@ -362,7 +362,7 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     // v1's world speed, births, power and fill time (room settings over the preset's economy).
     economy: {
       powerPerSecond: o.powerPerSecond ?? preset.economy.powerPerSecond, fullChargeSeconds: o.fullChargeSeconds ?? preset.economy.fullChargeSeconds,
-      opportunitiesPerSecond: o.opportunitiesPerSecond ?? preset.economy.opportunitiesPerSecond, birthsPerSecond: o.birthsPerSecond ?? preset.economy.birthsPerSecond,
+      opportunitiesPerSecond: o.opportunitiesPerSecond ?? preset.economy.opportunitiesPerSecond, birthsPerSecond: o.birthSeconds ? 1 / o.birthSeconds : o.birthsPerSecond ?? preset.economy.birthsPerSecond,
     },
     // v1's per-act compute limits, when the room sets them (else the sandbox's 500,000 steps and 2,000 ms).
     ...(o.stepBudget !== undefined ? { stepBudget: o.stepBudget } : {}),
@@ -380,13 +380,18 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     pauseSeconds: room.overrides.pauseSeconds ?? DEFAULT_PAUSE_SECONDS,
     // The commit clause (v1's option, off by default).
     ...(room.overrides.commitClause ? { commitClause: true } : {}),
+    // The bid phase's pricing and disclosure (v1's bidDisclosure): the standings hide others' handicaps at "none".
+    ...(auction ? { bid: { pricing: auction.pricing, disclosure: room.overrides.bidDisclosure ?? preset.bid?.disclosure ?? "none" } } : {}),
     // Defence goals (v1, restored; owner-decisions call 1): grids only, off unless the room turns them on.
     ...(o.defenceGoals && isGridVariant(preset.variant) ? {
       defenceGoals: true, penaltyWeight: o.penaltyWeight ?? DEFAULT_PENALTY_WEIGHT,
       ...(o.excludedDefenceFamilies?.length ? { excludedDefenceFamilies: o.excludedDefenceFamilies } : {}),
     } : {}),
-    // Births on a regular schedule on the beginner games (decision 31), else v1's stochastic births.
-    ...(preset.regularBirths ? { regularBirths: true } : {}),
+    // Births on a regular schedule on the beginner games (decision 31), else v1's stochastic births. A room's
+    // `birthSeconds` sets a regular birth every that many seconds.
+    ...(preset.regularBirths || room.overrides.birthSeconds ? { regularBirths: true } : {}),
+    // Line turnover (retirement-design.md): the room's cap, else the preset's; absent on both, every line stays live.
+    ...turnoverOf(preset, room.overrides),
     timeScale,
   };
   const number = room.games + 1;
@@ -464,3 +469,14 @@ export const closeAtDeadline = internalMutation({
     if (room) await closeBidding(ctx, room, deadline);
   },
 });
+
+/** A game's turnover from its preset and the room's overrides (retirement-design.md): `{}` when neither sets a cap. */
+export function turnoverOf(preset: Preset, o: Doc<"v2Rooms">["overrides"]): { turnover?: Turnover } {
+  const liveCap = o.liveCap ?? preset.turnover?.liveCap;
+  if (!liveCap) return {};
+  return { turnover: {
+    liveCap,
+    retiredPoints: o.retiredPoints ?? preset.turnover?.retiredPoints ?? TURNOVER_DEFAULTS.retiredPoints,
+    retiredHolds: o.retiredHolds ?? preset.turnover?.retiredHolds ?? TURNOVER_DEFAULTS.retiredHolds,
+  } };
+}
