@@ -195,6 +195,11 @@
 .v2v-grid .cell[data-member] .cell-bg { fill: color-mix(in srgb, var(--v2v-lit) 55%, transparent); }
 .v2v-grid .cell[data-lit] .cell-bg { fill: var(--v2v-lit); }
 .v2v-grid .cell[data-changed] .cell-bg { stroke: var(--v2v-changed); stroke-width: 2; }
+/* A coloured board (lib/v2-grid-boards): the tile's colour sits under cell-bg, whose focus and highlight fills become a
+   translucent overlay; focus also outlines the tile, so it stays visible on any colour. */
+.v2v-grid .cell.tinted .cell-bg { fill-opacity: 0.5; }
+.v2v-grid .cell.tinted[data-focus] .cell-bg { stroke: var(--v2v-focus); stroke-width: 3; }
+.v2v-grid .colour-letter { font-weight: 700; opacity: 0.85; pointer-events: none; }
 .v2v-grid[data-picked] .cell:not([data-lit]):not([data-member]) { opacity: 0.32; transition: opacity 120ms; }
 .v2v-grid [tabindex]:focus { outline: none; }
 .v2v-grid [tabindex]:focus-visible .cell-bg, .v2v-grid [tabindex]:focus-visible .margin-bg { stroke: var(--v2v-ink); stroke-width: 2; }

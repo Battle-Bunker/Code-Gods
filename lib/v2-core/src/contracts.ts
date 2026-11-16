@@ -133,6 +133,13 @@ export interface GridScene {
   readonly bottomTitle?: string;
   /** What the groups' values are ("pair totals"), for the scene's text form. */
   readonly groupTitle?: string;
+  /**
+   * A coloured board's cells (lib/v2-grid-boards), one per cell: the tile's colour, its text colour, and the colour's
+   * letter, always drawn too, so colour is never the only signal. Absent: plain number tiles.
+   */
+  readonly cellColours?: readonly { readonly css: string; readonly ink: string; readonly letter: string }[];
+  /** What each cell shows instead of its number ("10♥", "B" on hex); absent: the number. */
+  readonly cellGlyphs?: readonly string[];
 }
 
 export interface PlaneItem {

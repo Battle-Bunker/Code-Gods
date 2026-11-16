@@ -40,7 +40,12 @@ export function setupGroups(presets: readonly Preset[], who: { admin: boolean; c
 
 
 /** A board said in full where a setup is summed up (the gallery's short titles are for its board picker). */
-const BOARD_TITLES: Readonly<Record<string, string>> = { "grid-4-d10": "A 4 × 4 grid of digits", "grid-2-d3": "A 2 × 2 grid of small digits" };
+const BOARD_TITLES: Readonly<Record<string, string>> = {
+  "grid-4-d10": "A 4 × 4 grid of digits", "grid-2-d3": "A 2 × 2 grid of small digits",
+  // The old game's coloured boards (lib/v2-grid-boards).
+  "board-4-base10-rgb": "A 4 × 4 grid of digits in red, green and blue", "board-5-base10-rgby": "A 5 × 5 grid of digits in four colours",
+  "board-6-base16-rainbow6": "A 6 × 6 grid of hex digits in six colours", "board-7-cards-rainbow6": "A 7 × 7 grid of playing cards in six colours",
+};
 
 /** A board in words; a variant of one (a trial's "line-q-lenses") is described by the board it plays on. */
 function boardTitle(variant: string): string {

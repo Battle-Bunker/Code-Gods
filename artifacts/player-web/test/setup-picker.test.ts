@@ -38,6 +38,8 @@ test("each setup says in words what it plays", () => {
   assert.match(setupBlurb(beginner), /fraction/i);
   assert.ok(!PRESETS.some(p => p.variant === "line-z"), "whole-number lines are not offered");
   assert.match(setupBlurb(presetOf("lines-beginner-bidding")), /bid/i);
+  assert.match(setupBlurb(presetOf("grids-original-colours")), /^A 4 × 4 grid of digits in red, green and blue, 8 kinds of rule\.$/);
+  for (const p of PRESETS.filter(x => x.variant.startsWith("board-"))) assert.ok(!setupBlurb(p).startsWith("A board of its own"), `${p.id} says what board it plays`);
 });
 
 test("the form starts from the overrides, else the preset's own values, with the game length in minutes", () => {
