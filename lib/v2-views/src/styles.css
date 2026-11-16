@@ -413,7 +413,8 @@
 .v2v-summary-open .v2v-compact-face > .v2v-face-foot, .v2v-summary-open .v2v-compact-face > .v2v-face-part, .v2v-summary-open .v2v-compact-face > .v2v-worst { display: none; }
 .v2v-summary-why { flex: 1; display: grid; gap: 2px; min-width: 0; font-size: 13px; }
 .v2v-summary-why .v2v-face-part { white-space: normal; overflow-wrap: anywhere; }
-.v2v-summary-why .v2v-face-part { max-width: none; }
+/* The part line here is a sentence, not a row of the parts table (its 50 px first column squeezed it to a word a line). */
+.v2v-summary-why .v2v-face-part { max-width: none; display: block; }
 .v2v-summary-formula { font-size: 12px; color: var(--v2v-muted); }
 .v2v-move-reason { grid-column: 1 / -1; font-size: 11px; color: var(--v2v-muted); font-style: italic; }
 .v2v-plane .inset-label { font-size: 9px; fill: var(--v2v-ink); }
