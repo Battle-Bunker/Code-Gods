@@ -45,7 +45,7 @@ test("every live query answers a seated player within its validator", async () =
 
   const rule = await ada.query("v2/play:myRule", { gameId });
   assert.equal(rule.family, families[0], "each player is shown the rule dealt to them");
-  assert.ok(rule.value.knots.length > 2 && rule.card.length > 0);
+  assert.ok((rule.value === null || rule.value.knots.length > 2) && rule.card.length > 0, "a value table, or none for a dynamic rule");
   const me = await ada.query("v2/playState:me", { gameId });
   assert.equal(me.memberId, header.me);
   for (const sort of ["points", "rarity", "want", "born", "recent"]) {
@@ -74,7 +74,7 @@ test("every live query answers a seated player within its validator", async () =
   await admin.mutation("v2/testing:setBidding", { roomId, open: true });
   const bids = await ada.query("v2/bids:state", { roomId });
   assert.ok(bids.open && bids.families.length > 0 && bids.players.length === 3);
-  assert.ok(bids.families.every((f: any) => f.card.length > 0 && f.top > 0), "each family on offer with its card and how far its values were measured (the query's `top`; the affordance calls it measuredTo)");
+  assert.ok(bids.families.every((f: any) => f.card.length > 0 && f.top >= 0), "each family on offer with its card and how far its values were measured (the query's `top`; 0 for a dynamic rule, which has no table)");
   await admin.mutation("v2/testing:setBidding", { roomId, open: false });
 });
 

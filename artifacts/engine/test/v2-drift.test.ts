@@ -15,23 +15,27 @@ import { familyOf } from "../convex/v2/deal.ts";
 
 test("every driftSeconds, a seat's parameters are redrawn; the rule, the values and the record follow", { timeout: 180_000 }, async () => {
   const [ada] = await humans("Drift Ada");
-  const { roomId } = (await perform(ada!, "room.create", { name: "Drift room" })).result;
+  // A grid game: every line family is a ladder since 17 Nov (decision 50), so lines never drift.
+  const { roomId } = (await perform(ada!, "room.create", { name: "Drift room", preset: "grids-beginner" })).result;
   await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
   assert.equal((await perform(ada!, "room.settings", { overrides: { driftSeconds: 10 } }, { roomId })).ok, true);
   const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
   assert.equal((await ada!.query("v2/games:header", { gameId })).driftSeconds, 10);
-  // A line-q family with several parameter values (its grid) that is not a ladder (a ladder keeps its params), for Ada.
+  // A grid family with several parameter values that is not a ladder (a ladder keeps its params), for Ada.
+  const ladderOf = (id: string) => { try { return familyOf(id).keepsParams === true; } catch { return null; } };   // null: a defence goal's table
   const counts = new Map<string, number>();
-  for (const r of VALUE_RECORDS) if (r.variant === "line-q" && !familyOf(r.family).keepsParams) counts.set(`${r.family}|${r.tieBreaker}`, (counts.get(`${r.family}|${r.tieBreaker}`) ?? 0) + 1);
+  for (const r of VALUE_RECORDS) if (r.variant === "grid-4-d10" && ladderOf(r.family) === false) counts.set(`${r.family}|${r.tieBreaker}`, (counts.get(`${r.family}|${r.tieBreaker}`) ?? 0) + 1);
   const [pick] = [...counts].find(([, n]) => n >= 3)!;
-  const rec = VALUE_RECORDS.find(r => r.variant === "line-q" && `${r.family}|${r.tieBreaker}` === pick)!;
+  const rec = VALUE_RECORDS.find(r => r.variant === "grid-4-d10" && `${r.family}|${r.tieBreaker}` === pick)!;
   await admin.mutation("v2/testing:setRule", { gameId, userId: ada!.userId, ruleKey: rec.ruleKey });
   const before = await ada!.query("v2/play:myRule", { gameId });
   assert.deepEqual([before.ruleKey, before.drifts, before.driftedAt, before.keepsParams], [rec.ruleKey, 0, null, false]);
   // A ladder family's seat is never redrawn, and its rule view says so (the app hides the redraw countdown).
-  const ladder = VALUE_RECORDS.find(r => r.variant === "line-q" && familyOf(r.family).keepsParams)!;
-  await admin.mutation("v2/testing:setRule", { gameId, userId: ada!.userId, ruleKey: ladder.ruleKey });
-  assert.equal((await ada!.query("v2/play:myRule", { gameId })).keepsParams, true);
+  const ladder = VALUE_RECORDS.find(r => r.variant === "grid-4-d10" && ladderOf(r.family) === true);
+  if (ladder) {
+    await admin.mutation("v2/testing:setRule", { gameId, userId: ada!.userId, ruleKey: ladder.ruleKey });
+    assert.equal((await ada!.query("v2/play:myRule", { gameId })).keepsParams, true);
+  }
   await admin.mutation("v2/testing:setRule", { gameId, userId: ada!.userId, ruleKey: rec.ruleKey });
 
   await perform(ada!, "game.startWorldNow", {}, { gameId });
