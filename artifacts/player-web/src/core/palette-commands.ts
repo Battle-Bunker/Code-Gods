@@ -174,7 +174,8 @@ export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Comm
     for (const p of PANE_IDS) {
       if (p === "assistant" && ctx.room?.aiOff) continue;
       rows.push({
-        id: `pane:${p}`, human: { title: `Open ${PANES[p].title}`, tooltip: PANES[p].blurb }, group: "view", keywords: [...PANES[p].keywords],
+        // In the game's own words (baseline-1: a grid game listed "Lines" and "One line").
+        id: `pane:${p}`, human: { title: `Open ${paneLabel(p, host.noun)}`, tooltip: lined(PANES[p].blurb, host.noun) ?? PANES[p].blurb }, group: "view", keywords: [...PANES[p].keywords, ...(host.noun ? [host.noun.one, host.noun.many] : [])],
         typedOnly: true, performer: { kind: "submit", run: () => panes.open(p) }, available: () => ({ ok: true }),
       });
     }
