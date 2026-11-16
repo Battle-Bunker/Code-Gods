@@ -14,8 +14,8 @@ test("the bundled value functions are up to date with lib/v2-valuation/values", 
   execFileSync(process.execPath, [join(import.meta.dirname, "..", "..", "scripts", "gen-v2-values.mjs"), "--check"]);
 });
 
-test("every rule the beginner preset deals has a value function, and its lookups rise with the score", () => {
-  const preset = presetOf("lines-beginner");
+test("every rule a table-valued line preset deals has a value function, and its lookups rise with the score", () => {
+  const preset = presetOf("lines-lenses");
   for (const r of dealablePool(preset)) {
     const rec = valueRecord(r.ruleKey);
     assert.ok(rec, `${r.family}+${r.tieBreaker}: no value function`);
@@ -37,7 +37,7 @@ test("values in a game carry the uniqueness correction at the game's object coun
   assert.equal(valueObjects(preset), 4, "the beginner game's N (decisions 31, 34)");
   const objects = valueObjects(settings);
   assert.equal(objects, Math.round(settings.startingObjects + settings.economy.birthsPerSecond * settings.worldSeconds / 2));
-  const rec = valueRecord(dealablePool(preset)[0]!.ruleKey)!;
+  const rec = valueRecord(dealablePool(presetOf("lines-lenses"))[0]!.ruleKey)!;   // a table-valued pool
   const rare = rec.knots.at(-1)!, scope = { variant: rec.variant, objects };
   const one = worthOf(rec.ruleKey, scoreFrom(rare.u), { variant: rec.variant, objects: 1 }).bits;
   const many = worthOf(rec.ruleKey, scoreFrom(rare.u), scope).bits;

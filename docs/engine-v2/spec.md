@@ -627,6 +627,11 @@ def agent(offer):
 
 ## 7. Valuation
 
+> **Being replaced (owner decision 49, 16 Nov).** Rules with `dynamic` are valued by the dynamic energy measure
+> ([energy.md](energy.md)): a fresh estimate of the expected cost of reaching a state at least as good from a random
+> state of the same size. No tables. Lines · beginner deals only such rules. The tables below still value every other
+> preset until they are deleted.
+
 ### 7.0 Value functions (normative; owner decision 23)
 
 A rule's layers are **utilities**: each maps a state to a value in a totally ordered set (a number, bigger better; a

@@ -17,6 +17,7 @@ import { tupleFamilies } from "./tuple-rules.ts";
 import { treeNtFamilies } from "./tree-nt-index.ts";
 import { treeGeoFamilies } from "./tree-geo.ts";
 import { treeMoreFamilies } from "./tree-index.ts";
+import { dynamicFamilies } from "./dynamic-families.ts";
 
 type Ctx = EvalContext<LineState>;
 type L<P> = Layer<P>;
@@ -203,4 +204,4 @@ export const ownerFamilies = [primeGradient, triangleArea, mMeetsC, crossingChec
 /** Close Landing, Close Intercept and Close Gradient (close-landing.ts, close-readings.ts) are prototypes: valued and measured, in no pool.
  * The fraction-native families (frac-*.ts, docs/engine-v2/fraction-families.md) and the tuple families (tuple-rules.ts,
  * pool-plan.md v2) are undealt until the owner has read their cards; so are the tree families (tree-nt-*.ts, tree-geo*.ts). */
-export const families = [...ownerFamilies, ...beginnerFamilies, ...rationalFamilies, ...rational2Families, closeLanding, closeIntercept, closeGradient, twinFractions, ...tupleFamilies, ...treeNtFamilies, ...treeGeoFamilies, ...treeMoreFamilies] as const;
+export const families = [...ownerFamilies, ...beginnerFamilies, ...rationalFamilies, ...rational2Families, closeLanding, closeIntercept, closeGradient, twinFractions, ...tupleFamilies, ...treeNtFamilies, ...treeGeoFamilies, ...treeMoreFamilies, ...dynamicFamilies] as const;

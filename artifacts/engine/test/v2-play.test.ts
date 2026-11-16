@@ -164,10 +164,11 @@ test("reads: a representation, an element, a quote and a score, as an agent is t
   const score = await perform(ada!, "object.score", { objectId }, scope(), "query");
   const mine = await ada!.query("v2/play:object", { objectId });
   assert.deepEqual([score.result.score, score.result.bits], [mine.value.score, mine.value.rarityBits], "the score is the utility the commit valued, with its bits");
+  // The beginner lines are valued by the dynamic measure (energy.md): a score alone has no worth and there is no curve.
   const worth = await perform(ada!, "rule.worth", { score: mine.value.score }, scope(), "query");
-  assert.ok(Math.abs(worth.result.bits - mine.value.rarityBits) < 1e-9, "rule.worth answers what the commit stored");
+  assert.match(worth.error.message, /energy estimate/);
   const curve = await perform(ada!, "rule.values", {}, scope(), "query");
-  assert.ok(curve.result.points.length > 2 && curve.result.points[0].bits === 0);
+  assert.match(curve.error.message, /energy estimate/);
   assert.equal((await perform(ada!, "object.read", { objectId, rep: "nope" }, scope(), "query")).error.code, "failed");
 });
 

@@ -24,7 +24,7 @@ export const family = query({
     if (!p) return [];
     return dealablePool(presetOf(p.id)).filter(r => r.family === a.family).map(r => {
       const view = ruleView(r);
-      return { ruleKey: r.ruleKey, tieBreaker: r.tieBreaker, title: view.title, card: view.card, primary: view.primary, layers: view.layers, points: curveOf(valueRecord(r.ruleKey)!) };
+      return { ruleKey: r.ruleKey, tieBreaker: r.tieBreaker, title: view.title, card: view.card, primary: view.primary, layers: view.layers, points: (() => { const vf = valueRecord(r.ruleKey); return vf ? curveOf(vf) : []; })() };
     });
   },
 });

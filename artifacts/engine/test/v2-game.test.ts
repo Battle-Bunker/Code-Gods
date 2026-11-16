@@ -28,7 +28,7 @@ import { admin, httpJwt, humans, perform, SITE_, type Human } from "./v2-helpers
  */
 function valueFn(ruleKey: string, started: { variant: string; settings: Parameters<typeof valueObjects>[0] }) {
   const r = valueRecord(ruleKey);
-  assert.ok(r, `a dealt rule has a value function: ${ruleKey}`);
+  if (!r) return null;   // valued by the dynamic measure (energy.md): the tick sends agents no table
   const u = UNIQUENESS.find(t => t.variant === started.variant);
   return { knots: r.knots, tail: r.tail, ...(u ? { uniqueness: { ns: u.ns, heldMass: u.heldMass, objects: valueObjects(started.settings) } } : {}) };
 }
@@ -203,9 +203,9 @@ test("re-executing every act from its recorded inputs gives the same act", { tim
       rule: { family: rule.family, params: rule.params, tieBreaker: rule.tieBreaker },
       program: { language, source: sources.get(key)! }, seed: d.seed, energy: d.energy, object: d.number, liveObjects: d.liveObjects,
       // What the agent was told of its owner's stake (recorded), and the dealt rule's value function (from the bundle).
-      ...(d.input ?? {}), values: valueFn(rule.ruleKey, events[0].data),
+      ...(d.input ?? {}), ...(valueFn(rule.ruleKey, events[0].data) ? { values: valueFn(rule.ruleKey, events[0].data)! } : {}),
       // The other seats' rules and value functions (their othersAfter), in seat order, from the bundle.
-      others: [...rules.values()].filter((p: any) => p.memberId !== d.memberId).map((p: any) => ({ rule: { family: p.family, params: p.params, tieBreaker: p.tieBreaker }, values: valueFn(p.ruleKey, events[0].data) })),
+      others: [...rules.values()].filter((p: any) => p.memberId !== d.memberId && valueFn(p.ruleKey, events[0].data)).map((p: any) => ({ rule: { family: p.family, params: p.params, tieBreaker: p.tieBreaker }, values: valueFn(p.ruleKey, events[0].data)! })),
       occupied: (s: string) => held.has(s), disclosed: disclosedFor(d.memberId, d.seed),
     });
     const same = (r: ActRecord | any) => ({ outcome: r.outcome, after: r.after, charge: r.charge, calls: r.calls.map((c: any) => [c.mutator, c.site, c.args]), readBits: r.readBits, notes: r.notes ?? [] });

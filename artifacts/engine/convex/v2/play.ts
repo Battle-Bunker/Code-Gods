@@ -27,7 +27,7 @@ import { knownOf, lookPrice, readPriceWeightOf, readsKnowledge } from "./knowled
 /** The rule's value function, as valueLookup takes it (knots and tail), with the game's uniqueness correction. */
 function valueFn(ruleKey: string, scope: ValueScope) {
   const f = valueFnIn(ruleKey, scope);
-  if (!f) throw new Error(`No value function for ${ruleKey}`);
+  if (!f) return null;   // a rule valued by the dynamic measure (energy.md) has no table
   return { ...f, knots: slimKnots(f.knots), tail: f.tail as unknown };
 }
 

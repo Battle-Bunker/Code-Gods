@@ -28,13 +28,15 @@ export const { op: explain, as: explainAs } = defineOp("rule.explain", "query", 
 /** The value function's knots, worst to best: what each score the rule can reach is worth in this game (decision 24). */
 export const { op: values, as: valuesAs } = defineOp("rule.values", "query", async env => {
   const r = await myRule(env), vf = valueRecord(r.ruleKey);
-  if (!vf) throw new OpFailure("Your rule has no value function on this deployment.");
+  if (!vf) throw new OpFailure("Your rule has no value table: it is valued by the energy estimate of each line (what it costs to reach a line at least as good from a random line of the same size), so a score alone has no worth.");
   return { points: vf.knots.map(k => ({ score: k.u, bits: worthOf(r.ruleKey, scoreFromWire(k.u), r.scope).bits })) };
 });
 
 /** What one score is worth under the caller's rule: bits and their interval (hi is Infinity past the last knot). */
 export const { op: worth, as: worthAs } = defineOp("rule.worth", "query", async (env, a) => {
-  const r = await myRule(env), w = worthOf(r.ruleKey, scoreFromWire(a.score), r.scope);
+  const r = await myRule(env);
+  if (!valueRecord(r.ruleKey)) throw new OpFailure("Your rule is valued by the energy estimate of each line, not by its score alone: look at a line to see its worth.");
+  const w = worthOf(r.ruleKey, scoreFromWire(a.score), r.scope);
   return { bits: w.bits, lo: w.lo, hi: Number.isFinite(w.hi) ? w.hi : null };
 });
 

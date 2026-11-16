@@ -8,6 +8,7 @@ import { disclosed, measured } from "../disclose.ts";
 import { knownOf, lookPrice, paysToRead, readPriceWeightOf, readsKnowledge, tell } from "../knowledge.ts";
 import { OpFailure } from "@workspace/v2-affordances";
 import { pay } from "../agents.ts";
+import { familyOf } from "../deal.ts";
 import { appendEvent } from "../loop.ts";
 import { quoteOthers } from "../play.ts";
 
@@ -96,8 +97,12 @@ export const { op: look, as: lookAs } = defineOp("object.look", "mutation", asyn
   const price = seen.reduce((t, s) => t + lookPrice(game.variant, s.st.state, readPriceWeightOf(game)), 0);
   const paid = await pay(env.ctx, game, player, clock.worldSeconds, price, seen.length === 1 ? "That look" : `Looking at all ${seen.length}`);
   await env.ctx.db.patch(player._id, { energy: paid.balance, settledAt: paid.settledWorldSeconds });
+  // A rule valued by the dynamic measure is estimated afresh at each look (the owner, 16 Nov: "Every time a player
+  // queries an object we can calculate energies again as a natural noise function"); the stored row is the commit's.
+  const rule = await myRuleRow(env.ctx, game._id, member._id), fresh = rule && familyOf(rule.family).dynamic ? rule : null;
   for (const { o, st, value } of seen) {
-    await tell(env.ctx, game, member._id, { objectId: o._id, number: o.number, state: st.state, version: st.version, score: value.score, rarityBits: value.rarityBits, ...measured(game, value) }, clock.worldSeconds);   // each look measures afresh (decision 32)
+    const own = fresh ? { ...value, rarityBits: valueOf(decode(st.state, game.variant), game.variant, fresh, scopeOf(game).objects).rarityBits } : value;
+    await tell(env.ctx, game, member._id, { objectId: o._id, number: o.number, state: st.state, version: st.version, score: own.score, rarityBits: own.rarityBits, ...measured(game, own) }, clock.worldSeconds);   // each look measures afresh (decision 32)
   }
   await appendEvent(env.ctx, game._id, "command", { kind: "look", memberId: member._id, objects: seen.map(s => s.o._id), price, worldSeconds: clock.worldSeconds });
   return { looked: seen.length, price };
