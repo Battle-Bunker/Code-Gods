@@ -116,6 +116,7 @@ test("v1's world, energy and compute settings are room settings: objects, births
     [5, 0, 10, 16, 60, 1, 500]);
   const h = await ada!.query("v2/games:header", { gameId });
   assert.equal(h.priceScale, 16 / 64, "prices follow the room's power");
+  assert.equal((await perform(ada!, "game.get", {}, { gameId }, "query")).result.me.power, 16, "each player's own power is the room's");
   await perform(ada!, "game.startWorldNow", {}, { gameId });
   const ids = (await ada!.query("v2/spectate:objectIds", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page;
   assert.equal(ids.length, 5, "the room's starting objects");

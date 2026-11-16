@@ -9,7 +9,8 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { query, type QueryCtx } from "../_generated/server";
 import { slimKnots, valueFnIn, type ValueScope } from "./values";
 import { seatRules } from "./loop";
-import { keepsParams } from "./deal";
+import { dealablePool, familyOf, keepsParams } from "./deal";
+import { presetOf } from "./presets";
 import { decode, encode, penaltyWeightOf, scopeOf, typeOf, valuesOf, variantOf } from "./world";
 import { callV } from "./tables";
 import type { Infer } from "convex/values";
@@ -52,6 +53,22 @@ export const myRule = query({
       family: r.family, title: r.title, params: r.params, layers: r.layers, tieBreaker: r.tieBreaker, card: r.card, depends: r.depends, primary: r.primary,
       ruleKey: r.ruleKey, contentHash: r.contentHash, drifts: r.drifts ?? 0, driftedAt: r.driftedAt ?? null, keepsParams: keepsParams(r.family), previous: r.previous ?? null, value: valueFn(r.ruleKey, scopeOf(game)), bid: r.bid ?? null, handicap: r.handicap ?? null,
     };
+  },
+});
+
+/**
+ * Every rule this game's dealer could deal (v1's "Possible gods"; the same pool as rule.candidates): the other players'
+ * rules are among these, and nothing says who holds which. Cold: the preset's pool, in code.
+ */
+export const candidates = query({
+  args: { gameId: v.string() },
+  returns: v.array(v.object({ family: v.string(), title: v.string(), tieBreaker: v.union(v.string(), v.null()), card: v.string() })),
+  handler: async (ctx, { gameId }) => {
+    const { game } = await requireGameMember(ctx, gameId);
+    return dealablePool(presetOf(game.preset)).map(r => {
+      const f = familyOf(r.family);
+      return { family: r.family, title: f.title, tieBreaker: r.tieBreaker ?? null, card: f.card(r.params, r.tieBreaker as never) };
+    });
   },
 });
 

@@ -360,7 +360,7 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     });
     await ctx.db.insert("v2Players", {
       gameId, memberId: m._id, ...(m.userId ? { userId: m.userId } : {}), kind: m.kind,
-      energy: settings.startingEnergy, power: preset.economy.powerPerSecond, ready: m.kind !== "human", pauseUsed: false, agents: 0,
+      energy: settings.startingEnergy, power: settings.economy.powerPerSecond, ready: m.kind !== "human", pauseUsed: false, agents: 0,
       settledAt: 0, allocated: 0,
     });
   }
