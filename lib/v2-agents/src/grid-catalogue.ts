@@ -165,19 +165,19 @@ const REPEATS = {
 export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
   {
     family: "mirrormancer", simple: ["twin"],
-    mainSays: "how far each row is from reading the same backwards, added up (closer is better)",
+    mainSays: "how far each row (or column, the dealt axis) is from reading the same backwards, added up (closer is better)",
     main: {
-      ts: ["let main = 0;", "for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] - b[r + 3]) + Math.abs(b[r + 1] - b[r + 2]);   // each row: its ends' gap and its middle's gap"],
-      py: ["main = 0", "for r in range(0, 16, 4):   # each row: its ends' gap and its middle's gap", "    main -= abs(b[r] - b[r + 3]) + abs(b[r + 1] - b[r + 2])"],
+      ts: ["if (p.axis === \"columns\") b = b.map((_, i) => b[i % 4 * 4 + (i >> 2)]);   // columns dealt: read them as rows", "let main = 0;", "for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] - b[r + 3]) + Math.abs(b[r + 1] - b[r + 2]);   // each row: its ends' gap and its middle's gap"],
+      py: ["if p[\"axis\"] == \"columns\":   # columns dealt: read them as rows", "    b = [b[i % 4 * 4 + i // 4] for i in range(16)]", "main = 0", "for r in range(0, 16, 4):   # each row: its ends' gap and its middle's gap", "    main -= abs(b[r] - b[r + 3]) + abs(b[r + 1] - b[r + 2])"],
     },
     tieBreakers: {
       middle: { ts: "b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]", py: "b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]", says: "bigger middle columns are better", lenses: ["add", "line"], steps: 2, tryThis: "remove the \"line\" line: can it raise the middle without a whole row at once?" },
       primes: primesTie(["add", "twin"], "change FAR = 2 to 1: single steps only, more turns at the same price per step; does it still reach primes?", 2),
       zeros: zerosTie(["add", "twin"], "add the \"line\" line from the Mirrormancer middle example: a whole row can drop at once.", 2),
-      "mirror-columns": {
-        ts: "-[0, 1, 2, 3].reduce((t, c) => t + Math.abs(b[c] - b[c + 12]) + Math.abs(b[c + 4] - b[c + 8]), 0)",
-        py: "-sum(abs(b[c] - b[c + 12]) + abs(b[c + 4] - b[c + 8]) for c in range(4))",
-        says: "columns closer to reading the same backwards are better", lenses: ["add", "twin"], steps: 2,
+      "mirror-other-way": {
+        ts: "-[0, 1, 2, 3].reduce((t, c) => t + Math.abs(b[c] - b[c + 12]) + Math.abs(b[c + 4] - b[c + 8]) + (b[c] === b[c + 4] && b[c] === b[c + 8] && b[c] === b[c + 12] ? 1 : 0), 0)",
+        py: "-sum(abs(b[c] - b[c + 12]) + abs(b[c + 4] - b[c + 8]) + (1 if b[c] == b[c + 4] == b[c + 8] == b[c + 12] else 0) for c in range(4))",
+        says: "the other way (columns, or rows) closer to reading the same backwards, with two different numbers in each, is better", lenses: ["add", "twin"], steps: 2,
         tryThis: "remove the \"twin\" line: can single cells fix a column without spoiling a row?",
       },
       "one-apart": {
@@ -196,19 +196,19 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
   },
   {
     family: "magic-eighteen", simple: ["line"],
-    mainSays: "how far the rows' totals are from T, added up (closer is better)",
+    mainSays: "how far the rows' (or columns', the dealt axis) totals are from T, added up (closer is better)",
     main: {
-      ts: ["let main = 0;", "for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] + b[r + 1] + b[r + 2] + b[r + 3] - p.T);   // each row: how far its total is from T"],
-      py: ["main = 0", "for r in range(0, 16, 4):   # each row: how far its total is from T", "    main -= abs(b[r] + b[r + 1] + b[r + 2] + b[r + 3] - p[\"T\"])"],
+      ts: ["if (p.axis === \"columns\") b = b.map((_, i) => b[i % 4 * 4 + (i >> 2)]);   // columns dealt: read them as rows", "let main = 0;", "for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] + b[r + 1] + b[r + 2] + b[r + 3] - p.T);   // each row: how far its total is from T"],
+      py: ["if p[\"axis\"] == \"columns\":   # columns dealt: read them as rows", "    b = [b[i % 4 * 4 + i // 4] for i in range(16)]", "main = 0", "for r in range(0, 16, 4):   # each row: how far its total is from T", "    main -= abs(b[r] + b[r + 1] + b[r + 2] + b[r + 3] - p[\"T\"])"],
     },
     tieBreakers: {
-      "first-column": { ...FIRST_COLUMN, says: "a bigger first column is better", lenses: ["add", "line", "swap"], steps: 2, tryThis: "remove the \"swap\" line: can it fill the first column without rearranging a row?" },
+      "first-line": { ...FIRST_COLUMN, says: "a bigger first line the other way (column, or row) is better", lenses: ["add", "line", "swap"], steps: 2, tryThis: "remove the \"swap\" line: can it fill the first column without rearranging a row?" },
       primes: primesTie(["add", "line", "trade"], "change FAR = 2 to 1: moving 1 from cell to cell is cheapest, but does it still find primes?", 2),
       odd: oddTie(["add", "line", "trade"], "remove the \"line\" line: can it fix the rows one cell at a time just as cheaply?"),
-      "columns": {
+      "other-way": {
         ts: "-[0, 1, 2, 3].reduce((t, c) => t + Math.abs(b[c] + b[c + 4] + b[c + 8] + b[c + 12] - p.T), 0)",
         py: "-sum(abs(b[c] + b[c + 4] + b[c + 8] + b[c + 12] - p[\"T\"]) for c in range(4))",
-        says: "columns adding up closer to T are better", lenses: ["add", "trade"], steps: 2,
+        says: "the other way (columns, or rows) adding up closer to T is better", lenses: ["add", "trade"], steps: 2,
         tryThis: "remove the \"trade\" line: can single cells fix the columns without spoiling the rows?",
       },
       "diagonals": {

@@ -8,7 +8,7 @@
 import { q, ref, type ElementRef, type RuleFamily } from "@workspace/v2-core";
 import { at, type GridState } from "./grid.ts";
 import { countCells, upTo, diagonals, distance, family, offTotals, sumOf, term, isPrimeCell, more, primesTie, readCells, readNum, totalOf, zerosTie, type Ctx, type Shape } from "./family-kit.ts";
-import { moreGridFamilies } from "./more-families.ts";
+import { moreGridFamilies, type Axis } from "./more-families.ts";
 import { paramGridFamilies } from "./param-families.ts";
 import { divisibility } from "./divisibility.ts";
 import { leadingDigits } from "./leading-digits.ts";
@@ -42,34 +42,54 @@ type None = Record<string, never>;
 
 // ---------------------------------------------------------------- 1. Mirrormancer
 
-export function mirrormancer(n: number): RuleFamily<GridState, None> {
-  const middle = rows(n).flatMap((_, r) => Array.from({ length: n - 2 }, (_, j) => at(n, r, j + 1)));
-  const shape: Shape<None> = {
-    main: distance<None>("mirror", "every row reads the same backwards", () => "Every row should read the same backwards, like 3 1 1 3.", "mirror"),
+/**
+ * v1's dealt axis (Mirrormancer LR or TB, Magic Eighteen rows or cols), restored: the lines the main part reads, and the
+ * secondaries tied to it read "along" the same lines or "across" them, so the columns instance is the rows instance on
+ * the board flipped over its diagonal (equal opportunity by symmetry).
+ */
+type Axed = { axis: Axis };
+const AXES: readonly Axis[] = ["rows", "columns"];
+const along = (n: number, axis: Axis) => (axis === "rows" ? rows(n) : cols(n));
+const across = (n: number, axis: Axis) => (axis === "rows" ? cols(n) : rows(n));
+/** "row" or "column": the dealt axis, and the other way. */
+const lineWord = (axis: Axis) => (axis === "rows" ? "row" : "column");
+const otherWord = (axis: Axis) => (axis === "rows" ? "column" : "row");
+/** A line reading the same backwards, in plain words. */
+const readsBack = (axis: Axis) => (axis === "rows" ? "read the same backwards" : "read the same from the bottom up as from the top down");
+
+export function mirrormancer(n: number): RuleFamily<GridState, Axed> {
+  const shape: Shape<Axed> = {
+    main: distance<Axed>("mirror", "every row (or column) reads the same backwards", p => `Every ${lineWord(p.axis)} should ${readsBack(p.axis)}, like 3 1 1 3.`, "mirror"),
     tieBreakers: [
-      more("middle", "the middle columns' total", "The middle two columns should add up to as much as possible.", "cells"),
+      more<Axed>("middle", "the middle columns' (or rows') total", p => `The middle two ${otherWord(p.axis)}s should add up to as much as possible.`, "cells"),
       primesTie(),
       zerosTie(),
-      distance<None>("mirror-columns", "every column reads the same backwards", () => "Every column should read the same backwards too.", "cells"),
-      distance<None>("one-apart", "each end number one apart from the number beside it",
-        () => "In each row, each end number and the number beside it should be one apart, like 4 5 5 4.", "cells"),
-      distance<None>("small-middle", "the rows' middle numbers", () => "Each row's middle pair should be as small as possible.", "cells"),
+      distance<Axed>("mirror-other-way", "the other way reads the same backwards too",
+        p => `Every ${otherWord(p.axis)} should ${readsBack(p.axis === "rows" ? "columns" : "rows")} too, using at least two different numbers.`, "cells"),
+      distance<Axed>("one-apart", "each end number one apart from the number beside it",
+        p => `In each ${lineWord(p.axis)}, each end number and the number beside it should be one apart, like 4 5 5 4.`, "cells"),
+      distance<Axed>("small-middle", "the rows' (or columns') middle numbers", p => `Each ${lineWord(p.axis)}'s middle pair should be as small as possible.`, "cells"),
     ],
   };
-  return family<None>("mirrormancer", "Mirrormancer", ["mirror", "cells"], shape, [{}], ctx => {
-    const gaps = readAll(ctx, "mirror", rows(n).map((_, r) => `gap${r}`));
-    ctx.term("mirror", "how far the rows are from reading the same backwards, added up", q(sumOf(gaps.v)), gaps.refs);
+  return family<Axed>("mirrormancer", "Mirrormancer", ["mirror", "cells"], shape, AXES.map(axis => ({ axis })), (ctx, p) => {
+    const gaps = readAll(ctx, "mirror", rows(n).map((_, k) => `${p.axis === "rows" ? "" : "c"}gap${k}`));
+    ctx.term("mirror", `how far the ${p.axis} are from reading the same backwards, added up`, q(sumOf(gaps.v)), gaps.refs);
     const cells = readCells(ctx, n);
-    // Each row's gap, with the mirror pairs that make it ("off by 4: 4 vs 8"), as v1 marked each pair ✓ or ✗.
-    const unequal = (r: number) => Array.from({ length: Math.floor(n / 2) }, (_, k) => [cells.v[at(n, r, k)]!, cells.v[at(n, r, n - 1 - k)]!]).filter(([a, b]) => a !== b);
-    gaps.refs.forEach((r, row) => ctx.mark(gaps.v[row] === 0 ? { kind: "focus", ref: r }
-      : { kind: "note", ref: r, text: `off by ${gaps.v[row]}: ${unequal(row).map(([a, b]) => `${a} vs ${b}`).join(", ")}` }));
-    totalOf(ctx, "middle", "the middle columns' total", cells, middle);
+    const lines = along(n, p.axis), middle = lines.flatMap(l => l.slice(1, n - 1));
+    // Each dealt line's gap, with the mirror pairs that make it ("off by 4: 4 vs 8"), as v1 marked each pair ✓ or ✗.
+    const unequal = (l: readonly number[]) => Array.from({ length: Math.floor(n / 2) }, (_, k) => [cells.v[l[k]!]!, cells.v[l[n - 1 - k]!]!]).filter(([a, b]) => a !== b);
+    gaps.refs.forEach((r, k) => ctx.mark(gaps.v[k] === 0 ? { kind: "focus", ref: r }
+      : { kind: "note", ref: r, text: `off by ${gaps.v[k]}: ${unequal(lines[k]!).map(([a, b]) => `${a} vs ${b}`).join(", ")}` }));
+    totalOf(ctx, "middle", `the middle ${otherWord(p.axis)}s' total`, cells, middle);
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
     countCells(ctx, "zeros", "0s on the board", cells, x => x === 0, false);
     const v = cells.v, back = (l: readonly number[]) => sumOf(l.slice(0, Math.floor(n / 2)).map((i, k) => Math.abs(v[i]! - v[l[n - 1 - k]!]!)));
-    term(ctx, "mirror-columns", "how far the columns are from reading the same backwards, added up", sumOf(cols(n).map(back)), cells.refs);
-    const ends = rows(n).flatMap(l => [[l[0]!, l[1]!], [l[n - 2]!, l[n - 1]!]]);
+    // v1's "different" guard (mirror-tiers.ts: "without it 7337/3773/3773/7337 tops both"): a line of one number is no
+    // mirror, one step from it (two symmetric cells changed by 1 make a mirror of two numbers).
+    const uniform = (l: readonly number[]) => l.every(i => v[i] === v[l[0]!]);
+    term(ctx, "mirror-other-way", `how far the ${otherWord(p.axis)}s are from reading the same backwards with two different numbers, added up`,
+      sumOf(across(n, p.axis).map(l => back(l) + (uniform(l) ? 1 : 0))), cells.refs);
+    const ends = lines.flatMap(l => [[l[0]!, l[1]!], [l[n - 2]!, l[n - 1]!]]);
     term(ctx, "one-apart", "how far each end number is from one apart from the number beside it, added up", sumOf(ends.map(([a, b]) => Math.abs(Math.abs(v[a]! - v[b]!) - 1))), cells.refs);
     term(ctx, "small-middle", "the middle numbers' total", sumOf(middle.map(i => v[i]!)), middle.map(i => cells.refs[i]!));
   }, n);
@@ -77,35 +97,39 @@ export function mirrormancer(n: number): RuleFamily<GridState, None> {
 
 // ---------------------------------------------------------------- 2. Magic Eighteen
 
-export function magicEighteen(n: number): RuleFamily<GridState, T> {
-  const shape: Shape<T> = {
-    main: distance<T>("rows", "every row adds up to the target", p => `Every row should add up to ${p.T}.`, "tally"),
+type AxedT = Axed & T;
+
+export function magicEighteen(n: number): RuleFamily<GridState, AxedT> {
+  const shape: Shape<AxedT> = {
+    main: distance<AxedT>("lines", "every row (or column) adds up to the target", p => `Every ${lineWord(p.axis)} should add up to ${p.T}.`, "tally"),
     tieBreakers: [
-      more("first-column", "the first column's total", "The first column should add up to as much as possible.", "cells"),
+      more<AxedT>("first-line", "the first column's (or row's) total", p => `The first ${otherWord(p.axis)} should add up to as much as possible.`, "cells"),
       primesTie(),
       more("odd", "odd numbers on the board", "As many cells as possible should hold an odd number.", "cells"),
-      distance<T>("columns", "every column adds up to the target too", p => `The columns should add up to ${p.T} too.`, "tally"),
-      distance<T>("diagonals", "both diagonals add up to the target too", p => `Both diagonals should add up to ${p.T} too.`, "cells"),
-      upTo(more("different-numbers", "rows of all different numbers", "Each row should hold four different numbers.", "cells"), n),
+      distance<AxedT>("other-way", "the other way adds up to the target too", p => `The ${otherWord(p.axis)}s should add up to ${p.T} too.`, "tally"),
+      distance<AxedT>("diagonals", "both diagonals add up to the target too", p => `Both diagonals should add up to ${p.T} too.`, "cells"),
+      upTo(more<AxedT>("different-numbers", "rows (or columns) of all different numbers", p => `Each ${lineWord(p.axis)} should hold four different numbers.`, "cells"), n),
     ],
   };
-  return family<T>("magic-eighteen", "Magic Eighteen", ["tally", "cells"], shape, [{ T: 18 }], (ctx, p) => {
-    const totals = readAll(ctx, "tally", rows(n).map((_, r) => `row${r}`));
-    ctx.term("rows", `how far the rows' totals are from ${p.T}, added up`, q(sumOf(totals.v.map(x => Math.abs(x - p.T)))), totals.refs);
+  return family<AxedT>("magic-eighteen", "Magic Eighteen", ["tally", "cells"], shape, AXES.map(axis => ({ axis, T: 18 })), (ctx, p) => {
+    const [mine, other] = p.axis === "rows" ? ["row", "col"] : ["col", "row"];
+    const totals = readAll(ctx, "tally", rows(n).map((_, k) => `${mine}${k}`));
+    ctx.term("lines", `how far the ${p.axis}' totals are from ${p.T}, added up`, q(sumOf(totals.v.map(x => Math.abs(x - p.T)))), totals.refs);
     const cells = readCells(ctx, n);
-    // Each row's working, as v1's card proved its unit ("✓ 5+6+2+5 = 18"): the sum, and how far it is from the target.
-    totals.refs.forEach((r, row) => {
-      const x = totals.v[row]!, sum = `${rows(n)[row]!.map(i => cells.v[i]).join("+")} = ${x}`;
+    // Each line's working, as v1's card proved its unit ("✓ 5+6+2+5 = 18"): the sum, and how far it is from the target.
+    const lines = p.axis === "rows" ? rows(n) : cols(n);
+    totals.refs.forEach((r, k) => {
+      const x = totals.v[k]!, sum = `${lines[k]!.map(i => cells.v[i]).join("+")} = ${x}`;
       if (x === p.T) ctx.mark({ kind: "focus", ref: r });
       ctx.mark({ kind: "note", ref: r, text: x === p.T ? `✓ ${sum}` : `${sum}: ${x < p.T ? `${p.T - x} short` : `${x - p.T} over`}` });
     });
-    totalOf(ctx, "first-column", "the first column's total", cells, rows(n).map((_, r) => at(n, r, 0)));
+    totalOf(ctx, "first-line", `the first ${otherWord(p.axis)}'s total`, cells, across(n, p.axis)[0]!);
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
     countCells(ctx, "odd", "odd numbers on the board", cells, x => x % 2 === 1, false);
-    const colTotals = readAll(ctx, "tally", cols(n).map((_, c) => `col${c}`));
-    term(ctx, "columns", `how far the columns' totals are from ${p.T}, added up`, sumOf(colTotals.v.map(x => Math.abs(x - p.T))), colTotals.refs);
+    const otherTotals = readAll(ctx, "tally", rows(n).map((_, k) => `${other}${k}`));
+    term(ctx, "other-way", `how far the ${otherWord(p.axis)}s' totals are from ${p.T}, added up`, sumOf(otherTotals.v.map(x => Math.abs(x - p.T))), otherTotals.refs);
     term(ctx, "diagonals", `how far the diagonals' totals are from ${p.T}, added up`, offTotals(cells.v, diagonals(n), p.T), diagonals(n).flat().map(i => cells.refs[i]!));
-    term(ctx, "different-numbers", "rows of all different numbers", rows(n).filter(l => new Set(l.map(i => cells.v[i])).size === n).length, cells.refs);
+    term(ctx, "different-numbers", `${p.axis} of all different numbers`, along(n, p.axis).filter(l => new Set(l.map(i => cells.v[i])).size === n).length, cells.refs);
   }, n);
 }
 

@@ -59,10 +59,18 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
 
   const half = Math.floor(n / 2);
   const gap = (s: GridState, r: number) => { let g = 0; for (let c = 0; c < half; c++) g += Math.abs(s.cells[at(n, r, c)]! - s.cells[at(n, r, n - 1 - c)]!); return g; };
+  const colGap = (s: GridState, c: number) => { let g = 0; for (let r = 0; r < half; r++) g += Math.abs(s.cells[at(n, r, c)]! - s.cells[at(n, n - 1 - r, c)]!); return g; };
   const mirror: Representation<GridState> = {
-    id: "mirror", title: "each row beside itself read backwards", scene: "grid", perSite: false,
-    elements: rows(n).map((_, r) => derived(`gap${r}`, `how far row ${r + 1} is from reading the same backwards`, s => gap(s, r), `mirrorGap:${r}`)),
-    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), right: rows(n).map((_, r) => ref("mirror", `gap${r}`)), rightTitle: "gap" }),
+    id: "mirror", title: "each row and column beside itself read backwards", scene: "grid", perSite: false,
+    elements: [
+      ...rows(n).map((_, r) => derived(`gap${r}`, `how far row ${r + 1} is from reading the same backwards`, s => gap(s, r), `mirrorGap:${r}`)),
+      ...cols(n).map((_, c) => derived(`cgap${c}`, `how far column ${c + 1} is from reading the same from the bottom up`, s => colGap(s, c), `mirrorColGap:${c}`)),
+    ],
+    layout: () => ({
+      kind: "grid", rows: n, cols: n, cells: cellRefs(n),
+      right: rows(n).map((_, r) => ref("mirror", `gap${r}`)), bottom: cols(n).map((_, c) => ref("mirror", `cgap${c}`)),
+      rightTitle: "gap", bottomTitle: "gap",
+    }),
   };
 
   const stepOf = (s: GridState, r: number, j: number) => s.cells[at(n, r, j + 1)]! - s.cells[at(n, r, j)]!;

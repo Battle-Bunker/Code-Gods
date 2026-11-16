@@ -24,8 +24,8 @@ test("a grid variant is read and written as a grid; it is valued only once it ha
   assert.equal(encode(decode(wire, "grid-4-d10"), "grid-4-d10"), wire);
   const type = typeOf("grid-4-d10"), variant = type.variants[0]!;
   const f = familyOf("magic-eighteen");
-  const key = ruleKey(type, variant, f.id, { T: 18 }, "first-column");
-  const seat = [{ memberId: "m1", rule: { family: f.id, params: { T: 18 }, tieBreaker: "first-column", ruleKey: key, contentHash: "" } }];
+  const key = ruleKey(type, variant, f.id, { axis: "rows", T: 18 }, "first-line");
+  const seat = [{ memberId: "m1", rule: { family: f.id, params: { axis: "rows", T: 18 }, tieBreaker: "first-line", ruleKey: key, contentHash: "" } }];
   // Values come from value functions (convex/v2/values.gen.ts); grids have none yet, so the server refuses to value
   // (and the deal to deal) a grid rule, by name. When grid value functions land, this asserts the rows-add-up line's
   // worth instead (it was > 16 bits under the artefacts).
@@ -70,7 +70,7 @@ test("Grids · beginner deals every grid family, each a main layer plus one tie-
     const pool = dealablePool(p);
     if (gridValues) {
       assert.deepEqual([...new Set(pool.map(r => r.family))].sort(), [...p.families].sort(), "every grid family deals");
-      assert.equal(pool.length, 21, "8 families × 3 tie-breakers, less the 3 undealt for cheap peaks (15 Nov)");
+      assert.equal(pool.length, 27, "8 families × 3 tie-breakers, less the 3 undealt for cheap peaks (15 Nov), with Mirrormancer's and Magic Eighteen's three twice (rows or columns, 16 Nov)");
     } else {
       // Decision 23: only rules with a value function deal; until grid value functions land the preset is withheld.
       assert.equal(pool.length, 0);
