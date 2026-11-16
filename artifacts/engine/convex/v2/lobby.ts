@@ -379,6 +379,8 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     pauseSeconds: room.overrides.pauseSeconds ?? DEFAULT_PAUSE_SECONDS,
     // The commit clause (v1's option, off by default).
     ...(room.overrides.commitClause ? { commitClause: true } : {}),
+    // The bid phase's pricing and disclosure (v1's bidDisclosure): the standings hide others' handicaps at "none".
+    ...(auction ? { bid: { pricing: auction.pricing, disclosure: room.overrides.bidDisclosure ?? preset.bid?.disclosure ?? "none" } } : {}),
     // Defence goals (v1, restored; owner-decisions call 1): grids only, off unless the room turns them on.
     ...(o.defenceGoals && isGridVariant(preset.variant) ? {
       defenceGoals: true, penaltyWeight: o.penaltyWeight ?? DEFAULT_PENALTY_WEIGHT,

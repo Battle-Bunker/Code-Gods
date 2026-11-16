@@ -127,3 +127,18 @@ export function disclosed<V extends { want: number; points: number; shownWant?: 
  */
 export type Quadrant = "contested" | "chips" | "other";
 export const quadrantOf = (own: number, others: number): Quadrant => (others > 0 ? (own > 0 ? "contested" : "chips") : "other");
+
+
+/**
+ * The standings as one viewer may see them (v1's bid disclosure, archive docs/bid-phase.md "What players see": at the
+ * private level "nobody is told another player's bids, rule or handicap. Standings show scores after handicaps"). While
+ * a game dealt with a won bid runs at disclosure "none", every row but the viewer's own shows its net total only: the
+ * handicap reads 0 and the raw total is the net, so neither can be worked back. `handicapsHidden` says so. After the
+ * end, and at "handicaps" or "all", the rows are whole.
+ */
+export function standingsFor<R extends { memberId: string; total: number; handicap: number; net: number }>(
+  game: { phase: string; settings: { bid?: { disclosure: "none" | "handicaps" | "all" } } }, rows: readonly R[], viewer: string | null,
+): { rows: R[]; handicapsHidden: boolean } {
+  const hidden = game.phase !== "ended" && game.settings.bid?.disclosure === "none" && rows.some(r => r.handicap > 0);
+  return { rows: rows.map(r => (hidden && r.memberId !== viewer ? { ...r, total: r.net, handicap: 0 } : r)), handicapsHidden: hidden };
+}

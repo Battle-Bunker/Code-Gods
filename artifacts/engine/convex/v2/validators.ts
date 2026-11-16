@@ -80,6 +80,8 @@ export const headerV = v.object({
 export const standingsV = v.object({
   seq: v.number(), worldSeconds: v.number(),
   rows: v.array(v.object({ memberId: v.id("v2Members"), name: v.string(), total: v.number(), handicap: v.number(), net: v.number(), rank: v.number() })),
+  /** v1's private bid results while live: other players' rows show their net only (handicap 0, total = net). */
+  handicapsHidden: v.boolean(),
 });
 export const standingsHistoryV = v.array(v.object({ seq: v.number(), worldSeconds: v.number(), totals: v.array(v.object({ memberId: v.id("v2Members"), net: v.number() })) }));
 
