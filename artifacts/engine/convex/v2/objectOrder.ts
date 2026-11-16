@@ -3,7 +3,8 @@
  * for the app's skeleton (`v2/play:objectIds`) and the `objects.list` affordance alike.
  *
  * Sorts (v1 name → v2): payoff → points, your bits → rarity, others' care → want, most mutated → mutations (the row's
- * version, 1 at birth), newest → born, oldest → oldest (born, ascending), recently mutated → recent.
+ * version, 1 at birth), newest → born, oldest → oldest (born, ascending), recently mutated → recent; and least (points
+ * ascending: v1's results page's worst objects).
  * Filters: all; positive and contested (the same set, as v1's server had it: own bits and the others' sum both positive);
  * chips (the others care, the player's own bits are 0). A filter is the `quadrant` prefix of the same order's index.
  *
@@ -17,7 +18,7 @@ import type { QueryCtx } from "../_generated/server";
 import { listsKnowledge } from "./knowledge";
 import type { Quadrant } from "./disclose";
 
-export const OBJECT_SORTS = ["points", "rarity", "want", "mutations", "born", "oldest", "recent"] as const;
+export const OBJECT_SORTS = ["points", "least", "rarity", "want", "mutations", "born", "oldest", "recent"] as const;
 export type ObjectSort = (typeof OBJECT_SORTS)[number];
 export const OBJECT_FILTERS = ["all", "positive", "contested", "chips"] as const;
 export type ObjectFilter = (typeof OBJECT_FILTERS)[number];
@@ -25,7 +26,7 @@ export type ObjectFilter = (typeof OBJECT_FILTERS)[number];
 const quadrantFor = (filter: ObjectFilter): Quadrant | null => (filter === "chips" ? "chips" : filter === "all" ? null : "contested");
 /** The sort's key: the field the index orders by, per table (the live sorts on the others' sum read the disclosed values). */
 type Key = "points" | "rarity" | "want" | "version" | "born" | "recent";
-const keyOf = (sort: ObjectSort): Key => (sort === "mutations" ? "version" : sort === "oldest" ? "born" : sort);
+const keyOf = (sort: ObjectSort): Key => (sort === "mutations" ? "version" : sort === "oldest" ? "born" : sort === "least" ? "points" : sort);
 
 const VALUES = {
   points: "by_game_member_points", rarity: "by_game_member_rarity", want: "by_game_member_want",
@@ -54,7 +55,7 @@ export type OrderRow = { objectId: Id<"v2Objects">; number: number; rarityBits: 
  * points are already as disclosed.
  */
 export async function objectPage(ctx: QueryCtx, game: Doc<"v2Games">, memberId: Id<"v2Members">, sort: ObjectSort, filter: ObjectFilter, page: PageOpts) {
-  const key = keyOf(sort), quadrant = quadrantFor(filter), order = sort === "oldest" ? "asc" : "desc";
+  const key = keyOf(sort), quadrant = quadrantFor(filter), order = sort === "oldest" || sort === "least" ? "asc" : "desc";
   if (listsKnowledge(game, memberId)) {
     const q = quadrant
       ? ctx.db.query("v2Knowledge").withIndex(KNOWLEDGE_FILTERED[key], q => q.eq("gameId", game._id).eq("memberId", memberId).eq("quadrant", quadrant))
