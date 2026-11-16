@@ -327,6 +327,15 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "rule.candidates": e => ({
     rules: [...new Set(Object.values(gameOf(e).rules))].map(family => ({ family, params: {}, tieBreaker: null, card: `A rule of ${family}.` })),
   }),
+  "rule.fit": (e, a) => {
+    const families = [...new Set(Object.values(gameOf(e).rules))];
+    const p = families.length ? 1 / families.length : 0;
+    return {
+      observations: 0, sigma: 8, exact: false,
+      hypotheses: families.slice(0, a.top).map(family => ({ posterior: p, rms: 8, rules: [{ family, params: {}, tieBreaker: null, card: `A rule of ${family}.` }] })),
+      families: families.map(family => ({ family, probability: p })), spectrum: [],
+    };
+  },
   "rule.values": () => ({ points: knots() }),
   "rule.worth": (_e, a) => {
     const first = a.score?.[0];
