@@ -59,10 +59,9 @@ test("cards: one sentence each, filled in, at most four numbers; dealt: four ins
     assert.doesNotMatch(c, /\bline\b/i, c);
     assert.ok((c.match(/\d+/g) ?? []).length <= 4, c);
   }
-  // Dealt only by the arithmetic playtest preset, each instance with its one tie-breaker.
-  for (const pr of gridPresets) for (const r of pr.rules) if (r.family === "divisibility") assert.equal(pr.id, "grids-arithmetic", `${pr.id} deals it`);
-  const arithmetic = gridPresets.find(p => p.id === "grids-arithmetic")!.rules;
-  assert.deepEqual(arithmetic.filter(r => r.family === "divisibility").map(r => [r.params, r.tieBreakers]), DIVISIBILITY_DEALT.map(p => [p, ["leftover-digits"]]));
+  // Undealt since Grids · arithmetic was withdrawn (16 Nov): a lattice reduction finds its top boards by formula, e.g.
+  // 1110/1212/1116/0261 with 46 powers of 3 on halves (grid-params.md §14). No preset deals the family.
+  for (const pr of gridPresets) assert.ok(!pr.rules.some(r => r.family === "divisibility"), `${pr.id} deals it`);
 });
 
 test("the view: each number is a readings element with its power, what is left, and what one more step needs", () => {
