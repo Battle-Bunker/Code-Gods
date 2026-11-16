@@ -40,7 +40,12 @@ export function seesaw(n: number): RuleFamily<GridState, Seesaw> {
     const lines = p.axis === "rows" ? rows(n) : cols(n), other = p.axis === "rows" ? cols(n) : rows(n);
     const leans = lines.map(l => lean(cells.v, l));
     term(ctx, "seesaw", `how far each ${one(p)}'s two halves are from balancing, added up`, sumOf(leans), cells.refs);
-    lines.forEach((l, k) => { if (leans[k] === 0) for (const i of l) ctx.mark({ kind: "focus", ref: cells.refs[i]! }); });
+    lines.forEach((l, k) => {
+      if (leans[k] === 0) { for (const i of l) ctx.mark({ kind: "focus", ref: cells.refs[i]! }); return; }
+      // The working (v1's fact): each half's total and how far apart they are.
+      const h = Math.floor(n / 2), a = sumOf(l.slice(0, h).map(i => cells.v[i]!)), b = sumOf(l.slice(n - h).map(i => cells.v[i]!));
+      ctx.mark({ kind: "note", ref: cells.refs[l[0]!]!, text: `${p.axis === "rows" ? "left" : "top"} ${a}, ${p.axis === "rows" ? "right" : "bottom"} ${b}: ${leans[k]} off` });
+    });
     const at = (ls: number[][], keep: (l: number[], k: number) => boolean) => ls.flatMap((l, k) => (keep(l, k) ? l.map(i => cells.refs[i]!) : []));
     markFor(ctx, "other-way", at(other, l => lean(cells.v, l) !== 0));   // the other way's unbalanced seesaws
     markFor(ctx, "heavy-seesaws", at(lines, (_, k) => leans[k] === 0));   // the balanced seesaws
