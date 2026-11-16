@@ -51,8 +51,7 @@ export interface Annotation {
   readonly sites: readonly SiteAnnotation[];
 }
 
-const PART_NAMES = ["main part", "tie-breaker", "second tie-breaker", "third tie-breaker"];
-export const partName = (i: number): string => PART_NAMES[i] ?? `tie-breaker ${i}`;
+export { partName } from "./contributors.ts";
 
 /** The terms the family scored, in order (WORST still names them: the undefined one is among them). */
 function components(e: Evaluation): { term: Term; sense: "max" | "min" }[] {
@@ -66,7 +65,7 @@ function annotateSite<S, P>(rule: RuleRef<S, P>, e: Evaluation, site: number, st
   const cs = contributorsOf(rule, state, e, site);
   const parts: Part[] = cs.map((c, i) => ({
     ...c,
-    // A tie-breaker owns the marks labelled with its term; the main part owns the rest (the picture of the rule).
+    // A secondary (at any depth) owns the marks labelled with its layer; the main part owns the rest.
     marks: i === 0 ? e.marks.filter(m => !comps.slice(1).some(t => markTerm(m) === t.term.id)) : e.marks.filter(m => markTerm(m) === c.term),
   }));
   const working: string[] = [];

@@ -159,11 +159,15 @@ export interface Term {
   readonly from: readonly ElementRef[];
 }
 
+/**
+ * What a rule points at for the views. `layer` (a focus or a note) or `term` (a candidate or a measure) names the layer
+ * the mark belongs to (a secondary's marks are its own, at any depth); a mark naming none belongs to the main layer.
+ */
 export type Mark =
-  | { readonly kind: "focus"; readonly ref: ElementRef }
+  | { readonly kind: "focus"; readonly ref: ElementRef; readonly layer?: TermId }
   | { readonly kind: "measure"; readonly from: ElementRef; readonly to: ElementRef; readonly term: TermId }
   | { readonly kind: "candidate"; readonly ref: ElementRef; readonly term?: TermId }
-  | { readonly kind: "note"; readonly ref: ElementRef; readonly text: string };
+  | { readonly kind: "note"; readonly ref: ElementRef; readonly text: string; readonly layer?: TermId };
 
 export interface EvalContext<S> {
   readonly state: S;

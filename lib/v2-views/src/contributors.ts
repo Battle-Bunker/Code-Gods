@@ -10,12 +10,16 @@
  * Pure; no React.
  */
 import {
-  elementDecl, elementValue, evaluateObject, Qn, q, refKey, type ElementRef, type Evaluation, type Layer, type Mark, type Q, type Score, type Undef,
+  elementDecl, elementValue, evaluateObject, PREFERENCE_LABELS, Qn, q, refKey, ruleLayers, type ElementRef, type Evaluation, type Layer, type Mark, type Q, type Score, type Undef,
 } from "@workspace/v2-core";
 import type { RuleRef } from "./annotate.ts";
 import { fmtQ, isUndef, readable, typesetNote } from "./format.ts";
 
 export type Role = "main" | "tb";
+/** A part's name by its depth, as the card says it: "main part", then "secondary", "third", … (cardText's labels). */
+export const partName = (i: number): string => (i === 0 ? "main part" : (PREFERENCE_LABELS[i - 1] ?? `${i + 1}th`).toLowerCase());
+/** A part's symbol by its depth, always beside its name: ● main part, ◆ secondary, ▲ third, ■ fourth. */
+export const partGlyph = (i: number): string => ["●", "◆", "▲", "■"][i] ?? "•";
 
 export interface Source {
   readonly ref: ElementRef;
@@ -34,6 +38,8 @@ export interface RulerData {
 
 export interface Contributor {
   readonly role: Role;
+  /** The layer's place in the rule: 0 the main part, 1 the secondary, 2 the third, … (its name and symbol follow it). */
+  readonly depth: number;
   /** "main part" / "tie-breaker". */
   readonly name: string;
   /** The layer's title in player words, parameters replaced by their values: "y(2) close to 37". */
@@ -172,6 +178,7 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
   const comp = e.components[i]!;
   const term = e.terms.find(t => t.id === comp.term)!;
   const role: Role = i === 0 ? "main" : "tb";
+  const depth = i;
   // The reference's axis, when it is a mark on an axis: a point source is then read along that axis (an x-intercept
   // against minute 3 is its x).
   const axisOf = (m: Extract<Mark, { kind: "candidate" }>) => (m.ref.args && "x" in m.ref.args ? "x" : m.ref.args && "y" in m.ref.args ? "y" : null);
@@ -197,7 +204,7 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
   const valueText = isUndef(value) ? value.undefined : rule.family.keepsParams && role === "main" && term.label && Qn.sign(value) > 0 ? typesetNote(term.label) : readable(value);
   // "dealt" is our word for a rule's parameters, not a player's (round 29: "as big a dealt prime as possible").
   const title = withParams(layer.title, rule.params).replace(/\bdealt /g, "");
-  const wants = withParams(layer.sentence(rule.params), rule.params).replace(/^Tie-breaker: /, "");
+  const wants = withParams(layer.sentence(rule.params), rule.params).replace(/^(Tie-breaker|Secondary): /, "");
   const aim = layer.sense === "min" ? "the closer, the better" : "the bigger, the better";
 
   // The reference: the candidate mark the rule placed on this term (the nearest, when several).
@@ -294,15 +301,15 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
       ? `${cap(what || title)}${distance ? `: ${distance}` : source.length > 3 ? `: ${valueText}` : ""}. ${cap(aim)}.`
       : `${cap(title)}: ${valueText}. ${cap(aim)}.`;
   return {
-    role, name: role === "main" ? "main part" : "tie-breaker", title, wants, sense: layer.sense, aim, term: term.id, value, valueText,
+    role, depth, name: partName(i), title, wants, sense: layer.sense, aim, term: term.id, value, valueText,
     source, reference, distance, ruler, sentence, units: named,
   };
 }
 
 /** The contributors of one site's evaluation (the parts of the dealt rule, in order). */
 export function contributorsOf<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, site = 0): Contributor[] {
-  const tb = rule.tieBreaker === undefined ? rule.family.tieBreakers[0] : rule.family.tieBreakers.find(t => t.id === rule.tieBreaker);
-  const layers = [rule.family.main, ...(tb ? [tb] : [])];
+  // Every dealt layer in order, at any depth ("a>b>c", #879): the main part, then each secondary.
+  const layers = ruleLayers(rule.family, rule.tieBreaker);
   const parts = layers.slice(0, e.components.length).map((l, i) => contributor(rule, state, e, i, l, site));
   // A tie-breaker that reads the main part's reference (the whole number the crossing is measured to) says so: the
   // number then carries the main part's target and the tie-breaker's input, and the line explains both.

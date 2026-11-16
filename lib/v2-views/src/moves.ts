@@ -27,7 +27,7 @@ export interface Move<S> {
   readonly changes: readonly string[];
   /** The line after the move, written: "y = 6x + 24". */
   readonly text: string;
-  /** Why it is listed: "the cheapest for the main part", "the cheapest for the tie-breaker", "the most rarity per energy". */
+  /** Why it is listed: "the cheapest for the main part", "the cheapest for the secondary", "the most rarity per energy". */
   readonly reason: string;
 }
 
@@ -101,8 +101,11 @@ export function moves<S, P>(rule: RuleRef<S, P>, state: S, value: ((u: Score) =>
  * improves the main part, the cheapest that improves the tie-breaker without hurting the main part, then the most
  * rarity per energy; at most one move of each kind; filled from the price/bits frontier if short.
  */
-function varied<F extends Found>(found: readonly F[], u0: Score, before: number | null, want: number, kindOf: (f: F) => string,
+function varied<F extends Found>(all: readonly F[], u0: Score, before: number | null, want: number, kindOf: (f: F) => string,
   better: (u: Score, bits: number | null, than: Found) => boolean): { f: F; reason: string }[] {
+  // A move no player could pay for in a game (a game hands out thousands of energy) is noise, not a way forward.
+  const affordable = all.filter(f => f.price.total <= MAX_MOVE_PRICE);
+  const found = affordable.length ? affordable : all;
   const byPrice = [...found].sort((a, b) => a.price.total - b.price.total || (b.bits ?? 0) - (a.bits ?? 0));
   const part = (u: Score, i: number): Score => (u === null ? null : [u[i] ?? null]);
   const improves = (f: F, i: number) => compareScores(part(f.utility, i), part(u0, i)) > 0;
@@ -115,7 +118,7 @@ function varied<F extends Found>(found: readonly F[], u0: Score, before: number 
     kinds.add(kindOf(f));
   };
   take(byPrice.find(f => improves(f, 0)), "the cheapest for the main part");
-  take(byPrice.find(f => !kinds.has(kindOf(f)) && keeps(f, 0) && improves(f, 1)), "the cheapest for the tie-breaker");
+  take(byPrice.find(f => !kinds.has(kindOf(f)) && keeps(f, 0) && improves(f, 1)), "the cheapest for the secondary");
   if (before !== null) {
     const perEnergy = (f: F) => ((f.bits ?? before) - before) / Math.max(f.price.total, 1e-9);
     // One move for this reason: the best value that is not already listed (or of a kind already listed).
@@ -127,6 +130,8 @@ function varied<F extends Found>(found: readonly F[], u0: Score, before: number 
 }
 
 type Found = { price: Price; utility: Score; bits: number | null };
+/** The dearest move worth listing, in energy: far beyond what a game hands out (round 29's gallery: "21,123,744,906,456,000,000.00 energy"). */
+export const MAX_MOVE_PRICE = 1e6;
 /** The frontier: cheapest first; each later move worth more than every cheaper one. */
 function frontierOf<F extends Found>(found: readonly F[], better: (u: Score, bits: number | null, than: Found) => boolean): F[] {
   const sorted = [...found].sort((a, b) => a.price.total - b.price.total || (b.bits ?? 0) - (a.bits ?? 0) || compareScores(b.utility, a.utility));

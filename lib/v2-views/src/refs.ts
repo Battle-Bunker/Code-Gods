@@ -9,9 +9,9 @@ export function markRefs(m: Mark): readonly ElementRef[] {
   return m.kind === "measure" ? [m.from, m.to] : [m.ref];
 }
 
-/** The term a mark is labelled with, if any. */
+/** The layer (term) a mark is labelled with, if any: a candidate's or measure's term, a focus's or note's layer. */
 export function markTerm(m: Mark): string | undefined {
-  return m.kind === "measure" ? m.term : m.kind === "candidate" ? m.term : undefined;
+  return m.kind === "measure" || m.kind === "candidate" ? m.term : m.layer;
 }
 
 /** The marks a representation draws: those whose refs all belong to it (a measure needs both ends in it). */

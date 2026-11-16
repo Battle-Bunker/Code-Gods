@@ -18,8 +18,8 @@ test("the card: the main sentence and one tie-breaker line, each on its own; the
   const main = /data-testid="text-goal-main"[^>]*>([^<]+)</.exec(html)?.[1];
   const tb = /data-testid="text-goal-tie-breaker"[^>]*>(.+?)<\/p>/.exec(html)?.[1]?.replace(/<[^>]+>/g, "");
   assert.equal(main, wholeCrossing.main.sentence(rule.params as never));
-  assert.match(tb ?? "", /^Tie-breaker: The crossing without its 5s/);
-  assert.doesNotMatch(tb ?? "", /Tie-breaker: Tie-breaker/);
+  assert.match(tb ?? "", /^Secondary: The crossing without its 5s/);
+  assert.doesNotMatch(tb ?? "", /Secondary: (Secondary|Tie-breaker)/);
   assert.match(html, /<details class="v2v-goal-example">/, "the game's card folds the worked example until asked for");
   assert.match(renderToStaticMarkup(<GoalCard rule={rule} example={example} />), /<details class="v2v-goal-example" open=""/, "a gallery opens it");
 });
