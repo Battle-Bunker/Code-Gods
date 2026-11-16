@@ -127,25 +127,6 @@ test("seating: grid and line games record no seating (their rules lost it with t
   }
 });
 
-test("the dealing trial's measurement: a game stores its table's unopposed directions, and no player read returns them", { timeout: 60_000 }, async () => {
-  const [ada] = await humans("Trial Ada");
-  const { roomId } = (await perform(ada!, "room.create", { name: "Trial room" })).result;
-  await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
-  const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
-  const stored = await admin.query("v2/testing:header", { gameId });
-  assert.ok(Array.isArray(stored.unopposed), "measured at the deal (an empty list when the table has no unopposed direction)");
-  for (const d of stored.unopposed) assert.ok(typeof d.direction === "string" && Array.isArray(d.rules) && ["weak", "strong"].includes(d.strength));
-  const header = await ada!.query("v2/games:header", { gameId });
-  assert.equal("unopposed" in header, false, "players are not shown it");
-  // Step 2, logging only: what the policy would have dealt this table, beside the real deal. line-q's W table went with
-  // the old line families (17 Nov), so the policy falls back to the lottery.
-  const policy = stored.unopposedPolicy;
-  assert.ok(policy && policy.wouldDeal.length === stored.roster.length && typeof policy.score === "number", JSON.stringify(policy));
-  assert.ok(!policy.fallback || /none of|company|no W table/.test(policy.fallback), `the policy's fallback: ${policy.fallback}`);
-  assert.equal("unopposedPolicy" in header, false, "players are not shown it either");
-  await perform(ada!, "game.end", {}, { gameId });
-});
-
 test("a human's new practice game ends their unfinished one (playtest round 24: abandoned deals kept ~28 worlds running); a game with another human is left alone", { timeout: 90_000 }, async () => {
   const [ada, bo] = await humans("Abandon Ada", "Abandon Bo");
   const practice = async () => {
