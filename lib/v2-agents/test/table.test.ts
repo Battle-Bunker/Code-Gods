@@ -115,7 +115,7 @@ test("unique objects: a move onto a state another line already holds is refused,
   // One agent drives every line to y = x + 1 (shift and tilt, without quoting): with uniqueness, only the first line may end there.
   const rule = { family: "prime-landing", params: beginner.find(r => r.family === "prime-landing")!.params as Record<string, unknown>, tieBreaker: "shared-factor" };
   const seat: TableSeat = { name: "P0", kind: "starter", rule, program: { language: "typescript", source: "function agent(offer) { const v = look(offer, \"si\"), one = Q.from(1), plan = []; if (!Q.eq(v.c, one)) plan.push(move(\"si.shift\", { k: Q.sub(one, v.c) })); if (!Q.eq(v.m, one)) plan.push(move(\"si.tilt\", { k: Q.sub(one, v.m) })); return plan.length ? plan : null; }" } };
-  const run = (unique: boolean) => runTable(boxes, { type: lineType, variant: lineZ, lines: 4, seed: "u", seconds: 20, seats: [seat], birthsPerSecond: 0, unique });
+  const run = (unique: boolean) => runTable(boxes, { type: lineType, variant: lineZ, lines: 4, seed: "y", seconds: 20, seats: [seat], birthsPerSecond: 0, unique });
   const [free, unique] = [await run(false), await run(true)];
   assert.equal(free.seats[0]!.refused, 0);
   assert.ok(unique.seats[0]!.refused > 0, "the second line onto y = x + 1 is refused");

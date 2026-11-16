@@ -83,6 +83,8 @@ test("the text form mentions every coordinate", () => {
         const nums: Q[] = v.kind === "number" ? [v.q] : v.kind === "point" ? [v.x, v.y] : v.kind === "segment" ? [v.from.x, v.from.y, v.to.x, v.to.y] : [];
         for (const n of nums) {
           if (rep.scene === "equation" && (n.n === 0n || Qn.eq(Qn.abs(n), Qn.ONE))) continue; // implied: "x", no "+ 0"
+          // A lone variable is written solved ("2y + 3 = 0" as "y = −1½", equation-text.ts text): its coefficient is folded in.
+          if (rep.scene === "equation" && /^[xy] = /.test(t) && !/[xy].*[xy]/.test(t.replace(/^[xy] = /, ""))) continue;
           assert.ok(t.includes(fmtQ(Qn.abs(n))), `${rep.id}.${el.name} = ${fmtQ(n)} missing from "${t}"`);
         }
       }

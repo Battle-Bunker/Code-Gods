@@ -23,8 +23,8 @@ export const lineZ: Variant = {
 export const lineQ: Variant = {
   id: "line-q", objectType: "line", mutators: [...ALL_MUTATORS, ...BEGINNER_LENSES], birthMixSteps: 64,
   // The weighted which code: the turn keeps the price it was measured at (log2 20 = 4.32 bits, as on line-q-lenses),
-  // and the nine share the rest (log2 (9 / 0.95) = 3.24 bits each).
-  which: Object.fromEntries([...ALL_MUTATORS.map(id => [id, Math.log2(9 / 0.95)]), ...BEGINNER_LENSES.map(id => [id, Math.log2(20)])]),
+  // and the others share the rest (log2 (n / 0.95) bits each, n the number of them).
+  which: Object.fromEntries([...ALL_MUTATORS.map(id => [id, Math.log2(ALL_MUTATORS.length / 0.95)]), ...BEGINNER_LENSES.map(id => [id, Math.log2(20)])]),
   params: { domain: "Q", linesPerObject: 1, argDomain: "Q" },
 };
 /**

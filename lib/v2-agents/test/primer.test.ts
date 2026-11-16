@@ -21,7 +21,7 @@ test("the primer lists every view and every move of the beginner board, uses the
   assert.match(AGENT_PRIMER, /cart\.pivot\(x0, k\)/);
   assert.match(AGENT_PRIMER, /cart\.mirror\(axis: x \| y \| origin \| diagonal\)/);
   assert.match(AGENT_PRIMER, /rarity in bits \(each bit = twice as rare\)/, "bits are the unit of rarity, said with what a bit means");
-  assert.ok(AGENT_PRIMER.length < 10500, `${AGENT_PRIMER.length} characters`);
+  assert.ok(AGENT_PRIMER.length < 11000, `${AGENT_PRIMER.length} characters`);
 });
 
 test("the primer for the lens trial lists its five moves with their arguments, both shapes of a fold", async () => {

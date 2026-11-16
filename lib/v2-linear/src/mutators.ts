@@ -349,7 +349,68 @@ export const stretch: M = {
   inverse: { kind: "partial", id: "mach.stretch", args: a => ({ f: Qn.inv(Qa(a, "f")) }), note: "undone by the reciprocal factor, at the same price, wherever it keeps the line on the board" },
 };
 
-export const mutators: readonly M[] = [shift, tilt, step, pivot, slide, mirror, nudge, move, shortcutFloor(stretch)];
+// ---------------------------------------------------------------- a move for every representation (the owner, 16 Nov)
+
+/**
+ * Move where the line crosses the x-axis by k, keeping its gradient (a sideways slide by k). The x-axis view's own
+ * addition, with the shift's fee schedule (no privileged representation); undone by −k at the same fee. A flat line
+ * never crosses the x-axis: refused. A vertical line x = X moves to x = X + k.
+ */
+export const crossShift: M = {
+  id: "cross.shift", reps: ["crossing", "cart"], title: "move where the line crosses the x-axis, keeping its gradient", perSite: true,
+  argHelp: () => ({ k: { label: "Move the crossing by", hint: "a number such as 2, −3 or 1/2: 2 moves the crossing 2 to the right", example: "1" } }),
+  describe: a => `move the x-axis crossing ${Qn.sign(k(a)) > 0 ? "right" : "left"} by ${w(Qn.abs(k(a)))}`,
+  args: v => fields(baseBits(v, true, "cross.shift"), {}, amount(argD(v))),
+  apply: (state, site, a, v) => {
+    const l = state.lines[site]!;
+    if (l.a === 0n) return { invalid: "a flat line never crosses the x-axis, so there is no crossing to move" };
+    // a(x − k) + by + c = 0
+    return replace(state, site, fromRational(q(l.a), q(l.b), Qn.sub(q(l.c), Qn.mul(q(l.a), k(a)))), v);
+  },
+  inverse: { kind: "mutator", id: "cross.shift", args: a => ({ k: Qn.neg(k(a)) }) },
+};
+
+/**
+ * Add k to the signed area of the triangle the line cuts off the axes (½ × x-crossing × y-intercept), keeping the
+ * gradient and the quarter the triangle is in. With the gradient m fixed the area is −c²/(2m), so the new y-intercept is
+ * ±√(−2m × (area + k)) with c's own sign: refused when that is not a fraction, when the area would reach 0 or change sign
+ * (another quarter), and for a line with no triangle (flat, vertical, or through (0, 0)). The area view's own addition,
+ * with the shift's fee schedule; undone by −k at the same fee.
+ */
+export const areaShift: M = {
+  id: "area.shift", reps: ["tri"], title: "change the triangle's area, keeping the gradient and the quarter", perSite: true,
+  argHelp: () => ({ k: { label: "Add to the area", hint: "a number such as 5, −2 or 1/2; the new area must be a square-friendly number for the line to stay on fractions", example: "5" } }),
+  describe: a => `add ${w(k(a))} to the triangle's signed area`,
+  args: v => fields(baseBits(v, true, "area.shift"), {}, amount(argD(v))),
+  apply: (state, site, a, v) => {
+    const l = state.lines[site]!;
+    if (l.a === 0n || l.b === 0n || l.c === 0n) return { invalid: "this line makes no triangle with the axes (it is flat, upright, or goes through (0, 0))" };
+    const m = q(-l.a, l.b), c = q(-l.c, l.b);
+    const area = Qn.div(Qn.neg(Qn.mul(c, c)), Qn.mul(q(2), m)), next = Qn.add(area, k(a));
+    if (Qn.sign(next) !== Qn.sign(area)) return { invalid: `that would make the area ${Qn.isZero(next) ? "0" : w(next)}: the triangle would vanish or move to another quarter` };
+    const c2 = Qn.mul(Qn.mul(q(-2), m), next);   // the new y-intercept squared, positive
+    const rn = isqrtBig(c2.n), rd = isqrtBig(c2.d);
+    if (rn * rn !== c2.n || rd * rd !== c2.d) return { invalid: `an area of ${w(next)} with this gradient needs a y-intercept of √${w(c2)}, which is not a fraction` };
+    const nc = Qn.mul(q(Qn.sign(c)), q(rn, rd));
+    return replace(state, site, fromRational(Qn.neg(m), q(1), Qn.neg(nc)), v);
+  },
+  inverse: { kind: "partial", id: "area.shift", args: a => ({ k: Qn.neg(k(a)) }), note: "undone by −k wherever the area allows it" },
+};
+
+/** Reflect the line in a supplied mirror line a·x + b·y + c = 0, priced by that line's code length (supplying it is dear). */
+export const reflect: M = {
+  id: "cart.reflect", reps: ["cart"], title: "reflect the line in a line you give", perSite: true,
+  argHelp: () => ({ mirror: { label: "The mirror line", hint: "three whole numbers a,b,c for ax + by + c = 0, such as 1,-1,0 for y = x; a longer line costs more to give", example: "1,-1,0" } }),
+  describe: a => `reflect the line in ${describeLine(decodeLine(S(a, "mirror")))}`,
+  args: v => mirrorArgs(v),
+  apply: (state, site, a, v) => {
+    const M = decodeLine(S(a, "mirror"));
+    return replace(state, site, reflectLine(state.lines[site]!, q(M.a), q(M.b), q(M.c)), v);
+  },
+  inverse: { kind: "self" },
+};
+
+export const mutators: readonly M[] = [shift, tilt, step, pivot, slide, mirror, nudge, move, shortcutFloor(stretch), crossShift, areaShift, reflect];
 
 // ---------------------------------------------------------------- the lens mutators (lenses-and-mutators.md §5)
 //
@@ -536,6 +597,25 @@ function parseMirror(x: unknown): Line {
   return n;
 }
 
+/** cart.reflect's argument: a mirror line {mirror}, priced by its read length (the fold's mirror branch alone). */
+function mirrorArgs(v: Variant): ArgCode<Args> {
+  const bits = (a: Args) => mirrorBits(decodeLine(S(a, "mirror")));
+  return {
+    bits,
+    // The fold's mirror lines, which cost it one bit more (its choice of branch).
+    enumerate: maxBits => [...foldArgs(v).enumerate!(maxBits + 1)].filter((a: Args) => typeof a.mirror === "string" && bits(a) <= maxBits + 1e-9),
+    sample: rng => {
+      const A = sampleMixedInt(rng), B = sampleMixedInt(rng), C = sampleMixedInt(rng), n = normalise(A, B, C);
+      // A triple that is not a line's own canonical form is the code's leftover mass.
+      return "invalid" in n || n.a !== A || n.b !== B || n.c !== C ? null : ({ mirror: encodeLine(n) } as Args);
+    },
+    encode: a => ({ mirror: S(a, "mirror") }),
+    decode: wire => {
+      if (typeof wire !== "object" || wire === null || Object.keys(wire).join(",") !== "mirror") throw new RangeError("give the mirror line as mirror: a,b,c");
+      return { mirror: encodeLine(parseMirror((wire as Record<string, unknown>).mirror)) } as Args;
+    },
+  };
+}
 /** The fold's argument: a crease {x0, s} through the line's point at x = x0 with gradient s, or a mirror line {mirror}. */
 function foldArgs(v: Variant): ArgCode<Args> {
   const pos = position(argD(v));
