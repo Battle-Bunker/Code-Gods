@@ -7,6 +7,7 @@
  * Player words only: points, rarity in bits (each bit = twice as rare) with "1 in N by chance", energy, "main part",
  * "tie-breaker", and the game's own noun ("line", "grid"), never "object". No steps and no thresholds.
  */
+import { rovingIndex } from "./roving-keys.ts";
 import { partGlyph, type Contributor } from "./contributors.ts";
 import { useMemo, useState, type ReactElement, type ReactNode } from "react";
 import { representation, type ElementRef, type Mark, type ObjectType, type Score } from "@workspace/v2-core";
@@ -149,7 +150,15 @@ export function PartsList({ parts, active, onActive, onSelect, selected }: Parts
           tabIndex={0} aria-pressed={selected === i} role="button"
           onMouseEnter={() => onActive?.(i)} onMouseLeave={() => onActive?.(null)} onFocus={() => onActive?.(i)} onBlur={() => onActive?.(null)}
           onClick={() => onSelect?.(selected === i ? null : i)}
-          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect?.(selected === i ? null : i); } else if (e.key === "Escape") onSelect?.(null); }}>
+          onKeyDown={e => {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect?.(selected === i ? null : i); return; }
+            if (e.key === "Escape") { onSelect?.(null); return; }
+            // v1's GoalBoard: arrows, Home and End move between the scoring parts (focus lights each one's marks).
+            const next = rovingIndex(e.key, i, parts.length);
+            if (next === null || next === i) return;
+            e.preventDefault();
+            (e.currentTarget.parentElement?.children[next] as HTMLElement | undefined)?.focus();
+          }}>
           <div className="v2v-part-head">
             <span className="v2v-part-name">{partGlyph(p.depth)} {p.name[0]!.toUpperCase() + p.name.slice(1)}: {p.title}</span>
             <span className="v2v-part-aim">{p.aim}</span>
@@ -283,7 +292,16 @@ export function RepSwitcher<S>(p: RepSwitcherProps<S>): ReactElement {
           const r = representation(p.type, id);
           return (
             <button key={id} type="button" role="tab" aria-selected={p.active === id} className="v2v-tab" data-depends="" data-primary={p.primary === id ? "" : undefined}
-              title={`${r.title} (your rule reads this)`} onClick={() => p.onActive(id)}>{shortTitle(r.title)}{p.primary === id && <span className="v2v-tab-main"> · main view</span>}</button>
+              tabIndex={p.active === id || (!reads.includes(p.active) && id === reads[0]) ? 0 : -1}
+              title={`${r.title} (your rule reads this)`} onClick={() => p.onActive(id)}
+              onKeyDown={e => {
+                // v1's explain modes: arrows, Home and End move to the next view and show it (a tab list's keys).
+                const next = rovingIndex(e.key, reads.indexOf(id), reads.length);
+                if (next === null || reads[next] === id) return;
+                e.preventDefault();
+                p.onActive(reads[next]!);
+                (e.currentTarget.parentElement?.querySelectorAll<HTMLElement>("[data-depends]")[next])?.focus();
+              }}>{shortTitle(r.title)}{p.primary === id && <span className="v2v-tab-main"> · main view</span>}</button>
           );
         })}
         {others.some(r => r.id === p.active) && (

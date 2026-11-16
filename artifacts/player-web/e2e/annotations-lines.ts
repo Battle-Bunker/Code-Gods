@@ -116,6 +116,20 @@ try {
       assert.ok(await page.locator(".v2v-selchip").evaluate(el => { const r = el.getBoundingClientRect(); return r.top >= 0 && r.bottom <= window.innerHeight; }), "the selection chip is on screen after the tap");
       await page.locator(".v2v-selchip button").click();
       assert.equal(await page.locator(".v2v-selchip").count(), 0, "Clear clears the selection");
+      // v1's arrows between scoring units (GoalBoard) and between modes (explain/modes): the parts, then the view tabs.
+      const parts = page.locator(".v2v-parts").first().locator(".v2v-part");
+      assert.ok(await parts.count() >= 2, "a rule with two parts here");
+      await parts.first().focus();
+      await page.keyboard.press("ArrowDown");
+      assert.equal(await parts.nth(1).evaluate(el => el === document.activeElement), true, "ArrowDown moves to the next part");
+      await page.keyboard.press("Home");
+      assert.equal(await parts.first().evaluate(el => el === document.activeElement), true, "Home goes back to the first");
+      const tabs = page.locator(".v2v-tabs").first().locator("[role=tab][data-depends]");
+      if (await tabs.count() >= 2) {
+        await tabs.first().click();
+        await page.keyboard.press("ArrowRight");
+        await page.waitForFunction(() => document.activeElement?.getAttribute("aria-selected") === "true" && document.activeElement !== document.querySelector(".v2v-tabs [role=tab][data-depends]"));
+      } else console.log(`${file}: one view tab, no arrow step`);
       // No steps or thresholds anywhere (owner decision 23).
       const text = await page.locator(".la-page").innerText();
       assert.doesNotMatch(text, /\bstep \d|\bwithin \d|≥ ?\d|Steps to the top/, "no steps or thresholds");
