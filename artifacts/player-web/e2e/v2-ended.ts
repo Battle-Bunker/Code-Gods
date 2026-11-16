@@ -203,7 +203,10 @@ async function endedGame(page: Page, preset: string, noun: string) {
   const why = results.getByTestId("section-results-why");
   await why.waitFor({ timeout: 15_000 });
   await why.locator("[data-testid^=row-results-why-]").first().getByText(/your [\d.,]+ bits? × others' [\d.,]+ bits? [=≈] [\d.,]+ points?/).waitFor({ timeout: 15_000 });
-  await why.getByTestId("list-results-worst").locator("[data-testid^=row-results-worst-]").first().waitFor({ timeout: 15_000 });
+  // The worst lines leave out the best: a game of three or fewer lines has none to list.
+  if (await why.getByTestId("list-results-worst").count()) {
+    assert.match(await why.locator("[data-testid^=row-results-worst-]").first().innerText(), /your [\d.,]+ bits? × others' [\d.,]+ bits? [=≈] [\d.,]+ points?/);
+  }
   console.log(`${label}: why: ${(await why.innerText()).replace(/\s+/g, " ").slice(0, 160)}`);
   // Never a Results page without advice (round 12: Exact Change's said nothing): "Try next game" is there.
   await results.getByTestId("text-summary-next").waitFor({ timeout: 15_000 });
