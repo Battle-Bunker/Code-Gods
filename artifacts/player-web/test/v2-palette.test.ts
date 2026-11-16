@@ -121,6 +121,16 @@ test("safe mode is a typed-only row that reloads the page with your panels off, 
   assert.equal(on.human.title, "Leave safe mode: run your panels");
 });
 
+test("a room code typed in the palette offers “Open room CODE”, which goes there (v1 parity: cmd-site-dyn-room-open)", async () => {
+  const { codeCommands } = await import("../src/core/palette-commands.ts");
+  const [row, ...rest] = codeCommands(" k7qx2 ");
+  assert.equal(rest.length, 0);
+  assert.equal(row!.human.title, "Open room K7QX2");
+  assert.deepEqual(row!.performer, { kind: "navigate", to: "/rooms/K7QX2" });
+  assert.deepEqual(codeCommands("summon an agent"), [], "a phrase is not a code");
+  assert.deepEqual(codeCommands("ab"), [], "too short");
+});
+
 test("a command's status reads as words: applied, or safe to send again (v1's 'Check a command's status…')", async () => {
   const { receiptWords } = await import("../src/core/palette-commands.ts");
   assert.equal(receiptWords({ applied: true, operation: "chat.send", result: null }), "That command (chat.send) went through.");

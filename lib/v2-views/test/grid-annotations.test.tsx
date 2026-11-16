@@ -78,6 +78,20 @@ test("a third preference's marks carry ▲: glyphs follow the part's depth", () 
   assert.match(html, /▲ last note/);
 });
 
+test("every marked element is a keyboard stop, and each note under the board names the element it is about", () => {
+  const sa = annotate(rule("last"), B).sites[0]!;
+  const html = renderToStaticMarkup(<RepView type={gridType} state={B} rep="cells" size="expanded" marks={sa.marks} terms={sa.evaluation.terms} parts={sa.parts} onHover={() => {}} />);
+  assert.match(html, /<g class="cell" data-ref="cells\.r3c3"[^>]*tabindex="0"/, "the noted cell can be reached with Tab");
+  assert.doesNotMatch(html, /<g class="cell" data-ref="cells\.r1c1"[^>]*tabindex/, "an unmarked cell is not a stop");
+  assert.match(html, /<li[^>]*data-ref="cells\.r3c3"[^>]*>[^<]*row 4, column 4/, "the note's line points at its cell");
+});
+
+test("while an element is picked out, the cells outside it are dimmed", () => {
+  const sa = annotate(rule("corner"), B).sites[0]!;
+  const html = renderToStaticMarkup(<RepView type={gridType} state={B} rep="mirror" size="expanded" marks={sa.marks} terms={sa.evaluation.terms} highlight="mirrorGap:0" />);
+  assert.match(html, /<svg class="v2v-grid"[^>]*data-picked=""/);
+});
+
 test("a secondary's notes on many units stay on the board: its card says its value in a sentence, not every note", () => {
   const fam = gridType.families.find(f => f.id === "mirrormancer")!;
   const r: RuleRef<GridState, unknown> = { type: gridType, family: fam, params: {}, variant: grid4, tieBreaker: "one-apart" };

@@ -121,6 +121,7 @@ import type * as v2_tables from "../v2/tables.js";
 import type * as v2_testing from "../v2/testing.js";
 import type * as v2_tick from "../v2/tick.js";
 import type * as v2_turnFence from "../v2/turnFence.js";
+import type * as v2_turnover from "../v2/turnover.js";
 import type * as v2_validators from "../v2/validators.js";
 import type * as v2_values from "../v2/values.js";
 import type * as v2_world from "../v2/world.js";
@@ -247,6 +248,7 @@ declare const fullApi: ApiFromModules<{
   "v2/testing": typeof v2_testing;
   "v2/tick": typeof v2_tick;
   "v2/turnFence": typeof v2_turnFence;
+  "v2/turnover": typeof v2_turnover;
   "v2/validators": typeof v2_validators;
   "v2/values": typeof v2_values;
   "v2/world": typeof v2_world;

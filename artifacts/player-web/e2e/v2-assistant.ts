@@ -74,6 +74,9 @@ try {
     await pane.getByTestId("assistant-empty").waitFor();
     assert.equal(await page.getByTestId("pane-rules").count(), 0, "How to play is not open before the assistant opens it");
 
+    // v1's starter chips: three questions for the phase (planning here).
+    const chips = await pane.getByTestId("button-assistant-suggestion").allInnerTexts();
+    assert.deepEqual(chips, ["Explain my goal simply", "Write me a first agent", "What should my agent do?"], `${label}: the starter chips`);
     await pane.getByTestId("input-assistant").fill(SCRIPT);
     await pane.getByTestId("button-assistant-send").click();
     await pane.getByTestId("row-assistant-user").first().waitFor({ timeout: 20_000 });

@@ -15,7 +15,7 @@ import { CompactFace, ExpandedFace, ObjectChip, RepView, repText, type RuleRef }
 const L = (a: bigint, b: bigint, c: bigint) => normalise(a, b, c) as Line;
 const pair = (p: Line, r: Line) => canonicalPair([p, r], pairQ) as PairState;
 const BAD = /(^|[^\d⁄₀-₉⁰-⁹.,])1 ?[xy]\b|−1 ?[xy]\b|(^|[^\d⁄₀-₉⁰-⁹.,])0 ?[xy]\b|\+ 0(?![\d.,⁄])|[+−] [+−]|\+ −|− −|NaN|undefined|\[object/;
-const text = (h: string) => h.replace(/<\/(div|p|li|h4|section)>/g, " | ").replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ").trim();
+const text = (h: string) => h.replace(/<\/span><span>/g, " | ").replace(/<\/(div|p|li|h4|section)>/g, " | ").replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ").trim();
 
 const STATES: [string, PairState][] = [
   ["crossing at (2, 1)", pair(L(1n, 1n, -3n), L(1n, -1n, -1n))],
