@@ -69,7 +69,7 @@ test("saved scripts (v1's saveAs / script): saved after a good run, run again by
 
 test("the object store (v1's): a good run's writes kept per game, loaded by key or prefix, listed; an error writes nothing", async () => {
   const w = await perform(ada, "code.run", { language: "javascript", source: "function main(rows) { store.set('stats/moves', rows.length); store.set('stats/first', rows[0] ? rows[0].seq : null); return 'ok'; }", dataset: "my-moves" }, { gameId }, "action");
-  assert.deepEqual(w.result.store, { written: ["stats/moves", "stats/first"], deleted: [] }, JSON.stringify(w.result));
+  assert.deepEqual(w.result.store, { written: ["stats/first", "stats/moves"], deleted: [] }, JSON.stringify(w.result));
   const r = await perform(ada, "code.run", { language: "javascript", source: "function main() { return [store.keys(), store.get('stats/moves')]; }", dataset: "none", load: ["stats/*"] }, { gameId }, "action");
   const [keys, moves] = JSON.parse(r.result.resultPreview);
   assert.deepEqual(keys, ["stats/first", "stats/moves"]); assert.ok(moves > 0);

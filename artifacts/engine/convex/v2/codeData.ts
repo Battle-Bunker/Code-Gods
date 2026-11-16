@@ -118,6 +118,6 @@ export const commitWrites = internalMutation({
       const r = byKey.get(p.key), row = { valueJson: p.valueJson, bytes: p.valueJson.length, updatedAt: Date.now() };
       if (r) await ctx.db.patch(r._id, row); else await ctx.db.insert("v2CodeObjects", { userId: a.userId, gameId: a.gameId, key: p.key, ...row });
     }
-    return { written: puts.map(p => p.key), deleted: a.delete.filter(k => byKey.has(k)) };
+    return { written: puts.map(p => p.key).sort(), deleted: a.delete.filter(k => byKey.has(k)).sort() };
   },
 });
