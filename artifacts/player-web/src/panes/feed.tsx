@@ -46,7 +46,7 @@ function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<stri
     const site = move.calls[0]?.site ?? 0;
     let change: { before: string; after: string } | null = null;
     if (!board) try { change = { before: lineText(decodeState(move.stateBefore, variant), move.rep, site, variant), after: lineText(decodeState(move.stateAfter, variant), move.rep, site, variant) }; } catch { change = null; }
-    return moveSentence({ noun: objectWord(variant).one, approx: blurred,
+    return moveSentence({ noun: objectWord(variant).one, approx: blurred, number: move.number,
       who: moveWho(move, move.agentId ? names.get(move.agentId) : null),
       change, what: move.mine || !anonymous ? callWords(move.calls, variantOf(variant)) : null, before: move.before, after: move.after,
     });
