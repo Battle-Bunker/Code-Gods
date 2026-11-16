@@ -113,18 +113,6 @@ test("lines sort like the server's indexes, best first, and the digest packs eve
   assert.deepEqual(end.object("o1", null)!.value, null, "no point of view: no values");
 });
 
-test("every player's rule is open in the replay, with its card and its value function (so a replay's faces show bits)", () => {
-  const bo = frameAt(ix, END).rule("m2")!;
-  assert.equal(bo.family, "square-triangle");
-  assert.equal(bo.title, "Square Triangle");
-  assert.equal(bo.primary, "tri");
-  assert.deepEqual([bo.card, bo.handicap, bo.contentHash, bo.value.knots.map(k => k.bits)], ["Bo's card", 10, "h2", [0, 3]]);
-  assert.deepEqual(frameAt(ix, END).rule("m1")!.value.knots, [], "a rule the file has no value function for: no knots (no bits drawn)");
-  assert.equal(frameAt(ix, END).rule("nobody"), null);
-  assert.deepEqual(frameAt(ix, END).agents("m1").map(a => [a.agentId, a.name, a.language, a.share]), [["a1", "Agent 1", "typescript", 0.7]]);
-  assert.deepEqual(frameAt(ix, 7).agents("m1"), [], "not summoned yet");
-});
-
 test("cursors: an event number, or a world time plus events; steps land after each move", () => {
   // Catches: a step that stops between a move and its values (the panes would show half a move).
   assert.equal(resolveCursor(ix, { seq: 99 }), END);
@@ -156,12 +144,6 @@ test("a playing replay moves on in world time at its speed, stops at the end, an
 test("a file this page cannot read says so", () => {
   assert.throws(() => indexReplay({ version: 2, events: [] }), /version 2/);
   assert.throws(() => indexReplay(null), /not a stored replay/);
-});
-
-test("a replay's rule keeps the game's uniqueness correction, so its faces' bits match the server's (decision 24, W3 #578)", () => {
-  const uniqueness = { ns: [1, 2], heldMass: [0.5, 0.25], objects: 30 };
-  const withU = indexReplay({ ...FILE, rules: FILE.rules.map(r => (r.memberId === "m2" ? { ...r, value: { ...r.value!, uniqueness } } : r)) } as never);
-  assert.deepEqual((frameAt(withU, END).rule("m2")!.value as { uniqueness?: unknown }).uniqueness, uniqueness);
 });
 
 test("a replay's moves are whole act-log rows: notes (none recorded) and no mover named for another's move (round 9: 'o.notes is not iterable')", () => {

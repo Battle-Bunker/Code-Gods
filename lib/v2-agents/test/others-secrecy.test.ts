@@ -12,9 +12,8 @@ import { EngineHost, type RuleRef } from "../src/index.ts";
 
 const state = { lines: [fromMC(q(2), q(3))] };
 const mine: RuleRef = { family: "power-hug", params: { k: 3 }, tieBreaker: null };
-// A flat value function: every score is worth 0 bits, so any two opponents' totals agree on every state.
-const flat = { knots: [{ u: null, bits: 0, lo: 0, hi: 0 }], tail: { primary: { form: "log", slope: 1 }, secondary: { form: "log", slope: 1 } } } as never;
-const host = (opponent: RuleRef) => new EngineHost({ type: lineType, variant: lineZ, state, rule: mine, energy: 50, energySeed: "s", others: [{ rule: opponent, values: flat }] });
+// The same two opponents in either seat order: each seat's rule differs, and the totals agree on every state.
+const host = (first: RuleRef, second: RuleRef) => new EngineHost({ type: lineType, variant: lineZ, state, rule: mine, energy: 50, energySeed: "s", others: [{ rule: first }, { rule: second }] });
 
 const requests: HostRequest[] = [
   { op: "myRule" }, { op: "myScore" }, { op: "budget" }, { op: "worth" }, { op: "recent" },
@@ -29,7 +28,8 @@ const requests: HostRequest[] = [
 ] as never;
 
 test("agent code cannot tell apart two opponents whose rules differ but whose totals agree", () => {
-  const a = host({ family: "prime-hug", params: { suffix: "1" } }), b = host({ family: "power-hug", params: { k: 3 }, tieBreaker: null });
+  const p: RuleRef = { family: "prime-hug", params: { suffix: "1" }, tieBreaker: null }, w: RuleRef = { family: "multiples", params: { k: 3 }, tieBreaker: null };
+  const a = host(p, w), b = host(w, p);
   for (const r of requests) {
     const ra = a.handle(r, { hostCallsLeft: 64 }), rb = b.handle(r, { hostCallsLeft: 64 });
     assert.deepEqual(ra, rb, `${JSON.stringify(r)} answers the same`);
@@ -37,5 +37,5 @@ test("agent code cannot tell apart two opponents whose rules differ but whose to
   assert.equal(a.readBits, b.readBits, "and charges the same");
   assert.deepEqual([...a.readsByRep], [...b.readsByRep]);
   const reply = a.handle(requests[5]!, { hostCallsLeft: 64 }) as { ok: true; result: unknown };
-  assert.deepEqual(Object.keys(reply.result as object).sort(), ["after", "before"], "othersAfter answers two totals only");
+  assert.deepEqual(Object.keys(reply.result as object).sort(), ["after", "before", "mine"], "othersAfter answers two totals and the player's own energy only");
 });

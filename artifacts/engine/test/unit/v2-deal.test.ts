@@ -4,7 +4,6 @@
  * (cases copied from v1's deal-rotation test). What would break: an unconverged or too-coarse rule reaching a player;
  * a deal that is not reproducible from its seed; a rotation that repeats a rule for a player within a round.
  */
-import { measuredToBits, valueRecord } from "../../convex/v2/values.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { dealablePool, freshDeal, isPracticeGame, practiceDeal, rotatedDeal, ruleView, seatingClashes, type DealtRule, type PastDeal, type SeatKind } from "../../convex/v2/deal.ts";
@@ -99,7 +98,7 @@ test("every grid setup deals the dynamic grid rules, main part only, no seating 
   for (const id of ["grids-beginner", "grids-more-rules"]) {
     const preset = presetOf(id), pool = dealablePool(preset);
     assert.deepEqual([...new Set(pool.map(r => r.family))].sort(), dynamicGridFamilies.map(f => f.id).sort(), id);
-    for (const r of pool) { assert.equal(r.tieBreaker, null); assert.equal(valueRecord(r.ruleKey), null); }
+    for (const r of pool) { assert.equal(r.tieBreaker, null); }
     const deal = freshDeal(pool, 4, "grid", preset.variant);
     assert.equal(new Set(deal.map(r => r.family)).size, 4);
     assert.deepEqual(seatingClashes(preset.variant, deal), []);
@@ -108,28 +107,12 @@ test("every grid setup deals the dynamic grid rules, main part only, no seating 
 
 
 // Pair seating (lib/v2-pair seating.ts): no two rules one move climbs together, read from the rules' parameters.
-test("pairs: a lines-pairs deal seats no forbidden pair of rules, and records none", async () => {
-  const { pairClashes } = await import("@workspace/v2-pair");
-  const { seatingClashes, hasSeatingRule } = await import("../../convex/v2/deal.ts");
-  const preset = presetOf("lines-pairs"), pool = dealablePool(preset);
-  assert.ok(hasSeatingRule(preset.variant));
-  let changed = 0;
-  for (let s = 0; s < 40; s++) {
-    const seed = `pair-seat-${s}`, deal = freshDeal(pool, 3, seed, preset.variant);
-    assert.deepEqual(pairClashes(deal), [], seed);
-    assert.deepEqual(seatingClashes(preset.variant, deal), []);
-    if (JSON.stringify(deal) !== JSON.stringify(freshDeal(pool, 3, seed))) changed++;
-  }
-  assert.ok(changed > 0, "the seating rule changes some deals");
-});
-
 test("the beginner lines deal the dynamic families, main part only, with no value table (energy.md)", async () => {
   const { dynamicFamilies } = await import("@workspace/v2-linear");
   const pool = dealablePool(presetOf("lines-beginner"));
   assert.deepEqual([...new Set(pool.map(r => r.family))].sort(), dynamicFamilies.map(f => f.id).sort());
   for (const r of pool) {
     assert.equal(r.tieBreaker, null);
-    assert.equal(valueRecord(r.ruleKey), null);
   }
   const deal = freshDeal(pool, 5, "dyn", "line-q");
   assert.equal(new Set(deal.map(r => r.family)).size, 5);

@@ -6,7 +6,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { evaluateObject, ruleLayers, type Score } from "@workspace/v2-core";
-import { valueLookup, type ValueFunction } from "@workspace/v2-valuation";
 import { lineType, type LineState } from "@workspace/v2-linear";
 import { activeOp, compareOp, digestScale, listFooter, partsNote, payoffRect, serverSort, SORTS, switcherOf, whyLine, widen } from "../src/panes/lines.ts";
 
@@ -74,17 +73,10 @@ test("the expanded face's switcher lives in the human's view: none shown → the
   assert.deepEqual(compareOp("o1", "si", null), { id: "view.showRepresentation", args: { objectId: "o1", rep: "si" } });
 });
 
-/** The committed value function of a dealt rule (lib/v2-valuation/values), as bits at a score; null when none. */
-function committedBits(variant: string, family: string, tieBreaker: string): ((u: Score) => number) | null {
-  const dir = new URL(`../../../lib/v2-valuation/values/${variant}/${family}/`, import.meta.url);
-  let files: string[];
-  try { files = readdirSync(dir); } catch { return null; }
-  const vf = files.map(f => JSON.parse(readFileSync(new URL(f, dir), "utf8")) as ValueFunction).find(v => v.tieBreaker === tieBreaker);
-  if (!vf) return null;
-  const look = valueLookup(vf);
-  return u => look(u).bits;
+/** No rule has a value table since decision 50. */
+function committedBits(_variant: string, _family: string, _tieBreaker: string): ((u: Score) => number) | null {
+  return null;
 }
-
 
 test("a Lines row's Why? is an estimate while the others' bits are blurred, exact otherwise", () => {
   assert.match(whyLine({ rarity: 3.4, want: 2 }, {}, "line", true), /^your 3\.40 bits × others' about 2\.00 bits ≈ 6\.80 points\./);

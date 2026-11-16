@@ -5,17 +5,16 @@
  *
  * The world is simplified: no births, no power or accrual. Each player starts with `budget` energy and the players
  * take turns; on its turn a player's agent is offered a line drawn uniformly (seeded), acts, and is charged. A player
- * stops when its energy is spent. Value is each line's bits on each player's rule, looked up at its score in the
- * rule's committed value function (lib/v2-valuation values, owner decision 23); a rule without one reports utilities only.
+ * stops when its energy is spent. Value is each line's energy on each player's rule (the dynamic measure, owner decision
+ * 50); a rule without it reports utilities only.
  */
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { evaluateSite, hashHex, rng, ruleLayers, type ObjectType, type Score, type Variant, familyById } from "@workspace/v2-core";
+import { energyOf, evaluateSite, hashHex, rng, ruleLayers, type ObjectType, type Score, type Variant, familyById } from "@workspace/v2-core";
 import type { Sandbox } from "@workspace/v2-sandbox";
 import { runAct, type Program } from "./act.ts";
 import { births } from "./births.ts";
 import { SPEC_ECONOMY, type RuleRef } from "./host.ts";
-import { findVariant, valueLookup, valuesVariant, withUniqueness, type ValueFunction } from "@workspace/v2-valuation";
 import type { Sandboxes } from "./sandboxes.ts";
 
 export interface HarnessPlayer {
@@ -45,13 +44,9 @@ export interface RuleOutcome {
    * the start and the end (null where no line has one).
    */
   readonly utilities: { readonly start: readonly (number | null)[]; readonly end: readonly (number | null)[] };
-  /**
-   * Mean bits per line at the start and the end, and `measuredTo`: the bits at the rule's furthest measured knot (not
-   * a maximum: past it the tail keeps rising, owner decision 26). `beyond`: lines whose score is past that knot, so their
-   * bits are extrapolated. Null without a value function.
-   */
-  readonly bits: { readonly start: number; readonly end: number; readonly measuredTo: number; readonly beyond: { readonly start: number; readonly end: number } } | null;
-  /** The sum over lines of the rule's bits, end minus start (null without a value function). */
+  /** Mean energy per object at the start and the end (0 for a rule without the dynamic measure). */
+  readonly bits: { readonly start: number; readonly end: number } | null;
+  /** The sum over objects of the rule's energy, end minus start. */
   readonly bitsGained: number | null;
 }
 
@@ -93,53 +88,17 @@ export interface HarnessReport {
   readonly points: readonly PlayerPoints[];
 }
 
-// ---------------------------------------------------------------- value functions
-
-const canonical = (x: unknown): string => JSON.stringify(x, (_k, v) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort()) : v));
-const VALUES = join(import.meta.dirname, "..", "..", "v2-valuation", "values");
-type ValueFile = { family: string; params: unknown; tieBreaker: string } & Pick<ValueFunction, "knots" | "tail">;
-
-/** The committed value function for a dealt rule (owner decision 23), or null. */
-export function findValues(variant: string, rule: HarnessPlayer["rule"]): ValueFile | null {
-  // A variant that differs from another only in its menu reads that variant's values (Variant.valuesOf).
-  try { const f = findVariant(variant); variant = valuesVariant(f.type as ObjectType<unknown>, f.variant).id; } catch (e) { if (!/^Unknown variant/.test((e as Error).message)) throw e; }
-  const dir = join(VALUES, variant, rule.family);
-  if (!existsSync(dir)) return null;
-  for (const f of readdirSync(dir)) {
-    const v = JSON.parse(readFileSync(join(dir, f), "utf8")) as ValueFile;
-    if (v.tieBreaker === rule.tieBreaker && canonical(v.params) === canonical(rule.params)) return v;
-  }
-  return null;
-}
-
-const UNIQUENESS = join(import.meta.dirname, "..", "..", "v2-valuation", "uniqueness");
-/** A variant's uniqueness table (lib/v2-valuation/uniqueness), under the variant whose values it reads; null if none. */
-function uniquenessFile(variant: string): { ns: number[]; heldMass: number[] } | null {
-  try { const f = findVariant(variant); variant = valuesVariant(f.type as ObjectType<unknown>, f.variant).id; } catch (e) { if (!/^Unknown variant/.test((e as Error).message)) throw e; }
-  const file = join(UNIQUENESS, `${variant}.json`);
-  return existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : null;
-}
+// ---------------------------------------------------------------- energy
 
 /**
- * A player's value of a line: `bits(s)` is n_i, their rarity, looked up at the line's score in the rule's value function
- * (0 for every line without one); `values` is what `runAct` takes; `measuredTo` is the furthest measured knot's bits.
+ * A player's value of an object: `bits(s)` is n_i, the rule's energy at the state (a dynamic rule, docs/engine-v2/
+ * energy.md; seeded by the state, so one state reads one number in a run), 0 for a rule without the measure.
  */
-export function valuer<S>(type: ObjectType<S>, variant: Variant, rule: HarnessPlayer["rule"], objects?: number) {
+export function valuer<S>(type: ObjectType<S>, variant: Variant, rule: HarnessPlayer["rule"]) {
   const family = familyById(type, rule.family)!;
   const scoreOf = (s: S): Score => evaluateSite(type, family, rule.params, s, variant, 0, rule.tieBreaker).score;
-  const vf = findValues(variant.id, rule);
-  // With `objects`, the uniqueness correction at that many objects, as the engine values a game (convex/v2/values.ts).
-  const u = vf && objects !== undefined ? uniquenessFile(variant.id) : null;
-  const look = vf ? (u ? withUniqueness(valueLookup(vf), u, objects!) : valueLookup(vf)) : null;
-  return {
-    scoreOf,
-    layers: ruleLayers(family, rule.tieBreaker).length,
-    lookup: (s: S) => (look ? look(scoreOf(s)) : null),
-    bits: (s: S) => (look ? look(scoreOf(s)).bits : 0),
-    worth: (u: Score) => { const w = look ? look(u) : { bits: 0, lo: 0, hi: 0 }; return { bits: w.bits, lo: w.lo, hi: w.hi }; },
-    measuredTo: vf ? vf.knots.at(-1)!.bits : null,
-    values: vf ? { knots: vf.knots, tail: vf.tail, ...(u ? { uniqueness: { ns: u.ns, heldMass: u.heldMass, objects: objects! } } : {}) } as Pick<ValueFunction, "knots" | "tail"> : undefined,
-  };
+  const bits = (s: S) => (family.dynamic ? energyOf(type, family as never, rule.params, s, variant, { seed: `harness:${type.encode(s)}` }).energy : 0);
+  return { scoreOf, layers: ruleLayers(family, rule.tieBreaker).length, bits };
 }
 
 // ---------------------------------------------------------------- the run
@@ -177,8 +136,8 @@ export async function runHarness<S>(boxes: Sandboxes, input: HarnessInput<S>): P
     const { record, state } = await runAct(sandboxOf.get(p.program.language)!, {
       type, variant, state: lines[object]!, rule: p.rule, program: p.program, seed: BigInt(`0x${hashHex(`${input.seed}:${turn}`).slice(0, 15)}`),
       energy: energy[i]!, object, liveObjects: lines.length,
-      value: { mine: n[i]!, others: total - n[i]!, points: n[i]! * (total - n[i]!) }, history, ...(valuers[i]!.values ? { values: valuers[i]!.values } : {}),
-      others: players.flatMap((p, j) => (j === i || !valuers[j]!.values ? [] : [{ rule: p.rule, values: valuers[j]!.values! }])),
+      value: { mine: n[i]!, others: total - n[i]!, points: n[i]! * (total - n[i]!) }, history,
+      others: players.flatMap((p, j) => (j === i ? [] : [{ rule: p.rule }])),
     });
     reversal[i]!.noteCount += record.notes.length;
     for (const t of record.notes) if (reversal[i]!.notes.length < 3 && !reversal[i]!.notes.includes(t)) reversal[i]!.notes.push(t);
@@ -218,13 +177,12 @@ export async function runHarness<S>(boxes: Sandboxes, input: HarnessInput<S>): P
       return xs.length ? xs.reduce((t, x) => t + x, 0) / xs.length : null;
     });
     const total = (ls: S[]) => ls.reduce((t, s) => t + v.bits(s), 0);
-    const beyond = (ls: S[]) => ls.filter(s => v.lookup(s)?.at === "beyond").length;
     const n = Math.max(1, lines.length);
     return {
       player: p.name, rule: `${p.rule.family}/${p.rule.tieBreaker}`,
       utilities: { start: utilities(start), end: utilities(lines) },
-      bits: v.measuredTo === null ? null : { start: total(start) / n, end: total(lines) / n, measuredTo: v.measuredTo, beyond: { start: beyond(start), end: beyond(lines) } },
-      bitsGained: v.measuredTo === null ? null : total(lines) - total(start),
+      bits: { start: total(start) / n, end: total(lines) / n },
+      bitsGained: total(lines) - total(start),
     };
   });
   const sum = (rows: number[][], j: number) => rows.reduce((t, x) => t + x[j]!, 0);
@@ -251,9 +209,9 @@ export const utilityCell = (x: RuleOutcome, j: number): string =>
 /** A report as Markdown: the rules' progress, then each player's spending by view. */
 export function formatReport(r: HarnessReport): string {
   const out = [
-    "| Player | Rule | Main part (mean utility, start → end) | Tie-breaker | Bits a line (start → end / measured to) | Lines past the furthest knot | Bits gained |",
-    "|---|---|---|---|---|---|--:|",
-    ...r.rules.map(x => `| ${x.player} | ${x.rule} | ${utilityCell(x, 0)} | ${utilityCell(x, 1)} | ${x.bits ? `${f1(x.bits.start)} → ${f1(x.bits.end)} / ${f1(x.bits.measuredTo)}` : "– (no value function)"} | ${x.bits ? `${x.bits.beyond.start} → ${x.bits.beyond.end}` : "–"} | ${x.bitsGained === null ? "–" : f1(x.bitsGained)} |`),
+    "| Player | Rule | Main part (mean utility, start → end) | Tie-breaker | Energy an object (start → end) | Energy gained |",
+    "|---|---|---|---|---|--:|",
+    ...r.rules.map(x => `| ${x.player} | ${x.rule} | ${utilityCell(x, 0)} | ${utilityCell(x, 1)} | ${x.bits ? `${f1(x.bits.start)} → ${f1(x.bits.end)}` : "–"} | ${x.bitsGained === null ? "–" : f1(x.bitsGained)} |`),
     "",
     "| Player | Points gained (start → end) | energy lost to reversals (times) | Others' rarity kept by its moves | Notes |",
     "|---|--:|--:|--:|--:|",

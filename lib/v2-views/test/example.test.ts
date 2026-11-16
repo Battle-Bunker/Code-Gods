@@ -11,17 +11,10 @@ import path from "node:path";
 import type { Score } from "@workspace/v2-core";
 import { dynamicFamilies, lineQ, lineType, lineZ, squareTriangle, type LineState } from "@workspace/v2-linear";
 import { grid4, gridType } from "@workspace/v2-grid";
-import { valueLookup, type ValueFunction } from "@workspace/v2-valuation";
 import { contributors, legibility, workedExample, type RuleRef } from "../src/index.ts";
 
-function valueOf(variant: string, r: RuleRef<any, unknown>): ((u: Score) => number) | undefined {
-  const dir = path.resolve(import.meta.dirname, "../../v2-valuation/values", variant, r.family.id);
-  let files: string[] = [];
-  try { files = readdirSync(dir).filter(f => f.endsWith(`-${r.tieBreaker}.json`)); } catch { return undefined; }
-  if (!files.length) return undefined;
-  const look = valueLookup(JSON.parse(readFileSync(path.join(dir, files[0]!), "utf8")) as ValueFunction);
-  return u => look(u).bits;
-}
+/** No rule has a value table since decision 50. */
+const valueOf = (_variant: string, _r: RuleRef<any, unknown>): ((u: Score) => number) | undefined => undefined;
 
 test("Square Area's example has whole legs and a real square, and its tie-breaker counts", () => {
   for (const tb of squareTriangle.tieBreakers) {

@@ -10,7 +10,6 @@ import { readFileSync } from "node:fs";
 import { fromMC, lineType, lineZ, lineQ } from "@workspace/v2-linear";
 import { applyCalls, isInvalid, q, type Q } from "@workspace/v2-core";
 import { EngineHost, runAct, sandboxes, type RuleRef } from "../src/index.ts";
-import { findValues } from "../src/harness.ts";
 import type { Language } from "@workspace/v2-sandbox";
 
 const boxes = sandboxes();
@@ -59,35 +58,34 @@ test("an agent may declare its own name that a helper has (the helpers are confi
   assert.deepEqual(record.calls[0]!.args, { k: "1" });
 });
 
-test("the points helpers: worth, rarity, recent, pushback and contested agree in both languages; notes are capped", async () => {
+test("the points helpers: worth (null) and rarity (0) without tables, recent, pushback and contested agree in both languages; notes are capped", async () => {
   const value = { mine: 4, others: 6, points: 24 };
   // My gain taken back (1), my gain taken back again (2); a drop with no gain of mine before it is not counted.
   const history = [
     { mine: false, pointsBefore: 5, pointsAfter: 2 }, { mine: true, pointsBefore: 2, pointsAfter: 9 }, { mine: false, pointsBefore: 9, pointsAfter: 3 },
     { mine: true, pointsBefore: 3, pointsAfter: 8 }, { mine: false, pointsBefore: 8, pointsAfter: 12 }, { mine: false, pointsBefore: 12, pointsAfter: 1 },
   ];
-  // A value function: 0 bits for WORST, 3 at a score of 1, 7 at 2, and 1 bit more per unit beyond (no maximum).
-  const values = { knots: [[null, 0], [["1"], 3], [["2"], 7]].map(([u, bits]) => ({ u: u as string[] | null, bits: bits as number, lo: bits as number, hi: bits as number, source: "exact" as const })), tail: { secondary: { form: "linear" as const, slope: 1 }, primary: { form: "linear" as const, slope: 1 } } };
+  // No rule has a value table (decision 50): rarity is 0 at every score.
   const ts = `function agent(offer) {
   const w = worth(offer), r = [rarity(offer, null), rarity(offer, [1]), rarity(offer, [Q.of(5, 2)]), rarity(offer, [9])];
-  const out = [w.mine, w.others, w.points, ...r, recent(offer).length, pushback(offer), contested(offer, 3), contested(offer, 2), note(offer, "  two  "), note(offer, "x"), note(offer, "y")];
+  const out = [w === null, ...r, recent(offer).length, pushback(offer), contested(offer, 3), contested(offer, 2), note(offer, "  two  "), note(offer, "x"), note(offer, "y")];
   return [move("probe", { r: out.join("|") })];
 }`;
   const py = `def agent(offer):
     w = worth(offer)
     r = [rarity(offer, None), rarity(offer, [1]), rarity(offer, [Fraction(5, 2)]), rarity(offer, [9])]
-    out = [w.mine, w.others, w.points, *r, len(recent(offer)), pushback(offer), contested(offer, 3), contested(offer, 2), note(offer, "  two  "), note(offer, "x"), note(offer, "y")]
+    out = [w is None, *r, len(recent(offer)), pushback(offer), contested(offer, 3), contested(offer, 2), note(offer, "  two  "), note(offer, "x"), note(offer, "y")]
     return [move("probe", r="|".join(str(x).lower() for x in out))]
 `;
   const out = [];
   for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-    const host = new EngineHost({ type: lineType, ...line(1, 1), rule: { family: "power-hug", params: { k: 3 } }, energy: 10, value, history, values });
+    const host = new EngineHost({ type: lineType, ...line(1, 1), rule: { family: "power-hug", params: { k: 3 } }, energy: 10, value, history });
     const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
     assert.equal(res.ok, true, res.ok ? "" : res.error);
     if (res.ok) out.push({ r: (JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r, notes: host.notes, readBits: res.readBits });
   }
   assert.deepEqual(out[1], out[0], "Python and TypeScript differ");
-  assert.deepEqual(out[0]!.r.split("|"), ["4", "6", "24", "0", "3", "7.5", "14", "6", "2", "false", "true", "true", "true", "false"]);
+  assert.deepEqual(out[0]!.r.split("|"), ["true", "0", "0", "0", "0", "6", "2", "false", "true", "true", "true", "false"]);
   assert.deepEqual(out[0]!.notes, ["Tug-of-war on line 0: another player keeps pulling it back. Make a deal with them; to keep your agent off it, add 0 to \"leaves these lines alone\" under your agent.", "two", "x"], "at most 3 notes, trimmed");
 });
 

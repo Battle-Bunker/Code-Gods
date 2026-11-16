@@ -3,11 +3,9 @@
  * plain lexicographic score), the utility's rarity worth n_i in bits from the rule's value function, and
  * π_i = n_i · Σ_{j≠i} n_j. Used by the commit (loop.ts) and the read affordances, so a value has one definition.
  */
-import { energyOf, evaluateObject, familyById, type EstimateOpts, ruleLayers, scoreToWire, type ObjectType } from "@workspace/v2-core";
-import { defenceNet } from "@workspace/v2-valuation";
+import { energyOf, evaluateObject, type EstimateOpts, scoreToWire, type ObjectType } from "@workspace/v2-core";
 import { findVariant } from "@workspace/v2-valuation";
 import { knownFamily, type DealtRule } from "./deal.ts";
-import { penaltyBitsOf, penaltyMean, worthOf, type ValueScope } from "./values.ts";
 import { births } from "@workspace/v2-agents/pure";
 
 /** A defence goal as dealt (v1, restored; owner-decisions call 1): one of the variant's penalty families. */
@@ -24,53 +22,28 @@ export { decode, encode, typeOf, variantOf } from "./variants.ts";
 import { encode, typeOf, variantOf } from "./variants.ts";
 
 /**
- * One player's utility (as its wire) and its worth in bits. With a defence goal, the worth is v1's signed bits
- * n = s⁺ − w·(η(h) − E_π η(h)) (lib/v2-valuation defence.ts), and `badnessBits` is h.
+ * One player's utility (as its wire) and its energy under the rule (rarityBits, the field's old name).
  */
 export function valueOf(state: unknown, variantId: string, rule: DealtRule, objects: number, defence?: DefenceRule, weight = DEFAULT_PENALTY_WEIGHT, estimate?: EstimateOpts) {
   return valueWithParts(state, variantId, rule, objects, defence, weight, estimate).value;
 }
 
-/** A layer's share of a player's own bits (a tree-valued rule's points tree), or a correction on them. */
+/** A layer's share of a player's own bits (the value-table era's points tree): never produced under the energy measure. */
 export interface ValuePart { layer: string; bits: number }
-
-/**
- * The parts of a player's own bits under a tree-valued rule (lib/v2-valuation treeLookup, owner's choice of valuation):
- * each dealt layer's bits in rule order (the layer ids as ruleLayers gives them), then the game's uniqueness correction
- * and a defence goal's net as parts of their own when they change anything, so the parts sum to the bits. Null for a rule
- * that is not tree-valued (today's lexicographic rules).
- */
-export function partsOf(look: { parts?: readonly number[] }, layers: readonly string[], corrected: number, final: number): ValuePart[] | null {
-  if (!look.parts) return null;
-  const out = look.parts.map((bits, i) => ({ layer: layers[i] ?? `layer-${i + 1}`, bits }));
-  const uniqueness = corrected - look.parts.reduce((t, b) => t + b, 0), defence = final - corrected;
-  if (Math.abs(uniqueness) > 1e-12) out.push({ layer: "uniqueness", bits: uniqueness });
-  if (Math.abs(defence) > 1e-12) out.push({ layer: "defence", bits: defence });
-  return out;
-}
 
 /** valueOf, and the parts of the bits for a tree-valued rule (null otherwise): what a player's own object read shows. */
 export function valueWithParts(state: unknown, variantId: string, rule: DealtRule, objects: number, defence?: DefenceRule, weight = DEFAULT_PENALTY_WEIGHT, estimate?: EstimateOpts) {
   const family = knownFamily(rule.family);
   // A family retired since the game was dealt (decision 50) scores nothing.
   if (!family) return { value: { score: null, rarityBits: 0 }, parts: null };
-  if (family.dynamic) {
-    // The dynamic measure (owner, 16 Nov): energy is a fresh estimate each time, in energy units (energy.md); no
-    // uniqueness correction and no defence goal (neither is dealt with a dynamic family).
-    const type = typeOf(variantId), variant = variantOf(variantId), e = energyOf(type, family as never, rule.params, state, variant, estimate);
-    return { value: { score: scoreToWire(evaluateObject(type, family as never, rule.params, state, variant, null).score), rarityBits: e.energy }, parts: null };
-  }
-  // One-site variants only: a multi-site object has no score yet (per-line bits summed comes next; none is dealt).
-  const utility = evaluateObject(typeOf(variantId), family as never, rule.params, state, variantOf(variantId), rule.tieBreaker).score;
-  const worth = worthOf(rule.ruleKey, utility, { variant: variantId, objects }), reward = worth.bits;
-  const layers = () => ruleLayers(family as never, rule.tieBreaker).map(l => l.id);
-  if (!defence) return { value: { score: scoreToWire(utility), rarityBits: reward }, parts: worth.parts ? partsOf(worth, layers(), reward, reward) : null };
-  const pf = familyById(typeOf(variantId), defence.family);
-  if (!pf) throw new Error(`Unknown defence goal ${defence.family}`);
-  const badness = evaluateObject(typeOf(variantId), pf as never, defence.params, state, variantOf(variantId), null).score;
-  const h = penaltyBitsOf(defence.ruleKey, badness);
-  const net = defenceNet(reward, h, weight, penaltyMean(defence.ruleKey));
-  return { value: { score: scoreToWire(utility), rarityBits: net, badnessBits: h }, parts: worth.parts ? partsOf(worth, layers(), reward, net) : null };
+  const type = typeOf(variantId), variant = variantOf(variantId);
+  const score = scoreToWire(evaluateObject(type, family as never, rule.params, state, variant, family.dynamic ? null : rule.tieBreaker).score);
+  // Every rule is scored by the dynamic measure (owner decision 50): energy is a fresh estimate each time, in energy
+  // units (energy.md). A family valued by a table (the value-table era) has no table now and scores 0. Defence goals
+  // valued badness through tables: the room refuses them (lobby.ts), and a stored one is ignored.
+  void objects; void defence; void weight;
+  if (!family.dynamic) return { value: { score, rarityBits: 0 }, parts: null as ValuePart[] | null };
+  return { value: { score, rarityBits: energyOf(type, family as never, rule.params, state, variant, estimate).energy }, parts: null as ValuePart[] | null };
 }
 
 /** Every seated player's value of a state, with want (the others' rarity) and points. */
@@ -96,7 +69,8 @@ export function valueObjects(settings: { startingObjects: number; worldSeconds: 
   if (settings.turnover && !settings.turnover.retiredHolds) return settings.turnover.liveCap;
   return Math.max(1, Math.round(settings.startingObjects + settings.economy.birthsPerSecond * settings.worldSeconds / 2));
 }
-/** A game's value scope: its variant and `valueObjects`. */
+/** A game's value scope: its variant and object count (the value-table era's uniqueness correction read it). */
+export interface ValueScope { variant: string; objects: number }
 export const scopeOf = (game: { variant: string; settings: Parameters<typeof valueObjects>[0] }): ValueScope => ({ variant: game.variant, objects: valueObjects(game.settings) });
 
 /** Draws a later birth may take: the first not held wins (a commit refuses to place a duplicate). */

@@ -1,7 +1,5 @@
 /** `rule.*`: the caller's private rule and what its scores are worth (its value function, owner decision 23). */
 import { OpFailure } from "@workspace/v2-affordances";
-import { scoreFromWire } from "@workspace/v2-core";
-import { valueRecord, worthOf } from "../values";
 import { scopeOf } from "../world";
 import { dealablePool, familyOf } from "../deal";
 import { presetOf } from "../presets";
@@ -25,19 +23,17 @@ export const { op: explain, as: explainAs } = defineOp("rule.explain", "query", 
   };
 });
 
-/** The value function's knots, worst to best: what each score the rule can reach is worth in this game (decision 24). */
+const NO_TABLE = "Your rule has no value table: it is valued by the energy estimate of each object (what it costs to reach one at least as good from a random one), so a score alone has no worth. Look at an object to see its energy.";
+/** Kept for every surface the affordance generates; rules are scored by energy (decision 50), so it says why there is no table. */
 export const { op: values, as: valuesAs } = defineOp("rule.values", "query", async env => {
-  const r = await myRule(env), vf = valueRecord(r.ruleKey);
-  if (!vf) throw new OpFailure("Your rule has no value table: it is valued by the energy estimate of each line (what it costs to reach a line at least as good from a random line of the same size), so a score alone has no worth.");
-  return { points: vf.knots.map(k => ({ score: k.u, bits: worthOf(r.ruleKey, scoreFromWire(k.u), r.scope).bits })) };
+  await myRule(env);
+  throw new OpFailure(NO_TABLE);
 });
 
-/** What one score is worth under the caller's rule: bits and their interval (hi is Infinity past the last knot). */
-export const { op: worth, as: worthAs } = defineOp("rule.worth", "query", async (env, a) => {
-  const r = await myRule(env);
-  if (!valueRecord(r.ruleKey)) throw new OpFailure("Your rule is valued by the energy estimate of each line, not by its score alone: look at a line to see its worth.");
-  const w = worthOf(r.ruleKey, scoreFromWire(a.score), r.scope);
-  return { bits: w.bits, lo: w.lo, hi: Number.isFinite(w.hi) ? w.hi : null };
+/** As rule.values: a score alone has no worth under the energy measure. */
+export const { op: worth, as: worthAs } = defineOp("rule.worth", "query", async (env, _a) => {
+  await myRule(env);
+  throw new OpFailure(NO_TABLE);
 });
 
 /**

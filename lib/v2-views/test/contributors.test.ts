@@ -9,7 +9,6 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { canonicalJson, hashHex, q, rng, walkStep, type Q, type Score } from "@workspace/v2-core";
 import { dynamicFamilies, multiples, fromMC, lineQ, lineType, lineZ, powerHug, squareTriangle, steppingCoefficients, crossingSliver, type LineState } from "@workspace/v2-linear";
-import { valueLookup, type ValueFunction } from "@workspace/v2-valuation";
 import { contributors, partLine, type RuleRef } from "../src/index.ts";
 import { moves } from "../src/moves.ts";
 
@@ -17,14 +16,8 @@ const mc = (m: number | Q, c: number | Q): LineState => ({ lines: [fromMC(typeof
 const rule = (family: RuleRef<LineState, unknown>["family"], tieBreaker: string, params: unknown = family.dealable(lineZ)[0]): RuleRef<LineState, unknown> =>
   ({ type: lineType, family, params, variant: lineZ, tieBreaker });
 
-const VALUES = path.resolve(import.meta.dirname, "../../v2-valuation/values");
-function valueOf(r: RuleRef<LineState, unknown>): (u: Score) => number {
-  const dir = path.join(VALUES, r.variant.id, r.family.id);
-  const file = readdirSync(dir).find(f => f === `${hashHex(canonicalJson(r.params))}-${r.tieBreaker}.json`)!;
-  const vf = JSON.parse(readFileSync(path.join(dir, file), "utf8")) as ValueFunction;
-  const look = valueLookup(vf);
-  return u => look(u).bits;
-}
+/** No rule has a value table since decision 50: a rule's bits are undefined here. */
+const valueOf = (_r: RuleRef<LineState, unknown>): ((u: Score) => number) | undefined => undefined;
 
 test("contributors never throw, and say no steps, on a walk of lines under every pool rule and tie-breaker", () => {
   for (const variant of [lineZ, lineQ]) {

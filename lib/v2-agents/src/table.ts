@@ -24,7 +24,7 @@ import type { Sandbox } from "@workspace/v2-sandbox";
 import { runAct, type ActRecord, type Program } from "./act.ts";
 import { births } from "./births.ts";
 import { check } from "./check.ts";
-import { findValues, valuer, type HarnessPlayer } from "./harness.ts";
+import { valuer, type HarnessPlayer } from "./harness.ts";
 import { EngineHost, type Economy as ActEconomy } from "./host.ts";
 import type { Sandboxes } from "./sandboxes.ts";
 import { editBits, summonBits } from "./summon.ts";
@@ -220,7 +220,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   const r = rng("table", input.seed);
   const checks = rng("table-checks", input.seed);   // apart from r, so a model's checks never change what agents are offered
   let lines = births(type, variant, input.seed, input.lines);
-  let vals = seats.map(s => valuer(type, variant, s.rule, input.valueObjects));
+  let vals = seats.map(s => valuer(type, variant, s.rule));
   const bitsAll = (s: S) => vals.map(v => v.bits(s));
   const pointsOf = (s: S) => { const n = bitsAll(s); const t = n.reduce((a, b) => a + b, 0); return n.map(x => x * (t - x)); };
   let points = lines.map(pointsOf);
@@ -320,8 +320,8 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     const { record, state } = await runAct(box, {
       type, variant, state: lines[object]!, rule: seats[i]!.rule, program: a.program,
       seed: BigInt(`0x${hashHex(`${input.seed}:act:${actN++}`).slice(0, 15)}`), energy, income: agentIncome(P, a.share), object, liveObjects: live().length, ...(input.actEconomy ? { economy: input.actEconomy } : {}),
-      value: (shown => ({ mine: n[i]!, others: shown, points: n[i]! * Math.max(0, shown) }))(total - n[i]! + noiseAt(`${actKey}:value`)), history, ...(vals[i]!.values ? { values: vals[i]!.values } : {}),
-      others: seats.flatMap((s, j) => (j === i || !vals[j]!.values ? [] : [{ rule: s.rule, values: vals[j]!.values! }])),
+      value: (shown => ({ mine: n[i]!, others: shown, points: n[i]! * Math.max(0, shown) }))(total - n[i]! + noiseAt(`${actKey}:value`)), history,
+      others: seats.flatMap((s, j) => (j === i ? [] : [{ rule: s.rule }])),
       ...(input.noise ? { disclosed: () => noiseAt(`${actKey}:read:${reads++}`) } : {}),
       ...(input.unique ? { occupied: (e: string) => lines.some((l, j) => j !== object && type.encode(l) === e) } : {}),
     });
@@ -406,11 +406,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
           family: family.id, params: seat.rule.params, layers: ruleLayers(family, seat.rule.tieBreaker).map(l => l.title),
           card: family.card(seat.rule.params, seat.rule.tieBreaker), depends: [...((family as { depends?: readonly string[] }).depends ?? [])], wonByBid: null,
         };
-        case "rule.values": return { points: (v.values?.knots ?? []).map(k => ({ score: k.u, bits: k.bits })) };
-        case "rule.worth": {
-          const w = v.worth(args.score === null ? null : (args.score as (string | null)[]).map(x => (x === null ? null : Qn.parse(x))));
-          return { bits: w.bits, lo: w.lo, hi: Number.isFinite(w.hi) ? w.hi : null };
-        }
+        case "rule.values": return { points: [] };   // rules are scored by energy (decision 50): no table
         case "objects.list": {
           const lastMove = lines.map(() => -1);
           for (const m of log) lastMove[m.object] = m.seq;
@@ -544,11 +540,11 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
         const found = type.families.find(f => f.id === s.rule.family)!;
         // driftLadders (an experiment): ladder families are redrawn too, as before #797.
         const family = input.driftLadders && found.keepsParams ? { ...found, keepsParams: false } : found;
-        const next = driftParams(family, variant, s.rule.params, input.seed, i, tick, p => findValues(variant.id, { ...s.rule, params: p as Record<string, unknown> }) !== null) as Record<string, unknown>;
+        const next = driftParams(family, variant, s.rule.params, input.seed, i, tick, () => true) as Record<string, unknown>;
         if (JSON.stringify(next) === JSON.stringify(s.rule.params)) continue;
         input.onDrift?.({ at: world, seat: i, params: next });
         s.rule = { ...s.rule, params: next };
-        vals[i] = valuer(type, variant, s.rule, input.valueObjects);
+        vals[i] = valuer(type, variant, s.rule);
         redrawn = true;
       }
     }

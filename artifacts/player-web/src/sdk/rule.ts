@@ -4,7 +4,6 @@
  * never scores for the server: this is for drawing the viewer's own annotations (integration plan §3.1).
  */
 import type { RuleFamily, Score } from "@workspace/v2-core";
-import { valueLookup, withUniqueness, type Lookup, type ValueTail } from "@workspace/v2-valuation";
 import { gridType } from "@workspace/v2-grid";
 import { lineType } from "@workspace/v2-linear";
 import type { RuleRef } from "@workspace/v2-views";
@@ -28,29 +27,15 @@ export function ruleRefOf(row: MyRuleRow, variantId: string): GameRule | null {
   return { type: objectTypeOf(variantId), family, params: row.params, variant: variantOf(variantId), tieBreaker: row.tieBreaker };
 }
 
-/** A rule's worth: its rarity in bits at any score (utility), with certified bounds (owner decision 23). */
-export type ValueOf = (u: Score) => Lookup;
+/** A rule's worth at a score, with bounds: the value-table era's lookup. Rules are scored by energy now (decision 50). */
+export type ValueOf = (u: Score) => { bits: number; lo: number; hi: number };
 /** Just the bits of a value lookup: what the faces take. */
 export const bitsOf = (value: ValueOf | null): ((u: Score) => number) | null => (value ? (u: Score) => value(u).bits : null);
 
-/**
- * The value function's knots as a lookup (`v2/play:myRule`'s `value`, or the gallery's `points`, which carry no bounds
- * and read as exact); null without knots (a replay file carries none).
- */
-export function valueOf(
-  knots: readonly { u: readonly (string | null)[] | null; bits: number; lo?: number; hi?: number }[] | undefined, tail?: unknown,
-  /** The game's uniqueness correction (owner decision 24), as `myRule`'s `value.uniqueness` carries it: the server's bits. */
-  uniqueness?: { ns: readonly number[]; heldMass: readonly number[]; objects: number },
-): ValueOf | null {
-  if (!knots?.length) return null;
-  const look = valueLookup({
-    knots: knots.map(k => ({ u: k.u as (string | null)[] | null, bits: k.bits, lo: k.lo ?? k.bits, hi: k.hi ?? k.bits })),
-    // Without a tail (the gallery's points), the lookup fits one from the knots: past the best knot it keeps rising.
-    tail: (tail ?? null) as ValueTail | null,
-  });
-  return uniqueness ? withUniqueness(look, uniqueness, uniqueness.objects) : look;
+/** A score alone has no worth under the energy measure (owner decision 50): always null (no rule has a table). */
+export function valueOf(..._legacy: unknown[]): ValueOf | null {
+  return null;
 }
-
 
 /**
  * A state on the wire as its object type holds it: the game's variant decides the type; without one, the wire's shape

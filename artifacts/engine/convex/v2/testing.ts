@@ -7,7 +7,8 @@
  * the beginner pool, and every value is that rule's utility and its bits from the value function (world.ts), as the
  * commit computes them; points follow spec §8.
  */
-import { rng } from "@workspace/v2-core";
+import { canonicalJson, hashHex, rng } from "@workspace/v2-core";
+import { findVariant, ruleKey } from "@workspace/v2-valuation";
 import { fromMC, lineType, lineZ, type LineState } from "@workspace/v2-linear";
 import { dealablePool, knownFamily, offers as offersOf, ruleView } from "./deal";
 import { valueObjects, valueOf as valueAt } from "./world";
@@ -20,7 +21,6 @@ import { makeFunctionReference } from "convex/server";
 import { fixturesOn } from "../auth/identity";
 import { presetOf } from "./presets";
 import { RUNTIME_VERSION } from "./readiness";
-import { valueRecord as valueRecordOf } from "./values";
 import { seatRules as seatRulesOf } from "./loop";
 import { birthDraws as birthDrawsOf, decode as decodeState, scopeOf as scopeOfGame, valuesOf as valuesOfState } from "./world";
 import { fullReadBits as fullReadBitsOf } from "./knowledge";
@@ -293,13 +293,13 @@ export const valueOf = internalQuery({
 
 /** Deals a seated human a given rule (drift's test: a family with a parameter grid), its card and layers as dealt. */
 export const setRule = internalMutation({
-  args: { gameId: v.id("v2Games"), userId: v.string(), ruleKey: v.string() },
-  handler: async (ctx, { gameId, userId, ruleKey }) => {
+  args: { gameId: v.id("v2Games"), userId: v.string(), family: v.string(), params: v.any() },
+  handler: async (ctx, { gameId, userId, family, params }) => {
     fixtures();
     const game = (await ctx.db.get(gameId))!;
     const member = (await ctx.db.query("v2Members").withIndex("by_room_user", q => q.eq("roomId", game.roomId).eq("userId", userId)).first())!;
-    const rec = valueRecordOf(ruleKey)!;
-    const rule = { family: rec.family, params: rec.params, tieBreaker: rec.tieBreaker === "none" ? null : rec.tieBreaker, ruleKey, contentHash: rec.contentHash };
+    const { type, variant } = findVariant(game.variant);
+    const rule = { family, params, tieBreaker: null, ruleKey: ruleKey(type, variant, family, params, "none"), contentHash: hashHex(canonicalJson({ dynamic: family, params })) };
     const row = (await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", member._id)).unique())!;
     await ctx.db.patch(row._id, { ...rule, ...ruleView(rule) });
   },

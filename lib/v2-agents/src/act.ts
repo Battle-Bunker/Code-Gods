@@ -33,7 +33,6 @@ export interface ActInput<S> {
   /** What the offered line is worth to the player now, its recent visible moves and the rule's value function (host.ts). */
   readonly value?: HostInput<S>["value"];
   readonly history?: HostInput<S>["history"];
-  readonly values?: HostInput<S>["values"];
   readonly others?: HostInput<S>["others"];
   /** Whether another object already holds a state (unique objects): such a result is refused. */
   readonly occupied?: HostInput<S>["occupied"];
@@ -104,7 +103,7 @@ export async function runAct<S>(sandbox: Sandbox, input: ActInput<S>): Promise<{
   const economy = input.economy ?? SPEC_ECONOMY;
   const host = new EngineHost({
     type: input.type, variant: input.variant, state: input.state, rule: input.rule, energy: input.energy, ...(input.income === undefined ? {} : { income: input.income }), economy,
-    value: input.value, history: input.history, values: input.values, others: input.others, occupied: input.occupied, disclosed: input.disclosed,
+    value: input.value, history: input.history, others: input.others, occupied: input.occupied, disclosed: input.disclosed,
     energySeed: String(input.seed),
     // An agent writes its predicates in its own language.
     ...(input.locks ? { locks: { ...input.locks, language: input.program.language === "python" ? "python" as const : "typescript" as const } } : {}),

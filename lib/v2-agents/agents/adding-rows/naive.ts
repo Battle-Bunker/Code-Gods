@@ -1,5 +1,5 @@
 // Adding Rows · Naive (for learning)
-// Your rule: line a + line b = line c, with line c big.
+// Your rule: two rows (or columns) adding up to a third, the third big.
 // What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 // board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 // board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
