@@ -787,13 +787,13 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       },
       "big-rounds": {
         ts: "rnd.reduce((s, r) => s + r, 0)", py: "sum(rnd)",
-        says: "bigger round numbers nearest the totals is better", lenses: ["add", "line"], steps: 5,
-        tryThis: "change FAR = 5 to 2: can a total still cross half way (24 to 26) to the next round number up?",
+        says: "bigger round numbers nearest the totals is better", lenses: ["add", "line"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; can a total still cross half way (24 to 26) to the next round number up?",
       },
       "round-steps": {
         ts: "[1, 2, 3].filter(k => Math.abs(rnd[k] - rnd[k - 1]) === 10).length", py: "len([k for k in (1, 2, 3) if abs(rnd[k] - rnd[k - 1]) == 10])",
-        says: "more neighbouring rows (or columns) nearest round numbers 10 apart is better", lenses: ["add", "line"], steps: 5,
-        tryThis: "change FAR = 5 to 2: can a total still cross half way to a round number 10 from its neighbour's?",
+        says: "more neighbouring rows (or columns) nearest round numbers 10 apart is better", lenses: ["add", "tilt"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; can a total still cross half way to a round number 10 from its neighbour's?",
       },
     },
   },

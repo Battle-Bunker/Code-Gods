@@ -5,7 +5,7 @@
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
 # a note, so you can make a deal with that player. Of the changes that are best for your rule, it takes the one that
 # raises your points most (your rarity times the other players').
-# Try this: change FAR = 5 to 2: can a total still cross half way (24 to 26) to the next round number up?
+# Try this: change FAR = 2 to 1: single steps only; can a total still cross half way (24 to 26) to the next round number up?
 
 
 def score(b, p):
@@ -16,7 +16,7 @@ def score(b, p):
     return [main, sum(rnd)]   # main: how far each row's (or column's) total is from the nearest multiple of 10, added up (closer is better); secondary: bigger round numbers nearest the totals is better
 
 
-FAR = 5      # how far one change may go
+FAR = 2      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
 LEAVE = []      # boards your agent skips, e.g. [19] or [4, 9]: others may still move them
 PROTECT = []    # boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off

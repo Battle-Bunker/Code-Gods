@@ -5,7 +5,7 @@
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
 # a note, so you can make a deal with that player. Of the changes that are best for your rule, it takes the one that
 # raises your points most (your rarity times the other players').
-# Try this: change FAR = 5 to 2: can a total still cross half way to a round number 10 from its neighbour's?
+# Try this: change FAR = 2 to 1: single steps only; can a total still cross half way to a round number 10 from its neighbour's?
 
 
 def score(b, p):
@@ -16,7 +16,7 @@ def score(b, p):
     return [main, len([k for k in (1, 2, 3) if abs(rnd[k] - rnd[k - 1]) == 10])]   # main: how far each row's (or column's) total is from the nearest multiple of 10, added up (closer is better); secondary: more neighbouring rows (or columns) nearest round numbers 10 apart is better
 
 
-FAR = 5      # how far one change may go
+FAR = 2      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
 LEAVE = []      # boards your agent skips, e.g. [19] or [4, 9]: others may still move them
 PROTECT = []    # boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
@@ -54,8 +54,8 @@ def agent(offer):
             continue
         for i in range(16):   # add k to one cell
             tries.append((move("cells.add", cell=NAME[i], k=k), edit(b, [i], lambda j: k)))
-        for i in range(8):   # add k to every cell of a row or column
-            tries.append((move("tally.add", line=LINE[i], k=k), edit(b, LINES[i], lambda j: k)))
+        for i in range(8):   # make every step along a row or column bigger by k
+            tries.append((move("steps.tilt", line=LINE[i], k=k), edit(b, LINES[i], lambda j: j * k)))
     options = [(plan, score(b2, p)) for plan, b2 in tries]   # each step and the score it reaches
     # A promise: on these boards, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:

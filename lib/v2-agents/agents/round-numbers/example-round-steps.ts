@@ -5,7 +5,7 @@
 // (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
 // a note, so you can make a deal with that player. Of the changes that are best for your rule, it takes the one that
 // raises your points most (your rarity times the other players').
-// Try this: change FAR = 5 to 2: can a total still cross half way to a round number 10 from its neighbour's?
+// Try this: change FAR = 2 to 1: single steps only; can a total still cross half way to a round number 10 from its neighbour's?
 
 // How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
@@ -15,7 +15,7 @@ function score(b, p) {
   return [main, [1, 2, 3].filter(k => Math.abs(rnd[k] - rnd[k - 1]) === 10).length];   // main: how far each row's (or column's) total is from the nearest multiple of 10, added up (closer is better); secondary: more neighbouring rows (or columns) nearest round numbers 10 apart is better
 }
 
-const FAR = 5;      // how far one change may go
+const FAR = 2;      // how far one change may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
 const LEAVE = [];      // boards your agent skips, e.g. [19] or [4, 9]: others may still move them
 const PROTECT = [];    // boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
@@ -44,7 +44,7 @@ function agent(offer) {
   for (let k = -FAR; k <= FAR; k++) {
     if (k === 0) continue;
     for (let i = 0; i < 16; i++) tries.push([move("cells.add", { cell: NAME[i], k }), edit(b, [i], j => k)]);   // add k to one cell
-    for (let i = 0; i < 8; i++) tries.push([move("tally.add", { line: LINE[i], k }), edit(b, LINES[i], j => k)]);   // add k to every cell of a row or column
+    for (let i = 0; i < 8; i++) tries.push([move("steps.tilt", { line: LINE[i], k }), edit(b, LINES[i], j => j * k)]);   // make every step along a row or column bigger by k
   }
   let options = tries.map(([plan, b2]) => [plan, score(b2, p)]);   // each step and the score it reaches
   // A promise: on these boards, only steps that leave the other players at least as well off.
