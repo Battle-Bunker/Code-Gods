@@ -946,7 +946,7 @@ table.y(q), seq.term(q), mach.out(q), cart.pointAtX(q)'s y).
 
 ### 12.4 Mutators
 
-N = 9 on line-z and line-z4: log2 9 = 3.17 bits of "which". line-q offers ten (the nine and the turn, below) with a weighted code: the nine at log2 (9/0.95) = 3.24 bits, the turn at log2 20 = 4.32. k sites add log2 k. Far moves are dear (owner design,
+N = 9 on line-z and line-z4: log2 9 = 3.17 bits of "which". line-q offers ten (the nine and the turn, below) with a weighted code: the twelve at log2 (12/0.95) = 3.66 bits (3.24 with nine), the turn at log2 20 = 4.32. k sites add log2 k. Far moves are dear (owner design,
 2026-11-14: "It's really expensive to move objects a long way in a single turn, by design, so all strategies should be
 incremental hill climbing"): a call's arguments are choices (an axis, which coefficient, a pivot's anchor x0, priced as
 before: x0 by steps, owner decision 17) and at most one size, priced against the rest of the call. With o the bits of
@@ -972,15 +972,18 @@ against 346.7).
 | `gen.nudge` | gen | which: choice of 3 (log2 3); k: nz (integers) | a, b or c += k; refused when the result has a common factor (it would be divided through, a one-way move) or would turn the equation over | `gen.nudge(which, −k)` |
 | `int.move` | int | axis: 1 bit; k: nz | p += k or q += k, keeping the other | partial: `int.move(axis, −k)` where the result has both intercepts |
 | `mach.stretch` | mach | factor f: digits (`nonzeroRat`), f ≠ ±1 | m ·= f, c ·= f (every output × f) | `mach.stretch(1/f)`, the same price; partial only where 1/f leaves the domain |
+| `cross.shift` | crossing, cart | k: nz (the shift's schedule) | the x-crossing += k, keeping the gradient (c −= m·k; a vertical line x = X moves to X + k); refused on a flat line | `cross.shift(−k)` |
+| `area.shift` | tri | k: nz (the shift's schedule) | the signed area ½·X·Y += k, keeping the gradient and the quarter (c = ±√(−2m(area + k)), c's sign kept); refused when that is not a fraction, when the area would reach 0 or change sign, and for a line with no triangle | partial: `area.shift(−k)` |
+| `cart.reflect` | cart | mirror: a line a,b,c, priced by its read length (mixed(a) + mixed(b) + mixed(c)) | reflect in the supplied line | self |
 
 Results outside the variant's domain are invalid (a Z-domain line with a fractional coefficient, a vertical line in Z;
 there is no limit on size, owner decision 26). The cheap-in-one-lens, dear-in-another examples of #346 §4.5 hold: y = x + 5 → y = 3x + 3 is one
 `seq.step(2)` (steps on 2) against `si.shift(−4)` and `si.tilt(2)` (steps on 4 and on 2).
 
 **The lens mutators.** The first five of [lenses-and-mutators.md](lenses-and-mutators.md) §5 (owner decisions 25, 27
-and 28). One is in the beginner line set (coordinator's call 23): `line-q` offers the nine and `rot.turn` (N = 10), with
-a weighted "which" code (`Variant.which`, a prefix code with Kraft sum 1; the walk draws a mutator with probability
-2^−which and each size code uses its own mutator's which bits as o): the nine at log2 (9/0.95) = 3.24 bits, the turn at
+and 28). One is in the beginner line set (coordinator's call 23): `line-q` offers the twelve (the nine, and since 16 November `cross.shift`, `area.shift` and `cart.reflect`, the
+owner's "mutators for every representation") and `rot.turn`, with a weighted "which" code (`Variant.which`, a prefix code with Kraft sum 1; the walk draws a mutator with probability
+2^−which and each size code uses its own mutator's which bits as o): the twelve at log2 (12/0.95) = 3.66 bits (3.24 with nine), the turn at
 log2 20 = 4.32. `basis.zoom` joined it and was taken out the same day (a straight hill: thirty zooms by 7 climbed Prime
 Landing 227 bits); it returns when the "no straight hill" check passes for every dealt family. The other four
 (`coef.swap`, `basis.lean`, `basis.zoom`, `fold`) are a trial, offered beside line-q's ten by `line-q-lenses` only
