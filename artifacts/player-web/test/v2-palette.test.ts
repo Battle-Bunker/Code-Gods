@@ -120,3 +120,13 @@ test("safe mode is a typed-only row that reloads the page with your panels off, 
   const on = paletteCommands(ctx, host(true) as never).find(r => r.id === "safe-mode")!;
   assert.equal(on.human.title, "Leave safe mode: run your panels");
 });
+
+test("a room code typed in the palette offers “Open room CODE”, which goes there (v1 parity: cmd-site-dyn-room-open)", async () => {
+  const { codeCommands } = await import("../src/core/palette-commands.ts");
+  const [row, ...rest] = codeCommands(" k7qx2 ");
+  assert.equal(rest.length, 0);
+  assert.equal(row!.human.title, "Open room K7QX2");
+  assert.deepEqual(row!.performer, { kind: "navigate", to: "/rooms/K7QX2" });
+  assert.deepEqual(codeCommands("summon an agent"), [], "a phrase is not a code");
+  assert.deepEqual(codeCommands("ab"), [], "too short");
+});
