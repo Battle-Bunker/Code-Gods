@@ -58,8 +58,6 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "high-start 3a": "15 Nov, pairs session",
   "steep-ratio 3a": "15 Nov, pairs session",
   "divisibility 3a": "15 Nov, grids session",
-  "opposite-nines 3a": "16 Nov, grids session: big-on-top undealt for its cheap peak (#902)",
-  "strangers 3a": "16 Nov, grids session: ones and prime-strangers undealt for their cheap peaks (#902)",
   "leading-digits 3a": "15 Nov, grids session",
   // Row 4: one dealt parameter set.
   "square-area 4": "15 Nov, grids session: Square Area redesign",
