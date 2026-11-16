@@ -2,6 +2,23 @@
 
 Labels: **built** (in the code and tested), **seen narrowly** (measured under the stated assumptions), **guess**.
 
+## Update, 17 Nov (Melbourne, early morning): steps 1 and 2 done
+
+- **#1161 (merged), descent and size.** `si.round` (lib/v2-linear mutators.ts) rounds m or c to a whole number, ten or
+  tenth, priced as two choices, one-way (`inverse: none`). v2-core `walkStep` stays put on a one-way move and
+  `cycleDiagnostic` skips it, so births keep π ∝ 2^−φ. Starts match information content (`sameSize`: top and bottom
+  digits). The floor rounds s's readings and has round/divide-then-solve shortcuts. Padding ratio ≈ 3·10⁻⁸
+  (`test/energy.test.ts`, energy.md).
+- **#1162, the rule set** (eleven dealt; energy.md's table): Smooth Hug out; Crossing Sliver (reads `X`), Stepping
+  Coefficients (reads `gen`), Circle Kiss, Square Triangle in. `startLike` builds starts in those representations. The
+  floor has mirror → solve → mirror routes. Agents' catalogue and rendered agents updated.
+- **Known gaps carried forward:** faults 2 (agents ignore other players), 5, 6, 8 below are unchanged. Rows 2, 5, 9, 10
+  of the design check are unmeasured for the new pool. Energy scales differ by rule (Square Triangle's good states
+  ≈ 1000, Unit Fraction's ≈ 10 on the sample lines); points are own × others' sum, so a rule with dear states weighs
+  more. Guess: worth a look in step 8's games.
+- **Next:** step 3 (delete old line families, tuple machinery, tie-breaker tiers, tree valuation, trial modes; write
+  old-rule-ideas.md; record the decision; fix CLAUDE.md), then steps 4–8 as in the coordinator's list.
+
 ## What is built, and where
 
 - **Core contract** (built, #1159). In `lib/v2-core/src/contracts.ts`: `RuleFamily.dynamic` (`u(state, params)` → a real
