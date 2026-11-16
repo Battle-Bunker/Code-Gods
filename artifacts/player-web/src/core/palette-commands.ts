@@ -23,6 +23,8 @@ export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
   // The auction's result and the handicap show in Where am I; a line's views, quotes and score in One line and What if.
   "game.auction": "overview", "object.read": "object", "object.element": "object",
   "object.quote": "what-if", "object.score": "what-if",
+  // An object's locks show in One line (object-locks.tsx).
+  "lock.list": "object", "lock.check": "object", "lock.test": "what-if",
   // The board at a moment (v1's get_board_at): beside the log it is built from.
   "game.boardAt": "feed",
   // The rules anyone could hold (v1's list_utility_candidates): beside what the others care about (W5's "Possible gods").

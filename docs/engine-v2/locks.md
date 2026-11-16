@@ -140,11 +140,19 @@ reason `breaks lock #k (<description>), holding E: drain it first`; a quote does
 
 ## 7. Operations (affordances, `lib/v2-affordances`)
 
-`lock.list` (an object's live locks with their history), `lock.create` (object, program or a ready-made predicate,
-opening amount), `lock.fund` and `lock.drain` (object, lock, amount), `lock.test` (object, calls: which locks they would
-break, for the warning where a move is composed). Each generates the assistant tool, MCP, CLI, palette entry and
+`lock.list` (an object's live locks with their history), `lock.check` (object, program or a ready-made predicate:
+does the object meet it now, its bits, fee and upkeep, spending nothing), `lock.create` (the same, with the opening
+amount), `lock.fund` and `lock.drain` (object, lock, amount; a drain larger than the lock holds takes all of it),
+`lock.test` (object, calls: which locks they would break). All hidden when the setting is off. Each generates the assistant tool, MCP, CLI, palette entry and
 buttons. The agent API (both guest languages): `offer.locks()`, `offer.lock(source, amount, words)` (in the agent's own
 language), `offer.fund(n, amount)`, `offer.drain(n, amount)`, queued and applied at commit in the order of §4.
+
+Screens: One line shows the focused object's locks (`object-locks.tsx`): the description, energy, upkeep and time
+left, the program folded, the share line ("12 energy went in, 5 of it yours: the others put in 7"), the history, an
+Energy… form to add or take energy, and "Lock this line…" (a ready-made predicate or one written in the code editor,
+checked on the line before paying). What if offers, when the line has locks, one press that says which lock the
+composed change would break and what draining it costs (`lock-warning.tsx`). The room's configure page has the setting
+and the two prices. Browser test: `pnpm --filter @workspace/player-web e2e:locks` (on and off).
 
 ## 8. The life of a lock **[default unless marked]**
 
