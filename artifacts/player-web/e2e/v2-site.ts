@@ -362,6 +362,14 @@ try {
       await page.getByTestId("button-start-world").waitFor();
       assert.equal(await page.getByTestId("game-timer").count(), 0, "one countdown in planning");
       await shot(page, `v2-planning-${label}`);
+      // How to play links v1's scoring sheet (its rules panel held it).
+      await page.keyboard.press("Control+K");
+      await page.getByTestId("input-palette").fill("Open a pane");
+      await page.getByTestId("row-palette-view.openPane").click();
+      await page.getByTestId("row-palette-option-rules").click();
+      await page.getByTestId("button-rules-scoring").click();
+      await page.getByTestId("how-scoring-works").waitFor({ timeout: 10_000 });
+      await page.keyboard.press("Escape");
     });
 
     assert.deepEqual(me.errors, [], `${label}: no page errors`);

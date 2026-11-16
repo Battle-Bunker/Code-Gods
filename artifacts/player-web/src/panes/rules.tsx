@@ -9,6 +9,7 @@ import { agentPrimer } from "@workspace/v2-agents/pure";
 import { objectTypeOf, useGame, useGameDetails, useLeaderboard, variantOf } from "@/sdk";
 import { endReasonLabel, fmtDuration, fmtWhen, toMs } from "@/site/lib/time";
 import { toast } from "@/hooks/use-toast";
+import { useAffordance } from "@workspace/v2-affordances/react";
 import { rulesFacts, rulesForAi, rulesParagraphs, type RulesInput } from "./rules-words";
 
 /** v1's "Copy game rules for an AI": this pane's text and the agent primer, ready to paste into any assistant. */
@@ -43,6 +44,7 @@ export function RulesPane() {
       <div className="max-w-[68ch] space-y-3 text-[15px] leading-relaxed" data-testid="text-rules">
         {rulesParagraphs(input).map((p, i) => <p key={i}>{p}</p>)}
       </div>
+      <ScoringLink />
       <section className="space-y-1.5">
         <h3 className="text-sm font-semibold">This game</h3>
         <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm" data-testid="rules-facts">
@@ -57,6 +59,13 @@ export function RulesPane() {
       <CopyForAi input={input} variant={header.variant} />
     </div>
   );
+}
+
+/** v1's rules panel held "How scoring works": here it opens the same sheet (view.showScoring). */
+function ScoringLink() {
+  const scoring = useAffordance("view.showScoring");
+  if (!scoring.available) return null;
+  return <button type="button" className="text-sm underline underline-offset-4" onClick={() => void scoring.run({})} data-testid="button-rules-scoring">How scoring works, in more detail</button>;
 }
 
 /** v1's game details after the end: who held which rule (v2/games:details; hidden while the game runs). */

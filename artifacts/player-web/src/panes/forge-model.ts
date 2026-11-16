@@ -34,6 +34,14 @@ export function otherStartingPoints(family: string, language: Language, tieBreak
 }
 
 /**
+ * v1's "Replace it / Keep my code": whether opening a starting point in the editor must ask first. Only code that would
+ * be lost does: something typed that is not one of the starting points as shipped.
+ */
+export const openNeedsAsk = (source: string, known: readonly string[]): boolean => !!source.trim() && !known.includes(source);
+/** The question, naming the starting point. */
+export const replaceQuestion = (title: string) => `Replace the code in the editor with ${title}? Your summoned agents are not affected.`;
+
+/**
  * The summon (or replace) price of a program, in energy: its bits times the game's price scale (the header's
  * `priceScale`, power ÷ 64; W3 #695), as agent.summon charges it.
  */
