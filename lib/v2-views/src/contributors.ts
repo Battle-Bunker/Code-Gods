@@ -12,7 +12,7 @@
 import {
   elementDecl, elementValue, evaluateObject, Qn, q, refKey, type ElementRef, type Evaluation, type Layer, type Mark, type Q, type Score, type Undef,
 } from "@workspace/v2-core";
-import type { RuleRef } from "./annotate.ts";
+import { partName, type RuleRef } from "./annotate.ts";
 import { fmtQ, isUndef, readable, typesetNote } from "./format.ts";
 
 export type Role = "main" | "tb";
@@ -197,7 +197,7 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
   const valueText = isUndef(value) ? value.undefined : rule.family.keepsParams && role === "main" && term.label && Qn.sign(value) > 0 ? typesetNote(term.label) : readable(value);
   // "dealt" is our word for a rule's parameters, not a player's (round 29: "as big a dealt prime as possible").
   const title = withParams(layer.title, rule.params).replace(/\bdealt /g, "");
-  const wants = withParams(layer.sentence(rule.params), rule.params).replace(/^Tie-breaker: /, "");
+  const wants = withParams(layer.sentence(rule.params), rule.params).replace(/^(Tie-breaker|Secondary|Third|Then):\s*/, "");
   const aim = layer.sense === "min" ? "the closer, the better" : "the bigger, the better";
 
   // The reference: the candidate mark the rule placed on this term (the nearest, when several).
@@ -294,7 +294,7 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
       ? `${cap(what || title)}${distance ? `: ${distance}` : source.length > 3 ? `: ${valueText}` : ""}. ${cap(aim)}.`
       : `${cap(title)}: ${valueText}. ${cap(aim)}.`;
   return {
-    role, name: role === "main" ? "main part" : "tie-breaker", title, wants, sense: layer.sense, aim, term: term.id, value, valueText,
+    role, name: partName(i), title, wants, sense: layer.sense, aim, term: term.id, value, valueText,
     source, reference, distance, ruler, sentence, units: named,
   };
 }

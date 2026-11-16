@@ -222,6 +222,8 @@ try {
     await goal.locator(".v2v-part").first().waitFor();
     // v1's "How rare is each rule score?" (the owner: a card tells a player their precise incentives) and its example
     // to randomise or edit.
+    // The owner's words: a secondary preference, never a tie-breaker (v1 forbade "tie-break" in player text).
+    assert.doesNotMatch(await goal.innerText(), /tie-?break/i, `${label}: the card says secondary preference`);
     await goal.getByTestId("details-rarity-scale").locator("summary").click();
     const rows = await goal.getByTestId("list-rarity-scale").locator("li").allInnerTexts();
     assert.ok(rows.length >= 2 && rows.every(r => /: 1 in [\d.,]+.* by chance \([\d.]+ bits?\)$/.test(r)), `${label}: the rarity table: ${rows.join(" | ")}`);

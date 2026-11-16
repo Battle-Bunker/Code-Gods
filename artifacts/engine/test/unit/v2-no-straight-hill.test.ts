@@ -33,10 +33,6 @@ const LIMIT = 35, STARTS = 3, MAX_STEPS = 80;
 const OPEN: Record<string, string> = {
   "square-area/lpf": "grids session, reported 15 Nov",
   "square-area/spf": "grids session, reported 15 Nov",
-  // Found when grids joined the gate (15 Nov): cheap peaks on grids-beginner, reached for 100–210⚡ from law draws.
-  "opposite-nines/big-on-top": "grids session, reported 15 Nov: 45.0 bits for 120–211⚡",
-  "strangers/ones": "grids session, reported 15 Nov: 37.3 bits for 99⚡",
-  "strangers/prime-strangers": "grids session, reported 15 Nov: 40.0 bits for 117–126⚡",
 };
 const FACTORS = ["2", "3", "5", "7", "11", "13", "17", "10", "1/2", "1/3", "1/5", "1/10"];
 const AMOUNTS = ["1", "-1", "2", "-2", "10", "-10", "100", "-100", "1000", "-1000", "1/2", "-1/2"];
@@ -152,4 +148,5 @@ test(`no dealt line, pair or grid rule passes ${LIMIT} bits on one seat's whole-
   assert.ok(chains > 100, `${chains} chains`);
   assert.deepEqual(failures, []);
   for (const [rule, worst] of openWorst) assert.ok(worst > LIMIT, `${rule} now stays at ${worst.toFixed(1)} bits: remove it from OPEN`);
+  assert.deepEqual(Object.keys(OPEN).filter(k => !openWorst.has(k)), [], "OPEN entries for rules no preset deals: remove them");
 });

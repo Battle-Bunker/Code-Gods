@@ -19,7 +19,7 @@ const main: Layer<NoParams> = {
   sense: "min",
 };
 const prime: Layer<NoParams> = {
-  id: "pgap", title: "that minute is a prime", sentence: () => "Tie-breaker: a prime minute is even better.", rep: "cart",
+  id: "pgap", title: "that minute is a prime", sentence: () => "Secondary: a prime minute is even better.", rep: "cart",
   sense: "min",
 };
 

@@ -18,6 +18,11 @@ export { decodeState, familyOf, ruleRefOf, valueOf, variantOf, type GameRule } f
 export { defaultRepOf, objectTypeOf, objectWord } from "../sdk/object-types";
 export type * from "../sdk/types";
 export type { MyRule } from "../sdk/hooks";
+// Drawing and working out, as the app's own panes do (pure: nothing here reads or sends anything).
+export { LineChart, CareScatter, slotColour } from "../components/charts";
+export { raceSeries, careKind, carePoints, CARE_KINDS, type Series, type CarePoint, type CareKind } from "../panes/chart-model";
+export { standing, whatIf, mutatorChoices, wireArgs, formError, type Standing, type WhatIf, type MutatorChoice } from "../panes/what-if-model";
+export { fmtBits, fmtNum, pointsText } from "@workspace/v2-views/format";
 
 function useBridged(hook: HookName, args: unknown[]) {
   const w = bridge().watch(hook, args);
@@ -58,6 +63,16 @@ export const useAgentEnergy: Hook<"useAgentEnergy"> = agentId => value("useAgent
 export const useAgentPrograms: Hook<"useAgentPrograms"> = agentId => value("useAgentPrograms", agentId ?? null);
 export const useStandingsHistory: Hook<"useStandingsHistory"> = () => value("useStandingsHistory") ?? EMPTY;
 const EMPTY: never[] = [];
+
+/**
+ * Whether the others' figures are blurred now (the app's useOthersBlurred): while the game runs, unless it blurs
+ * nothing. Then every figure built on the others' bits (want, points) is an estimate, about ± the header's
+ * peerNoiseBits; the final count is exact.
+ */
+export function useOthersBlurred(): boolean {
+  const game = useGame();
+  return !!game && game.phase !== "ended" && game.peerNoiseBits > 0;
+}
 
 /** The rule's row crosses the bridge; the drawable rule and the value lookup are built here, as the app does. */
 export const useMyRule: Hook<"useMyRule"> = () => {

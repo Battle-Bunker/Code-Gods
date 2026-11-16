@@ -96,6 +96,13 @@ export const viewOps = [
     params: obj({ term: z.string().max(40).optional() }), result: done,
     contexts: CONTEXTS, caller: "anyone", effect: "write", confirm: "none", runs: "client",
   }),
+  affordance({
+    id: "view.closeGlossary", title: "Close the glossary", group: "help", scope: "none",
+    description: "Closes the glossary, so it stays closed on every screen until a term is asked for again.",
+    tooltip: "Close the glossary.", keywords: ["close glossary", "hide glossary"],
+    params: obj({}), result: done,
+    contexts: CONTEXTS, caller: "anyone", effect: "write", confirm: "none", runs: "client",
+  }),
 
   // Replay controls: the replay pane folds v2Events; these move its cursor.
   affordance({

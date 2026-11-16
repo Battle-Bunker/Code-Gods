@@ -105,7 +105,7 @@ export function RuleFamily() {
                     </select>
                   </label>
                   <fieldset className="space-y-1">
-                    <legend className="text-xs text-muted-foreground">Tie-breaker: it decides between {word.many} the main part scores the same</legend>
+                    <legend className="text-xs text-muted-foreground">Secondary preference: it decides between {word.many} the main part scores the same</legend>
                     {page.tieBreakers.map(t => (
                       <label key={t.id} className="flex items-start gap-2 py-1">
                         <input type="radio" name="tie-breaker" className="mt-1" checked={page.rule.tieBreaker === t.id} onChange={() => go({ tb: t.id })} data-testid={`radio-tie-breaker-${t.id}`} />

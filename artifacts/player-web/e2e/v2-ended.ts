@@ -177,6 +177,11 @@ async function endedGame(page: Page, preset: string, noun: string) {
     const s = await open(page, pane);
     await page.waitForTimeout(300);
     assert.ok((await s.innerText()).trim().length > 20, `${label}: ${pane} has content after the end`);
+    if (pane === "others-care") {
+      // v1's "Possible gods": every rule anyone could hold, never who holds which.
+      await s.getByTestId("possible-gods").locator("summary").click();
+      assert.ok(await s.getByTestId("row-possible-god").count() >= 2, `${label}: the rules anyone could hold`);
+    }
     if (pane === "rules") {
       // v1's "Copy game rules for an AI": copied, or (no clipboard here) shown to copy by hand, the primer included.
       await s.getByTestId("button-copy-rules-ai").click();
