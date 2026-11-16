@@ -1,22 +1,23 @@
-/** Fraction Gradient and Square Fraction Intercept (frac-fraction-gradient.ts, frac-square-intercept.ts). Every expected value was worked out by hand from the card. */
+/** Fraction Gradient, Fraction Pair and Mixed Intercept (frac-fraction-gradient.ts, frac-fraction-pair.ts, frac-mixed-intercept.ts). Every expected value was worked out by hand from the card. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateSite, Qn, type Evaluation, type TieBreaker } from "@workspace/v2-core";
-import { beginnerPool, fractionGradient, GRADIENT_BOTTOMS, lineQ, lineType, lineZ, nearestSquareFraction, nearestWithBottom, presets, SQUARE_BOTTOMS, squareIntercept } from "../src/index.ts";
+import { beginnerPool, fractionGradient, fractionPair, GRADIENT_BOTTOMS, lineQ, lineType, lineZ, MIXED_PARTS, mixedIntercept, nearestMixed, nearestWithBottom, PAIR_BOTTOMS, presets } from "../src/index.ts";
 import { abc, mc } from "./helpers.ts";
 
 const f = Qn.q;
 const term = (e: Evaluation, id: string) => { const v = e.terms.find(x => x.id === id)!.value; return v && typeof v === "object" && "n" in v ? Qn.toWire(v as never) : JSON.stringify(v); };
 const fg = (s: unknown, tb: TieBreaker = "near", d = 7) => evaluateSite(lineType, fractionGradient, { d } as never, s as never, lineQ, 0, tb);
-const sq = (s: unknown, tb: TieBreaker = "near", d = 3) => evaluateSite(lineType, squareIntercept, { d } as never, s as never, lineQ, 0, tb);
+const fp = (s: unknown, tb: TieBreaker = "near", d = 7) => evaluateSite(lineType, fractionPair, { d } as never, s as never, lineQ, 0, tb);
+const mi = (s: unknown, tb: TieBreaker = "near") => evaluateSite(lineType, mixedIntercept, { r: 1, d: 3 }, s as never, lineQ, 0, tb);
 
-test("both are on the line type, in no pool or preset, dealable only on rational lines, four versions each", () => {
-  for (const [fam, bottoms] of [[fractionGradient, GRADIENT_BOTTOMS], [squareIntercept, SQUARE_BOTTOMS]] as const) {
+test("all three are on the line type, in no pool or preset, dealable only on rational lines, four versions each", () => {
+  for (const [fam, versions] of [[fractionGradient, GRADIENT_BOTTOMS.map(d => ({ d }))], [fractionPair, PAIR_BOTTOMS.map(d => ({ d }))], [mixedIntercept, MIXED_PARTS]] as const) {
     assert.ok(lineType.families.some(x => x.id === fam.id));
     assert.ok(!beginnerPool.some(x => x.id === fam.id));
     assert.ok(!presets.some(p => p.rules.some(r => r.family === fam.id)));
     assert.equal(fam.dealable(lineZ).length, 0);
-    assert.deepEqual(fam.dealable(lineQ).map(p => (p as { d: number }).d), [...bottoms]);
+    assert.deepEqual(fam.dealable(lineQ), [...versions]);
     assert.equal(fam.tieBreakers.length, 4);
   }
 });
@@ -43,25 +44,32 @@ test("Fraction Gradient: layers on y = (17/7)x + 5/14", () => {
   for (const t of [mc(f(17, 7), f(19, 14)), mc(f(-17, 7), f(5, 14)), mc(f(-17, 7), f(-5, 14))]) assert.deepEqual(fg(t).score, want);
 });
 
-test("Square Fraction Intercept: the nearest square of a third that is not whole", () => {
-  assert.equal(nearestSquareFraction(f(16, 9), 3).j, 4n);
-  assert.equal(nearestSquareFraction(f(3), 3).j, 5n);     // 25/9 is 2/9 away; 36/9 is whole (6/3), 49/9 is 22/9 away
-  assert.equal(nearestSquareFraction(f(0), 3).j, 1n);
+test("Fraction Pair: the smaller top of the sevenths nearest the gradient and the y-intercept", () => {
+  const s = mc(f(17, 7), f(17, 7));
+  for (const [id, v] of [["smaller-top", "17"], ["near", "0"], ["top-gap", "0"], ["top-multiple", "0"], ["top-ratio", "1"]] as const)
+    assert.equal(term(fp(s, id === "smaller-top" ? "near" : id), id), v);
+  // y = 3x + 4: 3 is nearest 22/7 (tie with 20/7), 4 = 28/7 nearest 29/7 (tie with 27/7).
+  const t = mc(3, 4);
+  for (const [id, v] of [["smaller-top", "22"], ["near", "1/7"], ["top-gap", "7"], ["top-multiple", "7"], ["top-ratio", "29/22"]] as const)
+    assert.equal(term(fp(t, id === "smaller-top" ? "near" : id), id), v);
 });
 
-test("Square Fraction Intercept: layers on y = (4/3)x + 16/9 and y = (7/2)x − 3", () => {
-  const s = mc(f(4, 3), f(16, 9));
-  for (const [id, v] of [["root-top", "4"], ["near", "0"], ["root-gradient", "0"], ["top-match", "0"], ["in-parts", "0"]] as const)
-    assert.equal(term(sq(s, id === "root-top" ? "near" : id), id), v);
-  const t = mc(f(7, 2), -3);
-  assert.equal(term(sq(t), "root-top"), "5");
-  assert.equal(term(sq(t), "near"), "2/9");
-  assert.equal(term(sq(t, "root-gradient"), "root-gradient"), "11/6");   // |7/2 − 5/3|
-  assert.equal(term(sq(t, "top-match"), "top-match"), "2");              // |7 − 5|
-  assert.equal(term(sq(t, "in-parts"), "in-parts"), "1/2");              // 21/2
+test("Mixed Intercept: the nearest \"something and a third\" to the y-intercept's size", () => {
+  assert.equal(nearestMixed(f(7, 3), { r: 1, d: 3 }).w, 2n);
+  assert.equal(nearestMixed(f(5), { r: 1, d: 3 }).w, 5n);          // 1/3 from 5 1/3, 2/3 from 4 1/3
+  assert.equal(nearestMixed(f(0), { r: 1, d: 2 }).w, 0n);          // 1/2
+  assert.equal(nearestMixed(f(1), { r: 1, d: 2 }).w, 1n);          // halfway between 1/2 and 1 1/2: the bigger
+  const s = mc(f(4, 3), f(7, 3));
+  for (const [id, v] of [["whole", "2"], ["near", "0"], ["gradient-part", "0"], ["gradient-whole", "1"], ["gradient-ratio", "7/4"]] as const)
+    assert.equal(term(mi(s, id === "whole" ? "near" : id), id), v);
+  assert.equal(term(mi(mc(1, f(-10, 3))), "whole"), "3");
+  // A shift by 1 lands on the next target: the closeness is kept and the whole part steps by 1.
+  assert.equal(term(mi(mc(f(4, 3), f(10, 3))), "near"), "0");
+  assert.equal(term(mi(mc(f(4, 3), f(10, 3))), "whole"), "3");
 });
 
-test("a vertical line is worst for both", () => {
+test("a vertical line is worst for all three", () => {
   assert.equal(fg(abc(1, 0, -3)).score, null);
-  assert.equal(sq(abc(1, 0, -3)).score, null);
+  assert.equal(fp(abc(1, 0, -3)).score, null);
+  assert.equal(mi(abc(1, 0, -3)).score, null);
 });
