@@ -25,6 +25,12 @@ export function useRoomInfo() {
   return useLiveValue(api.v2.rooms.get, { roomId: useGameScope().roomId });
 }
 
+/** Which seats are ready (v2/games:readiness; v1's "Who is here" ✓): one small index page, cold. */
+export function useReadiness() {
+  const { gameId } = useGameScope();
+  return useLiveValue(api.v2.games.readiness, gameId ? { gameId } : "skip");
+}
+
 /** The room's rotation round: its ended games and each seat's running total (null outside a rotation). */
 export function useRotationRound() {
   return useLiveValue(api.v2.rooms.round, { roomId: useGameScope().roomId });
@@ -71,6 +77,12 @@ export function useOthersBlurred(): boolean {
   const header = useGame();
   const replay = useReplaySource();
   return !replay && !!header && header.phase !== "ended" && blursOthers(header);
+}
+
+/** The game's details (v2/games:details): settings and timings, and after the end every seat's rule (v1's UtilityFamilies). */
+export function useGameDetails() {
+  const { gameId } = useGameScope();
+  return useLiveValue(api.v2.games.details, gameId ? { gameId } : "skip");
 }
 
 /** Every rule this game's dealer could deal (v2/play:candidates; v1's "Possible gods"): never who holds which. */

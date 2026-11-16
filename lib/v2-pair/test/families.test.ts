@@ -25,14 +25,17 @@ test("every family scores every kind of system (parallel, vertical, horizontal) 
   }
 });
 
-test("Whole Answer on 2x + 3y = 12, x − y = 1: the answer (3, 2), y on the valuation ladder; |X| + |Y| = 5 shares 5 with D", () => {
+test("Whole Answer on 2x + 3y = 12, x − y = 1: the answer (3, 2), y on the valuation ladder; its tie-breakers read y's number", () => {
   // q 5, r 2: y = 2 = 5⁰ × 2 is level 0; level 1 wants 10 when divided by 25 (5 × a number leaving 2), nearest 10, 8 away.
   // The score is 5⁰ × (1 + 1/(1 + 8)) = 10/9.
   const p = { q: 5, r: 2 };
-  assert.deepEqual(score("whole-answer", "peg-divisor", school, p), ["10/9", "5"]);
-  assert.deepEqual(score("whole-answer", "south-west", school, p), ["10/9", "-5"]);
-  // q 3, r 1: 2 leaves 2, off the ladder; level 0's nearest is 1, one away: (1/3) × (1 + 1/2); |3| + |1| = 4 shares 1 with D.
-  assert.deepEqual(score("whole-answer", "peg-divisor", school, { q: 3, r: 1 }), ["1/2", "1"]);
+  // Trial 37: x = 3 is 1 from 2 or 4, the nearest multiples of y's number 2 other than 0; |3| + 2 = 5 is prime; 2 and
+  // the steeper gradient's whole part (|1| against |−2/3|: 1) share 1.
+  assert.deepEqual(score("whole-answer", "sum-prime", school, p), ["10/9", "5"]);
+  assert.deepEqual(score("whole-answer", "y-steep", school, p), ["10/9", "1"]);
+  assert.deepEqual(score("whole-answer", "x-multiple", school, p), ["10/9", "-1"]);
+  // q 3, r 1: 2 leaves 2, off the ladder; level 0's nearest is 1, one away: (1/3) × (1 + 1/2); |3| + 1 = 4: spf 2.
+  assert.deepEqual(score("whole-answer", "sum-prime", school, { q: 3, r: 1 }), ["1/2", "2"]);
 });
 
 test("the valuation ladder: level L needs L(L + 1)/2 stretches by q, each level dearer; 0 is on none; off the ladder is below all", () => {
@@ -56,9 +59,14 @@ test("the residue ladder has no top: each level is q times rarer, every met leve
   // 18 leaves 3 when divided by 5 and 18 when divided by 25 (level 2); level 3 wants 93 when divided by 125, nearest −32, 50 away.
   assert.deepEqual(at(18, { q: 5, r: 3 }), [2, "1300/51", 18n]);
   assert.deepEqual(at(93, { q: 5, r: 3 }), [3, Qn.toWire(Qn.mul(Qn.q(125), Qn.add(Qn.q(1), Qn.inv(Qn.q(1 + Math.min(Math.abs(93 - 468), Math.abs(93 + 157))))))), 93n]);
-  // A level met beats the nearest miss of the level above: 3 (level 1) against 17.9 (level 0... of 25's 18).
-  const met = residueLadder(Qn.q(3), { q: 5, r: 3 }).u, near = residueLadder(Qn.q(179, 10), { q: 5, r: 3 }).u;
+  // A level met beats the nearest miss of the level above: 3 (level 1) against 17.6 (0.4 from 18, outside level 1's
+  // window of ⅓ and level 2's of ¼: level 0).
+  const met = residueLadder(Qn.q(3), { q: 5, r: 3 }).u, near = residueLadder(Qn.q(176, 10), { q: 5, r: 3 }).u;
   assert.ok(Qn.cmp(met, near) > 0, `${Qn.toWire(met)} > ${Qn.toWire(near)}`);
+  // A rung is a window (trial 36): within 1/(L + 2) of the level's number holds it, so small moves keep the level.
+  assert.equal(residueLadder(Qn.q(179, 10), { q: 5, r: 3 }).level, 2);    // 0.1 from 18, inside ¼
+  assert.equal(residueLadder(Qn.q(177, 10), { q: 5, r: 3 }).level, 1);    // 0.3 from 18: inside ⅓, not ¼
+  assert.equal(residueLadder(Qn.q(176, 10), { q: 5, r: 3 }).level, 0);
   // No dealt remainder is 0 or q − 1, the two that one number (0 or −1) meets at every level.
   for (const p of LADDERS) assert.ok(p.r! >= 1 && p.r! <= p.q! - 2, JSON.stringify(p));
   assert.ok(residueLadder(Qn.q(-1), { q: 5, r: 3 }).level < 2);
@@ -102,10 +110,10 @@ test("parallel lines have no answer: the crossing families score worst", () => {
 
 test("the axes are the centre: a right angle at (0, 0), but 0 is on no dealt ladder, and the trivial corner earns nothing", () => {
   const axes = sys(L(0, 1, 0), L(1, 0, 0));
-  // y = 0 is 1 from 1 (leaves 1 when divided by 5): level 0, 1 + 1/2; the corner pegs to (0, 1), spf(1) = 1.
-  assert.deepEqual(score("right-angle", "corner-prime", axes, { q: 5, r: 1 }), ["3/2", "1"]);
-  // 0 is on no ladder: y = 0 pegs to 1 (q 3, r 1), one away: (1/3) × (1 + 1/2); |0| + |1| shares 1 with D.
-  assert.deepEqual(score("whole-answer", "peg-divisor", axes, { q: 3, r: 1 }), ["1/2", "1"]);
+  // y = 0 is 1 from 1 (leaves 1 when divided by 5): level 0, 1 + 1/2; x = 0 is 1 from ±1, the multiples of N = 1 other than 0.
+  assert.deepEqual(score("right-angle", "corner-multiple", axes, { q: 5, r: 1 }), ["3/2", "-1"]);
+  // 0 is on no ladder: y = 0 pegs to 1 (q 3, r 1), one away: (1/3) × (1 + 1/2); |0| + 1 = 1 has no prime factor (1).
+  assert.deepEqual(score("whole-answer", "sum-prime", axes, { q: 3, r: 1 }), ["1/2", "1"]);
 });
 
 test("Steep Ratio reads the whole number of times on its ladder, at least 2 either way", () => {
@@ -147,7 +155,7 @@ test("Far Crossing's and High Start's tie-breakers aim at a multiple of q^(L+1),
 test("a zoom of the picture (positions × n) cannot raise a capped hill past the number it is capped by", () => {
   // y = 2x + 3 and y = −x + 6 cross at (1, 4); zoom × 96 (a smooth number): c × 96.
   const base = sys(Y(2, 3), Y(-1, 6)), zoomed = sys(Y(2, 288), Y(-1, 576));
-  for (const [id, tb] of [["whole-answer", "peg-divisor"], ["double-gap", "gap-divisor"], ["high-start", "start-echo"]] as const) {
+  for (const [id, tb] of [["double-gap", "gap-divisor"], ["high-start", "start-echo"]] as const) {
     const before = score(id, tb, base), after = score(id, tb, zoomed);
     if (!before || !after) continue;
     // D is unchanged by a zoom, so a common factor with D stays at most |D| = 3.
@@ -205,5 +213,28 @@ test("pair cards: the main sentence at most 30 words, a tie-breaker at most 20, 
       assert.ok(words(x) <= 20, `${f.id}/${t.id}: ${words(x)} words: ${x}`);
       assert.doesNotMatch(x, /level|the closer, the better/i, `${f.id}/${t.id}`);
     }
+  }
+});
+
+test("row 3 (trial 37): every dealt tie-breaker reads the number its main part reached, so stepping up restarts it", () => {
+  // Right Angle {5, 1}: corners at y = 1 (level 1) and y = 6 (level 2: 6 leaves 1 by 5 and 6 by 25), x = 6 both. x = 6 is
+  // a multiple of 1 (on target, 0) at level 1, but 0 away from 6 at level 2 too; x = 3 is on target at level 1, 3 from 6.
+  const at = (y: number, x: number) => sys(L(1, 0, -x), L(0, 1, -y));   // x = X, y = Y: a right angle at (X, Y)
+  assert.equal(score("right-angle", "corner-multiple", at(1, 3), { q: 5, r: 1 })![1], "0");
+  assert.equal(score("right-angle", "corner-multiple", at(6, 3), { q: 5, r: 1 })![1], "-3");
+});
+
+/**
+ * Open, reported to the coordinator (15 Nov): Far Crossing's third form. A prime and a prime-count reading of its number
+ * were unequal between peers (q 7 against 11, 1.0–1.4 bits on the parameter-equality audit), so it deals two distance
+ * tie-breakers and a common factor: three candidates, two forms.
+ */
+const OPEN_3A: Readonly<Record<string, number>> = { "far-crossing": 2 };
+test("principle 3a: every dealt pair family has at least three tie-breakers, of at least three forms", () => {
+  for (const f of pairFamilies.filter(x => x.id !== "on-the-diagonal")) {
+    assert.ok(f.tieBreakers.length >= 3, `${f.id}: ${f.tieBreakers.length}`);
+    const forms = new Set(f.tieBreakers.map(t => (t as { hill?: string }).hill)).size;
+    assert.ok(forms >= 3 || forms === OPEN_3A[f.id], `${f.id}: forms ${f.tieBreakers.map(t => (t as { hill?: string }).hill)}`);
+    if (OPEN_3A[f.id] !== undefined) assert.ok(forms < 3, `${f.id} has three forms now: take it off OPEN_3A`);
   }
 });

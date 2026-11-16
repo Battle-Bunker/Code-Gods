@@ -57,3 +57,11 @@ test("an element's arguments are said in its words, never as code (playtest roun
   assert.equal(labelWithArgs("y when x is k", { k: "-2" }), "y when x is −2");
   assert.equal(labelWithArgs("mark", { x: "3" }), "mark (x = 3)");   // an argument the label does not name is said after it
 });
+
+test("rarer than: how many of 1,000 random objects this one beats, as v1's why? said (never rounded up to all 1,000)", async () => {
+  const { rarerThanText } = await import("../src/format.ts");
+  assert.equal(rarerThanText(1, "grids"), "rarer than 500 of 1,000 random grids");
+  assert.equal(rarerThanText(7.2, "grids"), "rarer than 993 of 1,000 random grids");
+  assert.equal(rarerThanText(40, "grids"), "rarer than 999 of 1,000 random grids");
+  assert.equal(rarerThanText(0, "lines"), "rarer than 0 of 1,000 random lines");
+});

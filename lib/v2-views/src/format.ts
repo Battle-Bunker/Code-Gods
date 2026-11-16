@@ -112,6 +112,13 @@ const SCALE: readonly (readonly [number, string])[] = [
  * "1 in 32", "1 in 16,000", "1 in 1.2 million", "1 in 3.4 billion" (two significant figures from a thousand up), and past
  * a trillion a power of ten: "1 in 2.4 × 10⁴²".
  */
+/** "rarer than 993 of 1,000 random grids": v1's why? (object-views rarity.ts), never rounded up to all 1,000. */
+export function rarerThanText(bits: number, many: string): string {
+  const b = Math.max(0, Number.isFinite(bits) ? bits : 0);
+  const perMille = Math.min(999, Math.max(0, Math.floor(1000 * (1 - 2 ** -b) + 1e-9)));
+  return `rarer than ${perMille} of 1,000 random ${many}`;
+}
+
 export function chanceText(bits: number): string {
   // Capped at 1,000 bits so 2^bits stays finite (a degenerate calibration never prints "1 in NaN").
   const n = 2 ** Math.min(1000, Math.max(0, Number.isFinite(bits) ? bits : 0));

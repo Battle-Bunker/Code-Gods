@@ -9,6 +9,7 @@ export * from "./rational2.ts";
 export * from "./frac-twin-fractions.ts";
 export * from "./frac-plus-flip.ts";
 export * from "./frac-matching-bottoms.ts";
+export * from "./tuple-rules.ts";
 export * from "./type.ts";
 export * from "./presets.ts";
 export * from "./sums.ts";

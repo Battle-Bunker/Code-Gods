@@ -4,14 +4,17 @@
  * watched through, and closing it. Every control is a `replay.*` view affordance (or `view.closePane` for the
  * replay), so an assistant can drive the same replay and every client of the human follows.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { jumpTarget, keyMoments } from "./moments";
+import { around, replayEvents, type ReplayEventRow } from "./events";
+import { objectWord, useGame } from "@/sdk";
 import { Download, Link2, Pause, Play, SkipBack, SkipForward, StepBack, StepForward, X } from "lucide-react";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { REPLAY_PANE } from "@workspace/v2-client";
 import { clock } from "@/core/words";
 import { toast } from "@/hooks/use-toast";
 import { downloadReplayFile, useReplayControls } from "./controller";
-import { momentLink, replayKey } from "./moment-link";
+import { momentLink, nextSpeed, replayKey } from "./moment-link";
 import { nextStop, prevStop } from "./fold";
 import { stepOp } from "./playhead";
 
@@ -32,6 +35,8 @@ export function ReplayBar() {
   const watchAs = useAffordance("replay.watchAs");
   const close = useAffordance("view.closePane");
   const [drag, setDrag] = useState<number | null>(null);
+  // v1's hover read-out on the track: the time and the event under the pointer.
+  const [hover, setHover] = useState<{ x: number; seq: number } | null>(null);
   const slider = useRef<HTMLInputElement>(null);
   const commit = useRef((_seq: number) => {});
   commit.current = (seq: number) => { void seek.run({ seq }).catch(failed).finally(() => setDrag(null)); };
@@ -48,7 +53,7 @@ export function ReplayBar() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
-      const k = replayKey({ key: e.key, target: el?.isContentEditable ? "INPUT" : el?.tagName, ctrl: e.ctrlKey, meta: e.metaKey, alt: e.altKey });
+      const k = replayKey({ key: e.key, target: el?.isContentEditable ? "INPUT" : el?.tagName, ctrl: e.ctrlKey, meta: e.metaKey, alt: e.altKey, shift: e.shiftKey });
       if (!k) return;
       e.preventDefault();
       keys.current(k);
@@ -56,6 +61,10 @@ export function ReplayBar() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+  const index = c?.index;
+  const moments = useMemo(() => (index ? keyMoments(index) : []), [index]);
+  const noun = objectWord(useGame()?.variant).one;
+  const events = useMemo(() => (index ? replayEvents(index, noun) : []), [index, noun]);
   if (!c) return null;
   const closeButton = (
     <button type="button" className={btn} onClick={() => void close.run({ pane: REPLAY_PANE }).catch(failed)} disabled={!close.available} data-testid="button-replay-close">
@@ -92,10 +101,23 @@ export function ReplayBar() {
     } else void play.run({}).catch(failed);
   };
   const atStart = c.applied <= 0, atEnd = c.applied >= ix.end;
+  /** To the key moment before or after (a lead change, a summon), stopping there. */
+  const jump = (direction: 1 | -1) => {
+    const target = jumpTarget(moments, c.applied, direction);
+    if (target === null) return;
+    void (c.playing ? pause.run({}).then(() => seek.run({ seq: target })) : seek.run({ seq: target })).catch(failed);
+  };
+  const prevMoment = jumpTarget(moments, c.applied, -1), nextMoment = jumpTarget(moments, c.applied, 1);
   keys.current = k => {
     if (k === "toggle") toggle();
     else if (k === "back") { if (!atStart) go(-1); }
     else if (k === "forward") { if (!atEnd) go(1); }
+    else if (k === "slower" || k === "faster") {
+      const to = nextSpeed(SPEEDS, c.speed, k === "faster" ? 1 : -1);
+      if (to !== null) void speed.run({ speed: to }).catch(failed);
+    }
+    else if (k === "prevMoment") jump(-1);
+    else if (k === "nextMoment") jump(1);
     else if (k === "start") void seek.run({ seq: 0 }).catch(failed);
     else void seek.run({ seq: ix.end }).catch(failed);
   };
@@ -125,16 +147,45 @@ export function ReplayBar() {
           <button type="button" className={btn} aria-label="Go to the end" title="Go to the end" disabled={atEnd || !seek.available}
             onClick={() => void seek.run({ seq: ix.end }).catch(failed)} data-testid="button-replay-end"><SkipForward className="h-4 w-4" aria-hidden /></button>
         </div>
+        <div className="flex items-center gap-1" role="group" aria-label="Key moments">
+          <button type="button" className={`${btn} text-xs`} title="The key moment before: a lead change or a summon (Shift+←)" disabled={prevMoment === null || !seek.available}
+            onClick={() => jump(-1)} data-testid="button-replay-prev-moment">◆ prev</button>
+          <button type="button" className={`${btn} text-xs`} title="The key moment after: a lead change or a summon (Shift+→)" disabled={nextMoment === null || !seek.available}
+            onClick={() => jump(1)} data-testid="button-replay-next-moment">next ◆</button>
+        </div>
         <span className="font-mono text-base font-semibold tabular-nums" data-testid="text-replay-clock" title="World time in the game, and how long the game was">
           {clock(c.world)}<span className="text-xs font-normal text-muted-foreground"> of {clock(ix.endWorld)}</span>
         </span>
       </div>
-      <input ref={slider} type="range" min={0} max={ix.end} step={1} value={drag ?? c.applied} disabled={!seek.available}
-        onChange={e => setDrag(Number(e.target.value))} aria-label="Move through the game" aria-valuetext={clock(c.world)}
-        className="block w-full accent-[hsl(var(--primary))]" data-testid="input-replay-seek" />
+      <div className="relative" onPointerLeave={() => setHover(null)}
+        onPointerMove={e => {
+          const r = e.currentTarget.getBoundingClientRect();
+          const frac = Math.min(1, Math.max(0, (e.clientX - r.left) / Math.max(1, r.width)));
+          setHover({ x: e.clientX - r.left, seq: Math.round(frac * ix.end) });
+        }}>
+        {hover && (
+          <span className="pointer-events-none absolute -top-7 z-10 -translate-x-1/2 whitespace-nowrap border bg-background px-1.5 py-0.5 font-mono text-xs tabular-nums shadow-sm"
+            style={{ left: hover.x }} data-testid="replay-scrub-tooltip">
+            {clock(hover.seq > 0 ? ix.world[hover.seq - 1] ?? 0 : 0)} · event {hover.seq}
+          </span>
+        )}
+        <input ref={slider} type="range" min={0} max={ix.end} step={1} value={drag ?? c.applied} disabled={!seek.available}
+          onChange={e => setDrag(Number(e.target.value))} aria-label="Move through the game" aria-valuetext={`${clock(c.world)}, event ${c.applied} of ${ix.end}`}
+          className="block w-full accent-[hsl(var(--primary))]" data-testid="input-replay-seek" />
+        {/* The key moments on the slider (v1's marks): a click goes there. */}
+        <div className="pointer-events-none absolute inset-x-2 -top-2 h-2" aria-hidden data-testid="replay-marks">
+          {moments.map(m => (
+            <button key={`${m.kind}-${m.at}`} type="button" tabIndex={-1} title={m.text} onClick={() => void seek.run({ seq: m.at }).catch(failed)}
+              className={`pointer-events-auto absolute -translate-x-1/2 text-[10px] leading-none ${m.kind === "lead" ? "text-foreground" : "text-[var(--series-2)]"}`}
+              style={{ left: `${(m.at / Math.max(1, ix.end)) * 100}%` }} data-testid={`replay-mark-${m.kind}`}>◆</button>
+          ))}
+        </div>
+      </div>
+      <span className="font-mono text-xs text-muted-foreground tabular-nums" data-testid="text-replay-event">event {c.applied} of {ix.end}</span>
+      <EventList rows={events} applied={c.applied} onSeek={seq => void seek.run({ seq }).catch(failed)} />
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <label className="flex items-center gap-1.5 text-xs">
-          <span className="text-muted-foreground">Speed</span>
+          <span className="text-muted-foreground" title="[ slower, ] faster">Speed</span>
           <select value={c.speed} disabled={!speed.available} data-testid="select-replay-speed"
             className="border border-[hsl(var(--card-border))] bg-background px-1.5 py-1"
             onChange={e => void speed.run({ speed: Number(e.target.value) as Speed }).catch(failed)}>
@@ -159,5 +210,32 @@ export function ReplayBar() {
         {closeButton}
       </div>
     </div>
+  );
+}
+
+/**
+ * v1's event list: what happened around the playhead, in order, each with its world time; the latest applied one is
+ * marked, the ones still to come are faint, and a click goes to that moment. Collapsed until opened.
+ */
+function EventList({ rows, applied, onSeek }: { rows: readonly ReplayEventRow[]; applied: number; onSeek: (seq: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const shown = open ? around(rows, applied) : [];
+  const current = [...rows].reverse().find(r => r.at <= applied)?.at;
+  return (
+    <details className="text-xs" onToggle={e => setOpen((e.currentTarget as HTMLDetailsElement).open)} data-testid="replay-events">
+      <summary className="cursor-pointer text-muted-foreground underline-offset-4 hover:underline">Events ({rows.length})</summary>
+      {open && (
+        <ol className="mt-1 max-h-56 space-y-0.5 overflow-auto">
+          {shown.map(r => (
+            <li key={`${r.kind}-${r.at}-${r.text}`}>
+              <button type="button" onClick={() => onSeek(r.at)} data-testid={`replay-event-${r.at}`} data-current={r.at === current || undefined}
+                className={`w-full px-2 py-0.5 text-left hover:bg-muted ${r.at === current ? "bg-[hsl(var(--primary)/0.1)] font-medium" : ""} ${r.at > applied ? "opacity-50" : ""}`}>
+                <span className="mr-2 font-mono text-muted-foreground tabular-nums">{clock(r.world)}</span>{r.text}
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
+    </details>
   );
 }

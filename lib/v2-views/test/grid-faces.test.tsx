@@ -101,14 +101,14 @@ test("grid contributors: each part says what every unit contributes, sits on a r
   const magic = { ...rules.find(r => r.family.id === "magic-eighteen")!, tieBreaker: undefined };
   const main = contributors(magic, B2).parts[0]!;
   // The chain: the rows read, each one's own amount (the board's notes), then the part's sum.
-  assert.deepEqual(main.units.map(u => u.text), ["5 short", "7 short", "6 short", "14 short"], main.units.map(u => `${u.label} ${u.text}`).join(", "));
+  assert.deepEqual(main.units.map(u => u.text), ["3+2+0+8 = 13: 5 short", "3+2+3+3 = 11: 7 short", "2+1+0+9 = 12: 6 short", "1+0+1+2 = 4: 14 short"], main.units.map(u => `${u.label} ${u.text}`).join(", "));
   assert.ok(main.units.every(u => /^row \d$/.test(u.label)), main.units.map(u => u.label).join(", "));
   assert.equal(main.distance, "off by 32");
   // A unit already at its target is listed too, said as such (the rule marks it with focus, not a note).
   const two = { ...rules.find(r => r.family.id === "two-pair")!, tieBreaker: undefined };
   const boxes = contributors(two, B2).parts[0]!.units;
   assert.equal(boxes.length, 4, boxes.map(u => `${u.label}: ${u.text}`).join(" · "));
-  assert.ok(boxes.some(u => u.text === "on target"), boxes.map(u => `${u.label}: ${u.text}`).join(" · "));
+  assert.ok(boxes.some(u => /^✓ two \d+s and two \d+s$/.test(u.text)), boxes.map(u => `${u.label}: ${u.text}`).join(" · "));
   // A sum of distances sits on a ruler whose strong mark is 0: perfect.
   assert.ok(main.ruler, "an off-by part has a ruler");
   assert.equal(main.ruler!.value, 32);
@@ -126,8 +126,18 @@ test("grid contributors: each part says what every unit contributes, sits on a r
 test("grid expanded face: the parts' units listed under each part, its ruler drawn", () => {
   const magic = { ...rules.find(r => r.family.id === "magic-eighteen")!, tieBreaker: undefined };
   const t = text(renderToStaticMarkup(<ExpandedFace rule={magic} state={{ cells: [3, 2, 0, 8, 3, 2, 3, 3, 2, 1, 0, 9, 1, 0, 1, 2] }} value={VALUE} />));
-  assert.match(t, /row 1: 5 short · row 2: 7 short · row 3: 6 short · row 4: 14 short/);
+  assert.match(t, /row 1: 3\+2\+0\+8 = 13: 5 short · row 2: 3\+2\+3\+3 = 11: 7 short · row 3: 2\+1\+0\+9 = 12: 6 short · row 4: 1\+0\+1\+2 = 4: 14 short/);
   assert.match(t, /What would make it rarer/);
   assert.doesNotMatch(t, /→ \d \d \d \d \/ /, "a move does not repeat the whole board after its words");
   assert.match(renderToStaticMarkup(<ExpandedFace rule={magic} state={B} value={VALUE} />), /class="v2v-ruler" data-role="main"/);
+});
+
+test("a bounded count's ruler ends where the count can end (Layer.most; playtest baseline-2 #5: 0–17 for a count of 4)", async () => {
+  const { contributors } = await import("../src/contributors.ts");
+  const fam = gridType.families.find(f => f.id === "two-pair")!;
+  const capped = { ...fam, tieBreakers: fam.tieBreakers.map(t => (t.id === "diagonal-pairs" ? { ...t, most: () => 4 } : t)) };
+  const rule = { type: gridType, family: capped, params: capped.dealable(grid4)[0], variant: grid4, tieBreaker: "diagonal-pairs" } as RuleRef<GridState, unknown>;
+  const part = contributors(rule, B).parts[1]!;
+  assert.ok(part.ruler, "the count has a ruler");
+  assert.ok(Math.max(...part.ruler!.refs.map(r => r.at)) <= 4, JSON.stringify(part.ruler!.refs.map(r => r.at)));
 });

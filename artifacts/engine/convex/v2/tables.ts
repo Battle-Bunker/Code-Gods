@@ -10,9 +10,13 @@
  * v2 holds no data worth keeping yet, so these tables change shape freely (CLAUDE.md "Engine v2").
  */
 import { defineTable } from "convex/server";
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import { assistantTables } from "./assistantTables.ts";
 import { authorV, diagnosticV, manifestV, placementV, sizeV } from "./panelShapes.ts";
+
+/** Why a game ended (v1's end reasons, plus a practice game its player left for another). */
+export const endReasonV = v.union(v.literal("lifetime"), v.literal("owner"), v.literal("abandoned"), v.literal("retired"));
+export type EndReason = Infer<typeof endReasonV>;
 
 // ---------------------------------------------------------------- shared shapes
 
@@ -56,6 +60,8 @@ export const overridesV = v.object({
   bidVisibility: v.optional(v.union(v.literal("sealed"), v.literal("open"))),
   /** v1's bid results shown, during the game (absent: the preset's; after the end everything is shown). */
   bidDisclosure: v.optional(v.union(v.literal("none"), v.literal("handicaps"), v.literal("all"))),
+  /** v1's bidSeconds: the bid phase's length; 0 is none, above 0 opens one on any setup (absent: the preset's). */
+  bidSeconds: v.optional(v.number()),
   /** Line turnover (retirement-design.md): at most this many live lines; a birth past it retires the oldest. Absent: none. */
   liveCap: v.optional(v.number()),
   /** Regular births, one every this many world seconds, in place of the preset's birth rate. */
@@ -119,6 +125,8 @@ export const v2Tables = {
       /** v1's bid visibility: "open" shows every player's bids as they are placed (absent: sealed). */
       visibility: v.optional(v.union(v.literal("sealed"), v.literal("open"))),
     })),
+    /** The saved setup the owner last applied (room.settings `setupId`), as it was then; cleared by a change by hand. */
+    setup: v.optional(v.object({ setupId: v.id("v2Setups"), name: v.string() })),
   }).index("by_code", ["code"]),
 
   /** A seat or a spectator in a room (≤ 16 per room): a human, a practice partner or an AI player. */
@@ -206,10 +214,16 @@ export const v2Tables = {
     /** Wall-clock deadlines: planning's end, and the world's end (null while paused; recomputed on resume). */
     planningEndsAt: v.optional(v.number()), endsAt: v.optional(v.number()),
     startedAt: v.optional(v.number()), endedAt: v.optional(v.number()), pausedBy: v.optional(v.id("v2Members")),
+    /** Why the game ended (v1's endReason): its world ran out, its owner ended it, a practice game its player left, or the server retired it. */
+    endReason: v.optional(endReasonV),
     /** When a player's pause ends by itself (v1: pauseSeconds after it began); absent unless a player paused. */
     pauseEndsAt: v.optional(v.number()),
     /** Each dealt rule's artefact content hash, by member (the header of spec §9.1). */
-    artefacts: v.array(v.object({ memberId: v.id("v2Members"), ruleKey: v.string(), contentHash: v.string() })),
+    artefacts: v.array(v.object({
+      memberId: v.id("v2Members"), ruleKey: v.string(), contentHash: v.string(),
+      /** The seat's defence goal's value function (v1, restored; call 1), when one was dealt. */
+      defence: v.optional(v.object({ ruleKey: v.string(), contentHash: v.string() })),
+    })),
     /** Whether this game's deal continues the room's rotation (plan §5.9: not after a won bid). */
     rotates: v.boolean(),
     /** What a fresh deal depends on (variant and dealable pool): a rotation continues only under the same key. */
@@ -363,6 +377,12 @@ export const v2Tables = {
   v2AgentEnergy: defineTable({
     agentId: v.id("v2Agents"), gameId: v.id("v2Games"), energy: v.number(), acts: v.number(), skips: v.number(),
     failures: v.number(), spend: v.number(), pointsGained: v.number(), lastActAt: v.optional(v.number()),
+    /**
+     * v1's My agents split of `spend`: the part paid for reading (R/κ, every act) and for changing (W + βW², committed
+     * acts only), and the last act's two parts. Absent on rows stored before the split: read as 0 and null.
+     */
+    spendRead: v.optional(v.number()), spendChange: v.optional(v.number()),
+    lastAct: v.optional(v.object({ at: v.number(), read: v.number(), change: v.number(), outcome: v.string() })),
     /** The balance is as of this world second. */
     settledAt: v.number(),
     /**
@@ -424,6 +444,13 @@ export const v2Tables = {
     gameId: v.id("v2Games"), memberId: v.id("v2Members"), objectId: v.id("v2Objects"), number: v.number(),
     moves: v.number(), flips: v.number(), lastMine: v.boolean(), mySpend: v.number(), others: v.array(v.id("v2Members")),
     from: v.number(), to: v.number(), best: v.union(v.object({ state: v.string(), points: v.number() }), v.null()),
+    /** The states the last two moves left it in, oldest first (rows stored before: absent). */
+    lastStates: v.optional(v.array(v.string())),
+    /**
+     * The two-state cycle it is in (playtest rounds 32 and 33: a line toggled between two states): the pair (a < b) and
+     * how many moves went between exactly those two states. Null until a move does.
+     */
+    cycle: v.optional(v.union(v.object({ a: v.string(), b: v.string(), moves: v.number() }), v.null())),
   }).index("by_game_member_object", ["gameId", "memberId", "objectId"])
     .index("by_game_member_flips", ["gameId", "memberId", "flips"]),
 
@@ -475,6 +502,18 @@ export const v2Tables = {
     bids: v.array(v.object({ memberId: v.id("v2Members"), family: v.string(), percent: v.number() })),
     wins: v.array(v.object({ memberId: v.id("v2Members"), family: v.string(), percent: v.number(), handicap: v.number() })),
   }).index("by_game", ["gameId"]),
+
+  /**
+   * A human's saved setups (convex/v2/setups.ts; v1's user setups, coordinator's call 35): a preset and its overrides
+   * under a name unique among theirs ignoring case (`nameKey`: the name lower-cased), at most 50 each. Shared as in v1:
+   * anyone lists, reads, copies and applies them; only the owner changes or removes one. `ownerName` is the owner's
+   * name when they last saved it (absent on rows saved before sharing: shown as "a player"). The presets are the system's catalogue beside them.
+   */
+  v2Setups: defineTable({
+    ownerUserId: v.string(), ownerName: v.optional(v.string()), name: v.string(), nameKey: v.string(), preset: v.string(), overrides: overridesV,
+    createdAt: v.number(), updatedAt: v.number(),
+  }).index("by_owner_name", ["ownerUserId", "nameKey"])
+    .index("by_name", ["nameKey"]),
 
   /**
    * Stored panels (convex/v2/panels.ts): TSX a human or their delegates write, compiled on save and rendered by every

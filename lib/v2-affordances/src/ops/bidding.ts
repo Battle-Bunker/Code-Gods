@@ -42,9 +42,9 @@ export const biddingOps = [
   }),
   affordance({
     id: "bid.done", title: "Finish bidding", group: "play", scope: "room",
-    description: "Tells the room the caller has finished bidding. The phase closes and rules are dealt when every human is done or at the deadline.",
-    tooltip: "I'm done bidding.", keywords: ["done", "finish bidding", "ready"],
-    params: obj({ requestId: requestId.optional() }), result: ok,
+    description: "Tells the room the caller has finished bidding (done false: not finished after all, to change their bids). The phase closes and rules are dealt when every human is done or at the deadline.",
+    tooltip: "I'm done bidding.", keywords: ["done", "finish bidding", "ready", "change my bids"],
+    params: obj({ done: z.boolean().optional(), requestId: requestId.optional() }), result: ok,
     contexts: ["room"], caller: "seated", effect: "write", confirm: "none", runs: "server", available: bidOpen,
   }),
   affordance({

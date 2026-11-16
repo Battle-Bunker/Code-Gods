@@ -1,5 +1,5 @@
 # Far Crossing · Bold
-# Main part: the steeper line crosses the x-axis on your pattern. Secondary preference: whichever you were dealt (the x-intercepts' gap near a multiple of your number; the crossing's height near a multiple of your number).
+# Main part: the steeper line crosses the x-axis on your pattern. Secondary preference: whichever you were dealt (the x-intercepts' gap near a multiple of your number; the crossing's height near a multiple of your number; that x-intercept shares a factor with the steeper gradient).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -10,6 +10,7 @@
 def score(L, p, tie):
     # How good are the two lines L for your rule? [main part, secondary]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
+    floor = lambda v: v // 1   # rounded down
     if f.rs is None:   # the steeper line is flat: no score
         return None
     main, R = ladder(f.rs, p["q"], p["r"])   # the x-intercept on your ladder
@@ -18,13 +19,15 @@ def score(L, p, tie):
         return [main, None if f.xgap is None else -off_multiple(f.xgap, p["q"] ** (level_of(main, p["q"]) + 1))]
     if tie == "far-height":   # a crossing height near a multiple of q to the power one above your level is better
         return [main, None if f.y is None else -off_multiple(f.y, p["q"] ** (level_of(main, p["q"]) + 1))]
+    if tie == "far-steep":   # that x-intercept sharing a big factor with the steeper gradient is better
+        return [main, 0 if f.ms is None else common(R, abs(f.ms) // 1)]
     return [main]
 
 
 FAR = 4      # how far one move may go
 QUOTES = 12  # at most this many plans are priced (each price is a host call)
-KINDS = ["shift","tilt"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
-LEAVE = []      # pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
+KINDS = ["shift","tilt"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
+LEAVE = []      # pairs your agent skips, e.g. [19] or [4, 9]: others may still move them
 PROTECT = []    # pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
 

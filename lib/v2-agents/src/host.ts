@@ -16,11 +16,12 @@
  *  - The first `quote` of an act charges the representation the first quoted mutator belongs to, as if viewed.
  */
 import {
-  applyCalls, elementDecl, refKey, elementValue, evaluateObject, isInvalid, Qn, ratBits,
+  applyCalls, applyLockChanges, elementDecl, refKey, elementValue, evaluateObject, isInvalid, lockedAct, lockEnergyAt, LOCK_OPS_PER_ACT, parsePredicate,
+  canonicalPredicate, plainWords, holds, lockFee, Qn, ratBits, type ActLock, type InformationContent, type LockOpWire, type Predicate,
   joinTieBreakers, representation, ruleLayers, type Call, type TieBreaker, type ElementRef, type ElementValue, type ObjectType, type Price, type RuleFamily, type Variant,
 } from "@workspace/v2-core";
 import { BETA, KAPPA } from "@workspace/v2-economy";
-import { valueLookup, withUniqueness, type ValueFunction } from "@workspace/v2-valuation";
+import { defenceNet, valueLookup, withUniqueness, type ValueFunction } from "@workspace/v2-valuation";
 
 /**
  * A rule's value function as the server sends it: knots and tail, and the game's uniqueness correction (owner decision
@@ -35,6 +36,19 @@ export function gameLookup(values: GameValues) {
   return values.uniqueness ? withUniqueness(look, values.uniqueness, values.uniqueness.objects) : look;
 }
 import type { AgentHost, ElementValueWire, HostContext, HostReply, HostRequest } from "@workspace/v2-sandbox";
+
+/**
+ * A defence goal dealt beside a rule (v1, restored; owner-decisions call 1): a penalty family of the object type, its
+ * parameters, its value function (badness to bits h, no uniqueness correction), E_π η(h) and the game's weight w. A seat
+ * with one is worth n = s⁺ − w·(η(h) − E_π η(h)) (lib/v2-valuation defence.ts), as the server's commit values it.
+ */
+export interface DefenceRef {
+  readonly family: string;
+  readonly params: unknown;
+  readonly values: Pick<ValueFunction, "knots" | "tail">;
+  readonly mean: number;
+  readonly weight: number;
+}
 
 /** A rule as dealt: a family of the object type, its parameters and its tie-breaker. */
 export interface RuleRef {
@@ -77,7 +91,9 @@ export interface HostInput<S> {
    * The other players' rules and value functions, so the host can answer `othersAfter` (their rarity on the line,
    * added up, before and after a plan). The agent never sees them, only the total.
    */
-  readonly others?: readonly { readonly rule: RuleRef; readonly values: GameValues }[];
+  readonly others?: readonly { readonly rule: RuleRef; readonly values: GameValues; readonly defence?: DefenceRef }[];
+  /** The player's own defence goal, when the game deals them: `myScore`, `othersAfter`'s `mine` and the commit clause use it. */
+  readonly defence?: DefenceRef;
   /** Owner decision 24 (objects are unique): whether another object already holds this state (as the type encodes it).
    *  A plan whose result is held is not allowed, so quotes, cheapest() and othersAfter skip it. */
   readonly occupied?: (encoded: string) => boolean;
@@ -87,6 +103,20 @@ export interface HostInput<S> {
    * exact + noise, unclamped as v1 disclosed it (only points clamp: own × max(0, others)); 0 or absent is exact.
    */
   readonly disclosed?: (encoded: string) => number;
+  /** The offered object's locks, when the game has them (the room setting `locks`; docs/engine-v2/locks.md). */
+  readonly locks?: LockInput<S>;
+}
+
+/** What an act knows of the offered object's locks. */
+export interface LockInput<S> {
+  /** The world second the act is made at (locks settle their upkeep to it). */
+  readonly world: number;
+  readonly live: readonly ActLock[];
+  /** The number the object's next lock takes. */
+  readonly nextLock: number;
+  readonly fullChargeSeconds: number;
+  /** I(P) at a state (lib/v2-agents locks.ts `lockInfo`). */
+  readonly info: (p: Predicate, s: S) => InformationContent;
 }
 
 /** Read bits charged for `worth()`: three summary numbers the player could read off the line's row. */
@@ -137,6 +167,8 @@ export class EngineHost<S> implements AgentHost {
   readonly economy: Economy;
   /** Notes the agent left its owner this act. */
   readonly notes: string[] = [];
+  /** The lock changes the agent asked for this act, in order (applied at commit: funds and drains, calls, new locks). */
+  readonly lockOps: LockOpWire[] = [];
   private readonly input: HostInput<S>;
   /** Read bits charged so far this act, in total and by representation id. */
   readBits = 0;
@@ -148,7 +180,11 @@ export class EngineHost<S> implements AgentHost {
   private readonly asked = new Set<string>();
   private quoted = false;
   /** The other players' rules, ready to score a state, and their value lookups (for othersAfter). */
-  private readonly others: { family: RuleFamily<S, unknown>; params: unknown; tieBreaker: TieBreaker; look: ReturnType<typeof valueLookup> }[] | undefined;
+  private readonly others: { family: RuleFamily<S, unknown>; params: unknown; tieBreaker: TieBreaker; look: ReturnType<typeof valueLookup>; defence: ((s: S, reward: number) => number) | null }[] | undefined;
+  /** The player's own defence goal as a function of a state and its reward bits (null: none dealt). */
+  private readonly defence: ((s: S, reward: number) => number) | null;
+  /** The player's penalty family, when a defence goal is dealt (its views are charged with myScore). */
+  private readonly defenceFamily: RuleFamily<S, unknown> | undefined;
   /** The value function's lookup, when the game gives one. */
   private readonly lookup: ReturnType<typeof valueLookup> | undefined;
 
@@ -167,8 +203,10 @@ export class EngineHost<S> implements AgentHost {
     this.others = input.others?.map(o => {
       const family = input.type.families.find(f => f.id === o.rule.family);
       if (!family) throw new Error(`${input.type.id} has no rule family ${o.rule.family}`);
-      return { family: family as RuleFamily<S, unknown>, params: o.rule.params, tieBreaker: joinTieBreakers(ruleLayers(family as RuleFamily<S, unknown>, o.rule.tieBreaker).slice(1).map(l => l.id)), look: gameLookup(o.values) };
+      return { family: family as RuleFamily<S, unknown>, params: o.rule.params, tieBreaker: joinTieBreakers(ruleLayers(family as RuleFamily<S, unknown>, o.rule.tieBreaker).slice(1).map(l => l.id)), look: gameLookup(o.values), defence: o.defence ? this.netOf(o.defence) : null };
     });
+    this.defence = input.defence ? this.netOf(input.defence) : null;
+    this.defenceFamily = input.defence ? input.type.penalties?.find(f => f.id === input.defence!.family) as RuleFamily<S, unknown> | undefined : undefined;
     this.sites = input.type.sites(input.state, input.variant);
     this.phi = input.type.readLength(input.state, input.variant);
   }
@@ -180,7 +218,7 @@ export class EngineHost<S> implements AgentHost {
    */
   payoffAt(state: S): { mine: number; others: number; points: number } | null {
     if (!this.lookup || !this.others?.length) return null;
-    const mine = this.lookup(evaluateObject(this.type, this.family, this.params, state, this.variant, this.tieBreaker).score).bits;
+    const mine = this.mineAt(state);
     const others = this.othersDisclosed(state);
     return { mine, others, points: mine * Math.max(0, others) };
   }
@@ -189,8 +227,23 @@ export class EngineHost<S> implements AgentHost {
    * place it is computed: `othersAfter` and the commit clause must show and decide on the same number.
    */
   private othersDisclosed(state: S): number {
-    return this.others!.reduce((t, o) => t + o.look(evaluateObject(this.type, o.family, o.params, state, this.variant, o.tieBreaker).score).bits, 0)
+    return this.others!.reduce((t, o) => {
+      const reward = o.look(evaluateObject(this.type, o.family, o.params, state, this.variant, o.tieBreaker).score).bits;
+      return t + (o.defence ? o.defence(state, reward) : reward);
+    }, 0)
       + (this.input.disclosed?.(this.type.encode(state)) ?? 0);
+  }
+  /** The player's own bits at a state, as the commit values them (with the defence goal, when one is dealt). */
+  private mineAt(state: S): number {
+    const reward = this.lookup!(evaluateObject(this.type, this.family, this.params, state, this.variant, this.tieBreaker).score).bits;
+    return this.defence ? this.defence(state, reward) : reward;
+  }
+  /** A defence goal as a function of a state and its reward bits: n = s⁺ − w·(η(h) − E_π η(h)). */
+  private netOf(d: DefenceRef): (s: S, reward: number) => number {
+    const pf = this.type.penalties?.find(f => f.id === d.family);
+    if (!pf) throw new Error(`${this.type.id} has no defence goal ${d.family}`);
+    const look = valueLookup(d.values);
+    return (s, reward) => defenceNet(reward, look(evaluateObject(this.type, pf as RuleFamily<S, unknown>, d.params, s, this.variant, null).score).bits, d.weight, d.mean);
   }
   /** Plans already asked `othersAfter` this act, as parsed calls (the commit clause does not charge twice for one). */
   private readonly othersAsked = new Set<string>();
@@ -223,6 +276,7 @@ export class EngineHost<S> implements AgentHost {
         family: this.family.id, params: this.params, tieBreaker: this.tieBreaker, card: this.family.card(this.params, this.tieBreaker),
         layers: ruleLayers(this.family, this.tieBreaker).map(l => ({ id: l.id, title: l.title, sense: l.sense })),
         mutators: this.variant.mutators,   // the moves this game offers (its menu)
+        defence: this.input.defence ? { family: this.input.defence.family, params: this.input.defence.params, weight: this.input.defence.weight } : null,
       }, 0);
       case "myScore": return this.score();
       case "quote": return this.quote(request.calls);
@@ -241,6 +295,12 @@ export class EngineHost<S> implements AgentHost {
         let before: number, after: number | null;
         try { before = total(this.state); after = priced.valid ? total(priced.result) : null; }
         catch { return err("the others' worth could not be worked out for this plan"); }
+        // With a defence goal the player's own bits after a plan are not their rule's rarity of the score it reaches: say them
+        // (the player's own number; it discloses nothing of the others).
+        if (this.defence && this.lookup) {
+          const mine = { before: this.mineAt(this.state), after: priced.valid ? this.mineAt(priced.result) : null };
+          return ok({ before, after, mine }, this.attribute("othersAfter", OTHERS_AFTER_BITS));
+        }
         return ok({ before, after }, this.attribute("othersAfter", OTHERS_AFTER_BITS));
       }
       case "rarity": {
@@ -254,6 +314,15 @@ export class EngineHost<S> implements AgentHost {
         const moves = (this.input.history ?? []).slice(-8).map(m => ({ mine: m.mine, pointsBefore: m.pointsBefore, pointsAfter: m.pointsAfter }));
         return ok({ moves }, this.charged("recent", RECENT_BITS_PER_MOVE * moves.length));
       }
+      case "locks": {
+        if (!this.input.locks) return err("this game has no locks");
+        const live = this.locksNow();
+        const list = live.map(l => ({ lock: l.n, predicate: l.text, words: plainWords(this.type, l.predicate), energy: l.energy, rate: l.rate, info: l.info }));
+        // Reading a lock tells you its I bits about the state: charged once an act.
+        return ok({ locks: list }, this.charged("locks", live.reduce((t, l) => t + l.info, 0)));
+      }
+      case "lock": return this.lockOp({ op: "create", predicate: String(request.predicate ?? ""), amount: Number(request.amount) });
+      case "fund": case "drain": return this.lockOp({ op: request.op, lock: Number(request.lock), amount: Number(request.amount) });
       case "note": {
         const text = typeof request.text === "string" ? request.text.trim().slice(0, NOTE_CHARS) : "";
         if (!text) return err("a note needs some text");
@@ -335,7 +404,9 @@ export class EngineHost<S> implements AgentHost {
 
   private score(): HostReply {
     let bits = 0;
-    for (const rep of this.family.depends) for (let s = 0; s < this.sites; s++) bits += this.chargeView(rep, s);
+    // With a defence goal the bits also read what the penalty reads: charge its views too (once each).
+    const views = new Set([...this.family.depends, ...(this.defenceFamily?.depends ?? [])]);
+    for (const rep of views) for (let s = 0; s < this.sites; s++) bits += this.chargeView(rep, s);
     const e = evaluateObject(this.type, this.family, this.params, this.state, this.variant, this.tieBreaker);
     // The utilities (owner decision 23: plain lexicographic, bigger better, nothing saturates), and what they are worth.
     const u = e.score;
@@ -346,7 +417,7 @@ export class EngineHost<S> implements AgentHost {
     })));
     return ok({
       score: u === null ? null : u.map(x => (x === null ? null : Qn.toWire(x))),
-      bits: this.lookup ? this.lookup(u).bits : null,
+      bits: this.lookup ? (this.defence ? this.mineAt(this.state) : this.lookup(u).bits) : null,
       layers: ruleLayers(this.family, this.tieBreaker).map(l => ({ id: l.id })),
       terms,
     }, bits);
@@ -357,10 +428,45 @@ export class EngineHost<S> implements AgentHost {
     const parsed = parseCalls(calls);
     if (typeof parsed === "string") return { valid: false, reason: parsed };
     if (!parsed.length) return { valid: false, reason: "a plan needs at least one move" };
-    const applied = applyCalls(this.type, this.variant, this.state, parsed);
+    const applied = this.applyLocked(parsed);
     if (isInvalid(applied)) return { valid: false, reason: applied.invalid };
     if (this.input.occupied?.(this.type.encode(applied.result))) return { valid: false, reason: "another object is already in that state" };
     return { valid: true, prices: [...applied.prices], total: applied.total, result: applied.result };
+  }
+
+  /** The calls on the offered state, each result checked against the locks left after this act's funds and drains. */
+  private applyLocked(calls: readonly Call[]) {
+    const L = this.input.locks;
+    if (!L) return applyCalls(this.type, this.variant, this.state, calls);
+    return lockedAct({ type: this.type, variant: this.variant, state: this.state, calls, ops: this.lockOps.filter(o => o.op !== "create"),
+      locks: L.live, world: L.world, nextLock: L.nextLock, fullChargeSeconds: L.fullChargeSeconds, info: L.info });
+  }
+
+  /** The object's live locks after this act's queued funds and drains, settled at the act's world second. */
+  private locksNow(): ActLock[] {
+    const L = this.input.locks!;
+    const r = applyLockChanges(L.live, this.lockOps, L.world);
+    return isInvalid(r) ? L.live.map(l => ({ ...l, energy: lockEnergyAt(l, L.world) })).filter(l => l.energy > 0) : r.locks;
+  }
+
+  private lockOp(op: LockOpWire): HostReply {
+    const L = this.input.locks;
+    if (!L) return err("this game has no locks");
+    if (this.lockOps.length >= LOCK_OPS_PER_ACT) return err(`at most ${LOCK_OPS_PER_ACT} lock changes in one act`);
+    if (op.op === "create") {
+      const p = parsePredicate(this.type, op.predicate);
+      if (isInvalid(p)) return err(p.invalid);
+      if (!(typeof op.amount === "number" && Number.isFinite(op.amount) && op.amount > 0)) return err("a new lock's opening amount is a positive number");
+      const ic = L.info(p, this.state);
+      this.lockOps.push({ op: "create", predicate: canonicalPredicate(p), amount: op.amount });
+      // Made on the state the act's calls reach: `holdsNow` says only whether the offered state meets it.
+      return ok({ queued: true, predicate: canonicalPredicate(p), words: plainWords(this.type, p), info: ic.bits, fee: lockFee(ic.bits), holdsNow: holds(this.type, p, this.state) }, 0);
+    }
+    const next = applyLockChanges(L.live, [...this.lockOps, op], L.world);
+    if (isInvalid(next)) return err(next.invalid);
+    this.lockOps.push(op);
+    const after = next.locks.find(l => l.n === op.lock);
+    return ok({ queued: true, lock: op.lock, energy: after?.energy ?? 0 }, 0);
   }
 
   private quote(calls: unknown): HostReply {

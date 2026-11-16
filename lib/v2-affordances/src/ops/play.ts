@@ -102,10 +102,10 @@ export const playOps = [
   }),
   affordance({
     id: "objects.list", title: "List objects", group: "objects", scope: "game",
-    description: "Pages through the game's objects for the viewer, with each object's bits and points. Sorts: points (payoff), rarity (the viewer's own bits), want (the others' care), mutations (most changed), born (newest), oldest, recent (most recently changed). Filters: all, positive or contested (the viewer's bits and the others' care both positive: points above 0), chips (the others care, the viewer's bits are 0).",
+    description: "Pages through the game's objects for the viewer, with each object's bits and points. Sorts: points (payoff), least (fewest points first), rarity (the viewer's own bits), want (the others' care), mutations (most changed), born (newest), oldest, recent (most recently changed). Filters: all, positive or contested (the viewer's bits and the others' care both positive: points above 0), chips (the others care, the viewer's bits are 0).",
     tooltip: "Objects in this game.", keywords: ["objects", "lines", "list", "browse", "sort", "filter", "contested", "chips", "most mutated", "newest", "oldest"],
     params: obj({
-      sort: z.enum(["points", "rarity", "want", "mutations", "born", "oldest", "recent"]).default("points"),
+      sort: z.enum(["points", "least", "rarity", "want", "mutations", "born", "oldest", "recent"]).default("points"),
       filter: z.enum(["all", "positive", "contested", "chips"]).default("all"),
       ...paging,
     }),
@@ -142,7 +142,8 @@ export const playOps = [
     description: "What a list of mutator calls would cost on an object, call by call, the act charge, and the caller's rule score after them. Changes nothing: agents make the changes.",
     tooltip: "What would this change cost and score?", keywords: ["quote", "price", "what if", "cost"],
     params: obj({ objectId: id, calls: z.array(call).min(1).max(8) }),
-    result: z.object({ valid: z.boolean(), reason: z.string().optional(), bits: z.array(z.number()), total: z.number(), charge: z.number(), after: score.nullable() }),
+    result: z.object({ valid: z.boolean(), reason: z.string().optional(), bits: z.array(z.number()), total: z.number(), charge: z.number(),
+      after: score.extend({ bits: z.number().optional().describe("With a defence goal: your bits after the moves, its penalty taken off (what the commit pays).") }).nullable() }),
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({

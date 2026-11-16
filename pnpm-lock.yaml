@@ -501,6 +501,9 @@ importers:
       '@workspace/v2-grid':
         specifier: workspace:*
         version: link:../v2-grid
+      '@workspace/v2-grid-boards':
+        specifier: workspace:*
+        version: link:../v2-grid-boards
       '@workspace/v2-linear':
         specifier: workspace:*
         version: link:../v2-linear
@@ -658,6 +661,9 @@ importers:
       '@workspace/v2-grid':
         specifier: workspace:*
         version: link:../v2-grid
+      '@workspace/v2-grid-boards':
+        specifier: workspace:*
+        version: link:../v2-grid-boards
       '@workspace/v2-pair':
         specifier: workspace:*
         version: link:../v2-pair
