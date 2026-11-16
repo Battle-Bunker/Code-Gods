@@ -6,23 +6,33 @@ coordinator decides the default). Each choice is marked **[owner]** (the owner's
 and every price list are untouched: a lock changes which moves are allowed and what defending or attacking costs in
 energy, never what a state is worth.
 
-## 0. The owner's latest direction (16 November, about 02:00 UTC, relayed by the coordinator): supersedes §2–§3
+## 0. The owner's latest direction (16 November, relayed by the coordinator): supersedes §2–§3
 
 Implementation of locks is **paused** with all work that depends on the scoring and costing design, until that design
-is clear. The owner's latest words, which override this document where they differ (the code does not follow them yet):
+is clear (the owner, about 02:00 UTC). The owner's words, verbatim, which override this document where they differ
+(the code does not follow them yet):
 
-- **Predicates are programs, like agents.** A lock's predicate is a program, not an expression in the small language
-  of §2.
-- **A predicate's complexity is scored like an agent's.** Creating and sustaining a lock is priced by the program's
-  complexity, as an agent's program is, not by the predicate's information content under π (§3).
-- **The upkeep rate is a configuration parameter**, not derived from the economy as in §3.
+- On predicates (owner decision 48): "I don't think we already have a predicate DSL and I don't want to add complexity to build one just for this use case. Predicates should just be programs with the same degrees of freedom as agents and the same complexity scoring rules in terms of information read and program description length. The upkeep rate should be a config param proportional to predicate complexity that we will find the balanced level for with experience of playing the game."
+- On upkeep (owner decision 47, about a lock draining its own energy at a rate proportional to its predicate's
+  complexity and vanishing at zero): "Ok happy with this mechanic for making more complex locks more expensive".
 
-What is on `develop` (behind nothing: unused until wired): `lib/v2-core` locks.ts (the §2 language, the §3 information
-content, `lockedAct`: funds and drains, then each call checked, then new locks) and the agent API (`lib/v2-agents`
-host ops `locks`, `lock`, `fund`, `drain`; `runAct` under locks; guest methods in both languages). The server side
-(room setting `locks`, `v2Locks`, the commit's re-check, sweep, events, replay; live test) is on the branch
-`claude/locks-server`, not merged. Of all this, the move path (a call refused when its result breaks a live lock,
-drains first) and the act order carry over to program predicates; the predicate language and its pricing do not.
+So, when the work resumes: there is no predicate language. A predicate is a program in the agent runtime (the same
+guest languages, host calls, sandbox, step limits and determinism as agents), given the object's state, returning true
+or false. Its complexity is measured by the rules agents are measured by (program description length plus information
+read), not by the law-mass estimate of §3. Creation cost and upkeep are proportional to that complexity, each at a rate
+that is a room configuration parameter, tuned by play. Everything else in this document stands: a lock holds energy; a
+call whose result makes the predicate false is refused until the lock is drained; anyone offered the object can list
+the locks, read their programs and add or subtract energy; upkeep is settled lazily; events and replay are exact; locks
+are unattributed while the game is live. To settle then: the step cap of a check, what an erroring predicate means, how
+its reads are charged (once into the complexity, or per check), and ready-made example predicates for the owner's
+examples.
+
+What is on `develop` (unused until wired): `lib/v2-core` locks.ts (the §2 language, the §3 information content, and
+`lockedAct`: funds and drains, then each call checked, then new locks) and the agent API (`lib/v2-agents` host ops
+`locks`, `lock`, `fund`, `drain`; `runAct` under locks; guest methods in both languages). The server side (room setting
+`locks`, `v2Locks`, the commit's re-check, sweep, events, replay; a live test) is on the branch `claude/locks-server`,
+not merged. The move path and the act order carry over to program predicates; the language and its pricing are to be
+deleted.
 
 ## 1. What a lock is
 
