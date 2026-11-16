@@ -10,9 +10,10 @@
  */
 import type { Command, PaletteFormPage, Performer } from "@workspace/ui-kit/core";
 import { AFFORDANCES, paletteFor, type AffordanceContext, type AffordanceId, type OpOutcome, type PaletteEntry } from "@workspace/v2-affordances";
-import { PANES, PANE_IDS, type PaneId } from "@workspace/v2-client";
+import { filePane, PANES, PANE_IDS, storedPane, type PaneId } from "@workspace/v2-client";
 import type { z } from "zod/v4";
 import { requestForge } from "../panes/forge-request.ts";
+import { roomPath } from "../site/lib/routes.ts";
 
 /** Reads that a pane shows live: the row opens that pane. */
 export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
@@ -25,12 +26,14 @@ export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
   // The board at a moment (v1's get_board_at): beside the log it is built from.
   "game.boardAt": "feed",
   // The rules anyone could hold (v1's list_utility_candidates): beside what the others care about (W5's "Possible gods").
-  "rule.candidates": "others-care",
+  "rule.fit": "others-care", "rule.candidates": "others-care",
 };
 /** Reads the room page shows (its members, past games, the rotation, the bid phase). */
 export const ROOM_READS: ReadonlySet<string> = new Set(["room.get", "room.history", "game.rotation", "bid.state"]);
 /** Reads the avatar menu shows (who you are, your connected apps). */
 export const ACCOUNT_READS: ReadonlySet<string> = new Set(["account.whoami", "account.connections"]);
+/** Reads the palette answers itself, in a notice (a command's status). */
+export const NOTICE_READS: ReadonlySet<string> = new Set(["receipt.get"]);
 
 export interface PaletteHost {
   perform(id: AffordanceId, args: unknown): Promise<OpOutcome>;
@@ -43,7 +46,19 @@ export interface PaletteHost {
   notify?(title: string): void;
   /** The game's objects ("grid", "grids"): directory titles say "objects" (round 8b: "Leave objects alone" in a grid game). */
   noun?: { one: string; many: string };
+  /** The viewer's stored panels (their one live list), so each enabled one can be opened as a pane. */
+  storedPanels?: readonly { slug: string; title: string; enabled: boolean }[];
+  /** Opens the assistant and focuses its composer (v1's Ctrl+`). */
+  focusAssistant?(): Promise<unknown>;
+  /** The file panels (src/panels/*.tsx) this copy of the app has; none in safe mode. */
+  filePanels?: readonly string[];
+  /** Whether the page is in safe mode (?panels=off), and how to reload it in or out of it. */
+  safeMode?: boolean;
+  setSafeMode?(on: boolean): void;
 }
+
+/** The viewer's panels that can open as panes: enabled ones, and none in safe mode. */
+const openablePanels = (host: PaletteHost) => (host.safeMode ? [] : (host.storedPanels ?? []).filter(p => p.enabled));
 
 const run = async (host: PaletteHost, id: AffordanceId, args: unknown) => {
   const out = await host.perform(id, args);
@@ -76,7 +91,11 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
   if (id === "view.openPane" || id === "view.closePane") {
     const page: PaletteFormPage = {
       kind: "pick", title: e.title,
-      options: () => PANE_IDS.map(p => ({ id: p, label: PANES[p].title, detail: PANES[p].blurb, keywords: PANES[p].keywords })),
+      options: () => [
+        ...PANE_IDS.map(p => ({ id: p as string, label: paneLabel(p, host.noun), detail: lined(PANES[p].blurb, host.noun), keywords: PANES[p].keywords })),
+        ...openablePanels(host).map(p => ({ id: storedPane(p.slug), label: p.title, detail: "Your panel", keywords: [p.slug, "panel", "your panel"] })),
+        ...(host.filePanels ?? []).map(id => ({ id: filePane(id), label: id, detail: `File panel: src/panels/${id}.tsx`, keywords: [id, "file panel"] })),
+      ],
       onPick: p => (panes ? (id === "view.openPane" ? panes.open(p) : panes.close(p)) : run(host, id, { pane: p })),
     };
     return { kind: "form", page };
@@ -95,7 +114,7 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
         validate: v => (!v.trim() ? "Type something first." : sole.kind === "number" && !Number.isFinite(Number(v)) ? "A number, please." : null),
         onSubmit: async v => {
           const out = await run(host, id, { [sole.name]: sole.kind === "number" ? Number(v) : v.trim() });
-          host.notify?.(DONE[id] ?? `Done: ${e.title}.`);
+          host.notify?.(id === "receipt.get" ? receiptWords(out) : DONE[id] ?? `Done: ${e.title}.`);
           return out;
         },
       },
@@ -104,11 +123,29 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
   return { kind: "form", page: { kind: "info", title: e.title, lines: [e.tooltip, "Use its controls on the screen; your assistant can also do it for you."] } };
 }
 
+/** A command's status in words (v1's "Check a command's status…"): applied, or safe to send again. */
+export function receiptWords(result: unknown): string {
+  const r = result as { applied: boolean; operation: string | null };
+  return r.applied ? `That command (${r.operation}) went through.` : "That command did not apply: it is safe to send it again.";
+}
+
 /** What a field's operation says once done. */
 const DONE: Partial<Record<AffordanceId, string>> = { "chat.send": "Message sent to the room's chat.", "room.join": "You joined the room." };
 
 /** A field's label in words: the parameter's name only when there is none. */
-const FIELD_LABELS: Record<string, string> = { text: "Your message", code: "Room code", name: "Name", question: "Your question" };
+const FIELD_LABELS: Record<string, string> = { text: "Your message", code: "Room code", name: "Name", question: "Your question", id: "The command's request id" };
+
+/** A pane's name in the game's words, as the dock's headers say it (usePaneName): "Grids", "One grid" in a grid game. */
+export function paneLabel(p: PaneId, noun?: { one: string; many: string }): string {
+  if (noun && p === "objects") return noun.many[0]!.toUpperCase() + noun.many.slice(1);
+  if (noun && p === "object") return `One ${noun.one}`;
+  return lined(PANES[p].title, noun) ?? PANES[p].title;
+}
+/** A pane's words written for lines ("Which lines earn you points") in the game's own words. */
+export function lined(text: string | undefined, noun?: { one: string; many: string }): string | undefined {
+  if (!text || !noun) return text;
+  return text.replace(/\b([Ll])ine(s?)\b/g, (_, l: string, s: string) => { const w = s ? noun.many : noun.one; return l === "L" ? w[0]!.toUpperCase() + w.slice(1) : w; });
+}
 
 /** "Leave objects alone" in a grid game: "Leave grids alone" (any case, singular and plural). */
 export function nouned(text: string, noun?: { one: string; many: string }): string {
@@ -139,10 +176,63 @@ export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Comm
     for (const p of PANE_IDS) {
       if (p === "assistant" && ctx.room?.aiOff) continue;
       rows.push({
-        id: `pane:${p}`, human: { title: `Open ${PANES[p].title}`, tooltip: PANES[p].blurb }, group: "view", keywords: [...PANES[p].keywords],
+        // In the game's own words (baseline-1: a grid game listed "Lines" and "One line").
+        id: `pane:${p}`, human: { title: `Open ${paneLabel(p, host.noun)}`, tooltip: lined(PANES[p].blurb, host.noun) ?? PANES[p].blurb }, group: "view", keywords: [...PANES[p].keywords, ...(host.noun ? [host.noun.one, host.noun.many] : [])],
         typedOnly: true, performer: { kind: "submit", run: () => panes.open(p) }, available: () => ({ ok: true }),
       });
     }
   }
+  if (panes && ctx.game) {
+    // v1's "Open your panel: <title>", one per enabled panel.
+    for (const p of openablePanels(host)) {
+      rows.push({
+        id: `panel:${p.slug}`, human: { title: `Open your panel: ${p.title}`, tooltip: "One of your panels, as a pane." }, group: "view", keywords: [p.slug, "panel", "your panel"],
+        typedOnly: true, performer: { kind: "submit", run: () => panes.open(storedPane(p.slug)) }, available: () => ({ ok: true }),
+      });
+    }
+  }
+  if (panes && ctx.game) {
+    // v1's "Open file panel: <id>", one per src/panels/*.tsx.
+    for (const id of host.filePanels ?? []) {
+      rows.push({
+        id: `file:${id}`, human: { title: `Open file panel: ${id}`, tooltip: `src/panels/${id}.tsx, as a pane.` }, group: "view", keywords: [id, "file panel"],
+        typedOnly: true, performer: { kind: "submit", run: () => panes.open(filePane(id)) }, available: () => ({ ok: true }),
+      });
+    }
+  }
+  // v1's "Focus assistant (Ctrl+`)".
+  const focusAssistant = host.focusAssistant;
+  if (focusAssistant && ctx.game && !ctx.room?.aiOff) {
+    rows.push({
+      id: "assistant-focus", human: { title: "Focus assistant (Ctrl+`)", tooltip: "Open your assistant and type to it. / does the same outside a field." },
+      group: "view", keywords: ["assistant", "focus", "ask", "type", "chat with assistant"],
+      performer: { kind: "submit", run: () => focusAssistant() }, available: () => ({ ok: true }),
+    });
+  }
+  // v1's safe mode: reload the page with every panel of yours off (a panel that breaks the page can then be fixed), and back.
+  const setSafeMode = host.setSafeMode;
+  if (setSafeMode && ctx.game) {
+    rows.push({
+      id: "safe-mode",
+      human: host.safeMode
+        ? { title: "Leave safe mode: run your panels", tooltip: "Reload the page with your panels on." }
+        : { title: "Safe mode: your panels off", tooltip: "Reload the page with none of your panels running (?panels=off)." },
+      group: "view", keywords: ["safe mode", "panels off", "turn off panels", "broken panel"], typedOnly: true,
+      performer: { kind: "local", run: () => setSafeMode(!host.safeMode) }, available: () => ({ ok: true }),
+    });
+  }
   return rows;
+}
+
+/**
+ * Rows made from the typed query (v1's codeCommands): a code-shaped query offers "Open room CODE", which goes to that
+ * room (the room page offers to join). Shown to a signed-in human only (site/components/layout.tsx).
+ */
+export function codeCommands(query: string): Command[] {
+  const code = query.trim().toUpperCase();
+  if (!/^[A-Z0-9-]{4,36}$/.test(code)) return [];
+  return [{
+    id: `dyn:room:${code}`, human: { title: `Open room ${code}`, tooltip: "Goes to that room; you can join it there." },
+    group: "room", section: "goto", performer: { kind: "navigate", to: roomPath(code) }, available: () => ({ ok: true }),
+  } as Command];
 }

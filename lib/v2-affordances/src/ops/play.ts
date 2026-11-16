@@ -28,9 +28,9 @@ export const playOps = [
   }),
   affordance({
     id: "game.standings", title: "Show the standings", group: "play", scope: "game",
-    description: "Every player's points, bid handicap and net total (total less the handicap's share), ranked by net total, as of the last scoreboard (at most 10 s old).",
+    description: "Every player's points, bid handicap and net total (total less the handicap's share), ranked by net total, as of the last scoreboard (at most 10 s old). While a game whose bid results are private runs, other players show their net only (handicapsHidden).",
     tooltip: "Who is ahead.", keywords: ["leaderboard", "scores", "ranking", "points"],
-    params: none, result: z.object({ rows: z.array(z.object({ memberId: id, name: z.string(), points: z.number(), handicap: z.number().int(), net: z.number(), rank: z.number().int() })) }),
+    params: none, result: z.object({ rows: z.array(z.object({ memberId: id, name: z.string(), points: z.number(), handicap: z.number().int(), net: z.number(), rank: z.number().int() })), handicapsHidden: z.boolean() }),
     contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
@@ -50,12 +50,14 @@ export const playOps = [
 
   affordance({
     id: "rule.explain", title: "Explain my rule", group: "play", scope: "game",
-    description: "The caller's private rule: family, parameters, its layers (main goal, then secondary preferences in order), the card sentence, which representations it reads, and the handicap if it was won by bid. Its value curve is rule.values. Never reveals other players' rules.",
+    description: "The caller's private rule: family, parameters, its layers (main goal, then secondary preferences in order), the card sentence, which representations it reads, the handicap if it was won by bid, and any defence goal. Its value curve is rule.values. Never reveals other players' rules.",
     tooltip: "What your rule wants.", keywords: ["my rule", "goal", "card", "what do I want"],
     params: none,
     result: z.object({
       family: z.string(), params: z.record(z.string(), z.unknown()), layers: z.array(z.string()), card: z.string(), depends: z.array(z.string()),
       wonByBid: z.object({ handicap: z.number().int() }).nullable(),
+      defence: z.object({ family: z.string(), params: z.record(z.string(), z.unknown()), card: z.string() }).nullable().optional()
+        .describe("The defence goal dealt beside the rule (grids, when the room turns them on): what it costs you to have. null: none."),
     }),
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
   }),
@@ -75,6 +77,23 @@ export const playOps = [
     contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
+    id: "rule.fit", title: "Fit the others' rules", group: "play", scope: "game",
+    description: "Which rules the other players hold (v1's fit_utility_mixture), from the others' summed bits you have seen: the likeliest sets of rules with their probabilities, each family's chance of being held, and a least-squares spectrum. Hints (a family, maybe params, a probability) and excluded families steer it. Offered only on lines whose disclosure noise is at least ±8 bits.",
+    tooltip: "Guess what the others want.", keywords: ["fit", "infer", "rivals", "who wants what", "mixture", "guess rules"],
+    params: obj({
+      hints: z.array(z.object({ family: z.string(), params: z.record(z.string(), z.unknown()).optional(), probability: z.number().min(0).max(1) })).max(20).optional(),
+      exclude: z.array(z.string()).max(50).optional().describe("Families you are sure nobody holds."),
+      top: z.number().int().min(1).max(20).default(5),
+    }),
+    result: z.object({
+      observations: z.number().int(), sigma: z.number(), exact: z.boolean(),
+      hypotheses: z.array(z.object({ posterior: z.number(), rms: z.number(), rules: z.array(z.object({ family: z.string(), params: z.record(z.string(), z.unknown()), tieBreaker: z.string().nullable(), card: z.string() })) })),
+      families: z.array(z.object({ family: z.string(), probability: z.number() })),
+      spectrum: z.array(z.object({ family: z.string(), params: z.record(z.string(), z.unknown()), tieBreaker: z.string().nullable(), weight: z.number() })),
+    }),
+    contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server", action: true,
+  }),
+  affordance({
     id: "rule.worth", title: "Look up what a score is worth", group: "play", scope: "game",
     description: "The value in bits of one score of the caller's rule (a score tuple as object.score returns it), with the calibration's lower and upper bounds.",
     tooltip: "How rare a score is.", keywords: ["worth", "rarity", "bits", "how rare", "value"],
@@ -83,9 +102,13 @@ export const playOps = [
   }),
   affordance({
     id: "objects.list", title: "List objects", group: "objects", scope: "game",
-    description: "Pages through the game's objects for the viewer, sorted by the viewer's points, rarity (bits) or most recent change, with each object's bits and points.",
-    tooltip: "Objects in this game.", keywords: ["objects", "lines", "list", "browse"],
-    params: obj({ sort: z.enum(["points", "rarity", "recent"]).default("points"), ...paging }),
+    description: "Pages through the game's objects for the viewer, with each object's bits and points. Sorts: points (payoff), least (fewest points first), rarity (the viewer's own bits), want (the others' care), mutations (most changed), born (newest), oldest, recent (most recently changed). Filters: all, positive or contested (the viewer's bits and the others' care both positive: points above 0), chips (the others care, the viewer's bits are 0).",
+    tooltip: "Objects in this game.", keywords: ["objects", "lines", "list", "browse", "sort", "filter", "contested", "chips", "most mutated", "newest", "oldest"],
+    params: obj({
+      sort: z.enum(["points", "least", "rarity", "want", "mutations", "born", "oldest", "recent"]).default("points"),
+      filter: z.enum(["all", "positive", "contested", "chips"]).default("all"),
+      ...paging,
+    }),
     result: page(z.object({ objectId: id, number: z.number().int().describe("The line's number: what the app shows and an agent's offer.object."), bits: z.number().describe("Its value under the caller's rule."), points: z.number() })),
     contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
   }),
@@ -107,7 +130,7 @@ export const playOps = [
     contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
-    id: "rep.mutators", title: "List a representation's mutators", group: "objects", scope: "game",
+    id: "rep.mutators", title: "List a view's moves", group: "objects", scope: "game",
     description: "The mutators that belong to a representation (e.g. si: si.shift, si.tilt), each with its arguments (their codes, and in plain words what each is, what may be typed, an example and the words a choice takes) and its base price in bits.",
     tooltip: "The moves you can make through this view.", keywords: ["mutators", "moves", "changes", "price list"],
     params: obj({ rep }),
@@ -119,7 +142,8 @@ export const playOps = [
     description: "What a list of mutator calls would cost on an object, call by call, the act charge, and the caller's rule score after them. Changes nothing: agents make the changes.",
     tooltip: "What would this change cost and score?", keywords: ["quote", "price", "what if", "cost"],
     params: obj({ objectId: id, calls: z.array(call).min(1).max(8) }),
-    result: z.object({ valid: z.boolean(), reason: z.string().optional(), bits: z.array(z.number()), total: z.number(), charge: z.number(), after: score.nullable() }),
+    result: z.object({ valid: z.boolean(), reason: z.string().optional(), bits: z.array(z.number()), total: z.number(), charge: z.number(),
+      after: score.extend({ bits: z.number().optional().describe("With a defence goal: your bits after the moves, its penalty taken off (what the commit pays).") }).nullable() }),
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({

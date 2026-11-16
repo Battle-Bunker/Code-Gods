@@ -20,6 +20,15 @@ export interface PresetEconomy {
   /** Object births per world second after the starting objects. */
   birthsPerSecond: number;
 }
+/** Line turnover's settings (retirement-design.md). */
+export interface Turnover {
+  liveCap: number;
+  /** "banked": a retired line's points stay in every total; "dropped": they leave the totals when it retires. */
+  retiredPoints: "banked" | "dropped";
+  /** Whether a retired line keeps holding its state (decision 24's uniqueness), as the table models it. */
+  retiredHolds: boolean;
+}
+export const TURNOVER_DEFAULTS = { retiredPoints: "banked", retiredHolds: true } as const;
 export interface Preset {
   id: string;
   title: string;
@@ -50,6 +59,11 @@ export interface Preset {
   driftSeconds: number;
   /** Births on a regular schedule, birth j at j / birthsPerSecond (decision 31: "1 spawn per 4 minutes so it ends at 5"); else v1's stochastic births. */
   regularBirths?: boolean;
+  /**
+   * Line turnover (docs/engine-v2/retirement-design.md; not on any preset until the owner chooses it): at most
+   * `liveCap` live lines, the oldest retiring when a birth would pass it. Absent: every line stays live.
+   */
+  turnover?: Turnover;
   economy: PresetEconomy;
   bid?: PresetBid;
 }
@@ -120,7 +134,9 @@ const BEGINNER = fromPool("lines-beginner", { ...BEGINNER_WORLD, startingEnergy:
  * The beginner grid (docs/engine-v2/grids.md): the 4×4 board of digits. A board's agents read 16 cells, not y = mx + c,
  * so they are longer and dearer to summon; its start buys three typical grid starters, as the lines' buys three line ones.
  */
-const GRIDS = fromPool("grids-beginner", { ...BEGINNER_WORLD, startingEnergy: beginnerStart("grid-4-d10", ECONOMY.powerPerSecond) });
+// No drift on the beginner grid, as v1 (a seat's rule never changed): its families have one parameter set each, so a
+// drift could only redraw the same rule.
+const GRIDS = fromPool("grids-beginner", { ...BEGINNER_WORLD, driftSeconds: 0, startingEnergy: beginnerStart("grid-4-d10", ECONOMY.powerPerSecond) });
 
 
 /**

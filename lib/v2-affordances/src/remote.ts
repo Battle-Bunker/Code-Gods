@@ -11,13 +11,15 @@
  *   pnpm player disconnect                                            revokes the credential and forgets it
  *
  * Global flags, before the command: `--site URL` (default $CODE_GODS_ENGINE_URL, else the local engine), `--config FILE`
- * (default $CODE_GODS_CONFIG, else ~/.config/code-gods/cli.json). Credentials are kept per site, file mode 0600.
+ * (default $CODE_GODS_CONFIG, else ~/.config/code-gods/cli.json), `--game ID` (a game of the room to act on, e.g. one
+ * that has ended; default the room's current game). Credentials are kept per site, file mode 0600.
  */
 import { createHash, randomBytes } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { affordanceForTool, cliCommand, cliCommands, parseCli, toolName } from "./surfaces.ts";
+import { GAME_SCOPE_HEADER } from "./mcp.ts";
 
 export interface RemoteIo { out(line: string): void; err(line: string): void }
 export interface Saved { credential: string; credentialId: string; roomId: string; roomCode: string | null; permission: string }
@@ -65,10 +67,10 @@ export function normalizeSite(raw: string): string {
 const MODERN = "2026-07-28";
 
 /** One MCP request with the credential (the stateless modern protocol era: per-request metadata, no initialize). */
-async function mcp(env: RemoteEnv, site: string, credential: string, method: string, params: Record<string, unknown> = {}): Promise<any> {
+async function mcp(env: RemoteEnv, site: string, credential: string, method: string, params: Record<string, unknown> = {}, game?: string): Promise<any> {
   const headers: Record<string, string> = {
     "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${credential}`,
-    "mcp-protocol-version": MODERN, "mcp-method": method,
+    "mcp-protocol-version": MODERN, "mcp-method": method, ...(game ? { [GAME_SCOPE_HEADER]: game } : {}),
   };
   if (method === "tools/call") headers["mcp-name"] = String(params.name);
   const _meta = { "io.modelcontextprotocol/protocolVersion": MODERN, "io.modelcontextprotocol/clientInfo": { name: "code-gods-cli", version: "2" }, "io.modelcontextprotocol/clientCapabilities": {} };
@@ -147,16 +149,16 @@ export function helpLines(rest: readonly string[], fake = false): string[] | nul
   if (!rest[0]) lines.push("", ...(fake
     ? ["call <id> '<json>' runs any of them.", "Global flags, after --fake and before the command: --as <userId> --room <id> --game <id> --state <file>."]
     : ["connect --room CODE [--permission read|act|owner] · status · tools · disconnect · call <id> '<json>'",
-      "Global flags, before the command: --site URL, --config FILE (or --fake first, for the in-memory stand-in)."]));
+      "Global flags, before the command: --site URL, --config FILE, --game ID (a game of the room, e.g. one that has ended) (or --fake first, for the in-memory stand-in)."]));
   return lines;
 }
 
 /** Runs one CLI invocation against a deployment; returns the exit code. */
 export async function runRemoteCli(argv: readonly string[], env: RemoteEnv): Promise<number> {
-  let i = 0, site = env.defaultSite;
-  for (let m; i < argv.length && (m = /^--(site|config)$/.exec(argv[i]!)); i += 2) {
+  let i = 0, site = env.defaultSite, game: string | undefined;
+  for (let m; i < argv.length && (m = /^--(site|config|game)$/.exec(argv[i]!)); i += 2) {
     if (argv[i + 1] === undefined) { env.io.err(`--${m[1]} needs a value`); return 2; }
-    if (m[1] === "site") site = argv[i + 1]!; else env = { ...env, configPath: argv[i + 1]! };
+    if (m[1] === "site") site = argv[i + 1]!; else if (m[1] === "game") game = argv[i + 1]!; else env = { ...env, configPath: argv[i + 1]! };
   }
   const rest = argv.slice(i);
   try {
@@ -172,12 +174,12 @@ export async function runRemoteCli(argv: readonly string[], env: RemoteEnv): Pro
     if (!saved) { env.io.err(`Not connected to ${site}. Run \`pnpm player connect --room CODE\` first.`); return 2; }
     switch (rest[0]) {
       case "status": {
-        const { tools } = await mcp(env, site, saved.credential, "tools/list");
+        const { tools } = await mcp(env, site, saved.credential, "tools/list", {}, game);
         env.io.out(`Connected to ${site}, room ${saved.roomCode ?? saved.roomId}, ${saved.permission} rights: ${tools.length} tools offered now.`);
         return 0;
       }
       case "tools": {
-        const { tools } = await mcp(env, site, saved.credential, "tools/list");
+        const { tools } = await mcp(env, site, saved.credential, "tools/list", {}, game);
         for (const t of tools) {
           const a = affordanceForTool(t.name);
           env.io.out(`${a ? cliCommand(a).words.join(" ") : t.name}  ${t.title}`);
@@ -200,7 +202,7 @@ export async function runRemoteCli(argv: readonly string[], env: RemoteEnv): Pro
     }
     const parsed = parseCli(rest);
     if (!parsed.ok) { env.io.err(parsed.error); return 2; }
-    const result = await mcp(env, site, saved.credential, "tools/call", { name: toolName(parsed.id), arguments: parsed.args });
+    const result = await mcp(env, site, saved.credential, "tools/call", { name: toolName(parsed.id), arguments: parsed.args }, game);
     if (result.isError) { env.io.err(result.content?.map((c: { text?: string }) => c.text ?? "").join("\n").trim() || "The call failed."); return 1; }
     env.io.out(JSON.stringify(result.structuredContent?.data ?? result.structuredContent ?? null, null, 2));
     return 0;

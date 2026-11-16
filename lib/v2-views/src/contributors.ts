@@ -10,12 +10,14 @@
  * Pure; no React.
  */
 import {
-  elementDecl, elementValue, evaluateObject, Qn, q, refKey, type ElementRef, type Evaluation, type Layer, type Mark, type Q, type Score, type Undef,
+  elementDecl, elementValue, evaluateObject, Qn, q, refKey, ruleLayers, type ElementRef, type Evaluation, type Layer, type Mark, type Q, type Score, type Undef,
 } from "@workspace/v2-core";
 import { partName, type RuleRef } from "./annotate.ts";
 import { fmtQ, isUndef, readable, typesetNote } from "./format.ts";
 
 export type Role = "main" | "tb";
+/** A part's symbol by its depth, always beside its name: ● main part, ◆ secondary, ▲ third, ■ fourth preference. */
+export const partGlyph = (i: number): string => ["●", "◆", "▲", "■"][i] ?? "•";
 
 export interface Source {
   readonly ref: ElementRef;
@@ -34,6 +36,10 @@ export interface RulerData {
 
 export interface Contributor {
   readonly role: Role;
+  /** The layer's place in the rule: 0 the main part, 1 the secondary preference, 2 the third, … (its name and symbol). */
+  readonly depth: number;
+  /** The part in a few words for a compact face, numbers never cut ("y-intercept 32: nearest 31, next 41"). */
+  readonly brief?: string;
   /** "main part" / "tie-breaker". */
   readonly name: string;
   /** The layer's title in player words, parameters replaced by their values: "y(2) close to 37". */
@@ -200,22 +206,45 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
   const wants = withParams(layer.sentence(rule.params), rule.params).replace(/^(Tie-breaker|Secondary|Third|Then):\s*/, "");
   const aim = layer.sense === "min" ? "the closer, the better" : "the bigger, the better";
 
-  // The reference: the candidate mark the rule placed on this term (the nearest, when several).
-  const cands = termCands;
+  // The reference: the candidate mark the rule placed on this term (the nearest, when several); else the far end of a
+  // measure the rule drew for it (a closeness measured to the target the rule named: pool-plan v2's secondary).
+  const termMeasures = e.marks.filter((m): m is Extract<Mark, { kind: "measure" }> => m.kind === "measure" && m.term === term.id);
+  const cands = termCands.length ? termCands : termMeasures.map(m => ({ kind: "candidate" as const, ref: m.to, term: term.id }));
   const src = source.find(s => s.value)?.value ?? null;
   let reference: Contributor["reference"] = null;
+  // Every value the rule marked for this term: the target and, when it names them, its neighbours (11, 31, 41).
+  const marked: { ref: ElementRef; value: number }[] = [];
   for (const c of cands) {
     const v = refNumber(rule as RuleRef<S, unknown>, state, c, site);
     if (v === null) continue;
+    marked.push({ ref: c.ref, value: v });
     if (!reference || (src && Math.abs(v - N(src)) < Math.abs(reference.value - N(src)))) reference = { ref: c.ref, value: v, text: readableN(v) };
   }
+  // The rule's own notes on this layer (a third preference's working: "31 × ¹⁄₃₁ = 1").
+  // Only a working on one element: notes on several elements are per-unit notes (a grid's "2 apart" on each pair), which
+  // the board says beside each unit; joined into the card's sentence they made a paragraph.
+  const layerMarks = e.marks.filter((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && m.term === term.id && i > 0);
+  const layerNotes = new Set(layerMarks.map(m => refKey({ ...m.ref, site: undefined }))).size === 1 ? layerMarks.map(m => typesetNote(m.text)) : [];
 
   let distance: string | null = null;
+  let brief: string | undefined;
   let ruler: RulerData | null = null;
   const kind = title + " " + term.label;
   // A distance, or a ladder (a count or size read through a reference: Prime Landing's rungs): the source on a ruler
   // among the reference and its kind's qualifying neighbours.
-  if ((layer.sense === "min" || (reference && src)) && !isUndef(value)) {
+  if (layer.sense === "max" && marked.length >= 2 && reference && src && !isUndef(value)) {
+    // A target the rule chose among the values it marked (pool-plan v2's primary: the prime ending in 1 nearest the
+    // y-intercept, with the next ones either side): what was read, the target it is nearest, and the next better one.
+    const srcSource = source.find(s => s.value)!;
+    const size = (v: number) => Math.abs(v);
+    const up = marked.filter(m => size(m.value) > size(reference!.value)).sort((a, b) => size(a.value) - size(b.value))[0];
+    distance = `${srcSource.label} ${srcSource.text} is nearest ${reference.text}${up ? `; next up ${readableN(up.value)}: ${readableN(size(up.value) - size(N(src)))} more` : ""}`;
+    brief = `${srcSource.label} ${srcSource.text}: nearest ${reference.text}${up ? `, next ${readableN(up.value)}` : ""}`;
+    ruler = {
+      value: N(src), valueText: `${srcSource.label} ${srcSource.text}`,
+      refs: marked.map(m => ({ at: m.value, label: readableN(m.value), ...(m.value === reference!.value ? { strong: true } : {}) })),
+    };
+  } else if ((layer.sense === "min" || (reference && src)) && !isUndef(value)) {
     if (reference && src) {
       // The size is the rule's own term for a distance (what it scores), the gap from the reference for a ladder; only
       // the direction comes from the source and reference.
@@ -238,7 +267,10 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
         refs: [{ at: reference.value, label: reference.text, strong: true }, ...near.map(x => ({ at: x, label: readableN(x) }))],
       };
     } else {
-      distance = Qn.isZero(value) ? "exactly" : `off by ${readable(value)}`;
+      // The rule's working on this layer first, when it gave one ("31 × ¹⁄₃₁ = 1: exactly").
+      const how = Qn.isZero(value) ? "exactly" : `off by ${readable(value)}`;
+      distance = layerNotes.length ? `${layerNotes.join("; ")}: ${how}` : how;
+      if (layerNotes.length) brief = distance;
     }
   } else if (!isUndef(value) && rule.family.keepsParams && role === "main" && Qn.sign(value) <= 0 && src) {
     // A ladder's main part off every rung (round 29: "…as big a dealt prime as possible: −½"): the reading and, when the
@@ -260,9 +292,14 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
     distance ??= "not on a rung yet";
   } else if (!isUndef(value)) {
     const v = N(value);
-    const near = neighbours(/prime/.test(kind) ? "prime" : "whole", Math.max(0, v - 8), v + 14).filter(x => x !== v);
+    // A bounded count's ruler ends where the count can end (Layer.most).
+    const most = layer.most?.(rule.params as never, rule.variant);
+    const near = neighbours(/prime/.test(kind) ? "prime" : "whole", Math.max(0, v - 8), most ?? v + 14).filter(x => x !== v);
     ruler = { value: v, valueText: `${valueText}`, refs: [{ at: v, label: readable(value), strong: true }, ...near.map(x => ({ at: x, label: readableN(x) }))] };
   }
+
+  // A layer with no reference says the rule's own working on it, when it gave one.
+  if (!distance && layerNotes.length) distance = layerNotes.join("; ");
 
   // A sum of distances with no single reference (a grid's rows from 18) sits on a ruler from 0, which is perfect.
   if (layer.sense === "min" && !isUndef(value) && !ruler) {
@@ -292,17 +329,17 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
     ? cap(value.undefined)
     : layer.sense === "min"
       ? `${cap(what || title)}${distance ? `: ${distance}` : source.length > 3 ? `: ${valueText}` : ""}. ${cap(aim)}.`
-      : `${cap(title)}: ${valueText}. ${cap(aim)}.`;
+      : `${cap(title)}: ${valueText}${distance && marked.length >= 2 ? ` (${distance})` : ""}. ${cap(aim)}.`;
   return {
-    role, name: partName(i), title, wants, sense: layer.sense, aim, term: term.id, value, valueText,
+    role, depth: i, ...(brief ? { brief } : {}), name: partName(i), title, wants, sense: layer.sense, aim, term: term.id, value, valueText,
     source, reference, distance, ruler, sentence, units: named,
   };
 }
 
 /** The contributors of one site's evaluation (the parts of the dealt rule, in order). */
 export function contributorsOf<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, site = 0): Contributor[] {
-  const tb = rule.tieBreaker === undefined ? rule.family.tieBreakers[0] : rule.family.tieBreakers.find(t => t.id === rule.tieBreaker);
-  const layers = [rule.family.main, ...(tb ? [tb] : [])];
+  // Every dealt layer in order, at any depth ("a>b>c", #879): the main part, then each preference.
+  const layers = ruleLayers(rule.family, rule.tieBreaker);
   const parts = layers.slice(0, e.components.length).map((l, i) => contributor(rule, state, e, i, l, site));
   // A tie-breaker that reads the main part's reference (the whole number the crossing is measured to) says so: the
   // number then carries the main part's target and the tie-breaker's input, and the line explains both.

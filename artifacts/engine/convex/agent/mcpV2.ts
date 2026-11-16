@@ -11,7 +11,7 @@
 import { fromJsonSchema, McpServer, type CallToolResult, type JsonSchemaType } from "@modelcontextprotocol/server";
 import { CfWorkerJsonSchemaValidator } from "@modelcontextprotocol/server/validators/cf-worker";
 import { makeFunctionReference } from "convex/server";
-import { affordanceForTool, callTool, mcpTools, type AffordanceContext, type OpOutcome } from "@workspace/v2-affordances";
+import { GAME_SCOPE_HEADER, affordanceForTool, callTool, mcpTools, type AffordanceContext, type OpOutcome } from "@workspace/v2-affordances";
 import type { Delegate } from "@workspace/v2-affordances/convex";
 import { outcomeAs } from "../v2/perform";
 import type { ActionCtx } from "../_generated/server";
@@ -24,16 +24,26 @@ export const V2_INSTRUCTIONS = "Code Gods (engine v2): play as the human who con
 
 const delegateOf = (who: Who): Delegate => ({ userId: who.subject, roomId: who.roomId, grant: who.permission, via: "mcp" });
 
-const RESOLVE = makeFunctionReference<"query", { who: { delegate: Delegate }; scope: Record<string, never> }, { ctx: AffordanceContext }>("v2/ops/define:resolveCaller");
+const RESOLVE = makeFunctionReference<"query", { who: { delegate: Delegate }; scope: { gameId?: string } }, { ctx: AffordanceContext }>("v2/ops/define:resolveCaller");
 
 /** The credential's context as the server derives it (room, phase, seat, grant). */
-export async function v2ContextFor(ctx: ActionCtx, who: Who): Promise<AffordanceContext> {
-  return (await ctx.runQuery(RESOLVE, { who: { delegate: delegateOf(who) }, scope: {} })).ctx;
+export async function v2ContextFor(ctx: ActionCtx, who: Who, scope: McpScope = {}): Promise<AffordanceContext> {
+  return (await ctx.runQuery(RESOLVE, { who: { delegate: delegateOf(who) }, scope })).ctx;
 }
 
 /** Runs one affordance as the credential's human, through the same dispatch the in-client assistant uses (v2/perform.ts). */
-export const performV2 = (ctx: ActionCtx, who: Who, id: string, args: unknown): Promise<OpOutcome> =>
-  outcomeAs(ctx, delegateOf(who), {}, id, args);
+export const performV2 = (ctx: ActionCtx, who: Who, id: string, args: unknown, scope: McpScope = {}): Promise<OpOutcome> =>
+  outcomeAs(ctx, delegateOf(who), scope, id, args);
+
+/**
+ * The game a request names (GAME_SCOPE_HEADER, the CLI's `--game`), else none: the room's current game is in view.
+ * A credential bound to one room never reaches another room's game by naming it (define.ts resolveIn).
+ */
+export type McpScope = { gameId?: string };
+export function mcpScopeOf(headers: Headers): McpScope {
+  const game = headers.get(GAME_SCOPE_HEADER)?.trim();
+  return game && /^[A-Za-z0-9_-]{1,64}$/.test(game) ? { gameId: game } : {};
+}
 
 const validator = new CfWorkerJsonSchemaValidator();
 
@@ -52,7 +62,7 @@ export const NEEDS_CONTEXT = new Set(["tools/list", "tools/call"]);
  * A fresh MCP server for one request of a v2 principal: the directory's tools for its context, dispatched by callTool.
  * `context` is null for requests that list or call nothing (initialize, ping, notifications), which need no tools.
  */
-export function serverForV2(ctx: ActionCtx, who: Who, context: AffordanceContext | null, info: { name: string; title: string; version: string }) {
+export function serverForV2(ctx: ActionCtx, who: Who, context: AffordanceContext | null, info: { name: string; title: string; version: string }, scope: McpScope = {}) {
   const server = new McpServer(info, { capabilities: { tools: {} }, instructions: V2_INSTRUCTIONS, jsonSchemaValidator: validator });
   if (!context) return server;
   for (const tool of mcpTools(context)) {
@@ -61,7 +71,7 @@ export function serverForV2(ctx: ActionCtx, who: Who, context: AffordanceContext
       inputSchema: fromJsonSchema(tool.inputSchema as JsonSchemaType, validator),
       outputSchema: fromJsonSchema(tool.outputSchema as JsonSchemaType, validator),
     }, async (args: unknown): Promise<CallToolResult> =>
-      await callTool(tool.name, args, context, "mcp", (id, a) => performV2(ctx, who, id, a)) as unknown as CallToolResult);
+      await callTool(tool.name, args, context, "mcp", (id, a) => performV2(ctx, who, id, a, scope)) as unknown as CallToolResult);
   }
   return server;
 }

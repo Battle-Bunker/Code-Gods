@@ -125,11 +125,18 @@ test("the tugs-of-war the tick folded are the act log's", async () => {
   const { moves, tugs } = await admin.query("v2/testing:movesAndTugs", { gameId });
   const want = new Map<string, any>();
   for (const m of [...moves].sort((a: any, b: any) => a.seq - b.seq)) {
-    const k = `${m.memberId}:${m.objectId}`, t = want.get(k) ?? { moves: 0, flips: 0, mySpend: 0, others: [] as string[], from: m.worldSeconds, best: null as any };
+    const k = `${m.memberId}:${m.objectId}`, t = want.get(k) ?? { moves: 0, flips: 0, mySpend: 0, others: [] as string[], from: m.worldSeconds, best: null as any, cycle: null as any, seen: [] as string[] };
     if (t.moves > 0 && m.mine !== t.lastMine) t.flips++;
     t.moves++; t.lastMine = m.mine; t.mySpend += m.mine ? m.charge : 0; t.to = m.worldSeconds;
     if (!m.mine && !t.others.includes(m.by)) t.others.push(m.by);
     if (!t.best || m.points > t.best.points) t.best = { state: m.stateAfter, points: m.points };
+    // A return to the state two moves before, within one pair of states, counts toward that pair's cycle.
+    const seen: string[] = t.seen ?? [];
+    if (seen.length >= 2 && m.stateAfter === seen.at(-2) && m.stateAfter !== seen.at(-1)) {
+      const [a, b] = [m.stateAfter, seen.at(-1)!].sort();
+      t.cycle = t.cycle && t.cycle.a === a && t.cycle.b === b ? { a, b, moves: t.cycle.moves + 1 } : { a, b, moves: 2 };
+    }
+    t.seen = [...seen, m.stateAfter];
     want.set(k, t);
   }
   assert.equal(tugs.length, want.size, "one row per (player, line) with moves");
@@ -137,6 +144,8 @@ test("the tugs-of-war the tick folded are the act log's", async () => {
     const w = want.get(`${t.memberId}:${t.objectId}`);
     assert.ok(w, `a tug row with moves behind it: ${t.number}`);
     assert.deepEqual({ moves: t.moves, flips: t.flips, others: t.others, from: t.from, to: t.to, best: t.best }, { moves: w.moves, flips: w.flips, others: w.others, from: w.from, to: w.to, best: w.best });
+    assert.deepEqual(t.cycle ?? null, w.cycle ?? null, `line ${t.number}: its two-state cycle`);
+    assert.deepEqual(t.lastStates, w.seen.slice(-2));
     assert.ok(Math.abs(t.mySpend - w.mySpend) < 1e-6);
   }
 });

@@ -88,7 +88,8 @@
 #                                off_right, off45 (how far from a right angle, from 45 degrees), origin (a line through
 #                                (0, 0)).
 #   pair_steps(L, far, kinds, factors)  the steps of the given kinds ("shift", "tilt", "stretch", "turn", "slide",
-#                                "combine", "reflect", "quarter" on either line; "translate", both lines slid together),
+#                                "combine", "reflect", "quarter" on either line; "translate", both lines slid together;
+#                                "zoom", both lines zoomed about (0, 0) by 2 ... far + 1 and each factor),
 #                                each (plan, lines after); steps the game would refuse are left out. factors: extra
 #                                stretch factors (a ladder's x q).
 #   spf(n), omega(n), common(a, b)  a whole number's smallest prime factor (1 for 0 and +-1), its number of prime
@@ -138,6 +139,25 @@ def look(offer, rep, site=None):
 
 def peek(offer, rep, name, args=None, site=None):
     return offer.element(rep, name, args, site)
+
+
+def steps_left():
+    # The act's steps left (the agent's own code's lines and jumps); free, no host call.
+    return _STEPS_LEFT()
+
+
+def step_budget():
+    return _STEP_BUDGET()
+
+
+def score_each(tries, f):
+    # f of each try in order until 30% of the act's steps are used: fewer tries on a big line, not a failed act.
+    out, floor = [], 0.7 * step_budget()
+    for t in tries:
+        if steps_left() < floor:
+            break
+        out.append(f(t))
+    return out
 
 
 def goal(offer):
@@ -310,9 +330,14 @@ def _anchor(v, q, r, at_least):
     return (lo, v - lo) if v - lo <= hi - v else (hi, hi - v)
 
 
+def _window(level):
+    # A rung is a window (trial 36): level L is held within 1/(L + 2) of it, as the engine's rungWindow.
+    return Fraction(1, level + 2)
+
+
 def _climb(base, off):
     level, d = 0, off(1)
-    while level < 4096 and d == 0:
+    while level < 4096 and d <= _window(level + 1):
         level += 1
         d = off(level + 1)
     return base ** level * (1 + Fraction(1) / (1 + d))
@@ -354,8 +379,12 @@ def ladder(x, q, r, other=0, at_least=0):
 def valuation_ladder(x, q, r, other=0, at_least=0):
     v, o = Fraction(x), Fraction(other)
     level = -1
-    if o == 0 and v.denominator == 1 and v != 0 and abs(v) >= at_least:
-        m, t = v.numerator, 0
+    # The rounded number (the lower on a tie), held while within its level's window.
+    n0 = v.numerator // v.denominator
+    nr = n0 if v - n0 <= Fraction(1, 2) else n0 + 1
+    dist = o + abs(v - nr)
+    if nr != 0 and abs(nr) >= at_least:
+        m, t = nr, 0
         while m % q == 0:
             m //= q
             t += 1
@@ -363,9 +392,11 @@ def valuation_ladder(x, q, r, other=0, at_least=0):
             level = 0
             while (level + 1) * (level + 2) // 2 <= t:
                 level += 1
+        while level >= 0 and dist > _window(level):
+            level -= 1
     T = (level + 1) * (level + 2) // 2
     d = o + _anchor(v, q ** (T + 1), r * q ** T, at_least)[1]
-    n = v.numerator if level >= 0 else _anchor(v, q, r, at_least)[0]
+    n = nr if level >= 0 else _anchor(v, q, r, at_least)[0]
     return Fraction(q) ** level * (1 + Fraction(1) / (1 + d)), n
 
 
@@ -376,7 +407,7 @@ def power_ladder(k, off):
     level, best, prev = 0, None, None
     for j in range(1, 4097):
         o = Fraction(off(rung(j)))
-        if o == 0:
+        if o <= _window(j):
             level = j
         if best is None or o < best:
             best = o
@@ -678,6 +709,16 @@ def pair_steps(L, far, kinds, factors=()):
                 if r == sorted(ln):
                     continue
                 out.append((call("sys.translate", u=u, v=v), [[Fraction(x) for x in t] for t in r]))
+    # Both lines zoomed about (0, 0) by a whole factor (trial 36: with a slide by r, the next rung of a residue ladder).
+    if "zoom" in kinds:
+        for f in sorted(set(list(range(2, far + 2)) + [x for x in factors if x > 1])):
+            moved = [norm(a, b, c * f) for a, b, c in ln]
+            if None in moved or moved[0] == moved[1]:
+                continue
+            r = sorted(moved)
+            if r == sorted(ln):
+                continue
+            out.append((call("sys.zoom", f=f), [[Fraction(x) for x in t] for t in r]))
     return out
 
 
@@ -724,12 +765,17 @@ def climb(offer, options, now, most=None):
             if p is not None and p <= cap:
                 return _as_plan(plan)
         return None
-    value, spare, ranked, left = w.mine * w.others, 2, [], calls - 12
+    # A defence goal (grids, when the room deals them): your bits are your rule's rarity less the penalty, and may be
+    # negative, so the server's floor applies (points = yours x max(0, the others')) and your rule's rarity alone
+    # cannot rule a step out: others_after says your bits after it.
+    defence = offer.my_rule().defence is not None
+    value = w.mine * max(0, w.others) if defence else w.mine * w.others
+    spare, ranked, left = 2, [], calls - 12
     for plan, s in options:
         r = rarity(offer, s)   # free
-        if r <= 0:   # sorted best first: the rest score no points for you either
+        if not defence and r <= 0:   # sorted best first: the rest score no points for you either
             break
-        if r <= w.mine + 1e-9:   # your rule cannot rise: price only two such steps
+        if not defence and r <= w.mine + 1e-9:   # your rule cannot rise: price only two such steps
             if spare == 0:
                 break
             spare -= 1
@@ -742,7 +788,11 @@ def climb(offer, options, now, most=None):
             continue
         if o.after is None:   # not allowed (e.g. another object is in that state)
             continue
-        v = r * o.after
+        # With a defence goal the host says your own bits after the plan (your rarity less the penalty's hinge).
+        if defence and "mine" in o and o["mine"]["after"] is not None:
+            v = o["mine"]["after"] * max(0, o.after)
+        else:
+            v = r * o.after
         if v > value + 1e-9:
             ranked.append((v, plan))
     # The best step it can pay for within its allowance (its energy, and a few seconds of its income).

@@ -24,17 +24,25 @@ import { useLive } from "@/site/lib/convex";
 import type { Header, Room } from "@/sdk/types";
 import { Dock } from "@/dock/dock";
 import { useOpenPane } from "@/dock/open-pane";
+import { LiveErrorPanel } from "@/dock/pane-parts";
 import { PANE_COMPONENTS, StoredPanelPane } from "@/panes";
+import { FilePanelPane } from "@/panes/file-panel";
+import { PanelConfirmations } from "@/panes/panel-policy";
+import { composerKey, requestComposer } from "@/panes/assistant-request";
+import { useFilePanels } from "@/panels/store";
+import { filePane } from "@workspace/v2-client";
 import { ReplayBar } from "@/replay/bar";
+import { ChatButton } from "@/site/components/chat-button";
+import { OwnerMenu } from "./owner-menu";
 import { parseMoment } from "@/replay/moment-link";
 import { ReplayProvider, useReplayControls } from "@/replay/controller";
 import { toast } from "@/hooks/use-toast";
 import { affordanceContext } from "./affordance-context";
-import { useReplaying } from "./affordance-runtime";
+import { useReplaying, useRuntime } from "./affordance-runtime";
 import { GameTimer, useNow } from "./game-timer";
 import { navigate } from "./navigation";
 import { planningLine, SUMMON_FIRST } from "./planning-line";
-import { countedNote, exactTotalNote, isTied, ownEnergy, ordinal, pointsText, scoreSentence, totalNote, totalSumNote } from "./words";
+import { countedNote, exactTotalNote, isTied, ownEnergy, myTotalText, ordinal, scoreSentence, totalNote, totalSumNote } from "./words";
 import { objectWord } from "../sdk/object-types.ts";
 import { LineByLine, TiedMark } from "./score-help";
 import { SAFE_MODE } from "./safe-mode";
@@ -56,7 +64,7 @@ function GameBar({ header }: { header: Header }) {
       <span className="border px-2 py-0.5 text-xs font-medium uppercase tracking-wide" data-testid="text-phase">{replay ? "Replay" : PHASE[header.phase]}</span>
       {seat ? (<>
         <span data-testid="text-my-total" title={[blurred ? exactTotalNote(objectWord(header.variant).one) : null, scoreSentence(objectWord(header.variant).one, objectWord(header.variant).many), totalNote(totalSumNote(objectWord(header.variant).one), (mine?.handicap ?? 0) > 0), countedNote(standings?.worldSeconds, fixedLength(header))].filter(Boolean).join(" ")}>
-          {who}: <span className="font-semibold tabular-nums">{pointsText(mine?.net ?? 0)}</span>{mine && standings && standings.rows.length > 1 ? ` · ${ordinal(mine.rank)} of ${standings.rows.length}` : ""}
+          {who}: <span className="font-semibold tabular-nums">{myTotalText(mine)}</span>{mine && standings && standings.rows.length > 1 ? ` · ${ordinal(mine.rank)} of ${standings.rows.length}` : ""}
           {mine && standings && isTied(standings.rows, mine) && <> <TiedMark testId="text-my-tied" /></>}
         </span>
         <LineByLine testId="button-line-by-line-bar" />
@@ -65,6 +73,8 @@ function GameBar({ header }: { header: Header }) {
           {e.full && !replay && header.phase !== "ended" && <> <button type="button" className="text-xs underline underline-offset-4" onClick={() => void openPane("forge")} data-testid="button-energy-full">spend it on another agent</button></>}
         </span>; })()}
       </>) : <span className="text-muted-foreground" data-testid="text-watching">You're watching this game.</span>}
+      {!replay && <ChatButton />}
+      {!replay && <OwnerMenu />}
     </div>
   );
 }
@@ -86,8 +96,9 @@ function PlanningBar({ header, owner }: { header: Header; owner: boolean }) {
   );
 }
 
-function BarError({ error }: ErrorFallbackProps) {
-  return <p className="border-b px-3 py-1.5 text-xs text-destructive" role="alert">Your totals could not load: {error instanceof Error ? error.message : String(error)}</p>;
+/** A bar whose read failed: plain words, and it comes back by itself on that read's next answer (as a pane does). */
+function BarError(props: ErrorFallbackProps) {
+  return <LiveErrorPanel {...props} what="Your totals" testId="bar-error" className="flex flex-wrap gap-x-3 border-b px-3 py-1.5 text-xs [&>p]:m-0" />;
 }
 
 /**
@@ -145,9 +156,71 @@ function GameDock({ phase }: { phase: GamePhase }): ReactNode {
   return (
     <>
       {SAFE_MODE && <p className="shrink-0 px-3 py-1 text-xs text-muted-foreground" data-testid="text-safe-mode">Safe mode: your panels are off</p>}
-      <div className="min-h-0 flex-1" data-testid="dock"><StableDock phase={phase} panes={PANE_COMPONENTS} stored={SAFE_MODE ? SafeModePanel : StoredPanelPane} /></div>
+      <div className="min-h-0 flex-1" data-testid="dock"><StableDock phase={phase} panes={PANE_COMPONENTS} stored={SAFE_MODE ? SafeModePanel : StoredPanelPane} file={SAFE_MODE ? SafeModeFile : FilePanelPane} /></div>
+      {phase !== "replay" && <OpenNewFilePanels phase={phase} />}
+      {!SAFE_MODE && <PanelConfirmations />}
+      <ComposerKeys phase={phase} />
     </>
   );
+}
+
+/**
+ * v1's keys for the assistant: Ctrl+` from anywhere, "/" outside a field or a dialog, open and focus its composer. A
+ * press before the page may open panes (the room still loading) is kept and done as soon as it may.
+ */
+function ComposerKeys({ phase }: { phase: GamePhase }) {
+  const open = useOpenPane(phase);
+  const may = useAffordance("view.openPane").available;
+  const aiOff = !!useRuntime().context.room?.aiOff;
+  const latest = useRef({ open, may });
+  latest.current = { open, may };
+  const waiting = useRef(false);
+  useEffect(() => {
+    if (aiOff) return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      const typing = !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
+      if (!composerKey({ key: e.key, ctrl: e.ctrlKey, meta: e.metaKey, alt: e.altKey, typing, dialog: !!document.querySelector('[role="dialog"], [role="alertdialog"]') })) return;
+      // Before the palette's own "/" (v1's dock took "/" for the assistant; elsewhere it still opens the palette).
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (latest.current.may) void requestComposer({}, latest.current.open);
+      else waiting.current = true;
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [aiOff]);
+  useEffect(() => {
+    if (may && waiting.current) { waiting.current = false; void requestComposer({}, open); }
+  }, [may]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
+/** A file panel's pane in safe mode: it does not run. */
+function SafeModeFile({ id }: { id: string }) {
+  return <p className="p-4 text-sm text-muted-foreground" data-testid="file-panel-safe-mode">Safe mode is on (?panels=off), so src/panels/{id}.tsx does not run.</p>;
+}
+
+/**
+ * v1: a file panel added to src/panels while the game is open opens as a pane at once (a hot update, no reload). One
+ * that appears before the page may open panes (the room still loading) waits until it may.
+ */
+function OpenNewFilePanels({ phase }: { phase: GamePhase }) {
+  const { entries } = useFilePanels();
+  const open = useOpenPane(phase);
+  const may = useAffordance("view.openPane").available;
+  const known = useRef<Set<string> | null>(null);
+  const pending = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const ids = entries.map(e => e.id);
+    if (known.current) for (const id of ids) if (!known.current.has(id)) pending.current.add(id);
+    for (const id of pending.current) if (!ids.includes(id)) pending.current.delete(id);
+    known.current = new Set(ids);
+    if (!may) return;
+    for (const id of pending.current) void open(filePane(id));
+    pending.current.clear();
+  }, [entries, may]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
 }
 
 /** A stored panel's pane in safe mode: it does not run. */

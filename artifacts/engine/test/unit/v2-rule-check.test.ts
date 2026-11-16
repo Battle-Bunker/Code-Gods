@@ -2,8 +2,8 @@
  * The rule check (docs/engine-v2/design-principles.md) on every preset's dealt pool, lines, grids and pairs alike, for
  * the rows that read a family's declarations and its law draws:
  *
- * - 3a: at least three dealt secondaries per dealt family, of different forms; no beginner preset deals more than two
- *   layers (main and one secondary);
+ * - 3a: at least three dealt secondaries per dealt family, of different forms (any depth may be dealt, beginner
+ *   included: design-principles.md principle 3b);
  * - 4: at least four dealt parameter sets per dealt family;
  * - 7: every dealt family declares its kind and every dealt secondary its form (v2-rule-forms.ts); at most
  *   MAX_PER_KIND dealt families of one preset share a kind and at most MAX_PER_FORM share a form; no family deals one
@@ -38,12 +38,10 @@ const PMI_ALIGNED = 2, PMI_ALIGNED_SHARE = 0.2, PMI_MAX = 4, PMI_MEAN = 1;
  */
 const EXEMPT: Readonly<Record<string, string>> = {
   // Row 3a: one or two dealt secondaries. The owner's instruction (15 Nov): at least three per family. Lines: the spec
-  // lead's repertoire work; pairs: the pairs session; grids-arithmetic: the grids session.
+  // lead's repertoire work; grids-arithmetic: the grids session (pairs: three or more since trial 37).
   "prime-landing 3a": "15 Nov, spec lead: repertoire in progress",
   "smooth-intercept 3a": "15 Nov, spec lead: repertoire in progress",
   "square-area 3a": "15 Nov, grids session: Square Area redesign",
-  "opposite-nines 3a": "15 Nov, grids session: big-on-top undealt for a cheap peak (#902); grid repertoires after the deadline",
-  "strangers 3a": "15 Nov, grids session: ones and prime-strangers undealt for cheap peaks (#902); grid repertoires after the deadline",
   "whole-crossing 3a": "15 Nov, spec lead: repertoire in progress",
   "treasure 3a": "15 Nov, spec lead: repertoire in progress",
   "same-on-both-rulers 3a": "15 Nov, spec lead: repertoire in progress",
@@ -51,18 +49,13 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "prime-staircase 3a": "15 Nov, spec lead: repertoire in progress",
   "ruler 3a": "15 Nov, grids session",
   "pythagorean-area 3a": "15 Nov, grids session",
-  "whole-answer 3a": "15 Nov, pairs session",
-  "no-fractions 3a": "15 Nov, pairs session",
-  "right-angle 3a": "15 Nov, pairs session",
-  "forty-five 3a": "15 Nov, pairs session",
-  "double-gap 3a": "15 Nov, pairs session",
-  "far-crossing 3a": "15 Nov, pairs session",
-  "high-start 3a": "15 Nov, pairs session",
-  "steep-ratio 3a": "15 Nov, pairs session",
   "divisibility 3a": "15 Nov, grids session",
-  "opposite-nines 3a": "16 Nov, grids session: big-on-top undealt for its cheap peak (#902)",
-  "strangers 3a": "16 Nov, grids session: ones and prime-strangers undealt for their cheap peaks (#902)",
+  "opposite-nines 3a": "15 Nov, grids session: big-on-top undealt for a cheap peak (#902); grid repertoires after the deadline",
+  "strangers 3a": "15 Nov, grids session: ones and prime-strangers undealt for cheap peaks (#902); grid repertoires after the deadline",
   "leading-digits 3a": "15 Nov, grids session",
+  // Row 1 (not checked here for grids): every beginner grid main part has a global top on the 0–9 board, as v1's did.
+  // Leapfrog and Two Pair reached theirs in real games within 10 minutes (round 34, baseline 2); kept dealt as the v1
+  // baseline by the coordinator (16 Nov). See docs/engine-v2/grid-v1-v2-compare.md, "Known reachable tops".
   // Row 4: one dealt parameter set.
   "square-area 4": "15 Nov, grids session: Square Area redesign",
   "mirrormancer 4": "15 Nov, grids session", "magic-eighteen 4": "15 Nov, grids session", "opposite-nines 4": "15 Nov, grids session",
@@ -81,6 +74,8 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "lines-lenses 7-form:shares-factor": "15 Nov, spec lead: the repertoire adds other forms",
   "lines-pairs 7-kind:base-ladder": "15 Nov, pairs session: every pair family climbs a base's ladder",
   "lines-pairs 7-form:shares-factor": "15 Nov, pairs session",
+  "lines-pairs 7-form:near-multiple": "16 Nov, pairs session: tie-breakers tied to the level (trial 37) favour near-multiples; spread after the deadline",
+  "lines-pairs 7-form:factor-size": "16 Nov, pairs session: as near-multiple",
   "grids-beginner 7-form:second-axis": "15 Nov, grids session",
   // Row 5: no PMI table for the variant yet (lib/v2-agents scripts/pmi.ts).
   "lines-lenses 5-unmeasured": "15 Nov, spec lead: PMI table for line-q-lenses",
@@ -122,7 +117,6 @@ function problems(): { found: Problem[]; families: Set<string>; presets: Set<str
       const fam = familyOf(id);
       const tbs = [...new Set(rs.map(r => r.tieBreaker))];
       // Row 3a.
-      if (tbs.some(t => (t ?? "").split(">").length > 1) && preset.id.includes("beginner")) add(`${preset.id} 3a-depth`, `${id} deals more than one secondary in a beginner preset`);
       if (tbs.filter(t => t !== null).length < MIN_SECONDARIES) add(`${id} 3a`, `${tbs.filter(t => t !== null).length} dealt secondaries (${tbs.join(", ")})`);
       // Row 4.
       const instances = new Set(rs.map(r => JSON.stringify(r.params))).size;
@@ -239,4 +233,42 @@ test("row 10: a cheap move from a rung keeps most of a line rule's bits, or the 
   console.log([...found].map(([k, v]) => `${k}: ${v}${k in ROW10_EXEMPT ? " (exempt)" : ""}`).join("\n"));
   assert.deepEqual([...found.keys()].filter(k => !(k in ROW10_EXEMPT)), [], "new failures: fix them, or list them in ROW10_EXEMPT with a date and an owner");
   assert.deepEqual(Object.keys(ROW10_EXEMPT).filter(k => !found.has(k)), [], "exemptions that now pass: remove them");
+});
+
+/**
+ * Defence goals (v1, restored; owner-decisions call 1): the penalties a grid preset could deal beside the rules, on the
+ * rows a penalty can be held to: 1 (an unbounded main part: a badness that keeps growing), 3a (dealt secondaries) and 4
+ * (dealt parameter sets). v1's penalties are counts of cells on a fixed board, with no tie-breaker: they fail as v1's
+ * did, and are ported as v1 had them (off by default, as in v1), listed here with the date.
+ */
+const DEFENCE_EXEMPT: Readonly<Record<string, string>> = {
+  "hated-number 1": "16 Nov, rules worker: ported as v1 (a count of cells, at most the board's 16)",
+  "hated-number 3a": "16 Nov, rules worker: ported as v1 (no tie-breaker)",
+  "number-crowd 1": "16 Nov, rules worker: ported as v1 (a count of cells, at most the board's 16)",
+  "number-crowd 3a": "16 Nov, rules worker: ported as v1 (no tie-breaker)",
+  "number-crowd 4": "16 Nov, rules worker: ported as v1 (one parameter set)",
+};
+
+test("defence goals pass rows 1, 3a and 4, or are listed in DEFENCE_EXEMPT as ported from v1", () => {
+  const found = new Set<string>();
+  for (const preset of PRESETS) {
+    const { type, variant } = findVariant(preset.variant);
+    for (const pf of type.penalties ?? []) {
+      const sets = pf.dealable(variant) as unknown[];
+      if (!sets.length) continue;
+      if (pf.tieBreakers.length < MIN_SECONDARIES) found.add(`${pf.id} 3a`);
+      if (sets.length < MIN_INSTANCES) found.add(`${pf.id} 4`);
+      // Row 1: a main part that keeps growing. A count of cells tops out on a board of one number: the badness there is
+      // the board's size, and nothing passes it.
+      const T = type as ObjectType<unknown>, [born] = births(T, variant, `rule-check-${pf.id}`, 1);
+      const size = (born as { cells?: unknown[] }).cells?.length;
+      if (size !== undefined) for (const p of sets) {
+        const v = (p as { value?: number }).value ?? 0, full = { cells: Array.from({ length: size }, () => v) };
+        const main = evaluateSite(T, pf as never, p, full, variant, 0, null).terms[0]?.value as { n: bigint; d: bigint } | undefined;
+        if (main && Number(main.n) / Number(main.d) === size) { found.add(`${pf.id} 1`); break; }
+      }
+    }
+  }
+  assert.deepEqual([...found].filter(k => !(k in DEFENCE_EXEMPT)).sort(), [], "new failures: fix them, or list them");
+  assert.deepEqual(Object.keys(DEFENCE_EXEMPT).filter(k => !found.has(k)), [], "exemptions that now pass: remove them");
 });

@@ -15,18 +15,24 @@ import { internalAction } from "../_generated/server";
 import { MAX_DT } from "./loop";
 import { regularBirths, timeScaleOf } from "./duration";
 import { sandboxFor } from "./runtime";
-import { birthDraws, decode, scopeOf, typeOf, variantOf } from "./world";
+import { birthDraws, decode, penaltyWeightOf, scopeOf, typeOf, variantOf } from "./world";
+import { capOf, liveLines, offerable, pickLine, retiringCount } from "./turnover";
+import type { Turnover } from "./presets";
 import { actReadings } from "./disclose";
-import { valueFnIn } from "./values";
+import { penaltyMean, valueFnIn, valueRecord } from "./values";
 
 type Snapshot = {
   phase: string; seed: string; variant: string; leaseId: string; tick: number; acts: number; objects: number; endsAt: number | null;
   worldSeconds: number; lastTickAt: number;
+  /** Line turnover: the live lines, oldest first (absent: every number up to `objects`). */
+  live?: number[];
+  /** Turnover with released states: each live line's object, oldest first. */
+  liveObjectIds?: string[];
   /** The world second the game ends at (private in halfLife mode; the tick only follows it). */
   endWorld: number;
   held: { objectId: string; state: string }[]; noiseKey: string | null;
-  settings: { worldSeconds: number; startingObjects: number; peerNoiseVariance?: number; timeScale?: number; regularBirths?: boolean; commitClause?: boolean; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
-  seats: { memberId: string; rule: { family: string; params: unknown; tieBreaker: string | null; ruleKey: string } }[];
+  settings: { worldSeconds: number; startingObjects: number; peerNoiseVariance?: number; timeScale?: number; regularBirths?: boolean; commitClause?: boolean; penaltyWeight?: number; turnover?: Turnover; stepBudget?: number; interactionComputeMs?: number; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
+  seats: { memberId: string; rule: { family: string; params: unknown; tieBreaker: string | null; ruleKey: string }; defence?: { family: string; params: unknown; ruleKey: string } }[];
   ready: ("typescript" | "python")[];
   agents: TickAgent[];
   /** Where the next page of live agents starts (`tickAgents`); null when the snapshot holds them all. */
@@ -76,11 +82,21 @@ export const tick = internalAction({
       // births (the commit places the same draw: the first no object holds), then each act that commits here.
       const holder = new Map(snap.held.map(h => [h.state, h.objectId]));
       born.forEach((draws, i) => { const w = draws.find(d => !holder.has(d)); if (w !== undefined) holder.set(w, `born:${i}`); });
+      // Turnover: the lines these births retire (the oldest live ones) release their states when the settings say so.
+      const cap = capOf(snap.settings), retiring = retiringCount(snap.live?.length ?? snap.objects, nBorn, cap);
+      if (snap.liveObjectIds && retiring > 0) {
+        const gone = new Set(snap.liveObjectIds.slice(0, retiring));
+        for (const [state, id] of holder) if (gone.has(id)) holder.delete(state);
+      }
       // Disclosure noise on the others' sums (owner decision 32, disclose.ts actReadings): every read an agent makes is
       // an independent measurement, never shared, deterministic given the act's seed.
       const noise = { noiseKey: snap.noiseKey ?? undefined, settings: snap.settings };
-      const nOffers = snap.objects > 0 ? opportunities(econ.opportunitiesPerSecond, dt, r) : 0;
-      const picks = Array.from({ length: nOffers }, () => 1 + r.below(snap.objects));
+      // Offers among the live lines this tick's births will not retire (turnover, retirement-design.md); with no
+      // turnover every line is live and the draws are the ones before turnover existed.
+      const offered = cap === null ? null : offerable(liveLines(snap), nBorn, cap);
+      const liveObjects = offered?.length ?? snap.objects;
+      const nOffers = liveObjects > 0 ? opportunities(econ.opportunitiesPerSecond, dt, r) : 0;
+      const picks = Array.from({ length: nOffers }, () => offered ? pickLine(offered, r) : 1 + r.below(snap.objects));
       const states = new Map((await ctx.runQuery(STATES, { gameId, numbers: picks })).map(s => [s.number, s]));
 
       // Energy settled to this tick's world time, then spent act by act (the commit settles again, authoritatively).
@@ -100,9 +116,17 @@ export const tick = internalAction({
       // Values in this game (decision 24): the uniqueness correction at the game's object count, as the commit values.
       const scope = scopeOf(snap);
       const ruleOf = (r: Snapshot["seats"][number]["rule"]) => ({ family: r.family, params: r.params as Record<string, unknown>, tieBreaker: r.tieBreaker });
+      // A seat's defence goal (v1, restored; call 1), as the host values it beside the rule: the commit's signed bits.
+      // One per seat a tick, shared by every host that values that seat.
+      const weight = penaltyWeightOf(snap);
+      const defences = new Map(snap.seats.map(seat => {
+        const d = seat.defence, r = d ? valueRecord(d.ruleKey) : null;
+        return [seat.memberId, d && r ? { defence: { family: d.family, params: d.params, values: { knots: r.knots, tail: r.tail }, mean: penaltyMean(d.ruleKey), weight } } : {}] as const;
+      }));
+      const defenceOf = (memberId: string) => defences.get(memberId)!;
       const othersOf = new Map(snap.seats.map(seat => [seat.memberId, snap.seats.flatMap(o => {
         const vf = o.memberId === seat.memberId ? null : valueFnIn(o.rule.ruleKey, scope);
-        return vf ? [{ rule: ruleOf(o.rule), values: vf }] : [];
+        return vf ? [{ rule: ruleOf(o.rule), values: vf, ...defenceOf(o.memberId) }] : [];
       })]));
       const told = new Map<string, ActInput>();
       for (const rows of await Promise.all(batches)) for (const { memberId, objectId, ...input } of rows) told.set(`${memberId}:${objectId}`, input);
@@ -131,14 +155,19 @@ export const tick = internalAction({
         const { record } = await runAct(sandbox, {
           type: typeOf(snap.variant), variant, state: decode(local.get(number) ?? s.state, snap.variant),
           rule: ruleOf(seat.rule),
-          program: { language: agent.language, source: agent.source }, seed, energy, object: number, liveObjects: snap.objects,
-          ...input, ...(vf ? { values: vf } : {}), others: othersOf.get(seat.memberId)!,
+          program: { language: agent.language, source: agent.source }, seed, energy, object: number, liveObjects,
+          ...input, ...(vf ? { values: vf, ...defenceOf(seat.memberId) } : {}), others: othersOf.get(seat.memberId)!,
           // Any held state, the object's own included: v1's uniqueness, "a transformation onto any existing value
           // (including the object's own) fails entirely".
           occupied: e => holder.has(e), disclosed: reads.disclosed,
           // The commit clause (v1's option, off by default; call 34): an onlyIfBetter plan commits only if it raises the
           // owner's points as othersAfter discloses them (runAct decides it).
           ...(snap.settings.commitClause ? { commitClause: true } : {}),
+          // The room's per-act compute limits (v1's stepBudget and interactionComputeMs); else the sandbox's defaults.
+          ...(snap.settings.stepBudget !== undefined || snap.settings.interactionComputeMs !== undefined ? { limits: {
+            ...(snap.settings.stepBudget !== undefined ? { stepBudget: snap.settings.stepBudget } : {}),
+            ...(snap.settings.interactionComputeMs !== undefined ? { wallMs: snap.settings.interactionComputeMs } : {}),
+          } } : {}),
         });
         // The credit rule (docs/energy-model.md §7.2): a change that would leave the agent owing more than its capacity
         // does not commit and pays only its reads; a change that does not change the state is not a change.
@@ -155,7 +184,7 @@ export const tick = internalAction({
         }
         acts.push({
           n: snap.acts + i, verdict, agentId: agent.agentId, memberId: agent.memberId, objectId: s.objectId, number, version: s.version,
-          seed, energy, liveObjects: snap.objects, programVersion: agent.version, record, input,
+          seed, energy, liveObjects, programVersion: agent.version, record, input,
         });
       }
       await ctx.runMutation(COMMIT, { gameId, leaseId, world, now, born, acts: chainVersions(acts), picks: picks.length });

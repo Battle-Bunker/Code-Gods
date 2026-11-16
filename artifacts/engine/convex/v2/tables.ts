@@ -25,6 +25,9 @@ export const scoreWireV = v.union(v.array(v.union(v.string(), v.null())), v.null
 export const callV = v.object({ mutator: v.string(), site: v.number(), args: v.record(v.string(), v.string()) });
 /** The room's overrides of its preset (affordance `room.settings`). */
 export const durationModeV = v.union(v.literal("fixed"), v.literal("halfLife"));
+export const retiredPointsV = v.union(v.literal("banked"), v.literal("dropped"));
+/** Line turnover (retirement-design.md), frozen in a game's settings: absent, every line stays live (today's game). */
+export const turnoverV = v.object({ liveCap: v.number(), retiredPoints: retiredPointsV, retiredHolds: v.boolean() });
 export const overridesV = v.object({
   planningSeconds: v.optional(v.number()), worldSeconds: v.optional(v.number()), startingEnergy: v.optional(v.number()),
   durationMode: v.optional(durationModeV), scoreIntervalSeconds: v.optional(v.number()),
@@ -40,6 +43,29 @@ export const overridesV = v.object({
   pauseSeconds: v.optional(v.number()),
   /** Offer the commit clause (v1, off by default): agents may mark acts only-if-better. */
   commitClause: v.optional(v.boolean()),
+  /** Defence goals (v1, restored; owner-decisions call 1): grids only, off by default; the penalty weight w (absent: 1). */
+  defenceGoals: v.optional(v.boolean()), penaltyWeight: v.optional(v.number()), excludedDefenceFamilies: v.optional(v.array(v.string())),
+  /** v1's world, energy and compute settings (absent: the preset's economy; the sandbox's 500,000 steps and 2,000 ms). */
+  startingObjects: v.optional(v.number()), birthsPerSecond: v.optional(v.number()), opportunitiesPerSecond: v.optional(v.number()),
+  powerPerSecond: v.optional(v.number()), fullChargeSeconds: v.optional(v.number()),
+  stepBudget: v.optional(v.number()), interactionComputeMs: v.optional(v.number()),
+  /** v1's "Rules never dealt": the preset's families this room never deals (absent: none). */
+  excludedFamilies: v.optional(v.array(v.string())),
+  /** v1's bid price and bid visibility, on a preset with a bid phase (absent: the preset's pricing; sealed). */
+  bidPricing: v.optional(v.union(v.literal("first"), v.literal("second"))),
+  bidVisibility: v.optional(v.union(v.literal("sealed"), v.literal("open"))),
+  /** v1's bid results shown, during the game (absent: the preset's; after the end everything is shown). */
+  bidDisclosure: v.optional(v.union(v.literal("none"), v.literal("handicaps"), v.literal("all"))),
+  /** v1's bidSeconds: the bid phase's length; 0 is none, above 0 opens one on any setup (absent: the preset's). */
+  bidSeconds: v.optional(v.number()),
+  /** Line turnover (retirement-design.md): at most this many live lines; a birth past it retires the oldest. Absent: none. */
+  liveCap: v.optional(v.number()),
+  /** Regular births, one every this many world seconds, in place of the preset's birth rate. */
+  birthSeconds: v.optional(v.number()),
+  /** Under turnover: a retired line's points stay in the totals ("banked", the default) or leave them ("dropped"). */
+  retiredPoints: v.optional(retiredPointsV),
+  /** Under turnover: a retired line keeps holding its state for uniqueness (decision 24; default true). */
+  retiredHolds: v.optional(v.boolean()),
   /**
    * Time dilation (owner decision 37): every rate × this, every duration ÷ it (v2-economy dilate), so the room's games
    * run this many times faster with the same per-act quantities. For simulations and local playtests only: set by the
@@ -59,6 +85,11 @@ export const valueSnapV = v.object({ score: scoreWireV, rarityBits: v.number(), 
 const legacyLevel = v.optional(v.number());
 /** `shownWant`/`shownPoints`: as disclosed while live (disclose.ts); absent on rows written before the noise was restored. */
 const shownFields = { shownWant: v.optional(v.number()), shownPoints: v.optional(v.number()) };
+/**
+ * The objects pane's filters (v1's quadrants, disclose.ts quadrantOf): from the player's own bits and the others' sum as
+ * disclosed to them (exact after the end). Absent on rows written before the filters were restored.
+ */
+export const quadrantV = v.union(v.literal("contested"), v.literal("chips"), v.literal("other"));
 const storedValueSnapV = v.object({ score: scoreWireV, level: legacyLevel, rarityBits: v.number(), want: v.number(), points: v.number(), ...shownFields });
 const legacyLadder = v.optional(v.array(v.object({ level: v.number(), label: v.string(), rarityBits: v.number(), layer: v.optional(v.string()) })));
 export const bidV = v.object({ family: v.string(), percent: v.number() });
@@ -67,7 +98,7 @@ export const offerV = v.object({ family: v.string(), title: v.string(), card: v.
 
 export const eventKindV = v.union(
   v.literal("gameStarted"), v.literal("objectBorn"), v.literal("act"), v.literal("values"), v.literal("tick"),
-  v.literal("phase"), v.literal("command"), v.literal("gameEnded"), v.literal("drift"),
+  v.literal("phase"), v.literal("command"), v.literal("gameEnded"), v.literal("drift"), v.literal("retired"),
 );
 
 // ---------------------------------------------------------------- the tables
@@ -85,7 +116,11 @@ export const v2Tables = {
     /** Games started in this room so far (a game's `number`). */
     games: v.number(),
     /** The open bid phase (plan §5.9): a step of the start, before the game exists. */
-    bidding: v.optional(v.object({ deadline: v.number(), pricing: v.union(v.literal("first"), v.literal("second")), families: v.array(offerV) })),
+    bidding: v.optional(v.object({
+      deadline: v.number(), pricing: v.union(v.literal("first"), v.literal("second")), families: v.array(offerV),
+      /** v1's bid visibility: "open" shows every player's bids as they are placed (absent: sealed). */
+      visibility: v.optional(v.union(v.literal("sealed"), v.literal("open"))),
+    })),
   }).index("by_code", ["code"]),
 
   /** A seat or a spectator in a room (≤ 16 per room): a human, a practice partner or an AI player. */
@@ -102,7 +137,11 @@ export const v2Tables = {
     .index("by_room", ["roomId", "at"]),
 
   /** Completed writes by (caller, affordance, requestId): a retry is answered, never applied twice. */
-  v2Receipts: defineTable({ key: v.string(), outcome: v.any(), at: v.number() }).index("by_key", ["key"]),
+  v2Receipts: defineTable({
+    key: v.string(), outcome: v.any(), at: v.number(),
+    /** The key's parts (callerKey|operation|requestId), for receipt.get by request id; absent on rows stored before it. */
+    callerKey: v.optional(v.string()), operation: v.optional(v.string()), requestId: v.optional(v.string()),
+  }).index("by_key", ["key"]).index("by_caller_request", ["callerKey", "requestId"]),
 
   /** A game's header (cold: written by the lobby, and by the loop only when the phase changes). */
   v2Games: defineTable({
@@ -131,8 +170,14 @@ export const v2Tables = {
       pauseSeconds: v.optional(v.number()),
       /** The commit clause is offered (v1, off by default): an only-if-better act commits only if its owner gains. */
       commitClause: v.optional(v.boolean()),
+      /** Defence goals are dealt (v1; grids only), with the penalty weight w (absent: 1) and the families left out. */
+      defenceGoals: v.optional(v.boolean()), penaltyWeight: v.optional(v.number()), excludedDefenceFamilies: v.optional(v.array(v.string())),
+      /** Per-act compute limits the room set (v1's stepBudget and interactionComputeMs); absent: the sandbox's defaults. */
+      stepBudget: v.optional(v.number()), interactionComputeMs: v.optional(v.number()),
       /** Births on a regular schedule, birth j at j / rate (decision 31; duration.ts regularBirths); absent: stochastic. */
       regularBirths: v.optional(v.boolean()),
+      /** Line turnover (retirement-design.md): at most `liveCap` live lines, the oldest retiring; absent: none. */
+      turnover: v.optional(turnoverV),
       /** The game's time dilation (decision 37): its settings are already dilated by it; wall-clock pacing divides by it. */
       timeScale: v.optional(v.number()),
       /** The weight on a look's read price (knowledge.ts, decision 35); absent (games stored before it): 0, free. */
@@ -166,7 +211,11 @@ export const v2Tables = {
     /** When a player's pause ends by itself (v1: pauseSeconds after it began); absent unless a player paused. */
     pauseEndsAt: v.optional(v.number()),
     /** Each dealt rule's artefact content hash, by member (the header of spec §9.1). */
-    artefacts: v.array(v.object({ memberId: v.id("v2Members"), ruleKey: v.string(), contentHash: v.string() })),
+    artefacts: v.array(v.object({
+      memberId: v.id("v2Members"), ruleKey: v.string(), contentHash: v.string(),
+      /** The seat's defence goal's value function (v1, restored; call 1), when one was dealt. */
+      defence: v.optional(v.object({ ruleKey: v.string(), contentHash: v.string() })),
+    })),
     /** Whether this game's deal continues the room's rotation (plan §5.9: not after a won bid). */
     rotates: v.boolean(),
     /** What a fresh deal depends on (variant and dealable pool): a rotation continues only under the same key. */
@@ -191,12 +240,21 @@ export const v2Tables = {
   v2Knowledge: defineTable({
     gameId: v.id("v2Games"), memberId: v.id("v2Members"), objectId: v.id("v2Objects"), number: v.number(),
     state: v.string(), version: v.number(), learnedAt: v.number(), score: scoreWireV, rarityBits: v.number(), want: v.number(), points: v.number(),
+    quadrant: v.optional(quadrantV),
   }).index("by_object_member", ["objectId", "memberId"])
     .index("by_game_member_points", ["gameId", "memberId", "points"])
     .index("by_game_member_rarity", ["gameId", "memberId", "rarityBits"])
     .index("by_game_member_want", ["gameId", "memberId", "want"])
     .index("by_game_member_born", ["gameId", "memberId", "number"])
-    .index("by_game_member_learned", ["gameId", "memberId", "learnedAt"]),
+    .index("by_game_member_learned", ["gameId", "memberId", "learnedAt"])
+    .index("by_game_member_version", ["gameId", "memberId", "version"])
+    // The filtered sorts (v1's positive, contested, chips): the same orders within one quadrant.
+    .index("by_game_member_quadrant_points", ["gameId", "memberId", "quadrant", "points"])
+    .index("by_game_member_quadrant_rarity", ["gameId", "memberId", "quadrant", "rarityBits"])
+    .index("by_game_member_quadrant_want", ["gameId", "memberId", "quadrant", "want"])
+    .index("by_game_member_quadrant_version", ["gameId", "memberId", "quadrant", "version"])
+    .index("by_game_member_quadrant_born", ["gameId", "memberId", "quadrant", "number"])
+    .index("by_game_member_quadrant_learned", ["gameId", "memberId", "quadrant", "learnedAt"]),
 
   /** When a human last acted (activity.ts: idle parking); one row, key "global". */
   v2Activity: defineTable({ key: v.string(), lastHumanActivityAt: v.number() }).index("by_key", ["key"]),
@@ -216,6 +274,8 @@ export const v2Tables = {
     events: v.number(), scoreboards: v.number(), scoreboardAt: v.number(), failures: v.number(),
     /** Parameter drifts done (drift.ts): drift k happens at world second k × driftSeconds. */
     drifts: v.optional(v.number()),
+    /** Line turnover: the live lines' numbers, oldest first (absent: every number up to `objects` is live). */
+    live: v.optional(v.array(v.number())),
     /** Each player's running points total (hot, so it lives here and not on any document a query reads). */
     totals: v.record(v.string(), v.number()),
     /** The same totals from the disclosed points (what the published standings show while live). */
@@ -237,6 +297,8 @@ export const v2Tables = {
     previous: v.optional(v.object({ params: v.any(), card: v.string() })),
     /** Won by a bid (the percent bid) and the handicap the winner pays, percent of totals. */
     bid: v.optional(v.number()), handicap: v.optional(v.number()),
+    /** A defence goal dealt beside the rule (v1, restored; owner-decisions call 1): one of the variant's penalty families. */
+    defence: v.optional(v.object({ family: v.string(), params: v.any(), ruleKey: v.string(), card: v.string() })),
   }).index("by_game_member", ["gameId", "memberId"]),
 
   /** A player's account in one game (hot, one per player): energy store, power, ready, pause. */
@@ -248,11 +310,17 @@ export const v2Tables = {
   }).index("by_game_member", ["gameId", "memberId"]).index("by_game", ["gameId"]),
 
   /** An object's cold part. */
-  v2Objects: defineTable({ gameId: v.id("v2Games"), number: v.number(), bornAt: v.number() })
+  v2Objects: defineTable({
+    gameId: v.id("v2Games"), number: v.number(), bornAt: v.number(),
+    /** Line turnover: the world second it retired (no agent is offered it again; its points as the settings say). */
+    retiredAt: v.optional(v.number()),
+  })
     .index("by_game", ["gameId", "number"]),
   /** An object's hot part, shared by every viewer: the state on the wire. */
   v2ObjectStates: defineTable({
     objectId: v.id("v2Objects"), gameId: v.id("v2Games"), state: v.string(), version: v.number(), changedAt: v.number(),
+    /** Retired and no longer holding its state (turnover with `retiredHolds` false): uniqueness passes it over. */
+    released: v.optional(v.boolean()),
   }).index("by_object", ["objectId"])
     /** Who holds a state (decision 24: no two objects of a game hold the same one; one document per check). */
     .index("by_game_state", ["gameId", "state"]),
@@ -263,7 +331,7 @@ export const v2Tables = {
   v2ObjectValues: defineTable({
     objectId: v.id("v2Objects"), gameId: v.id("v2Games"), memberId: v.id("v2Members"), number: v.number(),
     score: scoreWireV, level: legacyLevel, rarityBits: v.number(), want: v.number(), points: v.number(), ...shownFields,
-    version: v.number(), changedAt: v.number(),
+    version: v.number(), changedAt: v.number(), quadrant: v.optional(quadrantV),
     /** The last moves on it that concerned this player (at most HISTORY, oldest first): their agents' `history`. */
     recent: v.optional(v.array(v.object({ mine: v.boolean(), pointsBefore: v.number(), pointsAfter: v.number() }))),
   }).index("by_object_member", ["objectId", "memberId"])
@@ -274,7 +342,16 @@ export const v2Tables = {
     .index("by_game_member_shownPoints", ["gameId", "memberId", "shownPoints"])
     .index("by_game_member_shownWant", ["gameId", "memberId", "shownWant"])
     .index("by_game_member_born", ["gameId", "memberId", "number"])
-    .index("by_game_member_changed", ["gameId", "memberId", "changedAt"]),
+    .index("by_game_member_changed", ["gameId", "memberId", "changedAt"])
+    // v1's "most mutated": the row's version counts the object's changes (1 at birth).
+    .index("by_game_member_version", ["gameId", "memberId", "version"])
+    // The filtered sorts (v1's positive, contested, chips) on the disclosed values: the same orders within one quadrant.
+    .index("by_game_member_quadrant_shownPoints", ["gameId", "memberId", "quadrant", "shownPoints"])
+    .index("by_game_member_quadrant_rarity", ["gameId", "memberId", "quadrant", "rarityBits"])
+    .index("by_game_member_quadrant_shownWant", ["gameId", "memberId", "quadrant", "shownWant"])
+    .index("by_game_member_quadrant_version", ["gameId", "memberId", "quadrant", "version"])
+    .index("by_game_member_quadrant_born", ["gameId", "memberId", "quadrant", "number"])
+    .index("by_game_member_quadrant_changed", ["gameId", "memberId", "quadrant", "changedAt"]),
 
   /** An agent's cold part. */
   v2Agents: defineTable({
@@ -292,8 +369,19 @@ export const v2Tables = {
   v2AgentEnergy: defineTable({
     agentId: v.id("v2Agents"), gameId: v.id("v2Games"), energy: v.number(), acts: v.number(), skips: v.number(),
     failures: v.number(), spend: v.number(), pointsGained: v.number(), lastActAt: v.optional(v.number()),
+    /**
+     * v1's My agents split of `spend`: the part paid for reading (R/κ, every act) and for changing (W + βW², committed
+     * acts only), and the last act's two parts. Absent on rows stored before the split: read as 0 and null.
+     */
+    spendRead: v.optional(v.number()), spendChange: v.optional(v.number()),
+    lastAct: v.optional(v.object({ at: v.number(), read: v.number(), change: v.number(), outcome: v.string() })),
     /** The balance is as of this world second. */
     settledAt: v.number(),
+    /**
+     * The agents pane's sparkline (v1's, A6): the balance just after each act, oldest first, at most one a tick and the
+     * last AGENT_HISTORY (loop.ts). Hot, like the rest of this row: it changes when the row does.
+     */
+    history: v.optional(v.array(v.object({ at: v.number(), energy: v.number() }))),
   }).index("by_agent", ["agentId"]),
   /** Every program an agent has run (the put-back comparison). */
   v2AgentPrograms: defineTable({
@@ -348,6 +436,13 @@ export const v2Tables = {
     gameId: v.id("v2Games"), memberId: v.id("v2Members"), objectId: v.id("v2Objects"), number: v.number(),
     moves: v.number(), flips: v.number(), lastMine: v.boolean(), mySpend: v.number(), others: v.array(v.id("v2Members")),
     from: v.number(), to: v.number(), best: v.union(v.object({ state: v.string(), points: v.number() }), v.null()),
+    /** The states the last two moves left it in, oldest first (rows stored before: absent). */
+    lastStates: v.optional(v.array(v.string())),
+    /**
+     * The two-state cycle it is in (playtest rounds 32 and 33: a line toggled between two states): the pair (a < b) and
+     * how many moves went between exactly those two states. Null until a move does.
+     */
+    cycle: v.optional(v.union(v.object({ a: v.string(), b: v.string(), moves: v.number() }), v.null())),
   }).index("by_game_member_object", ["gameId", "memberId", "objectId"])
     .index("by_game_member_flips", ["gameId", "memberId", "flips"]),
 

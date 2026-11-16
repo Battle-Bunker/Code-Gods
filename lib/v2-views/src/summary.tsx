@@ -35,6 +35,8 @@ export interface SummaryTug<S = unknown> {
   readonly mySpend: number;
   /** Every other side is a practice partner (they do not read chat). */
   readonly practice?: boolean;
+  /** It only flipped between two states, this many moves (the tick's tug row, W3-2 #967). */
+  readonly cycle?: { readonly moves: number } | null;
 }
 
 /** A contested object's moves (the player's own act-log rows on it, oldest first): did the players climb together? */
@@ -122,8 +124,12 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
 
   // What cost: each tug-of-war, the one that changed hands most first (round 33: ranked by energy, the advice named a
   // 3-pull line over a 40-move cycle), said as what happened, in the same count as Contested lines.
-  const tugs = [...input.tugs].sort((a, b) => b.flips - a.flips || b.mySpend - a.mySpend);
-  const tugText = (t: (typeof tugs)[number]) => `pulled ${noun} ${t.number} back and forth: it changed hands ${t.flips} times (${fmtEnergy(t.mySpend)} of yours)`;
+  // A two-state cycle counts by its moves (each undoing the last), else by changes of hands.
+  const weight = (t: SummaryTug<S>) => Math.max(t.flips, t.cycle?.moves ?? 0);
+  const tugs = [...input.tugs].sort((a, b) => weight(b) - weight(a) || b.mySpend - a.mySpend);
+  const tugText = (t: (typeof tugs)[number]) => t.cycle
+    ? `flipped ${noun} ${t.number} back and forth between two states ${t.cycle.moves} times (${fmtEnergy(t.mySpend)} of yours)`
+    : `pulled ${noun} ${t.number} back and forth: it changed hands ${t.flips} times (${fmtEnergy(t.mySpend)} of yours)`;
   const costs = tugs.map(t => ({ number: t.number, text: `${youAnd(t.withNames)} ${tugText(t)}.` }));
   const spent = tugs.reduce((t, x) => t + x.mySpend, 0);
   const partial = input.movesRead ? ` (from your last ${input.movesRead.toLocaleString("en-US")} moves)` : "";
@@ -153,7 +159,7 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
   if (stallFact && (pace!.full || !top)) {
     next = { number: top?.number ?? null, text: `${lead(tugFact)}${stallFact} Next game, when your points stop rising, change what your agent tries: pick another of its starting points in Agent code, or summon a second agent that tries different moves, so your energy keeps buying moves.` };
   } else if (top) {
-    next = { number: top.number, text: `${lead(tugFact)}${lead(stallFact)}Next game, open a ${noun} you share in One ${noun} and order its moves by “Best for points”: your points there are your bits × theirs, so the top move counts their bits as well as yours and gives them less reason to undo it.${top.practice ? "" : " Tell them in chat which way you are climbing."}` };
+    next = { number: top.number, text: `${lead(tugFact)}${lead(stallFact)}Next game, open a ${noun} you share in One ${noun} and order its moves by “Best for points”: your points there are your bits × theirs, so the top move counts their bits as well as yours.${top.practice ? "" : " Tell them in chat which way you are climbing."}` };
   } else if (pace && pace.stalledAt === null && pace.lastThird > 0) {
     next = { number: null, text: `Your agent was still raising your points at the end (+${fmtNum(pace.lastThird)} points in the last third). Next game, give it a bigger share of your power from the start, in My agents, so it climbs sooner.` };
   } else if (together) {

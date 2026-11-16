@@ -26,6 +26,7 @@ import {
 import { fromMC, lineLaw, lineParams, lineSums, lineType, type Band, type Law, type LineState, type LineSums } from "@workspace/v2-linear";
 import { integersWithin } from "./exact.ts";
 import { ruleKey, valuesHash } from "./keys.ts";
+import { buildTree, treeLookup, type TreeValue } from "./tree-value.ts";
 
 // ---------------------------------------------------------------- survival oracles
 
@@ -272,23 +273,44 @@ export function tieBreakerBits(lv: TieBreakerLevels, level: number, t: number): 
   let c = cs[0]!;
   for (let i = cs.length - 1; i >= 0; i--) if (cs[i]!.level <= level) { c = cs[i]!; break; }
   const pts = c.pts;
+  // A distance carried from another level is read on that level's scale: a ladder's targets grow by its base a level
+  // (q^(L+1), the level's own number), so a distance of 2 to a multiple of 11⁴ is a distance of 2/121 to one of 11².
+  // Read unscaled, the lower level's curve paid 25 bits for it (Far Crossing {11, 2}, 46 bits on the energy gate).
+  if (c.level !== level && pts[pts.length - 1]![0] <= 0) t *= lv.base ** (c.level - level);
   if (t <= pts[0]![0]) return 0;
   for (let i = 1; i < pts.length; i++) {
     const [t1, b1] = pts[i]!;
     if (t <= t1) { const [t0, b0] = pts[i - 1]!; return b0 + ((t - t0) / (t1 - t0)) * (b1 - b0); }
   }
-  // Past the measured range, on the axis the rate was fitted on (log₂(1 + t − t₀), t₀ the level's first point): a
-  // doubling of the climb from the floor, not of the step past the last point, which over-paid a far act (a stretch by
-  // 11 took Steep Ratio's tie-breaker from 12 to 132 and its seat from 12.7 to 28.3 bits).
-  const t0 = pts[0]![0], [tl, bl] = pts[pts.length - 1]!;
-  return bl + c.slope * (Math.log2(1 + t - t0) - Math.log2(1 + tl - t0));
+  // Past the measured range, on the axis the rate was fitted on (tieBreakerAxis): a doubling of the climb from the floor,
+  // not of the step past the last point, which over-paid a far act (a stretch by 11 took Steep Ratio's tie-breaker from
+  // 12 to 132 and its seat from 12.7 to 28.3 bits).
+  const [tl, bl] = pts[pts.length - 1]!, x = tieBreakerAxis(pts);
+  return bl + (tl <= 0 ? Math.min(c.slope, DISTANCE_RATE) : c.slope) * Math.max(0, x(t) - x(tl));
+}
+
+/**
+ * A distance's rate past its measured range: 1 bit a halving. Near its target a distance with a smooth density has
+ * P(d ≤ x) ∝ x, so each halving is exactly one bit. A rate fitted at the far end of a sparse level ran to 4 bits a
+ * halving, and 34 bits for a crossing 3 from a multiple of 1,331 (Far Crossing {11, 8} on the energy gate).
+ */
+const DISTANCE_RATE = 1;
+/**
+ * The axis a level's tie-breaker rate is measured on. A size (some value above 0): doublings of the climb from the
+ * level's floor, log₂(1 + t − t₀). A distance to a target (every value at most 0, best 0): halvings of the distance,
+ * −log₂(1 + |t|), so its climb ends at the target. On a size's axis a distance's floor (a sampled −10¹⁹) made every
+ * ordinary state worth 25 bits.
+ */
+function tieBreakerAxis(pts: readonly (readonly [number, number])[]): (t: number) => number {
+  const t0 = pts[0]![0];
+  return pts[pts.length - 1]![0] <= 0 ? t => -Math.log2(1 + Math.abs(Math.min(t, 0))) : t => Math.log2(1 + t - t0);
 }
 
 /**
  * The per-level tie-breaker curves from weighted draws of the law (TieBreakerLevels): for each level with at least
  * `minDraws` draws, the survival of the tie-breaker among them, thinned to rises of a quarter bit, kept while at least
- * `minDraws` draws lie at or above the point (the rest is noise), and the rate past it fitted on log₂(1 + t − t₀) over the
- * kept points (at least TAIL_FLOOR: a tie-breaker past its measured range still pays like a number's size).
+ * `minDraws` draws lie at or above the point (the rest is noise), and the rate past it fitted over the
+ * kept points on its axis (tieBreakerAxis; at least TAIL_FLOOR). A level with fewer than three kept points is left out.
  */
 export function tieBreakerLevels(draws: readonly { u: Score; w: number }[], base: number, minDraws = 40): TieBreakerLevels {
   const by = new Map<number, { t: number; w: number }[]>();
@@ -316,10 +338,10 @@ export function tieBreakerLevels(draws: readonly { u: Score; w: number }[], base
     surv.reverse();   // ascending in t
     const pts: [number, number][] = [];
     for (const p of surv) if (!pts.length || p[1] >= pts[pts.length - 1]![1] + 0.25) pts.push([round6(p[0]), round6(p[1])]);
-    if (!pts.length) continue;
-    const t0 = pts[0]![0];
-    const fit = pts.length >= 3 ? leastSquares(pts.map(([t, b]) => ({ x: Math.log2(1 + t - t0), y: b }))) : null;
-    curves.push({ level: L, pts, slope: round6(Math.max(fit?.slope ?? 0, TAIL_FLOOR)) });
+    // Fewer than three points is no curve: the level carries the one below.
+    if (pts.length < 3) continue;
+    const x = tieBreakerAxis(pts), fit = leastSquares(pts.map(([t, b]) => ({ x: x(t), y: b })));
+    curves.push({ level: L, pts, slope: round6(Math.max(fit?.slope ?? 0, TAIL_FLOOR)) });   // a distance's is held at lookup (DISTANCE_RATE)
   }
   return { base, curves };
 }
@@ -342,6 +364,8 @@ export interface ValueFunction {
   /** Worst first. The first is always the worst score (null, 0 bits). */
   readonly knots: readonly ValueKnot[];
   readonly tail: ValueTail;
+  /** A tree-valued rule's tree (RuleFamily.valuation "tree", owner decision 45): valueLookup reads it instead of the knots. */
+  readonly tree?: TreeValue;
   readonly diagnostics: {
     readonly exact: readonly { readonly name: string; readonly outside: number }[];
     readonly sampled: { readonly draws: number; readonly accepted: number; readonly ess: number } | null;
@@ -597,8 +621,13 @@ export interface Lookup {
   /** Certified bounds (hi is Infinity beyond the best knot). */
   readonly lo: number;
   readonly hi: number;
-  /** "knot": the score is a knot; "between": bracketed by two knots; "beyond": better than every knot (extrapolated). */
-  readonly at: "knot" | "between" | "beyond";
+  /**
+   * "knot": the score is a knot; "between": bracketed by two knots; "beyond": better than every knot (extrapolated);
+   * "tree": a tree-valued rule, whose bits are the sum of `parts`.
+   */
+  readonly at: "knot" | "between" | "beyond" | "tree";
+  /** A tree-valued rule only: the bits of each part, level then closeness then the third (they add up to `bits`). */
+  readonly parts?: readonly number[];
 }
 
 /** What a rule's main layer and dealt tie-breaker declare they measure: the tail's measures. */
@@ -613,7 +642,11 @@ export function layerMeasures(family: RuleFamily<any, any>, tb: TieBreaker): Tai
  * A lookup function for a value function: bits at any score. Past the best knot the tail rule extrapolates without
  * bound (owner decision 26); a value function given without its tail takes the tail its knots imply (tailOf).
  */
-export function valueLookup(vf: { readonly knots: readonly Pick<ValueKnot, "u" | "bits" | "lo" | "hi">[]; readonly tail?: ValueTail | null }): (u: Score) => Lookup {
+export function valueLookup(vf: { readonly knots: readonly Pick<ValueKnot, "u" | "bits" | "lo" | "hi">[]; readonly tail?: ValueTail | null; readonly tree?: TreeValue }): (u: Score) => Lookup {
+  if (vf.tree) {
+    const look = treeLookup(vf.tree);
+    return (u: Score) => { const t = look(u); return { bits: t.bits, lo: t.bits, hi: t.bits, at: "tree", parts: t.parts }; };
+  }
   const ks = vf.knots.map(k => ({ ...k, s: scoreFromWire(k.u) }));
   const tail = vf.tail ?? tailOf(vf.knots);
   return (u: Score) => {
@@ -783,9 +816,10 @@ export function lineValueFunction<P>(family: RuleFamily<LineState, P>, params: P
   const tb = tieBreaker === "none" ? null : tieBreaker;
   const exact = options.exact === false ? [] : exactLineOracles(family, params, variant, tb, cfg);
   const oracles: Oracle[] = [...exact];
-  let sampled: ValueFunction["diagnostics"]["sampled"] = null;
+  let sampled: ValueFunction["diagnostics"]["sampled"] = null, tree: TreeValue | undefined;
   if (cfg.drawsPerTilt > 0) {
     const { draws, total } = sampledDraws(lineType, lineLaw(variant), family, params, variant, tb, cfg, seed);
+    if (family.valuation === "tree") tree = buildTree(draws);
     const W = draws.reduce((a, d) => a + d.w, 0), W2 = draws.reduce((a, d) => a + d.w * d.w, 0);
     sampled = { draws: total, accepted: draws.length, ess: Math.round(W2 > 0 ? (W * W) / W2 : 0) };
     oracles.push(sampledOracle("direct draws", draws));
@@ -796,6 +830,7 @@ export function lineValueFunction<P>(family: RuleFamily<LineState, P>, params: P
     ruleKey: ruleKey(lineType as ObjectType<unknown>, variant, family.id, params, tieBreaker),
     objectType: lineType.id, objectTypeVersion: lineType.version, variant: variant.id, variantHash: valuesHash(variant),
     family: family.id, params, tieBreaker, seed, config: cfg, knots, tail: tailOf(knots, TAIL_CEILING, layerMeasures(family, tb), undefined, ladderCaps(lineType, family, params, variant)),
+    ...(tree ? { tree } : {}),
     diagnostics: { exact: exact.map(o => ({ name: o.name, outside: o.outside ?? 0 })), sampled, candidates },
   };
   return { ...body, contentHash: hashHex(canonicalJson(body)) };

@@ -4,6 +4,7 @@ import { decodeGrid, encodeGrid, gridParams, inDomain, cellBits, type GridState 
 import { gridRepresentations } from "./representations.ts";
 import { gridMutators } from "./mutators.ts";
 import { gridFamilies } from "./families.ts";
+import { gridPenalties } from "./defence.ts";
 
 const MUTATORS = gridMutators(4).map(m => m.id);
 
@@ -34,6 +35,7 @@ export function makeGridType(n: number, variants: readonly Variant[]): ObjectTyp
     representations: gridRepresentations(n),
     mutators: gridMutators(n),
     families: gridFamilies(n),
+    penalties: gridPenalties(n),
   };
 }
 

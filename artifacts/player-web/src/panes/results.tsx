@@ -6,7 +6,8 @@
 import { Play } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { roomPath } from "@/site/lib/routes";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ResultsWhy } from "./results-why";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { ANOTHER, GameSummary, summarise, type SummaryClimb, type SummaryTug } from "@workspace/v2-views";
@@ -27,9 +28,13 @@ export function ResultsPane() {
   const standings = useLeaderboard();
   const round = useRotationRound();
   const { roomId: code } = useParams<{ roomId?: string }>();
+  const whyRef = useRef<HTMLDivElement>(null);
   if (!header || standings === undefined) return null;
   const rows = standings ? [...standings.rows].sort((a, b) => a.rank - b.rank) : [];
   const tied = rows.some(r => isTied(rows, r));
+  const ended = header.phase === "ended";
+  const handicaps = rows.some(r => r.handicap > 0);
+  const kindOf = (id: string) => header.roster.find(m => m.memberId === id)?.kind;
   return (
     <div className="space-y-3 p-4 text-sm" data-testid="results">
       <p className="text-lg font-semibold leading-snug" data-testid="text-results-headline">{resultsHeadline(standings?.rows, header.me, header.phase === "ended")}</p>
@@ -53,18 +58,36 @@ export function ResultsPane() {
       {header.me && rows.length > 0 && (
         <MyPointsChart me={header.me} slot={header.roster.findIndex(m => m.memberId === header.me)} ended={header.phase === "ended"} testId="results-points" />
       )}
+      {ended && header.me && (
+        <button type="button" data-testid="button-results-why" onClick={() => whyRef.current?.scrollIntoView({ block: "start", behavior: "smooth" })}
+          className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground">Why: your best {objectWord(header.variant).many} ↓</button>
+      )}
       {rows.length > 0 && (
-        <ol className="divide-y border-y" data-testid="results-standings">
-          {rows.map(r => (
-            <li key={r.memberId} className={`flex items-center gap-3 py-2 ${r.memberId === header.me ? "font-medium" : ""}`} data-testid={`row-result-${r.memberId}`}>
-              <span className="w-10 tabular-nums text-muted-foreground">{ordinal(r.rank)}</span>
-              {tied && <span className="w-9 shrink-0">{isTied(rows, r) && <TiedMark testId={`text-result-tied-${r.memberId}`} />}</span>}
-              <span className="flex-1 truncate">{r.name}{r.memberId === header.me ? " (you)" : ""}</span>
-              <span className="tabular-nums">{pointsText(r.net)}</span>
-              {r.handicap > 0 && <span className="text-xs text-muted-foreground" title="The bid this player won costs this share of their total.">−{r.handicap}%</span>}
-            </li>
-          ))}
-        </ol>
+        <section className="space-y-1">
+          <h3 className="font-medium">{ended ? "Final standings" : "Standings"}</h3>
+          <table className="w-full border-y text-sm" data-testid="results-standings">
+            <thead>
+              <tr className="text-left text-xs text-muted-foreground">
+                <th className="w-10 py-1 font-normal">#</th>
+                {tied && <th className="w-9" />}
+                <th className="py-1 font-normal">player</th>
+                {handicaps && <th className="py-1 text-right font-normal">handicap</th>}
+                <th className="py-1 text-right font-normal">points</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {rows.map(r => (
+                <tr key={r.memberId} className={r.memberId === header.me ? "font-medium" : ""} data-testid={`row-result-${r.memberId}`}>
+                  <td className="w-10 py-2 tabular-nums text-muted-foreground">{ordinal(r.rank)}</td>
+                  {tied && <td className="w-9">{isTied(rows, r) && <TiedMark testId={`text-result-tied-${r.memberId}`} />}</td>}
+                  <td className="truncate py-2">{r.name}{r.memberId === header.me ? " (you)" : ""}{kindOf(r.memberId) === "ai" ? " · AI" : kindOf(r.memberId) === "practice" ? " · practice" : ""}</td>
+                  {handicaps && <td className="py-2 text-right text-xs text-muted-foreground" title="The bid this player won costs this share of their total.">{r.handicap > 0 ? `−${r.handicap}%` : "–"}</td>}
+                  <td className="py-2 text-right tabular-nums">{pointsText(r.net)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
       )}
       {rows.length > 0 && (
         <div className="space-y-1 text-xs text-muted-foreground" data-testid="text-results-note">
@@ -73,6 +96,7 @@ export function ResultsPane() {
           <LineByLine testId="button-line-by-line-results" />
         </div>
       )}
+      {ended && header.me && <ResultsWhy ref={whyRef} />}
     </div>
   );
 }

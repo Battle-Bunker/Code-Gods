@@ -10,12 +10,16 @@ import { useGame, useMyPanels, usePanelCode } from "@/sdk";
 import { AffordanceButton } from "@/site/components/action";
 import { usePaneOps } from "@/dock/open-pane";
 import { EXAMPLE_PANELS } from "@/panels/examples";
+import { panelKey, policyStore, useGrants } from "./panel-policy";
 import { authorText, diagnosticText, EXAMPLE_PANEL, rollbackTarget, saveOutcomeText, slugProblem, type SaveOutcome } from "./my-panels-model";
 
 type Panel = NonNullable<ReturnType<typeof useMyPanels>>[number];
 
 function PanelRow({ panel, onEdit, onOpen }: { panel: Panel; onEdit: () => void; onOpen: () => void }) {
   const back = rollbackTarget(panel.currentVersion);
+  const grants = useGrants();
+  const key = panelKey(panel.panelId);
+  const unasked = !!grants[key] && grants[key]!.version >= panel.lastForeignVersion;
   const t = `-${panel.slug}`;
   return (
     <li className="space-y-1.5 px-4 py-3" data-testid={`row-panel${t}`}>
@@ -34,6 +38,10 @@ function PanelRow({ panel, onEdit, onOpen }: { panel: Panel; onEdit: () => void;
         )}
         <AffordanceButton id="panel.setEnabled" args={{ slug: panel.slug, enabled: !panel.enabled }} label={panel.enabled ? "Turn off" : "Turn on"}
           busyLabel="Saving…" className="px-2 py-1 text-xs" testId={`button-panel-toggle${t}`} />
+        {unasked && (
+          <button type="button" className="border px-2 py-1 text-xs hover:bg-muted" onClick={() => policyStore.dispatch({ type: "revoke", key })}
+            title="It acts as you without asking (you allowed it in this browser). Ask me again first." data-testid={`button-panel-revoke${t}`}>Ask before it acts</button>
+        )}
         <AffordanceButton id="panel.remove" args={{ slug: panel.slug }} label="Delete" busyLabel="Deleting…" tone="danger" className="px-2 py-1 text-xs"
           testId={`button-panel-remove${t}`} confirmText={`Delete "${panel.title}" and every kept version? Saving the name ${panel.slug} again later makes a new panel.`} />
       </div>

@@ -114,3 +114,96 @@ test("the owner cancels an open bid phase (v1's cancelBidding): the bids are for
   assert.deepEqual((await perform(bo!, "bid.state", {}, { roomId }, "query")).result.mine, []);
   await perform(ada!, "bid.cancel", {}, { roomId });
 });
+
+test("v1's bid settings and excluded rules are room settings: second price, open bids, the whole auction shown, families never dealt", { timeout: 120_000 }, async () => {
+  const preset = presetOf("lines-beginner-bidding");
+  const [ada, bo, cy] = await humans("Open Ada", "Open Bo", "Open Cy");
+  const created = await perform(ada!, "room.create", { name: "Open bid room", preset: preset.id });
+  const roomId = created.result.roomId;
+  for (const h of [bo!, cy!]) await perform(h, "room.join", { code: created.result.code });
+  const all = (await perform(ada!, "game.start", {}, { roomId }).then(async () => (await perform(ada!, "bid.state", {}, { roomId }, "query")).result.families.map((f: any) => f.family)));
+  await perform(ada!, "bid.cancel", {}, { roomId });
+  const kept = all.slice(0, 3), excluded = all.slice(3);
+  for (const bad of [{ excludedFamilies: ["no-such-family"] }, { excludedFamilies: all }, { excludedFamilies: all.slice(2) }, { bidVisibility: "loud" }, { bidDisclosure: "private" }]) {
+    const out = await perform(ada!, "room.settings", { overrides: bad }, { roomId }).catch((e: any) => e.data);
+    assert.equal(out.ok, false, `refused: ${JSON.stringify(bad)}`);
+  }
+  const set = await perform(ada!, "room.settings", { overrides: { planningSeconds: 30, excludedFamilies: excluded, bidPricing: "second", bidVisibility: "open", bidDisclosure: "all" } }, { roomId });
+  assert.equal(set.ok, true, JSON.stringify(set));
+  await perform(ada!, "game.start", {}, { roomId });
+  const state = (await perform(bo!, "bid.state", {}, { roomId }, "query")).result;
+  assert.deepEqual(state.families.map((f: any) => f.family), kept, "only the families the room deals are on offer");
+  assert.equal(state.visibility, "open");
+  assert.equal((await ada!.query("v2/rooms:get", { roomId })).bidding.visibility, "open", "the room reads while bidding is open");
+  const family = kept[0];
+  await perform(bo!, "bid.place", { family, percent: 30 }, { roomId });
+  await perform(cy!, "bid.place", { family, percent: 20 }, { roomId });
+  const seen = (await perform(ada!, "bid.state", {}, { roomId }, "query")).result.others;
+  assert.deepEqual(seen.map((o: any) => [o.name, o.bids]).sort(), [["Open Bo", [{ family, percent: 30 }]], ["Open Cy", [{ family, percent: 20 }]]], "open: Ada sees the others' bids");
+  for (const h of [ada!, bo!, cy!]) await perform(h, "bid.done", {}, { roomId });
+  const gameId = (await waitForGame(ada!, roomId)).gameId;
+  const bo1 = await bo!.query("v2/play:myRule", { gameId });
+  assert.deepEqual([bo1.family, bo1.bid, bo1.handicap], [family, 30, 20], "second price: Bo pays Cy's 20");
+  const told = (await perform(cy!, "game.auction", {}, { gameId }, "query")).result;
+  assert.deepEqual([told.disclosure, told.bids?.length], ["all", 2], "the whole auction is shown while live");
+  for (const h of [ada!, cy!]) assert.ok(!excluded.includes((await h.query("v2/play:myRule", { gameId })).family), "an excluded family is never dealt");
+  await perform(ada!, "game.end", {}, { gameId });
+});
+
+async function waitForGame(h: Human, roomId: string) {
+  for (let i = 0; i < 100; i++) { const g = (await h.query("v2/rooms:get", { roomId })).game; if (g) return g; await new Promise(r => setTimeout(r, 300)); }
+  throw new Error("timed out: the deal");
+}
+
+test("v1's private bid results: while live nobody sees another player's handicap or raw total, only their net; after the end everything (archive docs/bid-phase.md)", { timeout: 120_000 }, async () => {
+  const preset = presetOf("lines-beginner-bidding");
+  const [ada, bo, cy] = await humans("Private Ada", "Private Bo", "Private Cy");
+  const created = await perform(ada!, "room.create", { name: "Private bid room", preset: preset.id });
+  const roomId = created.result.roomId;
+  for (const h of [bo!, cy!]) await perform(h, "room.join", { code: created.result.code });
+  await perform(ada!, "room.settings", { overrides: { planningSeconds: 30, bidDisclosure: "none" } }, { roomId });
+  await perform(ada!, "game.start", {}, { roomId });
+  const family = (await perform(bo!, "bid.state", {}, { roomId }, "query")).result.families[0].family;
+  await perform(bo!, "bid.place", { family, percent: 30 }, { roomId });
+  for (const h of [ada!, bo!, cy!]) await perform(h, "bid.done", {}, { roomId });
+  const gameId = (await waitForGame(ada!, roomId)).gameId;
+  await perform(ada!, "game.startWorldNow", {}, { gameId });
+  const standings = async (h: Human) => {
+    for (let i = 0; i < 60; i++) { const s = await h.query("v2/games:standings", { gameId }); if (s) return s; await new Promise(r => setTimeout(r, 500)); }
+    throw new Error("no standings");
+  };
+  const seenByCy = await standings(cy!);
+  const boId = seenByCy.rows.find((r: any) => r.name === "Private Bo").memberId;
+  const boRow = seenByCy.rows.find((r: any) => r.memberId === boId);
+  assert.equal(seenByCy.handicapsHidden, true);
+  assert.deepEqual([boRow.handicap, boRow.total], [0, boRow.net], "Cy sees only Bo's net");
+  const op = (await perform(cy!, "game.standings", {}, { gameId }, "query")).result.rows.find((r: any) => r.memberId === boId);
+  assert.deepEqual([op.handicap, op.points], [0, op.net], "the operation tells the same");
+  const own = (await standings(bo!)).rows.find((r: any) => r.memberId === boId);
+  assert.equal(own.handicap, 30, "Bo sees his own handicap");
+  await perform(ada!, "game.end", {}, { gameId });
+  const after = await standings(cy!);
+  assert.equal(after.handicapsHidden, false);
+  assert.equal(after.rows.find((r: any) => r.memberId === boId).handicap, 30, "after the end everything is shown");
+});
+
+test("v1's bidding time: any setup may bid (bidSeconds above 0), a bidding setup may not (0); a bidder may take back Done", { timeout: 120_000 }, async () => {
+  const [ada, bo, cy] = await humans("Time Ada", "Time Bo", "Time Cy");
+  const created = await perform(ada!, "room.create", { name: "Bidding time room", preset: "lines-beginner" });
+  const roomId = created.result.roomId;
+  for (const h of [bo!, cy!]) await perform(h, "room.join", { code: created.result.code });
+  for (const bad of [{ bidSeconds: 601 }, { bidSeconds: 2.5 }]) assert.equal((await perform(ada!, "room.settings", { overrides: bad }, { roomId }).catch((e: any) => e.data)).ok, false);
+  await perform(ada!, "room.settings", { overrides: { bidSeconds: 30 } }, { roomId });
+  assert.deepEqual((await perform(ada!, "game.start", {}, { roomId })).result, { gameId: null, bidPhase: true }, "a setup without bidding bids for 30 s");
+  const state = await bo!.query("v2/bids:state", { roomId });
+  assert.deepEqual([state.bidder, state.pricing], [true, "first"]);
+  await perform(bo!, "bid.done", {}, { roomId });
+  assert.equal((await bo!.query("v2/bids:state", { roomId })).done, true);
+  await perform(bo!, "bid.done", { done: false }, { roomId });
+  assert.equal((await bo!.query("v2/bids:state", { roomId })).done, false, "Change my bids");
+  await perform(ada!, "bid.cancel", {}, { roomId });
+  await perform(ada!, "room.settings", { preset: "lines-beginner-bidding", overrides: { bidSeconds: 0 } }, { roomId });
+  const started = (await perform(ada!, "game.start", {}, { roomId })).result;
+  assert.equal(started.bidPhase, false, "a bidding setup at 0 deals at once");
+  await perform(ada!, "game.end", { }, { gameId: started.gameId });
+});

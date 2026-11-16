@@ -8,9 +8,10 @@ import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { query, type QueryCtx } from "../_generated/server";
 import { slimKnots, valueFnIn, type ValueScope } from "./values";
-import { seatRules } from "./loop";
-import { keepsParams } from "./deal";
-import { decode, encode, scopeOf, typeOf, valuesOf, variantOf } from "./world";
+import { holdingRows, seatRules } from "./loop";
+import { dealablePool, familyOf, keepsParams } from "./deal";
+import { presetOf } from "./presets";
+import { decode, encode, penaltyWeightOf, scopeOf, typeOf, valuesOf, variantOf } from "./world";
 import { callV } from "./tables";
 import type { Infer } from "convex/values";
 type Call = Infer<typeof callV>;
@@ -18,11 +19,12 @@ import { applyCall, isInvalid } from "@workspace/v2-core";
 import { agentIncome, energyCapacity, ownIncome, settle } from "@workspace/v2-economy";
 import { fail, ownAccountNow, playerOf, requireGameMember, requireSeat, requireUser, worldNow } from "./access";
 import {
-  agentEnergyV, agentProgramsV, agentsPageV, digestV, logPageV, tugsV, meV, movesPageV, myRuleV, objectIdsV, objectSortV, playObjectV,
+  agentEnergyV, agentProgramsV, agentsPageV, digestV, logPageV, tugsV, meV, movesPageV, myRuleV, objectFilterV, objectIdsV, objectSortV, playObjectV,
 } from "./validators";
 import { pageOpts } from "./pages";
 import { attributed, disclosed, disclosesNoise, objectReading, readingNoise } from "./disclose";
-import { KNOWLEDGE_SORT, knownOf, listsKnowledge, lookPrice, readPriceWeightOf, readsKnowledge } from "./knowledge";
+import { knownOf, lookPrice, readPriceWeightOf, readsKnowledge } from "./knowledge";
+import { objectPage } from "./objectOrder";
 
 /**
  * At most 200 live agents per player per game (v1's MAX_AGENTS_PER_GOD, restored by the coordinator's call 35). Every
@@ -55,6 +57,22 @@ export const myRule = query({
   },
 });
 
+/**
+ * Every rule this game's dealer could deal (v1's "Possible gods"; the same pool as rule.candidates): the other players'
+ * rules are among these, and nothing says who holds which. Cold: the preset's pool, in code.
+ */
+export const candidates = query({
+  args: { gameId: v.string() },
+  returns: v.array(v.object({ family: v.string(), title: v.string(), tieBreaker: v.union(v.string(), v.null()), card: v.string() })),
+  handler: async (ctx, { gameId }) => {
+    const { game } = await requireGameMember(ctx, gameId);
+    return dealablePool(presetOf(game.preset)).map(r => {
+      const f = familyOf(r.family);
+      return { family: r.family, title: f.title, tieBreaker: r.tieBreaker ?? null, card: f.card(r.params, r.tieBreaker as never) };
+    });
+  },
+});
+
 export const me = query({
   args: { gameId: v.string() },
   returns: meV,
@@ -69,31 +87,14 @@ export const me = query({
   },
 });
 
-const SORT_INDEX = {
-  points: "by_game_member_points", rarity: "by_game_member_rarity", want: "by_game_member_want",
-  born: "by_game_member_born", recent: "by_game_member_changed",
-} as const;
-/** The sorts on the others' sum and on points read the disclosed values (the exact order would leak while live). */
-const SHOWN_SORT_INDEX = { ...SORT_INDEX, points: "by_game_member_shownPoints", want: "by_game_member_shownWant" } as const;
-/**
- * The index a sort reads, fixed for the game's lifetime: a paginated list re-runs its loaded pages with their cursors
- * when the game ends, and a cursor is only valid on the index it came from. At the end the disclosed fields become the
- * exact ones (loop.ts exactValues), so the same index gives the exact order. Games stored before the noise have no key
- * and no disclosed fields: they read the exact ones.
- */
-export const sortIndexOf = (game: { noiseKey?: string }, sort: keyof typeof SORT_INDEX) => (game.noiseKey ? SHOWN_SORT_INDEX : SORT_INDEX)[sort];
-
 /** The objects skeleton: a page of object ids in the caller's order; each row subscribes to `object`. */
 export const objectIds = query({
-  args: { gameId: v.string(), sort: objectSortV, paginationOpts: paginationOptsValidator },
+  args: { gameId: v.string(), sort: objectSortV, filter: v.optional(objectFilterV), paginationOpts: paginationOptsValidator },
   returns: objectIdsV,
-  handler: async (ctx, { gameId, sort, paginationOpts }) => {
+  handler: async (ctx, { gameId, sort, filter, paginationOpts }) => {
     const { game, member } = await requireSeat(ctx, gameId);
-    // Paid observation: the same sorts, over what the player was told (knowledge.ts), for the game's lifetime.
-    const page = listsKnowledge(game, member._id)
-      ? await ctx.db.query("v2Knowledge").withIndex(KNOWLEDGE_SORT[sort], q => q.eq("gameId", game._id).eq("memberId", member._id)).order("desc").paginate(pageOpts(paginationOpts))
-      : await ctx.db.query("v2ObjectValues").withIndex(sortIndexOf(game, sort), q => q.eq("gameId", game._id).eq("memberId", member._id))
-        .order("desc").paginate(pageOpts(paginationOpts));
+    // v1's sorts and filters (objectOrder.ts); paid observation reads what the player was told (knowledge.ts).
+    const { knowledge: _, ...page } = await objectPage(ctx, game, member._id, sort, filter ?? "all", pageOpts(paginationOpts));
     return { ...page, page: page.page.map(r => ({ objectId: r.objectId, number: r.number })) };
   },
 });
@@ -174,8 +175,8 @@ export const agentEnergy = query({
     const capacity = energyCapacity(perSecond, game.settings.economy.fullChargeSeconds);
     const now = world === null ? { balance: e.energy, settledWorldSeconds: e.settledAt } : settle({ balance: e.energy, settledWorldSeconds: e.settledAt }, Math.max(e.settledAt, world), perSecond, capacity);
     return {
-      agentId: agent._id, energy: now.balance, acts: e.acts, skips: e.skips, failures: e.failures, spend: e.spend, pointsGained: e.pointsGained, lastActAt: e.lastActAt ?? null,
-      perSecond, capacity, settledAt: now.settledWorldSeconds,
+      agentId: agent._id, energy: now.balance, acts: e.acts, skips: e.skips, failures: e.failures, spend: e.spend, spendRead: e.spendRead ?? 0, spendChange: e.spendChange ?? 0, lastAct: e.lastAct ?? null, pointsGained: e.pointsGained, lastActAt: e.lastActAt ?? null,
+      perSecond, capacity, settledAt: now.settledWorldSeconds, history: e.history ?? [],
     };
   },
 });
@@ -285,7 +286,7 @@ export const tugs = query({
     return rows.map(t => ({
       objectId: t.objectId, number: t.number, moves: t.moves, flips: t.flips, mySpend: t.mySpend,
       // Live, a tug names nobody on the other side (v1's public log); an ended game does.
-      others: attributed(game, false) ? t.others.map(memberId => ({ memberId, name: nameOf(memberId) })) : [], from: t.from, to: t.to, best: t.best,
+      others: attributed(game, false) ? t.others.map(memberId => ({ memberId, name: nameOf(memberId) })) : [], from: t.from, to: t.to, best: t.best, cycle: t.cycle ?? null,
     }));
   },
 });
@@ -328,9 +329,9 @@ export async function quoteOthers(ctx: QueryCtx, game: Doc<"v2Games">, memberId:
     const r = applyCall(type, variant, now, call);
     if (isInvalid(r)) { after.push(null); continue; }
     const wire = encode(r.result, game.variant);
-    const exact = valuesOf(r.result, game.variant, seats, scopeOf(game).objects).find(x => x.memberId === memberId)?.want ?? 0;
+    const exact = valuesOf(r.result, game.variant, seats, scopeOf(game).objects, penaltyWeightOf(game)).find(x => x.memberId === memberId)?.want ?? 0;
     const want = exact + (salt !== null && disclosesNoise(game) ? readingNoise(game, memberId, `quote:${object._id}:${state.version}:${wire}:${salt}`) : 0);
-    const holders = await ctx.db.query("v2ObjectStates").withIndex("by_game_state", q => q.eq("gameId", game._id).eq("state", wire)).take(2);
+    const holders = await holdingRows(ctx, game._id, wire).take(2);
     const holder = holders.find(h => h.objectId !== object._id);
     const taken = holder ? (await ctx.db.get(holder.objectId))?.number ?? null : null;
     after.push({ state: wire, want, taken });

@@ -51,7 +51,17 @@ export interface ObjectType<S> {
   readonly representations: readonly Representation<S>[];
   readonly mutators: readonly Mutator<S, any>[];
   readonly families: readonly RuleFamily<S, any>[];
+  /**
+   * Defence goals (v1, restored; owner-decisions call 1): penalty families, never dealt as a rule; a seat may be dealt
+   * one beside its rule. A penalty's main part is badness, bigger is worse; its value function prices how rare "at
+   * least this bad" is (lib/v2-valuation defence.ts). Absent: the type has none.
+   */
+  readonly penalties?: readonly RuleFamily<S, any>[];
 }
+
+/** A type's family by id: its rules first, then its penalty families (defence goals). */
+export const familyById = <S,>(type: ObjectType<S>, id: string): RuleFamily<S, any> | undefined =>
+  type.families.find(f => f.id === id) ?? type.penalties?.find(f => f.id === id);
 
 // ---------------------------------------------------------------- representations (§3)
 
@@ -159,11 +169,16 @@ export interface Term {
   readonly from: readonly ElementRef[];
 }
 
+/**
+ * What a rule draws on an object. `term` names the layer a mark belongs to (a layer's id is its term's id): a mark with
+ * none, or the main layer's, is the main part's; a mark labelled with a secondary is shown only while that secondary is
+ * dealt, so a family may mark every layer it computes.
+ */
 export type Mark =
-  | { readonly kind: "focus"; readonly ref: ElementRef }
+  | { readonly kind: "focus"; readonly ref: ElementRef; readonly term?: TermId }
   | { readonly kind: "measure"; readonly from: ElementRef; readonly to: ElementRef; readonly term: TermId }
   | { readonly kind: "candidate"; readonly ref: ElementRef; readonly term?: TermId }
-  | { readonly kind: "note"; readonly ref: ElementRef; readonly text: string };
+  | { readonly kind: "note"; readonly ref: ElementRef; readonly text: string; readonly term?: TermId };
 
 export interface EvalContext<S> {
   readonly state: S;
@@ -218,6 +233,12 @@ export interface Layer<P> {
    */
   readonly measure?: "prime" | "ladder";
   /**
+   * For a count bounded by its object (boxes on a board: Two Pair's 4 corner boxes), the most it can be on this variant.
+   * Read only by the views, so a count's ruler ends where the count can end (playtest baseline-2 #5: a 0–17 ruler for a
+   * count of 4); never by a value function (owner decision 26: no maxima).
+   */
+  most?(params: P, variant: Variant): number;
+  /**
    * For a tie-breaker: whether it is dealt on this variant (default: always). False where it cannot decide anything
    * there, e.g. a pile of b-coins on whole-number lines, where b is always 1.
    */
@@ -249,6 +270,12 @@ export interface RuleFamily<S, P> {
    * redraws it (the coordinator's amendment of call 18, 15 Nov: a redraw reset the climb). Absent: drift may redraw it.
    */
   readonly keepsParams?: boolean;
+  /**
+   * How a dealt rule's score becomes bits (owner decision 45). Absent: in order (the value function's knots over
+   * lexicographic scores). "tree": a tuple rule (principle 3b) valued down its tree, level then closeness within the
+   * target then the third (lib/v2-valuation tree-value.ts); its value function carries the tree.
+   */
+  readonly valuation?: "tree";
   /**
    * For a ladder family: a few cheap states reaching the n-th unit of its ladder (n ≥ 1: n primes, n digits, a run of
    * n …), for the cap on its value tail (CLAUDE.md: a value tail never grows faster than the φ of the cheapest state

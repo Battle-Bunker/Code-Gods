@@ -8,8 +8,11 @@
  * (and in a replay, the replay at the playhead). The frame never names a query, a room or a game.
  *
  *   frame → host   ready {sdk} | watch {id, hook, args} | unwatch {id} | more {id, n} | resize {height}
- *                  | status {status, message?}                                           (each carries `nonce`)
- *   host → frame   boot {scope, panel, dark} | load {panel} | value {id, value} | error {id, message}
+ *                  | status {status, message?} | act {id, op, args}                      (each carries `nonce`)
+ *   host → frame   boot {scope, panel, dark} | load {panel} | value {id, value} | error {id, message} | acted {id, outcome}
+ *
+ * `act` asks to do something as the player: one of a few affordances (action-policy.ts PANEL_ACTIONS), checked and,
+ * for most, confirmed by the player in the host page before it runs; `acted` is the affordance's outcome (or a refusal).
  *
  * Every value the host sends is the hook's current answer, as it changes (no sampling); a paged hook's answer is
  * {results, status, isLoading}, and `more` asks for the next page.
@@ -74,13 +77,18 @@ export type FrameMessage =
   | { type: "unwatch"; id: string }
   | { type: "more"; id: string; n: number }
   | { type: "resize"; height: number }
-  | { type: "status"; status: "ready" | "failed" | "crashed"; message?: string };
+  | { type: "status"; status: "ready" | "failed" | "crashed"; message?: string }
+  | { type: "act"; id: string; op: string; args: Record<string, unknown> };
 
 export type HostMessage =
   | { type: "boot"; scope: PanelScope; panel: BridgePanel; dark: boolean }
   | { type: "load"; panel: BridgePanel }
   | { type: "value"; id: string; value: unknown }
-  | { type: "error"; id: string; message: string };
+  | { type: "error"; id: string; message: string }
+  | { type: "acted"; id: string; outcome: ActOutcome };
+
+/** An action's outcome as the panel gets it: the affordance's own, or why it did not run. */
+export type ActOutcome = { ok: true; result: unknown } | { ok: false; error: { code: string; message: string } };
 
 const str = (v: unknown) => typeof v === "string" && v.length <= 64;
 const num = (v: unknown) => typeof v === "number" && Number.isFinite(v);
@@ -91,6 +99,7 @@ const SHAPES: Record<FrameMessage["type"], (m: Record<string, unknown>) => boole
   more: m => str(m.id) && num(m.n),
   resize: m => num(m.height),
   status: m => m.status === "ready" || m.status === "failed" || m.status === "crashed",
+  act: m => str(m.id) && str(m.op) && !!m.args && typeof m.args === "object" && !Array.isArray(m.args),
 };
 
 export function isFrameMessage(data: unknown): data is FrameMessage {

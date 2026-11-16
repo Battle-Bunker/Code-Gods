@@ -61,6 +61,8 @@ export interface RuleReply {
   card: string;
   /** The dealt layers in order (main part, then tie-breaker); sense "min": smaller is better. */
   layers: { id: string; title: string; sense: "min" | "max" }[];
+  /** The defence goal dealt beside the rule (grids, when the room turns them on), with the game's weight w; null or absent: none. */
+  defence?: { family: string; params: unknown; weight: number } | null;
 }
 export interface ScoreReply {
   /** null: WORST. A null component: that layer is undefined for this state (v2-core's layered ladders). */
@@ -83,7 +85,11 @@ export interface WorthReply { mine: number; others: number; points: number }
  * The other players' rarity on the offered line, added up, now and after a plan (coordinator, 2026-11-14: the total
  * only, never each player's), in bits; `after` is null when the plan is not allowed.
  */
-export interface OthersAfterReply { before: number; after: number | null }
+export interface OthersAfterReply {
+  before: number; after: number | null;
+  /** With a defence goal: the player's own bits before and after the plan (their rarity less the penalty's hinge). */
+  mine?: { before: number; after: number | null };
+}
 /** The rarity the player's own rule gives a score (their own calibration, as their goal card shows), in bits. */
 export interface RarityReply { bits: number }
 /** The latest moves on the offered line the player may see (newest last): theirs, and others' that changed their points. */

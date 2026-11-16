@@ -17,7 +17,7 @@ import { useLivePaged, useLiveValue, useLiveValues } from "./live";
 import { pagedFrom, useReplaySource } from "./replay";
 import { bitsOf, ruleRefOf, valueOf, type GameRule, type ValueOf } from "./rule";
 import type { Score } from "@workspace/v2-core";
-import type { Agent, Header, Move, MyRuleRow, ObjectSort, PlayObject, StandingsPoint, Tug } from "./types";
+import type { Agent, Header, Move, MyRuleRow, ObjectShow, ObjectSort, PlayObject, StandingsPoint, Tug } from "./types";
 import { sharedRanks } from "@/core/words";
 
 /** The room in view: members (≤ 16), owner, preset, current and last game, an open bid phase. */
@@ -73,6 +73,18 @@ export function useOthersBlurred(): boolean {
   return !replay && !!header && header.phase !== "ended" && blursOthers(header);
 }
 
+/** The game's details (v2/games:details): settings and timings, and after the end every seat's rule (v1's UtilityFamilies). */
+export function useGameDetails() {
+  const { gameId } = useGameScope();
+  return useLiveValue(api.v2.games.details, gameId ? { gameId } : "skip");
+}
+
+/** Every rule this game's dealer could deal (v2/play:candidates; v1's "Possible gods"): never who holds which. */
+export function useRuleCandidates() {
+  const { gameId } = useGameScope();
+  return useLiveValue(api.v2.play.candidates, gameId ? { gameId } : "skip");
+}
+
 /** The viewer's private rule: family, parameters, card, value function, the primary representation. */
 export function useMyRule(): MyRule | undefined {
   const { gameId, seated } = useGameScope();
@@ -89,12 +101,12 @@ export function useMyRule(): MyRule | undefined {
 }
 
 /** The objects skeleton: ids in the viewer's order, page by page; each row subscribes to its own object. */
-export function useObjectIds(sort: ObjectSort, pageSize = 30) {
+export function useObjectIds(sort: ObjectSort, pageSize = 30, show: ObjectShow = "all") {
   const { gameId, seated } = useGameScope();
   const replay = useReplaySource();
-  const live = useLivePaged(api.v2.play.objectIds, gameId && seated && !replay ? { gameId, sort } : "skip", pageSize);
+  const live = useLivePaged(api.v2.play.objectIds, gameId && seated && !replay ? { gameId, sort, ...(show !== "all" ? { filter: show } : {}) } : "skip", pageSize);
   const frame = replay?.frame, member = replay?.member;
-  const replayed = useMemo(() => (frame && member ? pagedFrom(frame.objectIds(member, sort)) : null), [frame, member, sort]);
+  const replayed = useMemo(() => (frame && member ? pagedFrom(frame.objectIds(member, sort, show)) : null), [frame, member, sort, show]);
   return (replayed ?? live) as typeof live;
 }
 
@@ -164,6 +176,12 @@ export function useMyAgents(): Agent[] | undefined {
   const frame = replay?.frame, member = replay?.member;
   const replayed = useMemo(() => (frame && member ? frame.agents(member) : null), [frame, member]);
   return replayed ?? live?.page;
+}
+/** All of the viewer's agents, page by page (≤ 200 a player, 50 a page: W3 #898), for My agents; none in a replay. */
+export function useMyAgentPages() {
+  const { gameId, seated } = useGameScope();
+  const replay = useReplaySource();
+  return useLivePaged(api.v2.play.agents, gameId && seated && !replay ? { gameId } : "skip", 50);
 }
 /** An agent's energy account; not in the record, so none in a replay. */
 export function useAgentEnergy(agentId: string | null | undefined) {

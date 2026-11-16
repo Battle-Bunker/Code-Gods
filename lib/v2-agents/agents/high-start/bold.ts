@@ -1,5 +1,5 @@
 // High Start · Bold
-// Main part: the gentler line crosses the y-axis on your pattern. Secondary preference: whichever you were dealt (the y-intercepts' gap near a multiple of your number; the crossing's x near a multiple of your number).
+// Main part: the gentler line crosses the y-axis on your pattern. Secondary preference: whichever you were dealt (the y-intercepts' gap near a multiple of your number; the crossing's x near a multiple of your number; that y-intercept plus the crossing's x has a big smallest prime factor; that y-intercept, without its factors of your number, shares a factor with the steeper gradient).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -10,17 +10,20 @@
 function score(L, p, tie) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down
+  const core = n => { const Qb = BigInt(p.q), zero = BigInt(0); let m = BigInt(n); if (m < zero) m = -m; while (m > zero && m % Qb === zero) m /= Qb; return m; };   // without its factors of q
   if (f.cg === null || f.mg === null) return null;   // the gentler line is upright: no score
   const { score: main, n: H } = valuationLadder(f.cg, p.q, p.r);   // the y-intercept on your ladder
   // main: the level of the gentler line's y-intercept on your ladder (higher is better)
   if (tie === "start-echo") return [main, f.ygap === null ? null : Q.neg(offMultiple(f.ygap, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))];   // the gap between the y-intercepts near a multiple of q to the power one above your level is better
   if (tie === "start-crossing") return [main, f.x === null ? null : Q.neg(offMultiple(f.x, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))];   // a crossing whose x is near a multiple of q to the power one above your level is better
+  if (tie === "start-prime") return [main, f.x === null ? null : spf(Q.add(Q.abs(H), Q.abs(whole(f.x))))];   // that y-intercept plus the crossing's x with a big smallest prime factor is better
+  if (tie === "start-steep") return [main, f.ms === null ? 0 : common(core(H), floor(Q.abs(f.ms)))];   // that y-intercept (without its factors of q) sharing a big factor with the steeper gradient is better
   return [main];
 }
 
 const FAR = 4;      // how far one move may go
 const QUOTES = 12;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["shift","tilt","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
+const KINDS = ["shift","tilt","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
 const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 

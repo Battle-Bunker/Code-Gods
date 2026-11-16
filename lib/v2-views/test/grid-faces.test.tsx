@@ -22,8 +22,9 @@ test("compact face: each rule's main view with its focus marks, the main part in
   for (const rule of rules) {
     const html = renderToStaticMarkup(<CompactFace rule={rule} state={B} value={VALUE} next />);
     assert.match(html, new RegExp(`data-rep="${rule.family.main.rep}"`), rule.family.id);
-    const e = annotate(rule, B).sites[0]!.evaluation;
-    for (const m of e.marks) if (m.kind === "focus" && m.ref.rep === rule.family.main.rep) assert.match(html, new RegExp(`data-ref="${refNodeKey(m.ref).replace(/[.()]/g, "\\$&")}"[^>]*data-focus=""`), rule.family.id);
+    // The marks shown: an undealt secondary's marks are recorded but not drawn.
+    const shown = annotate(rule, B).sites[0]!.marks;
+    for (const m of shown) if (m.kind === "focus" && m.ref.rep === rule.family.main.rep) assert.match(html, new RegExp(`data-ref="${refNodeKey(m.ref).replace(/[.()]/g, "\\$&")}"[^>]*data-focus=""`), rule.family.id);
     const t = text(html);
     assert.match(t, /bits \(1 in|not scoring/, rule.family.id);
     assert.doesNotMatch(t, /\bstep \d/, rule.family.id);
@@ -129,4 +130,14 @@ test("grid expanded face: the parts' units listed under each part, its ruler dra
   assert.match(t, /What would make it rarer/);
   assert.doesNotMatch(t, /→ \d \d \d \d \/ /, "a move does not repeat the whole board after its words");
   assert.match(renderToStaticMarkup(<ExpandedFace rule={magic} state={B} value={VALUE} />), /class="v2v-ruler" data-role="main"/);
+});
+
+test("a bounded count's ruler ends where the count can end (Layer.most; playtest baseline-2 #5: 0–17 for a count of 4)", async () => {
+  const { contributors } = await import("../src/contributors.ts");
+  const fam = gridType.families.find(f => f.id === "two-pair")!;
+  const capped = { ...fam, tieBreakers: fam.tieBreakers.map(t => (t.id === "diagonal-pairs" ? { ...t, most: () => 4 } : t)) };
+  const rule = { type: gridType, family: capped, params: capped.dealable(grid4)[0], variant: grid4, tieBreaker: "diagonal-pairs" } as RuleRef<GridState, unknown>;
+  const part = contributors(rule, B).parts[1]!;
+  assert.ok(part.ruler, "the count has a ruler");
+  assert.ok(Math.max(...part.ruler!.refs.map(r => r.at)) <= 4, JSON.stringify(part.ruler!.refs.map(r => r.at)));
 });

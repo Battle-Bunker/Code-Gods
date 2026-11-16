@@ -11,6 +11,11 @@
 # install in parallel, except when `lookup` finds that the gate already passed on develop for a commit with the
 # identical tree (a release is a merge of develop, so usually it did): then nothing is re-run.
 # Any doubt (no match, API error, a red or cancelled run) runs the gate in full.
+#
+# Queueing (.github/scripts/deploy-concurrency.test.mjs): one run per branch at a time. A run that has started always
+# finishes, its gate and its deploy for the same commit; a newer push waits, and GitHub keeps only the newest waiting
+# run (older waiting ones show as cancelled without having started). So on a busy develop every run that starts
+# reports a real green or red, and the latest commit is always the next one deployed.
 name: Deploy
 
 on:
@@ -21,6 +26,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: deploy-run-${{ github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   # ---- main only: did the gate already pass on develop for this exact tree? ----
@@ -46,9 +55,6 @@ jobs:
     if: ${{ !cancelled() && (github.ref_name == 'develop' || needs.lookup.outputs.passed != 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    concurrency:
-      group: gate-typecheck-${{ github.ref_name }}
-      cancel-in-progress: ${{ github.ref_name != 'main' }}
     defaults:
       run:
         shell: bash
@@ -78,9 +84,6 @@ jobs:
     if: ${{ !cancelled() && (github.ref_name == 'develop' || needs.lookup.outputs.passed != 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    concurrency:
-      group: gate-unit-${{ github.ref_name }}
-      cancel-in-progress: ${{ github.ref_name != 'main' }}
     defaults:
       run:
         shell: bash
@@ -100,9 +103,6 @@ jobs:
     if: ${{ !cancelled() && (github.ref_name == 'develop' || needs.lookup.outputs.passed != 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    concurrency:
-      group: gate-runtime-${{ github.ref_name }}
-      cancel-in-progress: ${{ github.ref_name != 'main' }}
     defaults:
       run:
         shell: bash
@@ -126,10 +126,11 @@ jobs:
       - run: pnpm --filter @workspace/v2-agents test
 
   # The one name the rest of the workflow (and `previous-gate.mjs`) relies on: success only when every part succeeded.
-  # Skipped (not failed) when `lookup` proved the gate already passed on this tree.
+  # Skipped (not failed) when `lookup` proved the gate already passed on this tree, or when a part was cancelled (a
+  # cancelled run is not a red one; production's wait treats a skipped `checks` as not passed).
   checks:
     needs: [lookup, typecheck, unit, runtime]
-    if: ${{ !cancelled() && (github.ref_name == 'develop' || needs.lookup.outputs.passed != 'true') }}
+    if: ${{ !cancelled() && !contains(needs.*.result, 'cancelled') && (github.ref_name == 'develop' || needs.lookup.outputs.passed != 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -150,8 +151,8 @@ jobs:
     environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
     concurrency:
       group: deploy-${{ github.ref_name == 'main' && 'production' || 'development' }}
-      # A running deploy always finishes (it may be mid-migration): a newer push waits, and GitHub keeps only the newest
-      # waiting one, so develop deploys every merge burst's last commit in order instead of cancelling forever.
+      # A running deploy always finishes (it may be mid-migration); the workflow-level queue already serialises runs per
+      # branch, and this group also keeps a manual run on another ref from deploying the same deployment at once.
       cancel-in-progress: false
     defaults:
       run:
@@ -216,6 +217,9 @@ jobs:
           [ -z "$stale" ] || { echo "::error::Old CODE_GODS_ env vars on the deployment: $stale(move each to its new name, then remove it)"; exit 1; }
           [ -z "$forbidden" ] || { echo "::error::Test-only or preview-only env vars set on this deployment:$forbidden (remove them)"; exit 1; }
           [ -z "$missing" ] || { echo "::error::Missing deployment env vars:$missing (see PILOT.md)"; exit 1; }
+          # auth.config.ts inlines BETTER_AUTH_JWKS and PLAYER_JWT_JWKS: a value that disagrees with its signing key
+          # breaks sign-in the moment the functions are pushed, so refuse before the push (values stay in memory).
+          node scripts/check-auth-keys.mjs
 
       - name: Push functions
         working-directory: artifacts/engine
@@ -270,3 +274,5 @@ jobs:
           curl -fsS "$site/api/health"; echo
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$site/mcp" -H 'Content-Type: application/json' -d '{}')
           [ "$code" = 401 ] || { echo "::error::/mcp answered $code without a token (expected 401)"; exit 1; }
+          # The auth config just pushed verifies tokens signed with the deployment's keys (convex/auth/keysCheck.ts).
+          npx convex run auth/keysCheck:deployed

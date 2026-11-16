@@ -1,0 +1,27 @@
+| rule | starts | moves | keep the level | keep it and change the tie-breaker | raise the level | starts with a next step by zoom then slide |
+|---|--:|--:|--:|--:|--:|--:|
+| whole-answer/x-multiple {"q":5,"r":3} | 8 | 644 | 43% | 5% | 0% | 1/8 |
+| whole-answer/sum-prime {"q":5,"r":3} | 8 | 636 | 38% | 4% | 0% | 1/8 |
+| whole-answer/y-steep {"q":5,"r":3} | 8 | 640 | 35% | 3% | 0% | 0/8 |
+| no-fractions/numerator-smooth {"k":3} | 8 | 636 | 46% | 28% | 1% | 0/8 |
+| no-fractions/numerator-shared {"k":3} | 8 | 648 | 46% | 28% | 0% | 0/8 |
+| no-fractions/numerator-small {"k":3} | 7 | 557 | 50% | 26% | 1% | 0/7 |
+| right-angle/corner-multiple {"q":5,"r":1} | 4 | 320 | 17% | 6% | 0% | 1/4 |
+| right-angle/corner-steep {"q":5,"r":1} | 8 | 636 | 33% | 19% | 1% | 5/8 |
+| right-angle/corner-prime {"q":5,"r":1} | 8 | 635 | 28% | 15% | 0% | 2/8 |
+| forty-five/corner-divisor {"q":5,"r":1} | 8 | 631 | 17% | 5% | 1% | 2/8 |
+| forty-five/corner-gap {"q":5,"r":1} | 8 | 621 | 16% | 6% | 3% | 3/8 |
+| forty-five/corner-smooth {"q":5,"r":1} | 8 | 640 | 21% | 5% | 1% | 1/8 |
+| double-gap/gap-divisor {"k":3} | 8 | 618 | 20% | 5% | 0% | 0/8 |
+| double-gap/gap-step {"k":3} | 8 | 624 | 12% | 3% | 0% | 0/8 |
+| double-gap/gap-prime {"k":3} | 8 | 620 | 20% | 5% | 0% | 0/8 |
+| far-crossing/far-gap {"q":7,"r":4} | 8 | 638 | 55% | 39% | 0% | 3/8 |
+| far-crossing/far-height {"q":7,"r":4} | 8 | 618 | 48% | 37% | 0% | 3/8 |
+| far-crossing/far-steep {"q":7,"r":4} | 8 | 645 | 47% | 37% | 0% | 2/8 |
+| high-start/start-echo {"q":5,"r":1} | 8 | 614 | 51% | 35% | 0% | 0/8 |
+| high-start/start-crossing {"q":5,"r":1} | 8 | 640 | 51% | 37% | 0% | 0/8 |
+| high-start/start-prime {"q":5,"r":1} | 8 | 638 | 47% | 34% | 0% | 0/8 |
+| high-start/start-steep {"q":5,"r":1} | 8 | 642 | 47% | 33% | 0% | 0/8 |
+| steep-ratio/ratio-gap {"q":5,"r":2} | 8 | 634 | 46% | 41% | 0% | 0/8 |
+| steep-ratio/ratio-prime {"q":5,"r":2} | 8 | 634 | 48% | 42% | 0% | 0/8 |
+| steep-ratio/ratio-smooth {"q":5,"r":2} | 8 | 632 | 46% | 40% | 0% | 0/8 |
