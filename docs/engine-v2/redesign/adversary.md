@@ -83,3 +83,56 @@ those remove the three attacks I can state exactly (last tick, jail, flat upkeep
 open. I cannot rank the families on what players would actually do: I have existence proofs against each and no
 evidence about frequency. I am also unsure whether size gravity leaves a landscape to search in single-number rules; if
 not, the difficulty moves to the other players, which may be what is wanted, but it should be chosen knowingly.
+
+---
+
+# Second task: attacking candidate Z (16 November)
+
+Same labels. Nothing is simulated; "friction" below means the small per-move charge, "lift" the charge for rising.
+
+**The claim holds, and it kills the cuckoo by paying it in advance.** [built] If a move costs p, the cheapest route to
+any trophy changes by at most p, so no score rises by more than k × p, and none falls by more than k × the undo's
+price. But read it backwards: if a swap for 3 energy would take your line y = x + 120 to my trophy, then I *already*
+score nearly full on your line. Nothing is stolen because nothing needs to arrive.
+
+**So the score is a staircase of height, and the cards are close to decoration.** [built, given cheap friction]
+- Coming down costs friction only. So from anywhere above a trophy the route to it is cheap, and overshooting is free:
+  my score is about the worth of my best trophy *beneath* the object.
+- Cheap swap and mirror make height in the gradient, height in the intercept, and either sign interchangeable.
+  "Opposite directions on a shared anchor" stops being a tension.
+- At k = 1 it is exact: a state d of lift below a trophy scores worth − d, which is its own height. Every card reads
+  "height".
+- At large k the cards matter, but a score then moves k per unit of energy: cliffs and k-fold leverage return.
+
+**Lift becomes a gift to everyone.** [built on the above; consequence is a guess] Whoever lifts, all score. A player
+who never lifts scores about what the lifters do and keeps their energy. I guess under-lifting, with what play there
+is being about steering an object onto one's own stair.
+
+**Ways round, as asked.**
+- *Trim.* [built] I move the object down to just above my own trophy. Cost: friction. My score: unchanged. Rivals whose
+  trophies were higher lose up to k × the drop, and repair costs the full lift. The undo bound permits this; it is the
+  cheap knock, intact, and now free of self-harm to the score (not to the product: I lose their factor).
+- *Two moves.* I found no theft the bound does not cover: it adds along a path. [That I found none proves nothing.]
+- *Locks and "cheapest price".* If cheapest prices count locks, then a lock holding L between an object and your
+  trophy cuts your score by up to k × L for my L, without moving anything: a toll gate, k-to-one. [built] If prices
+  ignore locks, a jailed object still scores as if repair were possible, which is odd but harmless. Ignore locks.
+- *Denying flow.* Cheapest I can see: trim a newborn early (most seconds lost per energy), before a lock is funded.
+  [guess] This makes "lift and lock in the same act" compulsory, and makes the opening seconds of each object the
+  whole contest.
+
+**What carries weight, what is decoration.** [guess, from the above]
+- Carries weight: score defined from prices (removes sideways knocks, the cuckoo, exact-hit cliffs); flow (removes the
+  last tick); free descent with locks (damage cheap, defence possible); the square root (removes piling); scarcity.
+- Probably decoration: the leak being proportional to program length (the fraction of energy held is what scales);
+  k as a dial (only k near 1 is cliff-free, and there cards vanish); the choice of constant field.
+- Unknown: turnover. It may be what keeps things moving, or just a clock.
+
+**Smallest change that makes cards matter without cliffs.** [guess] Measure the distance to a trophy both ways: use
+the dearer of "price to get there" and "price to get back". Then being above a trophy costs as much as being below, each
+trophy is a two-sided hill with slope k, overshoot is no longer free, and trimming toward my trophy now raises my
+score honestly while lowering yours (a real conflict of interest, priced). It does not undo the swap and mirror
+equivalence; if that matters, those moves need real friction, and then they are again not shortcuts.
+
+**What this does not show.** Whether sparse joint trophies make good combined states rare enough to be worth
+searching for; how composite readings behave (cheapest prices there are a shortest-path problem I did not attempt);
+what talking players do with a public staircase.
