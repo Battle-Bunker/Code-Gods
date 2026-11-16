@@ -131,11 +131,11 @@ try {
       assert.match(await row.innerText(), /Created: .*\d{4}/);
     }, async () => { await a.goto(`${SITE}/rooms/${code}`); await a.getByTestId("text-room-code").waitFor(); });
 
-    await missing(["e2e-site-smoke-2", "cmd-site-dyn-room-open"], `${name}: bob opens the room by typing its code in the palette ("Open room CODE" is the first row)`, async () => {
+    await check(`${name}: bob opens the room by typing its code in the palette ("Open room CODE" is the first row)`, async () => {
       await b.goto(`${SITE}/`);
       await palette(b, code);
       await b.waitForURL(new RegExp(`/rooms/${code}$`), { timeout: 5_000 });
-    }, () => escapeAll(b));
+    });
 
     await check(`${name}: bob and carol open the room by its link and join; alice's player list updates live; Start is her one primary`, async () => {
       for (const p of [b, c]) {
