@@ -7,7 +7,7 @@
 import { assistantTools, affordanceForTool, type AffordanceContext } from "@workspace/v2-affordances";
 import type { Delegate } from "@workspace/v2-affordances/convex";
 import { assistantSystemPrompt, runAssistant, textOf, type ChatMessage, type RunResult } from "@workspace/v2-ai";
-import { isGridFamily, startersFor, watcherFor } from "@workspace/v2-agents/pure";
+import { isBoardFamily, isGridFamily, startersFor, watcherFor } from "@workspace/v2-agents/pure";
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -81,7 +81,7 @@ export const run = internalAction({
       // Watcher"; decision 36: what an agent reads, its owner knows free).
       const starters = input.rule ? [
         ...startersFor(input.rule.family, "typescript", input.rule.tieBreaker).slice(0, 1),
-        watcherFor(isGridFamily(input.rule.family) ? "grids" : "lines", "typescript"),
+        watcherFor(isGridFamily(input.rule.family) || isBoardFamily(input.rule.family) ? "grids" : "lines", "typescript"),
       ].map(s => ({ title: s.title, summary: s.summary, language: "typescript", source: s.source })) : [];
       const system = assistantSystemPrompt({ context: caller.ctx.context, playerName: input.name, ...(input.rule ? { rule: input.rule.card } : {}), affordances: tools, starters }) +
         (input.mode === "readOnly" ? "\n\nMODE. Read-only: answer and explain; you cannot change anything." : "");

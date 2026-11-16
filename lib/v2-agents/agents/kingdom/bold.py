@@ -4,7 +4,7 @@
 # time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 # other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 # lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
-# Try this: change FAR = 3 to 1: single steps, the same price per step, but more turns to get there.
+# Try this: change QUOTES = 6 to 2: fewer prices asked, but it may miss a cheaper plan.
 
 
 def score(B, p, tie):

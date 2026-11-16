@@ -10,7 +10,7 @@ def score(B, p, tie):
     # B.n: its side; B.v: its numbers row by row; B.c: their colours ("red", ...); B.s: suits, on cards.
     def glyph(i):
         if B.s:
-            return ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"][B.v[i] - 1] + {"spades": "♠", "hearts": "♥", "diamonds": "♦", "clubs": "♣"}[B.s[i]]
+            return ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"][B.v[i] - 1] + {"spades": "\u2660", "hearts": "\u2665", "diamonds": "\u2666", "clubs": "\u2663"}[B.s[i]]
         return "0123456789ABCDEF"[B.v[i]]
     main = 0
     for i in range(B.n * B.n):

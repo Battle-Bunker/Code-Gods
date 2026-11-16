@@ -28,3 +28,10 @@ test("a coloured board is a grid to a player", async () => {
   const { nounOf } = await import("../src/refs.ts");
   assert.equal(nounOf(board4Type), "grid");
 });
+
+test("a move that only recolours tiles marks those tiles changed", () => {
+  const before = decodeBoard("7R,3G,0B,1R/2R,9B,4G,4G/8R,0R,0R,0R/1B,1B,1B,1B");
+  const after = decodeBoard("7G,3R,0B,1R/2R,9B,4G,4G/8R,0R,0R,0R/1B,1B,1B,1B");
+  const html = renderToStaticMarkup(<RepView type={board4Type} state={after} before={before} rep="cells" size="compact" marks={[]} terms={[]} />);
+  assert.equal([...html.matchAll(/data-changed=""/g)].length, 2, "the two recoloured tiles");
+});

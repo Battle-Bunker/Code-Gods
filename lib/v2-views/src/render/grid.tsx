@@ -236,6 +236,12 @@ function Scene({ p }: { p: P }): ReactElement {
   const before = p.before;
   // A coloured board: each tile in its colour, with the colour's letter (lib/v2-grid-boards).
   const tint = s.cellColours ?? [];
+  // A move that only recolours a tile changes its colour element (r0c0.colour), not its number: mark that cell changed too.
+  const recoloured = (r: ElementRef): boolean => {
+    if (!tint.length || !before) return false;
+    const c = { ...r, name: `${r.name}.colour` };
+    try { return fmtValue(before(c)) !== fmtValue(q.values(c)); } catch { return false; }
+  };
   const cells = s.cells.map((r, i) => {
     const x = ox + (i % s.cols) * C, y = oy + Math.floor(i / s.cols) * C;
     let was: string | null = null;
@@ -243,7 +249,7 @@ function Scene({ p }: { p: P }): ReactElement {
       try { const b = before(r); if (fmtValue(b) !== shown(r)) was = fmtValue(b); } catch { was = null; }
     }
     return (
-      <g key={key(r)} className={tint[i] ? "cell tinted" : "cell"} {...elAttrs(q, r)} data-member={members.has(i) ? "" : undefined} {...stop(r)} {...hover(q, r)}>
+      <g key={key(r)} className={tint[i] ? "cell tinted" : "cell"} {...elAttrs(q, r)} {...(recoloured(r) ? { "data-changed": "" } : {})} data-member={members.has(i) ? "" : undefined} {...stop(r)} {...hover(q, r)}>
         {tint[i] && <rect className="cell-colour" x={x + 1} y={y + 1} width={C - 2} height={C - 2} rx={expanded ? 4 : 2} style={{ fill: tint[i]!.css }} />}
         <rect className="cell-bg" x={x + 1} y={y + 1} width={C - 2} height={C - 2} rx={expanded ? 4 : 2} />
         {/* A tinted tile keeps its number left of centre and the colour's letter small in the corner, clear of each other. */}

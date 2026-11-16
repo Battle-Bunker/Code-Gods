@@ -7,7 +7,7 @@
 // How good is the board B for your rule? [main part, secondary]: bigger is better.
 // B.n: its side; B.v: its numbers row by row; B.c: their colours ("red", ...); B.s: suits, on cards.
 function score(B, p, tie) {
-  const glyph = i => (B.s ? ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"][B.v[i] - 1] + { spades: "♠", hearts: "♥", diamonds: "♦", clubs: "♣" }[B.s[i]] : "0123456789ABCDEF"[B.v[i]]);
+  const glyph = i => (B.s ? ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"][B.v[i] - 1] + { spades: "\u2660", hearts: "\u2665", diamonds: "\u2666", clubs: "\u2663" }[B.s[i]] : "0123456789ABCDEF"[B.v[i]]);
   let main = 0;
   for (let i = 0; i < B.n * B.n; i++) {
     const hits = (B.c[i] === p.colour) + (glyph(i) === p.symbol);

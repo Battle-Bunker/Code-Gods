@@ -5,8 +5,8 @@
  * non-exact families. Every weight is 1, so a score's survival interval is binomial.
  *
  * Honesty (coordinator's call 37): these are the old game's bounded families. A score rarer than the draws reach is
- * paid by the marked tail, which may not pay past the family's top; boardTopGap reports how far the top sits beyond the
- * last measured knot, so a rule whose top is unmeasured is visible before it is dealt.
+ * paid by the marked tail, which must not pay more at the family's top than the top's exact rarity: checked for every
+ * committed 4×4 value whose top can be counted (test/value-board.test.ts), and the energy gate bounds what a climb reaches.
  */
 import { canonicalJson, evaluateObject, hashHex, rng, tieBreakerId, type ObjectType, type Rng, type RuleFamily, type Score, type TieBreaker, type Variant } from "@workspace/v2-core";
 import { boardParams, canonicalColours, paletteOf, symbolCount, symbolValue, type BoardState } from "@workspace/v2-grid-boards";

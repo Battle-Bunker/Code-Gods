@@ -2,7 +2,7 @@
 # Main part: little chessboards of your two colours. Secondary preference: places your two colours touch.
 # What it does: reads the board once (a small read), tries changes in its own head, and takes the one that raises your
 # points most (your rarity times the other players'), working on your secondary preference once the main part is set.
-# Try this: let it also try trading colours on the whole board (add "colours" moves): a trade can turn a stripe into a chessboard.
+# Try this: take out the trade of two colours (the lines under "trade two of them everywhere") and compare: a trade can turn a stripe into a chessboard in one move.
 
 
 def score(B, p):

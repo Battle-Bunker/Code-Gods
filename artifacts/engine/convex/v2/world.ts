@@ -87,6 +87,7 @@ export function distinctBirths(variantId: string, seed: string, count: number): 
 
 /** "Another line (line 4) is already in that state": why a move onto a held state is refused. */
 export function heldReason(variantId: string, number: number): string {
-  const id = typeOf(variantId).id, one = id === "grid" ? "grid" : id === "pair" ? "pair of lines" : "line";
+  // A coloured board (board4 … board7) is a grid to a player.
+  const id = typeOf(variantId).id.replace(/^board\d+$/, "grid"), one = id === "grid" ? "grid" : id === "pair" ? "pair of lines" : "line";
   return `another ${one} (${id === "pair" ? "pair" : one} ${number}) is already in that state: no two ${id === "pair" ? "pairs of lines" : `${one}s`} may be the same`;
 }

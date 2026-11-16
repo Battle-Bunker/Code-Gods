@@ -212,7 +212,7 @@ function LogRowView({ r, variant, approx, length }: { r: LogEntry; variant: stri
   const change = useMemo(() => {
     // A board written out is sixteen digits (round 6): a grid's row says which grid and your points only.
     // A paid game's other players' moves carry no state while live (their content is paid).
-    if (objectTypeOf(variant).id === "grid" || r.state === null) return null;
+    if (objectTypeOf(variant).representations[0]?.scene === "grid" || r.state === null) return null;   // digits or a coloured board
     try {
       const after = lineText(decodeState(r.state, variant), "", 0, variant);
       return { before: r.stateBefore ? lineText(decodeState(r.stateBefore, variant), "", 0, variant) : "", after };

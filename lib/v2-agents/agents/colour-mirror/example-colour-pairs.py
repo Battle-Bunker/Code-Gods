@@ -2,7 +2,7 @@
 # Main part: rows or columns that mirror their colours. Secondary preference: matching colour pairs.
 # What it does: reads the board once (a small read), tries changes in its own head, and takes the one that raises your
 # points most (your rarity times the other players'), working on your secondary preference once the main part is set.
-# Try this: change FAR to 2: it then also tries bigger number changes, which this rule ignores: watch the price go up for nothing.
+# Try this: change QUOTES = 8 to 3: fewer prices asked, but it may miss a cheaper plan.
 
 
 def score(B, p):

@@ -53,7 +53,7 @@ export const BOARD_CATALOGUE: readonly BoardFamilyEntry[] = [
         "        main += 1",
       ],
     },
-    tieBreakers: { seams: { ts: "seams", py: "seams", says: "places your two colours touch", tryThis: "let it also try trading colours on the whole board (add \"colours\" moves): a trade can turn a stripe into a chessboard." } },
+    tieBreakers: { seams: { ts: "seams", py: "seams", says: "places your two colours touch", tryThis: "take out the trade of two colours (the lines under \"trade two of them everywhere\") and compare: a trade can turn a stripe into a chessboard in one move." } },
   },
   {
     family: "parity-painter", moves: ["add", "colours"], mainSays: "cells in their kind's colour, less those in the other kind's",
@@ -100,13 +100,13 @@ export const BOARD_CATALOGUE: readonly BoardFamilyEntry[] = [
         "        main += 1",
       ],
     },
-    tieBreakers: { "colour-pairs": { ts: "pairs", py: "pairs", says: "matching colour pairs", tryThis: "change FAR to 2: it then also tries bigger number changes, which this rule ignores: watch the price go up for nothing." } },
+    tieBreakers: { "colour-pairs": { ts: "pairs", py: "pairs", says: "matching colour pairs", tryThis: "change QUOTES = 8 to 3: fewer prices asked, but it may miss a cheaper plan." } },
   },
   {
     family: "picture-frame", moves: ["add", "colours"], mainSays: "your colour and symbol on the edge, a clear middle",
     main: {
       ts: [
-        "const glyph = i => (B.s ? [\"A\", \"2\", \"3\", \"4\", \"5\", \"6\", \"7\", \"8\", \"9\", \"10\", \"J\", \"Q\", \"K\"][B.v[i] - 1] + { spades: \"♠\", hearts: \"♥\", diamonds: \"♦\", clubs: \"♣\" }[B.s[i]] : \"0123456789ABCDEF\"[B.v[i]]);",
+        "const glyph = i => (B.s ? [\"A\", \"2\", \"3\", \"4\", \"5\", \"6\", \"7\", \"8\", \"9\", \"10\", \"J\", \"Q\", \"K\"][B.v[i] - 1] + { spades: \"\\u2660\", hearts: \"\\u2665\", diamonds: \"\\u2666\", clubs: \"\\u2663\" }[B.s[i]] : \"0123456789ABCDEF\"[B.v[i]]);",
         "let main = 0;",
         "for (let i = 0; i < B.n * B.n; i++) {",
         "  const hits = (B.c[i] === p.colour) + (glyph(i) === p.symbol);",
@@ -118,7 +118,7 @@ export const BOARD_CATALOGUE: readonly BoardFamilyEntry[] = [
       py: [
         "def glyph(i):",
         "    if B.s:",
-        "        return [\"A\", \"2\", \"3\", \"4\", \"5\", \"6\", \"7\", \"8\", \"9\", \"10\", \"J\", \"Q\", \"K\"][B.v[i] - 1] + {\"spades\": \"♠\", \"hearts\": \"♥\", \"diamonds\": \"♦\", \"clubs\": \"♣\"}[B.s[i]]",
+        "        return [\"A\", \"2\", \"3\", \"4\", \"5\", \"6\", \"7\", \"8\", \"9\", \"10\", \"J\", \"Q\", \"K\"][B.v[i] - 1] + {\"spades\": \"\\u2660\", \"hearts\": \"\\u2665\", \"diamonds\": \"\\u2666\", \"clubs\": \"\\u2663\"}[B.s[i]]",
         "    return \"0123456789ABCDEF\"[B.v[i]]",
         "main = 0",
         "for i in range(B.n * B.n):",
@@ -462,7 +462,12 @@ function render(kind: AgentKind, familyId: string, tieBreaker: string | null, la
   if (tieBreaker !== null && (!tb || !e.tieBreakers[tieBreaker])) throw new Error(`${familyId} has no tie-breaker ${tieBreaker} to write an example for`);
   const meta = kind === "example"
     ? { title: `Example: ${tb!.title}`, summary: `Gets the main part right, then works on the secondary preference (${tb!.title}).`, tryThis: e.tieBreakers[tieBreaker!]!.tryThis, far: 1, quotes: 8, colours: true }
-    : KINDS[kind];
+    : !e.moves.includes("add") && (kind === "simple" || kind === "bold")
+      // A rule of colours alone: its starters never change a number, so they say what they do instead.
+      ? { ...KINDS[kind], ...(kind === "simple"
+        ? { summary: "Swaps two cells' colours, taking the swap that raises your points most: good for your rule and for the other players too." }
+        : { summary: "Like Simple, but it compares more prices before it pays (this rule reads colours only, so it moves colours only).", tryThis: "change QUOTES = 6 to 2: fewer prices asked, but it may miss a cheaper plan." }) }
+      : KINDS[kind];
   const rule = tb ? `Main part: ${f.main.title}. Secondary preference: ${tb.title}.`
     : f.tieBreakers.length ? `Main part: ${f.main.title}. Secondary preference: whichever you were dealt.` : `Your rule: ${f.main.title}.`;
   const how = kind === "naive" ? HOW_NAIVE : kind === "example" ? HOW_EXAMPLE : HOW_POINTS;
