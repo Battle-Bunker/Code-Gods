@@ -16,7 +16,7 @@ import { runTable } from "@workspace/v2-agents/table";
 import { births } from "@workspace/v2-agents/pure";
 import { lineType } from "@workspace/v2-linear";
 import { admin, humans, perform } from "./v2-helpers.ts";
-import { encode, typeOf, variantOf } from "../convex/v2/world.ts";
+import { encode, typeOf, valueObjects, variantOf } from "../convex/v2/world.ts";
 
 const CAP = 4, BIRTH = 10, WORLD = 120, SCALE = 10;
 /** A table tick is 1.5 world seconds and an engine tick about a second of wall time (10 world seconds here): a birth
@@ -66,7 +66,7 @@ test("table and engine agree on turnover: births, retirements, banked points and
   const type = typeOf(game.variant) as typeof lineType, variant = variantOf(game.variant);
   const retired: { at: number; number: number; points: Record<string, number> }[] = [];
   const report = await runTable(boxes, {
-    type, variant, lines: game.settings.startingObjects, seed: game.seed, seconds: WORLD, seats, unique: true,
+    type, variant, lines: game.settings.startingObjects, seed: game.seed, seconds: WORLD, seats, unique: true, valueObjects: valueObjects(game.settings),
     economy: { ...game.settings.economy, startingEnergy: game.settings.startingEnergy }, birthsPerSecond: 1 / BIRTH, regularBirths: true,
     objectCap: CAP, summonCap: game.settings.startingEnergy,
     onRetire: e => retired.push({ at: e.at, number: e.object + 1, points: Object.fromEntries(roster.map((m, i) => [m, e.points[i]!])) }),

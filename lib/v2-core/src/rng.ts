@@ -25,6 +25,9 @@ function splitmix32(state: number): [number, number] {
   return [state, (z ^ (z >>> 16)) >>> 0];
 }
 
+/** The grid `chance` snaps its bits to (2^24 steps a bit): far coarser than float noise, far finer than any price. */
+const QUANTUM = 2 ** 24;
+
 class Sfc32 implements Rng {
   private a: number; private b: number; private c: number; private d: number;
   private bits = 0; private nbits = 0;
@@ -60,6 +63,9 @@ class Sfc32 implements Rng {
     return this.uint32() / 0x100000000;
   }
   chance(bits: number): boolean {
+    // Bits summed in floating point differ in the last place between JavaScript engines (9 against 8.999999999999998):
+    // snapped to a 2^−24 grid first, so every engine takes the same branch and consumes the same draws.
+    bits = Math.round(bits * QUANTUM) / QUANTUM;
     if (bits <= 0) return true;
     if (Number.isInteger(bits)) {
       for (let i = 0; i < bits; i++) if (this.bit() === 1) return false;

@@ -202,7 +202,7 @@ test("each grid example climbs: no move lowers the main part, some raise it, som
         let s = start;
         for (let t = 0; t < 25; t++) {
           const { record, state } = await runAct(await boxes.get("typescript"), { type: gridType, variant: grid4, state: s, rule: { family: e.family, params, tieBreaker: tb }, program: program(a), seed: String(t), energy: 1000 });
-          assert.notEqual(record.outcome, "failed", record.reason);
+          assert.notEqual(record.outcome, "failed", `${e.family}/${tb} on ${gridType.encode(s)}: ${record.reason}`);
           if (record.outcome === "skipped") break;
           const u0 = utility(s), u1 = utility(state);
           s = state;

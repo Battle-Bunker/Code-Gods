@@ -812,10 +812,28 @@ def allowance(offer):
     return min(max(0, b.energy) + _CREDIT_SECONDS * income, _ALLOWANCE_SECONDS * income)
 
 
+def best(options, most=None):
+    """The `most` best options, best first, ties in their given order (a stable sort's first `most`); all when no `most`.
+    A sort of every option compares each about log2 n times; keeping only the best `most` compares most options once."""
+    if most is None:
+        return sorted(options, key=_functools.cmp_to_key(lambda a, b: -1 if better(a[1], b[1]) else 1 if better(b[1], a[1]) else 0))
+    top = []
+    if most <= 0:
+        return top
+    for o in options:
+        if len(top) >= most and not better(o[1], top[-1][1]):
+            continue
+        i = len(top)
+        while i > 0 and better(o[1], top[i - 1][1]):
+            i -= 1
+        top.insert(i, o)
+        if len(top) > most:
+            top.pop()
+    return top
+
+
 def climb(offer, options, now, most=None):
-    options = sorted(options, key=_functools.cmp_to_key(lambda a, b: -1 if better(a[1], b[1]) else 1 if better(b[1], a[1]) else 0))
-    if most is not None:
-        options = options[:most]
+    options = best(options, most)
     # Host calls are capped (64 an act): with too few left to look and price, skip rather than fail.
     calls = getattr(offer.budget(), "host_calls_left", None)
     calls = 64 if calls is None else calls
