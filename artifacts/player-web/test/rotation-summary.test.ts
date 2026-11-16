@@ -38,3 +38,13 @@ test("v1's rotation line: playing again with the same players deals you the rule
   assert.equal(rotationSummary({ ...round, next }, "me", "g1")!.next, null, "an older game of the round does not say what comes next");
   assert.equal(rotationSummary({ ...round, next: null }, "me", "g2")!.next, null, "a fresh deal next: nothing to say");
 });
+
+test("the room page's rotation line (v1 rotation-shot): which game of the round, and whose rule playing again deals", async () => {
+  const { roomRotationLine } = await import("../src/panes/results-headline.ts");
+  const round = { round: 1, of: 3, games: [{ gameId: "g1", number: 1 }], totals: [], next: { memberId: "b", name: "Bo" } };
+  assert.equal(roomRotationLine(round), "Game 1 of 3 in this rotation. Play again with the same players and you get Bo's rule, until everyone has held each rule once.");
+  assert.equal(roomRotationLine({ ...round, next: null }), "Game 1 of 3 in this rotation.");
+  assert.equal(roomRotationLine({ ...round, round: 3 }), "The 3 games of this rotation are over: everyone has played each rule once. The next game deals afresh.");
+  assert.equal(roomRotationLine(null), null);
+  assert.equal(roomRotationLine({ ...round, of: 1 }), null, "a round of one game is no rotation");
+});

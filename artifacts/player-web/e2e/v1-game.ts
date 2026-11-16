@@ -184,12 +184,14 @@ try {
       }
     });
 
-    await missing(["e2e-rotation-shot"], "three humans: the room page's rotation line says whose rule each player gets if they play again (\"Game 1 of 3 in this rotation. Play again with the same players and you get X's rule\")", async () => {
+    await check("three humans: the room page's rotation line says whose rule each player gets if they play again (\"Game 1 of 3 in this rotation. Play again with the same players and you get X's rule\")", async () => {
       await b.goto(`${SITE}/rooms/${code}`);
       const line = b.getByTestId("text-rotation-line");
       await line.waitFor({ timeout: 5_000 });
       assert.match(await line.innerText(), /^Game 1 of 3 in this rotation\. Play again with the same players and you get .+'s rule/);
-    }, async () => { await b.goto(gameUrl); await b.locator('[data-testid="replay-bar"], [data-testid="results"]').first().waitFor({ timeout: 30_000 }).catch(() => {}); });
+      await b.goto(gameUrl);
+      await b.locator('[data-testid="replay-bar"], [data-testid="results"]').first().waitFor({ timeout: 30_000 }).catch(() => {});
+    });
 
     await check("three humans: the replay's header leads back to the room page without a reload; its past games list the game", async () => {
       for (const p of players) {
@@ -241,8 +243,13 @@ try {
       await a.goto(`${SITE}/rooms/${code}`);
       for (const p of [b, c]) { await p.goto(`${SITE}/rooms/${code}`); await p.getByTestId("text-room-code").waitFor(); }
       await a.getByTestId("button-rematch").click({ timeout: 30_000 });
+      // Its confirmation, when it asks (the dialog can take a moment under load; the new game's URL ends the wait too).
       const ok = a.getByTestId("button-rematch-confirm-ok");
-      if (await ok.waitFor({ timeout: 3_000 }).then(() => true, () => false)) await ok.click();
+      const asked = await Promise.race([
+        ok.waitFor({ timeout: 15_000 }).then(() => true, () => false),
+        a.waitForURL((u: URL) => GAME_URL.test(u.pathname) && u.toString().replace(/[?#].*$/, "") !== gameUrl, { timeout: 15_000 }).then(() => false, () => false),
+      ]);
+      if (asked) await ok.click();
       for (const p of players) {
         await p.page.waitForURL((u: URL) => GAME_URL.test(u.pathname) && u.toString().replace(/[?#].*$/, "") !== gameUrl, { timeout: 60_000 });
         await p.page.getByTestId("text-phase").filter({ hasText: /plan|run/i }).waitFor({ timeout: 60_000 });
