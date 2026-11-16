@@ -372,12 +372,12 @@ function TrialPanel({ line }: { line: Line }) {
         Suffix <input className="rm-num" value={suffix} onChange={e => setSuffix(e.target.value)} size={4} aria-label="trial gradient suffix" />{" "}
         primes <input className="rm-num" value={primes} onChange={e => setPrimes(e.target.value)} size={8} aria-label="trial intercept primes" /></p>
       {mode === "sideways" && <p className="rm-muted">Energy = the line's height + sideways: the mean cheapest price, from 40 random lines at the same height, into the class of lines at least as good for the rule (fees plus lift; routes of up to two shortcuts and one finishing move).</p>}
-      {mode === "dynamic" && <p className="rm-muted">Energy = the mean, over 30 neighbours (this line after 3 random moves), of the cheapest price a search finds from the neighbour to any line at least as good for the utility, capped by the price of walking back. No tables, no levels, no lift; continuous utilities (the owner's, 16 November).</p>}
+      {mode === "dynamic" && <p className="rm-muted">Energy = the mean, over 30 random lines whose numbers the rule reads are this line's size (the others random), of the cheapest price found from each to any line at least as good for the rule: the direct route onto this line, every single move with a solved amount, and the rule's own search heuristics. Fresh randomness each time, so it jitters. No tables, no levels, no lift; continuous utilities (the owner's, 16 November).</p>}
       <table className="rm-trial"><tbody>
         {dynamic?.map(({ u, e }) => (
           <tr key={u.id} data-testid="trial-row" data-family={u.id} data-score={e.energy.toFixed(4)}>
             <td title={u.label}>{u.id}</td><td><b>{Number.isFinite(e.energy) ? e.energy.toFixed(0) : "—"}</b></td>
-            <td className="rm-muted">{`utility ${e.u.toFixed(2)}: ${u.label}; search beat the walk back for ${(100 * e.beat).toFixed(0)}% of neighbours`}</td>
+            <td className="rm-muted">{`utility ${e.u.toFixed(2)}: ${u.label}; ${e.samples.filter(x => x.cost < x.direct).length} of ${e.samples.length} starts beat the direct route`}</td>
           </tr>
         ))}
         {sideways?.map(({ r, s }) => (
