@@ -1,5 +1,5 @@
 # Magic Eighteen · Example: prime numbers on the board
-# Main part: every row adds up to the target. Secondary preference: prime numbers on the board.
+# Main part: every row (or column) adds up to the target. Secondary preference: prime numbers on the board.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -10,10 +10,12 @@
 
 def score(b, p):
     # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
+    if p["axis"] == "columns":   # columns dealt: read them as rows
+        b = [b[i % 4 * 4 + i // 4] for i in range(16)]
     main = 0
     for r in range(0, 16, 4):   # each row: how far its total is from T
         main -= abs(b[r] + b[r + 1] + b[r + 2] + b[r + 3] - p["T"])
-    return [main, len([x for x in b if x in (2, 3, 5, 7)])]   # main: how far the rows' totals are from T, added up (closer is better); secondary: more cells holding 2, 3, 5 or 7 is better
+    return [main, len([x for x in b if x in (2, 3, 5, 7)])]   # main: how far the rows' (or columns', the dealt axis) totals are from T, added up (closer is better); secondary: more cells holding 2, 3, 5 or 7 is better
 
 
 FAR = 2      # how far one change may go

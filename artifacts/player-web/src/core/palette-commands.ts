@@ -23,10 +23,14 @@ export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
   // The auction's result and the handicap show in Where am I; a line's views, quotes and score in One line and What if.
   "game.auction": "overview", "object.read": "object", "object.element": "object",
   "object.quote": "what-if", "object.score": "what-if",
+  // An object's locks show in One line (object-locks.tsx).
+  "lock.list": "object", "lock.check": "object", "lock.test": "what-if",
   // The board at a moment (v1's get_board_at): beside the log it is built from.
   "game.boardAt": "feed",
   // The rules anyone could hold (v1's list_utility_candidates): beside what the others care about (W5's "Possible gods").
   "rule.fit": "others-care", "rule.candidates": "others-care",
+  // A script's runs (v1's run_code results, A15): the Code results pane.
+  "code.get": "code-output", "code.list": "code-output", "code.objects": "code-output",
 };
 /** Reads the room page shows (its members, past games, the rotation, the bid phase). */
 export const ROOM_READS: ReadonlySet<string> = new Set(["room.get", "room.history", "game.rotation", "bid.state"]);
@@ -35,7 +39,7 @@ export const SETUP_READS: ReadonlySet<string> = new Set(["setups.page", "setups.
 /** Reads the avatar menu shows (who you are, your connected apps). */
 export const ACCOUNT_READS: ReadonlySet<string> = new Set(["account.whoami", "account.connections"]);
 /** Reads the palette answers itself, in a notice (a command's status). */
-export const NOTICE_READS: ReadonlySet<string> = new Set(["receipt.get", "server.info"]);
+export const NOTICE_READS: ReadonlySet<string> = new Set(["code.scripts", "receipt.get", "server.info"]);
 
 export interface PaletteHost {
   perform(id: AffordanceId, args: unknown): Promise<OpOutcome>;
@@ -53,6 +57,8 @@ export interface PaletteHost {
   /** Who is signed in, and the room in view's code (v1's "Who am I"). */
   me?: { name: string; email?: string | null };
   roomCode?: string;
+  /** Copies the room's invite link (v1's "Copy room link"). */
+  copyRoomLink?(): void;
   /** Opens the assistant and focuses its composer (v1's Ctrl+`), optionally on a new conversation or at its picker. */
   focusAssistant?(request?: { thread?: "new" | "pick" }): Promise<unknown>;
   /** The file panels (src/panels/*.tsx) this copy of the app has; none in safe mode. */
@@ -248,6 +254,14 @@ export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Comm
       id: "assistant-threads", human: { title: "Switch assistant conversation…", tooltip: "Pick another of your conversations with the assistant." },
       group: "view", keywords: ["assistant", "conversation", "thread", "switch", "history"],
       performer: { kind: "submit", run: () => focusAssistant({ thread: "pick" }) }, available: () => ({ ok: true }),
+    });
+  }
+  // v1's "Copy room link": the room page's link, to invite people.
+  const copyRoomLink = host.copyRoomLink;
+  if (copyRoomLink && ctx.room) {
+    rows.push({
+      id: "room-copy-link", human: { title: "Copy room link", tooltip: "The room page's link, to invite people." }, group: "room",
+      keywords: ["invite", "link", "share", "copy link", "room link"], performer: { kind: "local", run: () => copyRoomLink() }, available: () => ({ ok: true }),
     });
   }
   // v1's safe mode: reload the page with every panel of yours off (a panel that breaks the page can then be fixed), and back.

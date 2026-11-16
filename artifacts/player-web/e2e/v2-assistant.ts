@@ -86,6 +86,13 @@ try {
     await chip.waitFor({ timeout: 20_000 });
     assert.match(await chip.innerText(), /Open a pane/);
     assert.equal(await chip.getAttribute("data-ok"), "true", "the call succeeded");
+    // v1's ToolDetail: the chip opens what the assistant sent and what came back.
+    await chip.click();
+    const detail = pane.getByTestId("assistant-tool-detail");
+    await detail.waitFor({ timeout: 15_000 });
+    assert.match(await detail.getByTestId("text-tool-args").innerText(), /"pane":\s*"rules"/, `${label}: the call's arguments`);
+    assert.ok((await detail.getByTestId("text-tool-result").innerText()).trim().length > 0, `${label}: what came back`);
+    await chip.click();
     // The assistant's view tool changed the human's layout, and the dock follows it.
     await page.getByTestId("pane-rules").waitFor({ timeout: 20_000 });
     assert.equal(await pane.getByTestId("input-assistant").inputValue(), "", "the input clears after sending");

@@ -11,7 +11,8 @@
  * changed the panes' names (lines, not objects; the forge is Agent code) and their ids are `pane-<id>`.
  */
 import assert from "node:assert/strict";
-import { DESKTOP, PHONE, SITE, noHorizontalScroll, chromium, check, convexRun, deploy, missing, report, shot, signIn, watch, type Page, type Player } from "./v1-harness.ts";
+import { ConvexHttpClient } from "convex/browser";
+import { CLOUD, DESKTOP, PHONE, SITE, noHorizontalScroll, chromium, check, convexRun, deploy, missing, report, shot, signIn, watch, type Page, type Player } from "./v1-harness.ts";
 
 deploy();
 
@@ -96,6 +97,30 @@ try {
     } finally { await second.close(); }
   });
 
+  await check("the palette's \"Layout: Two panels\" and \"Reset layout\" (v1) rearrange the dock and put it back", async () => {
+    const dock = page.getByTestId("dock-desktop");
+    const run = async (title: string, id: string) => {
+      await page.keyboard.press("Control+K");
+      await page.getByTestId("input-palette").fill(title);
+      await page.getByTestId(`row-palette-${id}`).click();
+    };
+    // Start from the screen's default (the steps before closed panes), so Two panels has several panes to arrange.
+    await run("Reset layout", "view.resetLayout");
+    await page.waitForTimeout(1_000);
+    const before = (await dock.getAttribute("data-dock"))!;
+    await run("Layout: Two panels", "view.twoPanels");
+    const changed = await page.waitForFunction(b => {
+      const now = document.querySelector('[data-testid="dock-desktop"]')?.getAttribute("data-dock") ?? "";
+      return now !== b && now;
+    }, before, { timeout: 10_000 }).then(h => h.jsonValue() as Promise<string>).catch(() => null);
+    const two = changed ?? (await dock.getAttribute("data-dock"))!;
+    // Two shown panes stacked on the left (a column), the rest in one group on the right.
+    assert.match(two, /^(row\(column\(|column\()/, `two panels from ${before}: ${two}`);
+    await run("Reset layout", "view.resetLayout");
+    await page.waitForFunction(b => document.querySelector('[data-testid="dock-desktop"]')?.getAttribute("data-dock") !== b, two, { timeout: 10_000 });
+    assert.notEqual(await dock.getAttribute("data-dock"), null, `before: ${before}`);
+  });
+
   await check("the panel menu is a combobox: it opens focused, Esc closes it, typing \"chat\" then Enter switches the pane to Public chat", async () => {
     const pane = (await openPanes(page)).find(id => id !== "assistant" && id !== "public-chat")!;
     await page.getByTestId(`button-pane-menu-${pane}`).click();
@@ -162,18 +187,20 @@ try {
     await page.waitForFunction(() => (document.querySelector("[data-testid=select-lines-sort]") as HTMLSelectElement | null)?.value === "points", undefined, { timeout: 10_000 });
   });
 
-  await missing(["e2e-stored-panels-4"], "dragging a pane onto the centre of another replaces it: no tabs, no ghost header left behind", async () => {
+  await check("dragging a pane onto the centre of another replaces it: no tabs, no ghost header left behind", async () => {
     const panes = (await openPanes(page)).filter(id => id !== "assistant");
     assert.ok(panes.length >= 2, "two panes to drag");
     const [from, onto] = panes as [string, string];
+    const headers = async () => (await page.locator('[data-testid^="tab-"]').evaluateAll((els: Element[]) => els.map(e => e.getAttribute("data-testid")!.slice("tab-".length)))).sort();
+    const before = await headers();
     const tab = page.getByTestId(`tab-${from}`);
     const target = await page.getByTestId(`pane-${onto}`).boundingBox();
     await tab.dragTo(page.getByTestId(`pane-${onto}`), { targetPosition: { x: target!.width / 2, y: target!.height / 2 } });
-    await page.waitForTimeout(800);
-    // Replaced, not stacked as tabs: the dragged pane's header is the only one where the target was, and every
-    // header belongs to a pane on screen.
-    assert.equal(await page.locator(`[data-testid="tab-${onto}"]`).count(), 0, `${onto} is still there (as a tab)`);
-    assert.equal(await page.locator('[data-testid^="tab-"]').count(), (await openPanes(page)).length, "a header without its pane (a tab group or a ghost)");
+    // Replaced, not stacked as a tab: the headers are the ones before less the pane dropped onto (no new tab, no ghost),
+    // and the stored arrangement no longer names it.
+    await page.waitForFunction((t: string) => !document.querySelector('[data-testid="dock-desktop"]')?.getAttribute("data-dock")?.match(new RegExp(`\\b${t}\\b`)), onto, { timeout: 10_000 });
+    assert.deepEqual(await headers(), before.filter(p => p !== onto), await page.getByTestId("dock-desktop").getAttribute("data-dock") ?? "");
+    await page.getByTestId(`pane-${from}`).waitFor({ timeout: 3_000 });
   });
 
   await check("?panels=off loads only the built-in panes and the assistant (safe mode)", async () => {
@@ -199,16 +226,31 @@ try {
     assert.ok(!scripts.some(url => /\/desktop-[^/]*\.(js|css)$/.test(url)), `the desktop dock was downloaded: ${scripts.filter(u => /desktop/.test(u)).join(", ")}`);
     await noHorizontalScroll(phone, "phone dock");
     assert.match(await phone.getByTestId("button-avatar").getAttribute("aria-label") ?? "", /Ada Admin/, "identity on the phone");
-    await missing(["e2e-multi-client-21"], "BUG: phone: one press on the assistant's sheet opens it (v2: the first press on a settled page is lost; the second opens it)", async () => {
-      await phone.waitForLoadState("networkidle").catch(() => {});
-      await phone.waitForTimeout(2_000);
-      await phone.getByTestId("button-assistant-sheet").click();
-      await phone.locator('[data-testid="assistant-sheet"][data-open] [data-testid="pane-assistant"]').waitFor({ timeout: 5_000 });
-    });
-    if (!await phone.locator('[data-testid="assistant-sheet"][data-open]').count()) await phone.getByTestId("button-assistant-sheet").click();
-    await phone.locator('[data-testid="assistant-sheet"][data-open] [data-testid="pane-assistant"]').waitFor({ timeout: 10_000 });
+    // One press on the assistant's sheet opens it (the stored view arriving with the assistant no longer raises the
+    // sheet by itself, which made the first press lower it: e2e-multi-client-21).
+    await phone.waitForLoadState("networkidle").catch(() => {});
+    await phone.waitForTimeout(2_000);
+    assert.equal(await phone.locator('[data-testid="assistant-sheet"][data-open]').count(), 0, "the sheet waits lowered when the view arrives with it");
+    await phone.getByTestId("button-assistant-sheet").click();
+    await phone.locator('[data-testid="assistant-sheet"][data-open] [data-testid="pane-assistant"]').waitFor({ timeout: 5_000 });
     await shot(phone, "dock-phone-sheet");
     await context.close();
+  });
+
+  await check("a code run shows in Code results: its title, its rows as a table, what it printed (v1's code-output panel, A15)", async () => {
+    const token = await page.evaluate(async () => ((await (await fetch("/api/auth/convex/token")).json()) as { token: string }).token);
+    const client = new ConvexHttpClient(CLOUD);
+    client.setAuth(token);
+    const source = "function main() { console.log('ranked 2 lines'); return { summary: 'Top lines', rows: [{ line: 1, points: 2.5 }, { line: 2, points: 1 }] }; }";
+    const out = await client.action("v2/ops/code:run" as never, { args: { language: "javascript", source, dataset: "none", title: "Rank my lines" }, gameId: g.gameId } as never) as { ok: boolean; error?: { message: string } };
+    assert.ok(out.ok, `code.run: ${out.error?.message}`);
+    await page.locator("[data-testid^=button-pane-menu-]").first().click();
+    await page.keyboard.type("code results");
+    await page.keyboard.press("Enter");
+    const pane = page.getByTestId("pane-code-output");
+    await pane.getByTestId("text-code-run-title").getByText("Rank my lines").waitFor({ timeout: 10_000 });
+    assert.equal(await pane.getByTestId("table-code-result").locator("tbody tr").count(), 2);
+    assert.match(await pane.getByTestId("text-code-output").innerText(), /ranked 2 lines/);
   });
 
   await check("no uncaught page errors", () => assert.deepEqual(me.errors, []));

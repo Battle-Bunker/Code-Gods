@@ -33,6 +33,8 @@ export interface ViewState {
    * every representation the viewer's rule depends on, the expanded face's default).
    */
   focus: { objectId: string; reps: string[]; from?: string } | null;
+  /** The pane shown over the others on the desktop dock (view.maximisePane); absent or null: none. */
+  maximised?: string | null;
   /** The glossary open at a term ("" for its index), or closed. */
   glossary: string | null;
   /** The replay open on screen; `as`: the player whose eyes it is watched through (absent: the human's own seat). */
@@ -44,6 +46,12 @@ export interface ViewState {
  * the events, resolves a time to the first event at or after it and then moves `plus` events (clamped to the game).
  */
 export type ReplayCursor = { seq: number } | { worldSeconds: number; plus: number };
+/** A replay's end: every event up to a world time past any game's (the cursor resolves to the last event, and a step
+ *  back moves back from it). Where a replay opens, as v1's did: on the final board, not an empty one before the start. */
+export const REPLAY_END: ReplayCursor = { worldSeconds: 1e9, plus: 0 };
+
+/** The glossary's page for "How scoring works" (view.showScoring): not a term, so no request for a term opens it. */
+export const SCORING_PAGE = "@scoring";
 
 export const EMPTY_VIEW: ViewState = {
   version: 0, panes: [], dock: {}, pins: {}, objects: { sort: "points", filter: {} }, focus: null, glossary: null, replay: null,
@@ -121,12 +129,36 @@ const replayOf = (v: ViewState) => {
   return v.replay;
 };
 
+/**
+ * Whether a pane the arrangement names is open: the human's open panes once they have any (the arrangement keeps a
+ * closed pane's place, but it is not drawn); every pane of a screen still at its defaults.
+ */
+const isOpen = (v: ViewState) => (pane: string) => !v.panes.length || v.panes.some(p => p.pane === pane);
+/** The game screen in view, whose dock a layout command changes. */
+function screenOf(ctx: AffordanceContext): DockKind {
+  const kind = dockKindOf(ctx.context);
+  if (!kind) throw new OpFailure("Open a game first: only a game screen has a dock.");
+  return kind;
+}
+/** v1's "Two panels": the first two shown panes stacked on the left; every other pane as tabs of one group on the right. */
+function twoPanels(v: ViewState, tree: DockNode): DockNode {
+  const open = isOpen(v);
+  const panes = [...dockPanes(tree).filter(open), ...v.panes.map(p => p.pane).filter(p => !dockPanes(tree).includes(p))];
+  const shown = [...dockGroups(tree).map(l => l.group.active).filter(open), ...panes];
+  const left = [...new Set(shown)].slice(0, 2);
+  const rest = panes.filter(p => !left.includes(p));
+  const stack: DockNode = left.length < 2 ? { tabs: left, active: left[0]! } : { split: "column", sizes: [50, 50], children: left.map(p => ({ tabs: [p], active: p })) };
+  if (!rest.length) return stack;
+  return { split: "row", sizes: [40, 60], children: [stack, { tabs: rest, active: shown.find(p => rest.includes(p)) ?? rest[0]! }] };
+}
+
 export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
   "view.openPane": (v, a, ctx) => opened(v, a.pane, a.place, ctx),
   // Closing the object or replay pane closes what it showed, so nothing acts on a pane the human cannot see.
   "view.closePane": (v, a, ctx) => ({
     ...v, panes: v.panes.filter(p => p.pane !== a.pane), dock: closed(v, a.pane, ctx),
     ...(a.pane === "object" ? { focus: null } : {}), ...(a.pane === "replay" ? { replay: null } : {}),
+    ...(v.maximised === a.pane ? { maximised: null } : {}),
   }),
   "view.movePane": (v, a, ctx) => {
     if (!v.panes.some(p => p.pane === a.pane)) throw new OpFailure(`The ${a.pane} pane is not open.`, "view.openPane");
@@ -146,6 +178,24 @@ export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
     }
     catch (e) { if (e instanceof DockSyntaxError) throw new OpFailure(e.message); throw e; }
   },
+  "view.maximisePane": (v, a, ctx) => {
+    const { maximised: now, ...rest } = v;
+    if (a.pane ? now === a.pane : now) return rest;
+    if (a.pane) return { ...rest, maximised: a.pane };
+    const kind = screenOf(ctx);
+    const groups = dockGroups(v.dock[kind] ?? defaultDock(kind)).filter(l => isOpen(v)(l.group.active));
+    if (!groups.length) throw new OpFailure("Name the pane to maximise.");
+    const largest = groups.reduce((best, l) => (l.rect.w * l.rect.h > best.rect.w * best.rect.h ? l : best));
+    return { ...rest, maximised: largest.group.active };
+  },
+  "view.twoPanels": (v, _a, ctx) => {
+    const kind = screenOf(ctx);
+    return { ...v, dock: { ...v.dock, [kind]: twoPanels(v, v.dock[kind] ?? defaultDock(kind)) } };
+  },
+  "view.resetLayout": (v, _a, ctx) => {
+    const { [screenOf(ctx)]: _old, ...rest } = v.dock;
+    return { ...v, dock: rest };
+  },
   "view.pinRepresentation": (v, a) => ({ ...v, pins: { ...v.pins, [a.family ?? "*"]: a.rep } }),
   "view.showRepresentation": (v, a, ctx) => ({ ...opened(v, "object", undefined, ctx), focus: { objectId: a.objectId, reps: [a.rep] } }),
   "view.compareRepresentations": (v, a, ctx) => ({ ...opened(v, "object", undefined, ctx), focus: { objectId: a.objectId, reps: [...new Set(a.reps)] } }),
@@ -153,8 +203,9 @@ export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
   "view.sortObjects": (v, a) => ({ ...v, objects: { ...v.objects, sort: a.sort } }),
   "view.filterObjects": (v, a) => ({ ...v, objects: { ...v.objects, filter: { ...(a.mine !== undefined ? { mine: a.mine } : {}), ...(a.minBits !== undefined ? { minBits: a.minBits } : {}), ...(a.show !== undefined && a.show !== "all" ? { show: a.show } : {}) } } }),
   "view.showGlossary": (v, a) => ({ ...v, glossary: a.term ?? "" }),
+  "view.showScoring": v => ({ ...v, glossary: SCORING_PAGE }),
   "view.closeGlossary": v => ({ ...v, glossary: null }),
-  "replay.open": (v, a) => ({ ...v, replay: { gameId: a.gameId, cursor: { seq: 0 }, playing: false, speed: 1 }, panes: openPane(v, "replay") }),
+  "replay.open": (v, a) => ({ ...v, replay: { gameId: a.gameId, cursor: REPLAY_END, playing: false, speed: 1 }, panes: openPane(v, "replay") }),
   "replay.play": v => ({ ...v, replay: { ...replayOf(v), playing: true } }),
   "replay.pause": v => ({ ...v, replay: { ...replayOf(v), playing: false } }),
   "replay.seek": (v, a) => {

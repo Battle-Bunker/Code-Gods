@@ -42,7 +42,17 @@ export const EXACT_DENOMINATOR = 999n;
 /** Whether a number is past the exact limit (then written as a decimal, with "≈" said by its caller). */
 export const isApprox = (q: Q): boolean => q.d > EXACT_DENOMINATOR;
 /** A number's digits under the one limit: an exact fraction ("3¹¹⁄₁₆₂") or, past it, a decimal ("3.00"), without "≈". */
-export const exactOrDecimal = (q: Q): string => (isApprox(q) ? fmtNum(Number(q.n) / Number(q.d)) : fmtQ(q));
+export const exactOrDecimal = (q: Q): string => (isApprox(q) ? readingDecimal(Number(q.n) / Number(q.d)) : fmtQ(q));
+/**
+ * An exact reading as a decimal: like fmtNum, but a tiny one (an area of 1/2304) to two significant figures, never
+ * "0.00" (a played game's lines all read "area ≈ 0.00 · ≈ 0.00 above 0"). Not for measures, where fmtNum writes float
+ * noise as 0.00.
+ */
+export function readingDecimal(x: number): string {
+  if (x === 0 || !Number.isFinite(x) || Math.abs(x) >= 0.005) return fmtNum(x);
+  const p = Number(x.toPrecision(2));
+  return p.toFixed(1 - Math.floor(Math.log10(Math.abs(p)))).replace("-", MINUS);
+}
 
 export function readable(q: Q): string {
   if (isApprox(q)) return `≈ ${exactOrDecimal(q)}`;

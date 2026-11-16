@@ -102,7 +102,7 @@ const PLACES: { place: Place; label: string }[] = [
   { place: "main", label: "Move to the middle" }, { place: "left", label: "Move to the left" },
   { place: "right", label: "Move to the right" }, { place: "bottom", label: "Move to the bottom" },
 ];
-/** The desktop dock's maximise (v1's "Maximise"): this viewer's screen only, never stored; the phone has none. */
+/** The desktop dock's maximise (v1's "Maximise"; view.maximisePane): the phone has none. */
 export interface Maximise { isMaximised(pane: string): boolean; toggle(pane: string): void }
 export const MaximiseContext = createContext<Maximise | null>(null);
 

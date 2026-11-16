@@ -7,6 +7,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { jumpTarget, keyMoments } from "./moments";
 import { around, replayEvents, type ReplayEventRow } from "./events";
+import { programKey, type ReplayProgram } from "./fold";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { objectWord, useGame } from "@/sdk";
 import { Download, Link2, Pause, Play, SkipBack, SkipForward, StepBack, StepForward, X } from "lucide-react";
 import { useAffordance } from "@workspace/v2-affordances/react";
@@ -35,6 +37,8 @@ export function ReplayBar() {
   const watchAs = useAffordance("replay.watchAs");
   const close = useAffordance("view.closePane");
   const [drag, setDrag] = useState<number | null>(null);
+  // An agent's program opened from the event list (v1's agent-code dialog).
+  const [code, setCode] = useState<{ agentId: string; version: number } | null>(null);
   // v1's hover read-out on the track: the time and the event under the pointer.
   const [hover, setHover] = useState<{ x: number; seq: number } | null>(null);
   const slider = useRef<HTMLInputElement>(null);
@@ -182,7 +186,8 @@ export function ReplayBar() {
         </div>
       </div>
       <span className="font-mono text-xs text-muted-foreground tabular-nums" data-testid="text-replay-event">event {c.applied} of {ix.end}</span>
-      <EventList rows={events} applied={c.applied} onSeek={seq => void seek.run({ seq }).catch(failed)} />
+      <EventList rows={events} applied={c.applied} onSeek={seq => void seek.run({ seq }).catch(failed)} onCode={p => setCode(p)} />
+      <AgentCodeDialog program={code ? ix.programs.get(programKey(code.agentId, code.version)) ?? null : null} onClose={() => setCode(null)} />
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <label className="flex items-center gap-1.5 text-xs">
           <span className="text-muted-foreground" title="[ slower, ] faster">Speed</span>
@@ -217,7 +222,7 @@ export function ReplayBar() {
  * v1's event list: what happened around the playhead, in order, each with its world time; the latest applied one is
  * marked, the ones still to come are faint, and a click goes to that moment. Collapsed until opened.
  */
-function EventList({ rows, applied, onSeek }: { rows: readonly ReplayEventRow[]; applied: number; onSeek: (seq: number) => void }) {
+function EventList({ rows, applied, onSeek, onCode }: { rows: readonly ReplayEventRow[]; applied: number; onSeek: (seq: number) => void; onCode: (p: { agentId: string; version: number }) => void }) {
   const [open, setOpen] = useState(false);
   const shown = open ? around(rows, applied) : [];
   const current = [...rows].reverse().find(r => r.at <= applied)?.at;
@@ -227,15 +232,36 @@ function EventList({ rows, applied, onSeek }: { rows: readonly ReplayEventRow[];
       {open && (
         <ol className="mt-1 max-h-56 space-y-0.5 overflow-auto">
           {shown.map(r => (
-            <li key={`${r.kind}-${r.at}-${r.text}`}>
+            <li key={`${r.kind}-${r.at}-${r.text}`} className="flex items-baseline gap-1">
               <button type="button" onClick={() => onSeek(r.at)} data-testid={`replay-event-${r.at}`} data-current={r.at === current || undefined}
-                className={`w-full px-2 py-0.5 text-left hover:bg-muted ${r.at === current ? "bg-[hsl(var(--primary)/0.1)] font-medium" : ""} ${r.at > applied ? "opacity-50" : ""}`}>
+                className={`min-w-0 flex-1 px-2 py-0.5 text-left hover:bg-muted ${r.at === current ? "bg-[hsl(var(--primary)/0.1)] font-medium" : ""} ${r.at > applied ? "opacity-50" : ""}`}>
                 <span className="mr-2 font-mono text-muted-foreground tabular-nums">{clock(r.world)}</span>{r.text}
               </button>
+              {r.program && (
+                <button type="button" className="shrink-0 px-1 font-mono underline underline-offset-4" title="The code this agent ran from here"
+                  onClick={() => onCode(r.program!)} data-testid={`button-replay-agent-${r.program.agentId}`}>code</button>
+              )}
             </li>
           ))}
         </ol>
       )}
     </details>
+  );
+}
+
+/** v1's agent-code dialog: the program a summon or a change started, as the record keeps it; Escape closes it. */
+function AgentCodeDialog({ program, onClose }: { program: ReplayProgram | null; onClose: () => void }) {
+  return (
+    <Dialog open={!!program} onOpenChange={o => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-2xl" data-testid="dialog-replay-agent">
+        {program && (
+          <>
+            <DialogTitle>{program.name}, version {program.version}</DialogTitle>
+            <DialogDescription>{program.language === "python" ? "Python" : "TypeScript"}, as it ran from {clock(program.summonedAt)} of the game.</DialogDescription>
+            <pre className="max-h-[60vh] overflow-auto border bg-muted/40 p-2 font-mono text-[11px] leading-snug" data-testid="text-replay-agent-source">{program.source}</pre>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -18,7 +18,7 @@ import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
-import { SITE, chromium, check, clientOf, missing, report, signIn, watch, type Page, type Player } from "./v1-harness.ts";
+import { SITE, chromium, check, clientOf, report, signIn, watch, type Page, type Player } from "./v1-harness.ts";
 
 const HERE = join(import.meta.dirname, "..");
 const dist = mkdtempSync(join(tmpdir(), "cg-account-"));
@@ -147,9 +147,10 @@ try {
     }
   });
 
-  await missing(["e2e-account-mode-5"], "BUG: a reload while the token refresh is in flight keeps the grant (v2: the next load gets 400 from /api/oauth/token and asks to sign in)", async () => {
+  await check("quick reloads while the token refresh is in flight keep the grant (fixed by #1057 and its follow-up)", async () => {
     for (let n = 1; n <= 4; n++) {
-      await page.goto(gameUrl);
+      // The app may navigate itself (same URL) while it loads; a goto interrupted by that is still a quick reload.
+      await page.goto(gameUrl).catch((e: Error) => { if (!/interrupted by another navigation/.test(e.message)) throw e; });
       await page.locator('[data-testid="text-phase"], [data-testid="button-account-sign-in"]').first().waitFor({ timeout: 30_000 });
       assert.equal(await page.getByTestId("button-account-sign-in").count(), 0, `load ${n}, made right after the last, asks to sign in again`);
     }

@@ -107,9 +107,14 @@ export function spentText(e: { spend: number; spendRead: number; spendChange: nu
   return `Spent ${energyText(e.spend)} on ${moves(e.acts)}: ${num(e.spendRead)} reading, ${num(e.spendChange)} changing`;
 }
 
-/** v1's actual cost: "Actual average 7.50 energy per move" (null before its first move). */
-export function actualText(e: { spend: number; acts: number }): string | null {
-  return e.acts > 0 ? `Actual average ${energyText(e.spend / e.acts)} per move` : null;
+/**
+ * v1's actual cost against the estimate: "Actual average 7.50 energy per move (estimate was 6.20)"; before its first
+ * move, the estimate alone (agentEnergy's `estimate`, measured after a summon or a replace). Null with neither.
+ */
+export function actualText(e: { spend: number; acts: number; estimate?: { perAct: number; read: number; change: number } | null }): string | null {
+  const est = e.estimate;
+  if (e.acts > 0) return `Actual average ${energyText(e.spend / e.acts)} per move${est ? ` (estimate was ${num(est.perAct)})` : ""}`;
+  return est ? `No moves yet (estimate ${energyText(est.perAct)} per move: ${num(est.read)} reading + ${num(est.change)} changing)` : null;
 }
 
 const clockText = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;

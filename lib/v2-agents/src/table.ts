@@ -96,6 +96,9 @@ export interface TableInput<S> {
   /** Owner decision 24: no two objects in the same state. A move whose result another object already holds is refused
    *  (the act pays its reads only). */
   readonly unique?: boolean;
+  /** Value every line with the uniqueness correction at this many objects, as the engine values a game (its value
+   *  scope, convex/v2/world.ts valueObjects); absent: no correction. */
+  readonly valueObjects?: number;
   /** Disclosure noise on the others' sum, σ in bits (v1's 8; 0 or absent: exact). As the server draws it (owner decision
    *  32, W3 #673): every read an agent makes (othersAfter) is an independent draw, keyed by the act and the read's count,
    *  and the act's own value (worth) is drawn once per act. The scores here stay exact. */
@@ -218,7 +221,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   const r = rng("table", input.seed);
   const checks = rng("table-checks", input.seed);   // apart from r, so a model's checks never change what agents are offered
   let lines = births(type, variant, input.seed, input.lines);
-  let vals = seats.map(s => valuer(type, variant, s.rule));
+  let vals = seats.map(s => valuer(type, variant, s.rule, input.valueObjects));
   const bitsAll = (s: S) => vals.map(v => v.bits(s));
   const pointsOf = (s: S) => { const n = bitsAll(s); const t = n.reduce((a, b) => a + b, 0); return n.map(x => x * (t - x)); };
   let points = lines.map(pointsOf);
@@ -549,7 +552,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
         if (JSON.stringify(next) === JSON.stringify(s.rule.params)) continue;
         input.onDrift?.({ at: world, seat: i, params: next });
         s.rule = { ...s.rule, params: next };
-        vals[i] = valuer(type, variant, s.rule);
+        vals[i] = valuer(type, variant, s.rule, input.valueObjects);
         redrawn = true;
       }
     }

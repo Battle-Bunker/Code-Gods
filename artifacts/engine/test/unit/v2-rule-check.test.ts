@@ -66,6 +66,9 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "treasure 3a": "15 Nov, spec lead: repertoire in progress",
   "same-on-both-rulers 3a": "15 Nov, spec lead: repertoire in progress",
   "prime-gradient 3a": "15 Nov, spec lead: repertoire in progress",
+  // A space of 444 suffixes (RuleFamily.space); only the peers 1 and 9 are dealt until worth is a formula of the suffix
+  // (the scoring trial): sampled curves for 3 and 7 put the peers 1.33 bits apart, and sparse suffixes extrapolate.
+  "prime-gradient 4": "16 Nov, rules-interaction worker: 444 drawable, 2 dealt until the worth formula lands",
   "prime-staircase 3a": "15 Nov, spec lead: repertoire in progress",
   "ruler 3a": "15 Nov, grids session",
   "pythagorean-area 3a": "15 Nov, grids session",
@@ -74,6 +77,9 @@ const EXEMPT: Readonly<Record<string, string>> = {
   // Row 1 (not checked here for grids): every beginner grid main part has a global top on the 0–9 board, as v1's did.
   // Leapfrog and Two Pair reached theirs in real games within 10 minutes (round 34, baseline 2); kept dealt as the v1
   // baseline by the coordinator (16 Nov). See docs/engine-v2/grid-v1-v2-compare.md, "Known reachable tops".
+  "looking-glass 3a": "16 Nov, grids session: grid baseline: ported as v1",
+  "pinwheel 3a": "16 Nov, grids session: grid baseline: ported as v1",
+  "constellation 3a": "16 Nov, grids session: grid baseline: ported as v1",
   // Row 4: one dealt parameter set.
   "square-area 4": "15 Nov, grids session: Square Area redesign",
   "mirrormancer 4": "15 Nov, grids session", "magic-eighteen 4": "15 Nov, grids session", "opposite-nines 4": "15 Nov, grids session",
@@ -82,6 +88,13 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "kings-and-subjects 4": "15 Nov, grids session", "stepping-stones 4": "15 Nov, grids session", "mountain-climb 4": "15 Nov, grids session",
   "uphill 4": "15 Nov, grids session", "staircase 4": "15 Nov, grids session", "magic-accountant 4": "15 Nov, grids session",
   "fillomino 4": "15 Nov, grids session",
+  "round-numbers 4": "16 Nov, grids session: grid baseline: ported as v1",
+  "column-addition 4": "16 Nov, grids session: grid baseline: ported as v1",
+  "full-house 4": "16 Nov, grids session: grid baseline: ported as v1", "snap 4": "16 Nov, grids session: grid baseline: ported as v1",
+  "looking-glass 4": "16 Nov, grids session: grid baseline: ported as v1",
+  "pinwheel 4": "16 Nov, grids session: grid baseline: ported as v1",
+  "constellation 4": "16 Nov, grids session: grid baseline: ported as v1 (one star dealt: the stars are not peers on v2's law)",
+  "bingo-caller 4": "16 Nov, grids session: grid baseline: ported as v1",
   // Row 7: forms repeated within a family, kinds and forms shared by more than three families.
   "square-area 7-repeat": "15 Nov, grids session: spf and lpf are both prime-factor sizes (Square Area redesign)",
   "far-crossing 7-repeat": "15 Nov, pairs session: both secondaries are near-multiples",
@@ -95,6 +108,11 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "lines-pairs 7-form:near-multiple": "16 Nov, pairs session: tie-breakers tied to the level (trial 37) favour near-multiples; spread after the deadline",
   "lines-pairs 7-form:factor-size": "16 Nov, pairs session: as near-multiple",
   "grids-beginner 7-form:second-axis": "15 Nov, grids session",
+  "grids-more-rules 7-form:all-different": "16 Nov, grids session: grid baseline: ported as v1",
+  "grids-more-rules 7-form:distance": "16 Nov, grids session: grid baseline: ported as v1",
+  "grids-more-rules 7-form:big-values": "16 Nov, grids session: grid baseline: ported as v1",
+  "grids-more-rules 7-form:count": "16 Nov, grids session: grid baseline: ported as v1",
+  "grids-more-rules 7-form:reach": "16 Nov, grids session: grid baseline: ported as v1",
   // Row 5: no PMI table for the variant yet (lib/v2-agents scripts/pmi.ts).
   "lines-lenses 5-unmeasured": "15 Nov, spec lead: PMI table for line-q-lenses",
   "grids-beginner 5-unmeasured": "15 Nov, grids session: PMI table for grid-4-d10",

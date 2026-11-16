@@ -45,7 +45,7 @@ export interface ActInput<S> {
    */
   readonly commitClause?: boolean;
   /** The offered object's locks, when the game has them (docs/engine-v2/locks.md). */
-  readonly locks?: HostInput<S>["locks"];
+  readonly locks?: Omit<NonNullable<HostInput<S>["locks"]>, "language">;
 }
 
 /** The reason an act's moves did not commit under the commit clause (v1's wording, a line for an object). */
@@ -92,6 +92,11 @@ export interface ActRecord {
    */
   readonly locks?: readonly LockOpDone[];
   readonly lockSpend?: number;
+  /**
+   * The numbers of the locks a committed act's calls were checked against (those live after its own funds and drains),
+   * when the game has locks: the commit refuses the move if any other lock is live on the object by then.
+   */
+  readonly lockChecked?: readonly number[];
 }
 
 export async function runAct<S>(sandbox: Sandbox, input: ActInput<S>): Promise<{ record: ActRecord; state: S }> {
@@ -100,7 +105,8 @@ export async function runAct<S>(sandbox: Sandbox, input: ActInput<S>): Promise<{
   const host = new EngineHost({
     type: input.type, variant: input.variant, state: input.state, rule: input.rule, energy: input.energy, ...(input.income === undefined ? {} : { income: input.income }), economy,
     value: input.value, history: input.history, values: input.values, others: input.others, occupied: input.occupied, disclosed: input.disclosed,
-    ...(input.locks ? { locks: input.locks } : {}),
+    // An agent writes its predicates in its own language.
+    ...(input.locks ? { locks: { ...input.locks, language: input.program.language === "python" ? "python" as const : "typescript" as const } } : {}),
   });
   const offerBits = Math.log2(Math.max(1, input.liveObjects ?? 1));
   const result = await sandbox.act({ source: input.program.source, offer: { object: input.object ?? 0 }, seed: input.seed, host, limits: input.limits });
@@ -120,7 +126,7 @@ export async function runAct<S>(sandbox: Sandbox, input: ActInput<S>): Promise<{
   const L = input.locks, ops = host.lockOps;
   // The act's whole effect under locks: funds and drains, the calls (each checked), new locks (lib/v2-core lockedAct).
   const underLocks = (calls: Parameters<typeof applyCalls>[3]) => lockedAct({ type: input.type, variant: input.variant, state: input.state, calls, ops,
-    locks: L!.live, world: L!.world, nextLock: L!.nextLock, fullChargeSeconds: L!.fullChargeSeconds, info: L!.info });
+    locks: L!.live, world: L!.world, nextLock: L!.nextLock, rates: L!.rates, run: host.lockRun!, programBits: L!.programBits });
   const lockSpendOk = (spend: number, charge: number) => spend + charge <= input.energy + 1e-9;
   // Lock changes alone, without moving (a skip that carries them); a plain skip when there are none.
   const skipOrLocks = () => {
@@ -168,6 +174,7 @@ export async function runAct<S>(sandbox: Sandbox, input: ActInput<S>): Promise<{
     steps: result.steps,
     ...base,
     ...(locked && !isInvalid(locked) && locked.done.length ? { locks: locked.done, lockSpend: locked.spend } : {}),
+    ...(locked && !isInvalid(locked) ? { lockChecked: locked.checked } : {}),
   };
   if (record.lockSpend !== undefined && !lockSpendOk(record.lockSpend, record.charge)) return nothing("failed", { reason: "not enough energy for these lock changes" }, result.steps);
   return { record, state: applied.result };

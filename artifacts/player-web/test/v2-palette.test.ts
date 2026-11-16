@@ -210,3 +210,23 @@ test("'Who am I' says who you are signed in as and what you are in the room (v1)
   const row = paletteCommands(room({ owner: true, spectator: false }), { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, me: { name: "Ada" }, roomCode: "ABC123" } as never).find(r => r.id === "account.whoami");
   assert.ok(row && row.performer.kind === "form" && row.performer.page.kind === "info" && /You are Ada, the owner and a player in room ABC123/.test(String((row.performer.page as { lines: string[] }).lines[0])));
 });
+
+test("'Copy room link' is a row wherever a room is in view (v1)", () => {
+  let copied = 0;
+  const host = { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, roomCode: "ABC123", copyRoomLink: () => { copied++; } };
+  const row = paletteCommands(ctx, host as never).find(r => r.id === "room-copy-link");
+  assert.ok(row && row.human.title === "Copy room link" && row.performer.kind === "local");
+  row.performer.run();
+  assert.equal(copied, 1);
+  assert.equal(paletteCommands(affordanceContext({ signedIn: true, admin: false }), host as never).some(r => r.id === "room-copy-link"), false, "not without a room");
+});
+
+test("a code run read opens the Code results pane, not a notice (v1's code-output panel, A15)", async () => {
+  const { READ_PANES, NOTICE_READS } = await import("../src/core/palette-commands.ts");
+  const { PANES } = await import("@workspace/v2-client");
+  for (const id of ["code.get", "code.list"]) {
+    assert.equal(READ_PANES[id], "code-output", id);
+    assert.ok(!NOTICE_READS.has(id), id);
+  }
+  assert.deepEqual([...PANES["code-output"].phases], ["planning", "live", "paused", "ended", "replay"], "every phase: a run can be about any game");
+});

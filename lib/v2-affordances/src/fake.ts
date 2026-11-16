@@ -427,6 +427,13 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     const total = bits.reduce((s, b) => s + b, 0), g = gameOf(e), d = distanceOf(g, e.userId, o);
     return { valid: true, bits, total, charge: total + 0.05 * total * total, after: { score: [String(-d)], terms: [] } };
   },
+  // The fake game has no locks (the room setting is off).
+  "lock.list": () => ({ locks: [] }),
+  "lock.create": () => { throw new OpFailure("This game has no locks (the room setting is off)."); },
+  "lock.check": () => { throw new OpFailure("This game has no locks (the room setting is off)."); },
+  "lock.fund": () => { throw new OpFailure("This game has no locks (the room setting is off)."); },
+  "lock.drain": () => { throw new OpFailure("This game has no locks (the room setting is off)."); },
+  "lock.test": () => ({ allowed: true, breaks: [] }),
   "object.look": () => { throw new OpFailure("This game shows every object as it is; there is nothing to pay for."); },
   "object.whatIf": (_e, a) => ({ state: "", price: 0, after: a.calls.map(() => null) }),
   "object.score": (e, a) => {
@@ -544,6 +551,13 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     e.state.connections[a.request] = { userId: e.userId, client: "remote assistant", roomId: a.room ?? e.roomId, grant: a.grant };
     return ok;
   },
+  // The fake server has no script sandbox: a run is refused, and there are no runs to read.
+  "code.run": () => { throw new OpFailure("The offline server does not run code."); },
+  "code.get": () => { throw new OpFailure("No such run of yours."); },
+  "code.list": () => ({ page: [], nextCursor: null }),
+  "code.scripts": () => ({ scripts: [] }),
+  "code.objects": () => ({ objects: [] }),
+  "code.deleteScript": () => ({ deleted: false }),
   "panel.list": e => ({
     panels: Object.values(e.state.panels ?? {}).filter(p => p.userId === e.userId).map(p => ({
       panelId: p.panelId, slug: p.slug, title: p.title, placement: p.placement, size: p.size, currentVersion: p.versions.at(-1)!.version,

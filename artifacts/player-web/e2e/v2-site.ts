@@ -23,6 +23,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { chooseSetup } from "./setup-choice.ts";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
@@ -300,8 +301,7 @@ try {
         await page.goto(`${SITE}/`);
         await page.getByTestId("button-create-room").first().click();
         await page.waitForURL(/\/rooms\/[A-Z0-9]+$/);
-        await page.getByTestId("setup-grids-more-rules").click();
-        await page.waitForFunction(() => (document.querySelector("[data-testid=radio-setup-grids-more-rules]") as HTMLInputElement | null)?.checked === true);
+        await chooseSetup(page, "grids-more-rules", "Grids · more rules");
         await page.getByTestId("button-practice-game").click();
         await page.waitForURL(/\/games\//, { timeout: 30_000 });
         if (!await page.getByTestId("pane-my-card").count() && await page.getByTestId("button-jump-my-card").count()) await page.getByTestId("button-jump-my-card").click();
@@ -336,6 +336,22 @@ try {
       await glossary.waitFor({ state: "detached", timeout: 5000 });
     });
 
+    await check(`${label}: "How scoring works" (v1's sheet) opens from the palette and closes`, async () => {
+      await page.goto(`${SITE}/`);
+      await page.getByTestId("button-avatar").waitFor();
+      await page.locator("body").click({ position: { x: 5, y: 300 } });
+      await page.keyboard.press("Control+K");
+      await page.getByTestId("input-palette").fill("How scoring works");
+      await page.keyboard.press("Enter");
+      const sheet = page.getByTestId("how-scoring-works");
+      await sheet.waitFor({ timeout: 10_000 });
+      assert.match(await sheet.innerText(), /your 3 bits × others' 2 bits = 6 points/);
+      await page.waitForTimeout(400);   // the dialog's opening animation
+      await shot(page, `v2-how-scoring-works-${label}`);
+      await page.keyboard.press("Escape");
+      await sheet.waitFor({ state: "detached", timeout: 5000 });
+    });
+
     await check(`${label}: planning shows one countdown and the owner's "Start the world now"`, async () => {
       const room = code();
       const g = convexRun("v2/testing:seedGame", { owner: me.subject, practice: 2, code: room, phase: "planning" });
@@ -346,6 +362,14 @@ try {
       await page.getByTestId("button-start-world").waitFor();
       assert.equal(await page.getByTestId("game-timer").count(), 0, "one countdown in planning");
       await shot(page, `v2-planning-${label}`);
+      // How to play links v1's scoring sheet (its rules panel held it).
+      await page.keyboard.press("Control+K");
+      await page.getByTestId("input-palette").fill("Open a pane");
+      await page.getByTestId("row-palette-view.openPane").click();
+      await page.getByTestId("row-palette-option-rules").click();
+      await page.getByTestId("button-rules-scoring").click();
+      await page.getByTestId("how-scoring-works").waitFor({ timeout: 10_000 });
+      await page.keyboard.press("Escape");
     });
 
     assert.deepEqual(me.errors, [], `${label}: no page errors`);

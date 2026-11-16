@@ -12,9 +12,9 @@
 
 def score(m, c, p):
     # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
-    if m == p["meets"]:                              # parallel to y = meets·x: they never meet
+    if m == p["meets"] and c == 0:                 # y = meets·x itself scores nothing
         return None
-    x = abs(c / (p["meets"] - m))                    # where the line meets y = meets·x, ignoring a minus sign
+    x = abs(c if m == p["meets"] else c / (p["meets"] - m))   # where it meets y = meets·x, ignoring a minus sign (parallel: its height)
     n = nearest_palindrome(x, p["digits"] == "odd")         # the palindrome nearest it: bigger is better
     main = n
     return [main, -abs(abs(m) - sum(int(d) for d in str(n)))]   # main: the palindrome with the rule's count of digits nearest where the line meets y = x (or y = -x), the bigger the better; secondary: the gradient's size should be near the palindrome's digits added up

@@ -17,6 +17,8 @@ import { useLivePaged, useLiveValue, useLiveValues } from "./live";
 import { pagedFrom, useReplaySource } from "./replay";
 import { bitsOf, ruleRefOf, valueOf, type GameRule, type ValueOf } from "./rule";
 import type { Score } from "@workspace/v2-core";
+import type { FunctionReference } from "convex/server";
+import type { OpOutcome } from "@workspace/v2-affordances";
 import type { Agent, Header, Move, MyRuleRow, ObjectShow, ObjectSort, PlayObject, StandingsPoint, Tug } from "./types";
 import { sharedRanks } from "@/core/words";
 
@@ -84,6 +86,21 @@ export function useGameDetails() {
   const { gameId } = useGameScope();
   return useLiveValue(api.v2.games.details, gameId ? { gameId } : "skip");
 }
+
+/** The viewer's code runs, newest first (code.list; the Code results pane): one live page of at most `limit`. */
+export function useCodeRuns(limit = 20) {
+  const out = useLiveValue(api.v2.ops.code.list as CodeQuery, { args: { limit } }) as OpOutcome | undefined;
+  return out === undefined ? undefined : out.ok ? (out.result as { page: CodeRunRow[]; nextCursor: string | null }).page : [];
+}
+/** One code run whole (code.get): source, outcome, result, printed output. Null when it is not the viewer's. */
+export function useCodeRun(runId: string | null) {
+  const out = useLiveValue(api.v2.ops.code.get as CodeQuery, runId ? { args: { runId } } : "skip") as OpOutcome | undefined;
+  return out === undefined ? undefined : out.ok ? out.result as CodeRun : null;
+}
+/** code.list and code.get are defineOp queries (their export's type spans every op kind). */
+type CodeQuery = FunctionReference<"query", "public", { args: Record<string, unknown> }, OpOutcome>;
+export interface CodeRunRow { runId: string; title: string; language: string; dataset: string; status: "ok" | "error"; ms: number; at: number }
+export interface CodeRun extends CodeRunRow { source: string; gameId: string | null; result: unknown; error: string | null; output: string }
 
 /** Every rule this game's dealer could deal (v2/play:candidates; v1's "Possible gods"): never who holds which. */
 export function useRuleCandidates() {
@@ -272,6 +289,10 @@ export function useAssistantTranscript(threadId: string | null | undefined, page
 export function useAssistantTurn(turnId: string | null | undefined) {
   return useLiveValue(api.v2.assistant.turn, turnId ? { turnId: turnId as Id<"v2AssistantTurns"> } : "skip");
 }
+/** One tool call of a turn in full (v1's ToolDetail): what was sent and what came back, subscribed only while shown. */
+export function useAssistantCall(turnId: string | null | undefined, index: number | null) {
+  return useLiveValue(api.v2.assistant.call, turnId && index !== null ? { turnId: turnId as Id<"v2AssistantTurns">, index } : "skip");
+}
 
 // ------------------------------------------------------------------ the viewer's stored panels (across rooms; not in the panel SDK)
 
@@ -344,3 +365,15 @@ export function useObjectMoves(number: number | null | undefined) {
   const replay = useReplaySource();
   return useLiveValue(api.v2.play.objectMoves, gameId && seated && !replay && number != null ? { gameId, number } : "skip");
 }
+
+/**
+ * An object's live locks (docs/engine-v2/locks.md §5): program, energy, upkeep, history (amounts and times, the
+ * viewer's own marked), the viewer's own share. None when the game has no locks or in a replay.
+ */
+export function useObjectLocks(objectId: string | null | undefined) {
+  const { gameId } = useGameScope();
+  const replay = useReplaySource();
+  const locks = useGame()?.locks ?? null;
+  return useLiveValue(api.v2.locks.ofObject, gameId && locks && !replay && objectId ? { gameId, objectId: objectId as Id<"v2Objects"> } : "skip");
+}
+export type ObjectLock = NonNullable<ReturnType<typeof useObjectLocks>>[number];

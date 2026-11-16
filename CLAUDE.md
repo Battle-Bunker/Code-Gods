@@ -18,6 +18,29 @@
   skill (vendored from obra/superpowers) and this repo's `code-gods-testing` skill. Test the behaviour
   that would break, at the cheapest layer that can catch it.
 
+## The owner's attention, and how to reason (standing instructions, 2026-11-16)
+
+- **Ask only load-bearing questions.** "Don't waste my attention on asking what I think about cheaply changeable
+  configuration parameters. We are massively bottlenecked on my attention and you need to help with triage to ask my
+  attention only for architecturally load bearing design questions where changing direction on those areas later is
+  costly. You should do all choosing of cheaply changeable parameters yourself with your own judgement."
+- **Suggestions are evidence of what is wanted, not a parts list.** "We have accumulated a lot of mess of complexity
+  from you repeatedly following my suggestions and corrections as literal instructions and adding bad ideas to fix
+  dissonances you encounter that add complexity instead of noticing the dissonance and looking for a more elegant and
+  simpler way to achieve the combined ecosystem properties we want." When a wanted property and a mechanism conflict,
+  do not add a mechanism: say so, and look for the design in which the conflict does not arise.
+- **Do not over-read narrow experiments.** "You need to become more self-aware of your propensity to overweight the
+  results of experiments that include massive amounts of constraining assumptions." A simulation with a handful of
+  scripted strategies is an existence proof that something can happen, never a property of the game ("one strategy
+  dominates", "no dominant strategy" are both overreach). Label every claim as true by construction, seen in a narrow
+  test (with its assumptions), or conjecture; prefer structural claims; write "how this could be wrong" for every
+  diagnosis and proposal.
+- **Times in Melbourne time.** "Always specify times in Melbourne timezone."
+- **Keep the session list truthful.** Archive every delegated session whose work is complete, as it completes, so the
+  live sessions show what is in progress.
+- The map of the scoring and costing machine as built, and the shortlist of simpler designs (16 November):
+  `docs/engine-v2/redesign/` on the `claude/redesign-*` branches.
+
 ## Reading data from Convex (the owner's standing instruction, 2026-11-02)
 
 Never one integrated query for a page. Each component subscribes to what it renders: a collection is a paginated,

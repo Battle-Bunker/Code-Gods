@@ -8,7 +8,7 @@ import { objectWord, useGame, useReplaySource } from "@/sdk";
 import { usePaneOps } from "@/dock/open-pane";
 import { toast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { BITS_HELP, othersNote, TIE_NOTE } from "./words";
+import { BITS_HELP, eachEntryText, othersNote, seeEachText, TIE_NOTE } from "./words";
 
 /** A "?" beside a figure in bits: "Each bit = twice as rare." on hover and on tap. */
 export function BitsHelp({ testId = "button-bits-help" }: { testId?: string }) {
@@ -39,12 +39,12 @@ export function LineByLine({ testId, className }: { testId: string; className?: 
   const go = async () => {
     try { await sort.run({ sort: "points" }); }
     catch (e) { toast({ title: "The order did not change", description: e instanceof Error ? e.message : String(e), variant: "destructive" }); }
-    if (await panes.open("objects")) toast({ title: `${w.Many}, best for you first`, description: `Each entry is one ${w.one}'s points; all of them added up make your total.` });
+    if (await panes.open("objects")) toast({ title: `${w.Many}, best for you first`, description: eachEntryText(w) });
   };
   return (
-    <button type="button" onClick={() => void go()} data-testid={testId} title={`Open ${w.Many}, best for you first: each ${w.one}'s points, which add up to the total.`}
+    <button type="button" onClick={() => void go()} data-testid={testId} title={`Open ${w.Many}, best for you first: ${eachEntryText(w)}`}
       className={className ?? "text-xs underline underline-offset-4"}>
-      See it {w.one} by {w.one}
+      {seeEachText(w)}
     </button>
   );
 }

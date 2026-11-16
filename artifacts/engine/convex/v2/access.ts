@@ -156,7 +156,7 @@ export async function resolveContext(ctx: QueryCtx, user: User | null, scope: Sc
     const members = await ctx.db.query("v2Members").withIndex("by_room", q => q.eq("roomId", room._id)).take(MAX_MEMBERS);
     out.room = { players: members.filter(m => !m.spectator).length, minPlayers: presetOf(room.preset).minPlayers, bidOpen: !!room.bidding };
   }
-  if (game && player) out.game = { phase: game.phase, energy: await ownEnergyNow(ctx, game, player), pauseUsed: player.pauseUsed, agents: player.agents };
-  else if (game) out.game = { phase: game.phase };
+  if (game && player) out.game = { phase: game.phase, energy: await ownEnergyNow(ctx, game, player), pauseUsed: player.pauseUsed, agents: player.agents, locks: (game.settings as { locks?: boolean }).locks === true };
+  else if (game) out.game = { phase: game.phase, locks: (game.settings as { locks?: boolean }).locks === true };
   return { ctx: out, user, room, game, member, player };
 }

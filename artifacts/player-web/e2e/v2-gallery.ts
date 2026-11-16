@@ -17,6 +17,7 @@ import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { ConvexHttpClient } from "convex/browser";
+import { chooseSetup } from "./setup-choice.ts";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
@@ -115,15 +116,14 @@ try {
     await page.getByTestId("button-create-room").first().click();
     await page.waitForURL(/\/rooms\/[A-Z0-9]+$/);
     const next = page.getByTestId("section-next-game");
-    await next.getByTestId("radio-setup-lines-beginner").waitFor();
-    assert.ok(await next.getByTestId("radio-setup-lines-beginner").isChecked(), "a new room plays the beginner setup");
-    const lab = await next.getByTestId("setup-group-lab").count();
+    await next.getByTestId("text-current-setup").filter({ hasText: /^Lines · beginner$/ }).waitFor();   // a new room plays the beginner setup
+    await next.getByTestId("select-setup").click();
+    await page.getByTestId("popover-setups").waitFor();
+    const lab = await page.locator('[data-testid^="text-setup-lab-"]').count();
     if (who !== "admin") assert.equal(lab, 0, "a player is never offered the Lab");
-    else console.log(`${label}: Lab group ${lab ? "shown" : "absent (no Lab preset deployed)"} for an admin`);
-    await next.getByTestId("setup-lines-beginner-bidding").click();
-    await page.waitForFunction(() => (document.querySelector("[data-testid=radio-setup-lines-beginner-bidding]") as HTMLInputElement | null)?.checked === true);
-    await next.getByTestId("setup-lines-beginner").click();
-    await page.waitForFunction(() => (document.querySelector("[data-testid=radio-setup-lines-beginner]") as HTMLInputElement | null)?.checked === true);
+    else console.log(`${label}: Lab setups ${lab ? "shown" : "absent (no Lab preset deployed)"} for an admin`);
+    await chooseSetup(page, "lines-beginner-bidding", "Lines · beginner with bidding");
+    await chooseSetup(page, "lines-beginner", "Lines · beginner");
     // A number the server would refuse is explained, and nothing is sent.
     await next.getByTestId("input-setting-planningSeconds").fill("2");
     await next.getByTestId("error-setting-planningSeconds").waitFor();
@@ -201,6 +201,16 @@ try {
       await sketch.scrollIntoViewIfNeeded();
       await shot(page, `what-if-turn-${label}`);
     } else console.log(`${label}: the turn's start was refused here: ${await whatIf.getByTestId("text-what-if-error").innerText()}`);
+    // v1's "Compared with": a second change on the same line, under the first, with its own result.
+    await whatIf.getByTestId("button-what-if-compare").click();
+    const compared = whatIf.getByTestId("what-if-compared");
+    await compared.getByTestId("input-what-if-compare-k").fill("3");
+    await compared.getByTestId("text-what-if-compare-after").getByText(/up 3/).waitFor();
+    assert.equal(await whatIf.getByTestId("select-what-if-change").inputValue(), "rot.turn", "the first change keeps its own choice");
+    await compared.scrollIntoViewIfNeeded();
+    await shot(page, `what-if-compared-${label}`);
+    await whatIf.getByTestId("button-what-if-compare-off").click();
+    await compared.waitFor({ state: "detached" });
     assert.match(await page.getByTestId("text-phase").innerText(), /running/i, "the what-if was tried during the live game");
     await whatIf.scrollIntoViewIfNeeded();
     await noSideways(page, `${label} game`);

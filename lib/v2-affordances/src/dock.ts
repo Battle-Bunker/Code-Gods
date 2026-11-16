@@ -163,12 +163,12 @@ export function formatDock(n: DockNode): string {
 
 /**
  * Each screen's arrangement before the human changes it, sized so every pane has a usable body at 1280×720 and up:
- * planning puts the next step, the goal card and the agent code side by side; a live game the goal card over the
+ * planning the next step over the goal card, the starting lines (W3 #931) in the middle and the agent code; a live game the goal card over the
  * agents, the lines in the middle (one line opens below them) and what just changed over the leaderboard; after the end
  * the results in the middle at full height.
  */
 export const DEFAULT_DOCKS: Readonly<Record<DockKind, string>> = {
-  planning: "row(overview 26, my-card 34, forge 40)",
+  planning: "row(column(overview 45, my-card 55) 33, objects 37, forge 30)",
   live: "row(column(my-card 45, agents 55) 33, objects 37, column(feed 50, race 50) 30)",
   ended: "row(my-card 28, results 44, race 28)",
   replay: "row(my-card 28, objects 42, column(feed 50, race 50) 30)",

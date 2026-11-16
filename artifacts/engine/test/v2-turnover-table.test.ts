@@ -14,8 +14,9 @@ import assert from "node:assert/strict";
 import { sandboxes } from "@workspace/v2-agents";
 import { runTable } from "@workspace/v2-agents/table";
 import { births } from "@workspace/v2-agents/pure";
-import { lineQ, lineType } from "@workspace/v2-linear";
+import { lineType } from "@workspace/v2-linear";
 import { admin, humans, perform } from "./v2-helpers.ts";
+import { encode, typeOf, valueObjects, variantOf } from "../convex/v2/world.ts";
 
 const CAP = 4, BIRTH = 10, WORLD = 120, SCALE = 10;
 /** A table tick is 1.5 world seconds and an engine tick about a second of wall time (10 world seconds here): a birth
@@ -62,9 +63,10 @@ test("table and engine agree on turnover: births, retirements, banked points and
     name: `P${k}`, kind: "starter" as const, rule: { family: p.family, params: p.params, tieBreaker: p.tieBreaker },
     program: { language: "typescript" as const, source: "function agent(offer) { return null; }" },
   }));
+  const type = typeOf(game.variant) as typeof lineType, variant = variantOf(game.variant);
   const retired: { at: number; number: number; points: Record<string, number> }[] = [];
   const report = await runTable(boxes, {
-    type: lineType, variant: lineQ, lines: game.settings.startingObjects, seed: game.seed, seconds: WORLD, seats, unique: true,
+    type, variant, lines: game.settings.startingObjects, seed: game.seed, seconds: WORLD, seats, unique: true, valueObjects: valueObjects(game.settings),
     economy: { ...game.settings.economy, startingEnergy: game.settings.startingEnergy }, birthsPerSecond: 1 / BIRTH, regularBirths: true,
     objectCap: CAP, summonCap: game.settings.startingEnergy,
     onRetire: e => retired.push({ at: e.at, number: e.object + 1, points: Object.fromEntries(roster.map((m, i) => [m, e.points[i]!])) }),
@@ -73,9 +75,11 @@ test("table and engine agree on turnover: births, retirements, banked points and
   // Births: the same lines in the same states (the table's birth walk; the engine places the first free draw of it).
   const born = events.filter(e => e.kind === "objectBorn");
   assert.equal(born.length, report.objects, "as many lines born");
-  const starting = births(lineType, lineQ, game.seed, game.settings.startingObjects).map(s => lineType.encode(s));
+  // The table's birth walk (lib/v2-agents births), in the engine's wire form.
+  const wire = (s: unknown) => encode(s, game.variant);
+  const starting = births(type, variant, game.seed, game.settings.startingObjects).map(wire);
   for (const e of born) {
-    const expected = e.data.number <= starting.length ? starting[e.data.number - 1] : lineType.encode(births(lineType, lineQ, `${game.seed}:${e.data.number}`, 1)[0]!);
+    const expected = e.data.number <= starting.length ? starting[e.data.number - 1] : wire(births(type, variant, `${game.seed}:${e.data.number}`, 1)[0]!);
     assert.equal(e.data.state, expected, `line ${e.data.number}'s state`);
   }
 

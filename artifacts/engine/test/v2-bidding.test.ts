@@ -207,3 +207,17 @@ test("v1's bidding time: any setup may bid (bidSeconds above 0), a bidding setup
   assert.equal(started.bidPhase, false, "a bidding setup at 0 deals at once");
   await perform(ada!, "game.end", { }, { gameId: started.gameId });
 });
+
+test("practice partners never bid (owner 18; v1-audit §2.6): the phase lists the human only, and the human's Done closes it", { timeout: 120_000 }, async () => {
+  const [ada] = await humans("Lone Bidder Ada");
+  const { roomId } = (await perform(ada!, "room.create", { name: "Practice bidding room", preset: "lines-beginner" })).result;
+  await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
+  await perform(ada!, "room.settings", { overrides: { bidSeconds: 120 } }, { roomId });
+  assert.equal((await perform(ada!, "game.start", {}, { roomId })).result.bidPhase, true);
+  const state = await ada!.query("v2/bids:state", { roomId });
+  assert.deepEqual(state.players.map((p: any) => p.name), ["Lone Bidder Ada"], "the practice partners are not bidders");
+  await perform(ada!, "bid.done", {}, { roomId });
+  // Every bidder is done: the phase closes and deals at once, without waiting for the partners.
+  const game = await waitFor(async () => (await ada!.query("v2/rooms:get", { roomId })).game, "the deal after the only bidder's Done");
+  await perform(ada!, "game.end", {}, { gameId: game.gameId });
+});

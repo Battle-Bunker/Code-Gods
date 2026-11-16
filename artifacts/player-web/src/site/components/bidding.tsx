@@ -34,7 +34,8 @@ function FamilyRow({ family, title, card, top, mine, busy, onBid, onWithdraw }: 
       <div className="flex flex-wrap items-center gap-2 text-sm">
         {mine ? <span data-testid={`text-my-bid-${family}`}>Your bid: {mine}% off your final total.</span> : <span className="text-muted-foreground">No bid.</span>}
         {CHIPS.map(c => <button key={c} type="button" disabled={busy} className="border px-2 py-1 disabled:opacity-50" onClick={() => onBid(c)} data-testid={`button-bid-${family}-${c}`}>{c}%</button>)}
-        <input value={text} onChange={e => setText(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" aria-label={`Your bid on ${title}, in percent`} className="h-8 w-16 border px-2" placeholder="%" />
+        <input value={text} onChange={e => setText(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" aria-label={`Your bid on ${title}, in percent`} className="h-8 w-16 border px-2" placeholder="%"
+          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (!busy && valid) onBid(percent); } }} data-testid={`input-bid-${family}`} />
         <button type="button" disabled={busy || !valid} className="border px-2 py-1 disabled:opacity-50" onClick={() => onBid(percent)} data-testid={`button-bid-${family}`}>Bid</button>
         {mine ? <button type="button" disabled={busy} className="underline underline-offset-4 text-muted-foreground" onClick={onWithdraw} data-testid={`button-withdraw-${family}`}>Take it back</button> : null}
       </div>

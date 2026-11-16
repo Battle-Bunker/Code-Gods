@@ -8,7 +8,7 @@ import { useState, type ReactNode } from "react";
 import { lockEnergyAt } from "@workspace/v2-core";
 import { CodeBox, LanguageSelect, type CodeLanguage } from "@/components/code-editor";
 import { energyText, num } from "@/core/words";
-import { fundLine, lastsText } from "./locks-model";
+import { fundLine, lastsText, shareLine } from "./locks-model";
 
 export interface LockView {
   readonly n: number;
@@ -16,25 +16,31 @@ export interface LockView {
   readonly title: string;
   /** The predicate's program, when it is one (shown folded). */
   readonly code?: { readonly language: string; readonly source: string } | null;
-  /** Information content in bits (what upkeep and the fee are proportional to). */
-  readonly info: number;
+  /** Complexity in bits: the program's description plus what it reads (what upkeep and the fee are proportional to). */
+  readonly bits: number;
   readonly energy: number;
   readonly settledAt: number;
   /** Upkeep, energy a world second. */
   readonly rate: number;
+  /** Everything put in (opening and funds) and taken out, and the viewer's own part (costly signalling, locks.md §5). */
+  readonly added: number;
+  readonly taken: number;
+  readonly mine: { readonly added: number; readonly taken: number };
+  /** Additions and withdrawals as amounts and world times; the viewer's own marked, nobody named while live. */
+  readonly history: readonly { readonly at: number; readonly op: "create" | "fund" | "drain"; readonly amount: number; readonly mine: boolean }[];
 }
 
 export interface LockCheck {
   readonly meets: boolean;
   readonly words: string;
-  readonly info: number;
-  readonly fee: number;
-  readonly rate: number;
+  readonly bits?: number;
+  readonly fee?: number;
+  readonly rate?: number;
   /** Why it cannot be made (a program that does not run, the object's lock limit). */
   readonly why?: string | null;
 }
 
-export interface LockStarter { readonly kind: string; readonly title: string; readonly language: CodeLanguage; readonly source: string }
+export interface LockStarter { readonly kind: string; readonly title: string; readonly language: CodeLanguage; readonly source: string; readonly words: string }
 
 /** The small mark beside an object in a list or on the board when it has any live lock. */
 export function LockMark({ count, testId }: { count: number; testId?: string }) {
@@ -89,7 +95,6 @@ function FundForm({ lock, held, myEnergy, onFund, onClose }: {
         </label>
       </div>
       <p className={`text-xs ${line.ok ? "text-muted-foreground" : "text-destructive"}`} data-testid={`text-lock-fund-price-${lock.n}`}>{line.text}</p>
-      {dir === "take" && line.ok && signed + held <= 0 && <p className="text-xs">Taking it all away ends the lock.</p>}
       <div className="flex gap-2">
         <button type="button" aria-disabled={!line.ok || busy || undefined} onClick={() => void go()}
           className={`border px-3 py-1.5 text-sm font-medium ${!line.ok || busy ? "opacity-50" : ""}`} data-testid={`button-lock-fund-go-${lock.n}`}>
@@ -116,8 +121,21 @@ function LockRow({ lock, worldNow, myEnergy, onFund }: { lock: LockView; worldNo
           </p>
           {lock.code && (
             <details className="text-xs">
-              <summary className="cursor-pointer select-none text-muted-foreground">Its program ({num(lock.info)} bits)</summary>
-              <pre className="mt-1 max-h-40 overflow-auto border bg-[hsl(var(--muted))]/40 p-2 font-mono text-xs">{lock.code.source}</pre>
+              <summary className="cursor-pointer select-none text-muted-foreground">Its program ({num(lock.bits)} bits)</summary>
+              <pre className="mt-1 max-h-40 overflow-auto border bg-[hsl(var(--muted))]/40 p-2 font-mono text-xs" data-testid={`text-lock-source-${lock.n}`}>{lock.code.source}</pre>
+            </details>
+          )}
+          <p className="text-xs" data-testid={`text-lock-share-${lock.n}`}>{shareLine(lock)}</p>
+          {lock.history.length > 0 && (
+            <details className="text-xs" data-testid={`lock-history-${lock.n}`}>
+              <summary className="cursor-pointer select-none text-muted-foreground">Its history ({lock.history.length})</summary>
+              <ol className="mt-1 space-y-0.5">
+                {lock.history.map((h, i) => (
+                  <li key={i} data-mine={h.mine || undefined}>
+                    {Math.round(h.at)} s: {h.op === "create" ? "made with" : h.op === "fund" ? "added" : "took out"} {num(h.amount)}{h.mine ? " (you)" : ""}
+                  </li>
+                ))}
+              </ol>
             </details>
           )}
         </div>
@@ -164,13 +182,14 @@ export function LockCreate({ noun, starters, myEnergy, check, onCreate, onAsk }:
   noun: string;
   starters: readonly LockStarter[];
   myEnergy: number;
-  check: (language: CodeLanguage, source: string) => Promise<LockCheck>;
-  onCreate: (language: CodeLanguage, source: string, amount: number) => Promise<unknown>;
+  check: (language: CodeLanguage, source: string, words: string) => Promise<LockCheck>;
+  onCreate: (language: CodeLanguage, source: string, words: string, amount: number) => Promise<unknown>;
   onAsk?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [language, setLanguage] = useState<CodeLanguage>(starters[0]?.language ?? "python");
   const [source, setSource] = useState(starters[0]?.source ?? "");
+  const [words, setWords] = useState(starters[0]?.words ?? "");
   const [checked, setChecked] = useState<{ source: string; r: LockCheck } | null>(null);
   const [amount, setAmount] = useState("20");
   const [busy, setBusy] = useState<"check" | "create" | null>(null);
@@ -184,18 +203,18 @@ export function LockCreate({ noun, starters, myEnergy, check, onCreate, onAsk }:
       </div>
     );
   }
-  const fresh = checked && checked.source === source ? checked.r : null;
+  const fresh = checked && checked.source === `${language}\0${source}\0${words}` ? checked.r : null;
   const opening = amountOf(amount);
-  const total = fresh ? fresh.fee + opening : null;
+  const total = fresh ? (fresh.fee ?? 0) + opening : null;
   const canPay = !!fresh && fresh.meets && !fresh.why && opening > 0 && total! <= myEnergy;
   const runCheck = async () => {
     setBusy("check"); setError(null);
-    try { setChecked({ source, r: await check(language, source) }); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
+    try { setChecked({ source: `${language}\0${source}\0${words}`, r: await check(language, source, words) }); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
   };
   const create = async () => {
     if (!canPay || busy) return;
     setBusy("create"); setError(null);
-    try { await onCreate(language, source, opening); setOpen(false); setDone(true); setChecked(null); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
+    try { await onCreate(language, source, words, opening); setOpen(false); setDone(true); setChecked(null); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
   };
   return (
     <div className="mt-2 space-y-2 border p-2" data-testid="form-lock-create">
@@ -204,7 +223,7 @@ export function LockCreate({ noun, starters, myEnergy, check, onCreate, onAsk }:
       {starters.length > 0 && (
         <div className="flex flex-wrap gap-1" role="group" aria-label="Ready-made locks">
           {starters.map(s => (
-            <button key={s.kind} type="button" onClick={() => { setLanguage(s.language); setSource(s.source); }}
+            <button key={s.kind} type="button" onClick={() => { setLanguage(s.language); setSource(s.source); setWords(s.words); }}
               className={`border px-2 py-1 text-xs ${source === s.source ? "bg-foreground text-background" : ""}`} data-testid={`button-lock-starter-${s.kind}`}>{s.title}</button>
           ))}
         </div>
@@ -214,14 +233,18 @@ export function LockCreate({ noun, starters, myEnergy, check, onCreate, onAsk }:
         {onAsk && <button type="button" onClick={onAsk} className="text-xs underline underline-offset-4" data-testid="button-lock-ask">Ask my assistant to write one</button>}
       </div>
       <CodeBox value={source} onChange={setSource} label="Lock test code" className="min-h-[120px]" testId="input-lock-code" />
+      <label className="block text-xs">
+        What it checks, in one line (others see this beside the program)
+        <input value={words} maxLength={120} onChange={e => setWords(e.target.value)} className="mt-0.5 h-8 w-full border bg-background px-2 text-sm" data-testid="input-lock-words" />
+      </label>
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" aria-disabled={!!busy || !source.trim() || undefined} onClick={() => !busy && source.trim() && void runCheck()}
-          className="border px-3 py-1.5 text-sm" data-testid="button-lock-check">{busy === "check" ? "Checking…" : "Check it on this " + noun}</button>
+          className="border px-3 py-1.5 text-sm" data-testid="button-lock-check" disabled={!words.trim() || undefined}>{busy === "check" ? "Checking…" : "Check it on this " + noun}</button>
       </div>
       {fresh && (
         <div className={`space-y-0.5 border-l-2 pl-2 text-xs ${fresh.meets && !fresh.why ? "border-emerald-600" : "border-destructive"}`} data-testid="text-lock-check" data-meets={fresh.meets || undefined}>
           <p className="font-medium">{fresh.why ? `✗ ${fresh.why}` : fresh.meets ? `✓ This ${noun} passes: ${fresh.words}.` : `✗ This ${noun} does not pass “${fresh.words}”, so it cannot be locked to it.`}</p>
-          {!fresh.why && <p>{num(fresh.info)} bits of information: making it costs {energyText(fresh.fee)}, and it drains {num(fresh.rate)} energy a second.</p>}
+          {!fresh.why && fresh.bits !== undefined && <p>{num(fresh.bits)} bits (its length plus what it reads): making it costs {energyText(fresh.fee ?? 0)}, and it drains {num(fresh.rate ?? 0)} energy a second.</p>}
         </div>
       )}
       {checked && !fresh && <p className="text-xs text-muted-foreground">The code changed since the check: check it again.</p>}
@@ -231,10 +254,10 @@ export function LockCreate({ noun, starters, myEnergy, check, onCreate, onAsk }:
             Put in
             <input type="number" min="0" step="any" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)}
               className="h-8 w-24 border bg-background px-2 text-sm" data-testid="input-lock-opening" />
-            energy to start it (it lasts {lastsText(opening, fresh.rate)}).
+            energy to start it (it lasts {lastsText(opening, fresh.rate ?? 0)}).
           </label>
           <p className={`text-xs ${canPay ? "text-muted-foreground" : "text-destructive"}`} data-testid="text-lock-total">
-            {opening <= 0 ? "Put in some energy." : `In all ${energyText(total!)}: ${energyText(fresh.fee)} to make it and ${energyText(opening)} in it. ${total! <= myEnergy ? `You keep ${energyText(myEnergy - total!)}.` : `You have ${energyText(myEnergy)}.`}`}
+            {opening <= 0 ? "Put in some energy." : `In all ${energyText(total!)}: ${energyText(fresh.fee ?? 0)} to make it and ${energyText(opening)} in it. ${total! <= myEnergy ? `You keep ${energyText(myEnergy - total!)}.` : `You have ${energyText(myEnergy)}.`}`}
           </p>
           <button type="button" aria-disabled={!canPay || !!busy || undefined} onClick={() => void create()}
             className={`bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground ${!canPay || busy ? "opacity-50" : ""}`} data-testid="button-lock-create">

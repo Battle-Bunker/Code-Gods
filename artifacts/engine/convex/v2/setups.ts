@@ -79,3 +79,17 @@ export const get = query({
     return doc ? viewOf(user.userId, doc) : null;
   },
 });
+
+/**
+ * Everyone's saved setups whose name matches `q`, best match first, a page at a time (v1's setup combobox searched every
+ * setup; read-architecture R1: one search-index page). Each row's component subscribes to `get`, as in the lists.
+ */
+export const search = query({
+  args: { q: v.string(), paginationOpts: paginationOptsValidator },
+  returns: listReturns,
+  handler: async (ctx, { q, paginationOpts }) => {
+    const user = await requireUser(ctx);
+    const page = await ctx.db.query("v2Setups").withSearchIndex("search_name", s => s.search("name", q.slice(0, 64).split(/\s+/).filter(Boolean).slice(0, 8).join(" "))).paginate(pageOpts(paginationOpts));
+    return { ...page, page: page.page.map(rowOf(user.userId)) };
+  },
+});

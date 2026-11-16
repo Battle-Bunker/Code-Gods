@@ -511,8 +511,17 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;op
 
 /* Accessibility guards (WCAG 2.2 AA). On touch screens form fields are at least 16px, so iOS does not zoom in on focus
    now that the viewport allows pinch-zoom (1.4.4). */
-.dockview-theme-cg .dv-tab button { min-height: 24px; }   /* pane tab menus and close: WCAG 2.5.8 target size */
+.dockview-theme-cg .dv-tab button { min-height: 24px; }
+/* A pane's tab takes the keyboard's focus (Tab moves through the dock pane by pane): show where it is. */
+.dockview-theme-cg .dv-tab:focus-visible, .dockview-theme-cg .dv-tab:focus-within:has(:focus-visible) { outline: 2px solid hsl(var(--ring)); outline-offset: -2px; }   /* pane tab menus and close: WCAG 2.5.8 target size */
 @media (pointer: coarse) { input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: max(16px, 1em); } }
+/* Touch and phone widths: every control at least 24 px tall (WCAG 2.5.8; the phone pass found 16-22 px text buttons and
+   selects). Inline text buttons keep their line but take the full height with their padding, so a thumb finds them. */
+@media (pointer: coarse), (max-width: 640px) {
+  /* !important: a floor no component's own height utility may undercut on a touch screen. */
+  button, select, summary, [role="button"] { min-height: 24px !important; min-width: 24px; }
+  button:not([class*="py-"]):not([class*="h-"]) { padding-top: 2px; padding-bottom: 2px; }
+}
 /* Players who ask for reduced motion get none anywhere, not only where a component remembered to guard (2.3.3). */
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
 /* An object's popover that opened above it stands a line clear (lib/object-views views.tsx, data-clear-above): the gap is

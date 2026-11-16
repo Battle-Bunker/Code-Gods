@@ -7,7 +7,8 @@
  */
 import { useCallback, useMemo } from "react";
 import type { Place } from "@workspace/v2-affordances";
-import { closePlan, openPlan, type GamePhase, type ViewOp } from "@workspace/v2-client";
+import { closePlan, openPlan, spectatorArrange, viewerView, type GamePhase, type ViewOp } from "@workspace/v2-client";
+import { useIsSeated } from "@/sdk";
 import { useRuntime, useView } from "@/core/affordance-runtime";
 import { toast } from "@/hooks/use-toast";
 
@@ -23,7 +24,11 @@ export interface PaneOps {
 
 export function usePaneOps(phase: GamePhase): PaneOps {
   const rt = useRuntime();
-  const view = useView();
+  const stored = useView();
+  const seated = useIsSeated();
+  // A spectator's first change stores the spectator screen it starts from (spectatorArrange), then plans from it.
+  const view = useMemo(() => viewerView(stored, phase, seated), [stored, phase, seated]);
+  const setup = useMemo(() => spectatorArrange(stored, phase, seated), [stored, phase, seated]);
   const runOps = useCallback(async (ops: ViewOp[]) => {
     for (const op of ops) {
       const out = await rt.perform(op.id, op.args);
@@ -32,11 +37,11 @@ export function usePaneOps(phase: GamePhase): PaneOps {
     return true;
   }, [rt]);
   const open = useCallback(async (pane: string, place?: Place) => {
-    if (!await runOps(openPlan(view, phase, pane, place))) return false;
+    if (!await runOps([...setup, ...openPlan(view, phase, pane, place)])) return false;
     requestAnimationFrame(() => { for (const l of listeners) l(pane); });
     return true;
-  }, [view, phase, runOps]);
-  const close = useCallback(async (pane: string) => { await runOps(closePlan(view, phase, pane)); }, [view, phase, runOps]);
+  }, [setup, view, phase, runOps]);
+  const close = useCallback(async (pane: string) => { await runOps([...setup, ...closePlan(view, phase, pane)]); }, [setup, view, phase, runOps]);
   return useMemo(() => ({ open, close }), [open, close]);
 }
 

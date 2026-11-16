@@ -16,8 +16,8 @@
  *  - The first `quote` of an act charges the representation the first quoted mutator belongs to, as if viewed.
  */
 import {
-  applyCalls, applyLockChanges, elementDecl, refKey, elementValue, evaluateObject, isInvalid, lockedAct, lockEnergyAt, LOCK_OPS_PER_ACT, parsePredicate,
-  canonicalPredicate, plainWords, holds, lockFee, Qn, ratBits, type ActLock, type InformationContent, type LockOpWire, type Predicate,
+  actRunner, applyCalls, applyLockChanges, elementDecl, refKey, elementValue, evaluateObject, isInvalid, lockedAct, lockEnergyAt, LOCK_OPS_PER_ACT, lockProgram,
+  lockFee, lockRate, Qn, ratBits, type ActLock, type LockLanguage, type LockOpWire, type LockProgram, type LockRates, type PredicateRunner,
   joinTieBreakers, representation, ruleLayers, type Call, type TieBreaker, type ElementRef, type ElementValue, type ObjectType, type Price, type RuleFamily, type Variant,
 } from "@workspace/v2-core";
 import { BETA, KAPPA } from "@workspace/v2-economy";
@@ -114,9 +114,14 @@ export interface LockInput<S> {
   readonly live: readonly ActLock[];
   /** The number the object's next lock takes. */
   readonly nextLock: number;
-  readonly fullChargeSeconds: number;
-  /** I(P) at a state (lib/v2-agents locks.ts `lockInfo`). */
-  readonly info: (p: Predicate, s: S) => InformationContent;
+  /** The room's lock prices (energy per bit of complexity to create, and per bit per world second to sustain). */
+  readonly rates: LockRates;
+  /** Runs a lock's predicate program on a state (lib/v2-agents predicates.ts `predicateRunner`). */
+  readonly run: PredicateRunner<S>;
+  /** A program's description length in bits (`predicateBits`: what prices an agent's program). */
+  readonly programBits: (program: LockProgram) => number;
+  /** The language the acting agent writes its predicates in (its own). */
+  readonly language: LockLanguage;
 }
 
 /** Read bits charged for `worth()`: three summary numbers the player could read off the line's row. */
@@ -169,6 +174,8 @@ export class EngineHost<S> implements AgentHost {
   readonly notes: string[] = [];
   /** The lock changes the agent asked for this act, in order (applied at commit: funds and drains, calls, new locks). */
   readonly lockOps: LockOpWire[] = [];
+  /** This act's lock checks: each (program, state) run once, and at most LOCK_CHECKS_PER_ACT of them. */
+  readonly lockRun: PredicateRunner<S> | undefined;
   private readonly input: HostInput<S>;
   /** Read bits charged so far this act, in total and by representation id. */
   readBits = 0;
@@ -199,6 +206,7 @@ export class EngineHost<S> implements AgentHost {
     this.energy = input.energy;
     this.economy = input.economy ?? SPEC_ECONOMY;
     this.input = input;
+    this.lockRun = input.locks ? actRunner(input.type, input.locks.run) : undefined;
     this.lookup = input.values ? gameLookup(input.values) : undefined;
     this.others = input.others?.map(o => {
       const family = input.type.families.find(f => f.id === o.rule.family);
@@ -317,11 +325,12 @@ export class EngineHost<S> implements AgentHost {
       case "locks": {
         if (!this.input.locks) return err("this game has no locks");
         const live = this.locksNow();
-        const list = live.map(l => ({ lock: l.n, predicate: l.text, words: plainWords(this.type, l.predicate), energy: l.energy, rate: l.rate, info: l.info }));
-        // Reading a lock tells you its I bits about the state: charged once an act.
-        return ok({ locks: list }, this.charged("locks", live.reduce((t, l) => t + l.info, 0)));
+        const list = live.map(l => ({ lock: l.n, words: l.program.words, language: l.program.language, source: l.program.source, energy: l.energy, rate: l.rate, bits: l.bits }));
+        // Knowing a lock holds tells you at most what its program read of the object: charged once an act.
+        return ok({ locks: list }, this.charged("locks", live.reduce((t, l) => t + l.readBits, 0)));
       }
-      case "lock": return this.lockOp({ op: "create", predicate: String(request.predicate ?? ""), amount: Number(request.amount) });
+      case "lock": return this.lockOp({ op: "create", amount: Number(request.amount),
+        program: { language: this.input.locks?.language ?? "typescript", source: String(request.predicate ?? ""), words: String(request.words ?? "") } });
       case "fund": case "drain": return this.lockOp({ op: request.op, lock: Number(request.lock), amount: Number(request.amount) });
       case "note": {
         const text = typeof request.text === "string" ? request.text.trim().slice(0, NOTE_CHARS) : "";
@@ -439,7 +448,7 @@ export class EngineHost<S> implements AgentHost {
     const L = this.input.locks;
     if (!L) return applyCalls(this.type, this.variant, this.state, calls);
     return lockedAct({ type: this.type, variant: this.variant, state: this.state, calls, ops: this.lockOps.filter(o => o.op !== "create"),
-      locks: L.live, world: L.world, nextLock: L.nextLock, fullChargeSeconds: L.fullChargeSeconds, info: L.info });
+      locks: L.live, world: L.world, nextLock: L.nextLock, rates: L.rates, run: this.lockRun!, programBits: L.programBits });
   }
 
   /** The object's live locks after this act's queued funds and drains, settled at the act's world second. */
@@ -454,13 +463,15 @@ export class EngineHost<S> implements AgentHost {
     if (!L) return err("this game has no locks");
     if (this.lockOps.length >= LOCK_OPS_PER_ACT) return err(`at most ${LOCK_OPS_PER_ACT} lock changes in one act`);
     if (op.op === "create") {
-      const p = parsePredicate(this.type, op.predicate);
-      if (isInvalid(p)) return err(p.invalid);
+      const program = lockProgram(op.program);
+      if (isInvalid(program)) return err(program.invalid);
       if (!(typeof op.amount === "number" && Number.isFinite(op.amount) && op.amount > 0)) return err("a new lock's opening amount is a positive number");
-      const ic = L.info(p, this.state);
-      this.lockOps.push({ op: "create", predicate: canonicalPredicate(p), amount: op.amount });
-      // Made on the state the act's calls reach: `holdsNow` says only whether the offered state meets it.
-      return ok({ queued: true, predicate: canonicalPredicate(p), words: plainWords(this.type, p), info: ic.bits, fee: lockFee(ic.bits), holdsNow: holds(this.type, p, this.state) }, 0);
+      // Tried on the offered state, so the agent learns its price and whether it runs; it is made on the state the
+      // act's calls reach, and priced by what it reads there.
+      const r = this.lockRun!(program, this.state);
+      const bits = L.programBits(program) + (r.ok ? r.readBits : 0);
+      this.lockOps.push({ op: "create", program, amount: op.amount });
+      return ok({ queued: true, bits, fee: lockFee(bits, L.rates), rate: lockRate(bits, L.rates), holdsNow: r.ok && r.holds, ...(r.ok ? {} : { error: r.error }) }, 0);
     }
     const next = applyLockChanges(L.live, [...this.lockOps, op], L.world);
     if (isInvalid(next)) return err(next.invalid);

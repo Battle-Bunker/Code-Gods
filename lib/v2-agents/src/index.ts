@@ -14,4 +14,4 @@ export * from "./primer.ts";
 export * from "./compat.gen.ts";
 export { watcherFor, type WatcherAgent, type WatcherType } from "./watcher.ts";
 export { readLeave, setLeave } from "./leave.ts";
-export { lawDraw, lockInfo } from "./locks.ts";
+export * from "./predicates.ts";

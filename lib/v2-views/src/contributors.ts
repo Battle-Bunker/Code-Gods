@@ -13,7 +13,7 @@ import {
   elementDecl, elementValue, evaluateObject, Qn, q, refKey, ruleLayers, type ElementRef, type Evaluation, type Layer, type Mark, type Q, type Score, type Undef,
 } from "@workspace/v2-core";
 import { partName, type RuleRef } from "./annotate.ts";
-import { fmtQ, isUndef, readable, typesetNote } from "./format.ts";
+import { EXACT_DENOMINATOR, fmtQ, isUndef, readable, readingDecimal, typesetNote } from "./format.ts";
 
 export type Role = "main" | "tb";
 /** A part's symbol by its depth, always beside its name: ● main part, ◆ secondary, ▲ third, ■ fourth preference. */
@@ -79,8 +79,8 @@ const N = (x: Q) => Number(x.n) / Number(x.d);
 const cap = (s: string) => (!s || /^[a-z](?![a-z])/.test(s) ? s : s[0]!.toUpperCase() + s.slice(1));
 
 const readableN = (v: number) => {
-  for (let d = 1; d <= 100; d++) { const n = Math.round(v * d); if (Math.abs(n - v * d) < 1e-9) return readable(q(n, d)); }
-  return `≈ ${(Math.round(v * 100) / 100).toFixed(2).replace("-", "−")}`;
+  for (let d = 1; d <= Number(EXACT_DENOMINATOR); d++) { const n = Math.round(v * d); if (Math.abs(n - v * d) < 1e-9) return readable(q(n, d)); }
+  return `≈ ${readingDecimal(v)}`;
 };
 
 /** Replace a rule's parameter letters by their dealt values ("y(k) close to T" → "y(2) close to 37"). */
@@ -126,8 +126,8 @@ function unitLabel(label: string): string {
 
 /** What the dealt rule asks of its reference (playtest round 15: a ruler for "a prime ending in 7" marked 2, 3, 5, 11). */
 export interface RefFilter {
-  /** The last digit a qualifying value ends in (the dealt `ends`). */
-  readonly ends?: number;
+  /** The last digits a qualifying value ends in (the dealt `suffix`, or the dealt digit `ends`). */
+  readonly suffix?: string;
   /** The side of 0 the qualifying values are on (a sign-mirrored rule: "minus a prime ending in 7"). */
   readonly sign?: 1 | -1;
 }
@@ -137,10 +137,15 @@ export interface RefFilter {
  * reference's own.
  */
 export function refFilter(params: unknown, reference: number): RefFilter {
-  const ends = typeof (params as { ends?: unknown } | null)?.ends === "number" ? (params as { ends: number }).ends : undefined;
+  const suffix = dealtSuffix(params);
   const sign = reference < 0 ? -1 : 1;
-  const digitOk = ends !== undefined && Number.isInteger(reference) && Math.abs(reference) % 10 === ends;
-  return { ...(digitOk ? { ends } : {}), sign };
+  const digitOk = suffix !== undefined && Number.isInteger(reference) && String(Math.abs(reference)).endsWith(suffix);
+  return { ...(digitOk ? { suffix } : {}), sign };
+}
+/** The dealt last digits of a prime rule: its `suffix` (Prime Gradient), or its digit `ends` as text. */
+export function dealtSuffix(params: unknown): string | undefined {
+  const p = params as { suffix?: unknown; ends?: unknown } | null;
+  return typeof p?.suffix === "string" ? p.suffix : typeof p?.ends === "number" ? String(p.ends) : undefined;
 }
 
 /**
@@ -151,7 +156,7 @@ export function neighbours(kind: string, lo: number, hi: number, filter: RefFilt
   if (/prime/.test(kind)) {
     const mirrored = filter.sign === -1;
     const found = mirrored ? primesNear(-hi, -lo).map(p => -p) : primesNear(lo, hi);
-    return found.filter(p => filter.ends === undefined || Math.abs(p) % 10 === filter.ends).sort((a, b) => a - b);
+    return found.filter(p => filter.suffix === undefined || String(Math.abs(p)).endsWith(filter.suffix)).sort((a, b) => a - b);
   }
   if (/square/.test(kind)) {
     const out: number[] = [];
@@ -260,7 +265,7 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
       // Wide enough to show several rungs either side when the dealt ending thins them out (11, 31, 41, 61, 71, …;
       // playtest round 19 asked for the next several rungs above and below).
       const filter = refFilter(rule.params, reference.value);
-      const pad = Math.max(span, filter.ends === undefined ? 6 : 60);
+      const pad = Math.max(span, filter.suffix === undefined ? 6 : 6 * 10 ** filter.suffix.length);
       const near = neighbours(kind, lo - pad, hi + pad, filter).filter(x => x !== reference!.value);
       ruler = {
         value: N(src), valueText: (s => `${s.label} ${s.text}`)(source.find(s => s.value)!),
@@ -277,16 +282,17 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
     // rungs are numbers of a kind, how far it is from the nearest one, in the player's words; never the bare score.
     const at = N(src);
     if (/prime/.test(kind)) {
-      // The rule's own side (a mirrored rule's rungs are negative), never the reading's sign.
-      const filter = refFilter(rule.params, (rule.params as { side?: number } | null)?.side === -1 ? -1 : 1);
-      const ends = (rule.params as { ends?: unknown } | null)?.ends;
-      const near = (w: number) => neighbours("prime", at - w, at + w, { ...(typeof ends === "number" ? { ends } : {}), sign: filter.sign });
+      // The rule's own side (a mirrored rule's rungs are negative); a sign-free rule (a suffix) reads its size, so the
+      // rungs on the reading's own side.
+      const suffix = dealtSuffix(rule.params);
+      const sign = (rule.params as { side?: number } | null)?.side === -1 || (typeof (rule.params as { suffix?: unknown } | null)?.suffix === "string" && at < 0) ? -1 : 1;
+      const near = (w: number) => neighbours("prime", at - w, at + w, { ...(suffix !== undefined ? { suffix } : {}), sign });
       let found: number[] = [];
-      for (let w = 20; !found.length && w <= 20000; w *= 4) found = near(w);
+      for (let w = 20; !found.length && w <= 200000; w *= 4) found = near(w);
       const rung = found.sort((x, y) => Math.abs(x - at) - Math.abs(y - at))[0];
       if (rung !== undefined) {
         const d = at - rung;
-        distance = `${readableN(Math.abs(d))} ${d >= 0 ? "above" : "below"} ${readableN(rung)}, a prime${typeof ends === "number" ? ` ending in ${ends}` : ""}`;
+        distance = `${readableN(Math.abs(d))} ${d >= 0 ? "above" : "below"} ${readableN(rung)}, a prime${suffix !== undefined ? ` ending in ${suffix}` : ""}`;
       }
     }
     distance ??= "not on a rung yet";

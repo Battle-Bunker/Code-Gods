@@ -25,6 +25,7 @@ import { BitsHelp } from "@/core/score-help";
 import { toast } from "@/hooks/use-toast";
 import { activeOp, compareOp, switcherOf, whyLine, type SwitchOp } from "./lines";
 import { requestForge } from "./forge-request";
+import { ObjectLocks } from "./object-locks";
 
 /** How many candidates the face lists when it shows the others' totals at them (the server reads at most four). */
 const CANDIDATES = 4;
@@ -143,6 +144,7 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
           {myQuote.priced.map((p, i) => <li key={i}>{p.words}: the others' bits after it about {p.want === null ? "unknown" : bitsText(p.want)} (≈)</li>)}
         </ul>
       )}
+      <ObjectLocks objectId={objectId} noun={word.one} retired={o.retiredAt !== undefined} />
       <button type="button" className="mr-4 text-xs underline underline-offset-4" data-testid="button-open-what-if" onClick={() => void openPane("what-if")}>
         Try a change on this {word.one}
       </button>

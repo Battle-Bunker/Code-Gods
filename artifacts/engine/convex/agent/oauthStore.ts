@@ -166,14 +166,14 @@ export const refresh = internalMutation({
       const retired = await ctx.db.query("oauthRetiredRefresh").withIndex("by_hash", q => q.eq("hash", args.refreshHash)).unique();
       if (!retired) return { error: "invalid_grant" as const };
       // Rotated out moments ago: the answer that carried its successor was lost (a reload or navigation cut the request
-      // off), so the client still holds this one. Within the grace it rotates again, once (the lost successor is retired,
-      // so one chain stays valid); a second reuse, a later one or another client's revokes the grant.
-      const owner = !retired.graced && now - retired.retiredAt <= REFRESH_REUSE_GRACE_MS ? await ctx.db.get(retired.credentialId) : null;
+      // off), so the client still holds this one. Within the grace, counted from its own rotation and never extended, it
+      // rotates again as often as it comes back (quick reloads in a row; each retires the successor that never arrived,
+      // so one chain stays valid). After the grace, or from another client, a reuse revokes the grant.
+      const owner = now - retired.retiredAt <= REFRESH_REUSE_GRACE_MS ? await ctx.db.get(retired.credentialId) : null;
       if (!owner || owner.kind !== "oauth" || owner.clientId !== args.clientId || !owner.refreshHash) {
         await revoke(ctx, retired.credentialId);
         return { error: "invalid_grant" as const };
       }
-      await ctx.db.patch(retired._id, { graced: true });
       row = owner;
       args = { ...args, refreshHash: owner.refreshHash };
     }

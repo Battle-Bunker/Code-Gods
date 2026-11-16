@@ -5,7 +5,8 @@
  * taller than the screen allows (ux-lessons 5.1), with a row of the panes' names that jumps to any of them.
  */
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { fileIdOf, readingOrder, shownPanes, storedSlugOf, type GamePhase } from "@workspace/v2-client";
+import { fileIdOf, readingOrder, shownPanes, storedSlugOf, viewerView, type GamePhase } from "@workspace/v2-client";
+import { useIsSeated } from "@/sdk";
 import { useRuntime, useView } from "@/core/affordance-runtime";
 import { useWide } from "@/core/use-wide";
 import { onReveal } from "./open-pane";
@@ -15,6 +16,7 @@ import { EMPTY_VIEW, type ViewState } from "@workspace/v2-affordances";
 import { back as backOf, canBack, emptyHistory, isViewPane, observe, opsFor, restored, restoring, type History, type ViewOp } from "./history";
 import { toast } from "@/hooks/use-toast";
 import { isLoadingView } from "@/core/stored-view";
+import { sheetStep } from "./sheet";
 
 export type { PaneComponents, StoredPaneComponent } from "./pane-parts";
 
@@ -55,8 +57,13 @@ function StackedDock({ panes: all, phase }: { panes: string[]; phase: GamePhase 
   // Opened now (by the menu, the palette or a model) the sheet rises; open from before (the view is kept for the room) it
   // waits lowered, so a game never starts under it. After that it stays as the player leaves it.
   const [sheetOpen, setSheetOpen] = useState(false);
-  const hadSheet = useRef(sheet);
-  useEffect(() => { if (sheet && !hadSheet.current) setSheetOpen(true); hadSheet.current = sheet; }, [sheet]);
+  const loading = isLoadingView(useView());
+  const hadSheet = useRef<boolean | null>(null);
+  useEffect(() => {
+    const step = sheetStep(hadSheet.current, { sheet, loading });
+    if (step.rise) setSheetOpen(true);
+    hadSheet.current = step.had;
+  }, [sheet, loading]);
   const scroller = useRef<HTMLDivElement>(null);
   // A new phase opens at its first pane (round 26: at the buzzer the page stayed scrolled to the bottom, on Where am I,
   // with "How the game went" above the fold).
@@ -114,7 +121,9 @@ export function Dock({ phase, panes: components, stored: Stored, file: File }: {
   const wide = useWide();
   // A room without AI shows no assistant, even one opened before AI was turned off.
   const aiOff = !!useRuntime().context.room?.aiOff;
-  const view = useMemo(() => (aiOff ? { ...stored, panes: stored.panes.filter(p => p.pane !== "assistant") } : stored), [stored, aiOff]);
+  const seated = useIsSeated();
+  // A spectator who has arranged nothing sees v1's spectator panes (viewerView), and plans their changes from the same.
+  const view = useMemo(() => viewerView(aiOff ? { ...stored, panes: stored.panes.filter(p => p.pane !== "assistant") } : stored, phase, seated), [stored, aiOff, phase, seated]);
   const open = useMemo(() => shownPanes(view, phase), [view, phase]);
   const scope = useMemo(() => ({
     phase, view, open,

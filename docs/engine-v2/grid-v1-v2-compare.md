@@ -33,7 +33,7 @@ not to be restored.
 | ladder_of_numbers | weak, excluded | nearest: `number-lines`, undealt | MISSING | no recorded decision (was weak in v1) | 3 |
 | column_addition | excluded on beginner | none | MISSING | no recorded decision | 4 |
 | number_bonds | excluded on beginner | none (nearest `pair-sums`, undealt) | MISSING | no recorded decision | 4 |
-| seesaw | excluded on beginner | none | MISSING | no recorded decision | 3 |
+| seesaw | excluded on beginner | lib/v2-grid/src/v1-seesaw.ts | PORTED, UNDEALT | a one-digit board tops it (16 Nov; presets.ts, test/v1-seesaw.test.ts) | 0 |
 | snap | excluded on beginner | none | MISSING | no recorded decision | 3 |
 | looking_glass | excluded on beginner | none | MISSING | no recorded decision | 3 |
 | pinwheel | excluded on beginner | none | MISSING | no recorded decision | 3 |
@@ -160,8 +160,8 @@ lexicographic, no gate. The general change is CHANGED by owner 13, 14, 23 and 29
 
 | Family | v1 params | v1 primary · secondary | v1 ★ tiers (Tiered rules) | v2 params | v2 main | v2 dealt tie-breakers (undealt in code) | Mark | Decision | Hrs |
 |---|---|---|---|---|---|---|---|---|---|
-| Mirrormancer | axis LR or TB (rows or columns) | mirror lines · matching pairs | mirrors holding y, mirror halves x | none (rows only) | Σ row gaps (distance) | mirror-columns, one-apart, small-middle (middle, primes, zeros) | CHANGED | owner 13/14/23/29, call 14; axis TB dropped: no recorded decision | 1 (axis) |
-| Magic Eighteen | axis rows or cols; T = N·vmax/2 = 18 | rows = 18 · −Σ distance | lines sum x, squares sum x (shared tier kit) | T = 18, rows only | Σ \|row − 18\| | columns, diagonals, different-numbers (first-column, primes, odd) | CHANGED | as above; cols axis dropped: no recorded decision | 1 |
+| Mirrormancer | axis LR or TB (rows or columns) | mirror lines · matching pairs | mirrors holding y, mirror halves x | axis rows or columns (both dealt, 16 Nov) | Σ gaps of the dealt lines (distance) | mirror-other-way, one-apart, small-middle, each read along or across the dealt axis (middle, primes, zeros) | CHANGED | owner 13/14/23/29, call 14; axis restored 16 Nov (v1's TB) | — |
+| Magic Eighteen | axis rows or cols; T = N·vmax/2 = 18 | rows = 18 · −Σ distance | lines sum x, squares sum x (shared tier kit) | T = 18, axis rows or columns (both dealt, 16 Nov) | Σ \|line − 18\| over the dealt lines | other-way, diagonals, different-numbers (first-line, primes, odd) | CHANGED | as above; cols axis restored 16 Nov | — |
 | Opposite Nines | none; T = vmax = 9 | pairs = 9 · −Σ distance | lines sum 11–25, squares sum 12–24 | T = 9 | Σ \|pair − 9\| | mirror-nines, different-splits (big-on-top undealt 15 Nov: cheap peak; top-half, primes, odd) | CHANGED | as above; big-on-top: coordinator, 15 Nov (presets.ts BEGINNER_DEALT) | — |
 | Two Pair | none | two-pair boxes · one-pair/three-of-a-kind boxes | link sums, links via, equal roads | none | Σ distance from two different pairs | apart, diagonal-pairs, small-pairs (primes, corners) | CHANGED | as above; v1's own secondary (one pair) folded into the distance | — |
 | Spread of Three | none; spread 3 | squares spreading 3 · −Σ distance | (shared kit) | none | Σ \|spread − 3\| (sampled) | spread-diagonal, spread-small, square-different (primes, zeros, corners) | CHANGED | as above | — |
@@ -328,7 +328,7 @@ layered shape (pool-plan.md v2, design-principles.md 3b); nothing from it is dea
 |---|---|---|
 | Leapfrog | grids session's end-to-end game (15 Nov), playtest round 34 (#943) | main "one apart · exactly" on 2 of 5 grids; grid 4 also cycled between two states against Two Pair (26 moves) |
 | Two Pair | playtest baseline 2 (#969) | grid 2 at 4332/3423/2110/1201: main "exactly" and secondary 4 of 4 boxes |
-| Mirrormancer (main part) | grid-annotations session (16 Nov) | any constant board (all 0s): every row reads the same backwards, distance 0. v1's base rule (Annotated basics dealt no tiers) had the same top: it counted mirror rows and never excluded a constant board. The secondary mirror-columns, v2's own (call 14), had no guard either; it gets v1's "different" guard from its tiers ("without it 7337/3773/3773/7337 tops both"), so only the main part keeps the v1 top |
+| Mirrormancer (main part) | grid-annotations session (16 Nov) | any constant board (all 0s): every row reads the same backwards, distance 0. v1's base rule (Annotated basics dealt no tiers) had the same top: it counted mirror rows and never excluded a constant board. The secondary mirror-columns (now mirror-other-way: columns on the rows axis, rows on the columns axis), v2's own (call 14), had no guard either; it has v1's "different" guard (16 Nov: a line of one number is one step from a mirror) from its tiers ("without it 7337/3773/3773/7337 tops both"), so only the main part keeps the v1 top |
 
 **Why v2 reaches these tops more often than v1 did.** The tops are the same as v1's, but v1 rarely met them: its boards
 were born with uniform digits, so a constant or near-constant board was far from every birth. v2's boards are born from

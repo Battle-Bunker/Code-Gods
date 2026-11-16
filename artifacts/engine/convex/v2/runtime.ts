@@ -8,7 +8,8 @@
  * cap; Python checks the clock every 10,000 steps, so a single long native step (a catastrophic regex) runs until the
  * action's own limit. Recorded as an M1 risk: the hard wall returns with a bundled worker.
  */
-import { createSandbox, provideModules, PYTHON_BUNDLE_SHA256, type Language, type Sandbox } from "@workspace/v2-sandbox";
+import { createSandbox, provideModules, PYTHON_BUNDLE_SHA256, type InlineSandbox, type Language, type Sandbox } from "@workspace/v2-sandbox";
+import { predicateBoxes } from "@workspace/v2-agents";
 import { getQuickJS } from "quickjs-emscripten";
 import * as typescript from "typescript";
 import { makeFunctionReference } from "convex/server";
@@ -49,6 +50,25 @@ export async function sandboxFor(ctx: ActionCtx, language: Language): Promise<Sa
     made.set(language, s);
   }
   return s;
+}
+
+const predicateMade = new Map<"typescript" | "python", Promise<InlineSandbox>>();
+/**
+ * The inline sandboxes lock predicates run in (docs/engine-v2/locks.md §2), one per language, apart from the agents'
+ * own: a check runs synchronously inside an agent's act, and the Python engine is not re-entrant.
+ */
+export async function predicateBoxesFor(ctx: ActionCtx, languages: readonly ("typescript" | "python")[]): Promise<(language: Language) => InlineSandbox | undefined> {
+  return await predicateBoxes(languages, language => {
+    let s = predicateMade.get(language);
+    if (!s) {
+      s = language === "python"
+        ? pythonBundle(ctx).then(bytes => createSandbox({ language, execution: "inline", pythonBundle: bytes }))
+        : createSandbox({ language, execution: "inline" });
+      s.catch(() => predicateMade.delete(language));
+      predicateMade.set(language, s);
+    }
+    return s;
+  });
 }
 
 const SETTLE = makeFunctionReference<"mutation", { language: Language; version: string; ok: boolean; reason?: string }>("v2/runtimeReady:settle");

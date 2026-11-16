@@ -5,7 +5,7 @@
  */
 import { cardText, gcd, Qn, q, ref, type ElementRef, type ElementValue, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
 import type { LineState } from "./line.ts";
-import { digitLevel, digitNote, isPrimeEnding, largestPrimeFactor, nearbyPrimes, nearestPrimeEnding, smallestPrimeFactor } from "./numbers.ts";
+import { digitLevel, digitNote, drawSuffix, isPrimeWithSuffix, isSuffix, nearbyPrimes, nearestPrimeWithSuffix, primesWithSuffix } from "./numbers.ts";
 import { beginnerFamilies, factorLabel } from "./beginner.ts";
 import { closeLanding } from "./close-landing.ts";
 import { closeGradient, closeIntercept } from "./close-readings.ts";
@@ -14,6 +14,9 @@ import { rationalFamilies } from "./rational.ts";
 import { rational2Families } from "./rational2.ts";
 import { twinFractions } from "./frac-twin-fractions.ts";
 import { tupleFamilies } from "./tuple-rules.ts";
+import { treeNtFamilies } from "./tree-nt-index.ts";
+import { treeGeoFamilies } from "./tree-geo.ts";
+import { treeMoreFamilies } from "./tree-index.ts";
 
 type Ctx = EvalContext<LineState>;
 type L<P> = Layer<P>;
@@ -22,9 +25,6 @@ const undef = (v: ElementValue): Undef => ({ undefined: v.kind === "undefined" ?
 const num = (v: ElementValue): Q | null => (v.kind === "number" ? v.q : null);
 const gap = (a: Q, b: Q): Q => Qn.abs(Qn.sub(a, b));
 const primeGap = (x: Q): { p: bigint; d: Q } => { const p = nearbyPrimes(x)[0]!; return { p, d: gap(x, q(p)) }; };
-const primeGapEnding = (x: Q, k: number): { p: bigint; d: Q } => { const p = nearestPrimeEnding(x, k); return { p, d: gap(x, q(p)) }; };
-/** Prime Gradient's dealt filter (owner decision 41): the primes it counts end in this digit. */
-type Ends = { ends: number; side?: 1 | -1 };
 
 /** Record the main layer and every tie-breaker as undefined (the main layer's input does not exist) and say why. */
 function allUndefined<P>(ctx: Ctx, f: { main: L<P>; tieBreakers: readonly L<P>[] }, why: ElementValue, from: ElementRef): void {
@@ -40,40 +40,57 @@ function card<P>(f: { main: L<P>; tieBreakers: readonly L<P>[] }, p: P, tb: TieB
 
 /**
  * Prime Gradient as a ladder (design-principles.md; redesigned 15 Nov, declared to the coordinator), on the gradient as
- * Prime Landing is on the x-axis crossing. Main part, unbounded: the gradient should round to a prime p ending in k (or
- * minus one, on the mirror), the bigger the better, in levels of digits that each need more than the last (u =
- * digitLevel(p), numbers.ts); any other gradient scores below every rung, −(its distance to the nearest − ½). Tie-breaker,
- * read from p: the biggest number dividing both p + 1 and the y-intercept's whole part (ignoring signs); a new rung
- * changes p + 1, so the climb starts again. The old tie-breakers leave: the size of that prime (now the main part
- * itself), the y-intercept near such a prime (an independent wish, decision 29), and its smallest and largest prime
- * factors (hills a shift climbs at every size: the pool's 40-bit seats). Dealt: endings 1 and 9, each with its mirror
- * (the reflection y → −y keeps the law and |c|). A tilt moves the gradient and Prime Landing's crossing together, so
- * the two contest one move; a shift serves Prime Landing alone.
+ * Prime Landing is on the x-axis crossing. Main part, unbounded: the gradient's size should round (halves up) to a prime
+ * whose last digits are the dealt suffix, the bigger the better, in levels of digits that each need more than the last
+ * (u = digitLevel(p), numbers.ts); any other gradient scores below every rung, −(its distance to the nearest − ½).
+ * Tie-breaker, read from p: the biggest number dividing both p + 1 and the y-intercept's whole part (ignoring signs); a
+ * new rung changes p + 1, so the climb starts again.
+ *
+ * Parameters (the owner, 16 Nov): the suffix is any 1 to 3 digits ending in 1, 3, 7 or 9 (444 of them; principle 14),
+ * and the gradient's sign is unconstrained: "I'd rather the sign of the gradient remain unconstrained ... decided by
+ * allies that care". The old mirror (side −1, rounding to minus a prime) leaves; the reflections y → −y and x → −x keep
+ * every score (true by construction: the rule reads |m| and |c|).
  */
+type Suffix = { suffix: string };
+/**
+ * What `dealable` returns: the two suffixes dealt as peers. A drawn suffix needs worth as a formula of the suffix (the
+ * trial-scoring seam, in progress); a sampled curve cannot stand in: suffix "101" never reached its first rung in
+ * 98,264 law draws and its extrapolated tail paid 61.6 bits for a 285⚡ tilt from 100 to 101 (engine unit test, 16 Nov),
+ * and the equal-opportunity gate put the eight-suffix showcase's tops 3.9 bits apart. The space (444) is drawn from by
+ * the mirror and the interaction census meanwhile.
+ */
+const SHOWCASE = ["1", "9"];
+const pgCard = (p: Suffix) => `${primesWithSuffix(p.suffix, 4).join(", ")}, …`;
 const pg = {
   main: { id: "gradient", title: "the gradient rounding to as big a dealt prime as possible", rep: "si", sense: "max",
-    sentence: (p: Ends) => `The gradient should round to ${p.side === -1 ? "minus " : ""}a prime ending in ${p.ends}. Bigger primes are better, though each extra digit counts for less.` } as L<Ends>,
+    sentence: (p: Suffix) => `The gradient, ignoring its sign, should round to a prime whose last digits are ${p.suffix} (${pgCard(p)}). Bigger is better; failing that, nearer is better.` } as L<Suffix>,
   tieBreakers: [
     { id: "shared-factor", title: "the biggest number dividing both that prime plus 1 and the y-intercept's whole part", rep: "si", sense: "max",
-      sentence: () => "That prime plus 1 and the y-intercept's whole part should share as big a factor as possible." },
-  ] as L<Ends>[],
+      sentence: () => "That prime plus 1 and the y-intercept's whole part (ignoring its sign) should share as big a factor as possible." },
+  ] as L<Suffix>[],
 };
-export const primeGradient: RuleFamily<LineState, Ends> = {
+export const primeGradient: RuleFamily<LineState, Suffix> = {
   id: "prime-gradient", title: "Prime Gradient", card: (p, tb) => card(pg, p, tb), keepsParams: true, witness: gradientWitness,
-  params: [], dealable: () => [1, 9].flatMap(ends => [{ ends }, { ends, side: -1 as const }]), depends: ["si", "cart"], ...pg,
+  params: [], dealable: () => SHOWCASE.map(suffix => ({ suffix })), depends: ["si", "cart"], ...pg,
+  space: {
+    size: 4 + 40 + 400,
+    hint: "the prime's last digits: 1 to 3 digits ending in 1, 3, 7 or 9 (e.g. 13 or 007)",
+    draw: r => ({ suffix: drawSuffix(r) }),
+    parse(text) { const s = text.trim().replace(/^suffix\s*=\s*/, ""); return isSuffix(s) ? { suffix: s } : { invalid: "1 to 3 digits, the last one 1, 3, 7 or 9" }; },
+    label: p => p.suffix,
+  },
   evaluate(ctx, pr) {
     const mRef = ref("si", "m"), cRef = ref("si", "c");
     const mv = ctx.read(mRef), cv = ctx.read(cRef);
     const m = num(mv), c = num(cv);
     if (m === null || c === null) return allUndefined(ctx, pg, m === null ? mv : cv, m === null ? mRef : cRef);
-    // On the mirror (side −1) the gradient is read reflected: rounding to minus a prime.
-    const s = pr.side === -1 ? -1n : 1n, x = s === 1n ? m : Qn.neg(m);
-    const n = Qn.floor(Qn.add(x, q(1, 2)));
-    const on = n > 0n && isPrimeEnding(n, pr.ends);
-    const p = on ? n : nearestPrimeEnding(x, pr.ends);
-    const g = ref("cart", "ghost", { g: s * p });
+    const x = Qn.abs(m), n = Qn.floor(Qn.add(x, q(1, 2)));
+    const on = isPrimeWithSuffix(n, pr.suffix);
+    const p = on ? n : nearestPrimeWithSuffix(x, pr.suffix);
+    // The ghost line takes the gradient's own sign (a flat line's, +).
+    const g = ref("cart", "ghost", { g: Qn.sign(m) < 0 ? -p : p });
     ctx.read(g);
-    ctx.term("gradient", on ? `the gradient ${Qn.toWire(m)} rounds to ${s === 1n ? "" : "minus "}the prime ${p}: ${digitNote(p)}` : `${Qn.toWire(Qn.abs(Qn.sub(x, q(p))))} from ${s === 1n ? "" : "minus "}the prime ${p}`,
+    ctx.term("gradient", on ? `the gradient ${Qn.toWire(m)} rounds to the prime ${p}: ${digitNote(p)}` : `the gradient's size is ${Qn.toWire(gap(x, q(p)))} from the prime ${p}`,
       on ? digitLevel(p) : Qn.neg(Qn.sub(gap(x, q(p)), q(1, 2))), [mRef]);
     const w = Qn.floor(Qn.abs(c));
     ctx.term("shared-factor", `${p + 1n} and the y-intercept's whole part ${w}: the biggest number dividing both is ${w === 0n ? 0n : gcd(p + 1n, w)}`, q(w === 0n ? 0n : gcd(p + 1n, w)), [mRef, cRef]);
@@ -185,5 +202,5 @@ export const ownerFamilies = [primeGradient, triangleArea, mMeetsC, crossingChec
 /** Every line family (the line type's list): the owner's, the beginner pool's, and the rational-native ones (undealt). */
 /** Close Landing, Close Intercept and Close Gradient (close-landing.ts, close-readings.ts) are prototypes: valued and measured, in no pool.
  * The fraction-native families (frac-*.ts, docs/engine-v2/fraction-families.md) and the tuple families (tuple-rules.ts,
- * pool-plan.md v2) are undealt until the owner has read their cards. */
-export const families = [...ownerFamilies, ...beginnerFamilies, ...rationalFamilies, ...rational2Families, closeLanding, closeIntercept, closeGradient, twinFractions, ...tupleFamilies] as const;
+ * pool-plan.md v2) are undealt until the owner has read their cards; so are the tree families (tree-nt-*.ts, tree-geo*.ts). */
+export const families = [...ownerFamilies, ...beginnerFamilies, ...rationalFamilies, ...rational2Families, closeLanding, closeIntercept, closeGradient, twinFractions, ...tupleFamilies, ...treeNtFamilies, ...treeGeoFamilies, ...treeMoreFamilies] as const;

@@ -7,26 +7,26 @@ import { createRoot } from "react-dom/client";
 import "../../index.css";
 import { LockCreate, LockMark, LocksSection, type LockCheck, type LockView } from "@/panes/locks-ui";
 import { breakLine } from "@/panes/locks-model";
+import { lockStarters } from "@/panes/locks-starters";
 
 if (new URLSearchParams(location.search).get("scheme") === "dark") document.documentElement.classList.add("dark");
 
 const LOCKS: LockView[] = [
-  { n: 1, title: "the gradient is -2", info: 9.2, energy: 46, settledAt: 0, rate: 0.038, code: { language: "python", source: "# the gradient is -2\ndef holds(line):\n    return line.m == -2\n" } },
-  { n: 2, title: "the y-intercept is at least 40", info: 6.1, energy: 4, settledAt: 0, rate: 0.025, code: { language: "python", source: "# the y-intercept is at least 40\ndef holds(line):\n    return line.c >= 40\n" } },
-  { n: 3, title: "the y-intercept is prime", info: 4.4, energy: 0.3, settledAt: 0, rate: 0.018 },
+  { n: 1, title: "the y-intercept ≥ 10 and the triangle's area ≥ 20", bits: 323, energy: 46, settledAt: 0, rate: 0.084, added: 60, taken: 0, mine: { added: 20, taken: 0 },
+    history: [{ at: 4, op: "create", amount: 20, mine: true }, { at: 9, op: "fund", amount: 25, mine: false }, { at: 15, op: "fund", amount: 15, mine: false }],
+    code: { language: "python", source: lockStarters("python")[3]!.source } },
+  { n: 2, title: "the gradient stays negative", bits: 132, energy: 4, settledAt: 0, rate: 0.034, added: 10, taken: 3, mine: { added: 0, taken: 0 },
+    history: [{ at: 2, op: "create", amount: 10, mine: false }, { at: 12, op: "drain", amount: 3, mine: false }],
+    code: { language: "python", source: lockStarters("python")[5]!.source } },
 ];
 const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
-const check = async (_l: string, source: string): Promise<LockCheck> => {
+const check = async (_l: string, source: string, words: string): Promise<LockCheck> => {
   await wait(300);
-  return source.includes(">= 100")
-    ? { meets: false, words: "the y-intercept is at least 100", info: 8, fee: 8, rate: 0.033 }
-    : { meets: true, words: "the y-intercept is prime", info: 4.4, fee: 4.4, rate: 0.018 };
+  return source.includes("1000")
+    ? { meets: false, words, why: "the object does not meet the lock's program, so it cannot be locked to it" }
+    : { meets: true, words, bits: 161, fee: 10.06, rate: 0.042 };
 };
-const STARTERS = [
-  { kind: "gradient", title: "Keep the gradient", language: "python" as const, source: "# the gradient stays -2\ndef holds(line):\n    return line.m == -2\n" },
-  { kind: "floor", title: "A floor on the y-intercept", language: "python" as const, source: "# the y-intercept is at least 40\ndef holds(line):\n    return line.c >= 40\n" },
-  { kind: "prime", title: "The y-intercept is prime", language: "python" as const, source: "# the y-intercept is prime\ndef holds(line):\n    return is_prime(line.c)\n" },
-];
+const STARTERS = lockStarters("python");
 
 function Page() {
   return (

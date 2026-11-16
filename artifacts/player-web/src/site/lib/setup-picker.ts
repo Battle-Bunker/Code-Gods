@@ -135,3 +135,18 @@ export function nextGameSummary(p: Preset, o: Overrides): string {
   ];
   return `${parts.join(" · ")}.`;
 }
+
+/** A system row of the setup combobox (v1's "System" setups: the deployed presets). */
+export interface PresetRow { preset: Preset; lab: boolean }
+/**
+ * The combobox's system rows for a search (v1's setup-picker.tsx: one searchable list, the system's first, the Lab last
+ * and only for an administrator, or when the room already plays it): every preset whose title or blurb holds every word
+ * of the query, ignoring case.
+ */
+export function presetRows(presets: readonly Preset[], who: { admin: boolean; current: string; query: string }): PresetRow[] {
+  const words = who.query.toLowerCase().split(/\s+/).filter(Boolean);
+  const matches = (p: Preset) => { const text = `${p.title} ${setupBlurb(p)}`.toLowerCase(); return words.every(w => text.includes(w)); };
+  return setupGroups(presets, { admin: who.admin, current: who.current })
+    .flatMap(g => g.presets.map(p => ({ preset: p, lab: g.label.startsWith("Lab") })))
+    .filter(r => matches(r.preset));
+}

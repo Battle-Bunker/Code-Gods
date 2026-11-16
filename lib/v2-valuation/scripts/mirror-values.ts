@@ -18,7 +18,6 @@ const MIRRORS: Record<string, [object, object][]> = {
   "prime-landing": [1, 9].map(ends => [{ ends }, { ends, side: -1 }] as [object, object]),
   "treasure": [3, 4].map(k => [{ k }, { k, side: -1 }] as [object, object]),
   "same-on-both-rulers": [[{ meets: 1, digits: "odd" }, { meets: -1, digits: "odd" }], [{ meets: 1, digits: "even" }, { meets: -1, digits: "even" }]],
-  "prime-gradient": [1, 9].map(ends => [{ ends }, { ends, side: -1 }] as [object, object]),
   "whole-crossing": [[{ q: 5, r: 1 }, { q: 5, r: 4 }], [{ q: 5, r: 2 }, { q: 5, r: 3 }]],
 };
 for (const [family, pairs] of Object.entries(MIRRORS)) {

@@ -60,6 +60,14 @@ export function rotationSummary(r: RotationRound | null | undefined, me: string 
   return { heading, rows, next };
 }
 
+/** The room page's rotation line (v1's RotationNote): which game of the round this room is on, and whose rule playing again deals. */
+export function roomRotationLine(r: RotationRound | null | undefined): string | null {
+  if (!r || r.of < 2) return null;
+  if (r.round >= r.of) return `The ${r.of} games of this rotation are over: everyone has played each rule once. The next game deals afresh.`;
+  const next = r.next ? ` Play again with the same players and you get ${r.next.name}'s rule, until everyone has held each rule once.` : "";
+  return `Game ${r.round} of ${r.of} in this rotation.${next}`;
+}
+
 /**
  * Why a hidden-end game stopped when it did (round 13: a game ended at 70 s and Results said nothing): the end is a
  * random moment past a floor of a tenth of the half-life; half of such games end within the floor plus the half-life.

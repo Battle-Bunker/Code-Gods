@@ -10,7 +10,7 @@
  *   → one line opens with every representation the rule reads (desktop: pointing at an element lights the same
  *   meaning in another representation) → the goal card shows the ladder and the next step → the game ends on its own
  *   and the results lead with "You finished …".
- * The room's game is shortened to 5 s planning and 30 world seconds (room.settings, as its owner).
+ * The room's game is shortened to 30 s planning (the walker starts the world) and 30 world seconds (room.settings, as its owner).
  * With GRID_SETUP=grids-original-colours it walks the old game's coloured 4×4 board (lib/v2-grid-boards) instead.
  * With GRID_SETUP=grids-beginner-bidding the walk bids first: the practice game opens the bid phase, the walker bids
  * 10% on the first family offered and presses "Done bidding", and is dealt that family on the board.
@@ -25,6 +25,8 @@ import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { ConvexHttpClient } from "convex/browser";
+import { chooseSetup } from "./setup-choice.ts";
+import { presetOf } from "../../engine/convex/v2/presets.ts";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
@@ -65,7 +67,7 @@ async function shorten(page: Page, code: string) {
   const client = new ConvexHttpClient(CLOUD);
   client.setAuth(token);
   const found = await client.query("v2/rooms:byCode" as never, { code } as never) as { roomId: string };
-  const out = await client.mutation("v2/ops/room:settings" as never, { args: { overrides: { planningSeconds: 5, worldSeconds: 30 } }, roomId: found.roomId } as never) as { ok: boolean; error?: { message: string } };
+  const out = await client.mutation("v2/ops/room:settings" as never, { args: { overrides: { planningSeconds: 30, worldSeconds: 30 } }, roomId: found.roomId } as never) as { ok: boolean; error?: { message: string } };
   assert.ok(out.ok, `room.settings: ${out.error?.message}`);
 }
 
@@ -97,13 +99,12 @@ try {
     await page.waitForURL(/\/rooms\/[A-Z0-9]+$/);
     const code = page.url().split("/").at(-1)!;
     await page.screenshot({ path: path.join(shots, `grid-${label}-room-before.png`), fullPage: true });
-    // The owner picks the grid setup in the room (a radio in "Next game").
+    // The owner picks the grid setup in the room (the setup combobox in "Next game").
     const t1 = Date.now();
-    await page.getByTestId(`radio-setup-${SETUP}`).click();
-    await page.waitForFunction((id: string) => (document.querySelector(`[data-testid="radio-setup-${id}"]`) as HTMLInputElement | null)?.checked === true, SETUP, { timeout: 15_000 });
+    await chooseSetup(page, SETUP, presetOf(SETUP).title);
     console.log(`${label}: the grid setup chosen in ${clock(t1)}`);
     await page.getByTestId("text-next-game-summary").waitFor();
-    await page.getByTestId(`setup-${SETUP}`).getByText(/grid of digits/).waitFor({ timeout: 10_000 });
+    await page.getByTestId("field-setup").getByText(/grid of digits/).waitFor({ timeout: 10_000 });
     await shot(page, `grid-${label}-room`);
     await shorten(page, code);   // after the setup: choosing a setup resets the room's settings to its own
     await page.getByTestId("button-practice-game").click();

@@ -72,6 +72,8 @@ export const headerV = v.object({
   readPriceWeight: v.number(),
   /** The factor on summon and edit prices: the game's power ÷ 64 (v2-economy summonPriceScale). */
   priceScale: v.number(),
+  /** Locks (docs/engine-v2/locks.md): null when the room setting is off; else the prices (energy per bit to create, per bit per world second to sustain). */
+  locks: v.union(v.null(), v.object({ createPerBit: v.number(), upkeepPerBit: v.number() })),
   /** Parameter drift's interval in world seconds (drift.ts; 0: off): drift k happens at world second k × it. */
   driftSeconds: v.number(),
   /** Line turnover (retirement-design.md): at most `liveCap` live lines, a birth every `birthSeconds` (null: at random), the oldest retiring with its points kept in the totals (`banked`) or not; null: every line stays live. */
@@ -155,6 +157,8 @@ export const agentEnergyV = v.object({
   /** `spend` split as v1's My agents showed it: reading and changing; and the last act's two parts and outcome. */
   spendRead: v.number(), spendChange: v.number(),
   lastAct: v.union(v.object({ at: v.number(), read: v.number(), change: v.number(), outcome: v.string() }), v.null()),
+  /** v1's estimate for the current program: its check's average spend a turn, reading and changing (null until measured). */
+  estimate: v.union(v.object({ perAct: v.number(), read: v.number(), change: v.number() }), v.null()),
   pointsGained: v.number(), lastActAt: v.union(v.number(), v.null()),
   /** As the own store's: the agent's income and capacity, and `energy` settled to the world second `settledAt`. */
   perSecond: v.number(), capacity: v.number(), settledAt: v.number(),

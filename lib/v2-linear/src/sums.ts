@@ -54,7 +54,6 @@ function areaBand(m: bigint, A: number, d: number): CRange[] {
 
 /** The plans, by family id. Rules on other object types, or families absent here, use the generic fallback. */
 export const lineSums: Readonly<Record<string, LineSums<any>>> = {
-  "prime-gradient": { separable: { near: "m", prime: "m", "c-spf": "c", "c-gpf": "c" } },
   // Prime Landing is a ladder with entangled tie-breakers since 15 Nov (design-principles.md): valued by sampling.
   // n | y(n) = mn + c exactly when n | c on whole-number lines: the run depends on c alone.
   "divisibility-ladder": { separable: { ladder: "c", "m-spf": "m", "m-gpf": "m", steep: "m", "m-prime": "m" } },

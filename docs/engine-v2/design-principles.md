@@ -100,6 +100,16 @@ differ, the owner's words win.
     read properties that fractions have (numerators and denominators, sizes, ratios, distances), and the rule's value
     varies sensibly across fractional states (principle 11).
 
+14. **Large parameter sets, and worth that is a formula of them.** The owner, 16 November: "we want large
+    configuration spaces within families. In general, we want large sets as parameters not a finite number of discrete
+    options" (their example: a prime's final digits may be any drawable suffix whose last digit is 1, 3, 7 or 9, so a
+    prime always exists; a two-valued switch such as a sign is "low value" as a parameter). And as a design goal of the
+    scoring system itself: "it be more tractable to find analytical solutions to mapping from utility to energy such
+    that we can parameterize the analytic relationship with the parameters of the rule family." So a family's
+    parameters are drawn from a large set with a filter that guarantees targets exist for every draw, and the mapping
+    from a rule's score to bits should be a formula with the family's parameters as arguments, not a table measured per
+    instance.
+
 ## The check (every rule family, before it is dealt and whenever it changes)
 
 A pull request that adds or changes a dealt rule family carries this table filled in, with evidence, and
