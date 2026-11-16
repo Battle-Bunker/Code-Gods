@@ -316,3 +316,15 @@ of the total), same β 0.05 (`v2-economy/charge.ts`). One-cell +1: v1 W 5.6 (7.1
 16. The Lab cost models (dial, log, multiply) and Lab bidding variants as setups (MISSING, about 7 h).
 17. User-saved setups and the Configure page (MISSING, call 35; 6–8 h).
 18. Agents per player 200 → 20 (CHANGED, R3; rarely reached).
+
+## Known reachable tops (kept dealt as the v1 baseline)
+
+Every beginner grid main part is bounded on the 0–9 board, as in v1, so a global top exists. In real games two have
+been reached within 10 minutes. The coordinator (16 Nov) keeps both dealt: the grid game is the baseline against the
+original, and the old rules stand for the comparison. A separate design session takes the grid rules to the owner's
+layered shape (pool-plan.md v2, design-principles.md 3b); nothing from it is dealt yet.
+
+| Family | Seen | Top reached |
+|---|---|---|
+| Leapfrog | grids session's end-to-end game (15 Nov), playtest round 34 (#943) | main "one apart · exactly" on 2 of 5 grids; grid 4 also cycled between two states against Two Pair (26 moves) |
+| Two Pair | playtest baseline 2 (#969) | grid 2 at 4332/3423/2110/1201: main "exactly" and secondary 4 of 4 boxes |
