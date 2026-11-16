@@ -160,11 +160,8 @@ async function retireLine(ctx: MutationCtx, game: Doc<"v2Games">, number: number
   const st = await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", object._id)).unique();
   if (st && !turnover.retiredHolds) await ctx.db.patch(st._id, { released: true });
   const rows = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", object._id)).take(16);
-  // A retirement is public, like a birth: in a game that pays to read, every player is told the line as it ends (its
-  // final state and their value of it as disclosed), so the retired list shows what it banked.
-  if (st && paysToRead(game)) for (const r of rows) {
-    await tell(ctx, game, r.memberId, { objectId: object._id, number, state: st.state, version: st.version, score: r.score, rarityBits: r.rarityBits, want: r.shownWant ?? r.want, points: r.shownPoints ?? r.points }, world);
-  }
+  // Nobody is told the line's final state for free (decision 35: content is paid): in a game that pays to read, a
+  // retired line shows each player as they last saw it, until the end opens everything.
   // Its rows leave the live lists (the sort indexes key on `retired`) for the retired list (play.ts banked).
   for (const r of rows) await ctx.db.patch(r._id, { retired: true });
   for (const k of await ctx.db.query("v2Knowledge").withIndex("by_object_member", q => q.eq("objectId", object._id)).take(16)) await ctx.db.patch(k._id, { retired: true });

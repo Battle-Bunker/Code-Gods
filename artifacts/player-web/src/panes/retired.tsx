@@ -24,16 +24,21 @@ export function TurnoverNote() {
 
 /** "new" beside a line born in the last half minute (never a starting line). */
 export function NewMark({ bornAt, number }: { bornAt: number; number: number }) {
-  const worldNow = useWorldNow();
   const header = useGame();
-  if (!header?.turnover || !isNewLine(bornAt, worldNow)) return null;
+  // Only a game with turnover, and never a starting line, runs the mark's clock.
+  if (!header?.turnover || bornAt <= 0 || header.phase !== "live") return null;
+  return <NewMarkTicking bornAt={bornAt} number={number} variant={header.variant} />;
+}
+function NewMarkTicking({ bornAt, number, variant }: { bornAt: number; number: number; variant: string }) {
+  const worldNow = useWorldNow();
+  if (!isNewLine(bornAt, worldNow)) return null;
   return (
     <span className="border border-emerald-600/60 px-1 text-[10px] font-medium uppercase text-emerald-700 dark:text-emerald-400" data-testid={`badge-new-line-${number}`}
-      title={`Just arrived: the oldest live ${objectWord(header.variant).one} retired to make room.`}>new</span>
+      title={`Just arrived in the world.`}>new</span>
   );
 }
 
-function RetiredRow({ objectId, number, variant, banked }: { objectId: string; number: number; variant: string; banked: boolean }) {
+function RetiredRow({ objectId, number, variant, banked, approx }: { objectId: string; number: number; variant: string; banked: boolean; approx: boolean }) {
   const o = useMyObject(objectId);
   const word = objectWord(variant);
   const state = useMemo(() => (o?.state ? decodeState(o.state, variant) : null), [o?.state, variant]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -42,7 +47,7 @@ function RetiredRow({ objectId, number, variant, banked }: { objectId: string; n
       <span className="w-14 shrink-0 text-muted-foreground">{word.One} {number}</span>
       {state && variant ? <ObjectChip type={objectTypeOf(variant)} state={state} /> : <span className="text-muted-foreground">…</span>}
       {o?.retiredAt !== undefined && o.value && (
-        <span className="ml-auto tabular-nums" data-testid={`text-retired-line-${number}`}>{bankedWords({ retiredAt: o.retiredAt, points: o.value.points }, banked)}</span>
+        <span className="ml-auto tabular-nums" data-testid={`text-retired-line-${number}`}>{bankedWords({ retiredAt: o.retiredAt, points: o.value.points }, banked, approx)}</span>
       )}
     </div>
   );
@@ -60,7 +65,7 @@ export function RetiredLines() {
     <section className="space-y-1 pt-2" data-testid="retired-lines">
       <h3 className="px-3 text-xs font-semibold">Retired {word.many}</h3>
       <VirtualRows rows={ids.results} rowHeight={ROW_H} maxHeight={MAX_H} keyOf={r => r.objectId} onNearEnd={onNearEnd} testId="retired-lines-list"
-        render={r => <RetiredRow objectId={r.objectId} number={r.number} variant={header.variant} banked={header.turnover!.banked} />} />
+        render={r => <RetiredRow objectId={r.objectId} number={r.number} variant={header.variant} banked={header.turnover!.banked} approx={header.phase !== "ended"} />} />
     </section>
   );
 }

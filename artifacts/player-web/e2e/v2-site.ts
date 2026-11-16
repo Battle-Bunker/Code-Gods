@@ -266,11 +266,11 @@ try {
       await page.getByTestId("button-start-world").click({ timeout: 30_000 });
       await page.getByTestId("text-phase").getByText("Running").waitFor({ timeout: 60_000 });
       const lines = page.getByTestId("pane-objects");
-      assert.match(await lines.getByTestId("text-turnover-note").innerText(), /At most 2 lines are live\. A new line arrives every 5 s, and the oldest retires: its points stay in your total\./);
+      assert.match(await lines.getByTestId("text-turnover-note").innerText(), /At most 2 lines are live\. A new line arrives every 5 s\. Once 2 are live, each new line retires the oldest: its points stay in your total\./);
       await lines.locator("[data-testid^=badge-new-line-]").first().waitFor({ timeout: 30_000 });   // a line arrived
       const retired = lines.getByTestId("retired-lines");
       await retired.locator("[data-testid^=text-retired-line-]").first().waitFor({ timeout: 30_000 });
-      assert.match(await retired.innerText(), /retired at \d+:\d\d · banked [\d.,−-]+ points?/);
+      assert.match(await retired.innerText(), /retired at \d+:\d\d · about [\d.,−-]+ points? as you last saw it/);
       assert.ok(await lines.locator("[data-testid^=row-line-]").count() <= 2, "at most 2 live lines listed");
       await shot(page, `v2-turnover-${label}`);
       // The end page: the retired lines with what each banked.

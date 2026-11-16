@@ -150,7 +150,7 @@ test("the objects list shows the live lines; the retired list shows the retired 
     // Ended: exact; the points it banked for Ada.
     assert.equal(o.value.points, line.points[me], `line ${r.number}: banked points`);
     assert.equal(o.lookPrice, undefined, "no look on a retired line");
-    // Its final state: Ada (no agents, a game that pays to read) was told it as it retired.
+    // Its final state (the game is over: everything is open).
     assert.equal(o.state, events.find(e => e.kind === "retired" && e.data.number === r.number).data.state);
   }
   // A live line's object has no retirement.

@@ -14,15 +14,18 @@ export const NEW_FOR_SECONDS = 30;
 export function turnoverNote(t: TurnoverHeader | null | undefined, word: Word): string | null {
   if (!t) return null;
   const fate = t.banked ? "its points stay in your total" : "its points leave your total";
-  return t.birthSeconds
-    ? `At most ${t.liveCap} ${word.many} are live. A new ${word.one} arrives every ${Math.round(t.birthSeconds)} s, and the oldest retires: ${fate}.`
-    : `At most ${t.liveCap} ${word.many} are live. When a new ${word.one} arrives the oldest retires, and ${fate}.`;
+  const pace = t.birthSeconds ? `A new ${word.one} arrives every ${Math.round(t.birthSeconds)} s. ` : "";
+  return `At most ${t.liveCap} ${word.many} are live. ${pace}Once ${t.liveCap} are live, each new ${word.one} retires the oldest: ${fate}.`;
 }
 
 /** Whether a line was born in the last NEW_FOR_SECONDS (never a starting line, never outside a live game). */
 export const isNewLine = (bornAt: number, worldNow: number | null) => worldNow !== null && bornAt > 0 && worldNow - bornAt < NEW_FOR_SECONDS;
 
-/** "retired at 2:05 · banked 42.25 points" (or "…, no longer counted" when retired points leave the totals). */
-export function bankedWords(o: { retiredAt: number; points: number }, banked: boolean): string {
-  return `retired at ${clock(o.retiredAt)} · ${banked ? `banked ${pointsText(o.points)}` : `${pointsText(o.points)}, no longer counted`}`;
+/**
+ * "retired at 2:05 · banked 42.25 points" (or "…, no longer counted" when retired points leave the totals). While the
+ * game runs the figure is what the player last saw (paid looks, blurred sums), so it says so instead of "banked".
+ */
+export function bankedWords(o: { retiredAt: number; points: number }, banked: boolean, approx = false): string {
+  const figure = approx ? `about ${pointsText(o.points)} as you last saw it` : banked ? `banked ${pointsText(o.points)}` : pointsText(o.points);
+  return `retired at ${clock(o.retiredAt)} · ${figure}${banked ? "" : ", no longer counted"}`;
 }

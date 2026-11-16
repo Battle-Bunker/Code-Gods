@@ -112,7 +112,7 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
         </p>
         {view.focus?.objectId === objectId && view.focus.from && <p className="text-xs text-muted-foreground" data-testid="text-object-from">Opened from: {view.focus.from}</p>}
         {/* Line turnover: a retired line keeps its final state and the points it banked; no agent acts on it again. */}
-        {o.retiredAt !== undefined && v && <p className="text-xs font-medium" data-testid="text-line-retired">{bankedWords({ retiredAt: o.retiredAt, points: v.points }, header?.turnover?.banked ?? true)}: no agent acts on it again.</p>}
+        {o.retiredAt !== undefined && v && <p className="text-xs font-medium" data-testid="text-line-retired">{bankedWords({ retiredAt: o.retiredAt, points: v.points }, header?.turnover?.banked ?? true, header?.phase !== "ended")}: no agent acts on it again.</p>}
         {v && <p className="text-xs text-muted-foreground" data-testid="text-line-formula">{whyLine({ rarity: v.rarityBits, want: v.want }, {}, word.one, blurred)}</p>}
         {/* v1's why?: how rare the object is for your rule, as a share of random ones (the bits' meaning in one line). */}
         {v && v.rarityBits > 0 && <p className="text-xs text-muted-foreground" data-testid="text-line-rarer">For your rule this {word.one} is {rarerThanText(v.rarityBits, word.many)} ({chanceText(v.rarityBits)} by chance).</p>}
