@@ -42,7 +42,7 @@ test("every shipped starter stays within 60% of the step limit on big objects, i
   for (const { type, variant, rules, states } of cases) {
     const seen = new Set<string>();
     for (const r of rules) for (const tb of r.tieBreakers) {
-      const tie = typeof tb === "string" ? tb : (tb as { id: string }).id;
+      const tie = tb === null ? null : typeof tb === "string" ? tb : (tb as { id: string }).id;
       const key = `${r.family}/${tie}`;
       if (seen.has(key)) continue;   // the presets deal a family several times with other parameters: one is enough
       seen.add(key);

@@ -69,9 +69,10 @@ test("the start deals every seated member a converged rule and opens their accou
 
   for (const h of [ada, bo]) {
     const rule = await h.query("v2/play:myRule", { gameId });
-    assert.ok(rule.ruleKey.includes(rule.family) && rule.tieBreaker, rule.ruleKey);
-    assert.equal(rule.layers.length, 2);
-    assert.ok(rule.value.knots.length > 2 && rule.value.knots.at(-1).bits > 0, "the rule's value function comes with it");
+    // A line rule is one utility scored by energy (decision 50, energy.md): no tie-breaker and no value table.
+    assert.ok(rule.ruleKey.includes(rule.family) && rule.tieBreaker === null, rule.ruleKey);
+    assert.equal(rule.layers.length, 1);
+    assert.equal(rule.value, null, "a dynamic rule has no value table");
     const me = await h.query("v2/playState:me", { gameId });
     assert.deepEqual([me.energy, me.agents, me.ready], [150, 0, false]);
   }
@@ -92,10 +93,11 @@ test("the setup picker: the server's own presets, and nothing else; a family's v
   const changed = await perform(plain!, "room.settings", { preset: "test-anything" }, { roomId: room }).catch((e: any) => e.data);
   assert.match(changed.error.message, /No preset/);
 
-  const rules = await plain!.query("v2/gallery:family", { preset: "lines-beginner", family: "prime-landing" });
+  const rules = await plain!.query("v2/gallery:family", { preset: "lines-beginner", family: "power-hug" });
   assert.ok(rules.length > 0, "the family's dealable rules");
-  for (const r of rules) assert.ok(r.points.length > 1 && r.points.every((p: any) => p.bits >= 0) && r.points.at(-1).bits > 0, JSON.stringify(r.points.slice(-3)));
-  assert.deepEqual(await plain!.query("v2/gallery:family", { preset: "nope", family: "prime-landing" }), []);
+  // A dynamic rule has no value curve (energy.md): its card says what it wants.
+  for (const r of rules) assert.ok(r.points.length === 0 && /power of/.test(r.card), r.card);
+  assert.deepEqual(await plain!.query("v2/gallery:family", { preset: "nope", family: "power-hug" }), []);
 });
 
 test("at most eight players can play (v1's cap); the rest of the room watches", { timeout: 60_000 }, async () => {
@@ -124,8 +126,8 @@ test("seating: a grid and a line game record the pairs their deal left (no forbi
       assert.deepEqual(stored.seating.clashes, [], "three seats: no forbidden pair");
       assert.equal(stored.seating.aligned.length, 1, "the beginner pool's three seats hold one aligned pair (one digit cluster and Crosswise Threes, call 19)");
     }
-    // Lines have a seating rule too since call 23 (Prime Landing never beside Whole Crossing on the same landings).
-    else assert.deepEqual(stored.seating.clashes, [], "a line game: no forbidden pair");
+    // Lines have no seating rule since 17 Nov (it went with the old line families, decision 50).
+    else assert.equal(stored.seating, undefined, "a line game records no seating");
     const header = await ada!.query("v2/games:header", { gameId });
     assert.equal("seating" in header, false, "players are not shown it");
     await perform(ada!, "game.end", {}, { gameId });
@@ -142,10 +144,11 @@ test("the dealing trial's measurement: a game stores its table's unopposed direc
   for (const d of stored.unopposed) assert.ok(typeof d.direction === "string" && Array.isArray(d.rules) && ["weak", "strong"].includes(d.strength));
   const header = await ada!.query("v2/games:header", { gameId });
   assert.equal("unopposed" in header, false, "players are not shown it");
-  // Step 2, logging only: what the policy would have dealt this table, beside the real deal (line-q has a W table).
+  // Step 2, logging only: what the policy would have dealt this table, beside the real deal. line-q's W table went with
+  // the old line families (17 Nov), so the policy falls back to the lottery.
   const policy = stored.unopposedPolicy;
   assert.ok(policy && policy.wouldDeal.length === stored.roster.length && typeof policy.score === "number", JSON.stringify(policy));
-  assert.ok(!policy.fallback || /none of|company/.test(policy.fallback), `line-q is measured: ${policy.fallback}`);
+  assert.ok(!policy.fallback || /none of|company|no W table/.test(policy.fallback), `the policy's fallback: ${policy.fallback}`);
   assert.equal("unopposedPolicy" in header, false, "players are not shown it either");
   await perform(ada!, "game.end", {}, { gameId });
 });

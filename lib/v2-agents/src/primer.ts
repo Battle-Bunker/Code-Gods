@@ -6,7 +6,7 @@
 import type { ObjectType, Variant } from "@workspace/v2-core";
 import { lineType } from "@workspace/v2-linear";
 import { GRID_CATALOGUE } from "./grid-catalogue.ts";
-import { exampleFor, hasStarters } from "./starters.ts";
+import { exampleFor, hasStarters, startersFor } from "./starters.ts";
 
 /** The helpers every act's prelude defines, in both languages (lib/v2-sandbox/guest/helpers.{js,py}). */
 export const HELPERS: readonly { readonly name: string; readonly ts: string; readonly py: string; readonly says: string }[] = [
@@ -107,7 +107,7 @@ interface PrimerWords {
   /** How the TypeScript example differs from the Python one. */
   readonly typescript: string;
   /** The example's family and tie-breaker (null: none written yet). */
-  readonly example: () => readonly [string, string] | null;
+  readonly example: () => readonly [string, string | null] | null;
   /** The helpers' examples and words for this type, where they differ from the line's (HELPERS). */
   readonly helpers?: Readonly<Record<string, Partial<(typeof HELPERS)[number]>>>;
 }
@@ -115,11 +115,11 @@ interface PrimerWords {
 const WORDS: Readonly<Record<string, PrimerWords>> = {
   line: {
     title: "lines", one: "line", many: "lines",
-    game: "The game is played on lines: every piece is one line, read in several views. Each player has a rule about lines: a main part and a secondary preference (for example \"make the gradient close to a prime; secondary: the bigger that prime, the better\").",
+    game: "The game is played on lines: every piece is one line, read in several views. Each player has a rule about lines: one number to make big, its utility (for example \"the y-intercept right on a power of 3: a bigger power scores a little more, and every bit off costs the distance cubed\"). A line's energy for a rule is what it would cost to reach a line at least that good from a random line of the same size; it is estimated afresh each time, so it jitters.",
     prices: "A move by k costs k moves by 1, so a big jump never saves; ×6 (mach.stretch) costs ×2 plus ×3. Numbers made of small primes are cheap (24), big primes dear (23).",
     deal: "\"I leave line 4's y-intercept alone if you keep its gradient prime\"",
     typescript: "the same shape with Q for arithmetic",
-    example: () => ["m-meets-c", "meetPrime"],
+    example: () => null,   // the dynamic families' starters carry long number helpers: too long for the primer
   },
   grid: {
     title: "grids", one: "board", many: "boards",
@@ -158,7 +158,8 @@ export function agentPrimer<S>(type: ObjectType<S> = lineType as unknown as Obje
   // The example without its header (the primer says what the header would): its code and its comments only.
   const which = w.example();
   // The example without its header, and without the deal knobs (PLAYING FOR POINTS says what they do): its search only.
-  const ex = which ? withoutKnobs(exampleFor(which[0], which[1], "python")?.source.replace(/^(#[^\n]*\n)+\n*/, "")) : undefined;
+  const src = which ? (which[1] === null ? startersFor(which[0], "python").find(a => a.kind === "simple")?.source : exampleFor(which[0], which[1], "python")?.source) : undefined;
+  const ex = withoutKnobs(src?.replace(/^(#[^\n]*\n)+\n*/, ""));
   return `WRITING AGENTS (engine v2: ${w.title})
 
 THE GAME. ${w.game} A ${one}'s score on a rule is its rarity: ${many} that random play rarely makes that good are worth more points. The player understands their rule, negotiates with the others and tells you what their agent should do; you write that agent and explain it in plain words.

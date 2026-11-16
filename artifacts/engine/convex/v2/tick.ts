@@ -20,6 +20,7 @@ import { capOf, liveLines, offerable, pickLine, retiringCount } from "./turnover
 import type { Turnover } from "./presets";
 import { actReadings } from "./disclose";
 import { penaltyMean, valueFnIn, valueRecord } from "./values";
+import { knownFamily } from "./deal";
 import { actLock, defaultLockRates, lockSeen, type LockWire } from "./lockWire";
 
 type Snapshot = {
@@ -137,8 +138,11 @@ export const tick = internalAction({
       }));
       const defenceOf = (memberId: string) => defences.get(memberId)!;
       const othersOf = new Map(snap.seats.map(seat => [seat.memberId, snap.seats.flatMap(o => {
-        const vf = o.memberId === seat.memberId ? null : valueFnIn(o.rule.ruleKey, scope);
-        return vf ? [{ rule: ruleOf(o.rule), values: vf, ...defenceOf(o.memberId) }] : [];
+        if (o.memberId === seat.memberId) return [];
+        const vf = valueFnIn(o.rule.ruleKey, scope);
+        if (vf) return [{ rule: ruleOf(o.rule), values: vf, ...defenceOf(o.memberId) }];
+        // A rule scored by the dynamic measure has no table: the host values it by its energy (energy.md).
+        return knownFamily(o.rule.family)?.dynamic ? [{ rule: ruleOf(o.rule) }] : [];
       })]));
       const told = new Map<string, ActInput>();
       for (const rows of await Promise.all(batches)) for (const { memberId, objectId, ...input } of rows) told.set(`${memberId}:${objectId}`, input);

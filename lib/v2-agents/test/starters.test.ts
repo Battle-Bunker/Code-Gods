@@ -187,9 +187,9 @@ test("summon price: comments are free, names cost once, the Q. prefix is JavaScr
 test("check: works, warns, fails and rejected, with the summon price and every act", async () => {
   const samples = births(lineType, lineZ, "check", 3).map((state, i) => ({ objectId: `o${i}`, state }));
   const run = (language: Language, source: string, s = samples) => boxes.get(language).then(box => check(box, {
-    type: lineType, variant: lineZ, rule: { family: "m-meets-c", params: {} }, program: { language, source }, samples: s, energy: 100,
+    type: lineType, variant: lineZ, rule: { family: "power-hug", params: { k: 3 } }, program: { language, source }, samples: s, energy: 100,
   }));
-  const simple = all.find(a => a.family === "m-meets-c" && a.kind === "simple" && a.language === "python")!;
+  const simple = all.find(a => a.family === "power-hug" && a.kind === "simple" && a.language === "python")!;
   const works = await run("python", simple.source);
   assert.equal(works.verdict, "works", works.summary);
   assert.equal(works.price, summonBits("python", simple.source).energy);
@@ -213,95 +213,50 @@ test("after a first summon at the first-agent share, the player's store can stil
   assert.ok((1 - share) * e.powerPerSecond * e.fullChargeSeconds >= dearest, "the store's capacity holds the dearest agent");
 });
 
-test("on a rational line the starters clear a fraction their rule cares about: y = 2x + 7/3 goes to a whole intercept", async () => {
+test("on a rational line the starters clear a fraction their rule cares about: y = 2x + 7/3 goes to a whole intercept (Power Hug, powers of 3)", async () => {
   const at = { lines: [fromMC(q(2), q(7, 3))] };
   for (const language of ["typescript", "python"] as const) {
-    const simple = startersFor("whole-intercept", language).find(a => a.kind === "simple")!;
-    const tieBreaker = familyOf("whole-intercept").tieBreakers[0]!.id;
+    const simple = startersFor("power-hug", language).find(a => a.kind === "simple")!;
     const { record, state } = await runAct(await boxes.get(language), {
-      type: lineType, variant: lineQ, state: at, rule: { family: "whole-intercept", params: paramsOf("whole-intercept"), tieBreaker }, program: program(simple), seed: "1", energy: 500,
+      type: lineType, variant: lineQ, state: at, rule: { family: "power-hug", params: { k: 3 }, tieBreaker: null }, program: program(simple), seed: "1", energy: 500,
     });
     assert.equal(record.outcome, "committed", `${language}: ${record.reason}`);
-    const v = new EngineHost({ type: lineType, variant: lineQ, state, rule: { family: "m-meets-c", params: {} }, energy: 0 }).handle({ op: "view", rep: "si" } as never, { hostCallsLeft: 5 }) as { result: { elements: { c: { q: string } } } };
+    const v = new EngineHost({ type: lineType, variant: lineQ, state, rule: { family: "power-hug", params: { k: 3 } }, energy: 0 }).handle({ op: "view", rep: "si" } as never, { hostCallsLeft: 5 }) as { result: { elements: { c: { q: string } } } };
     assert.ok(!v.result.elements.c.q.includes("/"), `${language}: the intercept is whole now (${v.result.elements.c.q})`);
   }
 });
 
 test("a vertical line is tipped, not skipped, where the rule cannot read it: the starters climb the tips (mirror or nudge b)", async () => {
   const at = { lines: [{ a: 1n, b: 0n, c: -3n }] };   // x = 3
-  assert.equal(CATALOGUE.find(e => e.family === "whole-intercept")!.vertical, undefined);
+  assert.equal(CATALOGUE.find(e => e.family === "power-hug")!.vertical, undefined);
   for (const language of ["typescript", "python"] as const) {
-    const simple = startersFor("whole-intercept", language).find(a => a.kind === "simple")!;
+    const simple = startersFor("power-hug", language).find(a => a.kind === "simple")!;
     const { record } = await runAct(await boxes.get(language), {
-      type: lineType, variant: lineQ, state: at, rule: { family: "whole-intercept", params: paramsOf("whole-intercept"), tieBreaker: familyOf("whole-intercept").tieBreakers[0]!.id }, program: program(simple), seed: "1", energy: 500,
+      type: lineType, variant: lineQ, state: at, rule: { family: "power-hug", params: { k: 3 }, tieBreaker: null }, program: program(simple), seed: "1", energy: 500,
     });
     assert.equal(record.outcome, "committed", `${language}: ${record.reason}`);
     assert.ok(["cart.mirror", "gen.nudge"].includes(record.calls[0]!.mutator), `${language}: ${record.calls[0]!.mutator}`);
   }
 });
 
-test("a vertical line the rule reads is scored where it stands: x = 19/2 slides to a prime landing (Prime Landing, primes ending in 1: within ½ of 11)", async () => {
-  const at = { lines: [{ a: 2n, b: 0n, c: -19n }] };   // x = 9½, which rounds to 10: off the ladder
-  for (const language of ["typescript", "python"] as const) {
-    for (const kind of ["simple", "thorough"] as const) {
-      const a = startersFor("prime-landing", language).find(x => x.kind === kind)!;
-      const { record, state } = await runAct(await boxes.get(language), {
-        type: lineType, variant: lineQ, state: at, rule: { family: "prime-landing", params: { ends: 1 }, tieBreaker: familyOf("prime-landing").tieBreakers[0]!.id }, program: program(a), seed: "1", energy: 500,
-      });
-      assert.equal(record.outcome, "committed", `${language} ${kind}: ${record.reason}`);
-      assert.equal(record.calls[0]!.mutator, "cart.slide", `${language} ${kind}: ${record.calls[0]!.mutator}`);
-      const l = state.lines[0]!;
-      // x = −c/a within ½ of 11 (rounding to it, ties up): 2·|−c − 11a| ≤ |a|, and not at 11½.
-      const twice = 2n * (-l.c - 11n * l.a), aa = l.a < 0n ? -l.a : l.a;
-      assert.ok(l.b === 0n && (twice < 0n ? -twice : twice) <= aa && twice !== aa * (l.a < 0n ? -1n : 1n), `${language} ${kind}: rounds to 11, the prime ending in 1 nearest (${l.a}x + ${l.c} = 0)`);
-    }
-  }
-});
-
-test("starters read the rule's parameters every act (drift redraws them): the same agent follows A = 4, then A = 12, in one sandbox", async () => {
-  const f = familyOf("triangle-area");
+test("starters read the rule's parameters every act (drift redraws them): the same agent follows k = 3, then k = 7, in one sandbox", async () => {
+  const f = familyOf("square-triangle");
   const at = { lines: [fromMC(q(-1), q(3))] };   // y = −x + 3: a triangle of area 9/2
   for (const language of ["typescript", "python"] as const) {
-    const simple = startersFor("triangle-area", language).find(a => a.kind === "simple")!;
+    const simple = startersFor("square-triangle", language).find(a => a.kind === "simple")!;
     const box = await boxes.get(language);
-    for (const A of [4, 12]) {
-      const params = { A }, tieBreaker = f.tieBreakers[0]!.id;
-      const main = (s: LineState) => evaluateSite(lineType, f, params, s, lineQ, 0, tieBreaker).score![0]!;
+    for (const k of [3, 7]) {
+      const params = { k };
+      const main = (s: LineState) => evaluateSite(lineType, f, params, s, lineQ, 0, null).score![0]!;
       let s: LineState = at;
       for (let t = 0; t < 6; t++) {
-        const { record, state } = await runAct(box, { type: lineType, variant: lineQ, state: s, rule: { family: "triangle-area", params, tieBreaker }, program: program(simple), seed: String(A * 100 + t), energy: 500 });
+        const { record, state } = await runAct(box, { type: lineType, variant: lineQ, state: s, rule: { family: "square-triangle", params, tieBreaker: null }, program: program(simple), seed: String(k * 100 + t), energy: 500 });
         assert.notEqual(record.outcome, "failed", record.reason);
         s = state;
       }
-      assert.ok(Qn.cmp(main(s), main(at)) > 0, `${language}: with A = ${A} the area moved toward ${A} (${lineType.encode(s)})`);
+      assert.ok(Qn.cmp(main(s), main(at)) > 0, `${language}: with k = ${k} the utility rose (${lineType.encode(s)})`);
     }
   }
-});
-
-test("Thorough with the game's values, when no single step helps, looks two steps ahead: the same move in both languages, never failing", async () => {
-  let looked = 0;
-  for (const e of LIVE) {
-    const ts = all.find(a => a.language === "typescript" && a.family === e.family && a.kind === "thorough"), py = all.find(a => a.language === "python" && a.family === e.family && a.kind === "thorough");
-    if (!ts || !py) continue;
-    const f = familyOf(e.family), v = variantOf(e.family), params = paramsOf(e.family);
-    const tieBreaker = Object.keys(e.tieBreakers).find(tb => f.tieBreakers.some(t => t.id === tb))!;
-    const rule = { family: e.family, params, tieBreaker }, vf = findValues(v.id, rule);
-    if (!vf) continue;
-    const look = valueLookup(vf), bits = (s: LineState) => look(evaluateSite(lineType, f, params, s, v, 0, tieBreaker).score).bits;
-    for (const [i, state] of births(lineType, v, "two-step", 2).entries()) {
-      const values = { knots: vf.knots, tail: vf.tail }, value = { mine: bits(state), others: 4, points: 4 * bits(state) };
-      const records = [];
-      for (const a of [ts, py]) {
-        const { record } = await runAct(await boxes.get(a.language), { type: lineType, variant: v, state, rule, program: program(a), seed: String(i), energy: 500, income: 2, values, value });
-        assert.notEqual(record.outcome, "failed", `${shippedPath(a)} on ${lineType.encode(state)}: ${record.reason}`);
-        const { steps: _s, ...rest } = record;
-        records.push(rest);
-      }
-      assert.deepEqual(records[1], records[0], `${e.family} Thorough: the languages differ on ${lineType.encode(state)}`);
-      looked++;
-    }
-  }
-  assert.ok(looked > 10, `${looked} acts checked`);
 });
 
 test("no dealt line family's Simple starter fails on lines with huge numbers (as partners make by stretching), in either language", async () => {

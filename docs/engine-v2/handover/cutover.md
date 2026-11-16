@@ -2,6 +2,23 @@
 
 Labels: **built** (in the code and tested), **seen narrowly** (measured under the stated assumptions), **guess**.
 
+## Update, 17 Nov: step 3 (and part of 4) done
+
+- **Deleted** (owner decision 50; one line per old family in `docs/engine-v2/old-rule-ideas.md`): every old line family
+  (dealt, undealt, tree), the tuple rules, tie-breaker layers on lines, the trial modes (trial, rarity, sideways,
+  dynamic examples), line seating and the named-opponent table, the anchored line deal, the line value files and their
+  tests; the agents' tuple catalogue and old line agents; the line storyboard and sharing galleries.
+- **All four line presets deal the dynamic set.** Whole-number boards deal only the families whose good states are whole
+  (`DynamicLineSpec.whole`); four-line objects sum each line's energy (type.ts `estimate`).
+- **Energy where tables were:** the agents' host values a dynamic rule by its energy (`bitsOf`; seeded per act by
+  `energySeed` so an act sees one number per state), so `othersAfter`, `myScore` bits and the commit clause work on
+  dynamic games (fault 2's host half). The what-if preview's worth is the energy. The rules mirror shows only the
+  eleven, with formula, parameter draw/type-in, line editor, utility and jittering energy.
+- **Stored games** naming a retired family load and score nothing (`knownFamily`; card "A retired rule").
+- **Tests removed with the code they tested** (no replacement yet): the guest helpers' value-based `fair`/`climb` tests,
+  Thorough's two-step lookahead with values, the views' rung/tie-breaker/contributor-chain tests for line rules, the
+  uniqueness correction on line-q. The server still passes agents no `others` on dynamic games (fault 2's server half).
+
 ## Update, 17 Nov (Melbourne, early morning): steps 1 and 2 done
 
 - **#1161 (merged), descent and size.** `si.round` (lib/v2-linear mutators.ts) rounds m or c to a whole number, ten or

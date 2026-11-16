@@ -7,6 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { dilate } from "@workspace/v2-economy";
 import { driftEventsDue, nextDriftAt, redrawParams } from "../../convex/v2/drift.ts";
+import { findVariant } from "@workspace/v2-valuation";
 import { VALUE_INDEX as VALUE_RECORDS } from "../../convex/v2/valuesIndex.gen.ts";
 
 test("staggered: seat k of n is redrawn at k × interval / n, each seat every interval; dilation divides it", () => {
@@ -53,23 +54,15 @@ test("a redraw keeps the family and tie-breaker, may keep or change the paramete
   assert.equal(redrawParams(r.variant, "no-such-family", null, {}, "seed", 0, 1), null, "no grid: no drift");
 });
 
-test("a redraw never seats a pair the line seating rule forbids (Prime Landing beside Whole Crossing on the same landings)", async () => {
-  const { lineClashes } = await import("@workspace/v2-linear");
-  // Both are ladder families now, never redrawn, so drift cannot make the forbidden pair; the seating filter in
-  // redrawParams stays for bounded families (lib/v2-core driftParams' allowed filter is tested there).
-  const wc = { family: "whole-crossing", params: { q: 5, r: 1 } };   // forbidden beside Prime Landing ending 1 (side 1) and 9 (side −1)
-  for (let tick = 1; tick <= 30; tick++) {
-    const drawn = redrawParams("line-q", "prime-landing", "shared-factor", { ends: 9 }, "seed", 1, tick, [wc]);
-    assert.equal(drawn, null, `tick ${tick}`);
-    assert.deepEqual(lineClashes([wc, { family: "prime-landing", params: { ends: 9 } }]), []);
-  }
-});
 
+const lineQOf = () => findVariant("line-q").variant;
 test("a ladder family is never redrawn (the coordinator's amendment of call 18): its seat keeps its dealt parameters", async () => {
   const { familyOf } = await import("../../convex/v2/deal.ts");
-  for (const [family, tb, params] of [["prime-landing", "shared-factor", { ends: 1 }], ["prime-staircase", "shared-factor", { ends: 3 }], ["whole-crossing", "shared-factor", { q: 5, r: 2 }], ["smooth-intercept", "shared-factor", { primes: [3, 7] }], ["treasure", "shared-factor", { k: 3 }], ["same-on-both-rulers", "shared-factor", { meets: -1, digits: "even" }]] as const) {
-    assert.equal(familyOf(family).keepsParams, true, family);
-    for (let tick = 1; tick <= 12; tick++) assert.equal(redrawParams("line-q", family, tb, params, "seed", 1, tick), null, `${family} tick ${tick}`);
+  const { dynamicFamilies } = await import("@workspace/v2-linear");
+  for (const f of dynamicFamilies) {
+    const params = f.dealable(lineQOf())[0];
+    assert.equal(familyOf(f.id).keepsParams, true, f.id);
+    for (let tick = 1; tick <= 12; tick++) assert.equal(redrawParams("line-q", f.id, null, params, "seed", 1, tick), null, `${f.id} tick ${tick}`);
   }
   // Every line and pair family with peers is a ladder since 15 Nov; that a bounded family still drifts is the first
   // test's (a parameter grid).

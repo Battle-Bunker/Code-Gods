@@ -81,21 +81,8 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "grids-original-colours 7-form:distance": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
   "grids-original-colours 5-unmeasured":"16 Nov, boards worker: no PMI table for board-4-base10-rgb yet (baseline, call 37)",
 
-  // Row 3a: one or two dealt secondaries. The owner's instruction (15 Nov): at least three per family. Lines: the spec
-  // lead's repertoire work; grids-arithmetic withdrawn 16 Nov (pairs: three or more since trial 37).
-  "prime-landing 3a": "15 Nov, spec lead: repertoire in progress",
-  "smooth-intercept 3a": "15 Nov, spec lead: repertoire in progress",
-  "square-area 3a": "15 Nov, grids session: Square Area redesign",
-  "whole-crossing 3a": "15 Nov, spec lead: repertoire in progress",
-  "treasure 3a": "15 Nov, spec lead: repertoire in progress",
-  "same-on-both-rulers 3a": "15 Nov, spec lead: repertoire in progress",
-  "prime-gradient 3a": "15 Nov, spec lead: repertoire in progress",
-  // A space of 444 suffixes (RuleFamily.space); only the peers 1 and 9 are dealt until worth is a formula of the suffix
-  // (the scoring trial): sampled curves for 3 and 7 put the peers 1.33 bits apart, and sparse suffixes extrapolate.
-  "prime-gradient 4": "16 Nov, rules-interaction worker: 444 drawable, 2 dealt until the worth formula lands",
-  "prime-staircase 3a": "15 Nov, spec lead: repertoire in progress",
-  "ruler 3a": "15 Nov, grids session",
-  "pythagorean-area 3a": "15 Nov, grids session",
+  // Row 3a: one or two dealt secondaries. The owner's instruction (15 Nov): at least three per family. Grids-arithmetic
+  // withdrawn 16 Nov (pairs: three or more since trial 37). Lines have no secondaries since 17 Nov (decision 50).
   "opposite-nines 3a": "15 Nov, grids session: big-on-top undealt for a cheap peak (#902); grid repertoires after the deadline",
   "strangers 3a": "15 Nov, grids session: ones and prime-strangers undealt for cheap peaks (#902); grid repertoires after the deadline",
   // Row 1 (not checked here for grids): every beginner grid main part has a global top on the 0–9 board, as v1's did.
@@ -105,7 +92,6 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "pinwheel 3a": "16 Nov, grids session: grid baseline: ported as v1",
   "constellation 3a": "16 Nov, grids session: grid baseline: ported as v1",
   // Row 4: one dealt parameter set.
-  "square-area 4": "15 Nov, grids session: Square Area redesign",
   "mirrormancer 4": "15 Nov, grids session", "magic-eighteen 4": "15 Nov, grids session", "opposite-nines 4": "15 Nov, grids session",
   "two-pair 4": "15 Nov, grids session", "spread-of-three 4": "15 Nov, grids session", "strangers 4": "15 Nov, grids session",
   "leapfrog 4": "15 Nov, grids session", "crosswise-threes 4": "15 Nov, grids session",
@@ -122,8 +108,6 @@ const EXEMPT: Readonly<Record<string, string>> = {
   // Row 7: forms repeated within a family, kinds and forms shared by more than three families.
   "far-crossing 7-repeat": "15 Nov, pairs session: both secondaries are near-multiples",
   "high-start 7-repeat": "15 Nov, pairs session: both secondaries are near-multiples",
-  "lines-lenses 7-kind:large-prime": "15 Nov, spec lead: proposal #28",
-  "lines-lenses 7-form:shares-factor": "15 Nov, spec lead: the repertoire adds other forms",
   "lines-pairs 7-kind:base-ladder": "15 Nov, pairs session: every pair family climbs a base's ladder",
   "lines-pairs 7-form:shares-factor": "15 Nov, pairs session",
   "lines-pairs 7-form:near-multiple": "16 Nov, pairs session: tie-breakers tied to the level (trial 37) favour near-multiples; spread after the deadline",
@@ -140,9 +124,6 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "grids-beginner 5-unmeasured": "15 Nov, grids session: PMI table for grid-4-d10",
   "grids-more-rules 5-unmeasured": "15 Nov, grids session: PMI table for grid-4-d10",
   "lines-pairs 5-unmeasured": "15 Nov, pairs session: PMI table for pair-q",
-  // Decision 13. Prime Staircase's shared factor needs a run of two primes, which law draws do not reach: it reads 0
-  // on all of them. Whether it takes many values on the rungs is not measured here.
-  "prime-staircase 13:shared-factor": "15 Nov, spec lead: measure on rungs; trial 30 replaces it with near-miss",
 };
 
 interface Problem { key: string; why: string }
@@ -246,16 +227,6 @@ const CHEAP: readonly { mutator: string; args: Record<string, string> }[] = [
   ...["x", "y", "origin", "diagonal"].map(axis => ({ mutator: "cart.mirror", args: { axis } })),
 ];
 const ROW10_EXEMPT: Readonly<Record<string, string>> = {
-  "prime-landing": "16 Nov, spec lead: the shoulder remedy (pool-plan.md)",
-  "smooth-intercept": "16 Nov, spec lead: the shoulder remedy (pool-plan.md)",
-  "whole-crossing": "16 Nov, spec lead: the shoulder remedy (pool-plan.md)",
-  "treasure": "16 Nov, spec lead: the shoulder remedy (pool-plan.md)",
-  "same-on-both-rulers": "16 Nov, spec lead: the shoulder remedy (pool-plan.md)",
-  "prime-staircase": "16 Nov, spec lead: the shoulder remedy (pool-plan.md)",
-  "ruler": "16 Nov, spec lead: the shoulder remedy (pool-plan.md)",
-  "pythagorean-area": "16 Nov, spec lead: the shoulder remedy (pool-plan.md)",
-  // Redesigned 16 Nov (the area-near-0 sink closed): median 7% kept after a cheap move, the same shoulder as the ladders above.
-  "square-area": "16 Nov, rules-interaction worker: the shoulder remedy (pool-plan.md), as the other ladders",
 };
 
 test("row 10: a cheap move from a rung keeps most of a line rule's bits, or the family is listed in ROW10_EXEMPT", () => {

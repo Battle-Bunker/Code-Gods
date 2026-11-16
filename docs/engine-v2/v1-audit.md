@@ -90,7 +90,7 @@ delegation"; a call number below means the one whose subject is named.
 | §2.3 Params named and typed | kept | params dealt as a record by name, colours by name (deal.ts dealablePool); not ParamDecl, which declares rule arguments of dynamic elements |
 | §2.3 Params of equal opportunity | restored (#630) | test/unit/v2-params-equal.test.ts |
 | §2.3 Scores are points tuples, never "tie-break" | partly (call 35): a line's parts are said "main part", "secondary preference" in the app; "tie-breaker" remains on the rule gallery page and in the AI players' prompt (lib/v2-views faces.tsx has it only in comments) | lib/v2-views annotate.ts partName; player-web panes/lines.ts partsNote; site/pages/rule-gallery.tsx; lib/v2-ai prompts.ts |
-| §2.3 Heterogeneous simple utilities | kept (owner 14) | beginnerPool, 11 families |
+| §2.3 Heterogeneous simple utilities | kept (owner 14) | dynamicFamilies, 11 families (decision 50) |
 | §2.3 Dealing fair-aligned | trial 12; call 30 (practice dealt as real) | deal.ts |
 | §2.3 Rule rotation | kept | deal.ts |
 | §2.3 Commit clause | restored (#884; lens worker #874), call 34 | as §1.11 |

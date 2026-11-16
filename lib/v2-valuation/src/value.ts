@@ -23,7 +23,7 @@ import {
   canonicalJson, compareScores, evaluateObject, hashHex, mixedIntBits, q, rng, ruleLayers, scoreFromWire, scoreToWire, STEP,
   tieBreakerId, type ObjectType, type Q, type RuleFamily, type Score, type TieBreaker, type Variant,
 } from "@workspace/v2-core";
-import { fromMC, lineLaw, lineParams, lineSums, lineType, type Band, type Law, type LineState, type LineSums } from "@workspace/v2-linear";
+import { fromMC, lineLaw, lineParams, lineType, type Law, type LineState } from "@workspace/v2-linear";
 import { integersWithin } from "./exact.ts";
 import { ruleKey, valuesHash } from "./keys.ts";
 import { buildTree, treeLookup, type TreeValue } from "./tree-value.ts";
@@ -696,7 +696,6 @@ function utilityOf<P>(family: RuleFamily<LineState, P>, params: P, variant: Vari
 export function exactLineOracles<P>(family: RuleFamily<LineState, P>, params: P, variant: Variant, tb: TieBreaker, cfg: ValueConfig): Oracle[] {
   const lp = lineParams(variant);
   if (lp.domain !== "Z" || lp.linesPerObject !== 1) return [];
-  const plan = lineSums[family.id] as LineSums<P> | undefined;
   const line = (m: bigint, c: bigint): LineState => ({ lines: [fromMC(q(m), q(c))] });
   // The law is the product of the mixed code on m and c, over every integer (no box, owner decision 26): its Kraft sum is 1.
   const within = integersWithin;
@@ -714,76 +713,9 @@ export function exactLineOracles<P>(family: RuleFamily<LineState, P>, params: P,
     }
     out.push(massOracle(`enumeration ≤ ${cfg.triangleBits} bits`, entries.values(), Math.max(0, 1 - inside)));
   }
-  // 2. Separable: each dealt layer on one coefficient.
-  const layers = ruleLayers(family, tb).map(l => l.id);
-  const on = layers.map(id => plan?.separable?.[id]);
-  if (on.every(x => x !== undefined)) {
-    const ints = within(cfg.separableBits);
-    const T = Math.max(0, 1 - ints.reduce((a, n) => a + 2 ** -n.bits, 0));
-    const REF = 7n;
-    const at = (coord: "m" | "c", n: bigint) => utilityOf(family, params, variant, tb, coord === "m" ? line(n, REF) : line(REF, n));
-    if (on.length === 1 || on[0] === on[1]) {
-      out.push(massOracle(`separable on ${on[0]} ≤ ${cfg.separableBits} bits`, ints.map(n => ({ u: at(on[0]!, n.n), w: 2 ** -n.bits })), T));
-    } else {
-      const p1: { u: Q; w: number }[] = [], p2: { u: Q | null; w: number }[] = [];
-      for (const n of ints) {
-        const u1 = at(on[0]!, n.n), u2 = at(on[1]!, n.n);
-        if (u1 !== null) p1.push({ u: u1[0]!, w: 2 ** -n.bits });
-        if (u2 !== null) p2.push({ u: u2[1] ?? null, w: 2 ** -n.bits });
-      }
-      out.push(productOracle(`separable on ${on.join(", ")} ≤ ${cfg.separableBits} bits`, p1, T, p2, T));
-    }
-  }
-  // 3. Bands: every line at or above a main utility lies in the band's ranges.
-  for (const band of plan?.bands ?? []) out.push(bandOracle(family, params, variant, tb, band, cfg));
   return out;
 }
 
-function bandOracle<P>(family: RuleFamily<LineState, P>, params: P, variant: Variant, tb: TieBreaker, band: Band<P>, cfg: ValueConfig): Oracle {
-  const atLeast: Q = band.atLeast(params);
-  const ints = integersWithin(cfg.bandBits);
-  const byValue = [...ints].sort((a, b) => (a.n < b.n ? -1 : a.n > b.n ? 1 : 0));
-  const prefix = [0];
-  for (const x of byValue) prefix.push(prefix[prefix.length - 1]! + 2 ** -x.bits);
-  const T1 = Math.max(0, 1 - prefix[prefix.length - 1]!);
-  const lower = (v: bigint) => { let a = 0, b = byValue.length; while (a < b) { const h = (a + b) >> 1; if (byValue[h]!.n < v) a = h + 1; else b = h; } return a; };
-  const one = mixedIntBits(1n);   // bits(t·k) = bits(t) + bits(k) − bits(1)
-  const entries = new MassMap();
-  let slack = 0, pointMass = 0;
-  const add = (pm: number, m: bigint, c: bigint, bits: number) =>
-    entries.add(utilityOf(family, params, variant, tb, { lines: [fromMC(q(m), q(c))] }), pm * 2 ** -bits);
-  if (band.points === "same") for (const r of band.ranges(0n, params)) pointMass += 2 ** -mixedIntBits(r.lo);
-  if (band.points === "one-per-m") pointMass = 2 ** -Math.min(...ints.map(x => x.bits));
-  for (const m of ints) {
-    const pm = 2 ** -m.bits;
-    const seen = new Set<bigint>();
-    for (const r of band.ranges(m.n, params)) {
-      if (band.points) { if (!seen.has(r.lo)) { seen.add(r.lo); add(pm, m.n, r.lo, mixedIntBits(r.lo)); } continue; }
-      if (r.step) {
-        const tBits = mixedIntBits(r.step);
-        for (const k of ints) {
-          if (k.n !== 0n && tBits + k.bits - one > cfg.bandBits) { if (k.bits > cfg.bandBits - tBits + one) break; continue; }
-          const c = r.step * k.n;
-          if (c < r.lo || c > r.hi || seen.has(c)) continue;
-          seen.add(c);
-          add(pm, m.n, c, k.n === 0n ? mixedIntBits(0n) : tBits + k.bits - one);
-        }
-        continue;
-      }
-      const i0 = lower(r.lo), i1 = lower(r.hi + 1n);
-      if (i1 - i0 > cfg.wideRange) { slack += pm * (prefix[i1]! - prefix[i0]!); continue; }
-      for (let i = i0; i < i1; i++) {
-        const c = byValue[i]!;
-        if (seen.has(c.n)) continue;
-        seen.add(c.n);
-        add(pm, m.n, c.n, c.bits);
-      }
-    }
-  }
-  const outside = band.points ? T1 * pointMass : 2 * T1 + slack;
-  return massOracle(`band from ${atLeast.d === 1n ? atLeast.n : `${atLeast.n}/${atLeast.d}`} ≤ ${cfg.bandBits} bits`, entries.values(), outside,
-    u => u !== null && compareScores([u[0]!], [atLeast]) >= 0);
-}
 
 /** Direct draws from π for any law with tilts: weights p/q against the mixture of tilted laws, self-normalised. */
 export function sampledDraws<S, P>(type: ObjectType<S>, law: Law<S>, family: RuleFamily<S, P>, params: P, variant: Variant, tb: TieBreaker,

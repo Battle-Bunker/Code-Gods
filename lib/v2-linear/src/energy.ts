@@ -21,7 +21,6 @@ import { gcd, Qn, q, rng as makeRng, whichBits, type DynamicRule, type Estimate,
 import { changeCharge } from "@workspace/v2-economy";
 import { fromMC, isVertical, normalise, type Line, type LineState } from "./line.ts";
 import { allMutators, roundTo } from "./mutators.ts";
-import { drawLine } from "./trial-rarity.ts";
 
 // ------------------------------------------------------------------ readings
 
@@ -148,6 +147,17 @@ function floorRoutes(mv: Mover, x: Line, s: Line): Priced[] {
 }
 
 // ------------------------------------------------------------------ starts of the same size
+
+/** A fraction for the parameters a rule does not read: top and bottom each Pareto (exponent 2), in lowest terms. */
+const pareto = (r: Rng): number => Math.floor(Math.max(1, (1 - r.unit()) ** -1));
+function drawFraction(r: Rng): { p: number; q: number } {
+  for (;;) {
+    const n = pareto(r) - 1, d = pareto(r);
+    if (gcd(BigInt(n), BigInt(d)) !== 1n) continue;   // gcd(0, d) = d: zero only over 1
+    return { p: n === 0 ? 0 : r.bit() ? n : -n, q: d };
+  }
+}
+const drawLine = (r: Rng) => ({ m: drawFraction(r), c: drawFraction(r) });
 
 /** n ≥ 1 with log2 n uniform in [log2 v, log2 v + band) (v ≥ 1). */
 const sameBits = (v: bigint, band: number, r: Rng): bigint => {

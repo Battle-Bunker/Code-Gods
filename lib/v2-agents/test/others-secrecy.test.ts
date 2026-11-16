@@ -11,10 +11,10 @@ import type { HostRequest } from "@workspace/v2-sandbox";
 import { EngineHost, type RuleRef } from "../src/index.ts";
 
 const state = { lines: [fromMC(q(2), q(3))] };
-const mine: RuleRef = { family: "m-meets-c", params: {}, tieBreaker: "size" };
+const mine: RuleRef = { family: "power-hug", params: { k: 3 }, tieBreaker: null };
 // A flat value function: every score is worth 0 bits, so any two opponents' totals agree on every state.
 const flat = { knots: [{ u: null, bits: 0, lo: 0, hi: 0 }], tail: { primary: { form: "log", slope: 1 }, secondary: { form: "log", slope: 1 } } } as never;
-const host = (opponent: RuleRef) => new EngineHost({ type: lineType, variant: lineZ, state, rule: mine, energy: 50, others: [{ rule: opponent, values: flat }] });
+const host = (opponent: RuleRef) => new EngineHost({ type: lineType, variant: lineZ, state, rule: mine, energy: 50, energySeed: "s", others: [{ rule: opponent, values: flat }] });
 
 const requests: HostRequest[] = [
   { op: "myRule" }, { op: "myScore" }, { op: "budget" }, { op: "worth" }, { op: "recent" },
@@ -29,7 +29,7 @@ const requests: HostRequest[] = [
 ] as never;
 
 test("agent code cannot tell apart two opponents whose rules differ but whose totals agree", () => {
-  const a = host({ family: "prime-gradient", params: { suffix: "1" } }), b = host({ family: "m-meets-c", params: {}, tieBreaker: "meetPrime" });
+  const a = host({ family: "prime-hug", params: { suffix: "1" } }), b = host({ family: "power-hug", params: { k: 3 }, tieBreaker: null });
   for (const r of requests) {
     const ra = a.handle(r, { hostCallsLeft: 64 }), rb = b.handle(r, { hostCallsLeft: 64 });
     assert.deepEqual(ra, rb, `${JSON.stringify(r)} answers the same`);

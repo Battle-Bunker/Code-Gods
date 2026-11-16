@@ -304,6 +304,14 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     grids: "grids don't have variations in size ... the expected heuristic energy cost of reaching a given utility or
     higher from a globally random state." Built for lines (docs/engine-v2/energy.md); grids follow.
 
+50. On the rules and the old machinery (relayed by the coordinator, 16 November): "throw out the idea of secondary and
+    tertiary rules as ordered tuples now and just construct pure functions that output a single real number for
+    utility"; "a clean set of newly formulated pure real function utility functions ... We need new thought going into
+    a balanced and interestingly diverse set of rules"; "Throw out old junk that no longer applies. It has been
+    repeatedly causing confusion. Keep old rule ideas in docs." Done for lines on 17 November: the eleven dynamic
+    families are the only line rules (energy.md); the old line families, tie-breakers, tree rules, trial modes and the
+    line seating and opponent tables are deleted, one line per old family in old-rule-ideas.md. Grids and pairs follow.
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact

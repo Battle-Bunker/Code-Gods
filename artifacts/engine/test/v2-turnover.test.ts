@@ -10,8 +10,6 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { admin, humans, perform, type Human } from "./v2-helpers.ts";
-import { VALUE_INDEX as VALUE_RECORDS } from "../convex/v2/valuesIndex.gen.ts";
-import { familyOf } from "../convex/v2/deal.ts";
 
 const CAP = 2, BIRTH = 4, WORLD = 120;
 let ada: Human, gameId: string, events: any[] = [];
@@ -36,12 +34,7 @@ before(async () => {
   const started = await perform(ada!, "game.start", {}, { roomId });
   assert.equal(started.ok, true, JSON.stringify(started));
   gameId = started.result.gameId;
-  // A rule that drifts (a line-q family with a parameter grid, not a ladder) for Ada, so drift runs while lines retire.
-  const counts = new Map<string, number>();
-  for (const r of VALUE_RECORDS) if (r.variant === "line-q" && !familyOf(r.family).keepsParams) counts.set(`${r.family}|${r.tieBreaker}`, (counts.get(`${r.family}|${r.tieBreaker}`) ?? 0) + 1);
-  const [pick] = [...counts].find(([, n]) => n >= 3)!;
-  const rec = VALUE_RECORDS.find(r => r.variant === "line-q" && `${r.family}|${r.tieBreaker}` === pick)!;
-  await admin.mutation("v2/testing:setRule", { gameId, userId: ada!.userId, ruleKey: rec.ruleKey });
+  // Every line rule keeps its numbers since 17 Nov (decision 50), so drift redraws nothing here; it still runs.
   await perform(ada!, "game.startWorldNow", {}, { gameId });
   const deadline = Date.now() + 180_000;
   while ((await ada!.query("v2/games:header", { gameId })).phase !== "ended") {
@@ -86,7 +79,7 @@ test("a retired line is never offered again, and drift leaves its values alone",
     const at = retiredAt.get(e.data.number);
     assert.ok(at === undefined || e.seq < at, `${e.kind} on line ${e.data.number} at seq ${e.seq}, after it retired at ${at}`);
   }
-  assert.ok(events.some(e => e.kind === "drift"), "the rules drifted while lines were retired");
+  // Line rules keep their numbers since 17 Nov (decision 50): drift redraws nothing, so there may be no drift event.
 });
 
 test("a retired line's points are banked: unchanged since its retirement, and in every total", async () => {

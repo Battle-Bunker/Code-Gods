@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { applyPriced, compareScores, evaluateObject, Qn, q, refKey, rng, variantMutators, walkStep, type ObjectType, type Q, type RuleFamily } from "@workspace/v2-core";
-import { crossingCheck, families, fromMC, lineQ, lineType, lineZ, mMeetsC, primeGradient, triangleArea, type LineState } from "@workspace/v2-linear";
+import { crossingSliver, dynamicFamilies as families, fromMC, lineQ, lineType, lineZ, circleKiss, primeHug, squareTriangle, type LineState } from "@workspace/v2-linear";
 import { annotate, fmtQ, markTerm, moves, type RuleRef } from "../src/index.ts";
 import { emptyTank } from "../src/demo.ts";
 
@@ -29,33 +29,6 @@ test("readable: exact fractions up to a denominator of 100, an approximate decim
   assert.equal(readable(q(1000, 101)), "9⁹¹⁄₁₀₁", "a three-digit denominator is written exact");
   assert.equal(readable(q(10000, 1001)), "≈ 9.99");
   assert.equal(readable(q(27720)), "27,720");
-});
-
-test("Prime Gradient (primes ending in 3): main part and tie-breaker, their values the scored terms, the reference and the distance", () => {
-  const a = annotate(rule(primeGradient, { suffix: "3" }), mc(4, -3));
-  const [p, tie] = a.sites[0]!.parts;
-  assert.equal(a.sites[0]!.parts.length, 2);
-  assert.equal(p!.name, "main part");
-  assert.equal(p!.term, "gradient");
-  assert.equal(Qn.toWire(p!.value as Q), "-1/2");   // 4 is 1 from 3: ½ beyond rounding to it
-  assert.equal(p!.aim, "the bigger, the better");
-  assert.equal(tie!.term, "shared-factor");
-  assert.equal(tie!.aim, "the bigger, the better");
-  assert.equal(a.bits, null, "no value function: no bits");
-  assert.deepEqual(annotate(rule(primeGradient, { suffix: "3" }), mc(4, -3), { value: () => 3.5 }).bits, 3.5);
-  assert.equal(annotate(rule(primeGradient, { suffix: "3" }, lineZ, null), mc(4, -3)).sites[0]!.parts.length, 1);
-  // The main part owns the picture: the nearest prime ending in 3, drawn as a ghost with its distance.
-  assert.deepEqual(p!.marks.filter(m => m.kind === "candidate").map(m => refKey((m as { ref: never }).ref)).sort(), ["cart.ghost(g=3)"]);
-  assert.ok(a.sites[0]!.working.includes("gradient = 4"));
-  assert.ok(a.sites[0]!.working.some(w => /from the prime 3/.test(w)), a.sites[0]!.working.join(" | "));
-});
-
-test("WORST: the undefined sentence is the reason", () => {
-  const a = annotate(rule(triangleArea, { A: 6 }), mc(3, 0));
-  assert.equal(a.score, null);
-  assert.equal(a.utility, null);
-  assert.match(a.worst!, /no triangle/);
-  assert.match(a.sites[0]!.parts[0]!.sentence, /^The line and the axes make no triangle/);
 });
 
 test("two parts: main part and tie-breaker, marks split by term (storyboard §3.4)", () => {
@@ -103,7 +76,7 @@ test("parts are the recorded terms on every family and a walk of states: no seco
 
 test("moves: each really improves the utility, at the price it quotes; the cheapest for the main part leads, the frontier ascends", () => {
   for (const [f, p, st] of [
-    [emptyTank, {}, mc(-3, 10)], [primeGradient, { suffix: "3" }, mc(4, -3)], [mMeetsC, {}, mc(1, 5)], [crossingCheck, { k: 1, q: 5 }, mc(1, 0)], [triangleArea, { A: 8 }, mc(-1, 3)],
+    [emptyTank, {}, mc(-3, 10)], [primeHug, { suffix: "3" }, mc(4, -3)], [circleKiss, { k: 5 }, mc(q(3, 4), 6)], [crossingSliver, { suffix: "7" }, mc(7, -2)], [squareTriangle, { k: 3 }, mc(-1, 3)],
   ] as const) {
     const r = rule(f as RuleFamily<LineState, unknown>, p, lineQ);
     const before = evaluateObject(lineType, r.family, r.params, st, lineQ).score;
@@ -147,7 +120,7 @@ test("a rule of any depth (#879): every dealt secondary is a part, in order, nam
 
 test("a move no player could pay for is never offered (gallery: a move priced 21,123,744,906,456,000,000.00 energy)", async () => {
   const { MAX_MOVE_PRICE } = await import("../src/moves.ts");
-  for (const f of [primeGradient, triangleArea] as RuleFamily<LineState, unknown>[]) {
+  for (const f of [primeHug, squareTriangle] as RuleFamily<LineState, unknown>[]) {
     const rule = { type: lineType, family: f, params: f.dealable(lineQ)[0], variant: lineQ } as RuleRef<LineState, unknown>;
     for (const s of [fromMC(q(997), q(3)), fromMC(q(-3), q(10))].map(l => ({ lines: [l] }))) {
       for (const m of moves(rule, s, undefined, { k: 4 })) assert.ok(m.price.total <= MAX_MOVE_PRICE, `${f.id}: ${m.words} at ${m.price.total}`);

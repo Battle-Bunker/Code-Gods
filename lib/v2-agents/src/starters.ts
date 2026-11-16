@@ -422,7 +422,8 @@ function render(kind: AgentKind, familyId: string, tieBreaker: string | null, la
 const LANGUAGES: readonly ShippedLanguage[] = ["typescript", "python"];
 
 /** The example for a dealt rule, in one language (null: no example for that family or tie-breaker). */
-export function exampleFor(family: string, tieBreaker: string, language: ShippedLanguage): ShippedAgent | null {
+export function exampleFor(family: string, tieBreaker: string | null, language: ShippedLanguage): ShippedAgent | null {
+  if (tieBreaker === null) return null;
   if (isGridTypeFamily(family)) return gridExampleFor(family, tieBreaker, language);
   if (isBoardTypeFamily(family)) return boardExampleFor(family, tieBreaker, language);
   if (isPairTypeFamily(family)) return pairExampleFor(family, tieBreaker, language);

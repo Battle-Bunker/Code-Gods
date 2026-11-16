@@ -9,7 +9,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { query, type QueryCtx } from "../_generated/server";
 import { slimKnots, valueFnIn, type ValueScope } from "./values";
 import { holdingRows, seatRules } from "./loop";
-import { familyOf, keepsParams } from "./deal";
+import { keepsParams, knownFamily } from "./deal";
 import { decode, encode, penaltyWeightOf, scopeOf, typeOf, valuesOf, valueWithParts, variantOf } from "./world";
 import { callV } from "./tables";
 import type { Infer } from "convex/values";
@@ -80,7 +80,7 @@ export const object = query({
  */
 async function ownParts(ctx: QueryCtx, game: Doc<"v2Games">, memberId: Id<"v2Members">, wire: string) {
   const r = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", memberId)).unique();
-  if (!r || familyOf(r.family).valuation !== "tree") return null;
+  if (!r || knownFamily(r.family)?.valuation !== "tree") return null;
   const rule = { family: r.family, params: r.params, tieBreaker: r.tieBreaker, ruleKey: r.ruleKey, contentHash: r.contentHash };
   const defence = r.defence ? { family: r.defence.family, params: r.defence.params, ruleKey: r.defence.ruleKey } : undefined;
   return valueWithParts(decode(wire, game.variant), game.variant, rule, scopeOf(game).objects, defence, penaltyWeightOf(game)).parts;

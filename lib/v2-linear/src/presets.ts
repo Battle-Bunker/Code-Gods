@@ -1,13 +1,9 @@
 /**
- * Presets (integration plan §5.7): the pools a room deals from. A pool names a variant and, per family, the parameter
- * sets and the tie-breakers that may be dealt; a dealt rule is one family, one parameter set and one tie-breaker (the
- * main layer plus one tie-breaker, never a third layer: owner decision 14). The deal (W3-3) further refuses any rule
- * whose artefact is not dealable (spec §7.5), so a pool lists candidates and the artefacts decide what is live.
+ * Presets (integration plan §5.7): the pools a room deals from. Every line preset deals the dynamic families
+ * (docs/engine-v2/energy.md): one family and one parameter set per seat, no tie-breakers. On the whole-number boards
+ * only the families whose good states are whole lines are dealt (DynamicLineSpec.whole).
  */
-import { tieBreakersOn, type RuleFamily, type TieBreaker, type Variant } from "@workspace/v2-core";
-import { primeLanding, primeStaircase, pythagoreanArea, ruler, sameOnBothRulers, squareArea, treasure, wholeCrossing } from "./beginner.ts";
-import { primeGradient } from "./families.ts";
-import { smoothIntercept } from "./rational2.ts";
+import type { RuleFamily, TieBreaker, Variant } from "@workspace/v2-core";
 import { dynamicFamilies } from "./dynamic-families.ts";
 import { lineQ, lineQLenses, lineZ, lineZ4 } from "./type.ts";
 
@@ -25,36 +21,17 @@ export interface Preset {
   readonly rules: readonly PoolRule[];
 }
 
-/**
- * The beginner pool on a variant: every pool family with each of its
- * tie-breakers that is dealt there (Layer.dealtOn).
- */
-/**
- * The beginner pool: the curator's families plus Ruler, Exact Change and Pythagorean Area, restored (owner decision 22:
- * rules no exact sum can value are valued by sampling, with honest intervals).
- */
-// Exact Change is not dealt (the coordinator's call, 15 Nov, playtest round 12): most lines score nothing for it (it reads
-// a line as coins only when a and b are both positive), so a player dealt it has no hill from the deal.
-// Divisibility Ladder is not dealt (the owner, 15 Nov: "This rule sucks. ... Throw this rule away"; owner-decisions.md).
-// Smooth Intercept, Prime Landing's adversary on the y-intercept (design-principles.md row 6, the coordinator, 15 Nov),
-// is dealt as a ladder on the rationals (it has no whole-number instances).
-export const beginnerPool = [primeLanding, smoothIntercept, squareArea, wholeCrossing, treasure, sameOnBothRulers, primeGradient, primeStaircase, ruler, pythagoreanArea] as const;
-
-const beginnerRules = (v: Variant): readonly PoolRule[] => (beginnerPool as readonly RuleFamily<unknown, unknown>[]).flatMap(f =>
-  f.dealable(v).map(params => ({ family: f.id, params, tieBreakers: tieBreakersOn(f, v).map(t => t.id) })));
-
 const dynamicRules = (v: Variant): readonly PoolRule[] => (dynamicFamilies as readonly RuleFamily<unknown, unknown>[]).flatMap(f =>
   f.dealable(v).map(params => ({ family: f.id, params, tieBreakers: [null] })));
 
 export const presets: readonly Preset[] = [
   // Owner decision 2: lines are played on the rationals. Whole numbers are an explicitly chosen, easier variant.
-  // The dynamic energy measure (the owner, 16 Nov; docs/engine-v2/energy.md): the beginner game deals the families written
-  // for it. The table-valued pool stays on the other line presets until the tables go.
   { id: "lines-beginner", title: "Lines · beginner", variant: "line-q", rules: dynamicRules(lineQ) },
-  { id: "lines-whole", title: "Lines · whole numbers (easier)", variant: "line-z", rules: beginnerRules(lineZ) },
-  { id: "lines-four", title: "Lines · four lines", variant: "line-z4", rules: beginnerRules(lineZ4) },
-  // A trial (lenses-and-mutators.md §5): the beginner pool on line-q with five more ways to move a line. Not the default.
-  { id: "lines-lenses", title: "Lines · more ways to move (trial)", variant: "line-q-lenses", rules: beginnerRules(lineQLenses) },
+  { id: "lines-whole", title: "Lines · whole numbers (easier)", variant: "line-z", rules: dynamicRules(lineZ) },
+  // Four lines an object: a rule scores each line, and the object's energy is the sum of its lines' (type.ts).
+  { id: "lines-four", title: "Lines · four lines", variant: "line-z4", rules: dynamicRules(lineZ4) },
+  // A trial (lenses-and-mutators.md §5): line-q with five more ways to move a line. Not the default.
+  { id: "lines-lenses", title: "Lines · more ways to move (trial)", variant: "line-q-lenses", rules: dynamicRules(lineQLenses) },
 ];
 
 export function preset(id: string): Preset {
