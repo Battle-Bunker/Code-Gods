@@ -89,7 +89,7 @@ export const search = query({
   returns: listReturns,
   handler: async (ctx, { q, paginationOpts }) => {
     const user = await requireUser(ctx);
-    const page = await ctx.db.query("v2Setups").withSearchIndex("search_name", s => s.search("name", q.slice(0, 64))).paginate(pageOpts(paginationOpts));
+    const page = await ctx.db.query("v2Setups").withSearchIndex("search_name", s => s.search("name", q.slice(0, 64).split(/\s+/).filter(Boolean).slice(0, 8).join(" "))).paginate(pageOpts(paginationOpts));
     return { ...page, page: page.page.map(rowOf(user.userId)) };
   },
 });

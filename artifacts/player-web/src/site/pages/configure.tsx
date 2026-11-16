@@ -127,10 +127,12 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
   // The requested setup, once it arrives: into the page, once (the owner may change it from there).
   const openedRequested = useRef(false);
   useEffect(() => {
-    if (!requested || openedRequested.current || !loaded || loaded.setupId !== requested) return;
+    if (!requested || !editable || openedRequested.current || !loaded || loaded.setupId !== requested) return;
     openedRequested.current = true;
     loadSetup(loaded);
-  }, [requested, loaded]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Used once: a reload or Back does not load it over the owner's later changes.
+    window.history.replaceState(window.history.state, "", window.location.pathname + window.location.hash);
+  }, [requested, loaded, editable]); // eslint-disable-line react-hooks/exhaustive-deps
   /** A new setup keeps the values the owner set by hand; everything else follows the new setup (as the server does). */
   const pickPreset = (id: string) => {
     if (!editable || id === presetId) return;
