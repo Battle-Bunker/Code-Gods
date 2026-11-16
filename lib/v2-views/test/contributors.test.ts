@@ -41,6 +41,16 @@ test("Prime Landing (primes ending in 1) on y = −x + 33: lands at 33, off the 
   assert.equal(contributors(rule(primeLanding, "shared-factor", { ends: 1 }), mc(-1, 31)).parts[0]!.valueText, "lands at 31, which rounds to the prime 31: 2 digits; the next big step is 3 digits");
 });
 
+test("a tiny area is written as itself, never \"≈ 0.00\" (a played game's lines all read \"area ≈ 0.00 · ≈ 0.00 above 0\")", () => {
+  // y = −288x + 1: the triangle's area is 1²/(2·288) = 1/576, nearest square 0.
+  const exact = contributors(rule(squareArea, "spf"), mc(-288, 1)).parts[0]!;
+  assert.equal(exact.source[0]!.text, "¹⁄₅₇₆");
+  assert.equal(exact.distance, "¹⁄₅₇₆ above 0");
+  // y = −1152x + 1: 1/2304, past the exact limit, written to two significant figures.
+  const tiny = contributors(rule(squareArea, "spf"), mc(-1152, 1)).parts[0]!;
+  assert.equal(tiny.distance, "≈ 0.00043 above 0");
+});
+
 test("Square Area on y = −x + 7: the area 24½ against the square 25 = 5 × 5; Whole Crossing and Treasure name their references", () => {
   const sa = contributors(rule(squareArea, "spf"), mc(-1, 7)).parts[0]!;
   assert.equal(sa.source[0]!.text, "24½");
