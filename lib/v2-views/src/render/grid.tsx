@@ -229,8 +229,9 @@ function Scene({ p }: { p: P }): ReactElement {
       try { const b = before(r); if (fmtValue(b) !== shown(r)) was = fmtValue(b); } catch { was = null; }
     }
     return (
-      <g key={key(r)} className="cell" {...elAttrs(q, r)} data-member={members.has(i) ? "" : undefined} {...hover(q, r)}>
-        <rect className="cell-bg" x={x + 1} y={y + 1} width={C - 2} height={C - 2} rx={expanded ? 4 : 2} style={tint[i] ? { fill: tint[i]!.css } : undefined} />
+      <g key={key(r)} className={tint[i] ? "cell tinted" : "cell"} {...elAttrs(q, r)} data-member={members.has(i) ? "" : undefined} {...hover(q, r)}>
+        {tint[i] && <rect className="cell-colour" x={x + 1} y={y + 1} width={C - 2} height={C - 2} rx={expanded ? 4 : 2} style={{ fill: tint[i]!.css }} />}
+        <rect className="cell-bg" x={x + 1} y={y + 1} width={C - 2} height={C - 2} rx={expanded ? 4 : 2} />
         <text className="digit" x={x + C / 2} y={y + C / 2 + g.digit * 0.36} fontSize={g.digit} style={tint[i] ? { fill: tint[i]!.ink } : undefined}>{s.cellGlyphs?.[i] ?? shown(r)}</text>
         {tint[i] && <text className="colour-letter" x={x + C - 4} y={y + C - 4} textAnchor="end" fontSize={Math.max(7, g.digit * 0.38)} style={{ fill: tint[i]!.ink }}>{tint[i]!.letter}</text>}
         {was !== null && <text className="was" x={x + 4} y={y + 11}>{was}</text>}

@@ -13,6 +13,9 @@ test("a coloured board draws each tile in its colour, always with the colour's l
   assert.match(html, /fill:#2667c9/, "blue tiles");
   assert.equal([...html.matchAll(/class="colour-letter"/g)].length, 16, "every tile has its letter");
   assert.match(repText(board4Type, s, "cells"), /^7R 3G 0B 1R \/ 2R 9B/);
+  // The colour is its own rect under cell-bg, so focus and highlights (cell-bg fills) still show on a coloured tile.
+  assert.ok(html.indexOf('class="cell-colour"') < html.indexOf('class="cell-bg"'));
+  assert.match(html, /class="cell tinted"/);
 });
 
 test("cards show their glyphs", () => {
