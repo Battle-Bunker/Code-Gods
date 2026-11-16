@@ -279,19 +279,22 @@ export function stepsIntCode(zero: number): IntCode {
 // its own which, where and choices), and a far move is never cheaper than the path of unit moves to the same place.
 // rate(o) is the least that keeps the code a (sub-)probability: Σ 2^−bits ≤ 1 over every size, with equality here.
 // Sizes:
-//   an amount (a nonzero rational p/q in lowest terms; integers have q = 1): σ = |p| + q − 1, so a whole number n has
-//     σ = |n| and a fraction pays for its denominator;
+//   an amount (a nonzero rational p/q in lowest terms; integers have q = 1): σ = |p| + ⌈log2 q⌉, so a whole number n
+//     has σ = |n| and a fraction pays for its denominator by its binary digits (the owner: "it should cost information
+//     to mutate a denominator to a bigger value"; until 17 Nov the denominator was paid by its size, q − 1);
 //   a displacement (u, v), not both 0: σ = σ(u) + σ(v), with σ(0) = 0;
 //   a factor (a nonzero rational p/q other than ±1): σ = log2(|p|·q), its digits, which add up along a product of
 //     primes: a factor costs exactly what its prime factors cost one by one.
-// The amount and displacement codes are geometric in σ (ratio r = 2^−rate) over sign, p ≥ 1 and q ≥ 1 drawn
-// independently; a draw that is not in lowest terms is the code's leftover mass. The factor code is a zeta law
+// The amount and displacement codes are geometric in σ (ratio r = 2^−rate) over sign, p ≥ 1 and the denominator's
+// digit count L = ⌈log2 q⌉ ≥ 0 (q uniform among the 2^(L−1) denominators with L digits) drawn independently; a draw that is not in lowest terms is the code's leftover mass. The factor code is a zeta law
 // (|p|·q)^−rate over p ≥ 1 and q ≥ 1, likewise.
 
-/** The size of a nonzero amount p/q: |p| + q − 1 (a whole number's absolute value). 0 has size 0. */
+/** ⌈log2 q⌉ for a denominator q ≥ 1 (0 for a whole number). */
+const bottomDigits = (d: bigint): number => (d <= 1n ? 0 : (d - 1n).toString(2).length);
+/** The size of a nonzero amount p/q: |p| + ⌈log2 q⌉ (a whole number's absolute value). 0 has size 0. */
 export function amountSize(x: Q): number {
   if (x.n === 0n) return 0;
-  return Number(x.n < 0n ? -x.n : x.n) + Number(x.d) - 1;
+  return Number(x.n < 0n ? -x.n : x.n) + bottomDigits(x.d);
 }
 
 /** The size of a factor p/q: log2(|p|·q). */
@@ -322,14 +325,18 @@ function cached(key: string, f: () => number): number {
 
 /**
  * The geometric ratio r for an amount (dims 1) or a displacement (dims 2), whole (Z) or rational (Q), after o bits.
- * g(r) = Σ over a nonzero component of r^σ: 2r/(1 − r) for Z (sign, |n| ≥ 1), 2r/(1 − r)² for Q (sign, p ≥ 1, q ≥ 1).
+ * g(r) = Σ over a nonzero component of r^σ: 2r/(1 − r) for Z (sign, |n| ≥ 1); for Q (sign, p ≥ 1, q ≥ 1, σ = p + ⌈log2 q⌉)
+ * 2r/(1 − r) · G(r), G = 1 + r/(1 − 2r) the denominators' sum (needs r < ½).
  * Complete code: 2^o·g = 1 for one amount; 2^o·((1 + g)² − 1) = 1 for a displacement (the pair (0, 0) excluded).
  */
 function amountRatio(o: number, dims: 1 | 2, rational: boolean): number {
   return cached(`a${dims}${rational ? "Q" : "Z"}${o}`, () => {
     const g = dims === 1 ? 2 ** -o : Math.sqrt(1 + 2 ** -o) - 1;
-    // Z: 2r/(1 − r) = g. Q: 2r/(1 − r)² = g, the root below 1.
-    return rational ? (g + 1 - Math.sqrt(2 * g + 1)) / g : g / (2 + g);
+    // Z: 2r/(1 − r) = g. Q: 2r/(1 − r) · G(r) = g, increasing on (0, ½): bisection.
+    if (!rational) return g / (2 + g);
+    let lo = 0, hi = 0.5;
+    for (let i = 0; i < 200; i++) { const mid = (lo + hi) / 2; if (gRational(mid) > g) hi = mid; else lo = mid; }
+    return lo;
   });
 }
 
@@ -339,15 +346,26 @@ export function amountCode(o: number, dims: 1 | 2, rational: boolean): SizeCode 
   return { rate, bits: size => rate * size - o };
 }
 
+/** Σ over a nonzero rational component of r^σ (σ = p + ⌈log2 q⌉, lowest terms not required: the leftover mass). */
+const gRational = (r: number): number => (2 * r / (1 - r)) * (1 + r / (1 - 2 * r));
+
 /** A geometric draw j ≥ 0 with P(j) = (1 − r)·r^j. */
 function geometricRatio(rng: Rng, r: number): number {
   return Math.floor(Math.log1p(-rng.unit()) / Math.log(r));
+}
+/** A denominator q with probability r^⌈log2 q⌉ / G(r): 1, else L = 1 + geometric(2r) digits and q uniform among them. */
+function drawBottom(rng: Rng, r: number): bigint {
+  const G = 1 + r / (1 - 2 * r);
+  if (rng.unit() < 1 / G) return 1n;
+  const L = 1 + geometricRatio(rng, 2 * r), lo = 2n ** BigInt(L - 1);
+  // Uniform in (2^(L−1), 2^L]: L is small (a geometric draw at ratio 2r < 1), so a float draw of the offset is exact.
+  return lo + 1n + BigInt(Math.floor(rng.unit() * Number(lo)));
 }
 /** A nonzero component with probability r^σ / g (see amountRatio), or null when not in lowest terms. */
 function drawComponent(rng: Rng, r: number, rational: boolean): Q | null {
   const s = rng.bit();
   const p = BigInt(1 + geometricRatio(rng, r));
-  const d = rational ? BigInt(1 + geometricRatio(rng, r)) : 1n;
+  const d = rational ? drawBottom(rng, r) : 1n;
   if (gcd(p, d) !== 1n) return null;
   return q(s ? -p : p, d);
 }
@@ -360,7 +378,7 @@ export function sampleAmount(rng: Rng, o: number, rational: boolean): Q | null {
 /** One displacement (u, v), not both 0, with probability 2^−bits under amountCode(o, 2, rational), or null. */
 export function sampleDisplacement(rng: Rng, o: number, rational: boolean): [Q, Q] | null {
   const r = amountRatio(o, 2, rational);
-  const g = rational ? 2 * r / (1 - r) ** 2 : 2 * r / (1 - r);
+  const g = rational ? gRational(r) : 2 * r / (1 - r);
   // Each component is 0 with probability 1/(1 + g), else a nonzero draw; (0, 0) is redrawn.
   for (;;) {
     const zu = rng.unit() < 1 / (1 + g), zv = rng.unit() < 1 / (1 + g);
