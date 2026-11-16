@@ -136,7 +136,7 @@ export const viewOps = [
   // Replay controls: the replay pane folds v2Events; these move its cursor.
   affordance({
     id: "replay.open", title: "Watch a replay", group: "replay", scope: "room",
-    description: "Opens the replay of a finished game of the room in view (ids from room.history), at its start.",
+    description: "Opens the replay of a finished game of the room in view (ids from room.history), at its end (replay.seek to 0 for the start).",
     tooltip: "Replay a finished game.", keywords: ["replay", "watch again", "rewind"],
     params: obj({ gameId: id }), result: done,
     contexts: ["room", "ended", "replay"], caller: "member", effect: "write", confirm: "none", runs: "client",

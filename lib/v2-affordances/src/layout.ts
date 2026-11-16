@@ -46,6 +46,9 @@ export interface ViewState {
  * the events, resolves a time to the first event at or after it and then moves `plus` events (clamped to the game).
  */
 export type ReplayCursor = { seq: number } | { worldSeconds: number; plus: number };
+/** A replay's end: every event up to a world time past any game's (the cursor resolves to the last event, and a step
+ *  back moves back from it). Where a replay opens, as v1's did: on the final board, not an empty one before the start. */
+export const REPLAY_END: ReplayCursor = { worldSeconds: 1e9, plus: 0 };
 
 /** The glossary's page for "How scoring works" (view.showScoring): not a term, so no request for a term opens it. */
 export const SCORING_PAGE = "@scoring";
@@ -202,7 +205,7 @@ export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
   "view.showGlossary": (v, a) => ({ ...v, glossary: a.term ?? "" }),
   "view.showScoring": v => ({ ...v, glossary: SCORING_PAGE }),
   "view.closeGlossary": v => ({ ...v, glossary: null }),
-  "replay.open": (v, a) => ({ ...v, replay: { gameId: a.gameId, cursor: { seq: 0 }, playing: false, speed: 1 }, panes: openPane(v, "replay") }),
+  "replay.open": (v, a) => ({ ...v, replay: { gameId: a.gameId, cursor: REPLAY_END, playing: false, speed: 1 }, panes: openPane(v, "replay") }),
   "replay.play": v => ({ ...v, replay: { ...replayOf(v), playing: true } }),
   "replay.pause": v => ({ ...v, replay: { ...replayOf(v), playing: false } }),
   "replay.seek": (v, a) => {
