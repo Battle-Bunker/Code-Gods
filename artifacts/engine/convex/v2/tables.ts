@@ -10,13 +10,13 @@
  * v2 holds no data worth keeping yet, so these tables change shape freely (CLAUDE.md "Engine v2").
  */
 import { defineTable } from "convex/server";
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import { assistantTables } from "./assistantTables.ts";
 import { authorV, diagnosticV, manifestV, placementV, sizeV } from "./panelShapes.ts";
 
 /** Why a game ended (v1's end reasons, plus a practice game its player left for another). */
 export const endReasonV = v.union(v.literal("lifetime"), v.literal("owner"), v.literal("abandoned"), v.literal("retired"));
-export type EndReason = "lifetime" | "owner" | "abandoned" | "retired";
+export type EndReason = Infer<typeof endReasonV>;
 
 // ---------------------------------------------------------------- shared shapes
 

@@ -95,7 +95,7 @@ function Timings() {
       <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
         <dt className="text-muted-foreground">Started</dt><dd data-testid="text-started">{fmtWhen(d.startedAt ?? d.createdAt)}</dd>
         <dt className="text-muted-foreground">Ended</dt>
-        <dd data-testid="text-ended">{ended && d.endedAt ? `${fmtWhen(d.endedAt)} (${fmtDuration(toMs(d.endedAt) - toMs(d.startedAt ?? d.createdAt))})` : "still running"}</dd>
+        <dd data-testid="text-ended">{!ended ? "still running" : d.endedAt ? `${fmtWhen(d.endedAt)} (${fmtDuration(toMs(d.endedAt) - toMs(d.startedAt ?? d.createdAt))})` : "—"}</dd>
         <dt className="text-muted-foreground">End reason</dt><dd data-testid="text-end-reason">{ended ? endReasonLabel(d.endReason) : "—"}</dd>
         <dt className="text-muted-foreground">World time</dt><dd className="tabular-nums" data-testid="text-world-t">{world === null ? "—" : `${Math.round(world * 10) / 10} s`}</dd>
       </dl>
