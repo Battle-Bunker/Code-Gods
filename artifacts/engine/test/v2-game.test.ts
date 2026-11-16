@@ -8,7 +8,7 @@
  * What would break: an agent never acting or never committing; values or points diverging from the record; an act
  * whose outcome depends on anything the record does not hold (a replay that cannot reproduce the game).
  */
-import { UNIQUENESS, VALUE_INDEX } from "../convex/v2/values.gen.ts";
+import { UNIQUENESS, VALUE_INDEX } from "../convex/v2/values-index.gen.ts";
 import { valueRecord } from "../convex/v2/values.ts";
 import { valueObjects } from "../convex/v2/world.ts";
 import { actReadings } from "../convex/v2/disclose.ts";
@@ -239,7 +239,7 @@ test("the stored replay: built once at the end, served only to a member with a J
 
 gameSuite("lines-beginner", lineType, lineQ);
 // Decision 23: a game deals only rules with a value function. Grids play end to end here once their value functions are
-// in values.gen.ts; until then the server withholds the preset, and this says so.
+// in the value files; until then the server withholds the preset, and this says so.
 if (VALUE_INDEX.some(r => r.variant === grid4.id)) gameSuite("grids-beginner", gridType, grid4);
 else test("grids-beginner is withheld until grid value functions land", async () => {
   const [h] = await humans("grids withheld");

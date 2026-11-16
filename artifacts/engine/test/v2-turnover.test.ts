@@ -10,7 +10,7 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { admin, humans, perform, type Human } from "./v2-helpers.ts";
-import { VALUE_INDEX as VALUE_RECORDS } from "../convex/v2/values.gen.ts";
+import { VALUE_INDEX as VALUE_RECORDS } from "../convex/v2/values-index.gen.ts";
 import { familyOf } from "../convex/v2/deal.ts";
 
 const CAP = 2, BIRTH = 4, WORLD = 120;

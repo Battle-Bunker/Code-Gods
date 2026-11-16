@@ -26,7 +26,7 @@ test("a grid variant is read and written as a grid; it is valued only once it ha
   const f = familyOf("magic-eighteen");
   const key = ruleKey(type, variant, f.id, { axis: "rows", T: 18 }, "first-line");
   const seat = [{ memberId: "m1", rule: { family: f.id, params: { axis: "rows", T: 18 }, tieBreaker: "first-line", ruleKey: key, contentHash: "" } }];
-  // Values come from value functions (convex/v2/values.gen.ts); grids have none yet, so the server refuses to value
+  // Values come from value functions (convex/v2/values-index.gen.ts); grids have none yet, so the server refuses to value
   // (and the deal to deal) a grid rule, by name. When grid value functions land, this asserts the rows-add-up line's
   // worth instead (it was > 16 bits under the artefacts).
   if (valueRecord(key)) {
@@ -61,7 +61,7 @@ test("a grid representation's mutators name their arguments, with choices for ce
 test("Grids · beginner deals every grid family, each a main layer plus one tie-breaker, on the grid board (once grids have value functions)", async () => {
   const { presetOf } = await import("../../convex/v2/presets.ts");
   const { dealablePool, playable } = await import("../../convex/v2/deal.ts");
-  const { VALUE_INDEX: VALUE_RECORDS } = await import("../../convex/v2/values.gen.ts");
+  const { VALUE_INDEX: VALUE_RECORDS } = await import("../../convex/v2/values-index.gen.ts");
   const gridValues = VALUE_RECORDS.some(r => r.variant === "grid-4-d10");
   for (const id of ["grids-beginner", "grids-beginner-bidding"]) {
     const p = presetOf(id);

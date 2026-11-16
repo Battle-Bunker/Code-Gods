@@ -28,7 +28,7 @@ import { findVariant, objectTypes, ruleKey } from "@workspace/v2-valuation";
 import { gridAlignedPairs, gridClashes, gridSeatingCost } from "@workspace/v2-grid";
 import { LINE_EXCLUSION_SHARES, LINE_OPPONENTS, lineClashes, lineSeatingCost, type SeatedRule } from "@workspace/v2-linear";
 import { pairClashes, pairSeatingCost } from "@workspace/v2-pair";
-import { measuredToBits, valueHead, valueRecord } from "./values.ts";
+import { valueHead } from "./values-head.ts";
 import type { Preset } from "./presets.ts";
 
 /** A rule as dealt: enough to evaluate it (family, params, tie-breaker) and to find its value function. */
@@ -353,7 +353,7 @@ export function offers(pool: readonly DealtRule[]) {
   const out: { family: string; title: string; card: string; top: number }[] = [];
   for (const id of [...new Set(pool.map(r => r.family))]) {
     const rules = pool.filter(r => r.family === id), f = familyOf(id);
-    const top = Math.max(...rules.map(r => { const vf = valueRecord(r.ruleKey); return vf ? measuredToBits(vf) : 0; }));
+    const top = Math.max(...rules.map(r => valueHead(r.ruleKey)?.measuredTo ?? 0));
     out.push({ family: id, title: f.title, card: f.card(rules[0]!.params, null), top: Math.round(top * 10) / 10 });
   }
   return out;

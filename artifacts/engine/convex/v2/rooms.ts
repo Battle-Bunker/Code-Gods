@@ -10,7 +10,7 @@ import { query, type QueryCtx } from "../_generated/server";
 import { MAX_MEMBERS, memberOf, normaliseCode, requireMember, requireUser } from "./access";
 import { chatPageV, historyPageV, roomListV, roomV, roundV } from "./validators";
 import { pageOpts } from "./pages";
-import { membersOf, rotationFor } from "./lobby";
+import { membersOf, rotationFor } from "./room-deal.ts";
 
 /** The caller's rooms, newest joined first: a skeleton page; each row's component subscribes to `get`. */
 export const list = query({
