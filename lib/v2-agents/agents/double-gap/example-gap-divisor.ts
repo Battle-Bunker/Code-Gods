@@ -1,9 +1,9 @@
-// Gap Ratio · Example: the gap shares a factor with the number you divide by
-// Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Secondary preference: the gap shares a factor with the number you divide by.
+// Gap Ratio · Example: the number you divide by shares a factor with your next power
+// Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Secondary preference: the number you divide by shares a factor with your next power.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
-// Try this: add "stretch" to KINDS: it scales a line's gap.
+// Try this: add "tilt" to KINDS: a new gradient changes the number you divide by.
 
 // How good are the two lines L for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(L, p) {
@@ -11,12 +11,13 @@ function score(L, p) {
   const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
   if (f.ygap === null || f.xgap === null || f.origin) return null;   // no gaps, or a line through (0, 0): no score
   const main = powerLadder(p.k, t => Q.add(dist(f.ygap), Q.abs(Q.sub(f.ygap, Q.mul(t, f.xgap)))));
-  return [main, common(whole(f.ygap), f.D)];   // main: the gaps' level: the y-intercepts' gap whole and k, k³, k⁶, … times the x-intercepts' gap (higher is better); secondary: the gap sharing a big factor with the number you divide by is better
+  const lv = levelOf(main, p.k), N = BigInt(p.k) ** BigInt((lv * (lv + 1)) / 2 + 1);   // your power reached, times k
+  return [main, common(f.D, N)];   // main: the gaps' level: the y-intercepts' gap whole and k, k³, k⁶, … times the x-intercepts' gap (higher is better); secondary: the number you divide by sharing a big factor with k times your power reached is better
 }
 
 const FAR = 3;      // how far one move may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["shift","tilt","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
+const KINDS = ["shift","tilt","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
 const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
