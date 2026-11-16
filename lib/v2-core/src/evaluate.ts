@@ -4,7 +4,7 @@
  */
 import type {
   ElementDecl, ElementRef, ElementValue, EvalContext, Evaluation, Mark, ObjectType, Representation, RuleFamily,
-  Layer, Score, ScoreComponent, Term, TermId, TieBreaker, Undef, Variant,
+  Estimate, EstimateOpts, Layer, Score, ScoreComponent, Term, TermId, TieBreaker, Undef, Variant,
 } from "./contracts.ts";
 import { cmp, from, neg, parse, toWire, type Q } from "./q.ts";
 
@@ -254,4 +254,11 @@ export function evaluateObject<S, P>(type: ObjectType<S>, family: RuleFamily<S, 
   const k = type.sites(state, variant);
   const sites = Array.from({ length: k }, (_, i) => evaluateSite(type, family, params, state, variant, i, tieBreaker));
   return { score: k === 1 ? sites[0]!.score : null, sites };
+}
+
+/** A dynamic family's energy on a state (ObjectType.estimate): fresh randomness unless opts.seed is given. */
+export function energyOf<S, P>(type: ObjectType<S>, family: RuleFamily<S, P>, params: P, state: S, variant: Variant, opts?: EstimateOpts): Estimate {
+  if (!family.dynamic) throw new Error(`${family.id} is not scored by the dynamic measure`);
+  if (!type.estimate) throw new Error(`The ${type.id} type has no dynamic energy estimator`);
+  return type.estimate(state, variant, family.dynamic, params, opts);
 }

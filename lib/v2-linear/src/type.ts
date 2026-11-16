@@ -4,6 +4,7 @@ import { decodeLine, encodeLine, inDomain, lineBits, lineParams, normalise, type
 import { representations } from "./representations.ts";
 import { allMutators, lensMutators, mutators } from "./mutators.ts";
 import { families } from "./families.ts";
+import { estimateLine, lineRule } from "./energy.ts";
 
 const ALL_MUTATORS = mutators.map(m => m.id);
 /**
@@ -82,5 +83,7 @@ export const lineType: ObjectType<LineState> = {
   },
   representations,
   mutators: allMutators,
+  // One line per object (a dynamic family is dealt only there).
+  estimate: (state, variant, rule, params, opts) => estimateLine(state.lines[0]!, lineRule(rule, params), variant, opts),
   families: [...families],
 };
