@@ -198,7 +198,10 @@ test("each grid example climbs: no move lowers the main part, some raise it, som
       const utility = (s: GridState): Score => evaluateSite(gridType, f, params, s, grid4, 0, tb).score;
       const a = exampleFor(e.family, tb, "typescript")!;
       let mainUp = false, tieUp = false;
-      for (const start of births(gridType, grid4, `climb-${e.family}`, 3)) {
+      // At least three newborn boards, and more (up to eight) until both rises are seen: a bounded secondary can be at
+      // its top on a newborn board (snap-reach, every row and column already in a snap), where no move can raise it.
+      for (const [i, start] of births(gridType, grid4, `climb-${e.family}`, 8).entries()) {
+        if (i >= 3 && mainUp && tieUp) break;
         let s = start;
         for (let t = 0; t < 25; t++) {
           const { record, state } = await runAct(await boxes.get("typescript"), { type: gridType, variant: grid4, state: s, rule: { family: e.family, params, tieBreaker: tb }, program: program(a), seed: String(t), energy: 1000 });
