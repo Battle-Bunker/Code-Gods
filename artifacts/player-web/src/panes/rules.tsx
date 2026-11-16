@@ -6,7 +6,8 @@
 import { presetOf } from "@workspace/engine/convex/v2/presets.ts";
 import { useState } from "react";
 import { agentPrimer } from "@workspace/v2-agents/pure";
-import { objectTypeOf, useGame, useGameDetails, variantOf } from "@/sdk";
+import { objectTypeOf, useGame, useGameDetails, useLeaderboard, variantOf } from "@/sdk";
+import { endReasonLabel, fmtDuration, fmtWhen, toMs } from "@/site/lib/time";
 import { toast } from "@/hooks/use-toast";
 import { rulesFacts, rulesForAi, rulesParagraphs, type RulesInput } from "./rules-words";
 
@@ -51,6 +52,7 @@ export function RulesPane() {
           ])}
         </dl>
       </section>
+      <Timings />
       <DealtRules />
       <CopyForAi input={input} variant={header.variant} />
     </div>
@@ -73,6 +75,30 @@ function DealtRules() {
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+/**
+ * v1's "Game details" timings: when the game started and ended (with how long it ran), why it ended, and the world time
+ * (the last published standings' while it runs; where it ended after the end).
+ */
+function Timings() {
+  const d = useGameDetails();
+  const standings = useLeaderboard();
+  if (!d) return null;
+  const ended = d.phase === "ended";
+  const world = ended ? d.endWorld : standings?.worldSeconds ?? null;
+  return (
+    <section className="space-y-1.5" data-testid="game-timings">
+      <h3 className="text-sm font-semibold">Game details</h3>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
+        <dt className="text-muted-foreground">Started</dt><dd data-testid="text-started">{fmtWhen(d.startedAt ?? d.createdAt)}</dd>
+        <dt className="text-muted-foreground">Ended</dt>
+        <dd data-testid="text-ended">{!ended ? "still running" : d.endedAt ? `${fmtWhen(d.endedAt)} (${fmtDuration(toMs(d.endedAt) - toMs(d.startedAt ?? d.createdAt))})` : "—"}</dd>
+        <dt className="text-muted-foreground">End reason</dt><dd data-testid="text-end-reason">{ended ? endReasonLabel(d.endReason) : "—"}</dd>
+        <dt className="text-muted-foreground">World time</dt><dd className="tabular-nums" data-testid="text-world-t">{world === null ? "—" : `${Math.round(world * 10) / 10} s`}</dd>
+      </dl>
     </section>
   );
 }

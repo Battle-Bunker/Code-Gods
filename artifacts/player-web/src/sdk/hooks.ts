@@ -25,6 +25,12 @@ export function useRoomInfo() {
   return useLiveValue(api.v2.rooms.get, { roomId: useGameScope().roomId });
 }
 
+/** Which seats are ready (v2/games:readiness; v1's "Who is here" ✓): one small index page, cold. */
+export function useReadiness() {
+  const { gameId } = useGameScope();
+  return useLiveValue(api.v2.games.readiness, gameId ? { gameId } : "skip");
+}
+
 /** The room's rotation round: its ended games and each seat's running total (null outside a rotation). */
 export function useRotationRound() {
   return useLiveValue(api.v2.rooms.round, { roomId: useGameScope().roomId });

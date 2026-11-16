@@ -97,7 +97,23 @@ export const details = query({
       createdAt: game.createdAt, startedAt: game.startedAt ?? null, planningEndsAt: game.planningEndsAt ?? null,
       endsAt: durationModeOf(game) === "halfLife" && !ended ? null : game.endsAt ?? null, endedAt: game.endedAt ?? null,
       endWorld: ended ? game.endAtWorld ?? game.settings.worldSeconds : null,
+      endReason: ended ? game.endReason ?? null : null,
       rules,
     };
+  },
+});
+
+/**
+ * Who is ready (v1's "Who is here" roster: a ✓ beside each seat that is ready): one index page of the game's seats
+ * (≤ 16), each seat's ready flag only. A player row holds no tick-written field (energy is v2AgentEnergy's), so this
+ * read reruns when someone marks ready, a pause is used or an agent is summoned, never on a tick.
+ */
+export const readiness = query({
+  args: { gameId: v.string() },
+  returns: v.array(v.object({ memberId: v.id("v2Members"), ready: v.boolean() })),
+  handler: async (ctx, { gameId }) => {
+    const { game } = await requireGameMember(ctx, gameId);
+    const players = await ctx.db.query("v2Players").withIndex("by_game", q => q.eq("gameId", game._id)).take(16);
+    return players.map(p => ({ memberId: p.memberId, ready: p.ready }));
   },
 });
