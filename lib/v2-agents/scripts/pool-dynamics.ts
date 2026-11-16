@@ -100,8 +100,9 @@ function lookahead(source: string, mode: string): string {
   return source.replace(call, (_m, now) => `  const one = climb(offer, options, ${now}, QUOTES);
   if (one || PROTECT.includes(offer.object)) return one;
   const here = ${now}, floor = ${f === null ? "null" : `(1 - ${f}) * rarity(offer, here)`};
-  const firsts = tries.map((t, i) => [t, options[i][1]]).filter(([[, m1], s1]) => Q.isQ(m1) && s1 && (floor === null || rarity(offer, s1) >= floor))
-    .sort((a, b) => (better(a[1], b[1]) ? -1 : better(b[1], a[1]) ? 1 : 0)).slice(0, 3).map(([t]) => t);
+  const firsts = tries.slice(0, options.length).map((t, i) => [t, options[i][1]]).filter(([[, m1], s1]) => Q.isQ(m1) && s1)
+    .sort((a, b) => (better(a[1], b[1]) ? -1 : better(b[1], a[1]) ? 1 : 0)).slice(0, 6)
+    .filter(([, s1]) => floor === null || rarity(offer, s1) >= floor).slice(0, 3).map(([t]) => t);   // rarity is a host call: only for the 6 best
   const pairs = [];
   for (const [plan, m1, c1] of firsts) {
     const first = Array.isArray(plan) ? plan : [plan];
@@ -327,10 +328,11 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
           const d = dipOn.get(e.object);
           if (d) {
             dipOn.delete(e.object);
-            if (d.seat === e.seat) { dips.followed++; if (seatBits(e.seat, e.state) > d.level + 1e-9) dips.recovered++; }
+            if (d.seat === e.seat) { dips.followed++; const all = seats.map((_, j) => seatBits(j, e.state)); if (all[e.seat]! * all.reduce((t, y, j) => (j === e.seat ? t : t + y), 0) > d.level + 1e-9) dips.recovered++; }
             else { dips.interrupted++; if (type.encode(e.state as never) === d.from) dips.undone++; }
           }
-          if (gain < -1e-9) { dips.n++; dipOn.set(e.object, { seat: e.seat, from: type.encode(e.before as never), level: b[e.seat]! }); }
+          const pts = (x: number[], i: number) => x[i]! * x.reduce((t, y, j) => (j === i ? t : t + y), 0);
+          if (pts(a, e.seat) < pts(b, e.seat) - 1e-9) { dips.n++; dipOn.set(e.object, { seat: e.seat, from: type.encode(e.before as never), level: pts(b, e.seat) }); }
         }
         {
           const fam = keys[e.seat]!.split(" ")[0]!, mk = e.calls.map(c => c.mutator === "cart.mirror" ? `cart.mirror ${(c.args as { axis?: string }).axis}` : c.mutator).join("+") || "?";
@@ -464,7 +466,7 @@ for (const [f, s] of rows) console.log([
 ].join(" | ").replace(/^/, "| ").concat(" |"));
 console.log(`survival: a seat's bits on a line that survive the next move by another seat ${survival.held ? ((100 * survival.kept) / survival.held).toFixed(0) : "-"}%`);
 console.log(`acts failed: ${failed.n} of ${failed.acts} (step limit ${failed.steps}, host-call cap ${failed.calls})`);
-console.log(`dips (moves that lowered the mover's own bits): ${dips.n}; next move on that line by the same seat ${dips.followed} (above where it dipped from: ${dips.recovered}), by another seat ${dips.interrupted} (back to the state before the dip: ${dips.undone}), none before the end ${dips.open}`);
+console.log(`dips (moves that lowered the mover's points, own bits × the others'): ${dips.n}; next move on that line by the same seat ${dips.followed} (above where it dipped from: ${dips.recovered}), by another seat ${dips.interrupted} (back to the state before the dip: ${dips.undone}), none before the end ${dips.open}`);
 console.log(`late rungs: on lines younger than 60 s ${lateUp.young}, on older lines ${lateUp.old}`);
 if (o.cap) {
   const q = (xs: number[], f: number) => { const v = [...xs].sort((a, b) => a - b); return v.length ? v[Math.floor(f * (v.length - 1))]! : 0; };
