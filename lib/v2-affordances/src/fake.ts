@@ -304,7 +304,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
       const points = Object.values(g.objects).reduce((t, o) => t + bitsOf(g, u, o), 0), handicap = g.auction?.wins[u]?.handicap ?? 0;
       return { memberId: memberOf(e, u), name: nameOf(e.state, u), points, handicap, net: points - handicap / 100 * Math.abs(points) };
     });
-    return { rows: pts.sort((a, b) => b.net - a.net).map((p, i) => ({ ...p, rank: i + 1 })) };
+    return { rows: pts.sort((a, b) => b.net - a.net).map((p, i) => ({ ...p, rank: i + 1 })), handicapsHidden: false };
   },
   "game.ready": (e, a) => {
     const g = gameOf(e);
@@ -351,6 +351,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     // or none (chips); mutations and recent keep insertion order.
     const kept = filter === "all" ? rows : rows.filter(r => (filter === "chips" ? r.points <= 0 : r.points > 0));
     if (key === "oldest") kept.sort((x, y) => x.number - y.number);
+    else if (key === "least") kept.sort((x, y) => x.points - y.points);
     else if (key === "born") kept.sort((x, y) => y.number - x.number);
     else if (key === "rarity" || key === "points" || key === "want") kept.sort((x, y) => key === "rarity" ? y.bits - x.bits : y.points - x.points);
     return page(kept, a);

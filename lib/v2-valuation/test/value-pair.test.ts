@@ -64,7 +64,9 @@ test("one far act climbs a pair ladder by about one rung's rarity, not to the ca
     for (const vf of files) {
       const b = (enc: string) => valueLookup(vf)(evaluateObject(pairType, c.fam, vf.params, pairType.decode(enc), pairQ, vf.tieBreaker).score).bits;
       const gain = b(c.to) - b(c.from);
-      assert.ok(gain <= Math.log2(c.base) + 1, `${c.dir} ${vf.tieBreaker}: +${gain.toFixed(1)} bits for one act`);
+      // A level's rarity (about log₂ of the base) and the tie-breaker's restart at the new level (trials 34 and 35: up to
+      // about log₂ of its number, the next power of the base), at most; the bug paid 12.5 bits, the cap's.
+      assert.ok(gain <= 3 * Math.log2(c.base) + 1, `${c.dir} ${vf.tieBreaker}: +${gain.toFixed(1)} bits for one act`);
     }
   }
 });

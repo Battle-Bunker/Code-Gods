@@ -79,3 +79,22 @@ export function versionRows(programs: readonly { version: number; acts: number; 
 
 /** v1's "How energy works", in v2's terms. */
 export const ENERGY_HOW = "You earn energy every second of world time at your power. Each agent gets its share of that power into its own store; what you keep goes to your own store, for summoning and replacing agents. A store holds at most one full charge (its power × the full-charge time): income above that is not kept. Each chance to move goes to an agent with odds in proportion to the energy it holds, and moves cost energy by how far they change an object; looks cost energy too. An agent may borrow up to one full store to finish a change, and gets no chances until its income repays it.";
+
+/** v1's energy bar: how full the agent's store is and when it fills at its power (world seconds). */
+export function energyBar(e: { energy: number; capacity: number; perSecond: number }): { fraction: number; text: string } {
+  const fraction = e.capacity > 0 ? Math.max(0, Math.min(1, e.energy / e.capacity)) : 0;
+  if (e.capacity > 0 && e.energy >= e.capacity - 0.01) return { fraction: 1, text: "full: it gets no more until it spends" };
+  if (e.perSecond <= 0) return { fraction, text: "no power: it gets nothing" };
+  const s = Math.ceil((e.capacity - e.energy) / e.perSecond);
+  return { fraction, text: `${e.energy < 0 ? "repaying a debt: " : ""}full in ${s} s` };
+}
+
+/** "More power": half of the power you keep, added to this agent's share; null when you keep (almost) none. */
+export function morePower(share: number, free: number): number | null {
+  if (free < 0.01) return null;
+  return Math.round((share + free / 2) * 1e6) / 1e6;
+}
+/** "Less power": half its share back to you; null when it has too little to halve. */
+export function lessPower(share: number): number | null {
+  return share < 0.01 ? null : Math.round((share / 2) * 1e6) / 1e6;
+}
