@@ -23,7 +23,7 @@ const f0 = (x: number) => x.toFixed(0), f1 = (x: number) => x.toFixed(1), f2 = (
 
 const fams = dynamicExamples.slice(1), objs = Array.from({ length: 20 }, (_, i) => fams[i % fams.length]!), SUMS = 10;
 console.log("### On target against a little off, 20-object sums at T ≈ 1000 (10 sums each)\n\n| K | ms per estimate | fresh: A − B (sd of one sum) | z fresh | same starts: mean of A − B (sd) | z same starts |\n|---|---|---|---|---|---|");
-for (const K of [30, 100, 300]) {
+for (const K of [30, 100, 300, 600]) {
   let ms = 0, n = 0;
   const est = (s: Line, F: DynamicFamily, seed?: string) => { const t = performance.now(), e = dynamicEnergy(s, F, { K, ...(seed ? { seed } : {}) }).energy; ms += performance.now() - t; n++; return e; };
   const A = Array.from({ length: SUMS }, () => objs.reduce((a, F) => a + est(climb(F, 1000).exact, F), 0));

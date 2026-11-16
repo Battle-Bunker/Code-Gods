@@ -20,7 +20,7 @@
  *   stretch by 2, 3, 1/2, 1/3, −1); and each shortcut followed by one such solved move. A route counts when the line it
  *   reaches has u ≥ u(s).
  * - heuristics: each proposes targets (values for the readings it names); a target is reached by the solved moves onto
- *   each named reading (one, or two in either order). Every proposal is tried, so adding a heuristic can only lower the
+ *   each named reading (one, or two in either order), directly or after one shortcut. Every proposal is tried, so adding a heuristic can only lower the
  *   energy for the same starts (built; tested). Heuristics draw from their own random stream.
  * - Price: the log trial's friction (TRIAL_LOG: the game's fee for the call, floored by the friction distance).
  * Nothing is computed at import time.
@@ -223,6 +223,7 @@ function floorMoves(x: Line, s: Line): [number, Line, string][] {
   }
   return out;
 }
+const shortcutsFrom = (x: Line): [number, Line][] => SHORTCUTS.flatMap(mv => { const l = applyMv(mv, x); return l ? [[priceOf(mv, x, l), l] as [number, Line]] : []; });
 /** The ceiling: the direct route onto s itself. */
 const directTo = (x: Line, s: Line) => toTarget(x, { m: mq(s), c: cq(s) }, l => l.a === s.a && l.b === s.b && l.c === s.c);
 
@@ -290,7 +291,10 @@ export function dynamicEnergy(s: Line, F: DynamicFamily, o: DynamicOpts = {}): D
     for (const h of hs) for (const t of h.propose(rx, uStar, hr)) {
       const m = t.m === undefined ? undefined : toQ(t.m), c = t.c === undefined ? undefined : toQ(t.c);
       if (m === null || c === null) continue;
-      heuristic = Math.min(heuristic, toTarget(x, { ...(m ? { m } : {}), ...(c ? { c } : {}) }, ok));
+      const tq = { ...(m ? { m } : {}), ...(c ? { c } : {}) };
+      heuristic = Math.min(heuristic, toTarget(x, tq, ok));
+      // A shortcut first, then the solved moves onto the target (generic, for every family's targets).
+      for (const [p1, l1] of shortcutsFrom(x)) if (p1 < heuristic) heuristic = Math.min(heuristic, p1 + toTarget(l1, tq, ok));
     }
     samples.push({ from: x, direct, floor, heuristic, cost: Math.min(direct, floor, heuristic) });
   }
