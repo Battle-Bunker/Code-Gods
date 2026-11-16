@@ -140,7 +140,7 @@ test("a rule of any depth (#879): every dealt secondary is a part, in order, nam
   assert.deepEqual(parts.map(p => p.depth), [0, 1, 2, 3]);
   // A focus or note labelled with a layer belongs to it, at any depth; one labelled with none to the main part.
   const { markTerm } = await import("../src/refs.ts");
-  assert.equal(markTerm({ kind: "focus", ref: { rep: "cells", name: "r0c0" }, layer: ids[2]! }), ids[2]);
+  assert.equal(markTerm({ kind: "focus", ref: { rep: "cells", name: "r0c0" }, term: ids[2]! }), ids[2]);
   assert.equal(markTerm({ kind: "note", ref: { rep: "cells", name: "r0c0" }, text: "x" }), undefined);
 });
 
