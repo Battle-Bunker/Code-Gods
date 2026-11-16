@@ -1,6 +1,6 @@
 # Hand-over: number-theory tree families (`tree-nt-*`)
 
-Branch `claude/tree-nt-families`, from `develop` at 2ef3ba28. Stopped at 20:45 Melbourne time, 16 November 2026, at the
+Branch `claude/tree-nt-families`, from `develop` at 2ef3ba28. Stopped at 20:15 Melbourne time, 16 November 2026, at the
 coordinator's request. Nothing is merged. Nothing is dealt and no value file was generated (as instructed).
 
 ## The brief (from the coordinator, with the owner's words)
@@ -153,3 +153,9 @@ alternatives read in another representation and defined by the target.
   plane will zoom out. Not looked at in a browser.
 - No family here has been seen on the mirror or in the object view; the marks are checked only by unit tests.
 - Whether a 12-year-old can rank states from these cards (row 12) is untested.
+
+## Housekeeping
+
+- Draft pull request: #1122 (do not merge as it stands).
+- The first commit on this branch (451a888b) carries a co-author trailer with a model name, against the brief; a
+  force-push to remove it was refused in this session. Squash-merge with a clean message, or rewrite it, before merging.
