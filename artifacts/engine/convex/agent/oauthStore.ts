@@ -150,6 +150,9 @@ export const redeemCode = internalMutation({
   },
 });
 
+/** How long a rotated-out refresh token is still taken once more (its successor's answer was lost), RFC 9700 §4.14.2. */
+export const REFRESH_REUSE_GRACE_MS = 30_000;
+
 /**
  * Rotate a refresh token. The presented token must be the credential's current one, from the same client;
  * a retired token is a reuse: the credential is revoked (OAuth 2.1 §4.3.1).
@@ -157,13 +160,23 @@ export const redeemCode = internalMutation({
 export const refresh = internalMutation({
   args: { refreshHash: v.string(), newRefreshHash: v.string(), clientId: v.string() },
   handler: async (ctx, args) => {
-    const row = await ctx.db.query("credentials").withIndex("by_refresh", q => q.eq("refreshHash", args.refreshHash)).unique();
+    const now = Date.now();
+    let row = await ctx.db.query("credentials").withIndex("by_refresh", q => q.eq("refreshHash", args.refreshHash)).unique();
     if (!row) {
       const retired = await ctx.db.query("oauthRetiredRefresh").withIndex("by_hash", q => q.eq("hash", args.refreshHash)).unique();
-      if (retired) await revoke(ctx, retired.credentialId);
-      return { error: "invalid_grant" as const };
+      if (!retired) return { error: "invalid_grant" as const };
+      // Rotated out moments ago: the answer that carried its successor was lost (a reload or navigation cut the request
+      // off), so the client still holds this one. Within the grace it rotates again, once (the lost successor is retired,
+      // so one chain stays valid); a second reuse, a later one or another client's revokes the grant.
+      const owner = !retired.graced && now - retired.retiredAt <= REFRESH_REUSE_GRACE_MS ? await ctx.db.get(retired.credentialId) : null;
+      if (!owner || owner.kind !== "oauth" || owner.clientId !== args.clientId || !owner.refreshHash) {
+        await revoke(ctx, retired.credentialId);
+        return { error: "invalid_grant" as const };
+      }
+      await ctx.db.patch(retired._id, { graced: true });
+      row = owner;
+      args = { ...args, refreshHash: owner.refreshHash };
     }
-    const now = Date.now();
     const room = row.roomId === undefined ? null : await credentialRoom(ctx, row.roomId);
     if (row.kind !== "oauth" || row.clientId !== args.clientId || credentialProblem(row, room, now)) return { error: "invalid_grant" as const };
     const ttl = idleTtl(row.permission);

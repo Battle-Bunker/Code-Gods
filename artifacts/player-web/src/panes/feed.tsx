@@ -9,6 +9,7 @@ import { chipRep, defaultRep, repText, RepView } from "@workspace/v2-views";
 import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMoves, useMyAgents, useMyRule, variantOf, type Move, useOthersBlurred, usePublicLog, type LogEntry } from "@/sdk";
 import { num, timeLeft } from "@/core/words";
 import { useReplaying } from "@/core/affordance-runtime";
+import { useAffordance } from "@workspace/v2-affordances/react";
 import { callWords, moveSentence, moveWho } from "./move-line";
 import { foldTugs, tugSentence, type FeedItem } from "./tug-of-war";
 import { noteLines, tugNoteNumber } from "./move-notes";
@@ -36,6 +37,7 @@ function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<stri
   const blurred = useOthersBlurred();
   const g = useGame(); const length = g ? fixedLength(g) : null;
   const notes = useContext(NotesContext).get(move.seq);
+  const openObject = useAffordance("view.openObject");
   // A grid's change (digits or a coloured board) is drawn (a small board, the changed cells marked), not written out.
   const board = useMemo(() => {
     const type = objectTypeOf(variant);
@@ -65,6 +67,11 @@ function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<stri
           <p className="text-sm text-foreground" data-testid="text-move-line"><CompactText text={text} /></p>
         </div>
       ) : <p className="text-sm text-foreground" data-testid="text-move-line"><CompactText text={text} /></p>}
+      {/* v1: a move opens the object it changed, which then says it was opened from this move. */}
+      <button type="button" className="text-xs underline text-muted-foreground hover:text-foreground" data-testid={`button-open-move-${move.seq}`}
+        onClick={() => { void openObject.run({ objectId: move.objectId, from: text }).catch(() => {}); }}>
+        Open this {objectWord(variant).one}
+      </button>
       {notes?.map(n => <AgentNote key={n} text={n} variant={variant} />)}
     </li>
   );

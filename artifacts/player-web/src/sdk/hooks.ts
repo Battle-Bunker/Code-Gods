@@ -116,6 +116,16 @@ export function useObjectIds(sort: ObjectSort, pageSize = 30, show: ObjectShow =
   return (replayed ?? live) as typeof live;
 }
 
+/** The retired lines' skeleton (turnover), the latest first; each row subscribes to its own object. Empty without turnover. */
+export function useBankedIds(pageSize = 30) {
+  const { gameId, seated } = useGameScope();
+  const replay = useReplaySource();
+  const live = useLivePaged(api.v2.play.banked, gameId && seated && !replay ? { gameId } : "skip", pageSize);
+  const frame = replay?.frame, member = replay?.member;
+  const replayed = useMemo(() => (frame && member ? pagedFrom(frame.banked(member)) : null), [frame, member]);
+  return (replayed ?? live) as typeof live;
+}
+
 /** A spectator's skeleton: every object by number. */
 export function useSpectatorObjectIds(pageSize = 30) {
   const { gameId } = useGameScope();

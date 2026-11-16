@@ -200,3 +200,23 @@ test("'New conversation' and 'Switch assistant conversation…' open the assista
     assert.deepEqual(asked.at(-1), req);
   }
 });
+
+test("'Who am I' says who you are signed in as and what you are in the room (v1)", async () => {
+  const { whoAmI } = await import("../src/core/palette-commands.ts");
+  const room = (me: object) => affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, ...me }], preset: "lines-beginner" } as never, header: { phase: "live", me: "m1" } as never });
+  assert.equal(whoAmI(room({ owner: true, spectator: false }), { me: { name: "Ada", email: "ada@example.test" }, roomCode: "ABC123" }), "You are Ada (ada@example.test), the owner and a player in room ABC123.");
+  assert.match(whoAmI(affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: false, spectator: true }], preset: "lines-beginner" } as never }), { me: { name: "Bo" }, roomCode: "ABC123" }), /^You are Bo, a spectator in room ABC123\.$/);
+  assert.equal(whoAmI(affordanceContext({ signedIn: false, admin: false }), {}), "You are not signed in.");
+  const row = paletteCommands(room({ owner: true, spectator: false }), { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, me: { name: "Ada" }, roomCode: "ABC123" } as never).find(r => r.id === "account.whoami");
+  assert.ok(row && row.performer.kind === "form" && row.performer.page.kind === "info" && /You are Ada, the owner and a player in room ABC123/.test(String((row.performer.page as { lines: string[] }).lines[0])));
+});
+
+test("'Copy room link' is a row wherever a room is in view (v1)", () => {
+  let copied = 0;
+  const host = { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, roomCode: "ABC123", copyRoomLink: () => { copied++; } };
+  const row = paletteCommands(ctx, host as never).find(r => r.id === "room-copy-link");
+  assert.ok(row && row.human.title === "Copy room link" && row.performer.kind === "local");
+  row.performer.run();
+  assert.equal(copied, 1);
+  assert.equal(paletteCommands(affordanceContext({ signedIn: true, admin: false }), host as never).some(r => r.id === "room-copy-link"), false, "not without a room");
+});
