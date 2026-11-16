@@ -209,6 +209,8 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `view.closePane` | Close a pane | pane | client · room | member | room, planning, live, paused, ended, replay | write |
 | `view.movePane` | Move a pane | pane, place | client · room | member | room, planning, live, paused, ended, replay | write |
 | `view.arrangeDock` | Arrange the dock | dock, phase | client · room | member | planning, live, paused, ended, replay | write |
+| `view.twoPanels` | Layout: Two panels | — | client · room | member | planning, live, paused, ended, replay | write |
+| `view.resetLayout` | Reset layout | — | client · room | member | planning, live, paused, ended, replay | write |
 | `view.pinRepresentation` | Show objects in a representation | rep, family | client · room | member | planning, live, paused, ended, replay | write |
 | `view.showRepresentation` | Switch an object's representation | objectId, rep | client · room | member | planning, live, paused, ended, replay | write |
 | `view.compareRepresentations` | Compare representations side by side | objectId, reps | client · room | member | planning, live, paused, ended, replay | write |

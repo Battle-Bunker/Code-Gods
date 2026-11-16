@@ -96,6 +96,21 @@ try {
     } finally { await second.close(); }
   });
 
+  await check("the palette's \"Layout: Two panels\" and \"Reset layout\" (v1) rearrange the dock and put it back", async () => {
+    const dock = page.getByTestId("dock-desktop");
+    const run = async (title: string, id: string) => {
+      await page.keyboard.press("Control+K");
+      await page.getByTestId("input-palette").fill(title);
+      await page.getByTestId(`row-palette-${id}`).click();
+    };
+    const before = await dock.getAttribute("data-dock");
+    await run("Layout: Two panels", "view.twoPanels");
+    await page.waitForFunction(() => /^row\(column\(/.test(document.querySelector('[data-testid="dock-desktop"]')?.getAttribute("data-dock") ?? ""), null, { timeout: 10_000 });
+    await run("Reset layout", "view.resetLayout");
+    await page.waitForFunction(b => document.querySelector('[data-testid="dock-desktop"]')?.getAttribute("data-dock") !== b, (await dock.getAttribute("data-dock"))!, { timeout: 10_000 });
+    assert.notEqual(await dock.getAttribute("data-dock"), null, `before: ${before}`);
+  });
+
   await check("the panel menu is a combobox: it opens focused, Esc closes it, typing \"chat\" then Enter switches the pane to Public chat", async () => {
     const pane = (await openPanes(page)).find(id => id !== "assistant" && id !== "public-chat")!;
     await page.getByTestId(`button-pane-menu-${pane}`).click();
