@@ -159,11 +159,16 @@ export interface Term {
   readonly from: readonly ElementRef[];
 }
 
+/**
+ * What a rule draws on an object. `term` names the layer a mark belongs to (a layer's id is its term's id): a mark with
+ * none, or the main layer's, is the main part's; a mark labelled with a secondary is shown only while that secondary is
+ * dealt, so a family may mark every layer it computes.
+ */
 export type Mark =
-  | { readonly kind: "focus"; readonly ref: ElementRef }
+  | { readonly kind: "focus"; readonly ref: ElementRef; readonly term?: TermId }
   | { readonly kind: "measure"; readonly from: ElementRef; readonly to: ElementRef; readonly term: TermId }
   | { readonly kind: "candidate"; readonly ref: ElementRef; readonly term?: TermId }
-  | { readonly kind: "note"; readonly ref: ElementRef; readonly text: string };
+  | { readonly kind: "note"; readonly ref: ElementRef; readonly text: string; readonly term?: TermId };
 
 export interface EvalContext<S> {
   readonly state: S;
