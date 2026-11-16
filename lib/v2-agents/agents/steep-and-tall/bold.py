@@ -51,7 +51,7 @@ def agent(offer):
             if j != 0:
                 tries.append(([move("si.shift", k=k), move("si.tilt", k=j)], m + j, c + k))
     tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
-    options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
+    options = score_each(tries, lambda t: (t[0], score(t[1], t[2], p, tie)))   # each step and the score it reaches (fewer on a big line)
     # A promise: on these lines, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:
         options = [(plan, s) for plan, s in options if fair(offer, plan)]
