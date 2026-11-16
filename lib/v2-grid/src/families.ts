@@ -165,6 +165,7 @@ export function twoPair(n: number): RuleFamily<GridState, None> {
     const cells = readCells(ctx, n);
     // Each box's working: the pairs it makes (the best pairing), ✓ when they are two different pairs.
     gaps.refs.forEach((r, k) => {
+      if (bx[k]!.length < 4) return;   // a box too small to hold two pairs (the 2×2 test board) has no working to say
       const [a, b, c, d] = bx[k]!.map(i => cells.v[i]!) as [number, number, number, number];
       const pairings: [number, number, number, number][] = [[a, b, c, d], [a, c, b, d], [a, d, b, c]];
       const [w, x, y, z] = pairings.reduce((best, q) => (Math.abs(q[0] - q[1]) + Math.abs(q[2] - q[3]) < Math.abs(best[0] - best[1]) + Math.abs(best[2] - best[3]) ? q : best));
