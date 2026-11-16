@@ -23,7 +23,15 @@ const BUCKETS = [0.02, 0.1, 0.3, 1];
 
 interface Knot { readonly u: number; readonly bits: number }
 interface Cell { readonly u0: number; readonly n: number; readonly close: readonly Knot[]; readonly third: readonly { readonly edge: number; readonly knots: readonly Knot[] }[] }
-export interface TreeValue { readonly levels: readonly Knot[]; readonly cells: readonly Cell[]; readonly depth: number }
+/**
+ * `inner`: the most bits each part below the level may add (the coordinator's call, 16 Nov, on the spec lead's and the
+ * rule design session's measurements: an exact hit was worth 4 to 14 bits of closeness, most of the score, so a climb
+ * stopped at the first exact hit; capped, the level carries the score and the climb goes on). Capping only lowers bits,
+ * so bits ≤ the state's code length still holds.
+ */
+export interface TreeValue { readonly levels: readonly Knot[]; readonly cells: readonly Cell[]; readonly depth: number; readonly inner?: number }
+/** The default bound on each inner part, in bits. */
+export const TREE_INNER_BITS = 2;
 
 const num = (x: Q | null | undefined): number => (x === null || x === undefined ? -Infinity : Qn.toNumber(x));
 
@@ -50,7 +58,7 @@ function at(ks: readonly Knot[], v: number): number {
   return a === 0 ? 0 : ks[a - 1]!.bits;
 }
 
-export function buildTree(draws: readonly { u: Score; w: number }[]): TreeValue {
+export function buildTree(draws: readonly { u: Score; w: number }[], inner: number = TREE_INNER_BITS): TreeValue {
   const ok = draws.filter(d => d.u !== null && d.u[0] !== null) as { u: NonNullable<Score>; w: number }[];
   const depth = ok.reduce((m, d) => Math.max(m, d.u.length), 1);
   const levels = tailKnots(ok.map(d => ({ v: num(d.u[0]), w: d.w })), 400);
@@ -73,7 +81,7 @@ export function buildTree(draws: readonly { u: Score; w: number }[]): TreeValue 
     }
     cells.push({ u0, n: g.length, close, third });
   }
-  return { levels, cells, depth };
+  return { levels, cells, depth, inner };
 }
 
 export interface TreeLookup { bits: number; parts: number[]; borrowed: boolean }
@@ -86,12 +94,12 @@ export function treeLookup(t: TreeValue): (u: Score) => TreeLookup {
     while (a < b) { const h = (a + b) >> 1; if (t.cells[h]!.u0 <= u0) a = h + 1; else b = h; }
     cell = a > 0 ? t.cells[a - 1] : undefined;
     if (!cell) return { bits: b0, parts: [b0], borrowed: false };
-    const u1 = num(u[1]), b1 = u.length > 1 ? at(cell.close, u1) : 0;
+    const cap = t.inner ?? Infinity, u1 = num(u[1]), b1 = Math.min(cap, u.length > 1 ? at(cell.close, u1) : 0);
     let b2 = 0;
     if (u.length > 2 && cell.third.length) {
       // The tightest bucket whose edge this closeness reaches (at least as close as its edge).
       const bucket = cell.third.find(x => u1 >= x.edge) ?? cell.third[cell.third.length - 1]!;
-      b2 = at(bucket.knots, num(u[2]));
+      b2 = Math.min(cap, at(bucket.knots, num(u[2])));
     }
     return { bits: b0 + b1 + b2, parts: [b0, b1, b2].slice(0, u.length), borrowed: cell.u0 !== u0 };
   };

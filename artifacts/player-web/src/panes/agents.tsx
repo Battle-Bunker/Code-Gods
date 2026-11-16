@@ -10,7 +10,7 @@ import { objectWord, useAgentPrograms, useAgentCount, useGame, useGameScope, use
 import { useOpenPane } from "@/dock/open-pane";
 import { AffordanceButton, Tip } from "@/site/components/action";
 import { energyAmount } from "@/core/words";
-import { DEBT_TEXT, ENERGY_HOW, WORKING_TEXT, debtText, destroyConfirm, energyBar, energyExact, lessPower, morePower, percent, powerSentence, shareText, versionRows, workText } from "./agents-words";
+import { DEBT_TEXT, ENERGY_HOW, WORKING_TEXT, debtText, destroyConfirm, energyBar, energyExact, lessPower, morePower, percent, powerSentence, shareText, versionRows, workText, spentText, actualText, lastActText, actState } from "./agents-words";
 import { requestForge } from "./forge-request";
 
 function Energy({ value, testId }: { value: number; testId: string }) {
@@ -59,6 +59,11 @@ function AgentRow({ agent, power, free }: { agent: Agent; power: number | undefi
             </div>
           )}
           <p className="text-xs text-muted-foreground" data-testid={`text-agent-work-${agent.agentId}`}>{workText(e)}</p>
+          {/* v1 (baseline-1 #6): whether it can act now, what it spent on reading and on changing, its actual cost per move, its last move. */}
+          {live && <p className="text-xs font-medium" data-testid={`text-agent-state-${agent.agentId}`}>{actState(e)}</p>}
+          <p className="text-xs text-muted-foreground" data-testid={`text-agent-spent-${agent.agentId}`}>{spentText(e)}</p>
+          {actualText(e) && <p className="text-xs text-muted-foreground" data-testid={`text-actual-act-cost-${agent.agentId}`}>{actualText(e)}</p>}
+          {lastActText(e.lastAct) && <p className="text-xs text-muted-foreground" data-testid={`text-agent-last-act-${agent.agentId}`}>{lastActText(e.lastAct)}</p>}
         </>
       )}
       {/* v1's in-pane power buttons: more of your power to this agent, or half of its share back to you. */}

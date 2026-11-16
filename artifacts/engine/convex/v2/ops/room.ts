@@ -3,11 +3,11 @@ import { touchActivity } from "../activity";
 import { OpFailure } from "@workspace/v2-affordances";
 import { quotasOf, setQuotas } from "../spend";
 import { roomView } from "../rooms";
-import { DEFAULT_PRESET, isPreset, presetOf } from "../presets";
-import { playable } from "../deal";
+import { DEFAULT_PRESET } from "../presets";
 import { callerOf, defineOp, inRoom } from "./define";
 import { pageOf } from "./paging";
-import { changeSettings, createRoom, joinRoom, leaveRoom, setSpectator as setSpectatorIn } from "../lobby";
+import { requireSetup } from "./setups";
+import { changeSettings, checkPreset, createRoom, joinRoom, leaveRoom, setSpectator as setSpectatorIn } from "../lobby";
 
 export const { op: list, as: listAs } = defineOp("room.list", "query", async (env, a) => {
   const { ctx } = env, caller = callerOf(env);
@@ -23,12 +23,6 @@ export const { op: list, as: listAs } = defineOp("room.list", "query", async (en
   }
   return { page: rows, nextCursor: page.isDone ? null : page.continueCursor };
 });
-
-/** A deployed preset (v2/setups:presets lists them). */
-function checkPreset(preset: string | undefined) {
-  if (preset !== undefined && !isPreset(preset)) throw new OpFailure(`No preset ${preset}.`, "Pick one of the deployed presets (v2/setups:presets).");
-  if (preset !== undefined && !playable(presetOf(preset))) throw new OpFailure(`${presetOf(preset).title} is not playable yet: its rules have no value functions on this deployment.`, "Pick one of the deployed presets (v2/setups:presets).");
-}
 
 export const { op: create, as: createAs } = defineOp("room.create", "mutation", async (env, a) => {
   checkPreset(a.preset);
@@ -69,8 +63,16 @@ export const { op: setSpectator, as: setSpectatorAs } = defineOp("room.setSpecta
 
 export const { op: settings, as: settingsAs } = defineOp("room.settings", "mutation", async (env, a) => {
   const { room } = inRoom(env);
+  if (a.setupId !== undefined) {
+    // v1's owner.settings({setupId}): the room takes the setup's settings (anyone's setup), as they are now, and its name.
+    if (a.preset !== undefined || a.overrides !== undefined) throw new OpFailure("Apply a setup or change the settings, not both.");
+    const setup = await requireSetup(env.ctx, a.setupId);
+    checkPreset(setup.preset);
+    await changeSettings(env.ctx, room, { preset: setup.preset, overrides: setup.overrides, setup: { setupId: setup._id, name: setup.name } });
+    return { ok: true as const };
+  }
   checkPreset(a.preset);
-  await changeSettings(env.ctx, room, a);
+  await changeSettings(env.ctx, room, { preset: a.preset, overrides: a.overrides });
   return { ok: true as const };
 });
 

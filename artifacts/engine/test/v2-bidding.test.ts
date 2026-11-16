@@ -186,3 +186,24 @@ test("v1's private bid results: while live nobody sees another player's handicap
   assert.equal(after.handicapsHidden, false);
   assert.equal(after.rows.find((r: any) => r.memberId === boId).handicap, 30, "after the end everything is shown");
 });
+
+test("v1's bidding time: any setup may bid (bidSeconds above 0), a bidding setup may not (0); a bidder may take back Done", { timeout: 120_000 }, async () => {
+  const [ada, bo, cy] = await humans("Time Ada", "Time Bo", "Time Cy");
+  const created = await perform(ada!, "room.create", { name: "Bidding time room", preset: "lines-beginner" });
+  const roomId = created.result.roomId;
+  for (const h of [bo!, cy!]) await perform(h, "room.join", { code: created.result.code });
+  for (const bad of [{ bidSeconds: 601 }, { bidSeconds: 2.5 }]) assert.equal((await perform(ada!, "room.settings", { overrides: bad }, { roomId }).catch((e: any) => e.data)).ok, false);
+  await perform(ada!, "room.settings", { overrides: { bidSeconds: 30 } }, { roomId });
+  assert.deepEqual((await perform(ada!, "game.start", {}, { roomId })).result, { gameId: null, bidPhase: true }, "a setup without bidding bids for 30 s");
+  const state = await bo!.query("v2/bids:state", { roomId });
+  assert.deepEqual([state.bidder, state.pricing], [true, "first"]);
+  await perform(bo!, "bid.done", {}, { roomId });
+  assert.equal((await bo!.query("v2/bids:state", { roomId })).done, true);
+  await perform(bo!, "bid.done", { done: false }, { roomId });
+  assert.equal((await bo!.query("v2/bids:state", { roomId })).done, false, "Change my bids");
+  await perform(ada!, "bid.cancel", {}, { roomId });
+  await perform(ada!, "room.settings", { preset: "lines-beginner-bidding", overrides: { bidSeconds: 0 } }, { roomId });
+  const started = (await perform(ada!, "game.start", {}, { roomId })).result;
+  assert.equal(started.bidPhase, false, "a bidding setup at 0 deals at once");
+  await perform(ada!, "game.end", { }, { gameId: started.gameId });
+});

@@ -234,6 +234,14 @@ function Scene({ p }: { p: P }): ReactElement {
   }
 
   const before = p.before;
+  // A coloured board: each tile in its colour, with the colour's letter (lib/v2-grid-boards).
+  const tint = s.cellColours ?? [];
+  // A move that only recolours a tile changes its colour element (r0c0.colour), not its number: mark that cell changed too.
+  const recoloured = (r: ElementRef): boolean => {
+    if (!tint.length || !before) return false;
+    const c = { ...r, name: `${r.name}.colour` };
+    try { return fmtValue(before(c)) !== fmtValue(q.values(c)); } catch { return false; }
+  };
   const cells = s.cells.map((r, i) => {
     const x = ox + (i % s.cols) * C, y = oy + Math.floor(i / s.cols) * C;
     let was: string | null = null;
@@ -241,9 +249,12 @@ function Scene({ p }: { p: P }): ReactElement {
       try { const b = before(r); if (fmtValue(b) !== shown(r)) was = fmtValue(b); } catch { was = null; }
     }
     return (
-      <g key={key(r)} className="cell" {...elAttrs(q, r)} data-member={members.has(i) ? "" : undefined} {...stop(r)} {...hover(q, r)}>
+      <g key={key(r)} className={tint[i] ? "cell tinted" : "cell"} {...elAttrs(q, r)} {...(recoloured(r) ? { "data-changed": "" } : {})} data-member={members.has(i) ? "" : undefined} {...stop(r)} {...hover(q, r)}>
+        {tint[i] && <rect className="cell-colour" x={x + 1} y={y + 1} width={C - 2} height={C - 2} rx={expanded ? 4 : 2} style={{ fill: tint[i]!.css }} />}
         <rect className="cell-bg" x={x + 1} y={y + 1} width={C - 2} height={C - 2} rx={expanded ? 4 : 2} />
-        <text className="digit" x={x + C / 2} y={y + C / 2 + g.digit * 0.36} fontSize={g.digit}>{shown(r)}</text>
+        {/* A tinted tile keeps its number left of centre and the colour's letter small in the corner, clear of each other. */}
+        <text className="digit" x={x + (tint[i] ? C * 0.42 : C / 2)} y={y + C / 2 + g.digit * 0.36} fontSize={tint[i] ? g.digit * 0.85 : g.digit} style={tint[i] ? { fill: tint[i]!.ink } : undefined}>{s.cellGlyphs?.[i] ?? shown(r)}</text>
+        {tint[i] && <text className="colour-letter" x={x + C - 2.5} y={y + C - 3} textAnchor="end" fontSize={Math.max(5, C * 0.26)} style={{ fill: tint[i]!.ink }}>{tint[i]!.letter}</text>}
         {was !== null && <text className="was" x={x + 4} y={y + 11}>{was}</text>}
         {expanded && glyphs(r) && <text className="mark-glyph" x={x + C - 4} y={y + 11}>{glyphs(r)}</text>}
         {title(r)}
@@ -312,7 +323,9 @@ function groupNoun(groups: readonly { kind: Kind }[]): string {
 function gridText(s: GridScene, values: (r: ElementRef) => ElementValue): string {
   const v = (r: ElementRef) => fmtValue(values(r));
   if (s.cells[0] && values(s.cells[0]).kind === "undefined") return v(s.cells[0]);
-  const rows = Array.from({ length: s.rows }, (_, r) => s.cells.slice(r * s.cols, (r + 1) * s.cols).map(v).join(" ")).join(" / ");
+  // A coloured board reads as the old game wrote it: "7R 3G …" (the glyph, then the colour's letter).
+  const cell = (r: ElementRef, i: number) => (s.cellGlyphs?.[i] ?? v(r)) + (s.cellColours?.[i]?.letter ?? "");
+  const rows = Array.from({ length: s.rows }, (_, r) => s.cells.slice(r * s.cols, (r + 1) * s.cols).map((x, j) => cell(x, r * s.cols + j)).join(" ")).join(" / ");
   const parts = [rows];
   if (s.right?.length) parts.push(`${s.rightTitle ?? "value"} per row: ${s.right.map(v).join(", ")}`);
   if (s.bottom?.length) parts.push(`${s.bottomTitle ?? "value"} per column: ${s.bottom.map(v).join(", ")}`);

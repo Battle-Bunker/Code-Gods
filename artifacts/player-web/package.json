@@ -34,7 +34,9 @@
     "e2e:v1-lobby": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v1-lobby.ts",
     "e2e:v1-game": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v1-game.ts",
     "e2e:v1-dock": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v1-dock.ts",
-    "e2e:v1-replay": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v1-replay.ts"
+    "e2e:v1-replay": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v1-replay.ts",
+    "e2e:v1-assistant-games": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v1-assistant-games.ts",
+    "e2e:v1-auto-update": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v1-auto-update.ts"
   },
   "devDependencies": {
     "@convex-dev/better-auth": "0.12.6",

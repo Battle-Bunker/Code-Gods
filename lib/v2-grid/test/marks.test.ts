@@ -48,6 +48,17 @@ test("Mirrormancer says which mirror pairs make a row's gap", () => {
   assert.deepEqual(notes, ["gap1: off by 4: 4 vs 8", "gap3: off by 6: 9 vs 3"]);
 });
 
+test("Opposite Nines says how far each pair is from 9; Strangers names the touching pairs that are not strangers", () => {
+  const s = gridType.decode("3113/0480/2222/9003");
+  const mainNotes = (id: string, params: object, tb: string) => evaluateObject(gridType, gridType.families.find(f => f.id === id)!, params, s, grid4, tb)
+    .sites[0]!.marks.flatMap(m => (m.kind === "note" && m.term === undefined ? [m.text] : []));
+  const on = mainNotes("opposite-nines", { T: 9 }, "mirror-nines");
+  assert.ok(on.every(t => /^adds up to \d+: \d+ (short|over)$/.test(t)), on.join(" | "));
+  const st = mainNotes("strangers", {}, "across-strangers");
+  assert.ok(st.length > 0 && st.every(t => /^\d of 4: /.test(t)), st.join(" | "));
+  assert.ok(st.some(t => /share|next-door|1|0/.test(t)), st.join(" | "));
+});
+
 test("Magic Eighteen and Two Pair show each unit's working: the sum or the pairs, ✓ when on target", () => {
   const s = gridType.decode("9117/4311/3224/4446");
   const notesOf = (id: string, tb: string) => evaluateObject(gridType, gridType.families.find(f => f.id === id)!, id === "magic-eighteen" ? { T: 18 } : {}, s, grid4, tb)

@@ -27,3 +27,10 @@ test("the tick's tug rows read as the summary's, without paging the act log (rou
     { number: 3, withNames: ["Practice partner 1"], flips: 2, mySpend: 1, practice: true },
   ]);
 });
+
+test("a server tug that only flipped between two states carries its move count (#967)", () => {
+  const out = tugsFromServer([
+    { number: 2, flips: 12, mySpend: 9, others: [{ memberId: "h1", name: "Ada" }], best: null, cycle: { a: "s", b: "t", moves: 27 } },
+  ], () => "human", st => st);
+  assert.deepEqual(out[0]!.cycle, { moves: 27 });
+});

@@ -153,3 +153,14 @@ export function decodeBoard(w: string): BoardState {
   if (widths.size !== 1) throw new SyntaxError(`Not a board: ${w}`);
   return widths.has(3) ? { sym, col, cards: true } : { sym, col };
 }
+
+/**
+ * A rule's parameters with its colours renamed to the board's first colours, in the order they appear: the law treats
+ * every colour alike (uniform), so a rule and its colour-renamed twin have exactly the same value function. Valuing the
+ * canonical twin gives colour peers identical values (equal opportunity, not equal up to sampling noise).
+ */
+export function canonicalColours<P>(params: P, v: Variant): P {
+  const names = paletteOf(v).map(c => COLOURS[c]!.name), map = new Map<string, string>();
+  const rename = (x: unknown) => (typeof x === "string" && names.includes(x) ? (map.get(x) ?? (map.set(x, names[map.size]!), names[map.size - 1]!)) : x);
+  return (params && typeof params === "object" ? Object.fromEntries(Object.entries(params as Record<string, unknown>).map(([k, x]) => [k, rename(x)])) : params) as P;
+}

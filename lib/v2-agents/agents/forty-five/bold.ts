@@ -23,7 +23,7 @@ function score(L, p, tie) {
 const FAR = 4;      // how far one move may go
 const QUOTES = 12;  // at most this many plans are priced (each price is a host call)
 const KINDS = ["turn","slide","translate"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
-const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
+const LEAVE = [];      // pairs your agent skips, e.g. [19] or [4, 9]: others may still move them
 const PROTECT = [];    // pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
 function agent(offer) {
