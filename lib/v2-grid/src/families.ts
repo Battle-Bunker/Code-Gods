@@ -61,14 +61,14 @@ export function mirrormancer(n: number): RuleFamily<GridState, Axed> {
   const shape: Shape<Axed> = {
     main: distance<Axed>("mirror", "every row (or column) reads the same backwards", p => `Every ${lineWord(p.axis)} should ${readsBack(p.axis)}, like 3 1 1 3.`, "mirror"),
     tieBreakers: [
-      more<Axed>("middle", "the middle lines' total", p => `The middle two ${otherWord(p.axis)}s should add up to as much as possible.`, "cells"),
+      more<Axed>("middle", "the middle columns' (or rows') total", p => `The middle two ${otherWord(p.axis)}s should add up to as much as possible.`, "cells"),
       primesTie(),
       zerosTie(),
       distance<Axed>("mirror-other-way", "the other way reads the same backwards too",
         p => `Every ${otherWord(p.axis)} should ${readsBack(p.axis === "rows" ? "columns" : "rows")} too, using at least two different numbers.`, "cells"),
       distance<Axed>("one-apart", "each end number one apart from the number beside it",
         p => `In each ${lineWord(p.axis)}, each end number and the number beside it should be one apart, like 4 5 5 4.`, "cells"),
-      distance<Axed>("small-middle", "the lines' middle numbers", p => `Each ${lineWord(p.axis)}'s middle pair should be as small as possible.`, "cells"),
+      distance<Axed>("small-middle", "the rows' (or columns') middle numbers", p => `Each ${lineWord(p.axis)}'s middle pair should be as small as possible.`, "cells"),
     ],
   };
   return family<Axed>("mirrormancer", "Mirrormancer", ["mirror", "cells"], shape, AXES.map(axis => ({ axis })), (ctx, p) => {
@@ -77,7 +77,7 @@ export function mirrormancer(n: number): RuleFamily<GridState, Axed> {
     noteEach(ctx, gaps, x => x === 0, x => `off by ${x}`);
     const cells = readCells(ctx, n);
     const lines = along(n, p.axis), middle = lines.flatMap(l => l.slice(1, n - 1));
-    totalOf(ctx, "middle", "the middle lines' total", cells, middle);
+    totalOf(ctx, "middle", `the middle ${otherWord(p.axis)}s' total`, cells, middle);
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
     countCells(ctx, "zeros", "0s on the board", cells, x => x === 0, false);
     const v = cells.v, back = (l: readonly number[]) => sumOf(l.slice(0, Math.floor(n / 2)).map((i, k) => Math.abs(v[i]! - v[l[n - 1 - k]!]!)));
@@ -100,7 +100,7 @@ export function magicEighteen(n: number): RuleFamily<GridState, AxedT> {
   const shape: Shape<AxedT> = {
     main: distance<AxedT>("lines", "every row (or column) adds up to the target", p => `Every ${lineWord(p.axis)} should add up to ${p.T}.`, "tally"),
     tieBreakers: [
-      more<AxedT>("first-line", "the first line the other way's total", p => `The first ${otherWord(p.axis)} should add up to as much as possible.`, "cells"),
+      more<AxedT>("first-line", "the first column's (or row's) total", p => `The first ${otherWord(p.axis)} should add up to as much as possible.`, "cells"),
       primesTie(),
       more("odd", "odd numbers on the board", "As many cells as possible should hold an odd number.", "cells"),
       distance<AxedT>("other-way", "the other way adds up to the target too", p => `The ${otherWord(p.axis)}s should add up to ${p.T} too.`, "tally"),
