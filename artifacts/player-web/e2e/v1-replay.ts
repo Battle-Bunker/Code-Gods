@@ -74,7 +74,7 @@ try {
     assert.ok(track.width > 720, `the track is wide (${track.width})`);
   });
 
-  await missing(["e2e-replay-shot"], "key moments are marked on the track (v2 marks only lead changes and summons: this game's track had none)", async () => {
+  await check("key moments are marked on the track (v2: lead changes and summons)", async () => {
     assert.ok(await page.locator('[data-testid^="replay-mark-"]').count() > 0, "key moments are marked");
   });
 
@@ -83,7 +83,7 @@ try {
     assert.equal(await applied(page), await endOf(page), "it opens at the end");
   });
 
-  await missing(["e2e-replay-shot"], "hovering the track names the moment (time · event)", async () => {
+  await check("hovering the track names the moment (time · event)", async () => {
     const track = (await page.getByTestId("input-replay-seek").boundingBox())!;
     await page.mouse.move(track.x + track.width / 2, track.y + track.height / 2);
     const tip = page.getByTestId("replay-scrub-tooltip");
