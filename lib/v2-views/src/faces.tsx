@@ -36,7 +36,9 @@ export function bitsLine(a: Annotation): string {
 export function partLine(p: Contributor): string {
   const g = `${partGlyph(p.depth)} ${p.name}:`;
   const said = p.source.filter(x => x.text);
-  if (p.distance && said.length) return `${g} ${p.source.length > 3 ? p.title : said.map(x => `${x.label} ${x.text}`).join(", ")} · ${p.distance}`;
+  const what = p.source.length > 3 ? p.title : said.map(x => `${x.label} ${x.text}`).join(", ");
+  // A distance that already names what was read ("y-intercept 32 is nearest 31; …") is said once.
+  if (p.distance && said.length) return p.distance.startsWith(what) ? `${g} ${p.distance}` : `${g} ${what} · ${p.distance}`;
   return `${g} ${p.title}: ${p.valueText}`;
 }
 
@@ -83,7 +85,7 @@ export function CompactFace<S, P>(props: CompactFaceProps<S, P>): ReactElement {
   const bits = bitsLine(a);
   return (
     <div className="v2v v2v-compact-face" data-scoring={a.score === null ? undefined : ""}>
-      <RepView type={props.rule.type} state={props.state} rep={rep} size="compact" site={site} marks={a.sites[site]!.marks} terms={e.terms} roles={rolesOf(parts)}
+      <RepView type={props.rule.type} state={props.state} rep={rep} size="compact" site={site} marks={a.sites[site]!.marks} terms={e.terms} roles={rolesOf(parts)} parts={parts}
         before={props.before} next={next ? next.after : undefined} />
       {bits && <div className="v2v-face-foot"><span className="v2v-rarity" data-worst={a.score === null ? "" : undefined} title={BITS_HELP}>{bits}</span></div>}
       {a.worst
@@ -416,7 +418,7 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
               {!depends.includes(id) && id !== rule.family.main.rep && <span className="v2v-panel-tag" data-other="">not read by your rule</span>}
             </h4>
             <RepView type={rule.type} state={state} rep={id} size="expanded" site={site} marks={marks} terms={e.terms}
-              roles={rolesOf(sel === null ? sa.parts : [sa.parts[sel]!])}
+              roles={rolesOf(sel === null ? sa.parts : [sa.parts[sel]!])} parts={sa.parts}
               before={props.before} next={first?.after} highlight={hl} onHover={onHover} />
           </section>
         ))}

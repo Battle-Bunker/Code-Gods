@@ -9,6 +9,8 @@ import json
 from fractions import Fraction
 
 _HOST = __host
+_STEPS_LEFT = __steps_left
+_STEP_BUDGET = __step_budget
 _DUMPS = json.dumps
 _LOADS = json.loads
 

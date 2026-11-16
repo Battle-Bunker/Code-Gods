@@ -132,3 +132,13 @@ test("tools prints runnable commands", async () => {
   assert.equal(await runRemoteCli(["tools"], e), 0);
   assert.equal(out.pop(), "view pin-representation  Show objects in a representation");
 });
+
+test("--game names the game a command acts on (an ended game, once the room has none in view); it travels as the game header", async () => {
+  const s = server(), { e } = env(s.fetch);
+  assert.equal(await runRemoteCli(["connect", "--room", "LINES"], e), 0);
+  assert.equal(await runRemoteCli(["--game", "g42", "game", "get"], e), 0);
+  const { GAME_SCOPE_HEADER } = await import("../src/mcp.ts");
+  assert.equal(s.calls.at(-1)!.headers[GAME_SCOPE_HEADER], "g42");
+  assert.equal(await runRemoteCli(["game", "get"], e), 0);
+  assert.equal(s.calls.at(-1)!.headers[GAME_SCOPE_HEADER], undefined, "without --game, the room's game in view");
+});

@@ -100,7 +100,7 @@ try {
       if (OUT) {
         // The long families section only twice (desktop light, phone dark) to keep the repository small.
         const long = (width === 1440 && scheme === "light") || (width === 390 && scheme === "dark");
-        for (const section of long ? ["story", "families", "dealt", "grids", "lenses", "pairs"] : ["story", "dealt", "lenses", "pairs"]) {
+        for (const section of long ? ["story", "families", "dealt", "grids", "lenses", "pairs", "tree"] : ["story", "dealt", "lenses", "pairs", "tree"]) {
           const s = page.locator(`[data-section=${section}]`);
           await s.screenshot({ path: `${OUT}/${section}-${width}-${scheme}.png` });
         }

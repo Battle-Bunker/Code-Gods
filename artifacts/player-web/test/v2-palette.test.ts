@@ -121,8 +121,32 @@ test("safe mode is a typed-only row that reloads the page with your panels off, 
   assert.equal(on.human.title, "Leave safe mode: run your panels");
 });
 
+test("a room code typed in the palette offers “Open room CODE”, which goes there (v1 parity: cmd-site-dyn-room-open)", async () => {
+  const { codeCommands } = await import("../src/core/palette-commands.ts");
+  const [row, ...rest] = codeCommands(" k7qx2 ");
+  assert.equal(rest.length, 0);
+  assert.equal(row!.human.title, "Open room K7QX2");
+  assert.deepEqual(row!.performer, { kind: "navigate", to: "/rooms/K7QX2" });
+  assert.deepEqual(codeCommands("summon an agent"), [], "a phrase is not a code");
+  assert.deepEqual(codeCommands("ab"), [], "too short");
+});
+
 test("a command's status reads as words: applied, or safe to send again (v1's 'Check a command's status…')", async () => {
   const { receiptWords } = await import("../src/core/palette-commands.ts");
   assert.equal(receiptWords({ applied: true, operation: "chat.send", result: null }), "That command (chat.send) went through.");
   assert.match(receiptWords({ applied: false, operation: null, result: null }), /safe to send it again/);
+});
+
+test("each file panel (src/panels/*.tsx) is a typed-only row, 'Open file panel: <id>', and the pane pick lists it (v1)", async () => {
+  const ctx = affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: true, spectator: false }], preset: "lines-beginner" } as never, header: { phase: "live", me: "m1" } as never });
+  const opened: string[] = [];
+  const host = { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, panes: { open: async (p: string) => { opened.push(p); }, close: async () => {} }, filePanels: ["my-bits"] };
+  const rows = paletteCommands(ctx, host as never);
+  const row = rows.find(r => r.human.title === "Open file panel: my-bits");
+  assert.ok(row && row.typedOnly && row.performer.kind === "submit");
+  await row.performer.run();
+  assert.deepEqual(opened, ["file:my-bits"]);
+  const open = rows.find(r => r.id === "view.openPane")!.performer;
+  assert.ok(open.kind === "form" && open.page.kind === "pick");
+  assert.ok((await open.page.options("")).some(o => o.id === "file:my-bits"));
 });

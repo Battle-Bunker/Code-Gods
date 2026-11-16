@@ -10,9 +10,10 @@
  */
 import type { Command, PaletteFormPage, Performer } from "@workspace/ui-kit/core";
 import { AFFORDANCES, paletteFor, type AffordanceContext, type AffordanceId, type OpOutcome, type PaletteEntry } from "@workspace/v2-affordances";
-import { PANES, PANE_IDS, storedPane, type PaneId } from "@workspace/v2-client";
+import { filePane, PANES, PANE_IDS, storedPane, type PaneId } from "@workspace/v2-client";
 import type { z } from "zod/v4";
 import { requestForge } from "../panes/forge-request.ts";
+import { roomPath } from "../site/lib/routes.ts";
 
 /** Reads that a pane shows live: the row opens that pane. */
 export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
@@ -47,6 +48,8 @@ export interface PaletteHost {
   noun?: { one: string; many: string };
   /** The viewer's stored panels (their one live list), so each enabled one can be opened as a pane. */
   storedPanels?: readonly { slug: string; title: string; enabled: boolean }[];
+  /** The file panels (src/panels/*.tsx) this copy of the app has; none in safe mode. */
+  filePanels?: readonly string[];
   /** Whether the page is in safe mode (?panels=off), and how to reload it in or out of it. */
   safeMode?: boolean;
   setSafeMode?(on: boolean): void;
@@ -89,6 +92,7 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
       options: () => [
         ...PANE_IDS.map(p => ({ id: p as string, label: PANES[p].title, detail: PANES[p].blurb, keywords: PANES[p].keywords })),
         ...openablePanels(host).map(p => ({ id: storedPane(p.slug), label: p.title, detail: "Your panel", keywords: [p.slug, "panel", "your panel"] })),
+        ...(host.filePanels ?? []).map(id => ({ id: filePane(id), label: id, detail: `File panel: src/panels/${id}.tsx`, keywords: [id, "file panel"] })),
       ],
       onPick: p => (panes ? (id === "view.openPane" ? panes.open(p) : panes.close(p)) : run(host, id, { pane: p })),
     };
@@ -172,6 +176,15 @@ export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Comm
       });
     }
   }
+  if (panes && ctx.game) {
+    // v1's "Open file panel: <id>", one per src/panels/*.tsx.
+    for (const id of host.filePanels ?? []) {
+      rows.push({
+        id: `file:${id}`, human: { title: `Open file panel: ${id}`, tooltip: `src/panels/${id}.tsx, as a pane.` }, group: "view", keywords: [id, "file panel"],
+        typedOnly: true, performer: { kind: "submit", run: () => panes.open(filePane(id)) }, available: () => ({ ok: true }),
+      });
+    }
+  }
   // v1's safe mode: reload the page with every panel of yours off (a panel that breaks the page can then be fixed), and back.
   const setSafeMode = host.setSafeMode;
   if (setSafeMode && ctx.game) {
@@ -185,4 +198,17 @@ export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Comm
     });
   }
   return rows;
+}
+
+/**
+ * Rows made from the typed query (v1's codeCommands): a code-shaped query offers "Open room CODE", which goes to that
+ * room (the room page offers to join). Shown to a signed-in human only (site/components/layout.tsx).
+ */
+export function codeCommands(query: string): Command[] {
+  const code = query.trim().toUpperCase();
+  if (!/^[A-Z0-9-]{4,36}$/.test(code)) return [];
+  return [{
+    id: `dyn:room:${code}`, human: { title: `Open room ${code}`, tooltip: "Goes to that room; you can join it there." },
+    group: "room", section: "goto", performer: { kind: "navigate", to: roomPath(code) }, available: () => ({ ok: true }),
+  } as Command];
 }

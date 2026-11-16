@@ -140,6 +140,25 @@ def peek(offer, rep, name, args=None, site=None):
     return offer.element(rep, name, args, site)
 
 
+def steps_left():
+    # The act's steps left (the agent's own code's lines and jumps); free, no host call.
+    return _STEPS_LEFT()
+
+
+def step_budget():
+    return _STEP_BUDGET()
+
+
+def score_each(tries, f):
+    # f of each try in order until 30% of the act's steps are used: fewer tries on a big line, not a failed act.
+    out, floor = [], 0.7 * step_budget()
+    for t in tries:
+        if steps_left() < floor:
+            break
+        out.append(f(t))
+    return out
+
+
 def goal(offer):
     return offer.my_rule()
 
