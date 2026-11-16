@@ -89,7 +89,7 @@ export type Execution = {
  * The backend's execution log (the admin log stream), collected in the background from now on: query executions by
  * identifier ("v2/play:object"). The cost gate reads its numbers here, never from client timings.
  */
-export async function executionLog() {
+export async function executionLog(types: readonly string[] = ["Query"]) {
   const page = async (cursor: number) => {
     const r = await fetch(`${URL_}/api/stream_function_logs?cursor=${cursor}`, { headers: { Authorization: `Convex ${ADMIN_KEY}` } });
     if (r.status !== 200) throw new Error(`the log stream answered ${r.status}`);
@@ -104,7 +104,7 @@ export async function executionLog() {
       if (p.entries.length >= 1000) behind = true;
       cursor = p.newCursor;
       for (const e of p.entries) {
-        if ((e.kind !== undefined && e.kind !== "Completion") || !e.identifier || !e.usageStats || e.udfType !== "Query") continue;
+        if ((e.kind !== undefined && e.kind !== "Completion") || !e.identifier || !e.usageStats || !types.includes(e.udfType ?? "")) continue;
         seen.set(e.identifier, [...(seen.get(e.identifier) ?? []), e]);
       }
       await new Promise(r => setTimeout(r, 100));
