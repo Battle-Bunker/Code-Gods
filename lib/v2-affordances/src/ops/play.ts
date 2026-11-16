@@ -50,12 +50,14 @@ export const playOps = [
 
   affordance({
     id: "rule.explain", title: "Explain my rule", group: "play", scope: "game",
-    description: "The caller's private rule: family, parameters, its layers (main goal, then secondary preferences in order), the card sentence, which representations it reads, and the handicap if it was won by bid. Its value curve is rule.values. Never reveals other players' rules.",
+    description: "The caller's private rule: family, parameters, its layers (main goal, then secondary preferences in order), the card sentence, which representations it reads, the handicap if it was won by bid, and any defence goal. Its value curve is rule.values. Never reveals other players' rules.",
     tooltip: "What your rule wants.", keywords: ["my rule", "goal", "card", "what do I want"],
     params: none,
     result: z.object({
       family: z.string(), params: z.record(z.string(), z.unknown()), layers: z.array(z.string()), card: z.string(), depends: z.array(z.string()),
       wonByBid: z.object({ handicap: z.number().int() }).nullable(),
+      defence: z.object({ family: z.string(), params: z.record(z.string(), z.unknown()), card: z.string() }).nullable().optional()
+        .describe("The defence goal dealt beside the rule (grids, when the room turns them on): what it costs you to have. null: none."),
     }),
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
   }),

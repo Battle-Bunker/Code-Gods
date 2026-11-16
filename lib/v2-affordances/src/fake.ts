@@ -315,7 +315,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "rule.explain": e => {
     const family = gameOf(e).rules[e.userId]!;
     const won = gameOf(e).auction?.wins[e.userId];
-    return { family, params: {}, layers: ["main"], card: `Your rule, ${family}, wants the gradient close to its target.`, depends: ["si"], wonByBid: won ? { handicap: won.handicap } : null };
+    return { family, params: {}, layers: ["main"], card: `Your rule, ${family}, wants the gradient close to its target.`, depends: ["si"], wonByBid: won ? { handicap: won.handicap } : null, defence: null };
   },
   "game.boardAt": (e, a) => {
     const g = gameOf(e);

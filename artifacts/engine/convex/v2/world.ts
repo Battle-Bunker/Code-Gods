@@ -18,7 +18,7 @@ export const DEFAULT_PENALTY_WEIGHT = 1;
 /** A game's w: its setting, else v1's default. */
 export const penaltyWeightOf = (game: { settings: object }): number =>
   (game.settings as { penaltyWeight?: number }).penaltyWeight ?? DEFAULT_PENALTY_WEIGHT;
-export interface Value { memberId: string; score: (string | null)[] | null; rarityBits: number; want: number; points: number }
+export interface Value { memberId: string; score: (string | null)[] | null; rarityBits: number; want: number; points: number; /** With a defence goal: the badness h in bits. */ badnessBits?: number }
 
 export const variantOf = (id: string) => findVariant(id).variant;
 /** The object type a variant belongs to (lines, grids): every state, birth and host of a game goes through it. */

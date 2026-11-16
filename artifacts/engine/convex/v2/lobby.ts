@@ -5,10 +5,10 @@ import { OpFailure } from "@workspace/v2-affordances";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { MAX_MEMBERS, MAX_PLAYERS, normaliseCode, userById } from "./access";
-import { bidDealer, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, policyDeal, practiceDeal, type SeatKind, rotatedDeal, ruleView, hasSeatingRule, seatingAligned, seatingClashes, type DealtRule, type PastDeal } from "./deal.ts";
+import { bidDealer, dealDefence, isGridVariant, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, policyDeal, practiceDeal, type SeatKind, rotatedDeal, ruleView, hasSeatingRule, seatingAligned, seatingClashes, type DealtRule, type PastDeal } from "./deal.ts";
 import { dealWithBids, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
 import { isPreset, presetOf } from "./presets.ts";
-import { typeOf } from "./world.ts";
+import { DEFAULT_PENALTY_WEIGHT, typeOf } from "./world.ts";
 import { summonPracticePartners } from "./agents.ts";
 import { makeFunctionReference } from "convex/server";
 import { newNoiseKey } from "./disclose.ts";
@@ -94,6 +94,8 @@ export async function setSpectator(ctx: MutationCtx, room: Doc<"v2Rooms">, membe
 export async function changeSettings(ctx: MutationCtx, room: Doc<"v2Rooms">, a: { preset?: string; overrides?: Doc<"v2Rooms">["overrides"] }) {
   if (a.preset !== undefined && !isPreset(a.preset)) throw new OpFailure(`No preset ${a.preset}.`, "Pick one of the deployed presets.");
   if (room.bidding) throw new OpFailure("The bid phase is open: the settings change once it closes.");
+  if (a.overrides?.defenceGoals && !isGridVariant(presetOf(a.preset ?? room.preset).variant))
+    throw new OpFailure("Defence goals are dealt on grids only.", "Pick a grids preset, or leave defence goals off.");
   const presetChanged = a.preset !== undefined && a.preset !== room.preset;
   await ctx.db.patch(room._id, {
     ...(a.preset !== undefined ? { preset: a.preset } : {}),
@@ -328,6 +330,11 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     pauseSeconds: room.overrides.pauseSeconds ?? DEFAULT_PAUSE_SECONDS,
     // The commit clause (v1's option, off by default).
     ...(room.overrides.commitClause ? { commitClause: true } : {}),
+    // Defence goals (v1, restored; owner-decisions call 1): grids only, off unless the room turns them on.
+    ...(o.defenceGoals && isGridVariant(preset.variant) ? {
+      defenceGoals: true, penaltyWeight: o.penaltyWeight ?? DEFAULT_PENALTY_WEIGHT,
+      ...(o.excludedDefenceFamilies?.length ? { excludedDefenceFamilies: o.excludedDefenceFamilies } : {}),
+    } : {}),
     // Births on a regular schedule on the beginner games (decision 31), else v1's stochastic births.
     ...(preset.regularBirths ? { regularBirths: true } : {}),
     timeScale,
@@ -350,12 +357,14 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     ...(rotation ? { rotation } : {}),
     artefacts: seats.map((m, i) => ({ memberId: m._id, ruleKey: rules[i]!.ruleKey, contentHash: rules[i]!.contentHash })),
   });
+  const defence = settings.defenceGoals ? dealDefence(preset.variant, seats.length, `${seed}:${number}`, settings.excludedDefenceFamilies ?? []) : null;
   for (const [i, m] of seats.entries()) {
     const rule = rules[i]!, view = ruleView(rule);
     await ctx.db.insert("v2Rules", {
       gameId, memberId: m._id, family: rule.family, params: rule.params, layers: view.layers, tieBreaker: rule.tieBreaker,
       ruleKey: rule.ruleKey, contentHash: rule.contentHash, title: view.title, card: view.card, depends: view.depends,
       primary: view.primary,
+      ...(defence ? { defence: defence[i]! } : {}),
       ...(won.has(m._id) ? { bid: won.get(m._id)!.percent, handicap: won.get(m._id)!.handicap } : {}),
     });
     await ctx.db.insert("v2Players", {

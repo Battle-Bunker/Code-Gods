@@ -130,7 +130,8 @@ function anchoredDeal(pool: readonly DealtRule[], seats: number, a: number, r: R
  * lib/v2-pair seating.ts, by family and dealt parameters).
  */
 export const hasSeatingRule = (variant: string): boolean => ["grid", "line", "pair"].includes(findVariant(variant).type.id);
-const isGrid = (variant: string) => findVariant(variant).type.id === "grid";
+export const isGridVariant = (variant: string) => findVariant(variant).type.id === "grid";
+const isGrid = isGridVariant;
 const isPair = (variant: string) => findVariant(variant).type.id === "pair";
 const familiesOf = (rules: readonly SeatedRule[]) => rules.map(r => r.family);
 /** The pairs of seated rules a variant's seating rule forbids; none where it has none. */
