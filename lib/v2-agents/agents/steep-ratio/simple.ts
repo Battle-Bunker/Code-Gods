@@ -1,5 +1,5 @@
 // Steep Ratio · Simple
-// Main part: one line a whole number of times as steep, on your pattern. Secondary preference: whichever you were dealt (that number shares a factor with the y-intercepts' gap; that number has a big smallest prime factor).
+// Main part: one line a whole number of times as steep, on your pattern. Secondary preference: whichever you were dealt (the y-intercepts' gap near a multiple of that number; that number has a big smallest prime factor; that number, without its factors of your number, has many prime factors).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -9,17 +9,20 @@
 // How good are the two lines L for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(L, p, tie) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
+  const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1
+  const core = n => { const Qb = BigInt(p.q), zero = BigInt(0); let m = BigInt(n); if (m < zero) m = -m; while (m > zero && m % Qb === zero) m /= Qb; return m; };   // without its factors of q
   if (f.ratio === null) return null;   // no ratio of gradients: no score
   const { score: main, n: k } = valuationLadder(f.ratio, p.q, p.r, 0, 2);   // the whole number of times (at least 2 either way) on your ladder
   // main: the level of the whole number of times as steep on your ladder (higher is better)
-  if (tie === "ratio-gap") return [main, f.ygap === null ? null : common(k, whole(f.ygap))];   // that number sharing a big factor with the y-intercepts' gap is better
+  if (tie === "ratio-gap") return [main, f.ygap === null ? null : Q.neg(offMultiple(f.ygap, mod1(k)))];   // a y-intercepts' gap near a multiple of that number (not 0) is better
   if (tie === "ratio-prime") return [main, spf(k)];   // that number with a big smallest prime factor is better
+  if (tie === "ratio-smooth") return [main, omega(core(k))];   // that number (without its factors of q) with many prime factors is better
   return [main];
 }
 
 const FAR = 2;      // how far one move may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["tilt","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
+const KINDS = ["tilt","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
 const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 

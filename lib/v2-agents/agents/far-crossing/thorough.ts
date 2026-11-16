@@ -1,5 +1,5 @@
 // Far Crossing · Thorough
-// Main part: the steeper line crosses the x-axis on your pattern. Secondary preference: whichever you were dealt (the x-intercepts' gap near a multiple of your number; the crossing's height near a multiple of your number).
+// Main part: the steeper line crosses the x-axis on your pattern. Secondary preference: whichever you were dealt (the x-intercepts' gap near a multiple of your number; the crossing's height near a multiple of your number; that x-intercept shares a factor with the steeper gradient).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -9,17 +9,19 @@
 // How good are the two lines L for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(L, p, tie) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
+  const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down
   if (f.rs === null) return null;   // the steeper line is flat: no score
   const { score: main, n: R } = ladder(f.rs, p.q, p.r);   // the x-intercept on your ladder
   // main: the level of the steeper line's x-intercept on your ladder (higher is better)
   if (tie === "far-gap") return [main, f.xgap === null ? null : Q.neg(offMultiple(f.xgap, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))];   // the gap between the x-intercepts near a multiple of q to the power one above your level is better
   if (tie === "far-height") return [main, f.y === null ? null : Q.neg(offMultiple(f.y, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))];   // a crossing height near a multiple of q to the power one above your level is better
+  if (tie === "far-steep") return [main, f.ms === null ? 0 : common(R, floor(Q.abs(f.ms)))];   // that x-intercept sharing a big factor with the steeper gradient is better
   return [main];
 }
 
 const FAR = 2;      // how far one move may go
 const QUOTES = 16;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["shift","tilt","stretch","turn","slide","combine","reflect","quarter","translate"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
+const KINDS = ["shift","tilt","stretch","turn","slide","combine","reflect","quarter","translate","zoom"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
 const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 

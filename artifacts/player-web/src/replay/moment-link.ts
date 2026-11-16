@@ -23,12 +23,15 @@ export function parseMoment(search: string): Moment {
   return { worldSeconds: Number.isFinite(n) && n >= 0 ? n : null, as: q.get("as") || null };
 }
 
-export type ReplayKey = "toggle" | "back" | "forward" | "start" | "end";
+export type ReplayKey = "toggle" | "back" | "forward" | "start" | "end" | "prevMoment" | "nextMoment";
 
 /** What a key press does in a replay, or null: never while typing or with a modifier (the palette's Ctrl+K stays its own). */
-export function replayKey(e: { key: string; target?: string; ctrl?: boolean; meta?: boolean; alt?: boolean }): ReplayKey | null {
+export function replayKey(e: { key: string; target?: string; ctrl?: boolean; meta?: boolean; alt?: boolean; shift?: boolean }): ReplayKey | null {
   if (e.ctrl || e.meta || e.alt) return null;
   if (e.target && ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(e.target)) return null;
+  // Shift+arrows jump between key moments (v1's "◆ prev / next ◆").
+  if (e.shift && e.key === "ArrowLeft") return "prevMoment";
+  if (e.shift && e.key === "ArrowRight") return "nextMoment";
   switch (e.key) {
     case " ": return "toggle";
     case "ArrowLeft": return "back";

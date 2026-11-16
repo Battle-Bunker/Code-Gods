@@ -1,5 +1,5 @@
 // Right Angle · Naive (for learning)
-// Main part: a right angle at whole x and y, y on your pattern. Secondary preference: whichever you were dealt (the corner's |x| + |y| has a big smallest prime factor; the corner's |x| + |y| shares a factor with the steeper gradient).
+// Main part: a right angle at whole x and y, y on your pattern. Secondary preference: whichever you were dealt (the corner's x near a multiple of its y; the corner's y shares a factor with the steeper gradient; the corner's |x| + |y| has a big smallest prime factor).
 // What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 // pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 // player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -12,16 +12,17 @@ function score(L, p, tie) {
   const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down
   if (f.offRight === null || f.x === null) return null;   // parallel lines never cross: no score
   const { score: main, n: Yc } = ladder(f.y, p.q, p.r, Q.add(f.offRight, dist(f.x)));   // a right angle at a grid point, y on your ladder
-  const t = Q.add(Q.abs(f.X), Q.abs(Yc));   // the corner's |x| + |y|
+  const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1
   // main: the corner's level: a right angle at a grid point, y on your ladder (higher is better)
-  if (tie === "corner-prime") return [main, spf(t)];   // a corner whose |x| + |y| has a big smallest prime factor is better
-  if (tie === "corner-steep") return [main, f.ms === null ? 0 : common(t, floor(Q.abs(f.ms)))];   // a corner whose |x| + |y| shares a big factor with the steeper gradient is better
+  if (tie === "corner-multiple") return [main, Q.neg(offMultiple(f.x, mod1(Yc)))];   // a corner whose x is near a multiple of its y (not 0) is better
+  if (tie === "corner-steep") return [main, f.ms === null ? 0 : common(Yc, floor(Q.abs(f.ms)))];   // a corner whose y shares a big factor with the steeper gradient is better
+  if (tie === "corner-prime") return [main, spf(Q.add(Q.abs(f.X), Q.abs(Yc)))];   // a corner whose |x| + |y| has a big smallest prime factor is better
   return [main];
 }
 
 const FAR = 4;      // how far one move may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["turn","slide","translate"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
+const KINDS = ["turn","slide","translate"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
 
 function agent(offer) {
   const L = pairOf(offer);          // the two lines, a·x + b·y + c = 0 each

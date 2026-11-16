@@ -36,6 +36,8 @@ export function useReplaying(): boolean {
   return useRuntime().context.context === "replay";
 }
 
+import { isUncertain, reportUncertain, withRequestId } from "./uncertain";
+
 const failed = (e: unknown): OpOutcome => outcomeOf(e) ?? { ok: false, error: { code: "failed", message: e instanceof Error ? e.message : String(e) } };
 
 const ViewContext = createContext<ViewState>(EMPTY_VIEW);
@@ -101,14 +103,23 @@ export function AffordanceRuntimeProvider({ context, scope, onSignIn, children }
       } catch (e) { undo(); return failed(e); }
     }
     const ref = opPath(id).public;
+    // A requestId on every operation that takes one, so the same command sent again applies at most once (#954).
+    const sent = withRequestId(a.params, args);
     try {
       switch (opKind(a)) {
         // A read is for models and the CLI (R7): the app shows the same data live in a pane, never as a one-off read.
         case "query": return { ok: false, error: { code: "refused", message: `${a.title}: the app shows this live in its pane.` } };
-        case "mutation": return await convex.mutation(makeFunctionReference<"mutation">(ref), { args: args ?? {}, ...where }) as OpOutcome;
-        default: return await convex.action(makeFunctionReference<"action">(ref), { args: args ?? {}, ...where }) as OpOutcome;
+        case "mutation": return await convex.mutation(makeFunctionReference<"mutation">(ref), { args: sent ?? {}, ...where }) as OpOutcome;
+        default: return await convex.action(makeFunctionReference<"action">(ref), { args: sent ?? {}, ...where }) as OpOutcome;
       }
-    } catch (e) { return failed(e); }
+    } catch (e) {
+      // No answer: it may or may not have applied. The banner offers the same command again (v1's retry-uncertain).
+      if (isUncertain(e) && (sent as { requestId?: string } | null)?.requestId) {
+        reportUncertain({ id, title: a.title, args: sent });
+        return { ok: false, error: { code: "failed", message: "The connection dropped before the answer came, so it may not have gone through. The banner at the top offers to send it again." } };
+      }
+      return failed(e);
+    }
   }, [convex, scopeKey, onSignIn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const runtime = useMemo((): AffordanceRuntime => ({ context: effective, perform }), [effective, perform]);

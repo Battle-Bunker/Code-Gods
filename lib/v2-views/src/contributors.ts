@@ -289,7 +289,9 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
     distance ??= "not on a rung yet";
   } else if (!isUndef(value)) {
     const v = N(value);
-    const near = neighbours(/prime/.test(kind) ? "prime" : "whole", Math.max(0, v - 8), v + 14).filter(x => x !== v);
+    // A bounded count's ruler ends where the count can end (Layer.most).
+    const most = layer.most?.(rule.params as never, rule.variant);
+    const near = neighbours(/prime/.test(kind) ? "prime" : "whole", Math.max(0, v - 8), most ?? v + 14).filter(x => x !== v);
     ruler = { value: v, valueText: `${valueText}`, refs: [{ at: v, label: readable(value), strong: true }, ...near.map(x => ({ at: x, label: readableN(x) }))] };
   }
 

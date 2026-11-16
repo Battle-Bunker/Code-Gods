@@ -233,3 +233,14 @@ test("a ladder's tie-breaker is worth its rarity given the level past the best k
   const look = valueLookup(vf);
   assert.ok(look([q(5), q(8)]).bits > look([q(5), q(2)]).bits + 4, "at the top a better tie-breaker is worth more");
 });
+
+test("a distance tie-breaker's curve climbs by halvings of the distance to its target, from any floor", () => {
+  // Found on the energy gate (two-line-systems.md §13): one sampled draw at −2.6 × 10¹⁹ made the floor of a "near a
+  // multiple" tie-breaker, and on a size's axis every ordinary distance was worth 25 bits.
+  const draws: { u: Score; w: number }[] = [{ u: [q(4), q(-(10n ** 19n))], w: 1e-9 }];
+  for (let i = 0; i < 4000; i++) { const t = -(2 ** (i % 12)); draws.push({ u: [q(4), q(t)], w: 2 ** (i % 12) / 4096 }); }
+  const lv = tieBreakerLevels(draws, 3);
+  const far = tieBreakerBits(lv, 1, -3000), near = tieBreakerBits(lv, 1, -2), at = tieBreakerBits(lv, 1, 0);
+  assert.ok(far < 2, `${far} bits 3,000 away`);
+  assert.ok(near > far && at >= near && Number.isFinite(at), `${near} bits 2 away, ${at} on target`);
+});

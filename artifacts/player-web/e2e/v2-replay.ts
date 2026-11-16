@@ -117,6 +117,25 @@ async function driveReplay(page: Page, label: string, final: Record<string, stri
   await page.getByTestId("button-replay-back").click();
   await waitApplied(page, n => n === first, "a step back returns to the move before");
   console.log(`${label}: stepped ${first} → ${second} → ${first} of ${end}`);
+  // Key moments (v1's "◆ prev / next ◆"): each summon and lead change is marked on the slider; next ◆ goes to the
+  // next one after the playhead, ◆ prev back, and Shift+→ does what next ◆ does.
+  const marks = page.locator("[data-testid^=replay-mark-]");
+  assert.ok(await marks.count() > 0, `${label}: the replay marks its key moments (at least the summons)`);
+  assert.match(await page.getByTestId("text-replay-event").innerText(), new RegExp(`^event ${first} of ${end}$`));
+  if (await page.getByTestId("button-replay-next-moment").isEnabled()) {
+    await page.getByTestId("button-replay-next-moment").click();
+    const moment = await waitApplied(page, n => n > first, "next ◆ moves to a key moment");
+    await page.getByTestId("button-replay-prev-moment").click().catch(() => {});
+    const back = await waitApplied(page, n => n < moment, "◆ prev moves back");
+    // The keys are the page's, not a focused button's (a pressed button keeps the focus).
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press("Shift+ArrowRight");
+    await waitApplied(page, n => n > back, "Shift+→ jumps forward to a key moment");
+    console.log(`${label}: ${await marks.count()} key moments; next ◆ went to ${moment}`);
+    // Back to where the steps left it, for the playing checks below.
+    await page.keyboard.press("Home");
+    await waitApplied(page, n => n === 0, "Home returns to the start");
+  }
   await shot(page, `replay-${label}-step`);
 
   // Play at 8×, then pause: it stops where the playhead was, and stays there.
