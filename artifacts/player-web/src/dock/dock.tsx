@@ -15,6 +15,7 @@ import { EMPTY_VIEW, type ViewState } from "@workspace/v2-affordances";
 import { back as backOf, canBack, emptyHistory, isViewPane, observe, opsFor, restored, restoring, type History, type ViewOp } from "./history";
 import { toast } from "@/hooks/use-toast";
 import { isLoadingView } from "@/core/stored-view";
+import { sheetStep } from "./sheet";
 
 export type { PaneComponents, StoredPaneComponent } from "./pane-parts";
 
@@ -55,8 +56,13 @@ function StackedDock({ panes: all, phase }: { panes: string[]; phase: GamePhase 
   // Opened now (by the menu, the palette or a model) the sheet rises; open from before (the view is kept for the room) it
   // waits lowered, so a game never starts under it. After that it stays as the player leaves it.
   const [sheetOpen, setSheetOpen] = useState(false);
-  const hadSheet = useRef(sheet);
-  useEffect(() => { if (sheet && !hadSheet.current) setSheetOpen(true); hadSheet.current = sheet; }, [sheet]);
+  const loading = isLoadingView(useView());
+  const hadSheet = useRef<boolean | null>(null);
+  useEffect(() => {
+    const step = sheetStep(hadSheet.current, { sheet, loading });
+    if (step.rise) setSheetOpen(true);
+    hadSheet.current = step.had;
+  }, [sheet, loading]);
   const scroller = useRef<HTMLDivElement>(null);
   // A new phase opens at its first pane (round 26: at the buzzer the page stayed scrolled to the bottom, on Where am I,
   // with "How the game went" above the fold).
