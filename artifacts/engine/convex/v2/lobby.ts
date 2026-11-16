@@ -209,10 +209,6 @@ export async function nextDeal(ctx: QueryCtx, room: Doc<"v2Rooms">, seats: reado
 // ---------------------------------------------------------------- the bid phase (integration plan §5.9)
 
 /**
- * The owner's start on a preset with a bid phase: it opens the phase (the families on offer, the deadline) instead of
- * dealing. The deal happens when every human player is done or at the deadline (`closeBidding`).
- */
-/**
  * The room's bid phase (v1's bidSeconds, bidPricing, bidDisclosure): the preset's, with the room's settings over it, or
  * null when it has none. As in v1 any setup may bid (bidSeconds above 0) and a bidding setup may not (0).
  */
@@ -223,6 +219,10 @@ export function bidOf(room: Pick<Doc<"v2Rooms">, "preset" | "overrides">): Prese
   return { seconds, pricing: o.bidPricing ?? preset.bid?.pricing ?? "first", disclosure: o.bidDisclosure ?? preset.bid?.disclosure ?? "none" };
 }
 
+/**
+ * The owner's start in a room with a bid phase: it opens the phase (the families on offer, the deadline) instead of
+ * dealing. The deal happens when every human player is done or at the deadline (`closeBidding`).
+ */
 export async function openBidding(ctx: MutationCtx, room: Doc<"v2Rooms">) {
   const preset = presetOf(room.preset), bid = bidOf(room)!;
   if (room.bidding) throw new OpFailure("The bid phase is already open.");
