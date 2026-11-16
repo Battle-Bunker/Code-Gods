@@ -13,26 +13,26 @@ not to be restored.
 
 | v1 family | v1 status on the beginner board | v2 | Mark | Decision | Hrs |
 |---|---|---|---|---|---|
-| mirrormancer | dealt (Annotated basics) | `mirrormancer`, grids-beginner | SAME (family) | — | — |
-| magic_eighteen | dealt | `magic-eighteen`, grids-beginner | SAME (family) | — (call 17 "anchors" trial plans to fold it into Magic Totals; not done yet) | — |
-| opposite_nines | dealt | `opposite-nines`, grids-beginner | SAME (family) | — (call 17 trial plans to replace it with Pair Sums; not done yet) | — |
-| two_pair | dealt | `two-pair`, grids-beginner | SAME (family) | — | — |
-| spread_three | dealt | `spread-of-three`, grids-beginner | SAME (family) | — | — |
-| strangers | dealt | `strangers`, grids-beginner | SAME (family) | — | — |
-| leapfrog | dealt | `leapfrog`, grids-beginner | SAME (family) | — | — |
-| crosswise_threes | dealt | `crosswise-threes`, grids-beginner | SAME (family) | — | — |
-| kings_and_subjects (layered) | excluded from Annotated basics; dealt in "Tiered rules" | `kings-and-subjects`, grids-more-rules | CHANGED (setup) | call 13 (restore grids-more-rules) | — |
+| mirrormancer | dealt (Annotated basics) | `mirrormancer`, grids-beginner; `original-mirrormancer` on Grids · original colours, UNDEALT (a one-digit board is its top, §1e) | SAME (family) | — | — |
+| magic_eighteen | dealt | `magic-eighteen`, grids-beginner; `original-magic-eighteen`, Grids · original colours (as v1, §1e) | SAME (family) | — (call 17 "anchors" trial plans to fold it into Magic Totals; not done yet) | — |
+| opposite_nines | dealt | `opposite-nines`, grids-beginner; `original-opposite-nines`, Grids · original colours (as v1, §1e) | SAME (family) | — (call 17 trial plans to replace it with Pair Sums; not done yet) | — |
+| two_pair | dealt | `two-pair`, grids-beginner; `original-two-pair`, Grids · original colours (as v1, §1e) | SAME (family) | — | — |
+| spread_three | dealt | `spread-of-three`, grids-beginner; `original-spread-three`, Grids · original colours (as v1, §1e) | SAME (family) | — | — |
+| strangers | dealt | `strangers`, grids-beginner; `original-strangers`, Grids · original colours (as v1, §1e) | SAME (family) | — | — |
+| leapfrog | dealt | `leapfrog`, grids-beginner; `original-leapfrog`, Grids · original colours (as v1, §1e) | SAME (family) | — | — |
+| crosswise_threes | dealt | `crosswise-threes`, grids-beginner; `original-crosswise-threes`, Grids · original colours (as v1, §1e) | SAME (family) | — | — |
+| kings_and_subjects (layered) | excluded from Annotated basics; dealt in "Tiered rules" | `kings-and-subjects`, grids-more-rules; `original-kings-and-subjects`, Grids · original colours (as v1, §1e) | CHANGED (setup) | call 13 (restore grids-more-rules) | — |
 | staircase_climber | excluded on beginner board; dealt on Classic/Big/Master | `staircase`, grids-more-rules | CHANGED (setup) | call 13 | — |
 | mountain_climb | excluded on beginner; dealt elsewhere | `mountain-climb`, grids-more-rules | CHANGED (setup) | call 13 | — |
-| stepping_stones | excluded on beginner; dealt elsewhere | `stepping-stones`, grids-more-rules | CHANGED (setup) | call 13 | — |
+| stepping_stones | excluded on beginner; dealt elsewhere | `stepping-stones`, grids-more-rules; `original-stepping-stones`, Grids · original colours (as v1, §1e) | CHANGED (setup) | call 13 | — |
 | young_tableau ("Uphill") | excluded on beginner; dealt elsewhere | `uphill`, grids-more-rules | CHANGED (setup) | call 13 | — |
-| magic_accountant | excluded on beginner; dealt elsewhere | `magic-accountant`, grids-more-rules | CHANGED (setup) | call 13 | — |
+| magic_accountant | excluded on beginner; dealt elsewhere | `magic-accountant`, grids-more-rules; `original-magic-accountant`, Grids · original colours, target 18 only (§1e) | CHANGED (setup) | call 13 | — |
 | fillomino | excluded on beginner; dealt elsewhere | `fillomino`, grids-more-rules | CHANGED (setup) | call 13 | — |
 | divisibility_detective | excluded on beginner; dealt elsewhere | `divisibility` (powers of q in the board read as numbers), grids-arithmetic | CHANGED (redesigned, parameterised) | owner 41 (parameterised rules); grid-params.md §12 | — |
 | round_numbers | excluded on beginner; dealt elsewhere | nearest: `magic-totals` (totals leaving a dealt remainder), undealt | MISSING (as a dealt rule) | no recorded decision | 4 |
 | ladder_of_numbers | weak, excluded | nearest: `number-lines`, undealt | MISSING | no recorded decision (was weak in v1) | 3 |
 | column_addition | excluded on beginner | none | MISSING | no recorded decision | 4 |
-| number_bonds | excluded on beginner | none (nearest `pair-sums`, undealt) | MISSING | no recorded decision | 4 |
+| number_bonds | excluded on beginner | none (nearest `pair-sums`, undealt); `original-number-bonds` on Grids · original colours, UNDEALT (the all-5s board is its top, §1e) | MISSING | no recorded decision | 4 |
 | seesaw | excluded on beginner | lib/v2-grid/src/v1-seesaw.ts | PORTED, UNDEALT | a one-digit board tops it (16 Nov; presets.ts, test/v1-seesaw.test.ts) | 0 |
 | snap | excluded on beginner | none | MISSING | no recorded decision | 3 |
 | looking_glass | excluded on beginner | none | MISSING | no recorded decision | 3 |
@@ -142,6 +142,55 @@ not to be restored.
 | any_suit_parade (Any-Suit Parade) | games | playing-card board | MISSING | no recorded decision (integration plan §1.8 dropped non-beginner boards; audit §2.2) | 3 + board |
 | colour_seesaw (Colour Seesaw) | arithmetic | colour board | MISSING | no recorded decision (integration plan §1.8 dropped non-beginner boards; audit §2.2) | 3 + board |
 | i/t/l/s_piece_tamer (4 families) | geometry | colour board | MISSING | as above | 3 each + board |
+
+### 1e. v1's number families on the coloured board (Grids · original colours; boards worker, 16 Nov)
+
+v1's "Annotated colours" dealt its colour families beside twelve number families. All twelve are ported as v1 had them
+(lib/v2-grid-boards/src/families/v1-numbers-{a,b,c}.ts: v1's score, v1's one secondary or none, v1's parameters; they
+read numbers and ignore colour) with ids `original-<name>`, and registered in the preset; `UNDEALT` in
+lib/v2-grid-boards/src/presets.ts leaves out the ones below. Measured on board-4-base10-rgb with the committed value
+functions (lib/v2-valuation/values/board-4-base10-rgb/original-*): "Gate" is the energy gate's greedy climb on one
+seat's whole-game income (artifacts/engine/test/unit/v2-no-straight-hill.test.ts, limit 35 bits); "Top" is the bits of
+a hand-built board at the main part's maximum with the secondary at its best.
+
+| Family (dealt params / secondary) | Dealt | Gate | Top (a board that reaches it) |
+|---|---|---|---|
+| Mirrormancer (rows, columns / matching-pairs) | **no** | 19.2 / 18.7 | any one-digit board: 19.2 / 18.7. A uniform board tops both layers; births are a few moves from one |
+| Magic Eighteen (rows, columns, 18 / total-gap) | yes | 0.0 / 0.0 (the climber finds no step up) | 26.4 / 26.2 (9009/0990/9009/0990) |
+| Opposite Nines (9 / opposite-gap) | yes | 18.9 | 28.3 |
+| Two Pair (– / one-pairs) | yes | 15.4 | under 20 (3388/3388/1122/1122) |
+| Spread of Three (– / spread-gaps) | yes | 13.7 | under 20 |
+| Strangers (– / ones-beside-bigger) | yes | 0.8 | 31.1 (a 2/5 chessboard) |
+| Leapfrog (– / none) | yes | 15.8 | under 20 |
+| Crosswise Threes (– / fold-gaps) | yes | 16.3 | under 20 |
+| Magic Accountant (rows, columns, 18 / magic-distance) | yes, target 18 only | 0.0 / 0.0 | 26.5. Targets 16 and 20 (undealt): all 4s 20.9, all 5s 28.5; across 15–21 the peers' medians lie 1.6 bits apart (v2-params-equal) |
+| Number Bonds (10 / none) | **no** | 0.0 | the all-5s board (and a 1/9 chessboard): 53.5. Undealt on the digit grid too |
+| Stepping Stones (2 / none) | yes | 21.4 | 21.4 (a 0/2 or 1/3 chessboard: the climber reaches the top) |
+| Kings and Subjects (corners, 20 / court-gaps) | yes | 6.1 | under 20 |
+
+Every dealt top is bounded and under the gate's 35 bits (measured); like the digit grid's v1 baseline ("Known reachable
+tops" below), Stepping Stones' is reached by the greedy climber and the others' are known by formula. How this could be
+wrong: the tops were found by hand for each family, not by search, so a higher-scoring board may exist for a family
+marked "under 20"; the gate's climber sees only one-step gains, so a "0.0" there is a stalled climber, not a hard rule.
+
+**Check table** (docs/engine-v2/design-principles.md) for the ten dealt families. They are the original-rules baseline
+(coordinator's call 37): v1's shapes are kept on purpose, so rows 1, 3a and 4 fail by construction and are listed in
+the rule check's EXEMPT (artifacts/engine/test/unit/v2-rule-check.test.ts).
+
+| | Question | Answer for these ten |
+|---|---|---|
+| 1 | Main part unbounded? | No, by construction: every main part is a count on a 4×4 board of 0–9 (at most 4 to 24). Tops above |
+| 2 | Ladder climbed all game? | Not measured in play |
+| 3 | Tie-breaker defined by the main part's value? | Distance secondaries (Magic Eighteen, Opposite Nines, Spread of Three, Crosswise Threes, Magic Accountant, Kings and Subjects) measure how far the lines, pairs or boxes the main part counts are from its target: true by construction. Two Pair's and Strangers' count near misses of the main pattern. Leapfrog and Stepping Stones have none (v1) |
+| 3a | Secondaries | 0 or 1 each (v1's): exempt |
+| 4 | Dealt parameter sets | 1 or 2 (rows and columns) each (v1's; Magic Accountant one target of seven): exempt |
+| 5 | Perpendicular? | Not measured: no PMI table for board-4-base10-rgb (exempt, `5-unmeasured`) |
+| 6 | Families in tension | Magic Eighteen/Magic Accountant (middle totals) against Two Pair and Strangers (pairs of equal or coprime numbers); Opposite Nines (complements) against Leapfrog and Stepping Stones (neighbours 1 or 2 apart); the colour families read colours only, so they neither help nor hinder these ten: conjecture, not measured (no tension matrix for this board) |
+| 7 | Kinds and forms | Kinds (v2-rule-forms.ts): at most 3 per kind in the preset (symmetry, line-sums, pair-sums, box-pattern, spread, coprime, differences ×2, region ×2, box-sums). Forms: distance ×6 (exempt, v1's secondaries), count ×3, placement ×1 |
+| 8, 9, 10, 12, 13 | Reach, balance, bumps, card, rationals | Not measured for these; 13 (layer values ≥ 3 distinct over law draws) passes in the rule check |
+
+Marks: every dealt layer marks the cells it counts (lib/v2-grid-boards/test/marks.test.ts): the main part focuses what
+it counts, each secondary marks the lines, pairs or boxes it measures under its own id.
 
 ### 1d. v1 defence (penalty) families: an option, off by default (`defenceGoals: false`)
 
