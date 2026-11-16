@@ -9,7 +9,12 @@ import { fileIdOf, readingOrder, shownPanes, storedSlugOf, type GamePhase } from
 import { useRuntime, useView } from "@/core/affordance-runtime";
 import { useWide } from "@/core/use-wide";
 import { onReveal } from "./open-pane";
-import { DockScopeContext, PaneBody, PaneHeader, PaneMenu, usePaneName, type PaneComponents, type StoredPaneComponent } from "./pane-parts";
+import { DockScopeContext, PaneBackContext, PaneBody, PaneHeader, PaneMenu, usePaneName, type PaneBack, type PaneComponents, type StoredPaneComponent } from "./pane-parts";
+import { useAffordance } from "@workspace/v2-affordances/react";
+import { EMPTY_VIEW, type ViewState } from "@workspace/v2-affordances";
+import { back as backOf, canBack, emptyHistory, isViewPane, observe, opsFor, restored, restoring, type History, type ViewOp } from "./history";
+import { toast } from "@/hooks/use-toast";
+import { isLoadingView } from "@/core/stored-view";
 
 export type { PaneComponents, StoredPaneComponent } from "./pane-parts";
 
@@ -122,11 +127,54 @@ export function Dock({ phase, panes: components, stored: Stored, file: File }: {
       return C ? <C /> : <p className="p-4 text-sm text-muted-foreground">This pane is not on this version of the game yet.</p>;
     },
   }), [phase, view, open, components, Stored, File]);
+  const paneBack = usePaneBack(view);
   return (
+    <PaneBackContext.Provider value={paneBack}>
     <DockScopeContext.Provider value={scope}>
       {wide
         ? <Suspense fallback={<div className="h-full" data-testid="dock-loading" />}><DesktopDock phase={phase} /></Suspense>
         : <StackedDock panes={readingOrder(open)} phase={phase} />}
     </DockScopeContext.Provider>
+    </PaneBackContext.Provider>
   );
+}
+
+/**
+ * "Back to the previous view" (v1's pane history; history.ts): watches this screen's view for changes to a pane's own
+ * view (an assistant's, another screen's or the human's) and keeps the view before each, in this client only; going
+ * back runs the view operations that set it again.
+ */
+function usePaneBack(view: ViewState): PaneBack {
+  const [history, setHistory] = useState<History>(emptyHistory);
+  const before = useRef<ViewState | null>(null);
+  useEffect(() => {
+    const was = before.current;
+    before.current = view;
+    // The empty view a screen draws before its stored one arrives is not a view to go back to.
+    if (was && !isLoadingView(was) && (was.objects !== view.objects || was.focus !== view.focus)) setHistory(h => observe(h, was, view));
+  }, [view]);
+  const handles: Record<ViewOp["id"], ReturnType<typeof useAffordance>> = {
+    "view.sortObjects": useAffordance("view.sortObjects"),
+    "view.filterObjects": useAffordance("view.filterObjects"),
+    "view.openObject": useAffordance("view.openObject"),
+    "view.compareRepresentations": useAffordance("view.compareRepresentations"),
+  } as never;
+  const runAll = (ops: ViewOp[]) => (async () => { for (const op of ops) await (handles[op.id] as { run(a: unknown): Promise<unknown> }).run(op.args); })();
+  const defaults = { objects: EMPTY_VIEW.objects };
+  return useMemo(() => ({
+    can: (pane: string) => canBack(history, pane),
+    back: (pane: string) => {
+      const b = backOf(history, pane);
+      if (!b || !isViewPane(pane)) return;
+      setHistory(restoring(b.history, pane, b.params));
+      void runAll(opsFor(pane, b.params))
+        .catch(() => { setHistory(h => restored(h, pane)); toast({ title: "Could not go back to the previous view", variant: "destructive" }); });
+    },
+    // Resetting is a change like any other: it can be taken back.
+    canReset: (pane: string) => pane === "objects" && JSON.stringify(view.objects) !== JSON.stringify(EMPTY_VIEW.objects),
+    reset: (pane: string) => {
+      if (pane !== "objects") return;
+      void runAll(opsFor("objects", defaults)).catch(() => toast({ title: "Could not reset the pane", variant: "destructive" }));
+    },
+  }), [history, handles, view.objects]);   // eslint-disable-line react-hooks/exhaustive-deps
 }
