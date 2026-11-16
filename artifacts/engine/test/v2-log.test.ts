@@ -30,7 +30,7 @@ test("every seated player reads every move, unattributed while live, with their 
 
   const [a, b] = [(await ada!.query("v2/play:log", { gameId, paginationOpts: page })).page, (await bo!.query("v2/play:log", { gameId, paginationOpts: page })).page];
   assert.deepEqual(a.map((r: any) => r.seq), b.map((r: any) => r.seq), "both players read the same rows: every move, theirs or not");
-  assert.ok(a.some((r: any) => r.kind === "move") && a.some((r: any) => r.kind === "born"));
+  assert.ok(a.some((r: any) => r.kind === "move") && a.some((r: any) => r.kind === "born"), `a move and a birth: ${JSON.stringify(a.map((r: any) => r.kind))}`);
   const moves = a.filter((r: any) => r.kind === "move");
   assert.ok(moves.some((r: any) => !r.mine), "Ada sees moves that are not hers");
   for (const [k, r] of a.entries()) {
