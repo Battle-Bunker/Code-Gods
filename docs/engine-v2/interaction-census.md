@@ -299,6 +299,88 @@ in place of Root Tilt if the pin should sit on the y-intercept; Near Origin only
 most triples with no joint place). How this could be wrong: grid rarity and the trial law are both narrow models; one
 seed per run; the "rich" verdict is generous (two places and PMI not near zero); and nothing here is play.
 
+## Third run: "lift + sideways, per part" (the owner's preferred basis, #1140), 16 November, late
+
+Script: `lib/v2-linear/scripts/sideways-census.ts` (`--instances 2 --starts 12`). Comparison only; nothing dealt changes.
+Labels: **built** (true by construction of the script), **seen** (narrow test: two instances a family, 12 random starts a
+state, a grid of |m| ≤ 20 in thirds and |c| ≤ 80 in halves), **guess**.
+
+How it is computed (built, and narrower than the trial's own code, which takes one-number readings with explicit
+targets): a state's class is every grid line scoring at least as well under the engine; lift is the line's height H
+(TRIAL_LOG), since engine families do not expose their reading; sideways is the mean, over random starts at the same
+height, of the cheapest route of up to two additions (tilt and/or shift) onto a class member near in height, priced by
+the trial's `callPrice`, with no shortcuts (an upper bound on the trial's search); "on" is the rule's best grid line,
+"off" that line shifted by 1, "half" the line at half its bits; ρ is Spearman's between energy and the law-weighted grid
+bits (the stand-in for tree closeness bits) over twelve states; the jump flag fires when one unit shift or tilt from the
+rule's top 5% moves its bits by 3 or more in the median.
+
+| family | instance | bits on / off / half | lift share on / off / half | sideways on / off / half | ρ(energy, tree bits) | median Δbits under one cheap move | jumps |
+|---|---|---|---|---|---|---|---|
+| prime-landing | {"ends":1} [shared-factor] | 23.0 / 6.3 / 11.7 | 0.15 / 0.34 / 0.20 | 5119.5 / 1749.4 / 3661.2 | 0.62 | 1.3 | no |
+| prime-landing | {"ends":1,"side":-1} [shared-factor] | 23.0 / 6.3 / 11.7 | 0.07 / 0.72 / 0.11 | 12520.7 / 354.6 / 7198.3 | 0.77 | 1.4 | no |
+| smooth-intercept | {"primes":[3,7]} [shared-factor] | 17.7 / 3.5 / 9.2 | 0.51 / 0.78 / 0.62 | 849.9 / 242.8 / 441.2 | 0.52 | 1.3 | no |
+| smooth-intercept | {"primes":[3,11]} [shared-factor] | 17.7 / 3.7 / 8.4 | 0.39 / 0.39 / 0.33 | 1392.0 / 1330.1 / 1520.3 | 0.72 | 0.9 | no |
+| square-area | {"ends":9} [shared-factor] | 17.0 / 1.7 / 9.1 | 0.14 / 0.95 / 0.40 | 4945.9 / 41.7 / 1283.4 | 0.48 | 1.4 | no |
+| whole-crossing | {"q":5,"r":1} [shared-factor] | 21.0 / 1.3 / 11.1 | 0.17 / 0.93 / 0.15 | 3620.2 / 60.3 / 5768.6 | 0.59 | 0.5 | no |
+| whole-crossing | {"q":5,"r":2} [shared-factor] | 14.7 / 4.2 / 8.0 | 0.18 / 0.33 / 0.09 | 3982.2 / 1780.9 / 12409.7 | 0.16 | 0.6 | no |
+| treasure | {"k":3} [shared-factor] | 23.6 / 2.5 / 11.9 | 0.15 / 0.04 / 0.03 | 6710.8 / 26822.5 / 44201.9 | 0.54 | 7.2 | yes |
+| treasure | {"k":3,"side":-1} [shared-factor] | 23.6 / 2.3 / 11.9 | 0.08 / 0.46 / 0.24 | 13112.9 / 1238.7 / 2868.0 | 0.63 | 7.2 | yes |
+| same-on-both-rulers | {"meets":1,"digits":"odd"} [shared-factor] | 21.3 / 0.2 / 11.8 | 0.09 / 1.00 / 0.04 | 8804.4 / 0.0 / 31769.7 | 0.38 | 1.4 | no |
+| same-on-both-rulers | {"meets":1,"digits":"even"} [shared-factor] | 18.6 / 4.6 / 9.3 | 0.17 / 0.61 / 0.10 | 3898.5 / 505.6 / 9343.0 | -0.14 | 1.6 | no |
+| prime-gradient | 9 [shared-factor] | 17.0 / 9.7 / 8.5 | 0.03 / 0.06 / 0.06 | 47279.1 / 19631.4 / 18643.1 | 0.82 | 2.3 | no |
+| prime-gradient | 3 [shared-factor] | 15.0 / 8.7 / 7.7 | 0.05 / 0.05 / 0.71 | 25191.4 / 22119.3 / 292.7 | 0.47 | 4.8 | yes |
+| prime-staircase | {"ends":1} [shared-factor] | 21.2 / 5.3 / 9.2 | 0.09 / 0.33 / 0.50 | 9096.4 / 1876.1 / 365.4 | 0.54 | 0.0 | no |
+| prime-staircase | {"ends":3} [step-back] | 18.4 / 2.4 / 6.4 | 0.15 / 0.35 / 0.56 | 5418.7 / 1804.7 / 159.9 | 0.37 | 0.2 | no |
+| ruler | {"ends":1} [shared-factor] | 22.6 / 0.0 / 11.3 | 0.10 / 1.00 / 0.06 | 8877.5 / 0.0 / 19685.4 | 0.70 | 4.6 | yes |
+| ruler | {"ends":3} [shared-factor] | 22.3 / 0.0 / 11.1 | 0.08 / 1.00 / 0.31 | 9737.2 / 0.0 / 2549.2 | 0.49 | 7.5 | yes |
+| pythagorean-area | {"ends":1} [shared-factor] | 17.8 / 5.7 / 9.7 | 0.23 / 0.34 / 0.26 | 2804.8 / 1594.2 / 2662.8 | 0.43 | 5.9 | yes |
+| pythagorean-area | {"ends":3} [same-ending] | 18.0 / 5.8 / 9.0 | 0.11 / 0.23 / 0.06 | 6622.8 / 2790.5 / 14790.5 | 0.73 | 6.8 | yes |
+| tree-nt-prime-top | ends = 31, over = 10 [closeness] | 18.1 / 17.1 / 9.0 | 0.29 / 0.20 / 0.39 | 2084.4 / 3333.2 / 1115.5 | 0.44 | 0.3 | no |
+| tree-nt-prime-top | ends = 69, over = 8 [closeness>leftover] | 18.1 / 17.1 / 9.0 | 0.10 / 0.11 / 0.29 | 7890.3 / 6415.0 / 1732.6 | 0.36 | 0.3 | no |
+| tree-nt-smooth-mixed | k = -6, primes = 2.5.19, part = 6/7 [closeness] | 22.8 / 22.8 / 11.4 | 0.03 / 0.10 / 0.17 | 36658.0 / 9258.3 / 4187.8 | 0.85 | 0.4 | no |
+| tree-nt-smooth-mixed | k = -2, primes = 13.17, part = 1/8 [closeness>count] | 22.8 / 22.8 / 11.0 | 0.15 / 0.09 / 0.67 | 6219.7 / 10258.6 / 262.4 | 0.77 | 0.3 | no |
+| tree-nt-tower | g = -1/3, u = 6, v = 1 [closeness] | 18.1 / 17.1 / 9.1 | 0.20 / 0.25 / 0.09 | 3132.9 / 2380.9 / 8394.2 | -0.13 | 0.1 | no |
+| tree-nt-tower | g = 1, u = 2, v = 7 [closeness>top] | 19.7 / 18.6 / 9.9 | 0.06 / 0.06 / 0.36 | 13182.0 / 13333.8 / 1323.9 | -0.06 | 0.1 | no |
+| tree-geo-rings | d = 9, u = 16, v = 63 [closeness>touch] | 14.0 / 12.9 / 7.0 | 0.17 / 0.18 / 0.23 | 2996.6 / 2974.6 / 2596.6 | -0.19 | 0.1 | no |
+| tree-geo-rings | d = 12, u = 77, v = 36 [closeness>axis] | 14.0 / 12.9 / 7.0 | 0.28 / 0.19 / 0.12 | 1670.6 / 2753.3 / 6210.4 | 0.10 | 0.1 | no |
+| tree-geo-legs | p = 9, q = 1, d = 4 [closeness] | 18.1 / 17.0 / 9.1 | 0.08 / 0.14 / 0.19 | 9612.1 / 5129.6 / 3453.5 | 0.30 | 0.2 | no |
+| tree-geo-legs | p = 1, q = 6, d = 1 [closeness>bottom] | 18.1 / 17.1 / 9.1 | 0.13 / 0.25 / 0.16 | 5532.3 / 2487.2 / 4340.2 | 0.05 | 0.3 | no |
+| tree-geo-quadrant | p = 4, q = 3 [closeness] | 18.1 / 17.1 / 9.1 | 0.14 / 0.09 / 0.25 | 5282.1 / 8008.2 / 2122.8 | 0.10 | 0.2 | no |
+| tree-geo-quadrant | p = 31, q = 22 [closeness>east] | 19.1 / 19.1 / 9.6 | 0.11 / 0.11 / 0.19 | 6658.5 / 6903.4 / 3481.4 | 0.20 | 0.2 | no |
+| tree-rep-borrowed | ends = 7, reads = x [closeness] | 18.1 / 17.1 / 9.1 | 0.13 / 0.18 / 0.08 | 5616.6 / 3759.1 / 10198.9 | 0.85 | 0.1 | no |
+| tree-rep-borrowed | ends = 229, reads = x [closeness>echo] | 15.6 / 13.1 / 7.8 | 0.43 / 0.37 / 0.41 | 982.4 / 1227.9 / 954.1 | 0.33 | 0.1 | no |
+| tree-rep-step | u = 3, v = 7 [closeness] | 12.8 / 11.7 / 6.4 | 0.03 / 0.10 / 0.07 | 35358.4 / 9280.0 / 15272.3 | 0.51 | 0.0 | no |
+| tree-rep-step | u = 4, v = 3 [closeness>crossing] | 20.5 / 12.7 / 10.2 | 0.14 / 0.17 / 0.20 | 5851.9 / 4478.1 / 3826.4 | 0.52 | 0.1 | no |
+| tree-rep-partway | reads = area, ladder = triangle, u = 7, v = 8 [closeness] | 18.1 / 17.1 / 9.1 | 0.24 / 0.06 / 0.10 | 2650.8 / 13411.5 / 7888.1 | -0.29 | 0.2 | no |
+| tree-rep-partway | reads = c, ladder = square, u = 1, v = 2 [closeness>flip] | 21.4 / 11.5 / 10.8 | 0.03 / 0.11 / 0.09 | 27287.4 / 7107.8 / 10458.4 | 0.49 | 0.1 | no |
+
+What it says:
+
+1. **Jumpy readings are the old ladders, not the tree families** (seen): Treasure (7.2), Ruler (4.6, 7.5), Pythagorean
+   Area (5.9, 6.8) and one Prime Gradient instance (4.8) move their bits by 3 or more under one cheap move from a good
+   state; every tree family stays at or below 0.4. Built: a "nearest target" primary changes by one step when a bump
+   crosses into the next basin, while a ladder off its rung falls below every rung. Square Area (redesigned) did not
+   flag on this grid (|m| ≤ 20; the reported m 101 → 102 jump is outside it).
+2. **Energy agrees with rarity for single-number readings and not for combined ones** (seen): ρ 0.4 to 0.85 for the
+   dealt ladders and for Smooth Mixed, Borrowed Bottom, Drawn Step and Prime Top; near 0 or negative for Tower (−0.13,
+   −0.06), Tangent Rings (−0.19, 0.10), Leg Ratio (0.30, 0.05), Quadrant Square (0.10, 0.20) and Part Way on the area
+   (−0.29), whose readings combine both numbers. This matches the trial's warning that combined readings are fragile.
+3. **Sideways dominates lift** (seen): lift share mostly 0.03 to 0.5. Under this basis a state's worth is mainly how far
+   it is from random lines of its own height, not how high it is.
+4. **On / off**: a unit shift off the best line keeps most bits for every tree family (18.1 → 17.1) and loses most of them
+   for the ladders (Prime Landing 23 → 6.3, Ruler 22.6 → 0.0): principle 11 again, seen on another measure.
+
+### The pool of 12, revised with the jump flag and the size-adversary gap (recommendation, guess until play)
+
+Prefer readings of one number that change smoothly under cheap moves. Against the proposal above: **Drawn Step
+replaces Leg Ratio** (single reading, ρ 0.5, no jumps; Leg Ratio's combined reading disagrees with rarity), and **Ruler
+and Pythagorean Area are flagged**: kept for coverage (distance, prime area) but first in line for the tree recast
+(Ruler (tuple) and a Pythagorean Area tuple exist or are cheap), since both jump. The fraction-native four become Prime
+Top, Borrowed Bottom, Drawn Step and Root Tilt, all single-number readings. The size-adversary gap stays the pool's main
+weakness: Prime Gradient (one jumpy instance) and Root Tilt are its only members pulling against "bigger"; Near Origin
+splits hardest but is a combined reading of |m| / |c| that fails a unit-shift bump, so it needs softening before it is
+a candidate (guess: read 1 over the crossing rounded to a whole number, or draw dense targets).
+
 ## Not covered
 
 - Grid Snap's secondary "snap-reach" (a grid family, reported by the app session): already at its top on most newborn
