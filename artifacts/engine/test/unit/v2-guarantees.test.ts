@@ -32,3 +32,8 @@ test("the beginner presets: 3 objects, a 600-second game, exact readings", () =>
   assert.ok(beginner.length >= 2, "lines and grids beginner presets exist");
   for (const p of beginner) assert.deepEqual([p.id, p.startingObjects, p.worldSeconds, p.peerNoiseVariance], [p.id, 3, 600, 0]);
 });
+
+test("the default setup is the beginner lines on line-q, rational coefficients (owner decision 2; v1-audit §1.4)", async () => {
+  const { DEFAULT_PRESET, presetOf } = await import("../../convex/v2/presets.ts");
+  assert.deepEqual([DEFAULT_PRESET, presetOf(DEFAULT_PRESET).variant], ["lines-beginner", "line-q"]);
+});

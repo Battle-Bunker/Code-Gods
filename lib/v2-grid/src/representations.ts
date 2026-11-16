@@ -117,7 +117,8 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
   const leapRep: Representation<GridState> = {
     id: "leaps", title: "each number and the number two cells along its row", scene: "grid", perSite: false,
     elements: lp.map(([a, b], k) => derived(`leap${k}`, `${cellLabel(n, b)} minus ${cellLabel(n, a)}`, s => s.cells[b]! - s.cells[a]!)),
-    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: lp.map(([a, b], k) => ({ cells: [a, b], el: ref("leaps", `leap${k}`) })) }),
+    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: lp.map(([a, b], k) => ({ cells: [a, b], el: ref("leaps", `leap${k}`) })),
+      groupTitle: "the number two cells along minus this one (− when it is smaller)" }),
   };
 
   const fp = folds(n);
@@ -127,7 +128,8 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
       ...fp.map(([a, b], k) => derived(`fold${k}`, `${cellLabel(n, a)} minus the cell it folds onto (${cellLabel(n, b)})`, s => s.cells[a]! - s.cells[b]!)),
       derived("line", "the fold line's total", s => sum(s, foldLine(n))),
     ],
-    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: [...fp.map(([a, b], k) => ({ cells: [a, b], el: ref("fold", `fold${k}`) })), { cells: foldLine(n), el: ref("fold", "line") }] }),
+    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: [...fp.map(([a, b], k) => ({ cells: [a, b], el: ref("fold", `fold${k}`) })), { cells: foldLine(n), el: ref("fold", "line") }],
+      groupTitle: "each cell minus the cell it folds onto (− when it is smaller), and the fold line's total" }),
   };
 
   // The board's halves (or odd and even rows and columns) read as numbers: Divisibility's and Leading Digits' readings, and their differences.

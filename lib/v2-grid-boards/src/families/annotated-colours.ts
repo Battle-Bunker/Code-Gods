@@ -32,7 +32,11 @@ export function parityPainter(): RuleFamily<BoardState, ParityParams> {
     const right: number[] = [];
     cells.v.forEach((x, i) => {
       const [want, wrong] = x % 2 === 0 ? [p.even, p.odd] : [p.odd, p.even];
-      if (cells.c[i] === want) { points++; right.push(i); } else if (cells.c[i] === wrong) points--;
+      if (cells.c[i] === want) { points++; right.push(i); } else if (cells.c[i] === wrong) {
+        points--;
+        // v1's fact: "odd numbers should be red: this one is blue" (the cell loses a point).
+        ctx.mark({ kind: "note", ref: cells.refs[i]!, text: `${x % 2 === 0 ? "even" : "odd"}, so it should be ${want}: −1` });
+      }
     });
     term(ctx, "dressed", "cells in their kind's colour, less cells in the other kind's", points, cells.refs);
     focus(ctx, cells, right);
@@ -57,7 +61,10 @@ export function colourMirror(): RuleFamily<BoardState, MirrorParams> {
     for (let k = 0; k < n; k++) {
       const run = Array.from({ length: n }, (_, j) => (p.axis === "rows" ? k * n + j : j * n + k));
       let matches = 0;
-      for (let j = 0; j < n >> 1; j++) if (cells.c[run[j]!] === cells.c[run[n - 1 - j]!]) matches++;
+      for (let j = 0; j < n >> 1; j++) if (cells.c[run[j]!] === cells.c[run[n - 1 - j]!]) {
+        matches++;
+        for (const i of [run[j]!, run[n - 1 - j]!]) ctx.mark({ kind: "focus", ref: cells.refs[i]!, term: "colour-pairs" });
+      }
       pairs += matches;
       if (matches === n >> 1) { mirrors++; lit.push(...run); }
     }

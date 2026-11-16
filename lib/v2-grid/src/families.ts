@@ -304,7 +304,7 @@ export function leapfrog(n: number): RuleFamily<GridState, None> {
   return family<None>("leapfrog", "Leapfrog", ["leaps", "cells"], shape, [{}], ctx => {
     const d = readAll(ctx, "leaps", lp.map((_, k) => `leap${k}`));
     ctx.term("leap", "how far each leap is from one apart, added up", q(sumOf(d.v.map(x => Math.abs(Math.abs(x) - 1)))), d.refs);
-    noteEach(ctx, d, x => Math.abs(x) === 1, x => `${Math.abs(x)} apart`);
+    noteEach(ctx, d, x => Math.abs(x) === 1, x => `${Math.abs(x)} apart, not 1`);
     const cells = readCells(ctx, n);
     totalOf(ctx, "first-column", "the first column's total", cells, rows(n).map((_, r) => at(n, r, 0)));
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
@@ -340,7 +340,7 @@ export function crosswiseThrees(n: number): RuleFamily<GridState, None> {
   return family<None>("crosswise-threes", "Crosswise Threes", ["fold", "cells"], shape, [{}], ctx => {
     const d = readAll(ctx, "fold", fp.map((_, k) => `fold${k}`));
     ctx.term("crosswise", "how far each folded pair is from 3 apart, added up", q(sumOf(d.v.map(x => Math.abs(Math.abs(x) - 3)))), d.refs);
-    noteEach(ctx, d, x => Math.abs(x) === 3, x => `${Math.abs(x)} apart`);
+    noteEach(ctx, d, x => Math.abs(x) === 3, x => `${Math.abs(x)} apart, not 3`);
     const line = ref("fold", "line");
     ctx.term("fold-line", "the fold line's total", q(readNum(ctx, line)), [line]);
     const cells = readCells(ctx, n);

@@ -336,6 +336,22 @@ try {
       await glossary.waitFor({ state: "detached", timeout: 5000 });
     });
 
+    await check(`${label}: "How scoring works" (v1's sheet) opens from the palette and closes`, async () => {
+      await page.goto(`${SITE}/`);
+      await page.getByTestId("button-avatar").waitFor();
+      await page.locator("body").click({ position: { x: 5, y: 300 } });
+      await page.keyboard.press("Control+K");
+      await page.getByTestId("input-palette").fill("How scoring works");
+      await page.keyboard.press("Enter");
+      const sheet = page.getByTestId("how-scoring-works");
+      await sheet.waitFor({ timeout: 10_000 });
+      assert.match(await sheet.innerText(), /your 3 bits × others' 2 bits = 6 points/);
+      await page.waitForTimeout(400);   // the dialog's opening animation
+      await shot(page, `v2-how-scoring-works-${label}`);
+      await page.keyboard.press("Escape");
+      await sheet.waitFor({ state: "detached", timeout: 5000 });
+    });
+
     await check(`${label}: planning shows one countdown and the owner's "Start the world now"`, async () => {
       const room = code();
       const g = convexRun("v2/testing:seedGame", { owner: me.subject, practice: 2, code: room, phase: "planning" });
