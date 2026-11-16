@@ -28,6 +28,13 @@ from commit history and PR bodies.
 
 ## Status, re-audited 15 November against `develop` 51249392
 
+This table is machine-checked. `docs/engine-v2/v1-audit-status.json` mirrors it row for row (item, title, status,
+the PRs and decision, call and trial numbers it names, the evidence) and adds, for every **restored** or **kept** row,
+the test files that would fail if that behaviour broke, or a `gap` saying what no test guards.
+`artifacts/engine/test/unit/v1-audit-status.test.ts` keeps the two in step: the same rows in the same order, every
+named decision, call and trial present in owner-decisions.md, every listed test file present, and no restored or kept
+row without a test or a stated gap (it prints the gaps). Change a row here and in the JSON together.
+
 Each §1 departure and §2 row, checked against the code as it now stands (not this file's older text). Verdicts:
 **restored** (with PR), **owner N** (a verbatim owner decision covers it), **call/trial N** (a coordinator's declared
 call or trial in owner-decisions.md), **kept** (v1 and v2 agree), **STILL MISSING** (with size and side).
@@ -103,7 +110,7 @@ delegation"; a call number below means the one whose subject is named.
 | §2.5 Step budget 500,000 | kept (owner 6) | lib/v2-sandbox limits.ts |
 | §2.5 Agent sees only its object | owner 6 | lib/v2-agents host.ts |
 | §2.5 At most 200 agents | call 35 (to restore) | as §1.15 |
-| §2.5 One pause per player, 180 s | restored (this PR): a pause ends by itself after the room's pauseSeconds (default 180), or earlier when the owner resumes; only a running game pauses | loop.ts pauseGame, pauseEnds; header pauseEndsAt |
+| §2.5 One pause per player, 180 s | restored (#873): a pause ends by itself after the room's pauseSeconds (default 180), or earlier when the owner resumes; only a running game pauses | loop.ts pauseGame, pauseEnds; header pauseEndsAt |
 | §2.5 Planning holds until sandboxes are warm | restored (#635) | readiness.ts; loop.ts allReady |
 | §2.6 At least 3 players | kept | presets.ts minPlayers |
 | §2.6 At most 8 players | restored (#629) | access.ts MAX_PLAYERS |
