@@ -53,7 +53,7 @@ def agent(offer):
             tries.append((move("cells.add", cell=NAME[i], k=k), edit(b, [i], lambda j: k)))
         for i in range(8):   # move k from a cell to its opposite, a half turn away (their total is kept)
             tries.append((move("turn.balance", pair="pair" + str(i), k=k), edit(b, [i, 15 - i], lambda j: -k if j else k)))
-    options = [(plan, score(b2, p)) for plan, b2 in tries]   # each step and the score it reaches
+    options = score_each(tries, lambda t: (t[0], score(t[1], p)))   # each step and the score it reaches (fewer on a big board)
     # A promise: on these boards, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:
         options = [(plan, s) for plan, s in options if fair(offer, plan)]

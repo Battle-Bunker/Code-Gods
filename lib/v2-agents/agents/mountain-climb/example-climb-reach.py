@@ -59,7 +59,7 @@ def agent(offer):
         for i2 in range(i + 1, 16):
             d = b[i2] - b[i]
             tries.append((move("cells.swap", a=NAME[i], b=NAME[i2]), edit(b, [i, i2], lambda j: -d if j else d)))
-    options = [(plan, score(b2, p)) for plan, b2 in tries]   # each step and the score it reaches
+    options = score_each(tries, lambda t: (t[0], score(t[1], p)))   # each step and the score it reaches (fewer on a big board)
     # A promise: on these boards, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:
         options = [(plan, s) for plan, s in options if fair(offer, plan)]

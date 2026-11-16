@@ -73,7 +73,7 @@ export const RULE_FORMS: Readonly<Record<string, FamilyForms>> = {
   // Lines (lib/v2-linear).
   "prime-landing": { kind: "large-prime", forms: { "shared-factor": "shares-factor" } },
   "smooth-intercept": { kind: "smooth", forms: { "shared-factor": "shares-factor" } },
-  "square-area": { kind: "square", forms: { spf: "factor-size", lpf: "factor-size", omega: "factor-count" } },
+  "square-area": { kind: "square", forms: { "shared-factor": "shares-factor" } },
   "whole-crossing": { kind: "base-ladder", forms: { "shared-factor": "shares-factor" } },
   treasure: { kind: "figurate", forms: { "shared-factor": "shares-factor" } },
   "same-on-both-rulers": { kind: "palindrome", forms: { "shared-factor": "shares-factor" } },

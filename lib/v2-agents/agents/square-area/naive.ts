@@ -1,5 +1,5 @@
 // Square Area · Naive (for learning)
-// Main part: area close to a square number. Secondary preference: whichever you were dealt (that square's root's smallest prime factor; that square's root's largest prime factor; prime factors of that square's root).
+// Main part: the triangle's area on as big a square ending in d as possible. Secondary preference: whichever you were dealt (the factor that square's root plus 1 shares with the x-crossing's whole part).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -9,16 +9,20 @@
 // How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (Q.isZero(m) || Q.isZero(c)) return null;    // no triangle: the worst score
-  const area = Q.div(Q.mul(c, c), Q.mul(2, Q.abs(m)));
-  const sq = near(area, square);                  // the square number nearest the area
-  if (sq === null) return null;                   // none within 10,000: hopeless
-  const main = Q.neg(Q.abs(Q.sub(area, sq)));
-  const f = factors(root(sq));                    // the prime factors of that square's root
-  // main: how far the triangle's area is from a square number (closer is better)
+  const legX = Q.abs(Q.div(c, m)), area = Q.div(Q.mul(legX, Q.abs(c)), 2);   // the triangle's base, and its area
+  const a = p.round ? Q.div(-1, 2) : 0;            // the window of r² is [r² + a, r² + a + 1)
+  const fl = BigInt(whole(Q.sub(area, Q.add(a, Q.div(1, 2)))));   // the area, rounded down (or off)
+  const s = BigInt(root(fl));                      // its whole square root
+  const r = BigInt(near(s, n => n > 1 && String(BigInt(n) ** 2n).endsWith(p.ends)));   // the nearest root above 1 whose square ends in p.ends
+  const level = p => { const D = Q.toString(p).length; let L = 0; while (((L + 1) * (L + 2)) / 2 <= D) L++; return Q.add(L, Q.div(Q.add(D - (L * (L + 1)) / 2, Q.div(p, Q.of(10n ** BigInt(D)))), L + 1)); };   // levels of digits: level L needs L(L + 1)/2
+  const w = Q.add(Q.of(r * r), a);                 // its window [w, w + 1)
+  const main = r === s && s * s === fl ? level(Q.of(fl)) : Q.neg(Q.cmp(area, w) < 0 ? Q.sub(w, area) : Q.sub(area, Q.add(w, 1)));
+  // main: the square above 1 ending in the rule's digit that the triangle's area rounds down (or off) to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far the area is from the window of the nearest such square's root
   return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
-    if (t === "spf") return f[0] ?? 1;   // a root whose smallest prime factor is big is better
-    if (t === "lpf") return f.at(-1) ?? 1;   // a root whose largest prime factor is big is better
-    if (t === "omega") return f.length;   // more prime factors in the root are better
+    if (t === "shared-factor") {   // that square's root plus 1 and the x-crossing's whole part: a bigger factor shared is better
+      const wx = whole(Q.div(Q.sub(Q.mul(2, legX), 1), 2));   // the x-crossing's whole part, ignoring its sign
+      return common(Q.of(r + 1n), wx);
+    }
     return null;
   })];
 }

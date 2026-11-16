@@ -196,21 +196,8 @@ test("the tail never over-pays the law: on lines it rises at most STEP bits per 
   assert.deepEqual([t.secondary.form, t.secondary.slope], ["linear", TAIL_CEILING]);
   assert.ok(Math.abs(t.secondary.unclamped! - 0.66) < 1e-9);
   assert.equal(tailOf(knots).secondary.slope, t.secondary.unclamped, "no ceiling off lines");
-  // The case found in play: line-q Square Area + spf at spf 367, whose witness y = −2x + 734 has φ ≈ 197.8.
-  const { readdirSync: ls, readFileSync: read } = await import("node:fs");
-  const { evaluateObject } = await import("@workspace/v2-core");
-  const { lineType, lineQ, squareArea, fromMC } = await import("@workspace/v2-linear");
-  const dir = new URL("../values/line-q/square-area/", import.meta.url);
-  const vf = JSON.parse(read(new URL(ls(dir).find(x => x.endsWith("-spf.json"))!, dir), "utf8"));
-  const witness = { lines: [fromMC(q(-2), q(734))] };
-  const score = evaluateObject(lineType, squareArea, {}, witness, lineQ, "spf").score;
-  assert.deepEqual(score, [q(0), q(367)]);
-  const bits = valueLookup(vf)(score).bits, phi = lineType.readLength(witness, lineQ);
-  assert.ok(bits <= phi, `spf 367: ${bits} bits against the witness's φ ${phi}`);
-  // spf is a prime: its tail is the code's own ½ bit per unit (Layer.measure), so 367 is worth nearly its witness's φ,
-  // not the ~26 bits a magnitude ramp gave (owner decision 30: an unbounded hill to climb).
-  assert.equal(vf.tail.secondary.measure, "prime");
-  assert.ok(bits >= phi - 12, `spf 367: ${bits} bits, within a few bits of the witness's φ ${phi}`);
+  // (The case found in play, line-q Square Area + spf at spf 367 with witness y = −2x + 734, left with that tie-breaker
+  // when Square Area became a window ladder, 15 Nov.)
   const t2 = tailOf(knots, TAIL_CEILING, { secondary: "prime" });
   assert.deepEqual([t2.secondary.form, t2.secondary.slope], ["linear", TAIL_CEILING]);
   assert.equal(tailOf([{ u: null, bits: 0 }, { u: ["0", "5"], bits: 4 }], TAIL_CEILING, { secondary: "prime" }).secondary.slope, TAIL_CEILING,

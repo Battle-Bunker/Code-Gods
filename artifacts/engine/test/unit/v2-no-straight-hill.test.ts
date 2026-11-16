@@ -31,8 +31,6 @@ const LIMIT = 35, STARTS = 3, MAX_STEPS = 80;
  * a root with a big prime factor, reached by shifts: 58.5 bits on line-q, 141–502 on line-q-lenses (15 Nov).
  */
 const OPEN: Record<string, string> = {
-  "square-area/lpf": "grids session, reported 15 Nov",
-  "square-area/spf": "grids session, reported 15 Nov",
 };
 const FACTORS = ["2", "3", "5", "7", "11", "13", "17", "10", "1/2", "1/3", "1/5", "1/10"];
 const AMOUNTS = ["1", "-1", "2", "-2", "10", "-10", "100", "-100", "1000", "-1000", "1/2", "-1/2"];
@@ -63,7 +61,8 @@ const PAIR_CALLS: Record<string, readonly Record<string, string>[]> = {
 
 /**
  * Grids (the grids session's menu, 15 Nov): every call of the grid's mutators whose amount, if it has one, is ±1, ±2 or
- * ±5 (cells.add, cells.swap, tally.add, tally.rotate, turn.spin, turn.balance, mirror.reverse, steps.tilt, boxes.add).
+ * ±5 (cells.add, cells.swap, tally.add, tally.rotate, turn.spin, turn.balance, mirror.reverse, steps.tilt, boxes.add, and
+ * since 16 Nov v1's restored tally.swap, windows.turn and rings.add; cells.trade is held back off the menu).
  */
 const GRID_AMOUNTS = new Set(["1", "-1", "2", "-2", "5", "-5"]);
 function gridCalls(type: ObjectType<unknown>, variant: ReturnType<typeof findVariant>["variant"]) {

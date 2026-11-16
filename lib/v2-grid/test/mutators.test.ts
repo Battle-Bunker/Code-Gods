@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { amountCode, applyCall, isInvalid, type Call } from "@workspace/v2-core";
+import { amountCode, applyCall, isInvalid, whichBits, type Call } from "@workspace/v2-core";
 import { gridType, grid4 } from "../src/index.ts";
 import { board, rowsOf } from "./helpers.ts";
 
@@ -16,10 +16,10 @@ test("cells.add adds to one cell and pays its size times a unit fee, plus half t
   const r = run("cells.add", { cell: "r0c0", k: "2" }) as { rows: string[]; price: { total: number; surcharge: number } };
   assert.deepEqual(r.rows, ["2120", "3001", "0000", "9000"]);
   assert.ok(near(r.price.surcharge, 1));
-  // which (log2 9) and the cell (4 bits) are o; k = 2 is twice a unit move's whole fee rate(o) (far moves are dear).
-  const rate = amountCode(Math.log2(9) + 4, 1, false).rate;
+  // which (log2 12) and the cell (4 bits) are o; k = 2 is twice a unit move's whole fee rate(o) (far moves are dear).
+  const rate = amountCode(whichBits(grid4, "cells.add") + 4, 1, false).rate;
   assert.ok(near(r.price.total, 2 * rate + 1), String(r.price.total));
-  assert.ok(rate > Math.log2(9) + 4 + 1 && rate < Math.log2(9) + 4 + 1.01, String(rate));
+  assert.ok(rate > whichBits(grid4, "cells.add") + 4 + 1 && rate < whichBits(grid4, "cells.add") + 4 + 1.01, String(rate));
   assert.ok(isInvalid(run("cells.add", { cell: "r3c0", k: "1" })), "past the cap");
   assert.ok(isInvalid(run("cells.add", { cell: "r0c0", k: "-1" })), "below 0");
 });

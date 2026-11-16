@@ -329,3 +329,104 @@ distance² exact hit is mispriced by 1 to 5 bits, and in the tree that error goe
   hits.
 - **A rule on a composite reading is fragile to a unit change in the coefficients**: C loses 6 bits when m moves from
   101 to 102 (the area moves by 37). Its closeness is measured in units of area, not of the line.
+
+# Lift + sideways (fourth trial mode, 16 November, evening)
+
+The owner: "if we measure expected distance from a random state at a similar height to the target utility class,
+won't that be a proxy for rarity of the utility level class?" Built in `lib/v2-linear/src/trial-sideways.ts` (tests
+`test/trial-sideways.test.ts`; numbers `scripts/trial-sideways-example.ts 300`); the mirror panel's fourth button.
+Labels: **[built]**, **[seen]** (narrow: 300 starts per cell, three hand-picked rules), **[guess]**.
+
+## As built
+
+- energy(s) = H(s) + sideways(s). H is the log height (g = 100 a doubling). sideways(s) is the mean, over random
+  lines at s's height, of the cheapest price into the class {u ≥ u(s)}. I used **the whole utility order**: a higher
+  basin, or the same basin at least as close. That was simpler than applying it per tree part.
+- **Starts**: the scale-free law conditioned on a height splits the height uniformly (Dirichlet(1,1,1)) between |m|,
+  |c| and the bottom number [derived for the continuous law]. Starts are redrawn until within one doubling of h.
+  **Routes are not restricted to the band.**
+- **(b) Sampled** [built]: up to two shortcuts (stretch ×2, ×3, ×½, ×⅓, ×−1, three mirrors, the m–c swap), then one
+  finishing move. The finishing move is an addition (tilt or shift), or a stretch by the exact ratio priced by the
+  factor's digits (the "rename"). Prices are the log mode's: game fee floored by the friction distance, plus lift.
+  **This is a bounded search, not the exact shortest path.** Without the rename it found routes costing millions,
+  so its result depends on what the menu offers.
+- **(a) Formula** for one-number readings [built]: the Dirichlet marginal of the reading's doublings, integrated
+  against min(one addition with its lift, a ratio stretch with its lift).
+
+## Results [seen]
+
+| Line (energy = H + sideways) | A gradient prime ending 1 | B 3s and 17s | C area square |
+|---|---|---|---|
+| on targets y = 101x + 867, H 1,643 | 1,985 (sideways 342; formula 262) | 2,467 (824; 518) | 2,921 (1,277) |
+| one unit off y = 102x + 866 | 1,968 (324) | 2,418 (773) | 2,937 (1,292) |
+| halfway y = 116x + 1122, H 1,700 | 2,013 (313) | 2,377 (677) | 2,992 (1,292) |
+| doubled, off targets y = 202x + 1734, H 1,843 | 2,245 (403) | 2,564 (721) | 3,144 (1,302) |
+| ten times, on targets y = 1021x + 7803, H 2,293 | 2,831 (538) | 3,375 (1,083) | 3,782 (1,489) |
+
+1. **Exact versus one off: no difference within noise**, and halfway scores the same too (A 342 / 324 / 313).
+   **Energy rises with height**, through H and through sideways growing with the read number's size.
+2. **Sideways is not a proxy for rarity here.** The share of same-height starts already in the class is 14–39%,
+   which is 1.3–2.8 bits, and it barely changes between on-target and halfway. The rarity mode's tree bits change by
+   5–8 bits over the same lines. The conjecture "sideways ≥ rarity − 1 bit" cannot be tested as stated: sideways
+   comes out in hundreds of energy units, and rarity at height in 1–3 bits.
+3. **Sparsity does not show** [seen]. On a target at 12,101, suffix "101" gives sideways 1,738 and suffix "1" gives
+   1,684; powers of 2 at 1,024 give 1,064 against 928 for suffix "1" at 1,021. Sideways grows with the size of the
+   number, not with how sparse the targets are, and there was no saturation at the rename price.
+4. **Bigger-is-better is not about 0** [seen]: 575, 1,150 and 1,730 at c = 100, 1,000 and 10,000, about the same as
+   the target rules at the same size. Cause [built]: a same-height start whose height sits in the other number has to
+   move height across (dear in log mode: 30 a doubling of shape) or lift. So sideways measures how much shape change
+   reaching the reading's size takes, and that is the same for every rule on that number.
+5. **Composite readings just work** [seen]: the route search prices area like any other reading (sideways
+   1,277–1,489), with no atoms problem, because prices are not probabilities.
+- **(a) against (b)**: the formula is 40–50% below the samples, more so at larger sizes. It leaves out the
+  shape-change floor and the second number's own height, so it is a lower bound in practice [seen].
+
+## Why, and how this could be wrong
+
+- [built] The class {u ≥ u(s)} contains every higher basin. Most of its volume at any height is "bigger than s's
+  reading", so the price into it is dominated by the price of making the number that big. Exactness and sparsity
+  change only the thin slot inside s's own basin, which few same-height starts can enter cheaply.
+- [guess] Applying sideways per tree part should isolate the slot: closeness measured as the price from random
+  states in the same basin to "at least this close". It would then grow with the gap, like the rarity mode's
+  closeness. I did not build it.
+- How this could be wrong:
+  - The route search is bounded at two shortcuts plus one finish. Better routes, such as several halvings or a swap
+    then a stretch, could lower some starts' prices.
+  - The band is a Dirichlet split rounded to whole numbers, not the exact conditional law.
+  - All figures come from three rules and 300 starts per cell.
+
+## Per part (the coordinator's follow-up: the band on the reading, not the line)
+
+The whole-order version priced moving height between numbers. The per-part version changes three things
+(`sidewaysPerPart`, `partRule`; numbers from `node --experimental-strip-types lib/v2-linear/scripts/trial-sideways-part.ts 200`):
+- **energy** = g·log2(1 + reading) + sideways;
+- **starts** are lines whose reading is within half a doubling of s's, with the other numbers drawn from the law;
+- **the class** is any target at or above s's target, at least as close as s is to its own target.
+
+B is measured without its third part. Results are [seen]: 200 starts, three rules. The additive fee is 4.4 per unit;
+"units" below is sideways divided by that fee.
+
+| Line | A: lift + sideways (units); tree closeness bits | B | C |
+|---|---|---|---|
+| on targets y = 101x + 867 | 667 + 66 (15); 4.95 | 976 + 267 (61); 8.09 | 1,186 + 224 (51); 6.38 |
+| one unit off | 669 + 60 (14); 3.37 | 976 + 269 (61); 6.50 | 1,184 + 26 (6); 0.43 |
+| halfway | 687 + 1 (0); 0.00 | 1,013 + 0 (0); 0.00 | 1,241 + 26 (6); 0.56 |
+| doubled, off targets | 767 + 66 (15); 0.37 | 1,076 + 10 (2); 0.07 | 1,286 + 32 (7); 0.87 |
+| ten times, on targets | 1,000 + 118 (27); 4.34 | 1,293 + 767 (175); 11.26 | 1,486 + 27 (6); 0.62 |
+
+- **Bigger-is-better** [seen, tested]: sideways is 38, 62 and 68 at c = 100, 1,000 and 10,000, against lifts of 666 to
+  1,329, with about half the starts already in the class. It is small, but not 0: starts half a doubling below pay a
+  little to come up.
+- **Ordering against conditional rarity** [seen]: the rank correlation of sideways with the tree's closeness bits,
+  over offsets 0 to 200 from a target, is 0.97 for B and 0.70 for A. A's dips come from the class definition: a far
+  offset that lands near the next prime ending in 1 is close to that target, which is the right answer.
+- **Exact against one off**: modest for coefficient rules (A 66 against 60, B 267 against 269, within noise). Not
+  modest for the area rule: C drops from 224 to 26 when m moves from 101 to 102, because the area moves by 37.
+- **Sparsity** [seen], on target at matched size near 5,000: suffix "1" gives 117, suffix "101" gives 699 and powers
+  of 2 give 861. Near 100: 56, 82 and 95. Sideways grows with sparsity.
+- **No saturation at the rename price** [seen]: a stretch onto a far target carries lift, so routes to sparse
+  targets keep growing.
+- **How this could be wrong**:
+  - The routes are bounded at two shortcuts plus one finish.
+  - The band is half a doubling, and narrowing it would lower bigger-is-better's residue.
+  - Rarity and sideways were compared on two rules and eleven offsets, so the 0.97 is narrow evidence.

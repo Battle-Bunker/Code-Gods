@@ -210,19 +210,19 @@ of the total), same β 0.05 (`v2-economy/charge.ts`). One-cell +1: v1 W 5.6 (7.1
 
 | v1 mutator (mono digits) | v2 | Mark | Decision | Hrs |
 |---|---|---|---|---|
-| add (cell, line, 2×2 square, ring, whole grid; no wrap) | `cells.add`, `tally.add` (rows/cols), `boxes.add` (corner boxes only) | CHANGED: no ring, no whole grid, no arbitrary 2×2 | owner 17 (amount ∝ size), 19 (potential prices); areas: no recorded decision | 3 |
+| add (cell, line, 2×2 square, ring, whole grid; no wrap) | `cells.add`, `tally.add` (rows/cols), `boxes.add` (corner boxes), `rings.add` (outer ring, centre, whole board; restored 16 Nov) | CHANGED: no arbitrary 2×2 square | owner 17 (amount ∝ size), 19 (potential prices); areas: no recorded decision | 3 |
 | swap_cells | `cells.swap` | CHANGED (price: flat 11.2 bits, a shortcut) | owner 25 | — |
 | shift_line (slide, wrap) | `tally.rotate` | SAME (priced as a choice) | owner 25 | — |
 | reverse_line | `mirror.reverse` | SAME | owner 25 | — |
 | turn_grid | `turn.spin` (7 turns and flips) | SAME | owner 25 | — |
-| swap_lines | none | MISSING | no recorded decision | 2 |
-| turn_block (spin/flip a 2×2 square) | none | MISSING | no recorded decision | 2 |
+| swap_lines | `tally.swap` (restored 16 Nov; priced as choices, 9.58 bits) | SAME | no recorded decision | 2 |
+| turn_block (spin/flip a 2×2 square) | `windows.turn` (restored 16 Nov; any of the nine 2×2 squares, 7 turns and flips; 9.56 bits) | CHANGED: no 3×3 squares | no recorded decision | 2 |
 | sort_line | none | MISSING | owner 19 (not invertible; would need a priced inverse) | 3 |
 | mirror_fold (copy half onto half) | none | MISSING | owner 19 (overwrite, not invertible) | — |
 | write (one symbol into an area) | none | MISSING | owner 19 (overwrite) | — |
 | step_rank (count on, wrapping) | none | MISSING | owner 11 (wrap breaks confinement) | — |
 | write_ramp (count along a line) | `steps.tilt` (relative: + 0, k, 2k, 3k) | CHANGED | owner 19 | — |
-| swap_symbols (trade every 3 for every 7 in an area) | none | MISSING | no recorded decision (a bijection; fits owner 25) | 3 |
+| swap_symbols (trade every 3 for every 7 in an area) | `cells.trade` | restored, held: code and tests in lib/v2-grid (`heldGridMutators`), off the menu until the Two Pair redesign (with it, Two Pair / apart reaches 53.3 bits for about 125⚡ in the energy gate) | no recorded decision (a bijection; fits owner 25) | 3 |
 | multiply / divide (Lab cost model only) | none on grids | MISSING | no recorded decision (owner 17 mixed costing applied to lines only) | 4 |
 | — | `turn.balance` (move k between opposite cells) | CHANGED (new) | grids.md §4 | — |
 | Colour/suit mutators (paint, recolour, swap_colours, hue_turn, pattern_line, motif, majority_line, paint_by_key, stamp, tally, blend, suit_swap, suit_set) | none | MISSING (no colour board) | as §3 | with the board |
