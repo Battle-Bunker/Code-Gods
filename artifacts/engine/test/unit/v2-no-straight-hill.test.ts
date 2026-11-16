@@ -64,7 +64,7 @@ const PAIR_CALLS: Record<string, readonly Record<string, string>[]> = {
 /**
  * Grids (the grids session's menu, 15 Nov): every call of the grid's mutators whose amount, if it has one, is ±1, ±2 or
  * ±5 (cells.add, cells.swap, tally.add, tally.rotate, turn.spin, turn.balance, mirror.reverse, steps.tilt, boxes.add, and
- * since 16 Nov v1's restored tally.swap, windows.turn, cells.trade and rings.add).
+ * since 16 Nov v1's restored tally.swap, windows.turn and rings.add; cells.trade is held back off the menu).
  */
 const GRID_AMOUNTS = new Set(["1", "-1", "2", "-2", "5", "-5"]);
 function gridCalls(type: ObjectType<unknown>, variant: ReturnType<typeof findVariant>["variant"]) {

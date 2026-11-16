@@ -177,7 +177,7 @@ const CLIMB_TS = (args: string, end: Ending, kind?: string) => end === "naive" ?
   "  }",
   "  return plans.length ? cheapest(offer, plans.slice(0, QUOTES)) : null;   // the cheapest of the best, or skip",
 ] : [
-  (kind === "thorough" || kind === "bold"
+  (kind === "thorough" || kind === "bold" || kind === "example"
     ? `  let options = scoreEach(tries, ([plan, b2]) => [plan, score(b2, ${args})]);   // each step and the score it reaches (fewer on a big board)`
     : `  let options = tries.map(([plan, b2]) => [plan, score(b2, ${args})]);   // each step and the score it reaches`),
   "  // A promise: on these boards, only steps that leave the other players at least as well off.",
@@ -293,7 +293,7 @@ const CLIMB_PY = (args: string, end: Ending, kind?: string) => end === "naive" ?
   "            plans.append(plan)             # as good as the best: the price decides",
   "    return cheapest(offer, plans[:QUOTES]) if plans else None   # the cheapest of the best, or skip",
 ] : [
-  (kind === "thorough" || kind === "bold"
+  (kind === "thorough" || kind === "bold" || kind === "example"
     ? `    options = score_each(tries, lambda t: (t[0], score(t[1], ${args})))   # each step and the score it reaches (fewer on a big board)`
     : `    options = [(plan, score(b2, ${args})) for plan, b2 in tries]   # each step and the score it reaches`),
   "    # A promise: on these boards, only steps that leave the other players at least as well off.",

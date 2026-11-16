@@ -13,7 +13,8 @@ function corpus(): GridState[] {
   const g = rng("grid-marks-corpus");
   let s = gridType.origin(grid4);
   const out: GridState[] = [];
-  for (let i = 0; i < 400; i++) { s = walkStep(gridType, grid4, s, g); if (i % 20 === 19) out.push(s); }
+  // 60 boards, 20 walk steps apart (20 were too few: a rare count, e.g. opposite-nines/different-splits, could miss them all).
+  for (let i = 0; i < 1200; i++) { s = walkStep(gridType, grid4, s, g); if (i % 20 === 19) out.push(s); }
   return out;
 }
 const termOf = (m: Mark): string | undefined => m.term;

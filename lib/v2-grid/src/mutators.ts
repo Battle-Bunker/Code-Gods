@@ -1,9 +1,9 @@
 /**
- * The grid's thirteen mutators (docs/engine-v2/grids.md §4), each tied to a representation: the nine of the first
- * build and four of v1's moves restored (swap two lines, turn a 2×2 square, trade two numbers in an area, add to a ring
- * or the whole board). Positions are choices (their
+ * The grid's twelve mutators (docs/engine-v2/grids.md §4), each tied to a representation: the nine of the first
+ * build and three of v1's moves restored (swap two lines, turn a 2×2 square, add to a ring or the whole board). A
+ * fourth, trading two numbers in an area (v1 swap_symbols), is restored but held back (gridMutators, below). Positions are choices (their
  * log2 is the move's handling fee, the same both ways); amounts are priced in proportion to their size (the call's
- * whole fee is rate·|k|: v2-core codes.ts, "far moves are dear"); v2-core adds "which" (log2 13) and the confining
+ * whole fee is rate·|k|: v2-core codes.ts, "far moves are dear"); v2-core adds "which" (log2 12) and the confining
  * surcharge (half the growth of the board's total). Every move's inverse is proposed with the same weight, so the
  * price list is an exact potential (owner decision 19; test/potential.test.ts).
  */
@@ -346,5 +346,12 @@ export const ringAdd: M = {
   inverse: { kind: "mutator", id: "rings.add", args: a => ({ ...a, k: -k(a) }) },
 };
 
-/** The thirteen, for an N×N board, in the order every grid variant offers them. */
-export const gridMutators = (n: number): readonly M[] => [add, swap, lineAdd, rotateFor(n), spin, balanceFor(n), reverse, tilt, boxAdd, lineSwap, squareTurnFor(n), tradeFor(n), ringAdd];
+/**
+ * The twelve, for an N×N board, in the order every grid variant offers them (so "which" is log2 12, and the birth
+ * walk draws from these). `cells.trade` (tradeFor) is restored but HELD BACK from the menu (the coordinator, 16 Nov):
+ * with it the energy gate's climber takes Two Pair / apart to its top, 53.3 bits, for about 125⚡ (trading small
+ * numbers for 9s keeps each box's two pairs). It waits for the Two Pair redesign; heldGridMutators lists it.
+ */
+export const gridMutators = (n: number): readonly M[] => [add, swap, lineAdd, rotateFor(n), spin, balanceFor(n), reverse, tilt, boxAdd, lineSwap, squareTurnFor(n), ringAdd];
+/** Restored moves held back from every grid variant's menu (above), with their code and tests kept. */
+export const heldGridMutators = (n: number): readonly M[] => [tradeFor(n)];

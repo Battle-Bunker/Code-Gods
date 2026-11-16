@@ -7,19 +7,28 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { amountCode, applyCall, isInvalid, whichBits, type Call } from "@workspace/v2-core";
-import { gridType, grid4 } from "../src/index.ts";
+import { gridType as menuType, grid4 as menuVariant, heldGridMutators, type GridState } from "../src/index.ts";
 import { board, rowsOf } from "./helpers.ts";
+
+// cells.trade is held back from the menu (mutators.ts gridMutators); its tests run on a board type that offers it
+// beside the twelve. The other three are checked on the real menu.
+const heldType = { ...menuType, mutators: [...menuType.mutators, ...heldGridMutators(4)] };
+const heldVariant = { ...menuVariant, mutators: [...menuVariant.mutators, ...heldGridMutators(4).map(m => m.id)] };
+const HELD = new Set(heldGridMutators(4).map(m => m.id));
+const typeOf = (id: string) => (HELD.has(id) ? heldType : menuType);
+const variantOf = (id: string) => (HELD.has(id) ? heldVariant : menuVariant);
+const gridType = heldType, grid4 = heldVariant;   // for argument codes and words (the same either way)
 
 const B = board("0120", "3001", "0000", "9000");
 type Ok = { rows: string[]; price: { total: number; surcharge: number; arg: number; which: number } };
 const run = (mutator: string, args: Record<string, string>, s = B) => {
-  const r = applyCall(gridType, grid4, s, { mutator, site: 0, args } satisfies Call);
+  const r = applyCall(typeOf(mutator), variantOf(mutator), s as GridState, { mutator, site: 0, args } satisfies Call);
   if (isInvalid(r)) return r;
   return { rows: rowsOf(r.result), price: r.price, result: r.result };
 };
 const ok = (x: ReturnType<typeof run>) => { assert.ok(!isInvalid(x), JSON.stringify(x)); return x as Ok & { result: typeof B }; };
 const near = (a: number, b: number) => Math.abs(a - b) < 1e-9;
-const which = (id: string) => whichBits(grid4, id);
+const which = (id: string) => whichBits(variantOf(id), id);
 const say = (id: string, args: Record<string, string>) => {
   const m = gridType.mutators.find(x => x.id === id)!;
   return m.describe(m.args(grid4).decode(args));
@@ -121,6 +130,13 @@ test("rings.add's fee is in proportion to |k| (a unit fee against which + the ri
   }
   const down = ok(run("rings.add", { ring: "all", k: "-1" }, board("1111", "1111", "1111", "1111")));
   assert.ok(near(down.price.total, rate) && down.price.surcharge === 0, "taking away: the same fee, no surcharge");
+});
+
+test("cells.trade is held back: the menu offers the twelve, with which = log2 12", () => {
+  assert.equal(menuVariant.mutators.length, 12);
+  assert.ok(!menuVariant.mutators.includes("cells.trade") && !menuType.mutators.some(m => m.id === "cells.trade"));
+  assert.ok(isInvalid(applyCall(menuType, menuVariant, B, { mutator: "cells.trade", site: 0, args: { area: "all", a: "0", b: "1" } })));
+  assert.ok(near(whichBits(menuVariant, "tally.swap"), Math.log2(12)));
 });
 
 test("every new move's arguments name their choices in people's words (the What-if picker)", () => {

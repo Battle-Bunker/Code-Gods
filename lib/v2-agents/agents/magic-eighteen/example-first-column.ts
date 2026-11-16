@@ -46,7 +46,7 @@ function agent(offer) {
     for (let i = 0; i < 8; i++) tries.push([move("tally.add", { line: LINE[i], k }), edit(b, LINES[i], j => k)]);   // add k to every cell of a row or column
   }
   for (let i = 0; i < 16; i++) for (let i2 = i + 1; i2 < 16; i2++) { const d = b[i2] - b[i]; tries.push([move("cells.swap", { a: NAME[i], b: NAME[i2] }), edit(b, [i, i2], j => (j ? -d : d))]); }   // swap two cells (the same as moving their difference from one to the other)
-  let options = tries.map(([plan, b2]) => [plan, score(b2, p)]);   // each step and the score it reaches
+  let options = scoreEach(tries, ([plan, b2]) => [plan, score(b2, p)]);   // each step and the score it reaches (fewer on a big board)
   // A promise: on these boards, only steps that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));
   // The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or null.
