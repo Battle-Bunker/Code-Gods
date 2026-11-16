@@ -76,9 +76,11 @@ export default function DesktopDock({ phase }: { phase: GamePhase }) {
     return true;
   }, [rt, kind, apply]);
 
+  const [ready, setReady] = useState(false);
   const onReady = useCallback((event: DockviewReadyEvent) => {
     api.current = event.api;
     apply(treeNow.current);
+    setReady(true);
   }, [apply]);
 
   // A gesture is a drag of a gutter or a tab, or a click on a tab: it starts with a pointer down on a gutter or on a tab
@@ -125,28 +127,33 @@ export default function DesktopDock({ phase }: { phase: GamePhase }) {
     };
   }, []);
 
-  // Maximise one pane over the others (v1): this screen only, nothing stored; Escape or the menu restores them.
-  // Dockview holds the state; `shown` re-renders the menus and marks the dock for the tests.
+  // Maximise one pane over the others (v1): the view's `maximised` (view.maximisePane, so the palette and an assistant
+  // can do it too); the arrangement is untouched. Escape or the menu restores the others. Dockview draws it; `shown`
+  // marks the dock for the tests.
+  const wanted = view.maximised ?? null;
   const [shown, setShown] = useState<string | null>(null);
-  const maximise = useMemo((): Maximise => ({
-    isMaximised: pane => !!api.current?.getPanel(pane)?.api.isMaximized(),
-    toggle: pane => {
-      const dock = api.current;
-      const panel = dock?.getPanel(pane);
-      if (!dock || !panel) return;
-      if (panel.api.isMaximized()) { dock.exitMaximizedGroup(); setShown(null); return; }
+  useEffect(() => {
+    const dock = api.current;
+    if (!dock) return;
+    const panel = wanted ? dock.getPanel(wanted) : undefined;
+    if (!panel) { if (dock.hasMaximizedGroup()) dock.exitMaximizedGroup(); setShown(null); return; }
+    if (!panel.api.isMaximized()) {
       if (dock.hasMaximizedGroup()) dock.exitMaximizedGroup();
       panel.api.setActive();
       panel.api.maximize();
-      setShown(pane);
-    },
-  }), [shown]); // eslint-disable-line react-hooks/exhaustive-deps
+    }
+    setShown(wanted);
+  }, [wanted, tree, ready]);
+  const maximise = useMemo((): Maximise => ({
+    isMaximised: pane => shown === pane,
+    toggle: pane => { void rt.perform("view.maximisePane", { pane }); },
+  }), [shown, rt]);
   useEffect(() => {
     if (!shown) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && api.current?.hasMaximizedGroup()) { api.current.exitMaximizedGroup(); setShown(null); } };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") void rt.perform("view.maximisePane", { pane: shown }); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [shown]);
+  }, [shown, rt]);
 
   return (
     <MaximiseContext.Provider value={maximise}>

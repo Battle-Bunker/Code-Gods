@@ -107,8 +107,9 @@ try {
     const before = await dock.getAttribute("data-dock");
     await run("Layout: Two panels", "view.twoPanels");
     await page.waitForFunction(() => /^row\(column\(/.test(document.querySelector('[data-testid="dock-desktop"]')?.getAttribute("data-dock") ?? ""), null, { timeout: 10_000 });
+    const two = (await dock.getAttribute("data-dock"))!;
     await run("Reset layout", "view.resetLayout");
-    await page.waitForFunction(b => document.querySelector('[data-testid="dock-desktop"]')?.getAttribute("data-dock") !== b, (await dock.getAttribute("data-dock"))!, { timeout: 10_000 });
+    await page.waitForFunction(b => document.querySelector('[data-testid="dock-desktop"]')?.getAttribute("data-dock") !== b, two, { timeout: 10_000 });
     assert.notEqual(await dock.getAttribute("data-dock"), null, `before: ${before}`);
   });
 

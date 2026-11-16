@@ -172,6 +172,13 @@ try {
     await page.keyboard.press("Escape");
     await page.locator("[data-testid=dock-desktop]:not([data-maximised])").waitFor({ timeout: 5_000 });
     assert.ok(await page.getByTestId("pane-objects").isVisible(), `${label}: Escape restores the others`);
+    // The palette's row (v1's "Maximise or restore this pane"): the largest pane, then the others back.
+    for (const want of ["[data-maximised]", ":not([data-maximised])"]) {
+      await page.keyboard.press("Control+K");
+      await page.getByTestId("input-palette").fill("Maximise");
+      await page.getByTestId("row-palette-view.maximisePane").click();
+      await page.locator(`[data-testid=dock-desktop]${want}`).waitFor({ timeout: 5_000 });
+    }
 
     await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
     await page.getByTestId("pane-results").getByText(/You finished/).waitFor({ timeout: 20_000 });
