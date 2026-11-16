@@ -7,6 +7,8 @@ export * from "./beginner.ts";
 export * from "./rational.ts";
 export * from "./rational2.ts";
 export * from "./frac-twin-fractions.ts";
+export * from "./frac-repeating-bottom.ts";
+export * from "./frac-nearly-whole.ts";
 export * from "./type.ts";
 export * from "./presets.ts";
 export * from "./sums.ts";
