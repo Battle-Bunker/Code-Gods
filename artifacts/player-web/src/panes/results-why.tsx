@@ -1,7 +1,8 @@
 /**
  * "Why: your best and worst lines" on the end page (v1's results, baseline-1 #7): the chart of your best lines' points
- * over the game, then each line's score as your bits × the others' want. The best are the first page of your lines by
- * points; each line's history is its own small read of the moves on it (play.objectMoves), never the act log.
+ * over the game, then each best and worst line's score as your bits × the others' want. The best are the first page of
+ * your lines by points, the worst the first page by fewest points ("least"), without the best; each best line's history
+ * is its own small read of the moves on it (play.objectMoves), never the act log.
  */
 import { forwardRef, useMemo } from "react";
 import { useAffordance } from "@workspace/v2-affordances/react";
@@ -11,7 +12,7 @@ import { usePaneOps } from "@/dock/open-pane";
 import { toast } from "@/hooks/use-toast";
 import { objectWord, useGame, useMyObjects, useObjectIds, useObjectMovesOf, useStandingsHistory } from "@/sdk";
 import type { Series } from "./chart-model";
-import { pointsOverGame } from "./results-why-model";
+import { pointsOverGame, worstWithout } from "./results-why-model";
 
 const N = 3;
 
@@ -19,6 +20,9 @@ export const ResultsWhy = forwardRef<HTMLDivElement>(function ResultsWhy(_props,
   const header = useGame();
   const ids = useObjectIds("points", N);
   const best = useMemo(() => ids.results.slice(0, N), [ids.results]);
+  const least = useObjectIds("least", N);
+  const worst = useMemo(() => worstWithout(least.results.slice(0, N), best), [least.results, best]);
+  const worstObjects = useMyObjects(useMemo(() => worst.map(o => o.objectId), [worst]));
   const objects = useMyObjects(useMemo(() => best.map(o => o.objectId), [best]));
   const moves = useObjectMovesOf(useMemo(() => best.map(o => o.number), [best]));
   const endWorld = useStandingsHistory().at(-1)?.worldSeconds;
@@ -36,7 +40,7 @@ export const ResultsWhy = forwardRef<HTMLDivElement>(function ResultsWhy(_props,
   };
   return (
     <section ref={ref} className="scroll-mt-2 space-y-2" data-testid="section-results-why">
-      <h3 className="font-medium">Why: your best {word.many}</h3>
+      <h3 className="font-medium">Why: your best and worst {word.many}</h3>
       {series.some(s => s.points.length > 1) && <LineChart series={series} height={150} label={`Your best ${word.many}' points over the game`} testId="results-why-chart" />}
       <p className="text-xs text-muted-foreground" data-testid="text-results-formula">
         The chart is these {word.many}' points over the game: they rise and fall as the board changes, so a peak can be higher than the end. Each {word.one}'s points: your bits × how much the others want it. Your total is every {word.one}'s points added up.
@@ -52,6 +56,22 @@ export const ResultsWhy = forwardRef<HTMLDivElement>(function ResultsWhy(_props,
           );
         })}
       </ul>
+      {worst.length > 0 && (
+        <>
+          <p className="pt-1 text-xs font-medium">Your worst {word.many}</p>
+          <ul className="space-y-1 text-xs" data-testid="list-results-worst">
+            {worst.map((o, i) => {
+              const v = worstObjects[i]?.value;
+              return (
+                <li key={o.objectId} className="flex items-center gap-2" data-testid={`row-results-worst-${o.number}`}>
+                  <button type="button" className="w-10 text-left font-mono text-muted-foreground hover:text-foreground" onClick={() => void open(o.objectId)}>#{o.number}</button>
+                  <span className="tabular-nums">{v ? scoreFormula(v.rarityBits, v.want) : "…"}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
     </section>
   );
 });
