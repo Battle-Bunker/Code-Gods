@@ -219,7 +219,10 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
     if (!reference || (src && Math.abs(v - N(src)) < Math.abs(reference.value - N(src)))) reference = { ref: c.ref, value: v, text: readableN(v) };
   }
   // The rule's own notes on this layer (a third preference's working: "31 × ¹⁄₃₁ = 1").
-  const layerNotes = e.marks.filter((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && m.term === term.id && i > 0).map(m => typesetNote(m.text));
+  // Only a working on one element: notes on several elements are per-unit notes (a grid's "2 apart" on each pair), which
+  // the board says beside each unit; joined into the card's sentence they made a paragraph.
+  const layerMarks = e.marks.filter((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && m.term === term.id && i > 0);
+  const layerNotes = new Set(layerMarks.map(m => refKey({ ...m.ref, site: undefined }))).size === 1 ? layerMarks.map(m => typesetNote(m.text)) : [];
 
   let distance: string | null = null;
   let ruler: RulerData | null = null;
