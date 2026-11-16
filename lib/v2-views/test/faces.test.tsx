@@ -210,3 +210,10 @@ test("a rule that does not score a line says what would make it score, with the 
   const expanded = text(renderToStaticMarkup(<ExpandedFace rule={ec} state={flat} />));
   assert.match(expanded, /does not score for your rule: .+\. To score: .+, for [\d,]+\.\d\d energy\./);
 });
+
+test("what the main part reads is always on the page, with its badge (W5: Ruler's distance² was drawn nowhere)", async () => {
+  const { ruler, lineQ: v } = await import("@workspace/v2-linear");
+  const r = { type: lineType, family: ruler as never, params: (ruler as never as { dealable: (x: unknown) => unknown[] }).dealable(v)[0], variant: v } as RuleRef<LineState, unknown>;
+  const html = renderToStaticMarkup(<ExpandedFace rule={r} state={mc(-4, 10)} improvement={false} />);
+  assert.match(html, /data-ref="norm\.dist2"[^>]*data-role="main"|data-role="main"[^>]*data-ref="norm\.dist2"/, "the distance² is listed, badged as the main part's");
+});
