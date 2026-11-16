@@ -25,6 +25,9 @@ export const scoreWireV = v.union(v.array(v.union(v.string(), v.null())), v.null
 export const callV = v.object({ mutator: v.string(), site: v.number(), args: v.record(v.string(), v.string()) });
 /** The room's overrides of its preset (affordance `room.settings`). */
 export const durationModeV = v.union(v.literal("fixed"), v.literal("halfLife"));
+export const retiredPointsV = v.union(v.literal("banked"), v.literal("dropped"));
+/** Line turnover (retirement-design.md), frozen in a game's settings: absent, every line stays live (today's game). */
+export const turnoverV = v.object({ liveCap: v.number(), retiredPoints: retiredPointsV, retiredHolds: v.boolean() });
 export const overridesV = v.object({
   planningSeconds: v.optional(v.number()), worldSeconds: v.optional(v.number()), startingEnergy: v.optional(v.number()),
   durationMode: v.optional(durationModeV), scoreIntervalSeconds: v.optional(v.number()),
@@ -40,6 +43,8 @@ export const overridesV = v.object({
   pauseSeconds: v.optional(v.number()),
   /** Offer the commit clause (v1, off by default): agents may mark acts only-if-better. */
   commitClause: v.optional(v.boolean()),
+  /** Defence goals (v1, restored; owner-decisions call 1): grids only, off by default; the penalty weight w (absent: 1). */
+  defenceGoals: v.optional(v.boolean()), penaltyWeight: v.optional(v.number()), excludedDefenceFamilies: v.optional(v.array(v.string())),
   /** v1's world, energy and compute settings (absent: the preset's economy; the sandbox's 500,000 steps and 2,000 ms). */
   startingObjects: v.optional(v.number()), birthsPerSecond: v.optional(v.number()), opportunitiesPerSecond: v.optional(v.number()),
   powerPerSecond: v.optional(v.number()), fullChargeSeconds: v.optional(v.number()),
@@ -51,6 +56,14 @@ export const overridesV = v.object({
   bidVisibility: v.optional(v.union(v.literal("sealed"), v.literal("open"))),
   /** v1's bid results shown, during the game (absent: the preset's; after the end everything is shown). */
   bidDisclosure: v.optional(v.union(v.literal("none"), v.literal("handicaps"), v.literal("all"))),
+  /** Line turnover (retirement-design.md): at most this many live lines; a birth past it retires the oldest. Absent: none. */
+  liveCap: v.optional(v.number()),
+  /** Regular births, one every this many world seconds, in place of the preset's birth rate. */
+  birthSeconds: v.optional(v.number()),
+  /** Under turnover: a retired line's points stay in the totals ("banked", the default) or leave them ("dropped"). */
+  retiredPoints: v.optional(retiredPointsV),
+  /** Under turnover: a retired line keeps holding its state for uniqueness (decision 24; default true). */
+  retiredHolds: v.optional(v.boolean()),
   /**
    * Time dilation (owner decision 37): every rate × this, every duration ÷ it (v2-economy dilate), so the room's games
    * run this many times faster with the same per-act quantities. For simulations and local playtests only: set by the
@@ -83,7 +96,7 @@ export const offerV = v.object({ family: v.string(), title: v.string(), card: v.
 
 export const eventKindV = v.union(
   v.literal("gameStarted"), v.literal("objectBorn"), v.literal("act"), v.literal("values"), v.literal("tick"),
-  v.literal("phase"), v.literal("command"), v.literal("gameEnded"), v.literal("drift"),
+  v.literal("phase"), v.literal("command"), v.literal("gameEnded"), v.literal("drift"), v.literal("retired"),
 );
 
 // ---------------------------------------------------------------- the tables
@@ -155,10 +168,14 @@ export const v2Tables = {
       pauseSeconds: v.optional(v.number()),
       /** The commit clause is offered (v1, off by default): an only-if-better act commits only if its owner gains. */
       commitClause: v.optional(v.boolean()),
+      /** Defence goals are dealt (v1; grids only), with the penalty weight w (absent: 1) and the families left out. */
+      defenceGoals: v.optional(v.boolean()), penaltyWeight: v.optional(v.number()), excludedDefenceFamilies: v.optional(v.array(v.string())),
       /** Per-act compute limits the room set (v1's stepBudget and interactionComputeMs); absent: the sandbox's defaults. */
       stepBudget: v.optional(v.number()), interactionComputeMs: v.optional(v.number()),
       /** Births on a regular schedule, birth j at j / rate (decision 31; duration.ts regularBirths); absent: stochastic. */
       regularBirths: v.optional(v.boolean()),
+      /** Line turnover (retirement-design.md): at most `liveCap` live lines, the oldest retiring; absent: none. */
+      turnover: v.optional(turnoverV),
       /** The game's time dilation (decision 37): its settings are already dilated by it; wall-clock pacing divides by it. */
       timeScale: v.optional(v.number()),
       /** The weight on a look's read price (knowledge.ts, decision 35); absent (games stored before it): 0, free. */
@@ -251,6 +268,8 @@ export const v2Tables = {
     events: v.number(), scoreboards: v.number(), scoreboardAt: v.number(), failures: v.number(),
     /** Parameter drifts done (drift.ts): drift k happens at world second k × driftSeconds. */
     drifts: v.optional(v.number()),
+    /** Line turnover: the live lines' numbers, oldest first (absent: every number up to `objects` is live). */
+    live: v.optional(v.array(v.number())),
     /** Each player's running points total (hot, so it lives here and not on any document a query reads). */
     totals: v.record(v.string(), v.number()),
     /** The same totals from the disclosed points (what the published standings show while live). */
@@ -272,6 +291,8 @@ export const v2Tables = {
     previous: v.optional(v.object({ params: v.any(), card: v.string() })),
     /** Won by a bid (the percent bid) and the handicap the winner pays, percent of totals. */
     bid: v.optional(v.number()), handicap: v.optional(v.number()),
+    /** A defence goal dealt beside the rule (v1, restored; owner-decisions call 1): one of the variant's penalty families. */
+    defence: v.optional(v.object({ family: v.string(), params: v.any(), ruleKey: v.string(), card: v.string() })),
   }).index("by_game_member", ["gameId", "memberId"]),
 
   /** A player's account in one game (hot, one per player): energy store, power, ready, pause. */
@@ -283,11 +304,17 @@ export const v2Tables = {
   }).index("by_game_member", ["gameId", "memberId"]).index("by_game", ["gameId"]),
 
   /** An object's cold part. */
-  v2Objects: defineTable({ gameId: v.id("v2Games"), number: v.number(), bornAt: v.number() })
+  v2Objects: defineTable({
+    gameId: v.id("v2Games"), number: v.number(), bornAt: v.number(),
+    /** Line turnover: the world second it retired (no agent is offered it again; its points as the settings say). */
+    retiredAt: v.optional(v.number()),
+  })
     .index("by_game", ["gameId", "number"]),
   /** An object's hot part, shared by every viewer: the state on the wire. */
   v2ObjectStates: defineTable({
     objectId: v.id("v2Objects"), gameId: v.id("v2Games"), state: v.string(), version: v.number(), changedAt: v.number(),
+    /** Retired and no longer holding its state (turnover with `retiredHolds` false): uniqueness passes it over. */
+    released: v.optional(v.boolean()),
   }).index("by_object", ["objectId"])
     /** Who holds a state (decision 24: no two objects of a game hold the same one; one document per check). */
     .index("by_game_state", ["gameId", "state"]),

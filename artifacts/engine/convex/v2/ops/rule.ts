@@ -21,6 +21,7 @@ export const { op: explain, as: explainAs } = defineOp("rule.explain", "query", 
   return {
     family: r.family, params: r.params ?? {}, layers: r.layers, card: r.card, depends: r.depends,
     wonByBid: r.handicap !== undefined ? { handicap: r.handicap } : null,
+    defence: r.defence ? { family: r.defence.family, params: (r.defence.params ?? {}) as Record<string, unknown>, card: r.defence.card } : null,
   };
 });
 

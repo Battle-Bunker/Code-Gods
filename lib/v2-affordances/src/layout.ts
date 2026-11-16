@@ -5,12 +5,14 @@
  * and every open client of that human renders the stored result, so a remote assistant changes what the human sees.
  */
 import { z } from "zod/v4";
+import type { ObjectsShow, ObjectsSort } from "./objects-view.ts";
 import { AFFORDANCES, refusal, type AffordanceOf, type ClientAffordanceId, type Via } from "./directory.ts";
 import { OpFailure, type OpOutcome } from "./server.ts";
 import type { AffordanceContext } from "./types.ts";
 import { DockSyntaxError, defaultDock, dockActivate, dockGroups, dockInsert, dockKindOf, dockPanes, dockWithout, parseDock, type DockKind, type DockNode } from "./dock.ts";
 
 export type Place = "main" | "left" | "right" | "bottom";
+
 export interface ViewState {
   /** Bumped by every change; returned to the caller as `layoutVersion`. */
   version: number;
@@ -25,7 +27,7 @@ export interface ViewState {
   dock: Partial<Record<DockKind, DockNode>>;
   /** The representation compact faces use, per rule family, "*" for every object. Replaces per-device pins. */
   pins: Record<string, string>;
-  objects: { sort: "points" | "rarity" | "recent"; filter: { mine?: boolean; minBits?: number } };
+  objects: { sort: ObjectsSort; filter: { mine?: boolean; minBits?: number; show?: ObjectsShow } };
   /**
    * The object whose expanded face is open, and the representations it shows side by side (one when switched; none:
    * every representation the viewer's rule depends on, the expanded face's default).
@@ -149,7 +151,7 @@ export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
   "view.compareRepresentations": (v, a, ctx) => ({ ...opened(v, "object", undefined, ctx), focus: { objectId: a.objectId, reps: [...new Set(a.reps)] } }),
   "view.openObject": (v, a, ctx) => ({ ...opened(v, "object", undefined, ctx), focus: { objectId: a.objectId, reps: v.focus?.objectId === a.objectId ? v.focus.reps : [] } }),
   "view.sortObjects": (v, a) => ({ ...v, objects: { ...v.objects, sort: a.sort } }),
-  "view.filterObjects": (v, a) => ({ ...v, objects: { ...v.objects, filter: { ...(a.mine !== undefined ? { mine: a.mine } : {}), ...(a.minBits !== undefined ? { minBits: a.minBits } : {}) } } }),
+  "view.filterObjects": (v, a) => ({ ...v, objects: { ...v.objects, filter: { ...(a.mine !== undefined ? { mine: a.mine } : {}), ...(a.minBits !== undefined ? { minBits: a.minBits } : {}), ...(a.show !== undefined && a.show !== "all" ? { show: a.show } : {}) } } }),
   "view.showGlossary": (v, a) => ({ ...v, glossary: a.term ?? "" }),
   "view.closeGlossary": v => ({ ...v, glossary: null }),
   "replay.open": (v, a) => ({ ...v, replay: { gameId: a.gameId, cursor: { seq: 0 }, playing: false, speed: 1 }, panes: openPane(v, "replay") }),

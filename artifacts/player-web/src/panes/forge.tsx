@@ -15,6 +15,7 @@ import { failureText } from "@/site/components/action";
 import { useOpenPane } from "@/dock/open-pane";
 import { onFirstSummon, takeFirstSummon } from "./first-summon";
 import { energyText } from "@/core/words";
+import { checkReport } from "./forge-check";
 import { PullBack } from "./pull-back-ui";
 import { LeaveAlone } from "./leave-alone-ui";
 import { shortfallOf, shortText } from "./pull-back";
@@ -152,9 +153,7 @@ export function ForgePane() {
     setReport(`Checking: one move on a sample ${objectWord(header?.variant).one}…`);
     try {
       const r = await check.run({ language, source });
-      const moves = r.sample.map(x => x.outcome === "committed" ? "made a move" : x.outcome === "skipped" ? "chose not to move" : `failed${x.reason ? `: ${x.reason}` : ""}`);
-      setReport([`${r.verdict === "works" ? "It works" : r.verdict === "warns" ? "It works, with a warning" : "It does not work yet"}: ${r.summary}`,
-        `Summoning it costs ${energyText(r.price)}.`, ...(moves.length ? [`On sample ${objectWord(header?.variant).many} it ${[...new Set(moves)].join(", ")}.`] : [])].join("\n"));
+      setReport(checkReport(r, { replacing: !!agent, many: objectWord(header?.variant).many }));
     } catch (e) { setReport(failureText(e)); }
   };
   const previous = programs?.[1];

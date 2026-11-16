@@ -28,9 +28,9 @@ export const playOps = [
   }),
   affordance({
     id: "game.standings", title: "Show the standings", group: "play", scope: "game",
-    description: "Every player's points, bid handicap and net total (total less the handicap's share), ranked by net total, as of the last scoreboard (at most 10 s old).",
+    description: "Every player's points, bid handicap and net total (total less the handicap's share), ranked by net total, as of the last scoreboard (at most 10 s old). While a game whose bid results are private runs, other players show their net only (handicapsHidden).",
     tooltip: "Who is ahead.", keywords: ["leaderboard", "scores", "ranking", "points"],
-    params: none, result: z.object({ rows: z.array(z.object({ memberId: id, name: z.string(), points: z.number(), handicap: z.number().int(), net: z.number(), rank: z.number().int() })) }),
+    params: none, result: z.object({ rows: z.array(z.object({ memberId: id, name: z.string(), points: z.number(), handicap: z.number().int(), net: z.number(), rank: z.number().int() })), handicapsHidden: z.boolean() }),
     contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
@@ -50,12 +50,14 @@ export const playOps = [
 
   affordance({
     id: "rule.explain", title: "Explain my rule", group: "play", scope: "game",
-    description: "The caller's private rule: family, parameters, its layers (main goal, then secondary preferences in order), the card sentence, which representations it reads, and the handicap if it was won by bid. Its value curve is rule.values. Never reveals other players' rules.",
+    description: "The caller's private rule: family, parameters, its layers (main goal, then secondary preferences in order), the card sentence, which representations it reads, the handicap if it was won by bid, and any defence goal. Its value curve is rule.values. Never reveals other players' rules.",
     tooltip: "What your rule wants.", keywords: ["my rule", "goal", "card", "what do I want"],
     params: none,
     result: z.object({
       family: z.string(), params: z.record(z.string(), z.unknown()), layers: z.array(z.string()), card: z.string(), depends: z.array(z.string()),
       wonByBid: z.object({ handicap: z.number().int() }).nullable(),
+      defence: z.object({ family: z.string(), params: z.record(z.string(), z.unknown()), card: z.string() }).nullable().optional()
+        .describe("The defence goal dealt beside the rule (grids, when the room turns them on): what it costs you to have. null: none."),
     }),
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
   }),

@@ -304,7 +304,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
       const points = Object.values(g.objects).reduce((t, o) => t + bitsOf(g, u, o), 0), handicap = g.auction?.wins[u]?.handicap ?? 0;
       return { memberId: memberOf(e, u), name: nameOf(e.state, u), points, handicap, net: points - handicap / 100 * Math.abs(points) };
     });
-    return { rows: pts.sort((a, b) => b.net - a.net).map((p, i) => ({ ...p, rank: i + 1 })) };
+    return { rows: pts.sort((a, b) => b.net - a.net).map((p, i) => ({ ...p, rank: i + 1 })), handicapsHidden: false };
   },
   "game.ready": (e, a) => {
     const g = gameOf(e);
@@ -316,7 +316,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "rule.explain": e => {
     const family = gameOf(e).rules[e.userId]!;
     const won = gameOf(e).auction?.wins[e.userId];
-    return { family, params: {}, layers: ["main"], card: `Your rule, ${family}, wants the gradient close to its target.`, depends: ["si"], wonByBid: won ? { handicap: won.handicap } : null };
+    return { family, params: {}, layers: ["main"], card: `Your rule, ${family}, wants the gradient close to its target.`, depends: ["si"], wonByBid: won ? { handicap: won.handicap } : null, defence: null };
   },
   "game.boardAt": (e, a) => {
     const g = gameOf(e);

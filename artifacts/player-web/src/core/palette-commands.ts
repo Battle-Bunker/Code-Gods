@@ -90,7 +90,7 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
     const page: PaletteFormPage = {
       kind: "pick", title: e.title,
       options: () => [
-        ...PANE_IDS.map(p => ({ id: p as string, label: PANES[p].title, detail: PANES[p].blurb, keywords: PANES[p].keywords })),
+        ...PANE_IDS.map(p => ({ id: p as string, label: paneLabel(p, host.noun), detail: lined(PANES[p].blurb, host.noun), keywords: PANES[p].keywords })),
         ...openablePanels(host).map(p => ({ id: storedPane(p.slug), label: p.title, detail: "Your panel", keywords: [p.slug, "panel", "your panel"] })),
         ...(host.filePanels ?? []).map(id => ({ id: filePane(id), label: id, detail: `File panel: src/panels/${id}.tsx`, keywords: [id, "file panel"] })),
       ],
@@ -132,6 +132,18 @@ const DONE: Partial<Record<AffordanceId, string>> = { "chat.send": "Message sent
 
 /** A field's label in words: the parameter's name only when there is none. */
 const FIELD_LABELS: Record<string, string> = { text: "Your message", code: "Room code", name: "Name", question: "Your question", id: "The command's request id" };
+
+/** A pane's name in the game's words, as the dock's headers say it (usePaneName): "Grids", "One grid" in a grid game. */
+export function paneLabel(p: PaneId, noun?: { one: string; many: string }): string {
+  if (noun && p === "objects") return noun.many[0]!.toUpperCase() + noun.many.slice(1);
+  if (noun && p === "object") return `One ${noun.one}`;
+  return lined(PANES[p].title, noun) ?? PANES[p].title;
+}
+/** A pane's words written for lines ("Which lines earn you points") in the game's own words. */
+export function lined(text: string | undefined, noun?: { one: string; many: string }): string | undefined {
+  if (!text || !noun) return text;
+  return text.replace(/\b([Ll])ine(s?)\b/g, (_, l: string, s: string) => { const w = s ? noun.many : noun.one; return l === "L" ? w[0]!.toUpperCase() + w.slice(1) : w; });
+}
 
 /** "Leave objects alone" in a grid game: "Leave grids alone" (any case, singular and plural). */
 export function nouned(text: string, noun?: { one: string; many: string }): string {

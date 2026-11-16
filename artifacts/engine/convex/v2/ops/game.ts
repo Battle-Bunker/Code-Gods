@@ -1,4 +1,5 @@
 /** `game.*`: the game in view, its standings, the owner's lobby and game controls, ready and pause. */
+import { standingsFor } from "../disclose";
 import { membersOf, openBidding, rematchDeal, rotationFor, startGame } from "../lobby";
 import { presetOf } from "../presets";
 import { touchActivity } from "../activity";
@@ -21,9 +22,10 @@ export const { op: get, as: getAs } = defineOp("game.get", "query", async env =>
 });
 
 export const { op: standings, as: standingsAs } = defineOp("game.standings", "query", async env => {
-  const { game } = inGame(env);
+  const { game, member } = inGame(env);
   const s = await env.ctx.db.query("v2Standings").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
-  return { rows: (s?.rows ?? []).map(r => ({ memberId: r.memberId, name: r.name, points: r.total, handicap: r.handicap, net: r.net, rank: r.rank })) };
+  const seen = standingsFor(game, s?.rows ?? [], member._id);
+  return { rows: seen.rows.map(r => ({ memberId: r.memberId, name: r.name, points: r.total, handicap: r.handicap, net: r.net, rank: r.rank })), handicapsHidden: seen.handicapsHidden };
 });
 
 /** Who holds which family next: the rotated deal while the room is mid-rotation; empty when the next deal is fresh. */

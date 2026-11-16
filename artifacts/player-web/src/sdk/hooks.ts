@@ -17,7 +17,7 @@ import { useLivePaged, useLiveValue, useLiveValues } from "./live";
 import { pagedFrom, useReplaySource } from "./replay";
 import { bitsOf, ruleRefOf, valueOf, type GameRule, type ValueOf } from "./rule";
 import type { Score } from "@workspace/v2-core";
-import type { Agent, Header, Move, MyRuleRow, ObjectSort, PlayObject, StandingsPoint, Tug } from "./types";
+import type { Agent, Header, Move, MyRuleRow, ObjectShow, ObjectSort, PlayObject, StandingsPoint, Tug } from "./types";
 import { sharedRanks } from "@/core/words";
 
 /** The room in view: members (≤ 16), owner, preset, current and last game, an open bid phase. */
@@ -95,12 +95,12 @@ export function useMyRule(): MyRule | undefined {
 }
 
 /** The objects skeleton: ids in the viewer's order, page by page; each row subscribes to its own object. */
-export function useObjectIds(sort: ObjectSort, pageSize = 30) {
+export function useObjectIds(sort: ObjectSort, pageSize = 30, show: ObjectShow = "all") {
   const { gameId, seated } = useGameScope();
   const replay = useReplaySource();
-  const live = useLivePaged(api.v2.play.objectIds, gameId && seated && !replay ? { gameId, sort } : "skip", pageSize);
+  const live = useLivePaged(api.v2.play.objectIds, gameId && seated && !replay ? { gameId, sort, ...(show !== "all" ? { filter: show } : {}) } : "skip", pageSize);
   const frame = replay?.frame, member = replay?.member;
-  const replayed = useMemo(() => (frame && member ? pagedFrom(frame.objectIds(member, sort)) : null), [frame, member, sort]);
+  const replayed = useMemo(() => (frame && member ? pagedFrom(frame.objectIds(member, sort, show)) : null), [frame, member, sort, show]);
   return (replayed ?? live) as typeof live;
 }
 

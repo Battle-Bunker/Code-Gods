@@ -53,6 +53,9 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "opposite-nines 3a": "15 Nov, grids session: big-on-top undealt for a cheap peak (#902); grid repertoires after the deadline",
   "strangers 3a": "15 Nov, grids session: ones and prime-strangers undealt for cheap peaks (#902); grid repertoires after the deadline",
   "leading-digits 3a": "15 Nov, grids session",
+  // Row 1 (not checked here for grids): every beginner grid main part has a global top on the 0–9 board, as v1's did.
+  // Leapfrog and Two Pair reached theirs in real games within 10 minutes (round 34, baseline 2); kept dealt as the v1
+  // baseline by the coordinator (16 Nov). See docs/engine-v2/grid-v1-v2-compare.md, "Known reachable tops".
   // Row 4: one dealt parameter set.
   "square-area 4": "15 Nov, grids session: Square Area redesign",
   "mirrormancer 4": "15 Nov, grids session", "magic-eighteen 4": "15 Nov, grids session", "opposite-nines 4": "15 Nov, grids session",

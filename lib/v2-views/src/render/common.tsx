@@ -88,7 +88,8 @@ export const NOTE_MAX = 24;
 export function Readouts({ p, placed, drawnNotes }: { p: RenderProps; placed: ReadonlySet<string>; drawnNotes?: ReadonlySet<string> }) {
   const seen = new Set<string>();
   const items: ElementRef[] = [];
-  for (const m of p.marks) for (const r of markRefs(m)) {
+  // What the marks cite, then what the parts read (badged), that the drawing did not place.
+  for (const r of [...p.marks.flatMap(markRefs), ...(p.read ?? [])]) {
     const k = key(r);
     if (r.rep !== p.rep || placed.has(k) || seen.has(k)) continue;
     seen.add(k);

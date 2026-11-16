@@ -38,6 +38,9 @@ export interface RenderProps<D extends SceneData = SceneData> {
   readonly roleOf?: (ref: ElementRef) => "main" | "tb" | null;
   /** The depth of the part of the viewer's rule a mark belongs to (0: main part), if known: its glyph is partGlyph(depth). */
   readonly markDepth?: (m: Mark) => number | null;
+  /** The elements of this view that a part of the rule reads (each with its badge); one the drawing does not place is
+   *  listed in the readouts, so what a part reads is always on the page (round 30: Ruler's distance² was nowhere). */
+  readonly read?: readonly ElementRef[];
   /** Words for an element ("gradient"), for titles and screen readers. */
   readonly labelOf: (ref: ElementRef) => string;
 }

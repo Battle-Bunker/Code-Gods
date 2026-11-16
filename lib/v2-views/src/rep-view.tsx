@@ -86,9 +86,11 @@ export function RepView<S>(props: RepViewProps<S>): ReactElement {
   const meaningOf = (r: ElementRef) => meaningKey(type, r);
   // An element is badged when a part reads it, or reads what it means in another view (si.c and the plane's y-intercept).
   const roleKeys = new Map<string, "main" | "tb">();
+  const read: ElementRef[] = [];
   for (const { ref, role } of props.roles ?? []) {
     for (const r of [ref, ...projectRef(type, ref, [repId])]) {
       const k = refKey({ ...r, site: undefined });
+      if (r.rep === repId && !roleKeys.has(k)) read.push(r);
       if (!roleKeys.has(k) || role === "main") roleKeys.set(k, role);
     }
   }
@@ -117,7 +119,7 @@ export function RepView<S>(props: RepViewProps<S>): ReactElement {
         meaningOf,
         onHover: props.onHover ? r => props.onHover!(r ? meaningOf(r) : null, r) : undefined,
         labelOf: r => labelOf(type, r),
-        roleOf,
+        roleOf, read,
         markDepth: props.parts ? markDepthOf(props.parts) : undefined,
       })}
     </div>
