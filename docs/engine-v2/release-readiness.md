@@ -1,10 +1,25 @@
 # Release readiness: promoting `develop` (engine v2) to `main` (production)
 
 Written 16 November 2026 (UTC) against `origin/develop` at 2acf4a7c (#903) and production's `main` at 2058deaf (#268,
-deployed 11 November, deploy run 42983782973). Read-only: nothing here touched production. This session had no
-production deploy key, so **no production state was inspected**; everything below comes from the repository, the
+deployed 11 November, deploy run 42983782973). Read-only: nothing here touched production. Reading production
+(even read-only) was not permitted to this session, so **no production state was inspected**; everything below comes from the repository, the
 GitHub Actions history, the dev deployment's deploy runs and a local backend. Items that depend on production's
 stored values are marked *unknown* and say what checks them.
+
+## What the owner does before promoting
+
+1. **Agree to what players lose.** At the switch every v1 room, game in progress, ended game and replay disappears
+   from the app (the stored rows are kept, untouched). Accounts are kept and players stay signed in. Old room and
+   game links show a "not found" message. CLI and MCP connections tied to a v1 room stop working and must be made
+   again. AI spend counters start at zero.
+2. **Check the two auth key values** (read-only; §7 has the steps): `CONVEX_DEPLOY_KEY=<production key> node
+   scripts/check-auth-keys.mjs` in `artifacts/engine`. It should end with "auth keys agree". (If you skip this, the
+   deploy runs the same check and stops before changing anything.)
+3. **Confirm `ANTHROPIC_API_KEY` is set on production** (dashboard → production → Settings → Environment
+   Variables), or AI players and the assistant will not work. The deploy does not check it.
+4. **Export production** first: `npx convex export --prod --path <file>` in `artifacts/engine`. Keep the file.
+5. **Promote** with a pull request from a short-lived branch cut from `develop` into `main`, once `develop`'s latest
+   deploy run shows `checks` green. Watch the production deploy run to the end (smoke test included).
 
 ## 0. Summary
 
@@ -101,8 +116,7 @@ preview provider needs `PREVIEW_SIGN_IN_CODE`: both refused by the env check. Te
 `v2/panelTesting.ts`, `auth/testing.ts`) refuse to run without `TEST_FIXTURES`/`DEV`; every unguarded one is internal.
 Time scale is an internal mutation only (default 1). Error details in the UI are dev builds only.
 
-`PILOT.md` "Automatic deploys" still describes v1 steps (`upload-calibration`, runtime/calibration probes); the
-workflow above is authoritative.
+`PILOT.md` was brought up to date with this workflow on 16 November.
 
 ## 4. What a production user sees at the switch
 
@@ -167,9 +181,13 @@ with 2058deaf's tree), which redeploys v1's functions, schema and app.
 Would work:
 - **The push itself:** v1 rows were never written by v2, so they still match v1's strict validators; v2 tables are not
   in v1's schema and are not validated; auth and component tables are identical.
-- **Exception:** if an admin created an AI template with the built-in provider after promotion, v1's narrower
-  `aiTemplates.provider` rejects that row and the rollback push fails. Delete or edit that template first (or check
-  with a read-only query of `aiTemplates`).
+- **Exception:** if an admin created an AI template with the built-in provider ("Example agent (no model)") after
+  promotion, v1's narrower `aiTemplates.provider` rejects that row and the rollback push fails, with production left
+  on v2 (Convex refuses the push; nothing breaks). Deleting the template in the app is not enough: deleted templates
+  stay as tombstones. To make the rollback safe: list the table (`npx convex data aiTemplates --prod` in
+  `artifacts/engine`) and, for each row whose provider is `builtin`, delete the document in the Convex dashboard
+  (production → Data → aiTemplates), then push the rollback. No deploy step seeds such a row (the practice-partner
+  seed in `aiTemplates.ts` is never called), so only an admin's own action creates one.
 - v1 games come back as they were at the switch (paused or stalled; v1's watchdog cron restarts live ones).
 - Sign-in keeps working: v1 verifies by URL against the same keys.
 
@@ -213,7 +231,7 @@ Only the owner holds the production deploy key. These steps read values into mem
 | 7 | `ANTHROPIC_API_KEY` set on production (AI seats, assistant) | unknown | not checked by the workflow; v1 read it too, so it is likely set |
 | 8 | AI spend bounded | green | USD 2/game, USD 5/day per pool, admin rooms only (`v2/spend.ts`) |
 | 9 | Owner accepts that v1 rooms, games in progress, replays and room-bound credentials vanish from the app | owner decision | §4; decision 15 |
-| 10 | Tick and per-game writes within Convex limits on a cloud deployment | unknown | only local measurements (§5); watch the first games' function logs and storage |
+| 10 | Tick and per-game writes within Convex limits on a cloud deployment | unknown (being measured) | only local measurements so far (§5); the dev deployment's function logs are being recorded during the owner's games on 16 Nov |
 | 11 | Production export taken before the push | to do | `npx convex export --prod` (owner or coordinator with the key) |
-| 12 | Rollback path | green, one caveat | §6: blocked only by a built-in AI template row |
+| 12 | Rollback path | green, one caveat | §6: blocked only by a built-in AI template row; the runbook there removes it |
 | 13 | Dev deploy of the release commit green | check at promotion time | the promoted commit's develop deploy run, including `checks` |

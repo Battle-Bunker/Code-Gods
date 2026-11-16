@@ -84,7 +84,7 @@ export const roomOps = [
   // The owner's lobby and game controls.
   affordance({
     id: "room.settings", title: "Change the room's settings", group: "owner", scope: "room",
-    description: "Sets the room's preset and the overrides for the next game (unset: the preset's): planningSeconds, worldSeconds, startingEnergy; durationMode fixed or halfLife; scoreIntervalSeconds (10); peerNoiseVariance 0/4/16/64/256; readPriceWeight 0-4; driftSeconds (0 off); pauseSeconds (180); commitClause; startingObjects 0-1000; birthsPerSecond 0-10; opportunitiesPerSecond (world speed) 0-1000; powerPerSecond; fullChargeSeconds; stepBudget per act (500,000); interactionComputeMs per act (2,000); defenceGoals (grids only), penaltyWeight 0-4 (1).",
+    description: "Sets the preset and the next game's overrides: planningSeconds, worldSeconds, startingEnergy; durationMode fixed or halfLife; scoreIntervalSeconds (10); peerNoiseVariance 0/4/16/64/256; readPriceWeight 0-4; driftSeconds (0 off); pauseSeconds (180); commitClause; startingObjects 0-1000; birthsPerSecond 0-10; opportunitiesPerSecond 0-1000; powerPerSecond; fullChargeSeconds; stepBudget (500,000) and interactionComputeMs (2,000) per act; excludedFamilies (never dealt); bidPricing first/second; bidVisibility sealed/open; bidDisclosure none/handicaps/all; defenceGoals (grids), penaltyWeight 0-4 (1).",
     tooltip: "Pick the preset and adjust its length.", keywords: ["settings", "configure", "preset", "length"],
     params: obj({
       preset: z.string().max(64).optional(),
@@ -102,6 +102,8 @@ export const roomOps = [
         opportunitiesPerSecond: z.number().min(0).max(1000),
         powerPerSecond: z.number().min(0).max(1_000_000), fullChargeSeconds: z.number().min(1).max(1_000_000),
         stepBudget: z.number().int().min(1).max(10_000_000), interactionComputeMs: z.number().int().min(1).max(60_000),
+        excludedFamilies: z.array(z.string().max(64)).max(64),
+        bidPricing: z.enum(["first", "second"]), bidVisibility: z.enum(["sealed", "open"]), bidDisclosure: z.enum(["none", "handicaps", "all"]),
       }).partial().strict().optional(),
       requestId: requestId.optional(),
     }), result: ok,

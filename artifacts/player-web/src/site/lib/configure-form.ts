@@ -21,13 +21,14 @@ export interface Draft {
   defenceGoals: boolean; penaltyWeight: number;
   startingObjects: number; birthsPerSecond: number; opportunitiesPerSecond: number;
   powerPerSecond: number; fullChargeSeconds: number; stepBudget: number; interactionComputeMs: number;
+  excludedFamilies: string[]; bidPricing: "first" | "second"; bidVisibility: "sealed" | "open"; bidDisclosure: "none" | "handicaps" | "all";
 }
 export type FieldKey = keyof Draft;
 export type Overrides = Partial<Draft>;
 
 export type SectionId = "setup" | "goals" | "agents" | "energy" | "population" | "time" | "players" | "review";
 type FieldSection = Exclude<SectionId, "setup" | "players" | "review">;
-export type ControlKind = "number" | "segmented" | "switch";
+export type ControlKind = "number" | "segmented" | "switch" | "checklist";
 
 /** v1's units, limits and docs for one field (game-core FieldDoc + settings-form LIMITS). */
 export interface FieldSpec {
@@ -38,10 +39,12 @@ export interface FieldSpec {
   minutes?: boolean;
   limit?: { min: number; max?: number; int?: boolean };
   /** Asked only on these setups (defence goals: grids); elsewhere the question is hidden and never sent. */
-  only?: (p: Preset) => boolean;
+  only?: (p: Pick<Preset, "variant">) => boolean;
+  /** Shown only on a setup with a bid phase (v1: hidden while bidSeconds is 0). */
+  onlyWithBid?: boolean;
 }
 /** A grid setup (defence goals are dealt on grids only, as in v1). */
-const onGrids = (p: Preset) => p.variant.startsWith("grid");
+const onGrids = (p: Pick<Preset, "variant">) => p.variant.startsWith("grid");
 
 /** The sandbox's per-act limits when the room sets none (lib/v2-sandbox limits.ts DEFAULT_LIMITS). */
 export const DEFAULT_STEP_BUDGET = 500_000;
@@ -51,6 +54,30 @@ export const DEFAULT_PAUSE_SECONDS = 180;
 export const READ_PRICE_WEIGHTS: readonly number[] = [0, 0.5, 1, 2, 3, 4];
 
 export const FIELDS: Readonly<Record<FieldKey, FieldSpec>> = {
+  excludedFamilies: {
+    label: "Rules never dealt", section: "goals", tier: "more", control: "checklist",
+    question: "Which rules are never dealt?",
+    meaning: "Families of rules the setup deals that are never dealt in this room.",
+    consequence: "Excluding more families makes goals more predictable, and at least one family per player must stay.",
+  },
+  bidPricing: {
+    label: "Bid price", section: "goals", tier: "more", control: "segmented", suggested: ["first", "second"], onlyWithBid: true,
+    question: "What does the winner of a bid pay?",
+    meaning: "With first price the winner's handicap is their own bid, and with second price it is the highest bid they beat on that rule, or 1% when nobody else bid on it.",
+    consequence: "With second price a player can simply bid what a rule is worth to them, while with first price they must guess what the others will bid and bid a little less.",
+  },
+  bidVisibility: {
+    label: "Bids shown", section: "goals", tier: "more", control: "segmented", suggested: ["sealed", "open"], onlyWithBid: true,
+    question: "Can players see each other's bids while bidding?",
+    meaning: "Sealed bids are seen only by their bidder until bidding ends, while open bids are seen by every player as they are placed.",
+    consequence: "Open bidding becomes a live auction where players raise each other, while sealed bidding is quicker and keeps wishes secret.",
+  },
+  bidDisclosure: {
+    label: "Bid results shown", section: "goals", tier: "more", control: "segmented", suggested: ["none", "handicaps", "all"], onlyWithBid: true,
+    question: "What are players told about the others after bidding?",
+    meaning: "Own result only tells each player their own result, handicaps shows everyone each winner's handicap, and the whole auction shows every bid and who won which rule; after the game everything is shown.",
+    consequence: "Showing more tells players who holds which rule and how much they paid for it, which removes part of the guessing from the game.",
+  },
   peerNoiseVariance: {
     label: "Blur on others' interest", section: "goals", tier: "more", control: "segmented", suggested: PEER_NOISE_VARIANCE_OPTIONS,
     question: "How blurred are the other players' combined interest in each object?",
@@ -195,6 +222,7 @@ export function presetDraft(p: Preset): Draft {
     startingObjects: p.startingObjects, birthsPerSecond: p.economy.birthsPerSecond, opportunitiesPerSecond: p.economy.opportunitiesPerSecond,
     powerPerSecond: p.economy.powerPerSecond, fullChargeSeconds: p.economy.fullChargeSeconds,
     stepBudget: DEFAULT_STEP_BUDGET, interactionComputeMs: DEFAULT_COMPUTE_MS,
+    excludedFamilies: [], bidPricing: p.bid?.pricing ?? "first", bidVisibility: "sealed", bidDisclosure: p.bid?.disclosure ?? "none",
   };
 }
 /** The room's next game: the preset with the room's overrides on top (a stored field the page does not know is ignored). */
@@ -209,7 +237,11 @@ export function overridesFor(d: Draft, p: Preset): Overrides {
   for (const k of Object.keys(FIELDS) as FieldKey[]) if ((FIELDS[k].only?.(p) ?? true) && !sameValue(d[k], own[k])) out[k] = d[k];
   return out as Overrides;
 }
-const sameValue = (a: unknown, b: unknown) => (typeof a === "number" && typeof b === "number" ? Math.abs(a - b) < 1e-9 : a === b);
+const sameValue = (a: unknown, b: unknown) => (typeof a === "number" && typeof b === "number" ? Math.abs(a - b) < 1e-9
+  : Array.isArray(a) && Array.isArray(b) ? JSON.stringify([...a].sort()) === JSON.stringify([...b].sort()) : a === b);
+/** A field with no effect on this setup (the bid questions without a bid phase; defence goals off grids). */
+export const isHidden = (key: FieldKey, p: Pick<Preset, "bid" | "variant">) =>
+  (!!FIELDS[key].onlyWithBid && !p.bid) || (FIELDS[key].only ? !FIELDS[key].only!(p) : false);
 
 const n = (v: number) => v.toLocaleString("en-US");
 const unitText = (u?: string) => (u ? ` ${u === "s" ? "seconds" : u}` : "");
@@ -225,9 +257,11 @@ export function fieldError(key: FieldKey, value: unknown): string | null {
   }
   return null;
 }
-export function draftErrors(d: Draft): Partial<Record<FieldKey, string>> {
+export function draftErrors(d: Draft, p?: Pick<Preset, "families" | "minPlayers">): Partial<Record<FieldKey, string>> {
   const out: Partial<Record<FieldKey, string>> = {};
   for (const k of Object.keys(FIELDS) as FieldKey[]) { const e = fieldError(k, d[k]); if (e) out[k] = e; }
+  // One family per player at least (the server's rule: two players on one family climb the same hill unopposed).
+  if (p && p.families.filter(f => !d.excludedFamilies.includes(f)).length < Math.min(p.minPlayers, p.families.length)) out.excludedFamilies = `Leave at least ${p.minPlayers} rule families to deal, one for each player.`;
   return out;
 }
 
@@ -248,8 +282,12 @@ const NAMED: Partial<Record<FieldKey, Record<string, string>>> = {
   opportunitiesPerSecond: { 25: "Slow", 100: "Normal", 300: "Fast", 1000: "Max" },
 };
 /** A stepped choice's label: "Normal (5 min)", "every 10 s", "Exact", "2×". */
+const BID_WORDS: Record<string, string> = {
+  first: "First price", second: "Second price", sealed: "Sealed", open: "Open", none: "Own result only", handicaps: "Everyone's handicap", all: "The whole auction",
+};
 export function choiceLabel(key: FieldKey, v: number | string | boolean): string {
   if (key === "durationMode") return v === "fixed" ? "Fixed duration" : "Half-life";
+  if ((key === "bidPricing" || key === "bidVisibility" || key === "bidDisclosure") && typeof v === "string") return BID_WORDS[v] ?? v;
   if (typeof v === "boolean") return key === "defenceGoals" ? (v ? "On: everyone" : "Off") : v ? "Offered" : "Off";
   const named = NAMED[key]?.[String(v)];
   if (typeof v === "number") {
@@ -270,6 +308,7 @@ export function choiceLabel(key: FieldKey, v: number | string | boolean): string
 }
 /** A value in plain words, for summaries and the Review diff: "600 energy", "offered", "never". */
 export function formatValue(key: FieldKey, v: unknown): string {
+  if (key === "excludedFamilies" && Array.isArray(v)) return v.length ? `${v.length} rule${v.length === 1 ? "" : "s"}` : "none";
   if (key === "commitClause") return v ? "offered" : "off";
   if (key === "defenceGoals") return v ? "every player" : "off";
   if (key === "driftSeconds" && v === 0) return "never";

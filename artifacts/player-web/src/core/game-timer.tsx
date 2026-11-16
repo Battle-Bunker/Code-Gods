@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import type { Header } from "@/sdk/types";
 import { timerText } from "./timer-text";
+import { AffordanceButton } from "@/site/components/action";
 export { OVERDUE_MS, timerText } from "./timer-text";
 
 export function useNow(ms = 1000): number {
@@ -25,6 +26,7 @@ export function GameTimer({ header }: { header: Header }) {
       <span className="label-mono text-xs text-muted-foreground">{x.label}</span>
       <span className={`text-2xl font-semibold tabular-nums sm:text-3xl ${header.phase === "paused" ? "opacity-60" : ""}`} data-testid="game-timer-value">{x.value}</span>
       {x.note && <span className="text-xs text-muted-foreground">{x.note}</span>}
+      {x.resume && <AffordanceButton id="game.resume" args={{}} label="Resume" busyLabel="Resuming…" tone="secondary" testId="button-resume" className="self-center font-sans" />}
     </div>
   );
 }

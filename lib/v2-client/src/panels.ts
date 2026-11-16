@@ -41,7 +41,7 @@ export const PANES: Readonly<Record<PaneId, PaneDefinition>> = {
   "my-card": def({ id: "my-card", title: "Your secret goal", blurb: "Your rule in plain words, a worked example and the steps to the top.", phases: ALL, keywords: ["rule", "goal", "card", "ladder"], home: "left" }),
   objects: def({ id: "objects", title: "Lines", blurb: "Which lines earn you points, and why.", phases: WORLD, keywords: ["objects", "lines", "points", "rarity"], home: "main" }),
   object: def({ id: "object", title: "One line", blurb: "One line in every representation your rule reads, with why it scores.", phases: WORLD, keywords: ["expanded", "representations", "compare"], home: "main" }),
-  "what-if": def({ id: "what-if", title: "What if", blurb: "Try a change on a line and see its new step, rarity in bits and points, without making it.", phases: WORLD, keywords: ["what if", "try", "preview", "price", "change", "quote"], home: "main" }),
+  "what-if": def({ id: "what-if", title: "What if", blurb: "Try a change and see what it does to your rarity in bits and your points, without making it.", phases: WORLD, keywords: ["what if", "try", "preview", "price", "change", "quote"], home: "main" }),
   feed: def({ id: "feed", title: "What just changed", blurb: "Every move that changed your points, and why.", phases: WORLD, keywords: ["act log", "moves", "why", "feed"], home: "right" }),
   agents: def({ id: "agents", title: "My agents", blurb: "Your agents, their energy, and what they spent it on.", phases: PLAY, keywords: ["energy", "power", "share"], home: "left" }),
   forge: def({ id: "forge", title: "Agent code", blurb: "Write, check, summon and replace your agents.", phases: ["planning", "live", "paused"], keywords: ["code", "summon", "replace", "editor"], home: "main" }),

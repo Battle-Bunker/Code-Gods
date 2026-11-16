@@ -87,8 +87,8 @@ test("the CLI parses flags and JSON and validates with the affordance's schema",
     { ok: true, id: "agent.summon", args: { language: "python", source: "def agent(o): return None", share: 0.5 } });
   assert.deepEqual(parseCli(["room", "set-spectator", "--no-spectator"]), { ok: true, id: "room.setSpectator", args: { spectator: false } });
   assert.deepEqual(parseCli(["call", "object.read", '{"objectId":"o1","rep":"si"}']), { ok: true, id: "object.read", args: { objectId: "o1", rep: "si" } });
-  assert.deepEqual(parseCli(["objects", "list"]), { ok: true, id: "objects.list", args: { sort: "points", limit: 20 } });
-  assert.deepEqual(parseCli(["objects", "list", "--cursor", "12345"]), { ok: true, id: "objects.list", args: { sort: "points", limit: 20, cursor: "12345" } },
+  assert.deepEqual(parseCli(["objects", "list"]), { ok: true, id: "objects.list", args: { sort: "points", filter: "all", limit: 20 } });
+  assert.deepEqual(parseCli(["objects", "list", "--cursor", "12345"]), { ok: true, id: "objects.list", args: { sort: "points", filter: "all", limit: 20, cursor: "12345" } },
     "a nullable string flag keeps digits as a string");
   assert.deepEqual(parseCli(["game", "ready", "--ready", "false"]), { ok: true, id: "game.ready", args: { ready: false } });
   assert.deepEqual(parseCli(["game", "ready", "--ready"]), { ok: true, id: "game.ready", args: { ready: true } });
@@ -117,4 +117,9 @@ test("in a room where AI cannot spend, nothing that spends the AI budget is offe
   for (const id of ["assistant.send", "pitch.draft"]) assert.ok(!offered.includes(id), `${id} is not offered`);
   assert.deepEqual(refusal(AFFORDANCES["assistant.send"], live), { ok: false, reason: off, hidden: true });
   assert.ok(ids(ctx("live", "seated", { room: { players: 3, minPlayers: 3 } })).includes("assistant.send"), "offered where AI can spend");
+});
+
+test("palette titles speak the game's words: no “representation” or “mutator” jargon in a title", async () => {
+  const { DIRECTORY } = await import("../src/index.ts");
+  for (const a of DIRECTORY) assert.doesNotMatch(a.title, /representation's mutators/i, a.id);
 });

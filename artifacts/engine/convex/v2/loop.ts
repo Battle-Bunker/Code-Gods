@@ -12,7 +12,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { decode, distinctBirths, heldReason, penaltyWeightOf, scopeOf, valuesOf, type SeatRule, type Value as ExactValue } from "./world.ts";
-import { agentSeen, measured, objectReading, readingNoise, shownAt } from "./disclose.ts";
+import { agentSeen, measured, objectReading, quadrantOf, readingNoise, shownAt } from "./disclose.ts";
 import { durationModeOf, endWorldOf, scoreIntervalOf, timeScaleOf } from "./duration.ts";
 import { shouldPark } from "./activity.ts";
 import { allReady, ensureWarm, isReady, LANGUAGES } from "./readiness.ts";
@@ -114,7 +114,8 @@ function valuesAt(game: Doc<"v2Games">, seats: SeatRule[], wire: string, objectI
   return valuesOf(decode(wire, game.variant), game.variant, seats, scopeOf(game).objects, penaltyWeightOf(game))
     .map(v => ({ ...v, ...shownAt(v, readingNoise(game, v.memberId, objectReading(objectId, version))) }));
 }
-const shownOf = (v: Value) => ({ shownWant: v.shownWant, shownPoints: v.shownPoints });
+/** The disclosed fields of a value row, with its filter (disclose.ts quadrantOf, on the disclosed others' sum). */
+const shownOf = (v: Value) => ({ shownWant: v.shownWant, shownPoints: v.shownPoints, quadrant: quadrantOf(v.rarityBits, v.shownWant) });
 
 /** Writes a new object's state and every player's value; returns the values. */
 async function addObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[], number: number, wire: string, world: number) {
@@ -265,7 +266,7 @@ async function reknow(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[],
   for await (const k of ctx.db.query("v2Knowledge").withIndex("by_game_member_born", q => q.eq("gameId", game._id).eq("memberId", memberId))) {
     const mine = valuesOf(decode(k.state, game.variant), game.variant, seats, scope, penaltyWeightOf(game)).find(x => x.memberId === memberId);
     if (!mine) continue;
-    await ctx.db.patch(k._id, { score: mine.score, rarityBits: mine.rarityBits, points: mine.rarityBits * Math.max(0, k.want) });
+    await ctx.db.patch(k._id, { score: mine.score, rarityBits: mine.rarityBits, points: mine.rarityBits * Math.max(0, k.want), quadrant: quadrantOf(mine.rarityBits, k.want) });
     const at = 3 * (k.number - 1);
     while (packed.length < at) packed.push(0);
     packed.splice(at, 3, k.number, mine.rarityBits, k.want);
@@ -452,6 +453,8 @@ const MAX_HELD = 8000;
  * ≤ 8,000 held states; a full game is the snapshot and 15 more pages.
  */
 export const TICK_AGENT_PAGE = 100;
+/** Samples an agent's energy row keeps for the sparkline (one a tick at most: at the default ~1 s ticks, two minutes). */
+export const AGENT_HISTORY = 120;
 
 /** One page of a game's live agents with their programs and energy, as the tick runs them. */
 async function tickAgentsPage(ctx: QueryCtx, gameId: Id<"v2Games">, cursor: string | null) {
@@ -592,8 +595,11 @@ export const commit = internalMutation({
       const charge = committed || outcome === "skipped" || (outcome === "failed" && !holder) ? record.charge : readCharge(record.readBits);
       const charged = chargeAct(account, charge);
       const n = act.n;
+      // The sparkline's sample: the balance after this act (a later act in the same tick replaces it).
+      const kept = (energy.history ?? []).filter(h => h.at < world);
+      const history = [...kept, { at: world, energy: charged.balance }].slice(-AGENT_HISTORY);
       await ctx.db.patch(energy._id, {
-        energy: charged.balance, settledAt: charged.settledWorldSeconds, acts: energy.acts + 1, spend: energy.spend + charge, lastActAt: world,
+        energy: charged.balance, settledAt: charged.settledWorldSeconds, acts: energy.acts + 1, spend: energy.spend + charge, lastActAt: world, history,
         ...(outcome === "skipped" ? { skips: energy.skips + 1 } : outcome === "failed" ? { failures: energy.failures + 1 } : {}),
       });
       const actSeq = await appendEvent(ctx, game._id, "act", {
@@ -644,8 +650,8 @@ export const commit = internalMutation({
           ...(mine ? { agentId: act.agentId, charge, ...(record.notes?.length ? { notes: record.notes } : {}) } : {}), mine, by: act.memberId as Id<"v2Members">,
           calls: record.calls.map(c => ({ mutator: c.mutator, site: c.site, args: c.args })), rep: record.calls[0]?.rep ?? "",
           stateBefore: record.before, stateAfter: record.after,
-          before: { score: was.score, rarityBits: was.rarityBits, want: was.want, points: was.points, ...shownOf(was) },
-          after: { score: val.score, rarityBits: val.rarityBits, want: val.want, points: val.points, ...shownOf(val) },
+          before: { score: was.score, rarityBits: was.rarityBits, want: was.want, points: was.points, shownWant: was.shownWant, shownPoints: was.shownPoints },
+          after: { score: val.score, rarityBits: val.rarityBits, want: val.want, points: val.points, shownWant: val.shownWant, shownPoints: val.shownPoints },
         });
       }
     }
@@ -687,7 +693,7 @@ export const tickFailed = internalMutation({
 
 /**
  * At the end everything is open and exact, for one player: their value rows' disclosed fields become the exact ones
- * (the list sorts keep reading the same index: play.ts sortIndexOf), their scatter shows the exact sums, and in a paid
+ * (the list sorts keep reading the same index: objectOrder.ts), their scatter shows the exact sums, and in a paid
  * game they are told every object as it is, exact (their list keeps reading their knowledge: knowledge.ts listsKnowledge).
  */
 export const exactValues = internalMutation({
@@ -698,14 +704,16 @@ export const exactValues = internalMutation({
     const digest = await ctx.db.query("v2Digests").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).unique();
     const packed = digest ? [...digest.packed] : [];
     for await (const r of ctx.db.query("v2ObjectValues").withIndex("by_game_member_born", q => q.eq("gameId", gameId).eq("memberId", memberId))) {
-      if (r.shownWant !== undefined && (r.shownWant !== r.want || r.shownPoints !== r.points)) await ctx.db.patch(r._id, { shownWant: r.want, shownPoints: r.points });
+      // The filter follows the exact others' sum from here, as the sorts do (a filtered list re-runs on the same index).
+      const quadrant = quadrantOf(r.rarityBits, r.want);
+      if (r.shownWant !== undefined && (r.shownWant !== r.want || r.shownPoints !== r.points || r.quadrant !== quadrant)) await ctx.db.patch(r._id, { shownWant: r.want, shownPoints: r.points, quadrant });
       const at = 3 * (r.number - 1);
       while (packed.length < at) packed.push(0);
       packed.splice(at, 3, r.number, r.rarityBits, r.want);
       if (!paid) continue;
       const st = await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", r.objectId)).unique();
       if (!st) continue;
-      const told = { state: st.state, version: st.version, score: r.score, rarityBits: r.rarityBits, want: r.want, points: r.points };
+      const told = { state: st.state, version: st.version, score: r.score, rarityBits: r.rarityBits, want: r.want, points: r.points, quadrant };
       const known = await ctx.db.query("v2Knowledge").withIndex("by_object_member", q => q.eq("objectId", r.objectId).eq("memberId", memberId)).unique();
       if (known) await ctx.db.patch(known._id, told);   // learnedAt kept: the "recent" sort stays the order of telling
       else await ctx.db.insert("v2Knowledge", { gameId, memberId, objectId: r.objectId, number: r.number, learnedAt: world, ...told });

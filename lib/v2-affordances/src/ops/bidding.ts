@@ -14,7 +14,7 @@ const family = z.string().min(1).max(40).describe("A rule family on offer (bid.s
 export const biddingOps = [
   affordance({
     id: "bid.state", title: "Show the bid phase", group: "play", scope: "room",
-    description: "The open bid phase: the families on offer (each with its card and how many bits its rules' value curves were measured to; past that they keep rising, with no ceiling), the deadline, the caller's own bids and who is done. Other players' bids are sealed.",
+    description: "The open bid phase: the families on offer (each with its card and how many bits its rules' value curves were measured to; past that they keep rising, with no ceiling), the deadline, the caller's own bids and who is done. Other players' bids are sealed unless the room bids in the open (visibility open: `others` lists them).",
     tooltip: "What is on offer and what you have bid.", keywords: ["bids", "auction", "bidding", "handicap"],
     params: none,
     result: z.object({
@@ -22,6 +22,8 @@ export const biddingOps = [
       families: z.array(z.object({ family: z.string(), card: z.string(), measuredTo: z.number().describe("Bits at the furthest measured knot of the family's value curves: not a maximum, rarer scores are worth more without bound.") })),
       mine: z.array(z.object({ family: z.string(), percent: z.number().int() })),
       done: z.array(z.object({ memberId: id, name: z.string() })),
+      visibility: z.enum(["sealed", "open"]),
+      others: z.array(z.object({ memberId: id, name: z.string(), bids: z.array(z.object({ family: z.string(), percent: z.number().int() })) })),
     }),
     contexts: ["room"], caller: "seated", effect: "read", confirm: "none", runs: "server", available: bidOpen,
   }),
