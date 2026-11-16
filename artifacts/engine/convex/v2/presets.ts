@@ -120,8 +120,8 @@ const BEGINNER = fromPool("lines-beginner", { ...BEGINNER_WORLD, startingEnergy:
  * The beginner grid (docs/engine-v2/grids.md): the 4×4 board of digits. A board's agents read 16 cells, not y = mx + c,
  * so they are longer and dearer to summon; its start buys three typical grid starters, as the lines' buys three line ones.
  */
-// No drift on the beginner grid, as v1 (a seat's rule never changed): its families have one parameter set each, so a
-// drift could only redraw the same rule.
+// No drift on the beginner grid, as v1 (a seat's rule never changed): a seat dealt Mirrormancer or Magic Eighteen keeps
+// its axis (rows or columns) for the game.
 const GRIDS = fromPool("grids-beginner", { ...BEGINNER_WORLD, driftSeconds: 0, startingEnergy: beginnerStart("grid-4-d10", ECONOMY.powerPerSecond) });
 
 

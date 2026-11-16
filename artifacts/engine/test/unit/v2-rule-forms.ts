@@ -84,8 +84,8 @@ export const RULE_FORMS: Readonly<Record<string, FamilyForms>> = {
   "high-start": { kind: "base-ladder", forms: { "start-echo": "near-multiple", "start-crossing": "near-multiple" } },
   "steep-ratio": { kind: "base-ladder", forms: { "ratio-gap": "shares-factor", "ratio-prime": "factor-size" } },
   // Grids (lib/v2-grid): tags proposed by the spec lead, 15 Nov, for the grids session to check.
-  mirrormancer: { kind: "symmetry", forms: { "mirror-columns": "second-axis", "one-apart": "adjacent-step", "small-middle": "small-values" } },
-  "magic-eighteen": { kind: "line-sums", forms: { columns: "second-axis", diagonals: "diagonals", "different-numbers": "all-different" } },
+  mirrormancer: { kind: "symmetry", forms: { "mirror-other-way": "second-axis", "one-apart": "adjacent-step", "small-middle": "small-values" } },
+  "magic-eighteen": { kind: "line-sums", forms: { "other-way": "second-axis", diagonals: "diagonals", "different-numbers": "all-different" } },
   "opposite-nines": { kind: "pair-sums", forms: { "mirror-nines": "second-axis", "different-splits": "all-different", "big-on-top": "placement" } },
   "two-pair": { kind: "box-pattern", forms: { apart: "distance", "diagonal-pairs": "diagonals", "small-pairs": "small-values" } },
   "spread-of-three": { kind: "spread", forms: { "spread-diagonal": "diagonals", "spread-small": "small-values", "square-different": "all-different" } },

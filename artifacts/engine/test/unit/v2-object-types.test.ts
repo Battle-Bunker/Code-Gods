@@ -23,8 +23,8 @@ test("a grid variant is read and written as a grid; it is valued only once it ha
   assert.equal(encode(decode(wire, "grid-4-d10"), "grid-4-d10"), wire);
   const type = typeOf("grid-4-d10"), variant = type.variants[0]!;
   const f = familyOf("magic-eighteen");
-  const key = ruleKey(type, variant, f.id, { T: 18 }, "first-column");
-  const seat = [{ memberId: "m1", rule: { family: f.id, params: { T: 18 }, tieBreaker: "first-column", ruleKey: key, contentHash: "" } }];
+  const key = ruleKey(type, variant, f.id, { axis: "rows", T: 18 }, "first-line");
+  const seat = [{ memberId: "m1", rule: { family: f.id, params: { axis: "rows", T: 18 }, tieBreaker: "first-line", ruleKey: key, contentHash: "" } }];
   // Values come from value functions (convex/v2/values.gen.ts); grids have none yet, so the server refuses to value
   // (and the deal to deal) a grid rule, by name. When grid value functions land, this asserts the rows-add-up line's
   // worth instead (it was > 16 bits under the artefacts).

@@ -84,10 +84,19 @@ test("Mirrormancer and Magic Eighteen on the columns axis score the board flippe
   }
   // Worked boards on the columns axis: B's columns are 0309, 1000, 2000, 0100.
   assert.deepEqual(terms("mirrormancer", B, COLUMNS), { mirror: 12 + 1 + 2 + 1, middle: 4, primes: 2, zeros: 11,
-    "mirror-other-way": 1 + 2 + 0 + 9, "one-apart": 2 + 8 + 0 + 1 + 1 + 1 + 0 + 1, "small-middle": 4 });
+    "mirror-other-way": 1 + 2 + (0 + 1) + 9, "one-apart": 2 + 8 + 0 + 1 + 1 + 1 + 0 + 1, "small-middle": 4 });
   assert.deepEqual(terms("magic-eighteen", B, { ...COLUMNS, T: 18 }), { lines: 6 + 17 + 16 + 17, "first-line": 3, primes: 2, odd: 4,
     "other-way": 15 + 14 + 18 + 9, diagonals: 18 + 9, "different-numbers": 0 });
   assert.equal(el(B, "mirror", "cgap0"), 9 + 3);  // column 1 reads 0 3 0 9: |0−9| + |3−0|
+});
+
+test("Mirrormancer's other-way secondary keeps v1's guard: a line of one number is no mirror", () => {
+  // All zeros tops the main part (unguarded, as v1) but not the secondary: each uniform line is one step off.
+  for (const p of [ROWS, COLUMNS]) assert.deepEqual([terms("mirrormancer", board("0000", "0000", "0000", "0000"), p).mirror, terms("mirrormancer", board("0000", "0000", "0000", "0000"), p)["mirror-other-way"]], [0, 4]);
+  // 1 2 2 1 down every column (rows axis), or along every row (columns axis): mirrors of two numbers, at the top.
+  assert.equal(terms("mirrormancer", board("1111", "2222", "2222", "1111"), ROWS)["mirror-other-way"], 0);
+  assert.equal(terms("mirrormancer", board("1221", "1221", "1221", "1221"), COLUMNS)["mirror-other-way"], 0);
+  assert.equal(terms("mirrormancer", board("1221", "1221", "3333", "1221"), COLUMNS)["mirror-other-way"], 1, "one uniform row");
 });
 
 test("Mirrormancer's and Magic Eighteen's cards name the dealt axis, and the secondaries follow it", () => {
@@ -95,9 +104,9 @@ test("Mirrormancer's and Magic Eighteen's cards name the dealt axis, and the sec
   assert.deepEqual(fam("mirrormancer").dealable(grid4), [ROWS, COLUMNS]);
   assert.deepEqual(fam("magic-eighteen").dealable(grid4), [{ ...ROWS, T: 18 }, { ...COLUMNS, T: 18 }]);
   assert.equal(card("mirrormancer", ROWS, "mirror-other-way"),
-    "Every row should read the same backwards, like 3 1 1 3. Secondary: Every column should read the same from the bottom up as from the top down too.");
+    "Every row should read the same backwards, like 3 1 1 3. Secondary: Every column should read the same from the bottom up as from the top down too, using at least two different numbers.");
   assert.equal(card("mirrormancer", COLUMNS, "mirror-other-way"),
-    "Every column should read the same from the bottom up as from the top down, like 3 1 1 3. Secondary: Every row should read the same backwards too.");
+    "Every column should read the same from the bottom up as from the top down, like 3 1 1 3. Secondary: Every row should read the same backwards too, using at least two different numbers.");
   assert.equal(card("mirrormancer", COLUMNS, "small-middle"),
     "Every column should read the same from the bottom up as from the top down, like 3 1 1 3. Secondary: Each column's middle pair should be as small as possible.");
   assert.equal(card("magic-eighteen", { ...ROWS, T: 18 }, "other-way"), "Every row should add up to 18. Secondary: The columns should add up to 18 too.");

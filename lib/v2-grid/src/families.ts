@@ -64,7 +64,7 @@ export function mirrormancer(n: number): RuleFamily<GridState, Axed> {
       primesTie(),
       zerosTie(),
       distance<Axed>("mirror-other-way", "the other way reads the same backwards too",
-        p => `Every ${otherWord(p.axis)} should ${readsBack(p.axis === "rows" ? "columns" : "rows")} too.`, "cells"),
+        p => `Every ${otherWord(p.axis)} should ${readsBack(p.axis === "rows" ? "columns" : "rows")} too, using at least two different numbers.`, "cells"),
       distance<Axed>("one-apart", "each end number one apart from the number beside it",
         p => `In each ${lineWord(p.axis)}, each end number and the number beside it should be one apart, like 4 5 5 4.`, "cells"),
       distance<Axed>("small-middle", "the lines' middle numbers", p => `Each ${lineWord(p.axis)}'s middle pair should be as small as possible.`, "cells"),
@@ -80,7 +80,11 @@ export function mirrormancer(n: number): RuleFamily<GridState, Axed> {
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
     countCells(ctx, "zeros", "0s on the board", cells, x => x === 0, false);
     const v = cells.v, back = (l: readonly number[]) => sumOf(l.slice(0, Math.floor(n / 2)).map((i, k) => Math.abs(v[i]! - v[l[n - 1 - k]!]!)));
-    term(ctx, "mirror-other-way", `how far the ${otherWord(p.axis)}s are from reading the same backwards, added up`, sumOf(across(n, p.axis).map(back)), cells.refs);
+    // v1's "different" guard (mirror-tiers.ts: "without it 7337/3773/3773/7337 tops both"): a line of one number is no
+    // mirror, one step from it (two symmetric cells changed by 1 make a mirror of two numbers).
+    const uniform = (l: readonly number[]) => l.every(i => v[i] === v[l[0]!]);
+    term(ctx, "mirror-other-way", `how far the ${otherWord(p.axis)}s are from reading the same backwards with two different numbers, added up`,
+      sumOf(across(n, p.axis).map(l => back(l) + (uniform(l) ? 1 : 0))), cells.refs);
     const ends = lines.flatMap(l => [[l[0]!, l[1]!], [l[n - 2]!, l[n - 1]!]]);
     term(ctx, "one-apart", "how far each end number is from one apart from the number beside it, added up", sumOf(ends.map(([a, b]) => Math.abs(Math.abs(v[a]! - v[b]!) - 1))), cells.refs);
     term(ctx, "small-middle", "the middle numbers' total", sumOf(middle.map(i => v[i]!)), middle.map(i => cells.refs[i]!));

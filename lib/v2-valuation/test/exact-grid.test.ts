@@ -23,15 +23,15 @@ test("on the 2×2 board every family × tie-breaker's joint law matches the sum 
 
 test("a tie-breaker the units do not cover is refused by the exact law, and sampled by the value function", () => {
   const f = gridType.families.find(x => x.id === "magic-eighteen")!;
-  assert.equal(exactlySummed("magic-eighteen", "columns"), false);
+  assert.equal(exactlySummed("magic-eighteen", "other-way"), false);
   assert.equal(exactlySummed("magic-eighteen", "different-numbers"), true);
   assert.equal(exactlySummed("magic-eighteen", null), true);
   assert.equal(exactlySummed("spread-of-three", null), false);
-  assert.throws(() => gridJointLaw(gridType, f, { T: 18 }, grid4, "columns"), /do not cover/);
+  assert.throws(() => gridJointLaw(gridType, f, { axis: "rows", T: 18 }, grid4, "other-way"), /do not cover/);
 });
 
 test("a family whose layers do not add up over its declared units is refused", () => {
   const f = gridType.families.find(x => x.id === "magic-eighteen")!;
   const broken = { ...f, id: "box-totals" };   // row totals do not add up over the corner boxes
-  assert.throws(() => gridJointLaw(gridType, broken as never, { T: 18 }, grid4, "primes"), /not additive/);
+  assert.throws(() => gridJointLaw(gridType, broken as never, { axis: "rows", T: 18 }, grid4, "primes"), /not additive/);
 });
