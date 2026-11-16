@@ -24,7 +24,7 @@ type Input = {
 } | null;
 const INPUT = makeFunctionReference<"query", { turnId: Id<"v2AssistantTurns"> }, Input>("v2/assistantRun:turnInput");
 const STATUS = makeFunctionReference<"query", { turnId: Id<"v2AssistantTurns"> }, string | null>("v2/assistantCore:turnStatus");
-const CALL = makeFunctionReference<"mutation", { turnId: Id<"v2AssistantTurns">; index: number; tool: string; argsJson: string; ok: boolean; summary: string }>("v2/assistantCore:recordCall");
+const CALL = makeFunctionReference<"mutation", { turnId: Id<"v2AssistantTurns">; index: number; tool: string; argsJson: string; ok: boolean; summary: string; resultJson?: string }>("v2/assistantCore:recordCall");
 const FINISH = makeFunctionReference<"mutation", Record<string, unknown>>("v2/assistantCore:finish");
 const RESOLVE = makeFunctionReference<"query", Record<string, unknown>, { ctx: AffordanceContext }>("v2/ops/define:resolveCaller");
 
@@ -93,7 +93,7 @@ export const run = internalAction({
           const n = index++;
           try {
             const out = await performAs(ctx, delegate, scope, affordanceForTool(name)!.id, args);
-            await ctx.runMutation(CALL, { turnId, index: n, tool: name, argsJson: JSON.stringify(args), ok: true, summary: "done" });
+            await ctx.runMutation(CALL, { turnId, index: n, tool: name, argsJson: JSON.stringify(args), ok: true, summary: "done", resultJson: JSON.stringify(out ?? null) });
             return out;
           } catch (e) {
             await ctx.runMutation(CALL, { turnId, index: n, tool: name, argsJson: JSON.stringify(args), ok: false, summary: (e as Error).message });

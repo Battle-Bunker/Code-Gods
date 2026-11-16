@@ -37,6 +37,8 @@ export const assistantTables = {
   v2AssistantCalls: defineTable({
     turnId: v.id("v2AssistantTurns"), threadId: v.id("v2AssistantThreads"), index: v.number(), tool: v.string(),
     argsJson: v.string(), ok: v.boolean(), summary: v.string(), createdAt: v.number(),
+    /** What came back (JSON, clipped to LIMITS.resultChars; absent on calls recorded before it, or a failed call). */
+    resultJson: v.optional(v.string()),
   }).index("by_turn", ["turnId", "index"]),
   /**
    * Messages sent while a turn ran: they start the next turn when it ends. `held`: kept through a Stop or a failed
