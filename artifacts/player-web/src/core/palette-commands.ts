@@ -48,6 +48,8 @@ export interface PaletteHost {
   noun?: { one: string; many: string };
   /** The viewer's stored panels (their one live list), so each enabled one can be opened as a pane. */
   storedPanels?: readonly { slug: string; title: string; enabled: boolean }[];
+  /** Opens the assistant and focuses its composer (v1's Ctrl+`). */
+  focusAssistant?(): Promise<unknown>;
   /** The file panels (src/panels/*.tsx) this copy of the app has; none in safe mode. */
   filePanels?: readonly string[];
   /** Whether the page is in safe mode (?panels=off), and how to reload it in or out of it. */
@@ -197,6 +199,15 @@ export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Comm
         typedOnly: true, performer: { kind: "submit", run: () => panes.open(filePane(id)) }, available: () => ({ ok: true }),
       });
     }
+  }
+  // v1's "Focus assistant (Ctrl+`)".
+  const focusAssistant = host.focusAssistant;
+  if (focusAssistant && ctx.game && !ctx.room?.aiOff) {
+    rows.push({
+      id: "assistant-focus", human: { title: "Focus assistant (Ctrl+`)", tooltip: "Open your assistant and type to it. / does the same outside a field." },
+      group: "view", keywords: ["assistant", "focus", "ask", "type", "chat with assistant"],
+      performer: { kind: "submit", run: () => focusAssistant() }, available: () => ({ ok: true }),
+    });
   }
   // v1's safe mode: reload the page with every panel of yours off (a panel that breaks the page can then be fixed), and back.
   const setSafeMode = host.setSafeMode;

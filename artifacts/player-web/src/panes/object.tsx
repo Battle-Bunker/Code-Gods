@@ -15,6 +15,8 @@ import { ANOTHER, ClimbHistory, climbOf, ExpandedFace, moves as candidatesOf, Ob
 import { representation } from "@workspace/v2-core";
 import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMyAgents, useMyObject, useMyRule, useObjectMoves, useOthersAt, useOthersBlurred, type OthersAtMaps } from "@/sdk";
 import { useReplaying, useView } from "@/core/affordance-runtime";
+import { requestComposer } from "./assistant-request";
+import { useRuntime } from "@/core/affordance-runtime";
 import { useOpenPane } from "@/dock/open-pane";
 import { bitsText, pointsText } from "@/core/words";
 import { BitsHelp } from "@/core/score-help";
@@ -45,6 +47,7 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
   const openPane = useOpenPane(replaying ? "replay" : header?.phase ?? "live");
   const state = useMemo(() => (o ? decodeState(o.state, header?.variant) : null), [o?.state, header?.variant]); // eslint-disable-line react-hooks/exhaustive-deps
   const word = objectWord(header?.variant);
+  const aiOff = !!useRuntime().context.room?.aiOff;
   // The candidates, and the others' total bits at each (one live read for the object's few candidate states).
   const rule0 = seated ? my?.rule ?? null : null, value0 = my?.bits ?? undefined;
   const candidates = useMemo(() => (rule0 && state ? candidatesOf(rule0, state, value0, { k: CANDIDATES }) : []), [rule0, state, value0]);
@@ -99,6 +102,11 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
           <span className="font-semibold">{word.One} {o.number}</span>
           {v && <span data-testid="text-line-points">{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
           {v && <BitsHelp testId="button-bits-help-line" />}
+          {/* v1's AskAboutObject: the line in a message to your assistant, to finish and send. */}
+          {!aiOff && (
+            <button type="button" className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" data-testid={`button-object-ask-${o.number}`}
+              title={`Put this ${word.one} in a message to your assistant`} onClick={() => void requestComposer({ fill: `${word.One} ${o.number}: ` }, openPane)}>ask my assistant</button>
+          )}
         </p>
         {v && <p className="text-xs text-muted-foreground" data-testid="text-line-formula">{whyLine({ rarity: v.rarityBits, want: v.want }, {}, word.one, blurred)}</p>}
         {/* Paid looks (W3 #643): this is the line as last seen; a look pays to see it as it is now. */}
