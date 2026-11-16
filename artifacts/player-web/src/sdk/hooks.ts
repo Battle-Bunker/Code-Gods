@@ -151,14 +151,19 @@ export function usePublicLog(pageSize = 50) {
   return useLivePaged(api.v2.play.log, gameId && !replay ? { gameId } : "skip", pageSize);
 }
 
-/** The viewer's live agents (≤ 20). Undefined while loading, which never means none. */
+/** The first page of `v2/play:agents` (the server's page is at most 50). */
+const FIRST_AGENTS_PAGE = { numItems: 50, cursor: null };
+/**
+ * The viewer's live agents (a player may hold 200, call 35): for now the first page of 50, oldest first, as one list.
+ * Undefined while loading, which never means none.
+ */
 export function useMyAgents(): Agent[] | undefined {
   const { gameId, seated } = useGameScope();
   const replay = useReplaySource();
-  const live = useLiveValue(api.v2.play.agents, gameId && seated && !replay ? { gameId } : "skip");
+  const live = useLiveValue(api.v2.play.agents, gameId && seated && !replay ? { gameId, paginationOpts: FIRST_AGENTS_PAGE } : "skip");
   const frame = replay?.frame, member = replay?.member;
   const replayed = useMemo(() => (frame && member ? frame.agents(member) : null), [frame, member]);
-  return replayed ?? live;
+  return replayed ?? live?.page;
 }
 /** An agent's energy account; not in the record, so none in a replay. */
 export function useAgentEnergy(agentId: string | null | undefined) {

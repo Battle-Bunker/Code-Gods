@@ -113,7 +113,7 @@ export function familyPage(familyId: string, setup: GallerySetup): FamilyPage | 
     family: f,
     setup: { board: v.id, params: index, tb: setup.tb && tb === setup.tb ? tb : null },
     params: dealable.map((p, i) => ({ index: i, label: paramLabel(p) })),
-    tieBreakers: tbs.map(t => ({ id: t.id, title: t.title, sentence: t.sentence(params).replace(/^Tie-breaker: /, "") })),
+    tieBreakers: tbs.map(t => ({ id: t.id, title: t.title, sentence: t.sentence(params).replace(/^(Tie-breaker|Secondary|Third|Then):\s*/, "") })),
     main: { title: f.main.title, sentence: f.main.sentence(params) },
     rule: { type, family: f, params, variant: v, tieBreaker: tb },
     card: f.card(params, tb),

@@ -1,5 +1,5 @@
 // m Meets c · Example: they meet at a big number
-// Main part: gradient close to the y-intercept. Tie-breaker: they meet at a big number.
+// Main part: gradient close to the y-intercept. Secondary preference: they meet at a big number.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,10 +9,10 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: remove the "stretch" line: can turning alone make them meet at a big number?
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p) {
   const main = Q.neg(Q.abs(Q.sub(m, c)));
-  return [main, Q.abs(c)];   // main: how far apart the gradient and the y-intercept are (closer is better); tie-breaker: a bigger y-intercept is better
+  return [main, Q.abs(c)];   // main: how far apart the gradient and the y-intercept are (closer is better); secondary: a bigger y-intercept is better
 }
 
 const FAR = 3;      // how far one change may go

@@ -1,12 +1,12 @@
 // Exact Change · Naive (for learning)
-// Main part: ways to pay close to the target. Tie-breaker: whichever you were dealt (the smaller pile in every way; the bill; both coins close to primes).
+// Main part: ways to pay close to the target. Secondary preference: whichever you were dealt (the smaller pile in every way; the bill; both coins close to primes).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
 // It is here to learn from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same lines and watch your points: then switch to Simple.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (Q.cmp(m, 0) >= 0) return null;              // a coin worth -m·b: the line must go downhill
   const X = Q.neg(Q.div(c, m));                   // where the line meets y = 0: x goes no further
@@ -16,7 +16,7 @@ function score(m, c, p, tie) {
   for (let x = 0; Q.cmp(x, X) <= 0; x++) if (Q.isInteger(Q.add(Q.mul(m, x), c))) ways.push(x);
   const main = Q.neg(Q.abs(ways.length - p.ways));
   // main: how far the number of ways to pay is from the target (closer is better)
-  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     if (t === "big-piles") {   // a bigger smaller pile, in every way to pay, is better
       if (!ways.length) return null;      // no way to pay: no piles
       const y = Q.add(Q.mul(m, ways.at(-1)), c);  // the fewest coins of b

@@ -1,5 +1,5 @@
 # Square Area · Simple
-# Main part: area close to a square number. Tie-breaker: whichever you were dealt (that square's root's smallest prime factor; that square's root's largest prime factor; prime factors of that square's root).
+# Main part: area close to a square number. Secondary preference: whichever you were dealt (that square's root's smallest prime factor; that square's root's largest prime factor; prime factors of that square's root).
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,7 +11,7 @@
 
 
 def score(m, c, p, tie):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m == 0 or c == 0:                            # no triangle: the worst score
         return None
     area = c * c / (2 * abs(m))
@@ -21,7 +21,7 @@ def score(m, c, p, tie):
     main = -abs(area - sq)
     f = factors(root(sq))                           # the prime factors of that square's root
     # main: how far the triangle's area is from a square number (closer is better)
-    def tier(t):   # each tie-breaker, in order (None: ranks last)
+    def tier(t):   # each secondary, in order (None: ranks last)
         if t == "spf":   # a root whose smallest prime factor is big is better
             return f[0] if f else 1
         if t == "lpf":   # a root whose largest prime factor is big is better

@@ -1,17 +1,17 @@
 // Staircase · Naive (for learning)
-// Main part: numbers one more than the one before. Tie-breaker: the numbers the stairs climb from, added up.
+// Main part: numbers one more than the one before. Secondary preference: the numbers the stairs climb from, added up.
 // What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 // board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 // board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
 // from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   const step = p.direction === "right" ? 1 : 4;   // the number before: to the left, or above
   let main = 0;
   for (let i = 0; i < 16; i++) if ((step === 1 ? i % 4 > 0 : i >= 4) && b[i] === b[i - step] + 1) main++;
-  return [main, -b.reduce((t, x, i) => t + ((step === 1 ? i % 4 > 0 : i >= 4) && x === b[i - step] + 1 ? b[i - step] : 0), 0)];   // main: the numbers exactly 1 more than the number before them (more is better); tie-breaker: stairs climbing from smaller numbers is better
+  return [main, -b.reduce((t, x, i) => t + ((step === 1 ? i % 4 > 0 : i >= 4) && x === b[i - step] + 1 ? b[i - step] : 0), 0)];   // main: the numbers exactly 1 more than the number before them (more is better); secondary: stairs climbing from smaller numbers is better
 }
 
 const FAR = 1;      // how far one change may go

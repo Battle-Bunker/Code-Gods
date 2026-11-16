@@ -1,5 +1,5 @@
 # Triangle Area · Example: legs nearly whole
-# Main part: triangle area close to A. Tie-breaker: legs nearly whole.
+# Main part: triangle area close to A. Secondary preference: legs nearly whole.
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,13 +11,13 @@
 
 
 def score(m, c, p):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m == 0 or c == 0:                            # no triangle: the worst score
         return None
     legX, legY = abs(c / m), abs(c)                 # the triangle's base and height
     area = legX * legY / 2
     main = -abs(area - p["A"])
-    return [main, -(legX.denominator + legY.denominator - 2)]   # main: how far the triangle's area is from A (closer is better); tie-breaker: legs that are whole numbers are best
+    return [main, -(legX.denominator + legY.denominator - 2)]   # main: how far the triangle's area is from A (closer is better); secondary: legs that are whole numbers are best
 
 
 FAR = 3      # how far one change may go

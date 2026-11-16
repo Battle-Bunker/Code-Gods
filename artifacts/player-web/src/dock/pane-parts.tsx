@@ -85,6 +85,10 @@ const PLACES: { place: Place; label: string }[] = [
   { place: "main", label: "Move to the middle" }, { place: "left", label: "Move to the left" },
   { place: "right", label: "Move to the right" }, { place: "bottom", label: "Move to the bottom" },
 ];
+/** The desktop dock's maximise (v1's "Maximise"): this viewer's screen only, never stored; the phone has none. */
+export interface Maximise { isMaximised(pane: string): boolean; toggle(pane: string): void }
+export const MaximiseContext = createContext<Maximise | null>(null);
+
 /** Buttons inside a dock tab: a press is theirs, not the start of dragging the tab. */
 const own = (e: React.PointerEvent) => e.stopPropagation();
 
@@ -95,6 +99,7 @@ export function PaneMenu({ pane }: { pane: string }) {
   const ops = usePaneOps(phase);
   const name = usePaneName();
   const aiOff = !!useRuntime().context.room?.aiOff;
+  const maximise = useContext(MaximiseContext);
   const others = PANE_IDS.filter(id => !open.some(p => p.pane === id) && PANES[id].phases.includes(phase) && id !== "object" && !(aiOff && id === "assistant"));
   return (
     <DropdownMenu>
@@ -103,6 +108,7 @@ export function PaneMenu({ pane }: { pane: string }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[14rem]">
         {PLACES.map(p => <DropdownMenuItem key={p.place} disabled={!move.available} onSelect={() => void ops.open(pane, p.place)}>{p.label}</DropdownMenuItem>)}
+        {maximise && <DropdownMenuItem onSelect={() => maximise.toggle(pane)} data-testid={`button-maximise-pane-${pane}`}>{maximise.isMaximised(pane) ? "Restore the other panes" : "Maximise"}</DropdownMenuItem>}
         <DropdownMenuItem disabled={!close.available} onSelect={() => void ops.close(pane)} data-testid={`button-close-pane-${pane}`}>Close</DropdownMenuItem>
         {others.length > 0 && <><DropdownMenuSeparator /><DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Open another pane</DropdownMenuLabel></>}
         {others.map(id => <DropdownMenuItem key={id} onSelect={() => void ops.open(id)} data-testid={`button-open-pane-${id}`}>{name(id)}</DropdownMenuItem>)}

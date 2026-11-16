@@ -1,5 +1,5 @@
 # Whole Intercept · Simple
-# Main part: y-intercept close to a whole number. Tie-breaker: whichever you were dealt (smallest prime factor of that whole number; prime factors of that whole number).
+# Main part: y-intercept close to a whole number. Secondary preference: whichever you were dealt (smallest prime factor of that whole number; prime factors of that whole number).
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,7 +11,7 @@
 
 
 def score(m, c, p, tie):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     up = whole(c)                                   # the whole number nearest the y-intercept (a half rounds up)
     spf = lambda k: 2 if k == 0 else (factors(k) or [1])[0]   # smallest prime factor: 2 for 0, 1 for 1 and -1
     half = up - c == Fraction(1, 2)                 # exactly halfway between two whole numbers?
@@ -19,7 +19,7 @@ def score(m, c, p, tie):
     main = -abs(c - n)
     f = factors(n)                                  # its prime factors, smallest first
     # main: how far the y-intercept is from a whole number (closer is better)
-    def tier(t):   # each tie-breaker, in order (None: ranks last)
+    def tier(t):   # each secondary, in order (None: ranks last)
         if t == "spf":   # a bigger smallest prime factor is better (a big prime is best)
             return spf(n)
         if t == "omega":   # more prime factors are better

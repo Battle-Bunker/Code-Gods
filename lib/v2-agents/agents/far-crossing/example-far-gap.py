@@ -1,5 +1,5 @@
 # Far Crossing · Example: the x-intercepts' gap near a multiple of your number
-# Main part: the steeper line crosses the x-axis on your pattern. Tie-breaker: the x-intercepts' gap near a multiple of your number.
+# Main part: the steeper line crosses the x-axis on your pattern. Secondary preference: the x-intercepts' gap near a multiple of your number.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
@@ -7,12 +7,12 @@
 
 
 def score(L, p):
-    # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good are the two lines L for your rule? [main part, secondary]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     if f.rs is None:   # the steeper line is flat: no score
         return None
     main, R = ladder(f.rs, p["q"], p["r"])   # the x-intercept on your ladder
-    return [main, None if f.xgap is None else -off_multiple(f.xgap, p["q"] ** (level_of(main, p["q"]) + 1))]   # main: the level of the steeper line's x-intercept on your ladder (higher is better); tie-breaker: the gap between the x-intercepts near a multiple of q to the power one above your level is better
+    return [main, None if f.xgap is None else -off_multiple(f.xgap, p["q"] ** (level_of(main, p["q"]) + 1))]   # main: the level of the steeper line's x-intercept on your ladder (higher is better); secondary: the gap between the x-intercepts near a multiple of q to the power one above your level is better
 
 
 FAR = 3      # how far one move may go

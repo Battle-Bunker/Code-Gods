@@ -266,6 +266,12 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     if (humans.every(u => b.done.includes(u))) deal(e.state, r);
     return ok;
   },
+  "bid.cancel": e => {
+    const r = roomOf(e);
+    if (!r.bid) throw new OpFailure("No bid phase is open.");
+    r.bid = null;
+    return ok;
+  },
   "game.auction": e => {
     const g = gameOf(e), names = (u: string) => nameOf(e.state, u);
     const wins = Object.entries(g.auction?.wins ?? {}).map(([u, w]) => ({ memberId: memberOf(e, u), name: names(u), family: w.family, handicap: w.handicap }));
@@ -310,6 +316,25 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     const family = gameOf(e).rules[e.userId]!;
     const won = gameOf(e).auction?.wins[e.userId];
     return { family, params: {}, layers: ["main"], card: `Your rule, ${family}, wants the gradient close to its target.`, depends: ["si"], wonByBid: won ? { handicap: won.handicap } : null };
+  },
+  "game.boardAt": (e, a) => {
+    const g = gameOf(e);
+    const all = Object.entries(g.objects).map(([objectId, o]) => ({ objectId, number: numberOf(g, objectId), state: null, own: bitsOf(g, e.userId, o), others: null, points: null }))
+      .sort((x, y) => x.number - y.number).filter(o => a.after === undefined || o.number > a.after);
+    const objects = all.slice(0, a.limit);
+    return { world: a.world, objects, nextAfter: all.length > a.limit ? objects.at(-1)!.number : null };
+  },
+  "rule.candidates": e => ({
+    rules: [...new Set(Object.values(gameOf(e).rules))].map(family => ({ family, params: {}, tieBreaker: null, card: `A rule of ${family}.` })),
+  }),
+  "rule.fit": (e, a) => {
+    const families = [...new Set(Object.values(gameOf(e).rules))];
+    const p = families.length ? 1 / families.length : 0;
+    return {
+      observations: 0, sigma: 8, exact: false,
+      hypotheses: families.slice(0, a.top).map(family => ({ posterior: p, rms: 8, rules: [{ family, params: {}, tieBreaker: null, card: `A rule of ${family}.` }] })),
+      families: families.map(family => ({ family, probability: p })), spectrum: [],
+    };
   },
   "rule.values": () => ({ points: knots() }),
   "rule.worth": (_e, a) => {
@@ -359,7 +384,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "moves.list": (_e, a) => page([], a),
   "log.list": (_e, a) => page([], a),
   "pitch.draft": (e, a) => ({ draft: `Proposal to ${a.to?.length ? a.to.join(", ") : "everyone"}: let's protect lines whose gradient suits ${gameOf(e).rules[e.userId]}.${a.aim ? ` ${a.aim}` : ""}` }),
-  "agents.list": e => ({ agents: gameOf(e).agents.filter(a => a.ownerId === e.userId).map(a => ({ agentId: a.agentId, name: a.name, language: a.language, share: a.share, energy: a.energy, acts: a.acts, version: a.versions.length - 1 })) }),
+  "agents.list": (e, a) => page(gameOf(e).agents.filter(x => x.ownerId === e.userId).map(x => ({ agentId: x.agentId, name: x.name, language: x.language, share: x.share, energy: x.energy, acts: x.acts, version: x.versions.length - 1 })), a),
   "agent.programs": (e, a) => ({ versions: agentOf(e, a.agentId).versions.map((v, version) => ({ version, ...v, acts: 0 })).reverse() }),
   "agent.check": (e, a) => {
     const defined = a.language === "python" ? /def\s+agent\s*\(/.test(a.source) : /function\s+agent\s*\(/.test(a.source);

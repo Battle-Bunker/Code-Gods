@@ -1,16 +1,16 @@
 // Magic Accountant · Naive (for learning)
-// Main part: every row (or column) adds up to the magic number. Tie-breaker: both diagonals add up to the magic number.
+// Main part: every row (or column) adds up to the magic number. Secondary preference: both diagonals add up to the magic number.
 // What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 // board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 // board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
 // from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (let k = 0; k < 4; k++) { let t = 0; for (let j = 0; j < 4; j++) t += p.axis === "rows" ? b[4 * k + j] : b[4 * j + k]; main -= Math.abs(t - p.T); }   // each line: how far its total is from T
-  return [main, -Math.abs(b[0] + b[5] + b[10] + b[15] - p.T) - Math.abs(b[3] + b[6] + b[9] + b[12] - p.T)];   // main: how far each row's (or column's) total is from T, added up (closer is better); tie-breaker: both diagonals closer to T too is better
+  return [main, -Math.abs(b[0] + b[5] + b[10] + b[15] - p.T) - Math.abs(b[3] + b[6] + b[9] + b[12] - p.T)];   // main: how far each row's (or column's) total is from T, added up (closer is better); secondary: both diagonals closer to T too is better
 }
 
 const FAR = 1;      // how far one change may go

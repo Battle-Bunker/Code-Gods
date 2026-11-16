@@ -1,17 +1,17 @@
 // Forty-Five · Example: that |x| + |y| shares a factor with the y-intercepts' gap
-// Main part: 45° at whole x and y, |x| + |y| on your pattern. Tie-breaker: that |x| + |y| shares a factor with the y-intercepts' gap.
+// Main part: 45° at whole x and y, |x| + |y| on your pattern. Secondary preference: that |x| + |y| shares a factor with the y-intercepts' gap.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
 // Try this: add "shift" to KINDS: it changes the gap directly.
 
-// How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good are the two lines L for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
   if (Q.isZero(f.D)) return null;   // parallel lines never cross: no score
   const { score: main, n: S } = ladder(Q.add(Q.abs(f.x), Q.abs(f.y)), p.q, p.r, Q.add(f.off45, dist(f.x)));   // 45 degrees at a grid point, |x| + |y| on your ladder
-  return [main, f.ygap === null ? null : common(S, whole(f.ygap))];   // main: the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better); tie-breaker: a corner whose |x| + |y| shares a big factor with the y-intercepts' gap is better
+  return [main, f.ygap === null ? null : common(S, whole(f.ygap))];   // main: the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better); secondary: a corner whose |x| + |y| shares a big factor with the y-intercepts' gap is better
 }
 
 const FAR = 4;      // how far one move may go

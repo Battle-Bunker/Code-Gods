@@ -51,8 +51,9 @@ export interface Annotation {
   readonly sites: readonly SiteAnnotation[];
 }
 
-const PART_NAMES = ["main part", "tie-breaker", "second tie-breaker", "third tie-breaker"];
-export const partName = (i: number): string => PART_NAMES[i] ?? `tie-breaker ${i}`;
+/** The owner's words (15 November): a rule's main part, then its secondary preference, third preference… never "tie-breaker". */
+const PART_NAMES = ["main part", "secondary preference", "third preference", "fourth preference", "fifth preference"];
+export const partName = (i: number): string => PART_NAMES[i] ?? `preference ${i + 1}`;
 
 /** The terms the family scored, in order (WORST still names them: the undefined one is among them). */
 function components(e: Evaluation): { term: Term; sense: "max" | "min" }[] {

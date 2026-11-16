@@ -1,5 +1,5 @@
 # Stepping Stones · Simple
-# Main part: the biggest group you can hop between. Tie-breaker: the cells outside the biggest group, added up.
+# Main part: the biggest group you can hop between. Secondary preference: the cells outside the biggest group, added up.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 # other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
@@ -8,7 +8,7 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     def near(i):   # the cells touching cell i
         return [j for j in (i - 4, i + 4, i - 1 if i % 4 else -1, i + 1 if i % 4 < 3 else -1) if 0 <= j < 16]
     best = []   # the biggest group (the first found on a tie)
@@ -26,7 +26,7 @@ def score(b, p):
         if len(group) > len(best):
             best = group
     main = len(best)
-    return [main, -sum(b[i] for i in range(16) if i not in best)]   # main: the cells in the biggest group you can hop between, touching cells 2 apart (more is better); tie-breaker: smaller numbers outside the biggest group are better
+    return [main, -sum(b[i] for i in range(16) if i not in best)]   # main: the cells in the biggest group you can hop between, touching cells 2 apart (more is better); secondary: smaller numbers outside the biggest group are better
 
 
 FAR = 1      # how far one change may go

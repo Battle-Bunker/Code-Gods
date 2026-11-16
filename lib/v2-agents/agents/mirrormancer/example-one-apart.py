@@ -1,5 +1,5 @@
 # Mirrormancer · Example: each end number one apart from the number beside it
-# Main part: every row reads the same backwards. Tie-breaker: each end number one apart from the number beside it.
+# Main part: every row reads the same backwards. Secondary preference: each end number one apart from the number beside it.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -9,11 +9,11 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     main = 0
     for r in range(0, 16, 4):   # each row: its ends' gap and its middle's gap
         main -= abs(b[r] - b[r + 3]) + abs(b[r + 1] - b[r + 2])
-    return [main, -sum(abs(abs(b[r] - b[r + 1]) - 1) + abs(abs(b[r + 2] - b[r + 3]) - 1) for r in range(0, 16, 4))]   # main: how far each row is from reading the same backwards, added up (closer is better); tie-breaker: each end number closer to one apart from the number beside it is better
+    return [main, -sum(abs(abs(b[r] - b[r + 1]) - 1) + abs(abs(b[r + 2] - b[r + 3]) - 1) for r in range(0, 16, 4))]   # main: how far each row is from reading the same backwards, added up (closer is better); secondary: each end number closer to one apart from the number beside it is better
 
 
 FAR = 2      # how far one change may go

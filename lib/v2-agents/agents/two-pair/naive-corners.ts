@@ -1,19 +1,19 @@
 // Two Pair · Naive (for learning)
-// Main part: every corner box holds two different pairs. Tie-breaker: the board's four corners.
+// Main part: every corner box holds two different pairs. Secondary preference: the board's four corners.
 // What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 // board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 // board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
 // from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const x of BOXES) {
     const [w, y, z, u] = x.map(i => b[i]).sort((s, t) => s - t);   // the box's four numbers, smallest first
     main -= y - w + u - z + (w === u ? 2 : 0);   // pair the two smallest and the two biggest; four of a kind: two cells must move by 1
   }
-  return [main, b[0] + b[3] + b[12] + b[15]];   // main: how far each corner box is from holding two different pairs, added up (closer is better); tie-breaker: bigger corners of the board are better
+  return [main, b[0] + b[3] + b[12] + b[15]];   // main: how far each corner box is from holding two different pairs, added up (closer is better); secondary: bigger corners of the board are better
 }
 
 const FAR = 1;      // how far one change may go

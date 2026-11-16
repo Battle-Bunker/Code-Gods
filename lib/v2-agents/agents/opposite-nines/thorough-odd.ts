@@ -1,16 +1,16 @@
 // Opposite Nines · Thorough
-// Main part: every cell and its opposite add up to the target. Tie-breaker: odd numbers on the board.
+// Main part: every cell and its opposite add up to the target. Secondary preference: odd numbers on the board.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: change QUOTES = 6 to 2: fewer prices asked, but it may miss a cheaper plan.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (let i = 0; i < 8; i++) main -= Math.abs(b[i] + b[15 - i] - p.T);   // cell i and its opposite, 15 - i
-  return [main, b.filter(x => x % 2).length];   // main: how far each cell and its opposite are from adding up to T, added up (closer is better); tie-breaker: more odd numbers is better
+  return [main, b.filter(x => x % 2).length];   // main: how far each cell and its opposite are from adding up to T, added up (closer is better); secondary: more odd numbers is better
 }
 
 const FAR = 1;      // how far one change may go

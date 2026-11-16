@@ -23,6 +23,8 @@
     "e2e:annotations-game": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/annotations-game.ts ../../docs/screenshots/annotations-lines/game",
     "e2e:sharing-rules": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/sharing-rules.ts ../../docs/screenshots/sharing-rules",
     "e2e:climb": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/climb.ts ../../docs/screenshots/climb",
+    "e2e:panel-security": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-panel-security.ts",
+    "e2e:example-panels": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-example-panels.ts",
     "e2e:panels": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-panels.ts",
     "e2e:dock": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-dock.ts",
     "e2e:grid-game": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-grid-game.ts"

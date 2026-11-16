@@ -1,12 +1,12 @@
 // Whole Crossing · Naive (for learning)
-// Main part: the x-axis crossing on a ladder of 5s. Tie-breaker: whichever you were dealt (the biggest number dividing both that number after its 5s, plus 1, and the gradient's whole part).
+// Main part: the x-axis crossing on a ladder of 5s. Secondary preference: whichever you were dealt (the biggest number dividing both that number after its 5s, plus 1, and the gradient's whole part).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
 // It is here to learn from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same lines and watch your points: then switch to Simple.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (m === null) {               // the vertical line x = c
     const x = c                                          // it stands on the x-axis at x = c;
@@ -43,7 +43,7 @@ function score(m, c, p, tie) {
   let L = 0; while (((L + 1) * (L + 2)) / 2 <= best.j) L++;   // level L needs L(L + 1)/2 fives (1, 3, 6, 10, …)
   const main = best.dist === 0n ? Q.add(L, Q.of(best.j - (L * (L + 1)) / 2, L + 1)) : Q.neg(Q.of(best.dist, dd));   // on the ladder: its level; else below them all
   // main: the level of 5s the line's x-axis crossing holds when it is a whole number leaving r after its 5s are divided out (level L needs L(L + 1)/2 fives; more is better: a ladder with no top), else minus how far it is from the nearest such number
-  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     if (t === "shared-factor") {   // take that number with its 5s divided out, ignore its sign and add 1: a bigger number dividing both it and the gradient's whole part is better
       const t1 = (best.t < 0n ? -best.t : best.t) + 1n, wm = whole(Q.sub(Q.abs(m), Q.div(1, 2)));   // |t| + 1, and the gradient's whole part ignoring sign
       return common(t1, wm);

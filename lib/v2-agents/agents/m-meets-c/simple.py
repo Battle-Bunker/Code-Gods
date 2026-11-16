@@ -1,5 +1,5 @@
 # m Meets c · Simple
-# Main part: gradient close to the y-intercept. Tie-breaker: whichever you were dealt (they meet at a big number; they meet at a prime).
+# Main part: gradient close to the y-intercept. Secondary preference: whichever you were dealt (they meet at a big number; they meet at a prime).
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,10 +11,10 @@
 
 
 def score(m, c, p, tie):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     main = -abs(m - c)
     # main: how far apart the gradient and the y-intercept are (closer is better)
-    def tier(t):   # each tie-breaker, in order (None: ranks last)
+    def tier(t):   # each secondary, in order (None: ranks last)
         if t == "size":   # a bigger y-intercept is better
             return abs(c)
         if t == "meetPrime":   # meeting at a prime is best

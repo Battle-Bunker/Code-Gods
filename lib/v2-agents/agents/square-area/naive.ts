@@ -1,12 +1,12 @@
 // Square Area · Naive (for learning)
-// Main part: area close to a square number. Tie-breaker: whichever you were dealt (that square's root's smallest prime factor; that square's root's largest prime factor; prime factors of that square's root).
+// Main part: area close to a square number. Secondary preference: whichever you were dealt (that square's root's smallest prime factor; that square's root's largest prime factor; prime factors of that square's root).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
 // It is here to learn from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same lines and watch your points: then switch to Simple.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (Q.isZero(m) || Q.isZero(c)) return null;    // no triangle: the worst score
   const area = Q.div(Q.mul(c, c), Q.mul(2, Q.abs(m)));
@@ -15,7 +15,7 @@ function score(m, c, p, tie) {
   const main = Q.neg(Q.abs(Q.sub(area, sq)));
   const f = factors(root(sq));                    // the prime factors of that square's root
   // main: how far the triangle's area is from a square number (closer is better)
-  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     if (t === "spf") return f[0] ?? 1;   // a root whose smallest prime factor is big is better
     if (t === "lpf") return f.at(-1) ?? 1;   // a root whose largest prime factor is big is better
     if (t === "omega") return f.length;   // more prime factors in the root are better

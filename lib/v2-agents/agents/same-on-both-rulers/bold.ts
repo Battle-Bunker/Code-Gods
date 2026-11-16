@@ -1,5 +1,5 @@
 // Same on Both Rulers · Bold
-// Main part: where the line meets y = x or y = −x, on as big a number reading the same backwards as possible (ignoring a minus sign). Tie-breaker: whichever you were dealt (the biggest number dividing both that number's digits added up and the gradient's whole part).
+// Main part: where the line meets y = x or y = −x, on as big a number reading the same backwards as possible (ignoring a minus sign). Secondary preference: whichever you were dealt (the biggest number dividing both that number's digits added up and the gradient's whole part).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -29,7 +29,7 @@ function onRung(y, r) {   // on the rung when y rounds to it: its levels of digi
   return Q.add(L, Q.div(Q.add(D - (L * (L + 1)) / 2, Q.div(Q.of(r), Q.of(10n ** BigInt(D)))), L + 1));
 }
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (m === null) {               // the vertical line x = c
     const y = Q.abs(c), main = onRung(y, rungOf(y, p.digits === "odd"));   // x = c meets y = x and y = -x at x = c
@@ -39,7 +39,7 @@ function score(m, c, p, tie) {
   const y = Q.abs(Q.div(c, Q.sub(p.meets, m)));   // mx + c = meets*x where x = c/(meets - m); its size (a minus sign does not matter)
   const rung = rungOf(y, p.digits === "odd"), main = onRung(y, rung);
   // main: the palindrome with an odd (or even) number of digits that the line's meeting point with y = x (or y = -x) rounds to, ignoring its sign, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one
-  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     if (t === "shared-factor") {   // a bigger number dividing both the palindrome's digit sum and the gradient's whole part is better
       const sum = [...rung.toString()].reduce((a, ch) => a + Number(ch), 0), wm = whole(Q.sub(Q.abs(m), Q.div(1, 2)));   // the palindrome's digits added up; the whole part of |m|
       return common(sum, wm);

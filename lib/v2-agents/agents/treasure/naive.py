@@ -1,5 +1,5 @@
 # Treasure · Naive (for learning)
-# Main part: y(k) on as big a coin pile as possible. Tie-breaker: whichever you were dealt (the biggest number dividing both the pile's height and the gradient's whole part).
+# Main part: y(k) on as big a coin pile as possible. Secondary preference: whichever you were dealt (the biggest number dividing both the pile's height and the gradient's whole part).
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -8,7 +8,7 @@
 
 
 def score(m, c, p, tie):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     level = lambda r: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(r, 10 ** D)) / (L + 1))(len(str(r)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(r))))   # levels of digits: level L needs L(L + 1)/2
     s = p.get("side", 1)
     y = s * (m * p["k"] + c)                         # y(k) = m*k + c, or minus it on the mirror
@@ -19,7 +19,7 @@ def score(m, c, p, tie):
     gap = abs(y - rung)                              # on the rung when it rounds there (within 1/2, ties up)
     main = level(rung) if 2 * gap < 1 or rung - y == Fraction(1, 2) else -(gap - Fraction(1, 2))
     # main: the coin pile (1, 3, 6, 10, ...) y(k) rounds to, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one
-    def tier(t):   # each tie-breaker, in order (None: ranks last)
+    def tier(t):   # each secondary, in order (None: ranks last)
         if t == "shared-factor":   # the pile is n coins high: a bigger number dividing both n and the gradient's whole part is better
             wm = whole(abs(m) - Fraction(1, 2))             # the whole part of the gradient's size
             return common(height, wm)

@@ -50,7 +50,7 @@ export const playOps = [
 
   affordance({
     id: "rule.explain", title: "Explain my rule", group: "play", scope: "game",
-    description: "The caller's private rule: family, parameters, its layers (main part, tie-breakers), the card sentence, which representations it reads, and the handicap if it was won by bid. Its value curve is rule.values. Never reveals other players' rules.",
+    description: "The caller's private rule: family, parameters, its layers (main goal, then secondary preferences in order), the card sentence, which representations it reads, and the handicap if it was won by bid. Its value curve is rule.values. Never reveals other players' rules.",
     tooltip: "What your rule wants.", keywords: ["my rule", "goal", "card", "what do I want"],
     params: none,
     result: z.object({
@@ -65,6 +65,31 @@ export const playOps = [
     tooltip: "How much each score is worth to you.", keywords: ["values", "curve", "rarity", "bits", "worth"],
     params: none, result: z.object({ points: z.array(knot) }),
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
+  }),
+  affordance({
+    id: "rule.candidates", title: "List the rules that could be dealt", group: "play", scope: "game",
+    description: "Every rule this game's dealer could deal to a player (v1's list_utility_candidates): family, parameters, tie-breaker and the card a player holding it reads. The other players' rules are among these; the list never says who holds which. Read it with log.list to work out what the others want.",
+    tooltip: "Every rule anyone could hold here.", keywords: ["candidates", "possible rules", "rivals", "what could the others want", "rule list"],
+    params: none,
+    result: z.object({ rules: z.array(z.object({ family: z.string(), params: z.record(z.string(), z.unknown()), tieBreaker: z.string().nullable(), card: z.string() })) }),
+    contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
+  }),
+  affordance({
+    id: "rule.fit", title: "Fit the others' rules", group: "play", scope: "game",
+    description: "Which rules the other players hold (v1's fit_utility_mixture), from the others' summed bits you have seen: the likeliest sets of rules with their probabilities, each family's chance of being held, and a least-squares spectrum. Hints (a family, maybe params, a probability) and excluded families steer it. Offered only on lines whose disclosure noise is at least ±8 bits.",
+    tooltip: "Guess what the others want.", keywords: ["fit", "infer", "rivals", "who wants what", "mixture", "guess rules"],
+    params: obj({
+      hints: z.array(z.object({ family: z.string(), params: z.record(z.string(), z.unknown()).optional(), probability: z.number().min(0).max(1) })).max(20).optional(),
+      exclude: z.array(z.string()).max(50).optional().describe("Families you are sure nobody holds."),
+      top: z.number().int().min(1).max(20).default(5),
+    }),
+    result: z.object({
+      observations: z.number().int(), sigma: z.number(), exact: z.boolean(),
+      hypotheses: z.array(z.object({ posterior: z.number(), rms: z.number(), rules: z.array(z.object({ family: z.string(), params: z.record(z.string(), z.unknown()), tieBreaker: z.string().nullable(), card: z.string() })) })),
+      families: z.array(z.object({ family: z.string(), probability: z.number() })),
+      spectrum: z.array(z.object({ family: z.string(), params: z.record(z.string(), z.unknown()), tieBreaker: z.string().nullable(), weight: z.number() })),
+    }),
+    contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server", action: true,
   }),
   affordance({
     id: "rule.worth", title: "Look up what a score is worth", group: "play", scope: "game",
@@ -159,8 +184,20 @@ export const playOps = [
     contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
+    id: "game.boardAt", title: "Show the board at a moment", group: "objects", scope: "game",
+    description: "Every object as it was at a world time (v1's get_board_at), as the caller saw it then: its state, the caller's own bits, the others' bits added together and the caller's points. While the game runs the others' bits are blurred as everywhere else and nothing is attributed. Up to 100 objects by number a call; pass nextAfter as after for the rest.",
+    tooltip: "The board as it was at a moment.", keywords: ["board at", "history", "snapshot", "back then", "rewind"],
+    params: obj({ world: z.number().min(0).describe("World seconds since the start."), after: z.number().int().optional().describe("Only objects numbered above this (from nextAfter)."), limit: z.number().int().min(1).max(100).default(100) }),
+    result: z.object({
+      world: z.number(),
+      objects: z.array(z.object({ objectId: id, number: z.number().int(), state: z.string().nullable().describe("null: hidden from you (a paid game)"), own: z.number().nullable(), others: z.number().nullable(), points: z.number().nullable() })),
+      nextAfter: z.number().int().nullable(),
+    }),
+    contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server", action: true,
+  }),
+  affordance({
     id: "pitch.draft", title: "Draft a cooperation pitch", group: "play", scope: "game",
-    description: "Drafts a chat message proposing cooperation to other players: which states serve both rules and which objects to defend together. Returns the draft only; send it with chat.send.",
+    description: "Drafts a chat message proposing cooperation to other players: which objects would score more on both rules and in which direction to move them next. Returns the draft only; send it with chat.send.",
     tooltip: "Help me pitch a deal to other players.", keywords: ["negotiate", "pitch", "deal", "cooperate"],
     params: obj({ to: z.array(id).max(15).optional().describe("Member ids to address; omit for everyone."), aim: z.string().max(300).optional(), requestId: requestId.optional() }),
     result: z.object({ draft: z.string() }),

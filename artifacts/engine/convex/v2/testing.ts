@@ -151,7 +151,7 @@ export const seedGame = internalMutation({
     // Agents, programs, moves.
     const source = "function agent(offer) {\n  // Try this: tilt towards your target.\n  return [call(\"si.tilt\", { k: 1 })];\n}\n";
     for (const [k, { memberId }] of rules.entries()) {
-      const agentId = await ctx.db.insert("v2Agents", { gameId, memberId, name: "Simple", language: "typescript", sourceHash: "fixture", version: 0, share: 0.5, createdAt: now, source });
+      const agentId = await ctx.db.insert("v2Agents", { gameId, memberId, name: "Simple", language: "typescript", sourceHash: "fixture", version: 0, share: 0.5, createdAt: now });
       await ctx.db.insert("v2AgentEnergy", { agentId, gameId, energy: 10, acts: 3, skips: 1, failures: 0, spend: 4.5, pointsGained: 2, settledAt: 0 });
       await ctx.db.insert("v2AgentPrograms", { agentId, version: 0, language: "typescript", source, sourceHash: "fixture", price: 12, summonedAt: now, acts: 3, pointsGained: 2 });
       for (let s = 0; s < (a.moves ?? Math.min(3, n)); s++) {
@@ -179,7 +179,7 @@ export const seedGame = internalMutation({
       const owner = rules[0]!.memberId, other = rules[1]!.memberId, objectId = objects[number - 1]!;
       const value = (await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", owner)).unique())!;
       const state = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", objectId)).unique())!.state;
-      const ownerAgent = (await ctx.db.query("v2Agents").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", owner)).first())?._id;
+      const ownerAgent = (await ctx.db.query("v2Agents").withIndex("by_game_member_live", q => q.eq("gameId", gameId).eq("memberId", owner)).first())?._id;
       const at = (bits: number, want: number) => ({ score: value.score, rarityBits: bits, want, points: bits * want });
       let bits = value.rarityBits, want = value.want;
       for (let i = 0; i < 4; i++) {
@@ -336,6 +336,29 @@ export const totalsOf = internalQuery({
   },
 });
 
+/**
+ * `count` live agents for a seated user, inserted without paying (the 200-agent cap's test: a summon each would take
+ * minutes), each at a 0.1% share with a small TypeScript program, as a summon leaves them. No cap is checked here.
+ */
+export const seedAgents = internalMutation({
+  args: { gameId: v.id("v2Games"), userId: v.string(), count: v.number() },
+  handler: async (ctx, { gameId, userId, count }) => {
+    fixtures();
+    const game = (await ctx.db.get(gameId))!;
+    const memberId = (await ctx.db.query("v2Members").withIndex("by_room_user", q => q.eq("roomId", game.roomId).eq("userId", userId)).first())!._id;
+    const player = (await ctx.db.query("v2Players").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).unique())!;
+    const source = "function agent(offer) {\n  return null;\n}\n", now = Date.now(), share = 0.001, ids = [];
+    for (let i = 0; i < count; i++) {
+      const agentId = await ctx.db.insert("v2Agents", { gameId, memberId, name: `Seeded ${player.agents + i + 1}`, language: "typescript", sourceHash: "fixture", version: 0, share, createdAt: now });
+      await ctx.db.insert("v2AgentEnergy", { agentId, gameId, energy: 0, acts: 0, skips: 0, failures: 0, spend: 0, pointsGained: 0, settledAt: player.settledAt });
+      await ctx.db.insert("v2AgentPrograms", { agentId, version: 0, language: "typescript", source, sourceHash: "fixture", price: 0, summonedAt: now, acts: 0, pointsGained: 0 });
+      ids.push(agentId);
+    }
+    await ctx.db.patch(player._id, { agents: player.agents + count, allocated: Math.round((player.allocated + count * share) * 1000) / 1000 });
+    return ids;
+  },
+});
+
 /** Every agent of a game with its share and energy (the credit rule's test: no agent owes more than its capacity). */
 export const agentsOf = internalQuery({
   args: { gameId: v.id("v2Games") },
@@ -343,7 +366,7 @@ export const agentsOf = internalQuery({
     fixtures();
     const game = (await ctx.db.get(gameId))!;
     const out = [];
-    for (const a of await ctx.db.query("v2Agents").withIndex("by_game", q => q.eq("gameId", gameId)).take(320)) {
+    for (const a of await ctx.db.query("v2Agents").withIndex("by_game_live", q => q.eq("gameId", gameId)).take(320)) {
       const e = (await ctx.db.query("v2AgentEnergy").withIndex("by_agent", q => q.eq("agentId", a._id)).unique())!;
       out.push({ agentId: a._id, share: a.share, energy: e.energy, capacity: a.share * game.settings.economy.powerPerSecond * game.settings.economy.fullChargeSeconds });
     }

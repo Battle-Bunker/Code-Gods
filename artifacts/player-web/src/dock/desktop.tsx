@@ -11,7 +11,7 @@
  *
  * Theme: `.dockview-theme-cg` in index.css maps dockview's --dv-* variables onto the app's tokens.
  */
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DockviewReact, type DockviewApi, type DockviewReadyEvent, type DockviewTheme, type IDockviewPanelHeaderProps, type IDockviewPanelProps } from "dockview-react";
 import "dockview-react/dist/styles/dockview.css";
 import { dockKindOf, formatDock, isGroup, type DockNode } from "@workspace/v2-affordances";
@@ -19,7 +19,7 @@ import { dockFor, type GamePhase } from "@workspace/v2-client";
 import { useRuntime } from "@/core/affordance-runtime";
 import { toast } from "@/hooks/use-toast";
 import { fromDockview, toDockview } from "./adapter";
-import { PaneBody, PaneHeader, useDockScope, usePaneName } from "./pane-parts";
+import { MaximiseContext, PaneBody, PaneHeader, useDockScope, usePaneName, type Maximise } from "./pane-parts";
 
 function PaneContent(props: IDockviewPanelProps) {
   const pane = props.api.id;
@@ -125,10 +125,35 @@ export default function DesktopDock({ phase }: { phase: GamePhase }) {
     };
   }, []);
 
+  // Maximise one pane over the others (v1): this screen only, nothing stored; Escape or the menu restores them.
+  // Dockview holds the state; `shown` re-renders the menus and marks the dock for the tests.
+  const [shown, setShown] = useState<string | null>(null);
+  const maximise = useMemo((): Maximise => ({
+    isMaximised: pane => !!api.current?.getPanel(pane)?.api.isMaximized(),
+    toggle: pane => {
+      const dock = api.current;
+      const panel = dock?.getPanel(pane);
+      if (!dock || !panel) return;
+      if (panel.api.isMaximized()) { dock.exitMaximizedGroup(); setShown(null); return; }
+      if (dock.hasMaximizedGroup()) dock.exitMaximizedGroup();
+      panel.api.setActive();
+      panel.api.maximize();
+      setShown(pane);
+    },
+  }), [shown]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!shown) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && api.current?.hasMaximizedGroup()) { api.current.exitMaximizedGroup(); setShown(null); } };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [shown]);
+
   return (
-    <div ref={container} className="h-full w-full p-1" data-testid="dock-desktop" data-dock={tree ? formatDock(tree) : ""}>
-      <DockviewReact className="cg-dock h-full" components={components} tabComponents={tabComponents} onReady={onReady} theme={theme}
-        singleTabMode="fullwidth" disableFloatingGroups />
-    </div>
+    <MaximiseContext.Provider value={maximise}>
+      <div ref={container} className="h-full w-full p-1" data-testid="dock-desktop" data-dock={tree ? formatDock(tree) : ""} data-maximised={shown ?? undefined}>
+        <DockviewReact className="cg-dock h-full" components={components} tabComponents={tabComponents} onReady={onReady} theme={theme}
+          singleTabMode="fullwidth" disableFloatingGroups />
+      </div>
+    </MaximiseContext.Provider>
   );
 }

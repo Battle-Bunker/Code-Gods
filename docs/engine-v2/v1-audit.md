@@ -66,7 +66,7 @@ delegation"; a call number below means the one whose subject is named.
 | §2.1 Rival inference is a legitimate read | **STILL MISSING** (no counterpart of v1's fit_utility_mixture) | v1 archive lib/game-utilities/src/inference.ts |
 | §2.1 Bids sealed | kept (owner 18) | bids.ts |
 | §2.2 Every object unique | restored (#615); owner 24 | tick.ts:124-126; loop.ts |
-| §2.2 Every object an independent universe | kept (no v2 independence test yet) | lib/v2-core contracts |
+| §2.2 Every object an independent universe | kept, tested (test/v2-independence.test.ts) | lib/v2-core contracts |
 | §2.2 Births: Poisson | call 4; owner 31 (beginner) | world.ts; tick.ts |
 | §2.2 Integer and string objects | owner 15 | — |
 | §2.2 Grid object boards | partly (call 13: grids-more-rules, grids-arithmetic on the 4×4 digit board); colour, glyph, playing-card and larger boards **STILL MISSING** | presets.ts:144-154; lib/v2-grid has grid-4-d10, grid-2-d3 |
@@ -390,15 +390,15 @@ owner question.
 | A1 | Configure page with every setting; saved setups (page/get/save/duplicate/remove) and seeded system setups | Preset picker and three overrides | 6–8 | W3 (tables, ops); see §2 #66 |
 | A2 | Rival-inference assistant tools (fit_utility_mixture, list_utility_candidates, get_utility_series, get_board_at); "Possible gods" list | Absent | 3 | W3 (reads) |
 | A3 | Objects sorts: payoff, bits, others, mutations, newest, oldest, recently mutated. Filters: all, positive, contested | Sorts: points, rarity, recent | 3 | W3 (indexed fields) |
-| A4 | Feed filters (who, object, minimum impact); group by mutator, "cost against yield" | Mine / all moves toggle only | 3 | — |
+| A4 | Feed filters (who, object, minimum impact); group by mutator, "cost against yield" | **Restored** (#875) | — | — |
 | A5 | Goal card: "How rare is each rule score?" table; editable, randomisable example | Fixed example | 3 | Q: check that the rarity table doesn't point at peaks |
-| A6 | My agents: sparkline, "Edit a copy", version comparison, "How energy works" | Absent | 3 | — |
-| A7 | Replay: keyboard shortcuts, speeds ¼–64×, deep links (?e ?t &as), copy a moment link, download | Scrubber and watch-as | 2–3 | W3 for download |
+| A6 | My agents: sparkline, "Edit a copy", version comparison, "How energy works" | **Restored** except the sparkline (#876) | 1 | W3 (energy history from the tick) |
+| A7 | Replay: keyboard shortcuts, speeds ¼–64×, deep links (?e ?t &as), copy a moment link, download | **Restored** (#878; links are ?replay&t&as) | — | — |
 | A8 | Owner "Cancel bidding" | Absent | 1 | W3 (op) |
-| A9 | Phone assistant bottom sheet; pane maximise | Absent | 3 | — |
-| A10 | Chat filters: Humans, AI, Mentions | Absent | 1 | — |
-| A11 | Grid tiles / colour-blind toggle | Absent | 2 | — |
-| A12 | "Copy game rules for an AI"; "Connect a player app" sheet | The CLI and MCP exist; no sheet in the app | 1 | — |
+| A9 | Phone assistant bottom sheet; pane maximise | Maximise **restored** (desktop, this screen only); bottom sheet absent | 2 | — |
+| A10 | Chat filters: Humans, AI, Mentions | **Restored** in the game's chat (#881) | — | — |
+| A11 | Grid as coloured tiles (a per-viewer renderer choice) | Covered by the owner: "We eliminated colour from the beginner grid game to increase concentration of interest within one dimension." (owner decision 5) | — | — |
+| A12 | "Copy game rules for an AI"; "Connect a player app" sheet | **Restored**: How to play copies the rules and the agent primer; connecting is the /connect page | — | — |
 | A13 | Header: overdrawn warning, retry-uncertain banner | Absent | 1 | W3 (check the field) |
 | A14 | "Who am I" and "Server info" sheets | Absent | 1 | — |
 | A15 | run_code tool and Code results pane | Absent | 2 | W3 (sandbox op); Q (wanted?) |
@@ -406,3 +406,30 @@ owner question.
 
 **Order of restoration.** Items with no server need and no open question come first, largest effect on play first: A4,
 A6, A7 (without download), A10, A11, A9, A12, A14. Each operation among them goes through `lib/v2-affordances`.
+
+---
+
+## 5. Mechanical parity inventory of the old app (W5, 15–16 November)
+
+`docs/engine-v2/v1-parity.json` lists every component, pane, page, palette command, keyboard shortcut, room setting
+and e2e scenario of archive/engine-v1's player app, one row each, with its status in v2: present (with the v2 file),
+missing, or changed (with the decision and its source). `artifacts/player-web/test/v1-parity.test.ts` fails when a
+row is missing or changed with neither a named reason nor a plan, so a gap cannot be silent. Restoring an item sets
+its row present; rows are never deleted.
+
+The statuses come from searching the v2 tree for each item's words, test ids, titles and affordances, not from
+running the app.
+
+| | Rows | Present | Changed | Missing |
+|---|---|---|---|---|
+| All | 468 | 264 | 102 | 102 |
+| component | 130 | 76 | 30 | 24 |
+| e2e | 120 | 50 | 24 | 46 |
+| command | 118 | 89 | 21 | 8 |
+| setting | 40 | 9 | 16 | 15 |
+| shortcut | 28 | 13 | 8 | 7 |
+| pane | 17 | 15 | 1 | 1 |
+| page | 15 | 12 | 2 | 1 |
+
+- **Missing:** about 81 hours to port, 31 of them old e2e scenarios. 27 missing rows need something from a server session first (the `server` field).
+- **Changed without a written decision ("changed?"):** 66 rows, about 27 hours if each is ported back rather than accepted. Each needs a look: some will turn out to be missing.

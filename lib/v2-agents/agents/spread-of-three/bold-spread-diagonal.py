@@ -1,5 +1,5 @@
 # Spread of Three · Bold
-# Main part: every 2×2 square spreads by 3. Tie-breaker: squares with their biggest and smallest on a diagonal.
+# Main part: every 2×2 square spreads by 3. Secondary preference: squares with their biggest and smallest on a diagonal.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 # other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
@@ -8,7 +8,7 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     main = 0
     for i in [0, 1, 2, 4, 5, 6, 8, 9, 10]:   # each 2×2 square, by its top-left cell (they overlap)
         v = [b[i], b[i + 1], b[i + 4], b[i + 5]]
@@ -18,7 +18,7 @@ def score(b, p):
         v = [b[i], b[i + 1], b[i + 4], b[i + 5]]
         if v.count(max(v)) == 1 and v.count(min(v)) == 1 and v.index(max(v)) + v.index(min(v)) == 3:
             diag += 1
-    return [main, diag]   # main: how far each 2×2 square's spread is from 3, added up (closer is better); tie-breaker: more squares with their biggest and smallest on a diagonal is better
+    return [main, diag]   # main: how far each 2×2 square's spread is from 3, added up (closer is better); secondary: more squares with their biggest and smallest on a diagonal is better
 
 
 FAR = 2      # how far one change may go

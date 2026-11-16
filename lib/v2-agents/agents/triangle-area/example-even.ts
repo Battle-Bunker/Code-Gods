@@ -1,5 +1,5 @@
 // Triangle Area · Example: legs nearly equal
-// Main part: triangle area close to A. Tie-breaker: legs nearly equal.
+// Main part: triangle area close to A. Secondary preference: legs nearly equal.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,13 +9,13 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: change FAR = 3 to 2: smaller changes cost less, but does it still get there?
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p) {
   if (Q.isZero(m) || Q.isZero(c)) return null;    // no triangle: the worst score
   const legX = Q.abs(Q.div(c, m)), legY = Q.abs(c); // the triangle's base and height
   const area = Q.div(Q.mul(legX, legY), 2);
   const main = Q.neg(Q.abs(Q.sub(area, p.A)));
-  return [main, Q.neg(Q.abs(Q.sub(legX, legY)))];   // main: how far the triangle's area is from A (closer is better); tie-breaker: legs of equal length are best
+  return [main, Q.neg(Q.abs(Q.sub(legX, legY)))];   // main: how far the triangle's area is from A (closer is better); secondary: legs of equal length are best
 }
 
 const FAR = 3;      // how far one change may go

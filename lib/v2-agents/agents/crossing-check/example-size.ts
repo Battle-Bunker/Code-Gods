@@ -1,5 +1,5 @@
 // Crossing Check · Example: they cross at a big number
-// Main part: y(k) close to x(q). Tie-breaker: they cross at a big number.
+// Main part: y(k) close to x(q). Secondary preference: they cross at a big number.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,13 +9,13 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: remove the "turn" line and see whether it still finds bigger crossings.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p) {
   if (Q.isZero(m)) return null;                   // a flat line never reaches height q
   const y = Q.add(Q.mul(m, p.k), c);              // y(k): the height at x = k
   const x = Q.div(Q.sub(p.q, c), m);              // x(q): where the line reaches height q
   const main = Q.neg(Q.abs(Q.sub(y, x)));
-  return [main, Q.abs(x)];   // main: how far apart y(k) and x(q) are (closer is better); tie-breaker: a bigger x(q) is better
+  return [main, Q.abs(x)];   // main: how far apart y(k) and x(q) are (closer is better); secondary: a bigger x(q) is better
 }
 
 const FAR = 3;      // how far one change may go

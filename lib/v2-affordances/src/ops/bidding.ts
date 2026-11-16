@@ -46,6 +46,13 @@ export const biddingOps = [
     contexts: ["room"], caller: "seated", effect: "write", confirm: "none", runs: "server", available: bidOpen,
   }),
   affordance({
+    id: "bid.cancel", title: "Cancel the bid phase", group: "owner", scope: "room",
+    description: "Ends an open bid phase without dealing anything: every bid is forgotten and the room is back where it was before the start (v1's owner cancel).",
+    tooltip: "Cancel bidding.", keywords: ["cancel bidding", "stop bidding", "abort"],
+    params: obj({ requestId: requestId.optional() }), result: ok,
+    contexts: ["room"], caller: "owner", effect: "write", confirm: "summary", runs: "server", available: bidOpen,
+  }),
+  affordance({
     id: "game.auction", title: "Show the auction's result", group: "play", scope: "game",
     description: "The game's auction as the preset discloses it: who won which family and at what handicap (during the game only what the disclosure setting allows; everything after the end).",
     tooltip: "Who won which rule, and the handicaps.", keywords: ["auction", "winners", "handicaps", "bids"],

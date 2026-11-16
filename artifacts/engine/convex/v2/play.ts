@@ -18,14 +18,23 @@ import { applyCall, isInvalid } from "@workspace/v2-core";
 import { agentIncome, energyCapacity, ownIncome, settle } from "@workspace/v2-economy";
 import { fail, ownAccountNow, playerOf, requireGameMember, requireSeat, requireUser, worldNow } from "./access";
 import {
-  agentEnergyV, agentProgramsV, agentRowV, digestV, logPageV, tugsV, meV, movesPageV, myRuleV, objectIdsV, objectSortV, playObjectV,
+  agentEnergyV, agentProgramsV, agentsPageV, digestV, logPageV, tugsV, meV, movesPageV, myRuleV, objectIdsV, objectSortV, playObjectV,
 } from "./validators";
 import { pageOpts } from "./pages";
 import { attributed, disclosed, disclosesNoise, objectReading, readingNoise } from "./disclose";
 import { KNOWLEDGE_SORT, knownOf, listsKnowledge, lookPrice, readPriceWeightOf, readsKnowledge } from "./knowledge";
 
-/** ≤ 20 agents per player (R3). */
-export const MAX_AGENTS = 20;
+/**
+ * At most 200 live agents per player per game (v1's MAX_AGENTS_PER_GOD, restored by the coordinator's call 35). Every
+ * public list of them is a page (`agents`, R1); internal reads that need them all take at most this many a player.
+ */
+export const MAX_AGENTS = 200;
+/** An agent's programs a list shows, newest first (one agent's versions; not bounded by the agent cap). */
+export const MAX_PROGRAMS = 20;
+
+/** A player's live agents, by the live index (a destroyed agent is never read). */
+export const liveAgentsOf = (ctx: QueryCtx, gameId: Id<"v2Games">, memberId: Id<"v2Members">) =>
+  ctx.db.query("v2Agents").withIndex("by_game_member_live", q => q.eq("gameId", gameId).eq("memberId", memberId).eq("destroyedAt", undefined));
 
 /** The rule's value function, as valueLookup takes it (knots and tail), with the game's uniqueness correction. */
 function valueFn(ruleKey: string, scope: ValueScope) {
@@ -132,14 +141,14 @@ export const object = query({
   },
 });
 
+/** The agents skeleton: a page (≤ 50) of the caller's live agents, oldest first; each row subscribes to `agentEnergy`. */
 export const agents = query({
-  args: { gameId: v.string() },
-  returns: v.array(agentRowV),
-  handler: async (ctx, { gameId }) => {
+  args: { gameId: v.string(), paginationOpts: paginationOptsValidator },
+  returns: agentsPageV,
+  handler: async (ctx, { gameId, paginationOpts }) => {
     const { game, member } = await requireSeat(ctx, gameId);
-    const rows = await ctx.db.query("v2Agents").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", member._id)).take(MAX_AGENTS);
-    return rows.filter(a => a.destroyedAt === undefined)
-      .map(a => ({ agentId: a._id, name: a.name, language: a.language, version: a.version, share: a.share, createdAt: a.createdAt }));
+    const page = await liveAgentsOf(ctx, game._id, member._id).paginate(pageOpts(paginationOpts));
+    return { ...page, page: page.page.map(a => ({ agentId: a._id, name: a.name, language: a.language, version: a.version, share: a.share, createdAt: a.createdAt })) };
   },
 });
 
@@ -171,13 +180,13 @@ export const agentEnergy = query({
   },
 });
 
-/** An agent's programs, newest first (≤ 20). */
+/** An agent's programs, newest first (≤ MAX_PROGRAMS: one agent's versions, a per-item read). */
 export const agentPrograms = query({
   args: { agentId: v.string() },
   returns: agentProgramsV,
   handler: async (ctx, { agentId }) => {
     const agent = await ownAgent(ctx, agentId);
-    const rows = await ctx.db.query("v2AgentPrograms").withIndex("by_agent", q => q.eq("agentId", agent._id)).order("desc").take(MAX_AGENTS);
+    const rows = await ctx.db.query("v2AgentPrograms").withIndex("by_agent", q => q.eq("agentId", agent._id)).order("desc").take(MAX_PROGRAMS);
     return rows.map(p => ({ version: p.version, language: p.language, source: p.source, price: p.price, summonedAt: p.summonedAt, acts: p.acts, pointsGained: p.pointsGained }));
   },
 });

@@ -51,7 +51,7 @@ test("cards: one sentence each, filled in, at most four numbers; dealt: four ins
   assert.equal(fam.card({ lens: "powers", q: 3, layout: "halves" }, null),
     "Read the top half and the bottom half row by row, and the left half and the right half column by column, each as one number: each should be divisible by as high a power of 3 as possible (count the 3s that divide it), and no two rows or two columns may hold the same numbers.");
   assert.equal(fam.card({ lens: "matching", q: 2, layout: "alternate" }, "leftover-digits"),
-    "Read the odd rows and the even rows row by row, and the odd columns and the even columns column by column, each as one number: the two row numbers should differ, and so should the two column numbers, by numbers divisible by as high a power of 2 as possible (count the 2s), and no two rows or two columns may hold the same numbers. Tie-breaker: What is left of those numbers after dividing out their 2s should have digits adding up to as much as possible.");
+    "Read the odd rows and the even rows row by row, and the odd columns and the even columns column by column, each as one number: the two row numbers should differ, and so should the two column numbers, by numbers divisible by as high a power of 2 as possible (count the 2s), and no two rows or two columns may hold the same numbers. Secondary: What is left of those numbers after dividing out their 2s should have digits adding up to as much as possible.");
   assert.deepEqual(fam.dealable(grid4), [...DIVISIBILITY_DEALT]);
   assert.ok(DIVISIBILITY_DEALT.length >= 4);
   for (const p of fam.dealable(grid4)) for (const tb of [null, ...fam.tieBreakers.map(t => t.id)]) {

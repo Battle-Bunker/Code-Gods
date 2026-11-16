@@ -1,18 +1,18 @@
 // Uphill · Thorough
-// Main part: rising steps toward the corner. Tie-breaker: numbers bigger than the number in the corner the walks start from.
+// Main part: rising steps toward the corner. Secondary preference: numbers bigger than the number in the corner the walks start from.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: change QUOTES = 6 to 2: fewer prices asked, but it may miss a cheaper plan.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   const right = p.corner[1] === "R", down = p.corner[0] === "B";   // which way to walk
   const rises = [];   // each step toward the corner, along the rows and down the columns: how much it rises
   for (let i = 0; i < 16; i++) { if (i % 4 < 3) rises.push(right ? b[i + 1] - b[i] : b[i] - b[i + 1]); if (i < 12) rises.push(down ? b[i + 4] - b[i] : b[i] - b[i + 4]); }
   let main = rises.filter(d => d > 0).length;
-  return [main, b.filter(x => x > b[15 - (down ? 12 : 0) - (right ? 3 : 0)]).length];   // main: the steps along every row and column toward the corner that reach a bigger number (more is better); tie-breaker: more numbers bigger than the one in the corner the walks start from is better
+  return [main, b.filter(x => x > b[15 - (down ? 12 : 0) - (right ? 3 : 0)]).length];   // main: the steps along every row and column toward the corner that reach a bigger number (more is better); secondary: more numbers bigger than the one in the corner the walks start from is better
 }
 
 const FAR = 1;      // how far one change may go

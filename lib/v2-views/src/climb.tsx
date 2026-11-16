@@ -62,13 +62,17 @@ export function climbOf(moves: readonly ClimbMove[]): Climb {
 export const namesText = (list: readonly string[]) => (list.length <= 1 ? list[0] ?? "another player" : `${list.slice(0, -1).join(", ")} and ${list.at(-1)}`);
 
 /** One sentence for a contested object at the end of a game. */
-export function climbSentence(c: Climb, noun: string, number: number): string {
+/** How many times the object changed hands: consecutive moves by different sides (the tick's tug count, v2/play:tugs). */
+export const handChanges = (c: Climb): number => c.steps.reduce((n, s, i) => n + (i > 0 && s.by !== c.steps[i - 1]!.by ? 1 : 0), 0);
+
+/** `changes`: the tick's count for this object when known, so the page says one number for one tug (round 33). */
+export function climbSentence(c: Climb, noun: string, number: number, changes?: number): string {
   const Noun = noun[0]!.toUpperCase() + noun.slice(1);
   const who = namesText(["you", ...c.with]);
   const pts = `your points ${fmtNum(c.from)} → ${pointsText(c.to)}`;
   switch (c.kind) {
     case "together": return `${Noun} ${number}: ${who} climbed together, every move raising the points: ${pts}.`;
-    case "undoing": return `${Noun} ${number}: ${who} undid each other's moves (${c.steps.length} moves): ${pts}.`;
+    case "undoing": return `${Noun} ${number}: ${who} undid each other's moves: it changed hands ${changes ?? handChanges(c)} times; ${pts}.`;
     case "alone": return `${Noun} ${number}: only your agents moved it: ${pts}.`;
     default: return `${Noun} ${number}: ${who} moved it ${c.steps.length} times, some moves up for you and some down: ${pts}.`;
   }

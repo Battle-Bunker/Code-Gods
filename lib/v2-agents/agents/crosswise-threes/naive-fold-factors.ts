@@ -1,17 +1,17 @@
 // Crosswise Threes · Naive (for learning)
-// Main part: folded cells three apart. Tie-breaker: folded pairs sharing a factor.
+// Main part: folded cells three apart. Secondary preference: folded pairs sharing a factor.
 // What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 // board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 // board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
 // from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const [i, j] of [[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]]) main -= Math.abs(Math.abs(b[i] - b[j]) - 3);   // each cell and its fold partner
   const gcd = (x, y) => (y ? gcd(y, x % y) : x);   // the greatest common divisor (gcd(0, x) is x)
-  return [main, [[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]].filter(([i, j]) => gcd(b[i], b[j]) > 1).length];   // main: how far each number and the number it folds onto are from 3 apart, added up (closer is better); tie-breaker: more fold pairs sharing a factor is better
+  return [main, [[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]].filter(([i, j]) => gcd(b[i], b[j]) > 1).length];   // main: how far each number and the number it folds onto are from 3 apart, added up (closer is better); secondary: more fold pairs sharing a factor is better
 }
 
 const FAR = 1;      // how far one change may go

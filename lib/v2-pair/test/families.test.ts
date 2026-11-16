@@ -90,7 +90,7 @@ test("Divide By and Gap Ratio climb the powers of the dealt k; their cards say s
   assert.deepEqual(score("no-fractions", "numerator-shared", school, { k: 5 }), ["610/121", "5"]);
   assert.match(familyOf("no-fractions").card({ k: 3 }, null), /should be 3 or −3; better, 27; then 729/);
   assert.match(familyOf("double-gap").card({ k: 4 }, null), /4 times the x-intercepts' gap; better 64 times; then 4,096 times/);
-  assert.match(familyOf("far-crossing").card({ q: 7, r: 2 }, "far-gap"), /leaving 2 when divided by 7; better if \(that number − 2\) ÷ 7 does too, and so on\..*Tie-breaker/);
+  assert.match(familyOf("far-crossing").card({ q: 7, r: 2 }, "far-gap"), /leaving 2 when divided by 7; better if \(that number − 2\) ÷ 7 does too, and so on\. Secondary/);
   // y = x + 2 and y = −2x + 4: the y-intercepts' gap is 2, the x-intercepts' gap 4; 2 = ½ × 4, no power of k fits (level 0).
   for (const k of [2, 3]) assert.ok(Qn.cmp(Qn.parse(score("double-gap", null, sys(Y(1, 2), Y(-2, 4)), { k })![0]!), Qn.q(k)) < 0);
 });

@@ -1,5 +1,5 @@
 # Kings and Subjects · Naive (for learning)
-# Main part: every corner box's king equals his subjects. Tie-breaker: pairs of kings that are different numbers.
+# Main part: every corner box's king equals his subjects. Secondary preference: pairs of kings that are different numbers.
 # What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 # board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 # board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
@@ -8,7 +8,7 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     main = 0
     kings = []
     for x in BOXES:   # each corner box
@@ -17,7 +17,7 @@ def score(b, p):
         main -= 20 if v.count(m) > 1 else abs(2 * m - sum(v))   # the king against his subjects added up; a tied biggest is no king, 20 off
         if v.count(m) == 1:   # a king: his cell, his number, the smallest in his box
             kings.append((x[v.index(m)], m, min(v)))
-    return [main, len([1 for k, a in enumerate(kings) for c in kings[k + 1:] if c[1] != a[1]])]   # main: how far each corner box's biggest number is from the other three added up, added up (closer is better); tie-breaker: more pairs of kings that are different numbers is better
+    return [main, len([1 for k, a in enumerate(kings) for c in kings[k + 1:] if c[1] != a[1]])]   # main: how far each corner box's biggest number is from the other three added up, added up (closer is better); secondary: more pairs of kings that are different numbers is better
 
 
 FAR = 1      # how far one change may go
