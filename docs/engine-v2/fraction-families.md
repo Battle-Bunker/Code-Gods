@@ -1,12 +1,12 @@
 # Fraction-native line families: walk-throughs (rule design, 16 November)
 
-The owner asked for four beginner rules "crafted with rationals in mind from the beginning" that "prefer non-integer rational values". These are two of them, in the owner's shape (design-principles.md principle 3b):
+The owner asked for four beginner rules "crafted with rationals in mind from the beginning" that "prefer non-integer rational values". These are two of them (Fraction Gradient and Mixed Intercept), with Fraction Pair as an alternative, in the owner's shape (design-principles.md principle 3b):
 
 1. The primary is a property of the nearest desired value to a reading of the line.
 2. The secondary is closeness to that value.
 3. The third is another dimension of the line, tied to the same value.
 
-Points are the sum of each layer's rarity: the tree valuation, lib/v2-valuation tree-value.ts. Neither family is dealt until the coordinator has read this page. Code: lib/v2-linear/src/frac-fraction-gradient.ts and frac-square-intercept.ts.
+Points are the sum of each layer's rarity: the tree valuation, lib/v2-valuation tree-value.ts. Neither family is dealt until the coordinator has read this page. Code: lib/v2-linear/src/frac-fraction-gradient.ts, frac-mixed-intercept.ts and frac-fraction-pair.ts.
 
 Measurements come from two scripts:
 - lib/v2-agents/scripts/tuples-tree.ts (tree values, about 650,000 law draws per version): examples, the share kept after a cheap move, and the energy-gate climber with 3,115⚡.
@@ -60,63 +60,72 @@ Bits below are tree bits, written level + closeness + third.
 | 8 energy | The greedy climber reached at most 24.1 bits (d = 5); per version 22.2, 22.2, 24.1, 23.8. The gate is 35. |
 | 10 bump | After one cheap move, a climb's best line keeps 93%, 93%, 95% and 100% of its bits (median), 26–49% at worst. |
 | 12 card | The terms are "bottom number", "top number" and "lowest terms", with examples. |
-| 13 rationals | Exact targets are non-whole by definition, so the closeness bits need a fractional gradient. The fraction share from frac-check is to follow. |
+| 13 rationals | The top decile of law draws is 67–69% non-whole, against a base rate of 62%, because the level is reached by any steep line. Among good lines it rises: for d = 7, 91% at 10 bits or more and 97% at 14 bits or more (scripts/frac-share.ts). |
 
 **Weakness:** the level is a shallow hill, about 1.3 bits in all. A steeper gradient is cheap under the law, so most points come from closeness and the third, not from climbing levels. The gradient's size is also read by Steep Line, so the two rules are aligned on direction (row 6: to check on the PMI table).
 
-## 2. Square Fraction Intercept
+## 2. Mixed Intercept (replaces Square Fraction Intercept)
 
-**Card** (thirds, third "root-gradient"):
+**Card** ("and a third", third "gradient-part"):
 
-> The targets are the squares of the thirds that are not whole numbers: a fraction with bottom number 3 in lowest terms,
-> times itself ((1/3) × (1/3) = 1/9; (2/3) × (2/3) = 4/9; (4/3) × (4/3) = 16/9; …). Find the target nearest the
-> y-intercept, ignoring its sign (halfway between two goes to the bigger). Score: the top number of the fraction that was
-> squared (for 16/9, 4); bigger is better.
+> The targets are the numbers "something and a third": 1/3, 1 1/3, 2 1/3, 3 1/3, … (a whole number plus 1/3). Find the
+> target nearest the y-intercept, ignoring its sign (halfway between two goes to the bigger). Score: its whole number
+> (for 3 1/3, 3); bigger is better.
 > Then: how far the y-intercept (ignoring its sign) is from that target; smaller is better.
-> Then: how far the gradient (ignoring its sign) is from the fraction that was squared; smaller is better.
+> Then: take the gradient, ignoring its sign, and its fraction part (what is left after the whole number: 17/6 = 2 + 5/6,
+> so 5/6). How far is that from 1/3? Smaller is better.
 
-**Three lines** (thirds):
+**Three lines** (a third):
 
 | line | tuple | bits | why |
 |---|---|---|---|
-| y = (4/3)x + 16/9 | (4, 0, 0) | 18.4 = 0.9 + 8.9 + 8.6 | The intercept is exactly (4/3)², and the gradient is 4/3 itself. |
-| y = (1/3)x + 25/9 | (5, 0, −4/3) | 12.3 = 1.3 + 9.8 + 1.2 | The intercept is exactly (5/3)², but the gradient is 4/3 away from 5/3. |
-| y = 2x + 5 | (7, −4/9, −1/3) | 6.5 = 1.7 + 1.2 + 3.5 | A whole intercept: 5 is 4/9 from 49/9. |
+| y = (4/3)x + 7/3 | (2, 0, 0) | 7.3 = 1.1 + 4.5 + 1.7 | The intercept is exactly 2 1/3, and the gradient's fraction part is 1/3. |
+| y = (5/2)x + 1/2 | (0, −1/6, −1/6) | 2.2 = 0.0 + 1.0 + 1.3 | The intercept is 1/6 from 1/3, and the gradient's part 1/2 is 1/6 from 1/3. |
+| y = 2x + 5 | (5, −1/3, −1/3) | 1.9 = 1.8 + 0.0 + 0.0 | Whole numbers are as far from every target as a value can be on one side (1/3 or 2/3). |
 
-**What a cheap move by another player does** (bits after, starting from 18.4 on y = (4/3)x + 16/9):
+**What a cheap move by another player does** (bits after, starting from 7.3 on y = (4/3)x + 7/3):
 
 | move | bits after |
 |---|---|
-| shift +1 | 14.9 |
-| shift −1 | 2.0 (7/9 is far from any square) |
-| tilt +1 | 11.2 |
-| tilt −1 | 11.2 |
-| nudge c | not allowed there |
-| mirror x | 18.4 |
+| shift +1 | 7.1 (exactly on 3 1/3: a shift by 1 lands on the next target) |
+| shift −1 | 6.4 |
+| tilt +1 | 7.3 |
+| tilt −1 | 7.3 |
+| nudge c | 5.1 |
+| mirror x | 7.3 |
 
-**Versions:** d = 2, 3, 5, 7. As with Fraction Gradient, exact targets are disjoint across versions.
+**Versions:** the fraction parts 1/2, 1/3, 2/5 and 3/7. Exact targets are disjoint across versions.
 
 **Alternative thirds:**
-- **root-gradient:** |m| against j/d.
-- **top-match:** the gradient's top number against j.
-- **in-parts:** m × d against the nearest whole number.
+- **gradient-part:** the gradient's fraction part against r/d.
+- **gradient-whole:** the gradient's whole part against w.
+- **gradient-ratio:** the gradient's size against the target, the bigger divided by the smaller.
 
 **Checks:**
 
 | row | evidence |
 |---|---|
-| 1 unbounded | The level is j, with no top. |
-| 3 / 3a tie to the primary | Every third is measured against the fraction j/d that was squared. There are 3 thirds of different forms: a value distance, a whole-number distance, and a scaled-to-whole distance. |
+| 1 unbounded | The level is the whole part w, with no top. |
+| 3 / 3a tie to the primary | Every third is measured against the reached target w + r/d. There are 3 thirds of different forms: a value distance, a whole-number distance and a ratio. |
 | 4 versions | 4. |
-| 8 energy | The climber reached at most 27.0 bits (d = 5); per version 17.7, 25.9, 27.0, 21.6. |
-| 10 bump | Median kept is 76%, 62%, 63% and 59%; at worst 65%, 30%, 11% and 5%. It is weaker than Fraction Gradient, because a unit shift moves the intercept off its square. |
-| 12 card | The terms are "bottom number", "lowest terms" and "times itself", with examples. |
-| 13 rationals | Targets are non-whole by definition. The fraction share is to follow. |
+| 8 energy | The climber reached at most 24.3 bits; per version 22.0, 22.7, 23.2, 24.3. |
+| 10 bump | Median kept is 100%, 100%, 99% and 100%; at worst 27–45%. |
+| 12 card | The terms are "whole number" and "fraction part", with examples. |
+| 13 rationals | Top decile of law draws: 85–90% non-whole (base rate 62%). For d = 7: 96% at 10 bits or more, 99% at 14 bits or more. |
 
-**Weakness:** the level is shallow here too, at most about 1.8 bits. The worst-case bump on d = 5 and 7 (5–11% kept) is a unit shift from an exact square. Spacing between targets grows with j, so a shift lands in empty space.
+**Weakness:** the level is shallow, 1–1.8 bits. Climbs end cheaply, at 22–24 bits for 39–75⚡.
+
+## 2a. Fraction Pair (an alternative to Fraction Gradient with a deeper level)
+
+The rule takes the seventh nearest the gradient and the seventh nearest the y-intercept. Its level is the smaller of the two top numbers. Then comes the bigger of the two distances. The thirds are the tops' gap, the bigger top against a multiple of the smaller, and the tops' ratio.
+
+- **Level:** worth 2.1–2.6 bits, against 1.3 for Fraction Gradient. The climber does climb it: 30.5 bits for 2,005⚡ at top number 19,060.
+- **Bumps:** median kept is 91–100%; at worst 32–66%.
+- **Fraction share:** lower. For d = 7, 59% of the top decile, 63% at 10 bits or more and 89% at 14 bits or more, because steep whole lines also reach a high level.
 
 ## Dropped on measurement (16 November)
 
 - **Twin Fractions:** fails row 10. Nudges keep 15–27%.
 - **Nearly Whole:** a nudge onto a whole number keeps 1–3%, because its targets crowd towards a whole number.
+- **Square Fraction Intercept:** a unit shift from an exact square took 18.4 bits to 2.0, the fragility the owner rejected. The median kept was only 59–76%.
 - **Repeating Bottom and Polygon Bottom** (bottom-size readings): the greedy climber reached 41–56 bits with the ladder tail, over the gate.
