@@ -112,6 +112,8 @@ try {
       // A tap on a part selects it (a chip says so, only its marks are drawn); Clear clears it.
       await page.locator(".v2v-part[data-role=main]").first().click();
       assert.equal(await page.locator(".v2v-selchip").count(), 1, "a tap selects the part");
+      // Said where the tap happened: on screen without scrolling (playtest baseline-3: above the views it was off-screen).
+      assert.ok(await page.locator(".v2v-selchip").evaluate(el => { const r = el.getBoundingClientRect(); return r.top >= 0 && r.bottom <= window.innerHeight; }), "the selection chip is on screen after the tap");
       await page.locator(".v2v-selchip button").click();
       assert.equal(await page.locator(".v2v-selchip").count(), 0, "Clear clears the selection");
       // No steps or thresholds anywhere (owner decision 23).
