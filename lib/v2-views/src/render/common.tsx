@@ -55,7 +55,7 @@ export function elAttrs(p: RenderProps, r: ElementRef, extra: { changedFrom?: bo
   };
 }
 
-const ROLE_WORDS = { main: "main part", tb: "tie-breaker" } as const;
+const ROLE_WORDS = { main: "main part", tb: "secondary preference" } as const;
 /** An element's title with the part of the rule that reads it: "y-intercept (main part)". */
 export function withRole(p: RenderProps, r: ElementRef, title: string): string {
   const role = p.roleOf?.(r);

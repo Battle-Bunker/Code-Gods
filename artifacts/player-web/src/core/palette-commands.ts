@@ -10,7 +10,7 @@
  */
 import type { Command, PaletteFormPage, Performer } from "@workspace/ui-kit/core";
 import { AFFORDANCES, paletteFor, type AffordanceContext, type AffordanceId, type OpOutcome, type PaletteEntry } from "@workspace/v2-affordances";
-import { PANES, PANE_IDS, type PaneId } from "@workspace/v2-client";
+import { PANES, PANE_IDS, storedPane, type PaneId } from "@workspace/v2-client";
 import type { z } from "zod/v4";
 import { requestForge } from "../panes/forge-request.ts";
 
@@ -22,6 +22,8 @@ export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
   // The auction's result and the handicap show in Where am I; a line's views, quotes and score in One line and What if.
   "game.auction": "overview", "object.read": "object", "object.element": "object",
   "object.quote": "what-if", "object.score": "what-if",
+  // The board at a moment (v1's get_board_at): beside the log it is built from.
+  "game.boardAt": "feed",
   // The rules anyone could hold (v1's list_utility_candidates): beside what the others care about (W5's "Possible gods").
   "rule.candidates": "others-care",
 };
@@ -41,7 +43,15 @@ export interface PaletteHost {
   notify?(title: string): void;
   /** The game's objects ("grid", "grids"): directory titles say "objects" (round 8b: "Leave objects alone" in a grid game). */
   noun?: { one: string; many: string };
+  /** The viewer's stored panels (their one live list), so each enabled one can be opened as a pane. */
+  storedPanels?: readonly { slug: string; title: string; enabled: boolean }[];
+  /** Whether the page is in safe mode (?panels=off), and how to reload it in or out of it. */
+  safeMode?: boolean;
+  setSafeMode?(on: boolean): void;
 }
+
+/** The viewer's panels that can open as panes: enabled ones, and none in safe mode. */
+const openablePanels = (host: PaletteHost) => (host.safeMode ? [] : (host.storedPanels ?? []).filter(p => p.enabled));
 
 const run = async (host: PaletteHost, id: AffordanceId, args: unknown) => {
   const out = await host.perform(id, args);
@@ -66,13 +76,18 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
   if (ROOM_READS.has(id) && host.roomPath) return { kind: "navigate", to: host.roomPath };
   if (ACCOUNT_READS.has(id)) return { kind: "form", page: { kind: "info", title: e.title, lines: ["Your account and connected apps are in the menu under your avatar (top right)."] } };
   if (id === "room.list") return { kind: "navigate", to: "/" };
+  // The room's settings are a page of their own (v1's "Configure the room's setup"): every question, with a Review.
+  if (id === "room.settings" && host.roomPath) return { kind: "navigate", to: `${host.roomPath}/configure` };
   const pane = READ_PANES[id];
   const panes = host.panes;
   if (pane && panes) return { kind: "submit", run: () => panes.open(pane) };
   if (id === "view.openPane" || id === "view.closePane") {
     const page: PaletteFormPage = {
       kind: "pick", title: e.title,
-      options: () => PANE_IDS.map(p => ({ id: p, label: PANES[p].title, detail: PANES[p].blurb, keywords: PANES[p].keywords })),
+      options: () => [
+        ...PANE_IDS.map(p => ({ id: p as string, label: PANES[p].title, detail: PANES[p].blurb, keywords: PANES[p].keywords })),
+        ...openablePanels(host).map(p => ({ id: storedPane(p.slug), label: p.title, detail: "Your panel", keywords: [p.slug, "panel", "your panel"] })),
+      ],
       onPick: p => (panes ? (id === "view.openPane" ? panes.open(p) : panes.close(p)) : run(host, id, { pane: p })),
     };
     return { kind: "form", page };
@@ -118,16 +133,17 @@ const OPENS_CONTROL = new Set<AffordanceId>(["agent.leaveAlone"]);
 
 /** The palette's commands for this context. */
 export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Command[] {
-  const rows: Command[] = paletteFor(ctx).map(e => ({
+  const rows: Command[] = paletteFor(ctx).map(e => { const performer = performerFor(e, host); return {
     id: e.id,
     human: { title: nouned(e.title, host.noun), tooltip: nouned(e.tooltip, host.noun) },
     group: e.group,
     keywords: e.keywords,
     // A row that only opens the screen's own control confirms nothing: the control does (round 10: the palette asked first).
-    confirm: OPENS_CONTROL.has(e.id as AffordanceId) && host.panes ? "none" : e.confirm,
-    performer: performerFor(e, host),
+    // A row that opens a page confirms nothing either: the page's own Save does (room.settings opens the configure page).
+    confirm: (OPENS_CONTROL.has(e.id as AffordanceId) && host.panes) || performer.kind === "navigate" ? "none" : e.confirm,
+    performer,
     available: () => e.availability,
-  }));
+  }; });
   // Each pane by its own title, once a query is typed ("Lines" finds "Open Lines"); the dock's own pane plan opens it.
   const panes = host.panes;
   if (panes && ctx.game) {
@@ -138,6 +154,27 @@ export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Comm
         typedOnly: true, performer: { kind: "submit", run: () => panes.open(p) }, available: () => ({ ok: true }),
       });
     }
+  }
+  if (panes && ctx.game) {
+    // v1's "Open your panel: <title>", one per enabled panel.
+    for (const p of openablePanels(host)) {
+      rows.push({
+        id: `panel:${p.slug}`, human: { title: `Open your panel: ${p.title}`, tooltip: "One of your panels, as a pane." }, group: "view", keywords: [p.slug, "panel", "your panel"],
+        typedOnly: true, performer: { kind: "submit", run: () => panes.open(storedPane(p.slug)) }, available: () => ({ ok: true }),
+      });
+    }
+  }
+  // v1's safe mode: reload the page with every panel of yours off (a panel that breaks the page can then be fixed), and back.
+  const setSafeMode = host.setSafeMode;
+  if (setSafeMode && ctx.game) {
+    rows.push({
+      id: "safe-mode",
+      human: host.safeMode
+        ? { title: "Leave safe mode: run your panels", tooltip: "Reload the page with your panels on." }
+        : { title: "Safe mode: your panels off", tooltip: "Reload the page with none of your panels running (?panels=off)." },
+      group: "view", keywords: ["safe mode", "panels off", "turn off panels", "broken panel"], typedOnly: true,
+      performer: { kind: "local", run: () => setSafeMode(!host.safeMode) }, available: () => ({ ok: true }),
+    });
   }
   return rows;
 }

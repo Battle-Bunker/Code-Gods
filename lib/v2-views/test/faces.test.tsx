@@ -31,7 +31,8 @@ test("expanded face: the rule's views, both parts with their rulers, the moves w
   const t = text(html);
   assert.equal((html.match(/class="v2v-panel"/g) ?? []).length, 3);
   assert.match(t, /Main part:/);
-  assert.match(t, /Tie-breaker:/);
+  assert.match(t, /Secondary preference:/);
+  assert.doesNotMatch(t, /tie-?break/i, "the owner's word is secondary preference, never tie-breaker");
   assert.match(t, /the closer, the better/);
   assert.match(t, /What would make it rarer/);
   assert.match(t, /\d energy/);

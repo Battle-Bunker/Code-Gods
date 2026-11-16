@@ -300,13 +300,21 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     if (wins.length) { rules = dealt.deal; rotation = null; }
   }
   const won = new Map(wins.map(w => [w.playerId, w]));
-  const timeScale = timeScaleOf(room.overrides);
+  const timeScale = timeScaleOf(room.overrides), o = room.overrides;
   // Time dilation (decision 37) is a clock rate: the game's settings stay the preset's, its world runs faster.
   const settings = {
     planningSeconds: room.overrides.planningSeconds ?? preset.planningSeconds,
     worldSeconds: room.overrides.worldSeconds ?? preset.worldSeconds,
     startingEnergy: room.overrides.startingEnergy ?? preset.startingEnergy,
-    startingObjects: preset.startingObjects, minPlayers: preset.minPlayers, economy: preset.economy,
+    startingObjects: o.startingObjects ?? preset.startingObjects, minPlayers: preset.minPlayers,
+    // v1's world speed, births, power and fill time (room settings over the preset's economy).
+    economy: {
+      powerPerSecond: o.powerPerSecond ?? preset.economy.powerPerSecond, fullChargeSeconds: o.fullChargeSeconds ?? preset.economy.fullChargeSeconds,
+      opportunitiesPerSecond: o.opportunitiesPerSecond ?? preset.economy.opportunitiesPerSecond, birthsPerSecond: o.birthsPerSecond ?? preset.economy.birthsPerSecond,
+    },
+    // v1's per-act compute limits, when the room sets them (else the sandbox's 500,000 steps and 2,000 ms).
+    ...(o.stepBudget !== undefined ? { stepBudget: o.stepBudget } : {}),
+    ...(o.interactionComputeMs !== undefined ? { interactionComputeMs: o.interactionComputeMs } : {}),
     // The variance of each reading of the others' sums while live (disclose.ts, owner decision 32).
     peerNoiseVariance: room.overrides.peerNoiseVariance ?? preset.peerNoiseVariance,
     // How the game ends and how often standings are published (duration.ts; v1's settings).

@@ -264,6 +264,15 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     good reason and it sounds like you've confirmed that it offers negligible marginal value." So hold rarity stays out
     of v2 (the measurement: docs/engine-v2/hold-measurement.md; coordinator's call 11).
 
+44. On Divisibility Ladder (relayed by the coordinator, 15 November): "This rule sucks. It has no parameters and it's
+    important for rules to be genuine parameters with a substantial state space. And it's absurdly fragile. Anyone who
+    bumps values a tiny bit into fractional parameters wipes out this player's score to zero. Rules should still keep
+    some of their value when modest sized perturbations occur. Throw this rule away and pick out a new one from the
+    backlog of candidates and populate it with a good parameter space and 3 secondaries." So Divisibility Ladder is
+    dealt by no preset, and its starters and its rows in the opponents table are gone. Its family code stays only
+    while the app's annotation tests use it as a fixture. A replacement family from the backlog is in design
+    (design-principles.md rows 1 to 13).
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact

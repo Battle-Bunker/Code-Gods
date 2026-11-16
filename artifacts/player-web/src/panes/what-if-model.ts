@@ -37,7 +37,7 @@ export interface MutatorChoice {
 /** A typed number with a true minus sign or a hyphen, as the wire wants it. */
 export const wireNumber = (text: string) => text.trim().replace(/[−–]/g, "-");
 const shown = (v: Q | string) => (typeof v === "string" ? v : Qn.toWire(v).replace("-", "−"));
-/** More words than this and an argument is typed, not picked. */
+/** More words than this, and none of them said in plain words, and an argument is typed, not picked. */
 const MAX_CHOICES = 12;
 
 /** The board's moves, in the line type's order, each with its arguments. */
@@ -60,7 +60,10 @@ export function mutatorChoices(variant: Variant): MutatorChoice[] {
       const said: Said = { label: h?.label ?? name, hint: h?.hint ?? "", ...(h?.choices ? { choiceWords: h.choices } : {}) };
       const words = [...new Set(values.filter((v): v is string => typeof v === "string"))];
       const numbers = values.filter((v): v is Q => typeof v !== "string");
-      if (!numbers.length && words.length) return words.length <= MAX_CHOICES ? { name, kind: "choice", choices: words, start, ...optional, ...said } : { name, kind: "text", start, ...optional, ...said };
+      // Words the move names in plain words (a 4×4 board's 16 cells) are always picked, however many: typing "r0c0"
+      // is not for a person. Unnamed words past MAX_CHOICES are typed.
+      const all = h?.choices ? [...new Set([...words, ...Object.keys(h.choices)])] : words;
+      if (!numbers.length && all.length) return h?.choices || all.length <= MAX_CHOICES ? { name, kind: "choice", choices: all, start, ...optional, ...said } : { name, kind: "text", start, ...optional, ...said };
       const fractions = numbers.some(v => v.d !== 1n);
       return words.length ? { name, kind: "number", fractions, start, words, ...optional, ...said } : { name, kind: "number", fractions, start, ...optional, ...said };
     });

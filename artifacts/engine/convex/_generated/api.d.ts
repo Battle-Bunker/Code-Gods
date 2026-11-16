@@ -52,6 +52,8 @@ import type * as v2_assistantHistory from "../v2/assistantHistory.js";
 import type * as v2_assistantRun from "../v2/assistantRun.js";
 import type * as v2_assistantTables from "../v2/assistantTables.js";
 import type * as v2_bids from "../v2/bids.js";
+import type * as v2_boardAt from "../v2/boardAt.js";
+import type * as v2_boardFold from "../v2/boardFold.js";
 import type * as v2_checkData from "../v2/checkData.js";
 import type * as v2_checkNode from "../v2/checkNode.js";
 import type * as v2_commands from "../v2/commands.js";
@@ -171,6 +173,8 @@ declare const fullApi: ApiFromModules<{
   "v2/assistantRun": typeof v2_assistantRun;
   "v2/assistantTables": typeof v2_assistantTables;
   "v2/bids": typeof v2_bids;
+  "v2/boardAt": typeof v2_boardAt;
+  "v2/boardFold": typeof v2_boardFold;
   "v2/checkData": typeof v2_checkData;
   "v2/checkNode": typeof v2_checkNode;
   "v2/commands": typeof v2_commands;

@@ -52,10 +52,11 @@ test("Why?: a line only you care about says it scores nothing until someone else
     "your 4.24 bits × others' 0.00 bits = 0.00 points. Only you care about this line, so it scores nothing yet: it needs someone else to find it rare too.");
 });
 
-test("the goal card names a rule's parts in plain words (main part, tie-breaker)", () => {
+test("the goal card names a rule's parts in the owner's words (main part, secondary preference), never tie-breaker", () => {
   assert.equal(partsNote(1), null);
-  assert.match(partsNote(2)!, /in 2 parts \(main part, tie-breaker\)/);
-  assert.doesNotMatch(partsNote(3)!, /primary|secondary/);
+  assert.match(partsNote(2)!, /in 2 parts \(main part, secondary preference\)/);
+  assert.match(partsNote(3)!, /\(main part, secondary preference, third preference\)/);
+  assert.doesNotMatch(partsNote(3)!, /tie-?break/i);
 });
 
 test("the expanded face's switcher lives in the human's view: none shown → the primary; switched; compared", () => {

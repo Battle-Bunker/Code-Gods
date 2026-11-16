@@ -188,6 +188,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `object.whatIf` | What if, for the others | objectId, calls | server · game | seated | live, paused | write; confirm inline |
 | `moves.list` | List moves that concern me | cursor, limit | server · game | seated | planning, live, paused, ended, replay | read |
 | `log.list` | Read the public log | cursor, limit | server · game | member | planning, live, paused, ended, replay | read |
+| `game.boardAt` | Show the board at a moment | world, after, limit | server (action) · game | member | planning, live, paused, ended, replay | read |
 | `pitch.draft` | Draft a cooperation pitch | to, aim | server (action) · game | seated | planning, live, paused | write; spends aiBudget; confirm summary |
 | `agents.list` | List my agents | cursor, limit | server · game | seated | planning, live, paused, ended | read |
 | `agent.programs` | List an agent's versions | agentId | server · game | seated | planning, live, paused, ended | read |
@@ -209,6 +210,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `view.sortObjects` | Sort objects | sort | client · room | member | planning, live, paused, ended, replay | write |
 | `view.filterObjects` | Filter objects | mine, minBits | client · room | member | planning, live, paused, ended, replay | write |
 | `view.showGlossary` | Explain a term | term | client · none | anyone | signedOut, home, room, planning, live, paused, ended, replay, admin | write |
+| `view.closeGlossary` | Close the glossary | — | client · none | anyone | signedOut, home, room, planning, live, paused, ended, replay, admin | write |
 | `replay.open` | Watch a replay | gameId | client · room | member | room, ended, replay | write |
 | `replay.play` | Play the replay | — | client · game | member | replay | write |
 | `replay.pause` | Pause the replay | — | client · game | member | replay | write |

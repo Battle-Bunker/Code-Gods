@@ -9,6 +9,7 @@ import { storedPane } from "@workspace/v2-client";
 import { useGame, useMyPanels, usePanelCode } from "@/sdk";
 import { AffordanceButton } from "@/site/components/action";
 import { usePaneOps } from "@/dock/open-pane";
+import { EXAMPLE_PANELS } from "@/panels/examples";
 import { authorText, diagnosticText, EXAMPLE_PANEL, rollbackTarget, saveOutcomeText, slugProblem, type SaveOutcome } from "./my-panels-model";
 
 type Panel = NonNullable<ReturnType<typeof useMyPanels>>[number];
@@ -66,6 +67,17 @@ function Editor({ editing, onSaved }: { editing: string | null; onSaved: (slug: 
         A panel is a React component that reads the game with the panel SDK: import from "@sdk" (useGame, useMe, useMyRule, useLeaderboard,
         useMoves and more) and from "react", and end with export default definePanel(…).
       </p>
+      {!editing && (
+        <label className="block text-xs">
+          <span className="text-muted-foreground">Start from an example</span>
+          <select className="mt-0.5 block w-full border bg-background px-2 py-1 text-sm" data-testid="select-panel-example"
+            value={EXAMPLE_PANELS.find(e => e.source === source)?.slug ?? ""}
+            onChange={e => { const ex = EXAMPLE_PANELS.find(x => x.slug === e.target.value); if (ex) { setSlug(ex.slug); setDraft(ex.source); setOutcome(null); } }}>
+            {!EXAMPLE_PANELS.some(e => e.source === source) && <option value="">Your own code</option>}
+            {EXAMPLE_PANELS.map(e => <option key={e.slug} value={e.slug}>{e.title}</option>)}
+          </select>
+        </label>
+      )}
       <label className="block text-xs">
         <span className="text-muted-foreground">Name</span>
         <input value={slug} onChange={e => { setSlug(e.target.value.trim()); setOutcome(null); }} disabled={!!editing} spellCheck={false}

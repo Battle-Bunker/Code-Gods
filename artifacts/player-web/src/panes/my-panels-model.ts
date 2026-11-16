@@ -53,3 +53,16 @@ function MyStats() {
 
 export default definePanel({ title: "My stats", placement: "right", size: "sm", Component: MyStats });
 `;
+
+/** An example panel to start from: its file name as the slug, the title its definePanel names, and its source. */
+export interface ExamplePanel { slug: string; title: string; source: string }
+
+/** The examples from their files ("./leaderboard-race.tsx" → source), the starting example first, then by title. */
+export function examplesFrom(files: Readonly<Record<string, string>>): ExamplePanel[] {
+  const found = Object.entries(files).map(([file, source]) => ({
+    slug: file.replace(/^.*\//, "").replace(/\.tsx$/, ""),
+    title: /title:\s*"([^"]+)"/.exec(source)?.[1] ?? file,
+    source,
+  })).sort((a, b) => a.title.localeCompare(b.title));
+  return [{ slug: "my-stats", title: "My stats", source: EXAMPLE_PANEL }, ...found];
+}
