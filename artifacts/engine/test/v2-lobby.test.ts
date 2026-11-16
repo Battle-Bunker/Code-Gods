@@ -115,21 +115,14 @@ test("at most eight players can play (v1's cap); the rest of the room watches", 
   await perform(many[0]!, "game.end", {}, { gameId: started.result.gameId });
 });
 
-test("seating: a grid and a line game record the pairs their deal left (no forbidden one at three seats), and no player read returns it", { timeout: 60_000 }, async () => {
+test("seating: grid and line games record no seating (their rules lost it with their old families, 17 Nov), and no player read returns it", { timeout: 60_000 }, async () => {
   const [ada] = await humans("Seating Ada");
-  for (const [preset, grid] of [["grids-beginner", true], ["lines-beginner", false]] as const) {
+  for (const preset of ["grids-beginner", "lines-beginner"]) {
     const { roomId } = (await perform(ada!, "room.create", { name: `Seating ${preset}`, preset })).result;
     await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
     const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
-    const stored = await admin.query("v2/testing:header", { gameId });
-    if (grid) {
-      assert.deepEqual(stored.seating.clashes, [], "three seats: no forbidden pair");
-      assert.equal(stored.seating.aligned.length, 1, "the beginner pool's three seats hold one aligned pair (one digit cluster and Crosswise Threes, call 19)");
-    }
-    // Lines have no seating rule since 17 Nov (it went with the old line families, decision 50).
-    else assert.equal(stored.seating, undefined, "a line game records no seating");
-    const header = await ada!.query("v2/games:header", { gameId });
-    assert.equal("seating" in header, false, "players are not shown it");
+    assert.equal((await admin.query("v2/testing:header", { gameId })).seating, undefined, `${preset}: no seating recorded`);
+    assert.equal("seating" in (await ada!.query("v2/games:header", { gameId })), false, "players are not shown it");
     await perform(ada!, "game.end", {}, { gameId });
   }
 });

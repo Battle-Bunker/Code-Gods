@@ -94,36 +94,16 @@ test("only a game of one human and practice partners is a practice game", () => 
   assert.equal(isPracticeGame(["human"]), false);
 });
 
-// Grid seating (the coordinator's calls following owner decision 39; lib/v2-grid seating.ts): no forbidden pair (one
-// family twice, the same main part, big digits against small digits, a blocked pair), and among the deals without one
-// the fewest aligned pairs (two families of one cluster). A beginner table is one digit cluster plus Crosswise Threes
-// (call 19): one aligned pair at three seats, three at four.
-test("grids: a deal seats no forbidden pair, and the fewest aligned pairs the pool allows", async () => {
-  const { gridAlignedPairs, gridClashes } = await import("@workspace/v2-grid");
-  const { dealWithBids } = await import("@workspace/v2-economy");
-  const { bidDealer, dealRng, seatingAligned, seatingClashes } = await import("../../convex/v2/deal.ts");
-  for (const [id, seats, aligned] of [["grids-beginner", 3, 1], ["grids-beginner", 4, 3], ["grids-more-rules", 3, 0], ["grids-more-rules", 5, 0]] as const) {
+test("every grid setup deals the dynamic grid rules, main part only, no seating rule (energy.md, Grids)", async () => {
+  const { dynamicGridFamilies } = await import("@workspace/v2-grid");
+  for (const id of ["grids-beginner", "grids-more-rules"]) {
     const preset = presetOf(id), pool = dealablePool(preset);
-    let changed = 0;
-    for (let s = 0; s < 30; s++) {
-      const seed = `seat-${s}`, deal = freshDeal(pool, seats, seed, preset.variant), families = deal.map(r => r.family);
-      assert.deepEqual(deal, freshDeal(pool, seats, seed, preset.variant), "reproducible from its seed");
-      assert.deepEqual(gridClashes(families), [], `${id}, ${seats} seats, ${seed}: no forbidden pair`);
-      assert.equal(gridAlignedPairs(families).length, aligned, `${id}, ${seats} seats, ${seed}: ${gridAlignedPairs(families).join(", ")}`);
-      assert.deepEqual(seatingClashes(preset.variant, deal), []);
-      assert.deepEqual(seatingAligned(preset.variant, deal), gridAlignedPairs(families));
-      if (JSON.stringify(deal) !== JSON.stringify(freshDeal(pool, seats, seed))) changed++;
-      // With no bids the bid dealer deals exactly the plain deal.
-      const players = Array.from({ length: seats }, (_, i) => `p${i}`);
-      assert.deepEqual(dealWithBids(players, [...new Set(pool.map(r => r.family))], [], dealRng(seed), bidDealer(pool, preset.variant)).deal, deal);
-    }
-    assert.ok(changed > 0, `${id}: the seating rule changes some deals`);
+    assert.deepEqual([...new Set(pool.map(r => r.family))].sort(), dynamicGridFamilies.map(f => f.id).sort(), id);
+    for (const r of pool) { assert.equal(r.tieBreaker, null); assert.equal(valueRecord(r.ruleKey), null); }
+    const deal = freshDeal(pool, 4, "grid", preset.variant);
+    assert.equal(new Set(deal.map(r => r.family)).size, 4);
+    assert.deepEqual(seatingClashes(preset.variant, deal), []);
   }
-  assert.deepEqual(seatingClashes("line-q", [{ family: "magic-eighteen" }, { family: "opposite-nines" }]), [], "lines have no seating rule");
-  // Families in no seating cluster (Divisibility, Leading Digits): no forbidden or aligned pair but one family twice; both sit at two seats.
-  assert.deepEqual(gridClashes(["divisibility", "leading-digits"]), []);
-  assert.deepEqual(gridAlignedPairs(["divisibility", "leading-digits", "magic-eighteen"]), []);
-  assert.deepEqual(gridClashes(["leading-digits", "leading-digits"]), ["leading-digits × leading-digits"]);
 });
 
 

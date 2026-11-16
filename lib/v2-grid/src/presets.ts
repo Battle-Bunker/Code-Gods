@@ -1,85 +1,17 @@
 /**
- * The grid's presets (integration plan §5.7) on the beginner board: the beginner pool (the old beginner grid's eight
- * rules, each with the tie-breakers BEGINNER_DEALT lists), the more-rules pool (v1's seven coupled families, each with
- * every tie-breaker) and the arithmetic playtest pool (Divisibility and Leading Digits). The deal refuses any rule whose artefact is not dealable, so the artefacts decide what is live.
+ * The grid's presets (integration plan §5.7) on the beginner board. Every grid setup deals the dynamic grid rules
+ * (dynamic-families.ts; owner decision 50): one family and one parameter set per seat, no tie-breakers.
  */
-import { tieBreakersOn } from "@workspace/v2-core";
-import { gridType, grid4 } from "./type.ts";
-import { beginnerGridFamilies } from "./families.ts";
-import { moreGridFamilies } from "./more-families.ts";
-import { BINGO_DEALT } from "./v1-bingo-caller.ts";
-import { gridParams } from "./grid.ts";
+import type { RuleFamily } from "@workspace/v2-core";
+import { grid4 } from "./type.ts";
+import { dynamicGridFamilies } from "./dynamic-families.ts";
 
-const BEGINNER = new Set(beginnerGridFamilies(gridParams(grid4).size).map(f => f.id));
-/**
- * v1's grid families ported as v1 had them (16 Nov, the grid baseline), each its own family file (v1-*.ts). Number Bonds
- * (v1-number-bonds.ts) is registered but undealt: the energy gate found a cheap peak, 35.4 bits for 150⚡ on bond-run
- * (a run of 1, 9, 1, 9 bonds along a row from a law draw), above the gate's 35 (16 Nov, grids session).
- */
-const V1_PORTS = ["round-numbers", "column-addition"];
-const MORE = new Set([...moreGridFamilies(gridParams(grid4).size).map(f => f.id), ...V1_PORTS]);
-// v1's Full House and Snap!, ported as v1 had them (the grid baseline, 16 Nov). Twenty-One is ported but
-// UNDEALT: a cheap peak, the energy gate's climber took T 16 + bust-by-little to 35.8 bits for 230⚡ (every row and
-// column exactly T is a reachable top; T 15, 16 and 20 measured 25–36 bits on every tie-breaker).
-// Seesaw is ported but UNDEALT (16 Nov, item 4 of the playtest session): a bounded top that newborn boards start at.
-// Its main part and two of its three secondaries are gaps whose best is 0, so any one-digit board (the empty board, the
-// birth walk's origin) is exact on all three (about 17 bits, past the top measured knot), and the all-9s board tops
-// heavy-seesaws; no move makes such a board better (test/v1-seesaw.test.ts). An optimum found is a bug.
-for (const id of ["full-house", "snap"]) MORE.add(id);
-/**
- * v1's Looking-Glass, Pinwheel and Constellation, ported as v1 (16 Nov) into the more-rules pool: both folds, and
- * Constellation's star 0 (v1's canonical star; MORE_PARAMS). v1 dealt every star 0–9, but on v2's law the stars are not
- * peers: their value functions' medians lie 7.5 bits apart (test/unit/v2-params-equal.test.ts) and the energy gate's
- * greedy climb tops 11.8–31.4 bits across them, so one is dealt.
- */
-for (const id of ["looking-glass", "pinwheel", "constellation"]) MORE.add(id);
-// v1's Bingo Caller (16 Nov). Ladder of Numbers and Sudoku Scholar are registered but undealt (see their files).
-MORE.add("bingo-caller");
+export interface GridPoolRule { readonly family: string; readonly params: unknown; readonly tieBreakers: readonly (string | null)[] }
 
-/**
- * The tie-breakers the beginner pool deals: only those tied to what the main part singles out (owner decision 29; the
- * coordinator's call 14). The families keep their older tie-breakers (primes, zeros, corners, a column's total …), but
- * the pool no longer deals them. Opposite Nines' big-on-top and Strangers' ones and prime-strangers are undealt
- * (15 Nov): the energy gate found cheap peaks of 37–45 bits for 99–211⚡ on them (bounded counts on a 0–9 board). Until
- * the grid ladder redesign, Strangers deals one tie-breaker and Opposite Nines two, below row 3a's three.
- */
-export const BEGINNER_DEALT: Readonly<Record<string, readonly string[]>> = {
-  "mirrormancer": ["mirror-other-way", "one-apart", "small-middle"],
-  "magic-eighteen": ["other-way", "diagonals", "different-numbers"],
-  "opposite-nines": ["mirror-nines", "different-splits"],
-  "two-pair": ["apart", "diagonal-pairs", "small-pairs"],
-  "spread-of-three": ["spread-diagonal", "spread-small", "square-different"],
-  "strangers": ["across-strangers"],
-  "leapfrog": ["same-way", "columns-leap", "middle-factors"],
-  "crosswise-threes": ["bigger-side", "other-fold", "fold-factors"],
-};
-
-/** The parameters the more-rules pool deals, for its families that have several. */
-const MORE_PARAMS: Readonly<Record<string, unknown>> = { uphill: { corner: "BR" }, staircase: { direction: "right" }, "magic-accountant": { axis: "rows", T: 18 },
-  "round-numbers": { axis: "rows" }, "column-addition": { top: 0 }, "full-house": { axis: "rows" }, seesaw: { axis: "rows" }, constellation: { star: 0 },
-  "bingo-caller": BINGO_DEALT,   // one of v1's 210 called sets (v1-bingo-caller.ts)
-};
-
-const poolOf = (ids: Set<string>, dealt?: Readonly<Record<string, readonly string[]>>): readonly GridPoolRule[] =>
-  gridType.families.filter(f => ids.has(f.id)).flatMap(f => f.dealable(grid4).map(params => ({
-    family: f.id, params,
-    tieBreakers: tieBreakersOn(f, grid4).map(t => t.id).filter(id => !dealt?.[f.id] || dealt[f.id]!.includes(id)),
-  })));
-
-export interface GridPoolRule { readonly family: string; readonly params: unknown; readonly tieBreakers: readonly string[] }
+const rules: readonly GridPoolRule[] = (dynamicGridFamilies as readonly RuleFamily<unknown, unknown>[]).flatMap(f =>
+  f.dealable(grid4).map(params => ({ family: f.id, params, tieBreakers: [null] })));
 
 export const gridPresets = [
-  {
-    id: "grids-beginner", title: "Grids · beginner", variant: grid4.id,
-    rules: poolOf(BEGINNER, BEGINNER_DEALT),
-  },
-  {
-    // v1's coupled reward families, restored as continuous rules (owner-decisions.md, "Grids · more rules").
-    id: "grids-more-rules", title: "Grids · more rules", variant: grid4.id,
-    // One parameter set per family: parameter peers must offer equal opportunity (v1-audit.md #27); the corners,
-    // directions and axes are symmetric, but their sampled value functions differ by more than the audit allows.
-    rules: poolOf(MORE).filter(r => MORE_PARAMS[r.family] === undefined || JSON.stringify(r.params) === JSON.stringify(MORE_PARAMS[r.family])),
-  },
-  // Grids · arithmetic (Divisibility and Leading Digits) is withdrawn (16 Nov, the coordinator): a lattice reduction finds
-  // Divisibility's top boards by formula (grid-params.md §14). The families keep their code and values, undealt.
+  { id: "grids-beginner", title: "Grids · beginner", variant: grid4.id, rules },
+  { id: "grids-more-rules", title: "Grids · more rules", variant: grid4.id, rules },
 ] as const;

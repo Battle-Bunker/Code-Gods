@@ -65,3 +65,52 @@ tuple scores. An idea worth reviving is rewritten as one pure utility (dynamic-f
 | Surd Intercept | `tree-split-surd-intercept` | The y-intercept, ignoring its sign, should agree with (1 + √5) / 2 = 1.61803398… in as many leading digits as possible (the whole part counts). More digits are better. |
 | Near Origin | `tree-split-near-origin` | Find where the line crosses the x-axis and take 1 over its distance from (0, 0) (a crossing at 1/4 or −1/4 gives 4). The targets are the whole numbers leaving 3 when divided by 7 (3, 10, 17, …). Find the target nearest that number: the bigger it is, the better (so the closer the crossing to (0, 0)). |
 Plus Smooth Hug (`smooth-hug`, dynamic, removed 16 Nov in #1162): the y-intercept right on a number made only of the dealt primes; √(prime factors) − distance³.
+
+# Old grid rule ideas
+
+The grid families of the value-table era (the beginner pool, the more-rules pool, v1's ports, the arithmetic playtest
+and the undealt ones), deleted from `develop` on 17 November (Melbourne) with their tie-breakers, seating rule,
+value files and grid valuation code, when every grid setup moved to the nine dynamic grid rules
+(lib/v2-grid dynamic-families.ts; energy.md, "Grids"). The code is in git history before the deleting commit. Each line
+is the family's main goal as its card put it, with its first dealt parameter set. The penalties of the defence goals
+(Hated number, Number crowd) are kept in lib/v2-grid defence.ts.
+
+| Family | id | Main goal (as the card said it) |
+|---|---|---|
+| Mirrormancer | `mirrormancer` | Every row should read the same backwards, like 3 1 1 3. |
+| Magic Eighteen | `magic-eighteen` | Every row should add up to 18. |
+| Opposite Nines | `opposite-nines` | Every cell and its opposite (where a half turn of the board takes it) should add up to 9. |
+| Two Pair | `two-pair` | Each corner box of four cells should hold two different pairs, like 3 3 8 8 in any order. |
+| Spread of Three | `spread-of-three` | Every 2×2 square should have a spread of exactly 3: its biggest number 3 more than its smallest. The squares overlap. |
+| Strangers | `strangers` | Touching numbers in the same corner box should be strangers: both bigger than 1, no common divisor bigger than 1, and at least 2 apart (like 2 and 5). |
+| Leapfrog | `leapfrog` | In every row, each number and the number two cells along (leaping over the one between) should be one apart, like 4 _ 5. |
+| Crosswise Threes | `crosswise-threes` | Fold the board along the diagonal from the top-right corner: each number and the number it lands on should be 3 apart, like 2 and 5. |
+| Steady Steps | `steady-steps` | Along every row the numbers should go up (or down) in equal steps, like 1 3 5 7. |
+| Box Totals | `box-totals` | Each corner box of four cells should add up to 12. |
+| Prime Cells | `prime-cells` | As many cells as possible should hold a prime number (2, 3, 5 or 7). |
+| Magic Totals | `magic-totals` | Every column's and every corner box's total should leave 2 when divided by 6, and no two rows or two columns may hold the same numbers. |
+| Spread | `spread` | Every 2×2 square and every three cells one above another in a column should have a spread of exactly 1 (its biggest number minus its smallest), and no two rows or two columns may hold the same numbers. |
+| Number Lines | `number-lines` | Read each column from top to bottom as one number: each should be as close as possible to a number that is a multiple of 11, and no two rows or two columns may hold the same numbers. |
+| Pair Sums | `pair-sums` | Every cell and its opposite (where a half turn of the board takes it) should add up to 4, 9 or 14, and no two rows or two columns may hold the same numbers. |
+| Divisibility | `divisibility` | Read the top half and the bottom half row by row, and the left half and the right half column by column, each as one number: each should be divisible by as high a power of 3 as possible (count the 3s that divide it), and no two rows or two columns may hold the same numbers. |
+| Leading Digits | `leading-digits` | Read the top half and the bottom half row by row, and the left half and the right half column by column, each as one number: each should start with the same digits as some power of 2 (up to the 1000th), for as many digits as possible, and no two rows or two columns may hold the same numbers. |
+| Round Numbers | `round-numbers` | Every row should add up to a round number: a multiple of 10, like 10, 20 or 30. Each row's total is as far off as it is from the nearest multiple of 10 (17 is 3 off, 25 is 5 off), and the distances are added up. |
+| Number Bonds | `number-bonds` | Two touching cells (side by side, or one above the other) are a bond when their numbers add up to 10, like 3 and 7. Make as many bonds as possible; a cell can be in several bonds. |
+| Column Addition | `column-addition` | Rows 1 and 2 (counting from the top) are added like a written sum, and row 3 should be the answer. Work from the right-hand end and carry 1 whenever a column adds up to 10 or more; a column is right when row 3 shows the right digit. Count the right columns in an unbroken run from the right-hand end. If row 1 is all 0s, nothing counts. |
+| Full House | `full-house` | Make poker hands: look along each row. Every pair of cells in it holding the same number counts 1. Three of a kind makes 3 pairs, and four of a kind makes 6. More is better. |
+| Twenty-One | `twenty-one` | Get close to 15 without going bust. Each row and each column is a blackjack hand: add it up. A hand of 15 or less scores its total in points, and exactly 15 scores 15 more. A hand over 15 is bust and scores nothing. More points is better. |
+| Seesaw | `seesaw` | Make every row balance like a seesaw: its two sides are its left half and right half. Add up the numbers on each side; the gap between the two sides should be as small as possible, added up over the rows. |
+| Snap! | `snap` | Put cells holding the same number side by side and shout Snap! for each pair: every two touching cells (across or down) holding the same number count 1. More is better. |
+| Looking-Glass | `looking-glass` | Try to make every cell match its mirror twin. Fold the board across the middle, top onto bottom: every cell lands on a twin. Each pair of twins holding the same number scores 1 point. |
+| Pinwheel | `pinwheel` | Try to make a quarter turn leave the board looking the same. Turn the board a quarter turn: the cells swap places in sets of 4. A set of 4 that all hold the same number scores 1 point. |
+| Constellation | `constellation` | Try to make one big cluster of stars, the cells holding 0. Stars that touch, even at a corner, form a cluster. Each star in your biggest cluster scores 1 point. |
+| Bingo Caller | `bingo-caller` | Your called numbers are 1, 4, 6 and 9. Dab every cell showing one of them: each dab scores 1 point. A complete row, column or long diagonal of dabs is BINGO and scores 4 more points. Score as many points as possible. |
+| Ladder of Numbers | `ladder-of-numbers` | Read each row as one 4-digit number. Going down the page, make the longest unbroken climb of rows that each beat the row before: count the rows on it (the row it starts from doesn't count). |
+| Sudoku Scholar | `sudoku-scholar` | No number should appear twice in a row, a column or a long diagonal. Count the rows, columns and long diagonals where no number appears twice. |
+| Kings and Subjects | `kings-and-subjects` | In each corner box of four cells, the biggest number (the king) should equal the other three added up, like 9 with 2, 3 and 4. A box whose biggest number appears twice has no king and is 20 off. |
+| Stepping Stones | `stepping-stones` | Make the biggest group of cells you can hop between: you can hop between touching cells whose numbers differ by exactly 2. |
+| Mountain Climb | `mountain-climb` | Starting at the top-left cell, climb as far as you can: each step goes to a touching cell exactly 1 bigger. Count the cells on your longest climb. |
+| Uphill | `uphill` | Walk toward the bottom-right corner along every row and column: as many steps as possible should reach a bigger number. |
+| Staircase | `staircase` | As many numbers as possible should be exactly 1 more than the number to their left. |
+| Magic Accountant | `magic-accountant` | Every row should add up to 18. |
+| Fillomino | `fillomino` | Every patch of touching equal numbers should have as many cells as its number, like a 3 in a patch of three cells. Count the cells in patches of the right size. |

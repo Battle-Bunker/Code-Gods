@@ -238,15 +238,7 @@ test("the stored replay: built once at the end, served only to a member with a J
 }
 
 gameSuite("lines-beginner", lineType, lineQ);
-// Decision 23: a game deals only rules with a value function. Grids play end to end here once their value functions are
-// in the value files; until then the server withholds the preset, and this says so.
-if (VALUE_INDEX.some(r => r.variant === grid4.id)) gameSuite("grids-beginner", gridType, grid4);
-else test("grids-beginner is withheld until grid value functions land", async () => {
-  const [h] = await humans("grids withheld");
-  const out = await perform(h!, "room.create", { name: "grids", preset: "grids-beginner" }).catch((e: any) => e.data);
-  assert.match(out.error.message, /not playable yet/);
-  assert.ok(!(await h!.query("v2/setups:presets", {})).some((p: any) => p.id === "grids-beginner"), "not listed");
-});
+gameSuite("grids-beginner", gridType, grid4);   // the dynamic grid rules (energy.md, Grids)
 // Two lines as one object (docs/engine-v2/two-line-systems.md): a full game once its value functions and starters land.
 // Withheld (deal.ts playable) until both land; then this plays it end to end.
 if (VALUE_INDEX.some(r => r.variant === pairQ.id) && pairType.families.some(f => hasStarters(f.id))) gameSuite("lines-pairs", pairType, pairQ);

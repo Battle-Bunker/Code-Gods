@@ -210,7 +210,7 @@ const TREE: { title: string; state: LineState }[] = [
 ];
 
 function Tree() {
-  const rule = { type: lineType, family: treePrimeIntercept, params: primeHug.dealable(lineQ)[0], variant: lineQ, tieBreaker: "close>times" } as RuleRef<LineState, unknown>;
+  const rule = { type: lineType, family: treePrimeIntercept, params: { ends: 1 }, variant: lineQ, tieBreaker: "close>times" } as RuleRef<LineState, unknown>;
   return (
     <section className="g-section" id="tree" data-section="tree">
       <h2>A rule in the tree shape: target, closeness, third</h2>

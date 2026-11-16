@@ -123,7 +123,7 @@ const WORDS: Readonly<Record<string, PrimerWords>> = {
   },
   grid: {
     title: "grids", one: "board", many: "boards",
-    game: "The game is played on boards: every piece is a 4×4 board of the numbers 0 to 9 (cells r0c0 … r3c3, row by row, counted from 0), read in several views. Each player has a rule about boards: a main part and a secondary preference (for example \"every row should read the same backwards, like 3 1 1 3; secondary: the middle two columns as big as possible\").",
+    game: "The game is played on boards: every piece is a 4×4 board of the numbers 0 to 9 (cells r0c0 … r3c3, row by row, counted from 0), read in several views. Each player has a rule about boards: one number to make big, its utility (for example \"read each row as a number: every row a big multiple of 7, and every step off costs 4 × log2(1 + the distance)\"). A board's energy for a rule is what it would cost to reach a board at least that good from a random board; it is estimated afresh each time, so it jitters.",
     prices: "A move by k costs k moves by 1, so climb in small steps; a change that raises the board's total pays a surcharge of half the growth, so big numbers are rare and dear; rearranging (swaps, turns, writing a row backwards) pays none.",
     deal: "\"I leave board 4's top row alone if you keep its corners big\"",
     typescript: "the same shape, with plain numbers (a view's numbers are Q: Q.toNumber reads them)",
@@ -132,7 +132,7 @@ const WORDS: Readonly<Record<string, PrimerWords>> = {
       peek: { ts: `peek(offer, "tally", "row0")`, py: `peek(offer, "tally", "row0")`, says: "one number of a view" },
       move: { ts: `move("cells.add", { cell: "r0c1", k: 2 })`, py: `move("cells.add", cell="r0c1", k=2)` },
     },
-    example: () => { const e = GRID_CATALOGUE.find(x => hasStarters(x.family)); return e ? [e.family, Object.keys(e.tieBreakers)[0]!] : null; },
+    example: () => { const e = GRID_CATALOGUE.find(x => hasStarters(x.family)); return e ? [e.family, Object.keys(e.tieBreakers)[0] ?? null] : null; },
   },
 };
 

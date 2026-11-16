@@ -7,7 +7,7 @@
  */
 import { representation, tieBreakersOn, type ObjectType, type RuleFamily, type Variant } from "@workspace/v2-core";
 import { dynamicFamilies } from "@workspace/v2-linear";
-import { beginnerGridFamilies, grid4 } from "@workspace/v2-grid";
+import { dynamicGridFamilies, grid4 } from "@workspace/v2-grid";
 import { objectTypeOf, variantOf as variantById } from "../../sdk/object-types.ts";
 import { PRESETS } from "@workspace/engine/convex/v2/presets.ts";
 import type { GameRule } from "../../sdk/rule.ts";
@@ -24,7 +24,7 @@ type Family = RuleFamily<any, unknown>;
 const variantOf = (id: string): Variant => variantById(id);
 const typeOf = (v: Variant): ObjectType<any> => objectTypeOf(v.id);
 /** The beginner pools, of every type (the beginner lines deal the dynamic families: energy.md). */
-const BEGINNER = new Set<string>([...dynamicFamilies, ...beginnerGridFamilies(4)].map(f => f.id));
+const BEGINNER = new Set<string>([...dynamicFamilies, ...dynamicGridFamilies].map(f => f.id));
 
 export interface GalleryEntry {
   id: string;
