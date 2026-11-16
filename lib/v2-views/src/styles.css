@@ -407,7 +407,8 @@
 .v2v-summary-open .v2v-compact-face { flex: none; max-width: 46%; overflow: hidden; }
 .v2v-summary-open .v2v-compact-face > .v2v-face-foot, .v2v-summary-open .v2v-compact-face > .v2v-face-part, .v2v-summary-open .v2v-compact-face > .v2v-worst { display: none; }
 .v2v-summary-why { flex: 1; display: grid; gap: 2px; min-width: 0; font-size: 13px; }
-.v2v-summary-why .v2v-face-part { white-space: normal; overflow-wrap: anywhere; }
+/* A sentence across the card, not the compact face's three-column row (its 50 px first column held the words). */
+.v2v-summary-why .v2v-face-part { display: block; white-space: normal; overflow-wrap: anywhere; }
 .v2v-summary-why .v2v-face-part { max-width: none; }
 .v2v-summary-formula { font-size: 12px; color: var(--v2v-muted); }
 .v2v-move-reason { grid-column: 1 / -1; font-size: 11px; color: var(--v2v-muted); font-style: italic; }

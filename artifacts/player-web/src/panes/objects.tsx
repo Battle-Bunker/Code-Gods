@@ -153,7 +153,7 @@ function LineRow({ objectId, number, rule, value, rep, scale, focused, contested
  * Every game pays to look (owner decisions 33, 35): what you see is as you last saw it. One press pays to see every
  * loaded one as it is now; another summons a Watcher, an agent that only looks, so they stay fresh on their own.
  */
-function LookAll({ ids, many, variant }: { ids: readonly string[]; many: string; variant: string }) {
+function LookAll({ ids, many, one, variant }: { ids: readonly string[]; many: string; one: string; variant: string }) {
   const rows = useMyObjects(ids);   // the rows' own subscriptions (shared): each carries its look price
   const scale = useGame()?.priceScale ?? 1;
   const agents = useMyAgents();
@@ -167,9 +167,9 @@ function LookAll({ ids, many, variant }: { ids: readonly string[]; many: string;
   // Watcher are extras for a player who wants their view sooner, never a step of the first game.
   return (
     <details className="px-3 text-xs text-muted-foreground" data-testid="look-all">
-      <summary className="cursor-pointer" data-testid="details-look-more">Your agents tell you about every {many.replace(/s$/, "")} they touch. Want to see them sooner?</summary>
+      <summary className="cursor-pointer" data-testid="details-look-more">Your agents tell you about every {one} they touch. Want to see them sooner?</summary>
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-        {price !== null && <AffordanceButton id="object.look" args={{}} label={`Look at every ${many.replace(/s$/, "")} now (${price.toFixed(2)} energy)`} busyLabel="Looking…" tone="secondary" className="px-2 py-1 text-xs" testId="button-look-all" />}
+        {price !== null && <AffordanceButton id="object.look" args={{}} label={`Look at every ${one} now (${price.toFixed(2)} energy)`} busyLabel="Looking…" tone="secondary" className="px-2 py-1 text-xs" testId="button-look-all" />}
         {watching
           ? <span data-testid="text-watching">Your Watcher keeps them fresh.</span>
           : <AffordanceButton id="agent.summon" args={{ language: "typescript", source: watcher.source, name: "Watcher", share: KEEP_FRESH_SHARE }}
@@ -228,7 +228,7 @@ function SeatedLines() {
         <SortControl />
         <PointsKey />
       </div>
-      <LookAll ids={loadedIds} many={objectWord(header?.variant).many} variant={header?.variant ?? ""} />
+      <LookAll ids={loadedIds} many={objectWord(header?.variant).many} one={objectWord(header?.variant).one} variant={header?.variant ?? ""} />
       <VirtualRows rows={results} rowHeight={ROW_H} maxHeight={maxHeight} keyOf={r => r.objectId} onNearEnd={onNearEnd} testId="lines-list"
         render={r => <LineRow objectId={r.objectId} number={r.number} rule={rule} value={my?.bits ?? null} rep={rep} scale={scale} focused={view.focus?.objectId === r.objectId} contested={contested.has(r.objectId)} onOpen={onOpen} variant={header?.variant ?? ""} />} />
     </div>
