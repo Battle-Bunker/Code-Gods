@@ -31,7 +31,7 @@ const holds = (p: LockProgram, m: number, c: number) => { const r = run(p, line(
 
 for (const language of ["typescript", "python"] as const) {
   test(`${language}: the ready-made programs are the owner's examples, and are priced as agents are`, () => {
-    const prime = ready("prime-intercept", language), grad = ready("gradient-equals", language, { m: "-2" }), floor = ready("intercept-floor", language, { floor: "1013" });
+    const prime = ready("prime-intercept", language), grad = ready("gradient-equals", language, { m: "-2" }), floor = ready("floor", language, { reading: "si.c", floor: "1013" });
     assert.equal(holds(prime, 3, 13), true);
     assert.equal(holds(prime, 3, 15), false);
     assert.equal(holds(prime, 3, -13), false, "primes are positive");
@@ -45,6 +45,30 @@ for (const language of ["typescript", "python"] as const) {
     const r = run(prime, state) as Extract<PredicateRun, { ok: true }>;
     const viewed = new EngineHost({ type: lineType, variant: lineZ, state, rule, energy: 0 }).handle({ op: "view", rep: "si" }, { hostCallsLeft: 1 });
     assert.ok(viewed.ok && r.readBits === viewed.bits && r.readBits > 0, `reads ${r.readBits}`);
+  });
+
+  test(`${language}: the shared-defence programs: floors on several allies' readings, a relation to climb along, a sign against the mirror`, () => {
+    const floors = ready("floors", language, { floors: "si.c >= 10, si.m >= 1/2" });
+    assert.equal(floors.words, "the y-intercept ≥ 10 and the gradient ≥ 1/2");
+    assert.equal(holds(floors, 1, 10), true);
+    assert.equal(holds(floors, 0, 10), false, "one ally's floor broken breaks the lock");
+    assert.equal(holds(floors, 1, 9), false);
+    // Reads cost at most one full look of the object, as an agent's do: a conjunction costs more by its description, not its reads.
+    const one = ready("floor", language, { reading: "si.c", floor: "10" }), two = ready("floors", language, { floors: "si.c >= 10, tri.area >= 1" });
+    const r1 = run(one, line(-1, 10)) as Extract<PredicateRun, { ok: true }>, r2 = run(two, line(-1, 10)) as Extract<PredicateRun, { ok: true }>;
+    assert.ok(r1.ok && r2.ok && r2.readBits >= r1.readBits && predicateBits(two) > predicateBits(one));
+    const pace = ready("keeps-pace", language, { a: "si.c", b: "si.m", k: "3", d: "-1" });
+    assert.equal(pace.words, "the y-intercept stays at least 3 × the gradient − 1");
+    assert.equal(holds(pace, 4, 11), true);
+    assert.equal(holds(pace, 40, 119), true, "free to climb along the relation");
+    assert.equal(holds(pace, 40, 118), false);
+    const sign = ready("sign", language, { reading: "si.m", side: "negative" });
+    assert.equal(sign.words, "the gradient stays negative");
+    assert.equal(holds(sign, -3, 5), true);
+    assert.equal(holds(sign, 3, 5), false, "the mirror in the y-axis flips the gradient");
+    assert.equal(holds(ready("sign", language, { reading: "si.c", side: "positive" }), -3, 5), true);
+    // Bad parameters fall back to the example; a vertical line's gradient is undefined, which a check counts as not met.
+    assert.equal(ready("floor", language, { reading: "drop table", floor: "x" }).words, "the y-intercept is at least 10");
   });
 
   test(`${language}: a program that throws, loops, answers something else, uses randomness or asks for more than the object fails`, () => {
@@ -99,7 +123,7 @@ test("a crash neither frees nor traps: a program that fails on a state refuses t
 });
 
 test("the commit applies an act's lock changes again without running a program, and refuses a move no lock was asked about", () => {
-  const prime = ready("prime-intercept", "typescript"), floor = ready("intercept-floor", "typescript", { floor: "3" });
+  const prime = ready("prime-intercept", "typescript"), floor = ready("floor", "typescript", { reading: "si.c", floor: "3" });
   const done = [{ op: "drain" as const, lock: 1, amount: 5, spend: 5 }, { op: "create" as const, lock: 2, program: floor, programBits: 100, readBits: 8, bits: 108, fee: 5.4, amount: 2, rate: 0.02, spend: 7.4 }];
   const same = commitLocks({ locks: [live(1, prime)], done, checked: [], world: 0, nextLock: 2 });
   assert.ok(!isInvalid(same));
