@@ -65,7 +65,12 @@ const STORED = "panel:";
 export const storedPane = (slug: string): string => `${STORED}${slug}`;
 export const storedSlugOf = (pane: string): string | null => (pane.startsWith(STORED) && pane.length > STORED.length ? pane.slice(STORED.length) : null);
 
-export const paneTitle = (id: string): string => (isPaneId(id) ? PANES[id].title : storedSlugOf(id) ?? id);
+/** A file panel (src/panels/*.tsx in the app, v1's file panels) opens as the pane `file:<id>`, in every phase. */
+const FILE = "file:";
+export const filePane = (id: string): string => `${FILE}${id}`;
+export const fileIdOf = (pane: string): string | null => (pane.startsWith(FILE) && pane.length > FILE.length ? pane.slice(FILE.length) : null);
+
+export const paneTitle = (id: string): string => (isPaneId(id) ? PANES[id].title : storedSlugOf(id) ?? fileIdOf(id) ?? id);
 
 export type OpenPane = { pane: string; place: Place };
 
@@ -82,7 +87,7 @@ export function defaultPanes(phase: GamePhase): OpenPane[] {
   }
 }
 
-const inPhase = (id: string, phase: GamePhase) => (isPaneId(id) ? PANES[id].phases.includes(phase) : storedSlugOf(id) !== null);
+const inPhase = (id: string, phase: GamePhase) => (isPaneId(id) ? PANES[id].phases.includes(phase) : storedSlugOf(id) !== null || fileIdOf(id) !== null);
 /** A pane that needs the world (not offered in planning). */
 const needsWorld = (id: string) => isPaneId(id) && !PANES[id].phases.includes("planning");
 
