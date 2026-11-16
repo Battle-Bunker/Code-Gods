@@ -69,3 +69,55 @@ export const saveScript = internalMutation({
     return { saved: true };
   },
 });
+
+/** The object store's limits (v1's, simplified): per run and per (human, game). */
+export const STORE_LIMITS = { scopes: 20, loadObjects: 200, loadBytes: 1024 * 1024, writes: 50, valueBytes: 64 * 1024, objects: 500, bytes: 4 * 1024 * 1024 } as const;
+export const STORE_KEY = /^[A-Za-z0-9_.\/-]{1,128}$/;
+
+/** A run's scopes, loaded: each a key, or a "prefix*" (every key it starts). Refused past the limits. */
+export const loadObjects = internalQuery({
+  args: { userId: v.string(), gameId: v.id("v2Games"), scopes: v.array(v.string()) },
+  handler: async (ctx, { userId, gameId, scopes }) => {
+    if (scopes.length > STORE_LIMITS.scopes) return { refused: `Load at most ${STORE_LIMITS.scopes} keys or prefixes.` };
+    const out: Record<string, unknown> = {};
+    let n = 0, bytes = 0;
+    for (const s of scopes) {
+      const prefix = s.endsWith("*") ? s.slice(0, -1) : null;
+      if (!STORE_KEY.test(prefix ?? s) && !(prefix === "")) return { refused: `Not a store key or prefix: ${JSON.stringify(s)}.` };
+      const rows = prefix === null
+        ? await ctx.db.query("v2CodeObjects").withIndex("by_user_game_key", q => q.eq("userId", userId).eq("gameId", gameId).eq("key", s)).take(1)
+        : await ctx.db.query("v2CodeObjects").withIndex("by_user_game_key", q => q.eq("userId", userId).eq("gameId", gameId).gte("key", prefix).lt("key", prefix + "\uffff")).take(STORE_LIMITS.loadObjects + 1);
+      for (const r of rows) {
+        if (r.key in out) continue;
+        n++; bytes += r.bytes;
+        if (n > STORE_LIMITS.loadObjects || bytes > STORE_LIMITS.loadBytes) return { refused: `That loads more than ${STORE_LIMITS.loadObjects} objects or ${STORE_LIMITS.loadBytes / 1024} KiB: name fewer keys or a narrower prefix.` };
+        out[r.key] = JSON.parse(r.valueJson);
+      }
+    }
+    return { objects: out };
+  },
+});
+
+/** A good run's store writes, checked (keys, sizes, the quota) and applied all or none. */
+export const commitWrites = internalMutation({
+  args: { userId: v.string(), gameId: v.id("v2Games"), put: v.any(), delete: v.array(v.string()) },
+  handler: async (ctx, a) => {
+    const puts = Object.entries(a.put as Record<string, unknown>).map(([key, value]) => ({ key, valueJson: JSON.stringify(value) }));
+    if (puts.length + a.delete.length > STORE_LIMITS.writes) return { refused: `A run writes at most ${STORE_LIMITS.writes} keys.` };
+    for (const k of [...puts.map(p => p.key), ...a.delete]) if (!STORE_KEY.test(k)) return { refused: `Not a store key: ${JSON.stringify(k)} (letters, digits, _ . / -; at most 128).` };
+    for (const p of puts) if (p.valueJson.length > STORE_LIMITS.valueBytes) return { refused: `${p.key} is over ${STORE_LIMITS.valueBytes / 1024} KiB.` };
+    const all = await ctx.db.query("v2CodeObjects").withIndex("by_user_game_key", q => q.eq("userId", a.userId).eq("gameId", a.gameId)).take(STORE_LIMITS.objects + 1);
+    const now = new Map(all.map(r => [r.key, r.bytes]));
+    for (const k of a.delete) now.delete(k);
+    for (const p of puts) now.set(p.key, p.valueJson.length);
+    const total = [...now.values()].reduce((t, b) => t + b, 0);
+    if (now.size > STORE_LIMITS.objects || total > STORE_LIMITS.bytes) return { refused: `That would hold more than ${STORE_LIMITS.objects} objects or ${STORE_LIMITS.bytes / 1048576} MiB in this game's store.` };
+    const byKey = new Map(all.map(r => [r.key, r]));
+    for (const k of a.delete) { const r = byKey.get(k); if (r) await ctx.db.delete(r._id); }
+    for (const p of puts) {
+      const r = byKey.get(p.key), row = { valueJson: p.valueJson, bytes: p.valueJson.length, updatedAt: Date.now() };
+      if (r) await ctx.db.patch(r._id, row); else await ctx.db.insert("v2CodeObjects", { userId: a.userId, gameId: a.gameId, key: p.key, ...row });
+    }
+    return { written: puts.map(p => p.key), deleted: a.delete.filter(k => byKey.has(k)) };
+  },
+});
