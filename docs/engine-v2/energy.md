@@ -103,3 +103,62 @@ Labels as above. Several rows assumed tables or tie-breakers, and the adaptation
 
 How this could be wrong: K = 12 is noisy. A rule whose good states are cheap from most same-size starts scores near 0
 however good it is. The floor and heuristics are only what is coded, so a cheaper route nobody coded overvalues a state.
+
+## Grids (17 Nov)
+
+Every grid setup deals nine rules, each ONE pure function from the 4 × 4 board to a real number (lib/v2-grid
+dynamic-families.ts; the old grid families are one line each in old-rule-ideas.md). A board's energy for a rule
+(lib/v2-grid energy.ts, `GRID_K` = 8):
+
+    energy(s) = mean over K boards x from the walk's law of min(direct(x → s), floor(x), heuristics(x))
+
+- **Starts**: grids have no sizes, so a start is a board from the walk's law (the owner: "measuring the expected
+  heuristic energy cost of reaching a given utility or higher from a globally random state").
+- **direct**: rewrite x into s cell by cell (each cell's change in the cheapest split into single acts).
+- **floor** (every rule): each single move of the variant: every rearrangement and every amount move by ±1 or ±2.
+- **heuristics**: seven rules are a sum over disjoint groups of cells (rows, columns, corner boxes, diagonals, mirror
+  pairs). For those the estimator lists each group's anchors (the group contents the rule rewards: multiples of k,
+  primes less t, squares plus j, rows adding to T, powers of b, every pair), prices rewriting the group onto each, keeps
+  the Pareto front of price and utility per group, and merges the fronts exactly, so a board's energy is the cheapest
+  combination of group rewrites reaching its utility. Adding Rows solves one row from the other two; Census fixes one
+  surplus cell at a time; Snake lays each of the ten snakes, a cell at a time.
+- This fixes the trial's fault: with only the generic floor the whole-board rewrite bound every good board. Now the
+  heuristics set every sample (seen narrowly: one climbed board per rule, K = 8, the rewrite never the cheapest).
+- **Cost** (seen narrowly): 2–11 ms an estimate in Node; in the Convex runtime a grids-beginner commit took a median
+  229 ms and at most 296 ms, a look at every object at most 239 ms (test/v2-energy-cost.test.ts, one game, four seats,
+  the local backend on this machine).
+- **One-digit boards** (the Seesaw and Mirrormancer bug): each parameter space leaves out the instances whose anchors
+  hold a one-digit row, column or box (1111 × d): Row Multiples' k never divides 1111 × d, Prime Columns' 1111 × d + t is
+  never prime, Square Boxes' 1111 × d − j is never a square. Tested: no one-digit board comes within 1 of a climbed board
+  on any dealt rule (lib/v2-grid test/dynamic-families.test.ts).
+
+| Rule | Reads | Utility (bigger better) | Instances |
+|---|---|---|---|
+| Row Multiples | rows as numbers | Σ rows log2(1 + n) − 4 log2(1 + \|R − n\|), n the multiple of k nearest | 71 (k 7–199) |
+| Prime Columns | columns as numbers, + t | Σ columns log2 p − 4 log2(1 + \|C + t − p\|), p the nearest prime | 283 (t 0–999) |
+| Square Boxes | corner boxes, clockwise | Σ boxes log2(1 + n) − 4 log2(1 + \|B − j − n²\|) | 92 (j 0–99) |
+| Light Rows | rows: digits and number | Σ rows log2(1 + R) − 3 \|digit total − T\| | 21 (T 10–30) |
+| Mirror Gap | mirror pairs | Σ pairs (a + b)/4 − 2 \|a − b − d\| | 36 (4 mirrors × d 1–9) |
+| Power Diagonals | the two diagonals | Σ diagonals log2 P − 4 log2(1 + \|D − P\|), P the nearest power of b | 29 (b 2–30) |
+| Adding Rows | three rows (or columns) | log2(1 + C) − 4 log2(1 + \|A + B − C\|) | 24 |
+| Census | the multiset of digits | −Σ digits \|count − dealt count\| | 112,035 count vectors |
+| Snake | the snake path | −Σ steps (distance of the step from +s round 0–9) | 72 |
+
+The design-principles check (design-principles.md, adapted as above; labels as above):
+
+| Row | Status |
+|---|---|
+| 1 Unbounded main part | Not possible on a finite board: every utility has a top. Each top is far (seen narrowly: climbed boards cost 130–680 energy against 0–10 for random ones), and the rules' tops disagree (row 6). |
+| 2 Climbed all game | Not measured. |
+| 3, 3a Tie-breakers | None by design (decision 50): precision is the 4 log2(1 + distance) term. |
+| 4 Dealable instances | Built: 21 to 112,035 per rule (above); two peers dealt each. |
+| 5 Perpendicular | Not measured (the PMI table needs value tables). |
+| 6 Opponents | By construction: rows read as numbers (Row Multiples, Light Rows, Adding Rows) cross columns (Prime Columns), boxes (Square Boxes) and diagonals (Power Diagonals) in every cell, each on a different anchor set; Light Rows keeps most of a row 0 against every rule that wants big numbers; Census fixes how many 9s (and 0s) the board may hold against all of them; Snake wants every neighbour to differ by s, against every repeated digit; Mirror Gap ties each cell to its mirror. |
+| 7 Kinds | Multiples, primes, squares, digit totals, mirror differences, powers, sums of numbers, counts, steps round a clock: no kind shared. |
+| 10 Small bump | Not measured. Guess: one cell off an anchor costs 4 log2 2 = 4 in utility on the rules that read numbers. |
+| 12 Writable from the card | Each card states the formula in words. Not tested with a reader. |
+| 13 Many values | By construction: every utility is a real number over 10^16 boards. |
+
+How this could be wrong: K = 8 is noisy; the heuristics price group rewrites by single-cell acts only (a row move or a
+swap can be cheaper, so a good board can be overvalued); the one-digit test checks the dealt peers only (the spaces
+exclude every instance a one-digit board tops by construction, but a two-digit board may come close on some).

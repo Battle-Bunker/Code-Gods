@@ -86,8 +86,15 @@ function lensesFor(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | nul
 
 // ---------------------------------------------------------------- TypeScript
 
+/** A family with no secondary preferences (a dynamic rule: owner decision 50) scores its utility alone. */
+const single = (e: GridFamilyEntry, tieBreaker: string | null) => tieBreaker !== null || familyOf(e.family).tieBreakers.length === 0;
+
 function scoreTs(e: GridFamilyEntry, tieBreaker: string | null): string[] {
   const f = familyOf(e.family), main = "main";
+  if (!f.tieBreakers.length) return [
+    "// How good is the board b (its 16 numbers, row by row) for your rule? [its score]: bigger is better.",
+    "function score(b, p) {", ...e.main.ts.map(l => `  ${l}`), `  return [main];   // ${e.mainSays}`, "}",
+  ];
   const out = [
     "// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.",
     `function score(b, p${tieBreaker === null ? ", tie" : ""}) {`,
@@ -136,24 +143,6 @@ function tablesTs(e: GridFamilyEntry, lenses: readonly GridLensId[], edit = true
     "for (let i = 0; i < 4; i++) { LINE.push(\"row\" + i, \"col\" + i); LINES.push([4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3], [i, i + 4, i + 8, i + 12]); }",
   );
   if (needs.has("boxes")) out.push("const BOXES = [0, 2, 8, 10].map(r => [r, r + 1, r + 4, r + 5]);   // the corner boxes' cells: top-left, top-right, bottom-left, bottom-right");
-  if (needs.has("lead")) out.push(
-    "",
-    "// For each base: every start (its first 1 to 8 digits) of its powers up to the 1000th, to the smallest exponent with it.",
-    "const LEAD = {};",
-    "function lead(base) {",
-    "  if (!LEAD[base]) {",
-    "    const t = LEAD[base] = new Map();",
-    "    let x = 1n;   // base to the k: exact while short, then its first 40 digits (the first 8 stay exact)",
-    "    for (let k = 0; k <= 1000; k++) {",
-    "      const s = String(x).slice(0, 8);",
-    "      for (let n = 1; n <= s.length; n++) if (!t.has(s.slice(0, n))) t.set(s.slice(0, n), k);",
-    "      x *= BigInt(base);",
-    "      if (x >= 10n ** 40n) x /= 10n;",
-    "    }",
-    "  }",
-    "  return LEAD[base];",
-    "}",
-  );
   if (edit) out.push(
     "",
     "// The board after adding f(0), f(1), ... to the cells listed; the board unchanged if a number would leave 0 ... 9",
@@ -206,7 +195,7 @@ function agentTs(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null,
       "  contested(offer, 3);",
     ]),
     "  const v = look(offer, \"cells\");   // the board",
-    `  const { params: p${tieBreaker !== null ? "" : ", tieBreaker: tie"} } = goal(offer);   // your rule's numbers${tieBreaker !== null ? "" : " and secondary preference"} (free)`,
+    `  const { params: p${single(e, tieBreaker) ? "" : ", tieBreaker: tie"} } = goal(offer);   // your rule's numbers${single(e, tieBreaker) ? "" : " and secondary preference"} (free)`,
     "  const NAME = Object.keys(v).slice(0, 16);   // the cells' names, r0c0 ... r3c3, row by row",
     "  const b = NAME.map(n => Q.toNumber(v[n]));   // their 16 numbers",
     ...(addHelper(lenses) ? ["  const add = (i, k) => move(\"cells.add\", { cell: NAME[i], k });   // the move that adds k to cell i"] : []),
@@ -217,7 +206,7 @@ function agentTs(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null,
   for (const id of lenses.filter(id => GRID_LENSES[id].k)) out.push(`    ${snippet(GRID_LENSES[id].ts, lenses, "typescript")}   // ${GRID_LENSES[id].comment}`);
   out.push("  }");
   for (const id of lenses.filter(id => !GRID_LENSES[id].k)) out.push(`  ${snippet(GRID_LENSES[id].ts, lenses, "typescript")}   // ${GRID_LENSES[id].comment}`);
-  out.push(...CLIMB_TS(tieBreaker !== null ? "p" : "p, tie", kind === "naive" ? "naive" : "points", kind), "}");
+  out.push(...CLIMB_TS(single(e, tieBreaker) ? "p" : "p, tie", kind === "naive" ? "naive" : "points", kind), "}");
   return out;
 }
 
@@ -225,6 +214,11 @@ function agentTs(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null,
 
 function scorePy(e: GridFamilyEntry, tieBreaker: string | null): string[] {
   const f = familyOf(e.family), main = "main";
+  if (!f.tieBreakers.length) return [
+    "def score(b, p):",
+    "    # How good is the board b (its 16 numbers, row by row) for your rule? [its score]: bigger is better.",
+    ...e.main.py.map(l => `    ${l}`), `    return [main]   # ${e.mainSays}`,
+  ];
   const out = [
     `def score(b, p${tieBreaker === null ? ", tie" : ""}):`,
     "    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.",
@@ -254,22 +248,6 @@ function tablesPy(e: GridFamilyEntry, lenses: readonly GridLensId[], edit = true
     "    LINES += [[4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3], [i, i + 4, i + 8, i + 12]]",
   );
   if (needs.has("boxes")) out.push("BOXES = [[r, r + 1, r + 4, r + 5] for r in (0, 2, 8, 10)]   # the corner boxes' cells: top-left, top-right, bottom-left, bottom-right");
-  if (needs.has("lead")) out.push(
-    "LEAD = {}   # for each base: every start (its first 1 to 8 digits) of its powers up to the 1000th, to the smallest exponent with it",
-    "", "",
-    "def lead(base):",
-    "    if base not in LEAD:",
-    "        t, x = {}, 1   # x: base to the k, exact while short, then its first 40 digits (the first 8 stay exact)",
-    "        for k in range(1001):",
-    "            s = str(x)[:8]",
-    "            for n in range(1, len(s) + 1):",
-    "                t.setdefault(s[:n], k)",
-    "            x *= base",
-    "            if x >= 10 ** 40:",
-    "                x //= 10",
-    "        LEAD[base] = t",
-    "    return LEAD[base]",
-  );
   if (edit) out.push(
     "", "",
     "def edit(b, cells, f):",
@@ -327,7 +305,7 @@ function agentPy(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null,
     ]),
     "    v = look(offer, \"cells\")   # the board",
     "    rule = goal(offer)         # your rule (free)",
-    tieBreaker !== null ? "    p = rule.params" : "    p, tie = rule.params, rule.tie_breaker",
+    single(e, tieBreaker) ? "    p = rule.params" : "    p, tie = rule.params, rule.tie_breaker",
     "    NAME = list(v.keys())[:16]   # the cells' names, r0c0 ... r3c3, row by row",
     "    b = [int(v[n]) for n in NAME]   # their 16 numbers",
     ...(addHelper(lenses) ? ["    add = lambda i, k: move(\"cells.add\", cell=NAME[i], k=k)   # the move that adds k to cell i"] : []),
@@ -338,7 +316,7 @@ function agentPy(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null,
   const k = lenses.filter(id => GRID_LENSES[id].k), flat = lenses.filter(id => !GRID_LENSES[id].k);
   for (const id of k) { const l = { ...GRID_LENSES[id], py: GRID_LENSES[id].py.map(x => snippet(x, lenses, "python")) }; out.push(`        ${l.py[0]}   # ${l.comment}`, ...l.py.slice(1).map(x => `        ${x}`)); }
   for (const id of flat) { const l = { ...GRID_LENSES[id], py: GRID_LENSES[id].py.map(x => snippet(x, lenses, "python")) }; out.push(`    ${l.py[0]}   # ${l.comment}`, ...l.py.slice(1).map(x => `    ${x}`)); }
-  out.push(...CLIMB_PY(tieBreaker !== null ? "p" : "p, tie", kind === "naive" ? "naive" : "points", kind));
+  out.push(...CLIMB_PY(single(e, tieBreaker) ? "p" : "p, tie", kind === "naive" ? "naive" : "points", kind));
   return out;
 }
 
@@ -351,7 +329,7 @@ function render(kind: AgentKind, familyId: string, tieBreaker: string | null, la
   const meta = kind === "example"
     ? { title: `Example: ${tb!.title}`, summary: `Gets the main part right, then works on the secondary preference (${tb!.title}).`, tryThis: e.tieBreakers[tieBreaker!]!.tryThis, far: e.tieBreakers[tieBreaker!]!.steps, quotes: 8 }
     : KINDS[kind];
-  const rule = tb ? `Main part: ${f.main.title}. Secondary preference: ${tb.title}.`
+  const rule = !f.tieBreakers.length ? `Your rule: ${f.main.title}.` : tb ? `Main part: ${f.main.title}. Secondary preference: ${tb.title}.`
     : `Main part: ${f.main.title}. Secondary preference: whichever you were dealt (${f.tieBreakers.filter(t => e.tieBreakers[t.id]).map(t => t.title).join("; ")}).`;
   const how = kind === "naive" ? HOW_NAIVE : kind === "example" ? HOW_EXAMPLE : HOW_POINTS;
   const header = [`${f.title} · ${meta.title}`, rule, ...how, `Try this: ${meta.tryThis}`];
@@ -386,7 +364,7 @@ export function gridStartersFor(family: string, language: ShippedLanguage, tieBr
 
 export function gridShippedAgents(): ShippedAgent[] {
   return GRID_CATALOGUE.filter(e => isGridFamily(e.family)).flatMap(e => (["typescript", "python"] as const).flatMap(language =>
-    familyOf(e.family).tieBreakers.filter(t => e.tieBreakers[t.id]).flatMap(t => [
+    !familyOf(e.family).tieBreakers.length ? gridStartersFor(e.family, language, null) : familyOf(e.family).tieBreakers.filter(t => e.tieBreakers[t.id]).flatMap(t => [
       render("example", e.family, t.id, language),
       ...gridStartersFor(e.family, language, t.id),
     ])));

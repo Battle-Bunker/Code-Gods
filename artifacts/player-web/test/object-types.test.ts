@@ -27,7 +27,7 @@ test("a grid variant is a grid everywhere: type, variant, noun, first representa
 test("a dealt grid rule resolves against the grid type, and its moves are described and tried out", () => {
   const f = gridType.families[0]!;
   assert.equal(familyOf(f.id), f);
-  const rule = ruleRefOf({ family: f.id, params: f.dealable(grid4)[0], tieBreaker: f.tieBreakers[0]!.id } as never, "grid-4-d10")!;
+  const rule = ruleRefOf({ family: f.id, params: f.dealable(grid4)[0], tieBreaker: null } as never, "grid-4-d10")!;
   assert.equal(rule.type, gridType);
   assert.equal(callWords([{ mutator: "cells.add", site: 0, args: { cell: "r0c1", k: "2" } }], grid4), "+2 in row 1, column 2");
   const choices = mutatorChoices(grid4);

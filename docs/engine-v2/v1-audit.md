@@ -51,7 +51,7 @@ delegation"; a call number below means the one whose subject is named.
 | §1.3 Paid looks deleted | restored (#643, #653); owner 35 (every game pays to read, weight may be 0, #685) | knowledge.ts paysToRead, paidLive, lookPrice |
 | §1.4 Default domain line-z | restored (line-q beginner; owner 2, call 6; whole-number setups retired #620) | lib/v2-linear/src/presets.ts (lines-beginner on line-q); convex/v2/presets.ts BEGINNER, DEFAULT_PRESET |
 | §1.5 Hold rarity | owner 43 (not restored; measurement docs/engine-v2/hold-measurement.md, call 11) | owner-decisions.md decision 43 |
-| §1.5 Defence goals | restored (#983; call 1): off by default, a room setting on grids only | deal.ts dealDefence, defencePool; lobby.ts defenceGoals override; world.ts valueOf (defence); tick.ts defenceOf |
+| §1.5 Defence goals | partly: restored (#983; call 1), then refused by the room since 17 Nov: they value badness through tables, and every dealt rule is now scored by energy (decision 50). Code kept until a defence goal is restated in energy | deal.ts dealDefence, defencePool; lobby.ts changeSettings; world.ts valueOf (defence); tick.ts defenceOf |
 | §1.6 Hidden random end | restored (#623) as a setting, default on the v1-board presets; beginner fixed 600 s by owner 34 ("10m long") | duration.ts drawEnd; presets.ts V1_DEFAULT_BOARD (halfLife), BEGINNER_WORLD (fixed 600 s) |
 | §1.7 Fair-aligned dealer | trial 12 (logging only; the deal is the seeded shuffle with the seating rules) | deal.ts policyDeal; lobby.ts |
 | §1.8 Idle parking | restored (#629) | activity.ts |
@@ -84,7 +84,7 @@ delegation"; a call number below means the one whose subject is named.
 | §2.3 Payoff | kept | world.ts valueOf, valuesOf; disclose.ts standingsFor |
 | §2.3 Bits are rarity | owner 10 (4, 19, 20, 22, 23) | values.ts worthOf |
 | §2.3 Hold rarity | owner 43 | as §1.5 |
-| §2.3 Defence goals | restored (#983; call 1) | as §1.5 |
+| §2.3 Defence goals | partly (as §1.5) | as §1.5 |
 | §2.3 Tiered rules | owner 14; call (f) | lib/v2-linear presets |
 | §2.3 Continuous landscape | kept (owner 13, 23) | spec §0.3 |
 | §2.3 Params named and typed | kept | params dealt as a record by name, colours by name (deal.ts dealablePool); not ParamDecl, which declares rule arguments of dynamic elements |

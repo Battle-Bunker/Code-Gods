@@ -6,7 +6,7 @@ import { OpFailure } from "@workspace/v2-affordances";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { MAX_MEMBERS, MAX_PLAYERS, normaliseCode, userById } from "./access";
-import { bidDealer, playable, dealDefence, defencePool, isGridVariant, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, policyDeal, practiceDeal, type SeatKind, rotatedDeal, ruleView, hasSeatingRule, seatingAligned, seatingClashes, type DealtRule, type PastDeal } from "./deal.ts";
+import { bidDealer, playable, dealDefence, defencePool, isGridVariant, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, policyDeal, practiceDeal, type SeatKind, rotatedDeal, ruleView, hasSeatingRule, seatingClashes, type DealtRule, type PastDeal } from "./deal.ts";
 import { dealWithBids, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
 import { isPreset, presetOf, TURNOVER_DEFAULTS, type Preset, type PresetBid, type Turnover } from "./presets.ts";
 import { DEFAULT_PENALTY_WEIGHT, typeOf } from "./world.ts";
@@ -117,8 +117,10 @@ export function checkPreset(preset: string | undefined) {
 export async function changeSettings(ctx: MutationCtx, room: Doc<"v2Rooms">, a: { preset?: string; overrides?: Doc<"v2Rooms">["overrides"]; setup?: Doc<"v2Rooms">["setup"] }) {
   if (a.preset !== undefined && !isPreset(a.preset)) throw new OpFailure(`No preset ${a.preset}.`, "Pick one of the deployed presets.");
   if (room.bidding) throw new OpFailure("The bid phase is open: the settings change once it closes.");
-  if (a.overrides?.defenceGoals && !isGridVariant(presetOf(a.preset ?? room.preset).variant))
-    throw new OpFailure("Defence goals are dealt on grids only.", "Pick a grids preset, or leave defence goals off.");
+  // Defence goals value badness through value tables, and every dealt rule is now scored by energy (owner decision 50):
+  // until a defence goal is restated in energy, the setting is refused (code kept; docs/engine-v2/v1-audit.md §1.5).
+  if (a.overrides?.defenceGoals)
+    throw new OpFailure("Defence goals are off for now: they were measured in bits, and every rule is now scored by energy.", "Leave defence goals off.");
   if (a.overrides?.defenceGoals) {
     const variant = presetOf(a.preset ?? room.preset).variant, ex = a.overrides.excludedDefenceFamilies ?? [];
     const known = new Set(defencePool(variant).map(g => g[0]!.family)), unknown = ex.filter(f => !known.has(f));
@@ -396,7 +398,7 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     ...(!again && !rotation && wins.length === 0
       ? { unopposedPolicy: policyDeal(roomPool(room), seats.map(m => m.kind as SeatKind), seed, preset.variant) } : {}),
     // The seating rule's pairs this deal left (grids; deal.ts): forbidden ones (none unless the pool is too small) and aligned ones.
-    ...(hasSeatingRule(preset.variant) ? { seating: { clashes: seatingClashes(preset.variant, rules), aligned: seatingAligned(preset.variant, rules) } } : {}),
+    ...(hasSeatingRule(preset.variant) ? { seating: { clashes: seatingClashes(preset.variant, rules), aligned: [] } } : {}),
     ...(rotation ? { rotation } : {}),
     artefacts: seats.map((m, i) => ({
       memberId: m._id, ruleKey: rules[i]!.ruleKey, contentHash: rules[i]!.contentHash,

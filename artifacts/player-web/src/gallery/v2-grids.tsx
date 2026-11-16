@@ -17,7 +17,7 @@ type Family = RuleFamily<GridState, unknown>;
 /** The secondaries a preset deals with this family (its first dealt parameters), or the family's own when none deals it. */
 function dealtOf(family: Family): { params: unknown; secondaries: readonly string[] } {
   const r = gridPresets.flatMap(p => p.rules).find(x => x.family === family.id);
-  return r ? { params: r.params, secondaries: r.tieBreakers } : { params: family.dealable(grid4)[0], secondaries: family.tieBreakers.map(t => t.id) };
+  return r ? { params: r.params, secondaries: r.tieBreakers.filter((t): t is string => t !== null) } : { params: family.dealable(grid4)[0], secondaries: family.tieBreakers.map(t => t.id) };
 }
 /** The family dealt with its k-th dealt secondary (the gallery's example boards take them in turn). */
 const ruleOf = (family: Family, k = 0): RuleRef<GridState, unknown> => {

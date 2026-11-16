@@ -17,24 +17,18 @@ test("family ids are unique across object types", () => {
   assert.deepEqual(ids.length, new Set(ids).size);
 });
 
-test("a grid variant is read and written as a grid; it is valued only once it has value functions (decision 23)", () => {
+test("a grid variant is read and written as a grid; its rules are valued by energy (decision 50), afresh each time", () => {
   assert.equal(typeOf("grid-4-d10").id, "grid");
   assert.equal(typeOf("line-z").id, "line");
   const wire = "9090/0909/4545/3366";
   assert.equal(encode(decode(wire, "grid-4-d10"), "grid-4-d10"), wire);
   const type = typeOf("grid-4-d10"), variant = type.variants[0]!;
-  const f = familyOf("magic-eighteen");
-  const key = ruleKey(type, variant, f.id, { axis: "rows", T: 18 }, "first-line");
-  const seat = [{ memberId: "m1", rule: { family: f.id, params: { axis: "rows", T: 18 }, tieBreaker: "first-line", ruleKey: key, contentHash: "" } }];
-  // Values come from value functions (convex/v2/valuesIndex.gen.ts); grids have none yet, so the server refuses to value
-  // (and the deal to deal) a grid rule, by name. When grid value functions land, this asserts the rows-add-up line's
-  // worth instead (it was > 16 bits under the artefacts).
-  if (valueRecord(key)) {
-    const [v] = valuesOf(decode(wire, "grid-4-d10"), "grid-4-d10", seat, 1);
-    assert.ok(v!.rarityBits > 16, `every row adds up to 18: ${v!.rarityBits} bits`);
-  } else {
-    assert.throws(() => valuesOf(decode(wire, "grid-4-d10"), "grid-4-d10", seat, 1), new RegExp(`No value function for ${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
-  }
+  const f = familyOf("row-multiples");
+  const key = ruleKey(type, variant, f.id, { k: 13 }, "none");
+  const seat = [{ memberId: "m1", rule: { family: f.id, params: { k: 13 }, tieBreaker: null, ruleKey: key, contentHash: "" } }];
+  assert.equal(valueRecord(key), null, "no table");
+  const [v] = valuesOf(decode(wire, "grid-4-d10"), "grid-4-d10", seat, 1);
+  assert.ok(Number.isFinite(v!.rarityBits) && v!.rarityBits >= 0, `energy ${v!.rarityBits}`);
 });
 
 test("a coloured board is read and written as a board of its own size, in the old game's wire", () => {
@@ -58,24 +52,16 @@ test("a grid representation's mutators name their arguments, with choices for ce
   const turn = mutatorsOf("cart", "line-q-lenses").find(m => m.id === "rot.turn")!;
   assert.deepEqual(turn.args.map(a => [a.name, a.label]), [["centre", "Where to pin it"], ["turn", "How far to turn"]]);
 });
-test("Grids · beginner deals every grid family, each a main layer plus one tie-breaker, on the grid board (once grids have value functions)", async () => {
+test("Grids · beginner deals every grid rule, main part only, on the grid board", async () => {
   const { presetOf } = await import("../../convex/v2/presets.ts");
   const { dealablePool, playable } = await import("../../convex/v2/deal.ts");
-  const { VALUE_INDEX: VALUE_RECORDS } = await import("../../convex/v2/valuesIndex.gen.ts");
-  const gridValues = VALUE_RECORDS.some(r => r.variant === "grid-4-d10");
   for (const id of ["grids-beginner", "grids-beginner-bidding"]) {
     const p = presetOf(id);
-    assert.equal(p.id, id);
     assert.equal(p.variant, "grid-4-d10");
     const pool = dealablePool(p);
-    if (gridValues) {
-      assert.deepEqual([...new Set(pool.map(r => r.family))].sort(), [...p.families].sort(), "every grid family deals");
-      assert.equal(pool.length, 27, "8 families × 3 tie-breakers, less the 3 undealt for cheap peaks (15 Nov), with Mirrormancer's and Magic Eighteen's three twice (rows or columns, 16 Nov)");
-    } else {
-      // Decision 23: only rules with a value function deal; until grid value functions land the preset is withheld.
-      assert.equal(pool.length, 0);
-      assert.equal(playable(p), false);
-    }
+    assert.deepEqual([...new Set(pool.map(r => r.family))].sort(), [...p.families].sort(), "every grid family deals");
+    assert.equal(pool.length, 18, "nine rules, two dealt parameter sets each");
+    assert.ok(playable(p));
   }
   assert.ok(presetOf("grids-beginner-bidding").bid);
 });
@@ -93,7 +79,7 @@ test("a grid player can summon a grid starter and keep about as large a share of
     const prices = shippedAgents().filter(a => a.kind === "simple" && family(a.family)).map(a => summonBits(a.language, a.source).energy).sort((a, b) => a - b);
     return prices[prices.length >> 1]! / presetOf(preset).startingEnergy;
   };
-  const grid = new Set(typeOf("grid-4-d10").families.map(f => f.id));
-  const line = share("lines-beginner", f => !grid.has(f)), board = share("grids-beginner", f => grid.has(f));
+  const grid = new Set(typeOf("grid-4-d10").families.map(f => f.id)), lines = new Set(typeOf("line-q").families.map(f => f.id));
+  const line = share("lines-beginner", f => lines.has(f)), board = share("grids-beginner", f => grid.has(f));
   assert.ok(board <= line * 1.15, `a grid Simple starter takes ${(100 * board).toFixed(0)}% of the starting energy, a line one ${(100 * line).toFixed(0)}%`);
 });

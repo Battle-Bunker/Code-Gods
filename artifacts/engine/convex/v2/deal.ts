@@ -14,18 +14,15 @@
  * that settled on a shared optimum), with the human's seat the anchor; the games after it rotate those rules like any
  * room's (playtest round 9: v1's rotation).
  *
- * Seating (grids; the coordinator's calls following owner decision 39, lib/v2-grid seating.ts): every grid deal (fresh,
- * practice, and the rest of a bid deal) is the seed's first shuffle with no forbidden pair and no aligned pair, else the
- * one with the lowest seating cost (forbidden pairs first, then aligned ones) over SEATING_TRIES shuffles. Lines and
- * pairs have seating rules on dealt parameters too (lib/v2-linear and lib/v2-pair seating.ts; pairs: no two rules one
- * move climbs together). A deal on any other object type is the first shuffle, as before. The game records the pairs
- * left (`seating` in tables.ts).
+ * Seating (pairs: lib/v2-pair seating.ts, no two rules one move climbs together): a pair deal is the seed's first shuffle
+ * with no forbidden pair, else the one with the fewest over SEATING_TRIES shuffles. Grids lost their seating rule with
+ * their old families (17 Nov: the dynamic grid rules pull against each other by construction, dynamic-families.ts). A
+ * deal on any other object type is the first shuffle. The game records the pairs left (`seating` in tables.ts).
  */
 import { canonicalJson, hashHex, rng, ruleLayers, type Rng, type RuleFamily } from "@workspace/v2-core";
 import type { BidDealer } from "@workspace/v2-economy";
 import { hasStarters, pairPmi, unopposedDirections, type UnopposedDirection } from "@workspace/v2-agents/pure";
 import { findVariant, objectTypes, ruleKey } from "@workspace/v2-valuation";
-import { gridAlignedPairs, gridClashes, gridSeatingCost } from "@workspace/v2-grid";
 import { pairClashes, pairSeatingCost } from "@workspace/v2-pair";
 import { valueHead } from "./valuesHead.ts";
 import type { Preset } from "./presets.ts";
@@ -100,24 +97,18 @@ export function freshDeal(pool: readonly DealtRule[], seats: number, seed: strin
 }
 
 /**
- * Whether a variant has a seating rule (grids: lib/v2-grid seating.ts, by family; lines and pairs: lib/v2-linear and
- * lib/v2-pair seating.ts, by family and dealt parameters).
+ * Whether a variant has a seating rule (pairs: lib/v2-pair seating.ts, by family and dealt parameters).
  */
-export const hasSeatingRule = (variant: string): boolean => ["grid", "pair"].includes(findVariant(variant).type.id);
+export const hasSeatingRule = (variant: string): boolean => findVariant(variant).type.id === "pair";
 export const isGridVariant = (variant: string) => findVariant(variant).type.id === "grid";
 const isPair = (variant: string) => findVariant(variant).type.id === "pair";
-const familiesOf = (rules: readonly SeatedRule[]) => rules.map(r => r.family);
 /** The pairs of seated rules a variant's seating rule forbids; none where it has none. */
 export function seatingClashes(variant: string, rules: readonly SeatedRule[]): string[] {
-  return !hasSeatingRule(variant) ? [] : isGridVariant(variant) ? gridClashes(familiesOf(rules)) : pairClashes(rules);
-}
-/** The aligned (allowed but avoided) pairs among seated rules; none where the variant has no seating rule. */
-export function seatingAligned(variant: string, rules: readonly SeatedRule[]): string[] {
-  return hasSeatingRule(variant) && isGridVariant(variant) ? gridAlignedPairs(familiesOf(rules)) : [];
+  return !hasSeatingRule(variant) ? [] : pairClashes(rules);
 }
 /** A table's seating cost (forbidden pairs, then aligned ones); 0 where the variant has no seating rule. */
 export function seatingCost(variant: string, rules: readonly SeatedRule[]): number {
-  return !hasSeatingRule(variant) ? 0 : isGridVariant(variant) ? gridSeatingCost(familiesOf(rules)) : pairSeatingCost(rules);
+  return !hasSeatingRule(variant) ? 0 : pairSeatingCost(rules);
 }
 const familySet = (pool: readonly { family: string }[]) => new Set(pool.map(r => r.family));
 /** Shuffles a seating rule may draw before it settles for the deal with the fewest clashes. */

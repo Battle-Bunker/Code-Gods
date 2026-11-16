@@ -94,10 +94,11 @@ export function medianLookBits(variant: string): number {
  * weight.
  */
 // line-q: 715 since the starters score an ordered list of tie-breakers (any depth), up from 663 (15 Nov).
-// grid-4-d10: 766 since Mirrormancer and Magic Eighteen deal both axes (16 Nov): two pool entries each, and their
+// grid-4-d10: 511 since every grid setup deals the nine dynamic grid rules (17 Nov); 766 before, when Mirrormancer and
+// Magic Eighteen dealt both axes (16 Nov): two pool entries each, and their
 // starters read the columns as rows when dealt the columns, up from 701.
 // line-q: 825 since the beginner lines deal the dynamic families (16 Nov; their Simple starters carry number helpers).
-export const MEDIAN_STARTER_BITS: Readonly<Record<string, number>> = { "line-q": 825, "line-q-lenses": 715, "grid-4-d10": 766 };
+export const MEDIAN_STARTER_BITS: Readonly<Record<string, number>> = { "line-q": 825, "line-q-lenses": 715, "grid-4-d10": 511 };
 export const STARTERS_AT_START = 3;
 /** The beginner start at this power: STARTERS_AT_START typical starters at the scaled summon price, to the nearest 10. */
 export function beginnerStart(variant: string, powerPerSecond: number): number {

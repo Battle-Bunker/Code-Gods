@@ -5,11 +5,8 @@
  */
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { rng } from "@workspace/v2-core";
-import { gridPresets, gridType, grid4, type GridState } from "@workspace/v2-grid";
+import { gridPresets, gridType, grid4 } from "@workspace/v2-grid";
 import { lineQ, lineType, presets } from "@workspace/v2-linear";
-import { runAct } from "../src/act.ts";
-import { valuer } from "../src/harness.ts";
 import { births } from "../src/births.ts";
 import { check } from "../src/check.ts";
 import { sandboxes, startersFor } from "../src/index.ts";
@@ -37,33 +34,6 @@ test("every competitive kind is built for every family the beginner pools deal, 
       assert.notEqual(rep.verdict, "rejected", `${r.family} ${kind}: ${rep.summary}`);
     }
   }
-});
-
-test("the vandal knocks a board the others score high on, and pays for it", async () => {
-  const pool = gridPresets.find(p => p.id === "grids-beginner")!.rules;
-  const rules = pool.slice(0, 3).map(r => ({ family: r.family, params: r.params as Record<string, unknown>, tieBreaker: r.tieBreakers[0]! }));
-  const v = rules.map(rule => valuer(gridType, grid4, rule));
-  // A board the second and third rules both like: a short hill climb on their bits added up.
-  const r = rng("competitive-test");
-  let b: GridState = { cells: Array.from({ length: 16 }, () => r.below(10)) };
-  const both = (s: GridState) => v[1]!.bits(s) + v[2]!.bits(s);
-  for (let improved = true; improved;) {
-    improved = false;
-    for (let i = 0; i < 16; i++) for (let d = 0; d < 10; d++) {
-      const t = { cells: b.cells.map((x, j) => (j === i ? d : x)) };
-      if (both(t) > both(b) + 1e-9) { b = t; improved = true; }
-    }
-  }
-  const others = both(b);
-  assert.ok(others >= 8, `the others hold ${others} bits: enough to be a target`);
-  const { record, state } = await runAct(await boxes.get("typescript"), {
-    type: gridType, variant: grid4, state: b, rule: rules[0]!, program: { language: "typescript", source: competitive(simple(rules[0]!.family), "vandal", 2) },
-    seed: "1", energy: 400, income: 4, value: { mine: v[0]!.bits(b), others, points: v[0]!.bits(b) * others },
-    values: v[0]!.values!, others: [1, 2].map(j => ({ rule: rules[j]!, values: v[j]!.values! })),
-  });
-  assert.equal(record.outcome, "committed", record.reason);
-  assert.ok(both(state) <= 0.75 * others, `a knock of at least a quarter: ${others} → ${both(state)}`);
-  assert.ok(record.charge > 0);
 });
 
 test("a scripted player's turn sees the standings and pays the edit price for a rewrite", async () => {

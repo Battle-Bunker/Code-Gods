@@ -83,28 +83,10 @@ const EXEMPT: Readonly<Record<string, string>> = {
 
   // Row 3a: one or two dealt secondaries. The owner's instruction (15 Nov): at least three per family. Grids-arithmetic
   // withdrawn 16 Nov (pairs: three or more since trial 37). Lines have no secondaries since 17 Nov (decision 50).
-  "opposite-nines 3a": "15 Nov, grids session: big-on-top undealt for a cheap peak (#902); grid repertoires after the deadline",
-  "strangers 3a": "15 Nov, grids session: ones and prime-strangers undealt for cheap peaks (#902); grid repertoires after the deadline",
   // Row 1 (not checked here for grids): every beginner grid main part has a global top on the 0–9 board, as v1's did.
   // Leapfrog and Two Pair reached theirs in real games within 10 minutes (round 34, baseline 2); kept dealt as the v1
   // baseline by the coordinator (16 Nov). See docs/engine-v2/grid-v1-v2-compare.md, "Known reachable tops".
-  "looking-glass 3a": "16 Nov, grids session: grid baseline: ported as v1",
-  "pinwheel 3a": "16 Nov, grids session: grid baseline: ported as v1",
-  "constellation 3a": "16 Nov, grids session: grid baseline: ported as v1",
   // Row 4: one dealt parameter set.
-  "mirrormancer 4": "15 Nov, grids session", "magic-eighteen 4": "15 Nov, grids session", "opposite-nines 4": "15 Nov, grids session",
-  "two-pair 4": "15 Nov, grids session", "spread-of-three 4": "15 Nov, grids session", "strangers 4": "15 Nov, grids session",
-  "leapfrog 4": "15 Nov, grids session", "crosswise-threes 4": "15 Nov, grids session",
-  "kings-and-subjects 4": "15 Nov, grids session", "stepping-stones 4": "15 Nov, grids session", "mountain-climb 4": "15 Nov, grids session",
-  "uphill 4": "15 Nov, grids session", "staircase 4": "15 Nov, grids session", "magic-accountant 4": "15 Nov, grids session",
-  "fillomino 4": "15 Nov, grids session",
-  "round-numbers 4": "16 Nov, grids session: grid baseline: ported as v1",
-  "column-addition 4": "16 Nov, grids session: grid baseline: ported as v1",
-  "full-house 4": "16 Nov, grids session: grid baseline: ported as v1", "snap 4": "16 Nov, grids session: grid baseline: ported as v1",
-  "looking-glass 4": "16 Nov, grids session: grid baseline: ported as v1",
-  "pinwheel 4": "16 Nov, grids session: grid baseline: ported as v1",
-  "constellation 4": "16 Nov, grids session: grid baseline: ported as v1 (one star dealt: the stars are not peers on v2's law)",
-  "bingo-caller 4": "16 Nov, grids session: grid baseline: ported as v1",
   // Row 7: forms repeated within a family, kinds and forms shared by more than three families.
   "far-crossing 7-repeat": "15 Nov, pairs session: both secondaries are near-multiples",
   "high-start 7-repeat": "15 Nov, pairs session: both secondaries are near-multiples",
@@ -112,17 +94,10 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "lines-pairs 7-form:shares-factor": "15 Nov, pairs session",
   "lines-pairs 7-form:near-multiple": "16 Nov, pairs session: tie-breakers tied to the level (trial 37) favour near-multiples; spread after the deadline",
   "lines-pairs 7-form:factor-size": "16 Nov, pairs session: as near-multiple",
-  "grids-beginner 7-form:second-axis": "15 Nov, grids session",
-  "grids-more-rules 7-form:all-different": "16 Nov, grids session: grid baseline: ported as v1",
-  "grids-more-rules 7-form:distance": "16 Nov, grids session: grid baseline: ported as v1",
-  "grids-more-rules 7-form:big-values": "16 Nov, grids session: grid baseline: ported as v1",
-  "grids-more-rules 7-form:count": "16 Nov, grids session: grid baseline: ported as v1",
-  "grids-more-rules 7-form:reach": "16 Nov, grids session: grid baseline: ported as v1",
   // Row 5: no PMI table for the variant yet (lib/v2-agents scripts/pmi.ts).
   "lines-beginner 5-unmeasured": "16 Nov, implementation session: PMI is measured from value tables; the dynamic measure has none (energy.md)",
   "lines-lenses 5-unmeasured": "15 Nov, spec lead: PMI table for line-q-lenses",
   "grids-beginner 5-unmeasured": "15 Nov, grids session: PMI table for grid-4-d10",
-  "grids-more-rules 5-unmeasured": "15 Nov, grids session: PMI table for grid-4-d10",
   "lines-pairs 5-unmeasured": "15 Nov, pairs session: PMI table for pair-q",
 };
 

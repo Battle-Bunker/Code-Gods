@@ -14,8 +14,8 @@ test("the bundled value functions are up to date with lib/v2-valuation/values", 
   execFileSync(process.execPath, [join(import.meta.dirname, "..", "..", "scripts", "gen-v2-values.mjs"), "--check"]);
 });
 
-test("every rule a table-valued preset (grids) deals has a value function, and its lookups rise with the score", () => {
-  const preset = presetOf("grids-beginner");
+test("every rule a table-valued preset (the coloured boards) deals has a value function, and its lookups rise with the score", () => {
+  const preset = presetOf("grids-original-colours");
   for (const r of dealablePool(preset)) {
     const rec = valueRecord(r.ruleKey);
     assert.ok(rec, `${r.family}+${r.tieBreaker}: no value function`);

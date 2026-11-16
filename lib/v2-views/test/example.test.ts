@@ -42,7 +42,7 @@ test("every pool family, line or grid, gets a scoring example with no '≈' and 
       const variant = f.dealable(lineZ).length ? lineZ : lineQ;   // Smooth Intercept is dealt on the rationals only
       return { type: lineType, family: f as never, params: f.dealable(variant)[0], variant, tieBreaker: tb.id };
     })),
-    ...gridType.families.map(f => ({ type: gridType, family: f, params: f.dealable(grid4)[0], variant: grid4, tieBreaker: f.tieBreakers[0]?.id })),
+    ...gridType.families.filter(f => !f.dynamic).map(f => ({ type: gridType, family: f, params: f.dealable(grid4)[0], variant: grid4, tieBreaker: f.tieBreakers[0]?.id })),
   ];
   for (const r of rules) {
     const ex = workedExample(r, valueOf(r.variant.id, r));

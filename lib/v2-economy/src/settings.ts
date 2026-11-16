@@ -30,9 +30,9 @@ export const LINES_BEGINNER_ECONOMY: Economy = Object.freeze({
 
 /**
  * `Grids · beginner`: the lines' economy with the start that buys about three typical grid starters (a board's agent
- * reads 16 cells, not y = mx + c, so it is longer and dearer): 3 × the median grid starter's 766 bits ÷ 16 ≈ 140 (16 Nov: both axes of Mirrormancer and Magic Eighteen dealt).
+ * reads 16 cells, not y = mx + c, so it is longer and dearer): 3 × the median grid starter's 511 bits ÷ 16 ≈ 100 (17 Nov: the nine dynamic grid rules; 140 before).
  */
-export const GRIDS_BEGINNER_ECONOMY: Economy = Object.freeze({ ...LINES_BEGINNER_ECONOMY, startingEnergy: 140 });
+export const GRIDS_BEGINNER_ECONOMY: Economy = Object.freeze({ ...LINES_BEGINNER_ECONOMY, startingEnergy: 100 });
 
 /** The bounds a room's economy must keep. */
 export const ECONOMY_LIMITS = Object.freeze({
