@@ -13,7 +13,7 @@
  * - Compact (160 × 100): the cells, the right margin, and only what a mark cites of the rest; no words, no step labels.
  * Notes with no room beside their element, and elements a mark cites outside the layout, are listed under the picture.
  */
-import type { ReactElement, ReactNode } from "react";
+import type { KeyboardEvent, ReactElement, ReactNode } from "react";
 import type { ElementRef, ElementValue, GridScene } from "@workspace/v2-core";
 import { fmtQ, fmtValue } from "../format.ts";
 import { markRefs } from "../refs.ts";
@@ -126,6 +126,7 @@ function Scene({ p }: { p: P }): ReactElement {
   right.forEach((r, row) => { if (lit(r)) for (let c = 0; c < s.cols; c++) members.add(row * s.cols + c); });
   bottom.forEach((r, col) => { if (lit(r)) for (let row = 0; row < s.rows; row++) members.add(row * s.cols + col); });
   for (const gr of s.groups ?? []) if (lit(gr.el)) for (const c of gr.cells) members.add(c);
+  for (const u of s.unitCells ?? []) if (lit(u.el)) for (const c of u.cells) members.add(c);
 
   // Each focus is drawn with its part's glyph (● main part, ◆ secondary, ▲ third …), so a mark never relies on colour alone.
   const glyphs = (r: ElementRef): string => {
@@ -137,6 +138,22 @@ function Scene({ p }: { p: P }): ReactElement {
   // Every element a mark cites is a keyboard stop (focus picks it out, as pointing does); the rest are not.
   const citedKeys = new Set(marks.flatMap(markRefs).map(key));
   const stop = (r: ElementRef) => (p.onHover && citedKeys.has(key(r)) ? { tabIndex: 0 } : {});
+  // The cells an element is about (a row's total: its row; a group: its cells): a listed unit of up to four shows them.
+  const cellsOf = (r: ElementRef): readonly number[] => {
+    const k = key(r);
+    const row = right.findIndex(x => key(x) === k); if (row >= 0) return Array.from({ length: s.cols }, (_, c) => row * s.cols + c);
+    const col = bottom.findIndex(x => key(x) === k); if (col >= 0) return Array.from({ length: s.rows }, (_, r2) => r2 * s.cols + col);
+    const g = (s.groups ?? []).find(x => key(x.el) === k) ?? (s.unitCells ?? []).find(x => key(x.el) === k);
+    if (g) return g.cells;
+    const i = s.cells.findIndex(x => key(x) === k);
+    return i >= 0 ? [i] : [];
+  };
+  const tiles = (r: ElementRef) => {
+    const cs = cellsOf(r);
+    return cs.length > 1 && cs.length <= 4
+      ? <span className="v2v-tiles" aria-hidden="true">{cs.map((i, n) => <span key={n} className="v2v-tile">{shown(s.cells[i]!)}</span>)}</span>
+      : null;
+  };
   const title = (r: ElementRef, extra = "") => <title>{`${p.labelOf(r)}: ${shown(r)}${extra}`}</title>;
 
   // ---------------------------------------------------------------- layers
@@ -286,7 +303,7 @@ function Scene({ p }: { p: P }): ReactElement {
   const placed = new Set<string>([...[...s.cells, ...right, ...bottom, ...groups.map(gr => gr.el)].map(key).filter(k => !unsaid.has(k)), ...listedBy.keys()]);
   return (
     <>
-      <svg className="v2v-grid" data-picked={picked ? "" : undefined} width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={gridText(s, p.values)}>
+      <svg className="v2v-grid" onKeyDown={stepKeys} data-picked={picked ? "" : undefined} width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={gridText(s, p.values)}>
         <rect className="board" x={ox} y={oy} width={W} height={H} rx={expanded ? 6 : 3} />
         {Array.from({ length: s.cols - 1 }, (_, i) => <line key={`v${i}`} className="board-line" x1={ox + (i + 1) * C} y1={oy} x2={ox + (i + 1) * C} y2={oy + H} />)}
         {Array.from({ length: s.rows - 1 }, (_, i) => <line key={`h${i}`} className="board-line" x1={ox} y1={oy + (i + 1) * C} x2={ox + W} y2={oy + (i + 1) * C} />)}
@@ -306,11 +323,36 @@ function Scene({ p }: { p: P }): ReactElement {
       )}
       {listed.length > 0 && (
         // Each note points at its element: pointing at the line (or reaching it with Tab) picks the element out on the board.
-        <ul className="v2v-notes">{listed.map(n => <li key={n.text} data-ref={key(n.ref)} {...stop(n.ref)} {...hover(q, n.ref)}>{n.text}</li>)}</ul>
+        <ul className="v2v-notes" onKeyDown={stepKeys}>{listed.map(n => <li key={n.text} data-ref={key(n.ref)} {...stop(n.ref)} {...hover(q, n.ref)}>{tiles(n.ref)}{n.text}</li>)}</ul>
       )}
       <Readouts p={q} placed={placed} drawnNotes={drawnNotes} />
     </>
   );
+}
+
+/**
+ * v1's one keyboard stop: the arrow keys step through the marked units in reading order (Right or Down: the next, Left
+ * or Up: the one before), Home and End to the ends; null for any other key (left to the page).
+ */
+export function stepStop(k: string, at: number, count: number): number | null {
+  if (count <= 0) return null;
+  if (k === "ArrowRight" || k === "ArrowDown") return Math.min(count - 1, at + 1);
+  if (k === "ArrowLeft" || k === "ArrowUp") return Math.max(0, at - 1);
+  if (k === "Home") return 0;
+  if (k === "End") return count - 1;
+  return null;
+}
+
+/** Moves the keyboard focus among a view's marked units (its board and the notes under it) by stepStop. */
+function stepKeys(e: KeyboardEvent<Element>): void {
+  const root = e.currentTarget.closest(".v2v-rep") ?? e.currentTarget;
+  const stops = [...root.querySelectorAll<HTMLElement | SVGElement>("[tabindex='0']")];
+  const at = stops.indexOf(document.activeElement as HTMLElement);
+  if (at < 0) return;
+  const next = stepStop(e.key, at, stops.length);
+  if (next === null) return;
+  e.preventDefault();
+  stops[next]!.focus();
 }
 
 /** What a scene's groups are, in a word: steps between neighbours, links between pairs, or groups of cells. */

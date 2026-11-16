@@ -91,7 +91,10 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
       ...bx.map((cs, k) => derived(`pairs${k}`, `how far the ${BOX_NAMES[k]} box is from two different pairs`, s => (cs.length < 4 ? 0 : twoPairGap(s.cells[cs[0]!]!, s.cells[cs[1]!]!, s.cells[cs[2]!]!, s.cells[cs[3]!]!)))),
       ...bx.map((cs, k) => derived(`strangers${k}`, `touching strangers in the ${BOX_NAMES[k]} box`, s => (cs.length < 4 ? [] : boxEdges(cs)).filter(([a, b]) => strangers(s.cells[a]!, s.cells[b]!)).length)),
     ],
-    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: bx.map((cs, k) => ({ cells: cs, el: ref("boxes", `box${k}`) })), groupTitle: "box totals" }),
+    layout: () => ({
+      kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: bx.map((cs, k) => ({ cells: cs, el: ref("boxes", `box${k}`) })), groupTitle: "box totals",
+      unitCells: bx.flatMap((cs, k) => [{ el: ref("boxes", `pairs${k}`), cells: cs }, { el: ref("boxes", `strangers${k}`), cells: cs }]),
+    }),
   };
 
   const ws = windows(n);
