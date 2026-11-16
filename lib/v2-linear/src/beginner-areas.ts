@@ -108,6 +108,10 @@ export const ruler = ladder(family<Ends>("ruler", "Ruler", ["norm", "si", "gen"]
     ctx.term("shared-factor", `${p - 1n} and the y-intercept's whole part ${w}: the biggest number dividing both is ${w === 0n ? 0n : gcd(p - 1n, w)}`, q(w === 0n ? 0n : gcd(p - 1n, w)), [d2Ref, cRef]);
   }
   ctx.mark({ kind: "focus", ref: ref("norm", "foot") });
+  // Marks only (no term changes): the circle round (0, 0) of radius² p, the window's foot, which the line should reach.
+  const circle = ref("norm", "circle", { r2: q(p) });
+  ctx.read(circle);
+  ctx.mark({ kind: "candidate", ref: circle, term: "ruler" });
 }), rulerWitness);
 
 /**

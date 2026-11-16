@@ -143,3 +143,12 @@ test("keys: Cmd/Ctrl+K toggles anywhere; / and ? only outside text fields and di
   assert.equal(isEditable({ tagName: "BUTTON" }), false);
   assert.equal(isEditable(null), false);
 });
+
+test("a row made from the query never outranks a command the query names (“Lines” + Enter opened room LINES)", () => {
+  const dynamic = (q: string) => /^[A-Z0-9-]{4,36}$/i.test(q)
+    ? [cmd(`dyn:room:${q.toUpperCase()}`, `Open room ${q.toUpperCase()}`, { section: "goto" })] : [];
+  const rows = paletteRows([cmd("lines", "Open Lines")], member, { query: "Lines", dynamic }).flatMap(s => s.rows);
+  assert.deepEqual(rows.map(r => r.command.id), ["lines", "dyn:room:LINES"]);
+  const alone = paletteRows([cmd("a", "Alpha")], member, { query: "k7qx", dynamic }).flatMap(s => s.rows);
+  assert.equal(alone[0]!.command.id, "dyn:room:K7QX", "first when nothing else matches");
+});

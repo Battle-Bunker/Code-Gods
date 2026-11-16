@@ -73,6 +73,12 @@ export function useOthersBlurred(): boolean {
   return !replay && !!header && header.phase !== "ended" && blursOthers(header);
 }
 
+/** The game's details (v2/games:details): settings and timings, and after the end every seat's rule (v1's UtilityFamilies). */
+export function useGameDetails() {
+  const { gameId } = useGameScope();
+  return useLiveValue(api.v2.games.details, gameId ? { gameId } : "skip");
+}
+
 /** Every rule this game's dealer could deal (v2/play:candidates; v1's "Possible gods"): never who holds which. */
 export function useRuleCandidates() {
   const { gameId } = useGameScope();

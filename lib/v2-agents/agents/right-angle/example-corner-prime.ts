@@ -12,13 +12,13 @@ function score(L, p) {
   const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down
   if (f.offRight === null || f.x === null) return null;   // parallel lines never cross: no score
   const { score: main, n: Yc } = ladder(f.y, p.q, p.r, Q.add(f.offRight, dist(f.x)));   // a right angle at a grid point, y on your ladder
-  const t = Q.add(Q.abs(f.X), Q.abs(Yc));   // the corner's |x| + |y|
-  return [main, spf(t)];   // main: the corner's level: a right angle at a grid point, y on your ladder (higher is better); secondary: a corner whose |x| + |y| has a big smallest prime factor is better
+  const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1
+  return [main, spf(Q.add(Q.abs(f.X), Q.abs(Yc)))];   // main: the corner's level: a right angle at a grid point, y on your ladder (higher is better); secondary: a corner whose |x| + |y| has a big smallest prime factor is better
 }
 
 const FAR = 4;      // how far one move may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["turn","slide","translate"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
+const KINDS = ["turn","slide","translate"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
 const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 

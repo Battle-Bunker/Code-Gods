@@ -15,3 +15,5 @@ export { LineChart, CareScatter, slotColour } from "../components/charts";
 export { raceSeries, careKind, carePoints, CARE_KINDS, type Series, type CarePoint, type CareKind } from "../panes/chart-model";
 export { standing, whatIf, mutatorChoices, wireArgs, formError, type Standing, type WhatIf, type MutatorChoice } from "../panes/what-if-model";
 export { fmtBits, fmtNum, pointsText } from "@workspace/v2-views/format";
+export type { PanelActions, Language } from "./panel-actions-sdk";
+export type { ActOutcome } from "../frame/protocol";

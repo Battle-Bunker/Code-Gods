@@ -41,6 +41,13 @@ for (const preset of gridPresets) test(`every dealt secondary of ${preset.title}
   assert.deepEqual(missing, [], "dealt secondaries that mark nothing on most boards");
 });
 
+test("Mirrormancer says which mirror pairs make a row's gap", () => {
+  const family = gridType.families.find(f => f.id === "mirrormancer")!;
+  const ev = evaluateObject(gridType, family, {}, gridType.decode("3113/0480/2222/9003"), grid4, "one-apart");
+  const notes = ev.sites[0]!.marks.flatMap(m => (m.kind === "note" && m.ref.rep === "mirror" ? [`${m.ref.name}: ${m.text}`] : []));
+  assert.deepEqual(notes, ["gap1: off by 4: 4 vs 8", "gap3: off by 6: 9 vs 3"]);
+});
+
 test("Magic Eighteen and Two Pair show each unit's working: the sum or the pairs, ✓ when on target", () => {
   const s = gridType.decode("9117/4311/3224/4446");
   const notesOf = (id: string, tb: string) => evaluateObject(gridType, gridType.families.find(f => f.id === id)!, id === "magic-eighteen" ? { T: 18 } : {}, s, grid4, tb)

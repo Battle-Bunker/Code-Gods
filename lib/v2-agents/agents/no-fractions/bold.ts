@@ -1,5 +1,5 @@
 // Divide By · Bold
-// Main part: the number you divide by on your powers. Secondary preference: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor).
+// Main part: the number you divide by on your powers. Secondary preference: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor; the answer's numerators small).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -15,12 +15,13 @@ function score(L, p, tie) {
   // main: the level of the number you divide by on k, k³, k⁶, … (higher is better)
   if (tie === "numerator-smooth") return [main, omega(Q.add(Q.abs(nx), Q.abs(ny)))];   // numerators adding up to a number with many prime factors are better
   if (tie === "numerator-shared") return [main, common(nx, ny)];   // numerators sharing a big factor are better
+  if (tie === "numerator-small") return [main, Q.neg(Q.add(Q.abs(nx), Q.abs(ny)))];   // small numerators are better
   return [main];
 }
 
 const FAR = 4;      // how far one move may go
 const QUOTES = 12;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["combine","turn","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
+const KINDS = ["combine","turn","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
 const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 

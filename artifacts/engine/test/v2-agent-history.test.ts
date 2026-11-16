@@ -46,4 +46,10 @@ test("an agent's energy row carries its balance after each act, oldest first, bo
   assert.equal(last.at, e.lastActAt, "the last sample is the last act's");
   assert.ok(e.history.every((s: any) => s.energy <= e.capacity + 1e-9), "a balance never above capacity");
   assert.ok(last.energy <= e.energy + 1e-9, "the balance now is the last sample's, grown since at the agent's income");
+  // v1's My agents: the spend split into reading and changing, and the last act's two parts.
+  assert.ok(Math.abs(e.spendRead + e.spendChange - e.spend) < 1e-6, `read + change = spend: ${e.spendRead} + ${e.spendChange} vs ${e.spend}`);
+  assert.ok(e.spendRead > 0, "every act pays for its reads");
+  assert.equal(e.lastAct.at, e.lastActAt);
+  assert.ok(e.lastAct.read >= 0 && e.lastAct.change >= 0 && typeof e.lastAct.outcome === "string", JSON.stringify(e.lastAct));
+  if (e.lastAct.outcome !== "committed") assert.equal(e.lastAct.change, 0, "only a committed act pays for a change");
 });

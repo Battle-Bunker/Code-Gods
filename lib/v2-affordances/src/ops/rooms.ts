@@ -105,8 +105,8 @@ export const roomOps = [
         excludedFamilies: z.array(z.string().max(64)).max(64),
         bidPricing: z.enum(["first", "second"]), bidVisibility: z.enum(["sealed", "open"]), bidDisclosure: z.enum(["none", "handicaps", "all"]),
         // Line turnover (engine docs/engine-v2/retirement-design.md).
-        liveCap: z.number().int().min(1).max(50),
-        birthSeconds: z.number().int().min(1).max(3600),
+        liveCap: z.number().int().min(0).max(50),
+        birthSeconds: z.number().int().min(0).max(3600),
         retiredPoints: z.enum(["banked", "dropped"]),
         retiredHolds: z.boolean(),
       }).partial().strict().optional(),
