@@ -549,6 +549,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "code.get": () => { throw new OpFailure("No such run of yours."); },
   "code.list": () => ({ page: [], nextCursor: null }),
   "code.scripts": () => ({ scripts: [] }),
+  "code.objects": () => ({ objects: [] }),
   "code.deleteScript": () => ({ deleted: false }),
   "panel.list": e => ({
     panels: Object.values(e.state.panels ?? {}).filter(p => p.userId === e.userId).map(p => ({

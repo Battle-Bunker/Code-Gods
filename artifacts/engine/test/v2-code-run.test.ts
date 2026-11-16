@@ -66,3 +66,20 @@ test("saved scripts (v1's saveAs / script): saved after a good run, run again by
   assert.equal((await perform(ada, "code.deleteScript", { name }, {})).result.deleted, true);
   assert.equal((await perform(ada, "code.run", { script: name, dataset: "none" }, { gameId }, "action")).ok, false, "deleted");
 });
+
+test("the object store (v1's): a good run's writes kept per game, loaded by key or prefix, listed; an error writes nothing", async () => {
+  const w = await perform(ada, "code.run", { language: "javascript", source: "function main(rows) { store.set('stats/moves', rows.length); store.set('stats/first', rows[0] ? rows[0].seq : null); return 'ok'; }", dataset: "my-moves" }, { gameId }, "action");
+  assert.deepEqual(w.result.store, { written: ["stats/first", "stats/moves"], deleted: [] }, JSON.stringify(w.result));
+  const r = await perform(ada, "code.run", { language: "javascript", source: "function main() { return [store.keys(), store.get('stats/moves')]; }", dataset: "none", load: ["stats/*"] }, { gameId }, "action");
+  const [keys, moves] = JSON.parse(r.result.resultPreview);
+  assert.deepEqual(keys, ["stats/first", "stats/moves"]); assert.ok(moves > 0);
+  const bad = await perform(ada, "code.run", { language: "javascript", source: "function main() { store.set('stats/moves', -1); throw new Error('no'); }", dataset: "none" }, { gameId }, "action");
+  assert.equal(bad.result.store, null);
+  const listed = (await perform(ada, "code.objects", { prefix: "stats/" }, { gameId }, "query")).result.objects.map((o: any) => o.key);
+  assert.deepEqual(listed, ["stats/first", "stats/moves"]);
+  const again = await perform(ada, "code.run", { language: "javascript", source: "function main() { return store.get('stats/moves'); }", dataset: "none", load: ["stats/moves"] }, { gameId }, "action");
+  assert.equal(again.result.resultPreview, String(moves), "the failed run wrote nothing");
+  assert.deepEqual((await perform(bo, "code.objects", {}, { gameId }, "query")).result.objects, [], "another human's store is their own");
+  const badKey = await perform(ada, "code.run", { language: "javascript", source: "function main() { store.set('bad key!', 1); return 1; }", dataset: "none" }, { gameId }, "action");
+  assert.ok("refused" in badKey.result.store, "a key outside the alphabet is refused, nothing written");
+});

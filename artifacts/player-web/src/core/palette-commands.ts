@@ -28,7 +28,7 @@ export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
   // The rules anyone could hold (v1's list_utility_candidates): beside what the others care about (W5's "Possible gods").
   "rule.fit": "others-care", "rule.candidates": "others-care",
   // A script's runs (v1's run_code results, A15): the Code results pane.
-  "code.get": "code-output", "code.list": "code-output",
+  "code.get": "code-output", "code.list": "code-output", "code.objects": "code-output",
 };
 /** Reads the room page shows (its members, past games, the rotation, the bid phase). */
 export const ROOM_READS: ReadonlySet<string> = new Set(["room.get", "room.history", "game.rotation", "bid.state"]);

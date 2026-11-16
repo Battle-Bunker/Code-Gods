@@ -1,16 +1,16 @@
 /** `code.*`: run a read-only script over a game's data (v1's run_code, A15), and read the caller's own runs back. */
 import { OpFailure } from "@workspace/v2-affordances";
 import { makeFunctionReference } from "convex/server";
-import { callerOf, defineOp } from "./define";
+import { callerOf, defineOp, inGame } from "./define";
 import { pageOf } from "./paging";
-import { MAX_SCRIPTS } from "../codeData";
+import { MAX_SCRIPTS, STORE_LIMITS } from "../codeData";
 
 const RUN = makeFunctionReference<"action", Record<string, unknown>, Record<string, unknown> & { refused?: string }>("v2/codeRun:run");
 
 export const { op: run, as: runAs } = defineOp("code.run", "action", async (env, a) => {
   const c = callerOf(env);
   const out = await env.ctx.runAction(RUN, { userId: c.userId!, scope: c.scope, ...(a.language ? { language: a.language } : {}), ...(a.source !== undefined ? { source: a.source } : {}),
-    ...(a.script !== undefined ? { script: a.script } : {}), ...(a.saveAs !== undefined ? { saveAs: a.saveAs } : {}), dataset: a.dataset, ...(a.params !== undefined ? { params: a.params } : {}), ...(a.title ? { title: a.title } : {}) });
+    ...(a.script !== undefined ? { script: a.script } : {}), ...(a.saveAs !== undefined ? { saveAs: a.saveAs } : {}), ...(a.load ? { load: a.load } : {}), dataset: a.dataset, ...(a.params !== undefined ? { params: a.params } : {}), ...(a.title ? { title: a.title } : {}) });
   if (out.refused) throw new OpFailure(out.refused);
   return out as never;
 });
@@ -48,4 +48,11 @@ export const { op: deleteScript, as: deleteScriptAs } = defineOp("code.deleteScr
   const row = await env.ctx.db.query("v2CodeScripts").withIndex("by_user_name", q => q.eq("userId", userId).eq("name", a.name)).unique();
   if (row) await env.ctx.db.delete(row._id);
   return { deleted: !!row };
+});
+
+/** The caller's store keys in this game (≤ STORE_LIMITS.objects): one index range, values not read out. */
+export const { op: objects, as: objectsAs } = defineOp("code.objects", "query", async (env, a) => {
+  const { game } = inGame(env), userId = callerOf(env).userId!, prefix = a.prefix ?? "";
+  const rows = await env.ctx.db.query("v2CodeObjects").withIndex("by_user_game_key", q => q.eq("userId", userId).eq("gameId", game._id).gte("key", prefix).lt("key", prefix + "\uffff")).take(STORE_LIMITS.objects);
+  return { objects: rows.map(r => ({ key: r.key, bytes: r.bytes, updatedAt: r.updatedAt })) };
 });

@@ -554,6 +554,12 @@ export const v2Tables = {
     output: v.string(), error: v.optional(v.string()), ms: v.number(), at: v.number(),
   }).index("by_user_at", ["userId", "at"]),
   /** A human's saved scripts (v1's run_code saveAs, scripts/<name>): run again by name with code.run's `script`. */
+  /**
+   * A human's object store for code runs (v1's, A15): JSON values by key, one partition per game (a game's runs see only
+   * that game's objects). Loaded by code.run's `load`, written by a good run's `store.set` / `store.delete`.
+   */
+  v2CodeObjects: defineTable({ userId: v.string(), gameId: v.id("v2Games"), key: v.string(), valueJson: v.string(), bytes: v.number(), updatedAt: v.number() })
+    .index("by_user_game_key", ["userId", "gameId", "key"]),
   v2CodeScripts: defineTable({ userId: v.string(), name: v.string(), language: v.string(), source: v.string(), title: v.string(), updatedAt: v.number() })
     .index("by_user_name", ["userId", "name"]),
 };
