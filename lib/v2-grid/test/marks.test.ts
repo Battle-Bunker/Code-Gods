@@ -13,7 +13,9 @@ function corpus(): GridState[] {
   const g = rng("grid-marks-corpus");
   let s = gridType.origin(grid4);
   const out: GridState[] = [];
-  for (let i = 0; i < 400; i++) { s = walkStep(gridType, grid4, s, g); if (i % 20 === 19) out.push(s); }
+  // 100 boards along a long walk: a secondary that counts something only on boards far from the origin (Opposite
+  // Nines' different splits: none of the first 20 under one seed) still has boards to mark.
+  for (let i = 0; i < 2000; i++) { s = walkStep(gridType, grid4, s, g); if (i % 20 === 19) out.push(s); }
   return out;
 }
 const termOf = (m: Mark): string | undefined => m.term;
