@@ -142,7 +142,7 @@ export function Page({ children, context, scope = {}, crumbs = [], placeholder =
   return (
     <AffordanceRuntimeProvider context={ctx} scope={scope} onSignIn={login}>
       {isAuthenticated && <ActivityTouch />}
-      <GlossaryDialog />
+      <GlossaryDialog {...(noun ? { noun } : {})} />
       <UncertainBanner />
       <div className={bare ? "contents" : fill ? "h-[100dvh] flex flex-col overflow-hidden" : "min-h-[100dvh] flex flex-col"}>
         {!bare && <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur">

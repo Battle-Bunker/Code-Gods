@@ -49,6 +49,20 @@ export const viewOps = [
     contexts: GAME, caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({
+    id: "view.twoPanels", title: "Layout: Two panels", group: "view", scope: "room",
+    description: "v1's two-panel layout on the screen in view: its first two shown panes stacked on the left, every other pane as tabs of one group on the right. Kept like view.arrangeDock.",
+    tooltip: "Two panes stacked on the left, the others as tabs on the right.", keywords: ["layout", "preset", "two panels", "arrange", "dock"],
+    params: obj({}), result: done,
+    contexts: GAME, caller: "member", effect: "write", confirm: "none", runs: "client",
+  }),
+  affordance({
+    id: "view.resetLayout", title: "Reset layout", group: "view", scope: "room",
+    description: "Puts the screen in view's dock back to its default arrangement (view.arrangeDock with empty text). Open panes stay open.",
+    tooltip: "Back to this screen's default layout.", keywords: ["layout", "default", "reset", "arrange", "dock"],
+    params: obj({}), result: done,
+    contexts: GAME, caller: "member", effect: "write", confirm: "none", runs: "client",
+  }),
+  affordance({
     id: "view.pinRepresentation", title: "Show objects in a representation", group: "view", scope: "room",
     description: "Pins the representation every compact object face uses (for one rule family, or for all), e.g. the graph instead of y = mx + c. Replaces per-device pins.",
     tooltip: "Choose how objects are drawn.", keywords: ["representation", "switch view", "graph", "equation", "table", "machine"],
@@ -95,6 +109,13 @@ export const viewOps = [
     description: "Opens the glossary at a term (points, rarity in bits, energy, power, representation, mutator), or its index.",
     tooltip: "What does this word mean?", keywords: ["glossary", "help", "what is", "define"],
     params: obj({ term: z.string().max(40).optional() }), result: done,
+    contexts: CONTEXTS, caller: "anyone", effect: "write", confirm: "none", runs: "client",
+  }),
+  affordance({
+    id: "view.showScoring", title: "How scoring works", group: "help", scope: "none",
+    description: "Opens the explanation of how a score is made (v1's 'How scoring works' sheet): the rule's score, rarity in bits, points as your bits times the others', and why +1 on a rule is not +1 point. Closed with view.closeGlossary.",
+    tooltip: "Your rule's score, rarity in bits, and why what the others want decides your points.", keywords: ["points", "bits", "payoff", "score", "scoring", "rarity"],
+    params: obj({}), result: done,
     contexts: CONTEXTS, caller: "anyone", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({

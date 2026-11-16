@@ -20,8 +20,8 @@ const MORE = new Set(moreGridFamilies(gridParams(grid4).size).map(f => f.id));
  * the grid ladder redesign, Strangers deals one tie-breaker and Opposite Nines two, below row 3a's three.
  */
 export const BEGINNER_DEALT: Readonly<Record<string, readonly string[]>> = {
-  "mirrormancer": ["mirror-columns", "one-apart", "small-middle"],
-  "magic-eighteen": ["columns", "diagonals", "different-numbers"],
+  "mirrormancer": ["mirror-other-way", "one-apart", "small-middle"],
+  "magic-eighteen": ["other-way", "diagonals", "different-numbers"],
   "opposite-nines": ["mirror-nines", "different-splits"],
   "two-pair": ["apart", "diagonal-pairs", "small-pairs"],
   "spread-of-three": ["spread-diagonal", "spread-small", "square-different"],

@@ -5,12 +5,12 @@
  * rule itself, and checks the additivity on boards drawn from the law before using it.
  */
 import { gridParams } from "./grid.ts";
-import { boxes, foldLine, folds, pairs, rows } from "./units.ts";
+import { boxes, cols, foldLine, folds, pairs, rows } from "./units.ts";
 import type { Variant } from "@workspace/v2-core";
 
 export interface GridSums {
   /** Disjoint groups of cell indices; every layer of the family adds up over them. */
-  units(variant: Variant): readonly (readonly number[])[];
+  units(variant: Variant, params?: unknown): readonly (readonly number[])[];
   /**
    * The tie-breakers that add up over the units too (absent: all of them). A tie-breaker that reads across units (the
    * columns of a row family, the diagonals, a set of different splits) is not listed: a rule dealt with it is sampled.
@@ -24,14 +24,16 @@ export function exactlySummed(family: string, tieBreaker: string | null): boolea
   return !!plan && (tieBreaker === null || !plan.tieBreakers || plan.tieBreakers.includes(tieBreaker));
 }
 
+/** The lines of the dealt axis (Mirrormancer, Magic Eighteen): rows, or columns. */
+const alongAxis = (v: Variant, p?: unknown) => ((p as { axis?: string } | undefined)?.axis === "columns" ? cols : rows)(gridParams(v).size);
 const cells = (v: Variant) => Array.from({ length: gridParams(v).size ** 2 }, (_, i) => [i]);
 
 /**
  * The plans, by family id. Spread of Three reads overlapping windows and has none: it is sampled (owner decision 22).
  */
 export const gridSums: Readonly<Record<string, GridSums>> = {
-  "mirrormancer": { units: v => rows(gridParams(v).size), tieBreakers: ["middle", "primes", "zeros", "one-apart", "small-middle"] },
-  "magic-eighteen": { units: v => rows(gridParams(v).size), tieBreakers: ["first-column", "primes", "odd", "different-numbers"] },
+  "mirrormancer": { units: alongAxis, tieBreakers: ["middle", "primes", "zeros", "one-apart", "small-middle"] },
+  "magic-eighteen": { units: alongAxis, tieBreakers: ["first-line", "primes", "odd", "different-numbers"] },
   "opposite-nines": { units: v => pairs(gridParams(v).size), tieBreakers: ["top-half", "primes", "odd", "big-on-top"] },
   "two-pair": { units: v => boxes(gridParams(v).size), tieBreakers: ["apart", "primes", "corners", "diagonal-pairs", "small-pairs"] },
   "strangers": { units: v => boxes(gridParams(v).size), tieBreakers: ["ones", "primes", "corners", "prime-strangers"] },

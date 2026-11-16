@@ -30,6 +30,16 @@ test("an agent's energy row carries its balance after each act, oldest first, bo
   assert.equal(summoned.ok, true, JSON.stringify(summoned));
   const agentId = summoned.result.agentId;
   assert.deepEqual((await ada.query("v2/play:agentEnergy", { agentId })).history, [], "no acts, no samples");
+  // v1's "estimate was N": the program's check, run in the background after the summon, on the agent's row.
+  let estimate: any = null;
+  for (let i = 0; i < 60 && !estimate; i++) {
+    estimate = (await ada.query("v2/play:agentEnergy", { agentId })).estimate;
+    if (!estimate) await new Promise(r => setTimeout(r, 500));
+  }
+  assert.ok(estimate && estimate.perAct > 0 && estimate.read > 0 && estimate.change >= 0, JSON.stringify(estimate));
+  assert.ok(Math.abs(estimate.read + estimate.change - estimate.perAct) < 1e-9, "read + change = per act");
+  const checked = await perform(ada, "agent.check", { language: "typescript", source: simple!.source }, { gameId }, "action");
+  assert.ok(Math.abs(checked.result.estimate.perAct - estimate.perAct) < 1e-6, "the same estimate agent.check quotes");
   await perform(ada, "game.startWorldNow", {}, { gameId });
 
   let e: any;

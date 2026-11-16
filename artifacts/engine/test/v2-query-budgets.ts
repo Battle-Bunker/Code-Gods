@@ -69,6 +69,7 @@ export const V2_BUDGETS: readonly V2Budget[] = [
   { query: "v2/assistant:status", args: f => ({ roomId: f.roomId }), reads: "room + member + owner + quotas + prefs + v2AiUsage + latest turn + queue (≤ 10)", cold: true },
   { query: "v2/assistant:threads", args: f => ({ roomId: f.roomId }), reads: "room + member + v2AssistantThreads by_room_user_game, ≤ 20", cold: true },
   { query: "v2/assistant:transcript", args: f => ({ threadId: f.threadId, paginationOpts: { numItems: 30, cursor: null } }), reads: "1 thread + v2AssistantMessages by_thread_seq page (≤ 30)", cold: true },
+  { query: "v2/assistant:call", args: f => ({ turnId: f.turnId, index: 0 }), reads: "1 v2AssistantTurns + 1 v2AssistantCalls by_turn", cold: true },
   { query: "v2/assistant:turn", args: f => ({ turnId: f.turnId }), reads: "1 v2AssistantTurns + its v2AssistantCalls (≤ 64)", cold: true },
   { query: "v2/bids:state", args: f => ({ roomId: f.roomId }), reads: "room + v2RoomBids by_room (≤ 16) + members (≤ 16)", cold: true },
 ];

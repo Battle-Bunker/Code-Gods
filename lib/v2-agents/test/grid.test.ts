@@ -222,7 +222,7 @@ test("each grid example climbs: no move lowers the main part, some raise it, som
 });
 
 test("the starters climb for points: every step they take raises their owner's points (rarity × the others'), in both languages", async () => {
-  const rule = { family: "magic-eighteen", params: paramsOf("magic-eighteen"), tieBreaker: "first-column" };
+  const rule = { family: "magic-eighteen", params: paramsOf("magic-eighteen"), tieBreaker: "first-line" };
   const opp = { family: "opposite-nines", params: paramsOf("opposite-nines"), tieBreaker: "odd" };
   const mine = worthOf(rule), them = worthOf(opp);
   const points = (s: GridState) => mine.bits(s) * them.bits(s);
@@ -231,7 +231,7 @@ test("the starters climb for points: every step they take raises their owner's p
   const boards: GridState[] = [{ cells: [9, 0, 9, 0, 1, 8, 1, 8, 1, 8, 1, 8, 9, 0, 9, 0] }, ...births(gridType, grid4, "climb-points", 4)];
   for (const language of ["typescript", "python"] as const) {
     let moved = 0;
-    for (const a of startersFor("magic-eighteen", language, "first-column").filter(x => x.kind !== "naive")) {
+    for (const a of startersFor("magic-eighteen", language, "first-line").filter(x => x.kind !== "naive")) {
       for (const [i, start] of boards.entries()) {
         const value = { mine: mine.bits(start), others: them.bits(start), points: points(start) };
         const { record, state } = await runAct(await boxes.get(language), {
@@ -249,7 +249,7 @@ test("the starters climb for points: every step they take raises their owner's p
 
 test("a grid agent's own notes name the board: a tug-of-war is on a grid, not a line", async () => {
   const [state] = births(gridType, grid4, "tug", 1);
-  const rule = { family: "magic-eighteen", params: paramsOf("magic-eighteen"), tieBreaker: "first-column" };
+  const rule = { family: "magic-eighteen", params: paramsOf("magic-eighteen"), tieBreaker: "first-line" };
   const sources = {
     typescript: "function agent(offer) {\n  contested(offer, 0);\n  return null;\n}\n",
     python: "def agent(offer):\n    contested(offer, 0)\n    return None\n",
@@ -263,12 +263,12 @@ test("a grid agent's own notes name the board: a tug-of-war is on a grid, not a 
 });
 
 test("the starters' PROTECT keeps only moves that leave the others as well off", async () => {
-  const rule = { family: "magic-eighteen", params: paramsOf("magic-eighteen"), tieBreaker: "first-column" };
+  const rule = { family: "magic-eighteen", params: paramsOf("magic-eighteen"), tieBreaker: "first-line" };
   const opp = { family: "opposite-nines", params: paramsOf("opposite-nines"), tieBreaker: "odd" };
   const others = [{ rule: opp, values: worthOf(opp).values! }];
   const othersBits = (s: GridState) => worthOf(opp).bits(s);
   for (const language of ["typescript", "python"] as const) {
-    const [simple] = startersFor("magic-eighteen", language, "first-column");
+    const [simple] = startersFor("magic-eighteen", language, "first-line");
     // A board perfect for the other player (every cell and its opposite add up to 9), far from Magic Eighteen: climbing
     // the rows spoils it unprotected; with PROTECT on this board (object 0) no move lowers the others.
     const theirs: GridState = { cells: [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8] };

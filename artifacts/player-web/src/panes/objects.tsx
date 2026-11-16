@@ -217,7 +217,7 @@ function SeatedLines() {
   if (!results.length) {
     return (
       <p className="p-4 text-sm text-muted-foreground" data-testid="lines-empty">
-        When the world starts, its lines appear here, best for you first: each drawn the way your rule reads it, with a rectangle whose width is
+        The game's lines appear here as soon as it starts, best for you first: each drawn the way your rule reads it, with a rectangle whose width is
         your bits for it and whose height is the others' bits added together, so its area is your points.
       </p>
     );

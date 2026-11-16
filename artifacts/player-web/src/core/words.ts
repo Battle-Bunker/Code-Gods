@@ -70,6 +70,20 @@ export const HANDICAP_NOTE = "A won bid's share (the −% beside a total) comes 
 export const totalNote = (note: string, handicapped: boolean) => (handicapped ? `${note} ${HANDICAP_NOTE}` : note);
 
 
+/**
+ * v1's "How scoring works" sheet, in v2's words and the game's noun: one titled paragraph each. The worked example is
+ * fixed (3 bits × 2 bits = 6 points).
+ */
+export function howScoringWorks(one = "line", many = `${one}s`): { title: string; body: string }[] {
+  return [
+    { title: "Your rule's score.", body: `Your secret rule gives every ${one} a score. Your agents change ${many} to raise it.` },
+    { title: "Rarity, in bits.", body: `The game compares that score with thousands of random ${many}: if only 1 random ${one} in 8 does as well, that is 3 bits. ${BITS_HELP} So a better score by your rule gives more bits.` },
+    { title: "Points.", body: `For each ${one}: your bits × the others' bits (every other player's bits for it added up, never below 0). For example, your 3 bits × others' 2 bits = 6 points. Your total, the number in the standings, is the points of every ${one} in the world added up.` },
+    { title: "If the others don't want it, nobody scores.", body: `A ${one} only you find rare gives you 0 points; one you all find rare gives the most. You see the others only as one total, never one by one, so say in the chat what you want and find overlaps.` },
+    { title: "Why +1 on your rule is not +1 point.", body: `Raising a ${one}'s score by your rule makes it rarer, which raises your bits, which are then multiplied by what the others want. So the same move can be worth 0 points on one ${one} and 20 on another.` },
+  ];
+}
+
 /** Why an object you find rare scores nothing: nobody else does (others' bits show 0.00). Null otherwise. */
 export function onlyYouNote(yours: number, others: number, one = "line"): string | null {
   return shown(yours) > 0 && shown(others) === 0

@@ -123,3 +123,14 @@ test("object words read well for a two-word object (lines-pairs: “See it pair 
   assert.equal(eachEntryText(line), "Each entry is one line's points; all of them added up make your total.");
   assert.equal(eachEntryText(pair), "Each entry is the points of one pair of lines; all of them added up make your total.");
 });
+
+test("How scoring works (v1's sheet) in the game's noun: rule score, bits, points as a product, nobody scores alone, +1 is not +1 point", async () => {
+  const { howScoringWorks } = await import("../src/core/words.ts");
+  const grid = howScoringWorks("grid");
+  assert.deepEqual(grid.map(p => p.title), ["Your rule's score.", "Rarity, in bits.", "Points.", "If the others don't want it, nobody scores.", "Why +1 on your rule is not +1 point."]);
+  const text = grid.map(p => p.body).join(" ");
+  assert.match(text, /every grid/);
+  assert.match(text, /your 3 bits × others. 2 bits = 6 points/);
+  assert.doesNotMatch(text, /\bline\b|object|payoff|✨/);
+  assert.match(howScoringWorks().map(p => p.body).join(" "), /every line/);
+});

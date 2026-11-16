@@ -226,6 +226,13 @@ test("the stored replay: built once at the end, served only to a member with a J
   assert.equal(file.version, 1);
   assert.deepEqual(file.events.map((e: any) => e.seq), events.map(e => e.seq), "every event, in order");
   assert.equal(file.rules.length, 3, "after the end every player's rule is open");
+  // Every agent's program, each version (v1's replay opened an agent's code from the timeline).
+  const summons = events.filter(e => e.kind === "command" && e.data.kind === "summon");
+  assert.ok(summons.length > 0);
+  for (const s of summons) {
+    const p = file.programs.find((x: any) => x.agentId === s.data.agentId && x.version === s.data.version);
+    assert.ok(p && p.language === s.data.language && p.source.length > 0 && p.memberId === s.data.memberId, `the program of ${s.data.agentId} v${s.data.version}`);
+  }
 });
 });
 }

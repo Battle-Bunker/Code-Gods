@@ -5,6 +5,7 @@
  */
 import { accountOps } from "./ops/account.ts";
 import { agentOps } from "./ops/agents.ts";
+import { codeOps } from "./ops/code.ts";
 import { assistantOps } from "./ops/assistant.ts";
 import { biddingOps } from "./ops/bidding.ts";
 import { panelOps } from "./ops/panels.ts";
@@ -14,7 +15,7 @@ import { setupOps } from "./ops/setups.ts";
 import { viewOps } from "./ops/view.ts";
 import type { AffordanceContext, AnyAffordance, Availability, Caller, Principal, Surface } from "./types.ts";
 
-export const DIRECTORY = [...roomOps, ...setupOps, ...biddingOps, ...playOps, ...agentOps, ...viewOps, ...accountOps, ...assistantOps, ...panelOps] as const;
+export const DIRECTORY = [...roomOps, ...setupOps, ...biddingOps, ...playOps, ...agentOps, ...viewOps, ...accountOps, ...assistantOps, ...panelOps, ...codeOps] as const;
 export type Directory = readonly AnyAffordance[];
 
 type Entry = (typeof DIRECTORY)[number];
@@ -98,7 +99,7 @@ export function refusal(a: AnyAffordance, ctx: AffordanceContext, args?: Record<
     return { ok: false, reason: "Only the human can do this, with their own click.", hidden: true };
   if (!callerAllows(a.caller, ctx.principal)) return { ok: false, reason: callerReason(a.caller), hidden: true };
   if (!grantAllows(a, ctx)) return { ok: false, reason: "This connection's permission does not allow it.", fix: "Reconnect with a wider permission." };
-  if (!a.contexts.includes(ctx.context)) return { ok: false, reason: `Not available ${contextWords(ctx)}.` };
+  if (!a.contexts.includes(ctx.context)) return { ok: false, reason: a.contextReasons?.[ctx.context] ?? `Not available ${contextWords(ctx)}.` };
   if (ctx.room?.aiOff && needsAi(a)) return { ok: false, reason: ctx.room.aiOff, hidden: true };
   const own = a.available?.(ctx, args as never);
   return own && !own.ok ? own : null;

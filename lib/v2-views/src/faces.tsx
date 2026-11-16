@@ -461,12 +461,6 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
           {toScore && <span data-testid="text-to-score"> To score: {toScore.words}{!toScore.words.includes(toScore.text) && toScore.text.length <= 40 ? ` (it becomes ${toScore.text})` : ""}, for {fmtEnergy(toScore.price.total)}.</span>}
         </p>
       )}
-      {sel !== null && (
-        <p className="v2v-selchip" data-role={sa.parts[sel]!.role}>
-          {partGlyph(sa.parts[sel]!.depth)} {sa.parts[sel]!.name} selected: only its marks are drawn{" "}
-          <button type="button" aria-label="Clear the selection" onClick={() => setSelected(null)}>Clear</button>
-        </p>
-      )}
 
       <RepSwitcher type={rule.type} depends={depends} primary={rule.family.main.rep} active={active} compare={compare} onActive={setActive} onCompare={setCompare} />
       <div className="v2v-panels" data-compare={compare ? "" : undefined}>
@@ -486,6 +480,14 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
       </div>
 
       <div className="v2v-exp-body">
+        {/* Said beside the parts list, where the tap happened (playtest baseline-3: above the views, on a phone it was
+            off-screen and the tester could not find it). */}
+        {sel !== null && (
+          <p className="v2v-selchip" role="status" data-role={sa.parts[sel]!.role}>
+            {partGlyph(sa.parts[sel]!.depth)} {sa.parts[sel]!.name} selected: only its marks are drawn in the views{" "}
+            <button type="button" aria-label="Clear the selection" onClick={() => setSelected(null)}>Clear</button>
+          </p>
+        )}
         <PartsList parts={sa.parts} active={lit} onActive={setHoverPart} selected={sel} onSelect={setSelected} />
         {props.locks && props.locks.length > 0 && (
           <ul className="v2v-locks" aria-label="The locks on it">

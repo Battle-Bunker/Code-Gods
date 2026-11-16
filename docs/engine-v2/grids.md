@@ -349,8 +349,8 @@ when it adds up over its family's units (sums.ts `tieBreakers`), else sampled.
 
 | Family | Tie-breakers dealt (exact · sampled) |
 |---|---|
-| Mirrormancer | one-apart, small-middle · mirror-columns |
-| Magic Eighteen | different-numbers · columns, diagonals |
+| Mirrormancer (rows or columns) | one-apart, small-middle · mirror-other-way |
+| Magic Eighteen (rows or columns) | different-numbers · other-way, diagonals |
 | Opposite Nines | big-on-top · mirror-nines, different-splits |
 | Two Pair | apart, diagonal-pairs, small-pairs |
 | Spread of Three | · spread-diagonal, spread-small, square-different |

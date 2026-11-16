@@ -302,14 +302,35 @@ These measurements do not supply that reason:
 
 So, plainly: **not a reason for hold rarity**. They are a reason to fix the φ–score mismatch, and a test bed for locks.
 
+## Status (16 Nov, about 02:00 UTC): paused
+
+Paused by the owner's instruction until the scoring and costing design is clear. Not run:
+
+- the gravity rows (§5.2), because the branch was not pushed;
+- the tree and tuple rules (§5.3; they have starters since #1060, and a run of the six rows below was stopped
+  unfinished);
+- locks (§5.4).
+
 ## Reproduce
 
-From `lib/v2-agents`:
+From `lib/v2-agents`. Every row plays 12 games × 600 s on the same deals and seeds. Run rows in parallel processes
+(about 40 s a game on one core).
 
+    # §2 first table, one competitive seat and all-competitive (swap the preset for grids-beginner; lookahead is lines only)
     node --experimental-strip-types scripts/competitive.ts --preset lines-beginner --games 12 \
       --rows "naive,naive,naive;mixed,naive,naive;vandal,naive,naive;defender,naive,naive;lookahead,naive,naive"
+    node --experimental-strip-types scripts/competitive.ts --preset lines-beginner --games 12 \
+      --rows "rank,naive,naive;mixed,mixed,mixed;vandal,vandal,vandal;rank,rank,rank"
+    # §2 best replies to mixed
+    node --experimental-strip-types scripts/competitive.ts --preset lines-beginner --games 12 --rows "naive,mixed,mixed;defender,mixed,mixed"
+    # §2 grid tops (printed for grids-beginner rows)
+    node --experimental-strip-types scripts/competitive.ts --preset grids-beginner --games 12 --rows "naive,naive,naive;mixed,naive,naive;vandal,naive,naive"
+    # §4 knocks against the change in φ (energy), lines and grids
+    node --experimental-strip-types scripts/knock-phi.ts --preset lines-beginner --games 4 --rows "naive,naive,naive;mixed,naive,naive"
+    node --experimental-strip-types scripts/knock-phi.ts --preset grids-beginner --games 4 --rows "naive,naive,naive;mixed,naive,naive"
+    # §5.1 the turnover board
     node --experimental-strip-types scripts/competitive.ts --preset grids-beginner --games 12 --cap 5 --cap-every 30 \
-      --rows "naive,naive,naive;mixed,naive,naive"
-    node --experimental-strip-types scripts/knock-phi.ts --preset grids-beginner --games 4 --rows "mixed,naive,naive"
-
-A 600 s game takes about 30–60 s on one core.
+      --rows "naive,naive,naive;mixed,naive,naive;mixed,mixed,mixed;vandal,naive,naive"
+    # §5.3 rules no preset deals (branch claude/competitive-play-2 adds --pool rules.json; the rules need value files)
+    node --experimental-strip-types scripts/competitive.ts --preset lines-beginner --pool rules.json --games 12 \
+      --rows "naive,naive,naive;mixed,naive,naive;mixed,mixed,mixed;naive,mixed,mixed"
