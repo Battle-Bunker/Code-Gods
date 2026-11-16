@@ -363,6 +363,12 @@ export const v2Tables = {
   v2AgentEnergy: defineTable({
     agentId: v.id("v2Agents"), gameId: v.id("v2Games"), energy: v.number(), acts: v.number(), skips: v.number(),
     failures: v.number(), spend: v.number(), pointsGained: v.number(), lastActAt: v.optional(v.number()),
+    /**
+     * v1's My agents split of `spend`: the part paid for reading (R/κ, every act) and for changing (W + βW², committed
+     * acts only), and the last act's two parts. Absent on rows stored before the split: read as 0 and null.
+     */
+    spendRead: v.optional(v.number()), spendChange: v.optional(v.number()),
+    lastAct: v.optional(v.object({ at: v.number(), read: v.number(), change: v.number(), outcome: v.string() })),
     /** The balance is as of this world second. */
     settledAt: v.number(),
     /**
