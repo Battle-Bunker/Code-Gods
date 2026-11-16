@@ -2,8 +2,8 @@
  * The rule check (docs/engine-v2/design-principles.md) on every preset's dealt pool, lines, grids and pairs alike, for
  * the rows that read a family's declarations and its law draws:
  *
- * - 3a: at least three dealt secondaries per dealt family, of different forms; no beginner preset deals more than two
- *   layers (main and one secondary);
+ * - 3a: at least three dealt secondaries per dealt family, of different forms (any depth may be dealt, beginner
+ *   included: design-principles.md principle 3b);
  * - 4: at least four dealt parameter sets per dealt family;
  * - 7: every dealt family declares its kind and every dealt secondary its form (v2-rule-forms.ts); at most
  *   MAX_PER_KIND dealt families of one preset share a kind and at most MAX_PER_FORM share a form; no family deals one
@@ -58,8 +58,8 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "high-start 3a": "15 Nov, pairs session",
   "steep-ratio 3a": "15 Nov, pairs session",
   "divisibility 3a": "15 Nov, grids session",
-  "opposite-nines 3a": "16 Nov, grids session: big-on-top undealt for its cheap peak (#902)",
-  "strangers 3a": "16 Nov, grids session: ones and prime-strangers undealt for their cheap peaks (#902)",
+  "opposite-nines 3a": "15 Nov, grids session: big-on-top undealt for a cheap peak (#902); grid repertoires after the deadline",
+  "strangers 3a": "15 Nov, grids session: ones and prime-strangers undealt for cheap peaks (#902); grid repertoires after the deadline",
   "leading-digits 3a": "15 Nov, grids session",
   // Row 4: one dealt parameter set.
   "square-area 4": "15 Nov, grids session: Square Area redesign",
@@ -120,7 +120,6 @@ function problems(): { found: Problem[]; families: Set<string>; presets: Set<str
       const fam = familyOf(id);
       const tbs = [...new Set(rs.map(r => r.tieBreaker))];
       // Row 3a.
-      if (tbs.some(t => (t ?? "").split(">").length > 1) && preset.id.includes("beginner")) add(`${preset.id} 3a-depth`, `${id} deals more than one secondary in a beginner preset`);
       if (tbs.filter(t => t !== null).length < MIN_SECONDARIES) add(`${id} 3a`, `${tbs.filter(t => t !== null).length} dealt secondaries (${tbs.join(", ")})`);
       // Row 4.
       const instances = new Set(rs.map(r => JSON.stringify(r.params))).size;
