@@ -24,7 +24,7 @@ test("defence goals: off by default, refused on lines, dealt to every seat on gr
   assert.ok(d && ["hated-number", "number-crowd"].includes(d.family) && d.card.length > 0, JSON.stringify(d));
   await perform(ada!, "game.startWorldNow", {}, { gameId });
   await new Promise(r => setTimeout(r, 6_000));
-  const log = (await ada!.query("v2/play:log", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page;
+  const log = (await ada!.query("v2/playState:log", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page;
   assert.ok(log.length > 0 && log.every((r: any) => r.own === null || Number.isFinite(r.own)), "the game plays on with finite bits");
   // The practice partners' agents act with their defence goals in the host (tick.ts): acts are judged, nothing fails.
   let acts: any[] = [];

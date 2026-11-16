@@ -17,7 +17,7 @@ import { AI_PRINCIPAL, ownAccountNow } from "./access";
 import { OpFailure } from "@workspace/v2-affordances";
 import { providerFor, spendWithin } from "./ai";
 import { performAs } from "./perform";
-import { liveAgentsOf, MAX_AGENTS } from "./play";
+import { liveAgentsOf, MAX_AGENTS } from "./playState";
 import { programOf } from "./loop";
 import { startersFor } from "@workspace/v2-agents/pure";
 

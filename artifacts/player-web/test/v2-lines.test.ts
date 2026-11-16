@@ -15,7 +15,7 @@ test("every order the human can pick pages by a server sort", () => {
   assert.equal(serverSort("rarity"), "rarity");
   assert.equal(serverSort("recent"), "recent");
   assert.equal(serverSort(undefined), "points");
-  // Every order is one the server pages by (W3-2 #936: v2/play:objectIds sorts).
+  // Every order is one the server pages by (W3-2 #936: v2/playState:objectIds sorts).
   for (const s of SORTS) assert.ok(["points", "rarity", "want", "mutations", "born", "oldest", "recent"].includes(serverSort(s.sort)));
   assert.equal(SORTS.length, 7, "v1's seven orders");
   assert.ok(SORTS.every(s => !/payoff|object/i.test(s.label)));

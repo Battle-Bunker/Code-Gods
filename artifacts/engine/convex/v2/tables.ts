@@ -462,7 +462,7 @@ export const v2Tables = {
   /**
    * Per (player, object) the moves that concerned the player, folded by the tick as they commit: how often the line
    * changed hands between their agent and others' (`flips`), what their agents spent on it, who pulled, and the best
-   * state it passed through for them. The end summary's tugs-of-war read the most-flipped of these (`v2/play:tugs`).
+   * state it passed through for them. The end summary's tugs-of-war read the most-flipped of these (`v2/playState:tugs`).
    */
   /**
    * The public log (v1's, docs/public-log-design.md §1–§2): one row per birth and per committed move, read by every

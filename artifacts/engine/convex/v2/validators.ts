@@ -113,7 +113,7 @@ export const myRuleV = v.object({
   contentHash: v.string(),
   bid: v.union(v.number(), v.null()), handicap: v.union(v.number(), v.null()),
 });
-/** `v2/play:me`: the caller's account (hot, one document). */
+/** `v2/playState:me`: the caller's account (hot, one document). */
 export const meV = v.object({
   memberId: v.id("v2Members"), energy: v.number(), power: v.number(), ready: v.boolean(), pauseUsed: v.boolean(), agents: v.number(),
   /**
@@ -191,7 +191,7 @@ export const tugsV = v.array(v.object({
   /** The two-state cycle it is in, if any: the two states (a < b) and how many moves went between exactly those two. */
   cycle: v.union(v.object({ a: v.string(), b: v.string(), moves: v.number() }), v.null()),
 }));
-/** `v2/play:log`: the public log, newest first, as the caller reads it (bits null for a member not seated). */
+/** `v2/playState:log`: the public log, newest first, as the caller reads it (bits null for a member not seated). */
 export const logPageV = paginationResultValidator(v.object({
   seq: v.number(), worldSeconds: v.number(), kind: v.union(v.literal("born"), v.literal("move")), objectId: v.id("v2Objects"), number: v.number(),
   /** `state` null: another player's move in a paid game, while live (its content is paid: knowledge.ts). */

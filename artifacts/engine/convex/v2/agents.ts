@@ -15,7 +15,7 @@ import {
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { appendEvent, clockOf, powerTerms, programOf } from "./loop.ts";
-import { liveAgentsOf, MAX_AGENTS } from "./play.ts";
+import { liveAgentsOf, MAX_AGENTS } from "./playState.ts";
 import { makeFunctionReference } from "convex/server";
 
 /** A human's new program is checked in the background for its per-turn estimate (v1's "estimate was N"). */

@@ -33,7 +33,8 @@ function closure(entry: string): Set<string> {
 
 test("modules that never value a score do not load the value curves", () => {
   // The room page (rooms), the game header and standings (games), drift and the deal: none of them values a score.
-  for (const m of ["rooms.ts", "games.ts", "drift.ts", "deal.ts", "roomDeal.ts", "lockSettings.ts", "readPrice.ts", "valuesHead.ts"]) {
+  // And a seated player's state and history (playState: account, agents, act log, public log, tugs, digest, skeletons).
+  for (const m of ["rooms.ts", "games.ts", "drift.ts", "deal.ts", "roomDeal.ts", "lockSettings.ts", "readPrice.ts", "valuesHead.ts", "playState.ts", "variants.ts", "knowledge.ts"]) {
     assert.ok(!closure(path.join(V2, m)).has(CURVES), `convex/v2/${m} imports valuesCurves.gen.ts (use valuesHead.ts)`);
   }
 });

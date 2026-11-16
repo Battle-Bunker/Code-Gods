@@ -152,7 +152,7 @@ function EndSummary({ total }: { total: number }) {
   const header = useGame();
   const my = useMyRule();
   const ids = useObjectIds("points");
-  // Every tug-of-war of the game as the tick folds them (v2/play:tugs: paging the act log timed out, round 8/04); a
+  // Every tug-of-war of the game as the tick folds them (v2/playState:tugs: paging the act log timed out, round 8/04); a
   // replay folds its own frame's moves.
   const serverTugs = useTugs();
   const moves = useMoves(30, { replayOnly: true });

@@ -1,5 +1,5 @@
 /**
- * One row of the public log (v2/play:log, v1's public log) in words, pure so it is unit tested. While the game runs
+ * One row of the public log (v2/playState:log, v1's public log) in words, pure so it is unit tested. While the game runs
  * another player's move is unattributed ("Line 7 changed"); after the end its mover is named. The viewer's points
  * before → after close the row ("about" while the others' bits are blurred).
  */

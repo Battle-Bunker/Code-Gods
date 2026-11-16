@@ -6,7 +6,7 @@ import { paginationOptsValidator, paginationResultValidator } from "convex/serve
 import { v } from "convex/values";
 import { query } from "../_generated/server";
 import { requireGameMember } from "./access";
-import { objectAndState } from "./play";
+import { objectAndState } from "./playState";
 import { spectateObjectV } from "./validators";
 import { pageOpts } from "./pages";
 import { knownOf, readsKnowledge } from "./knowledge";

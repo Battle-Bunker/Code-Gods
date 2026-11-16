@@ -233,7 +233,7 @@ function Screen({ header }: { header: Header }) {
   // Page-level reads keep their errors as values (ux-lessons 4.2): a failed room or account query never tears the screen
   // down; the panes that show them say so in their own frames.
   const room = useLive(api.v2.rooms.get, { roomId: header.roomId }).data as Room | undefined;
-  const me = useLive(api.v2.play.me, header.me ? { gameId: header.gameId } : "skip").data;
+  const me = useLive(api.v2.playState.me, header.me ? { gameId: header.gameId } : "skip").data;
   const live = useLive(api.v2.games.header, { gameId: header.gameId }).data ?? header;
   const aiOff = useLive(api.v2.assistant.status, { roomId: header.roomId }).data?.off ?? null;
   const context = useMemo(() => affordanceContext({ signedIn: isAuthenticated, admin: !!user?.isAdmin, room: room ?? null, header: live, me: me ?? null, aiOff }),

@@ -21,7 +21,7 @@ import { readCharge } from "@workspace/v2-economy";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { quadrantOf } from "./disclose.ts";
-import { decode, typeOf, variantOf } from "./world.ts";
+import { decode, typeOf, variantOf } from "./variants.ts";
 
 import { paidLive, paysToRead, readPriceWeightOf } from "./readPrice.ts";
 export { paidLive, paysToRead, readPriceWeightOf };

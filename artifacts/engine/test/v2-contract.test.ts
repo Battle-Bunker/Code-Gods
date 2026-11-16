@@ -46,25 +46,25 @@ test("every live query answers a seated player within its validator", async () =
   const rule = await ada.query("v2/play:myRule", { gameId });
   assert.equal(rule.family, families[0], "each player is shown the rule dealt to them");
   assert.ok(rule.value.knots.length > 2 && rule.card.length > 0);
-  const me = await ada.query("v2/play:me", { gameId });
+  const me = await ada.query("v2/playState:me", { gameId });
   assert.equal(me.memberId, header.me);
   for (const sort of ["points", "rarity", "want", "born", "recent"]) {
-    const ids = await ada.query("v2/play:objectIds", { gameId, sort, paginationOpts: page });
+    const ids = await ada.query("v2/playState:objectIds", { gameId, sort, paginationOpts: page });
     assert.equal(ids.page.length, 12, sort);
   }
-  const byPoints = (await ada.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: page })).page;
+  const byPoints = (await ada.query("v2/playState:objectIds", { gameId, sort: "points", paginationOpts: page })).page;
   const first = await ada.query("v2/play:object", { objectId: byPoints[0].objectId });
   const last = await ada.query("v2/play:object", { objectId: byPoints.at(-1).objectId });
   assert.ok(first.value.points >= last.value.points, "sorted by the caller's points, best first");
   assert.match(first.state, /^-?\d+,-?\d+,-?\d+$/, "a line-z state on the wire");
 
-  const agents = (await ada.query("v2/play:agents", { gameId, paginationOpts: page })).page;
+  const agents = (await ada.query("v2/playState:agents", { gameId, paginationOpts: page })).page;
   assert.equal(agents.length, 1);
-  assert.equal((await ada.query("v2/play:agentEnergy", { agentId: agents[0].agentId })).acts, 3);
-  assert.equal((await ada.query("v2/play:agentPrograms", { agentId: agents[0].agentId })).length, 1);
-  const moves = await ada.query("v2/play:moves", { gameId, paginationOpts: page });
+  assert.equal((await ada.query("v2/playState:agentEnergy", { agentId: agents[0].agentId })).acts, 3);
+  assert.equal((await ada.query("v2/playState:agentPrograms", { agentId: agents[0].agentId })).length, 1);
+  const moves = await ada.query("v2/playState:moves", { gameId, paginationOpts: page });
   assert.deepEqual(moves.page.map((m: any) => m.seq), [2, 1, 0], "newest first");
-  assert.equal((await ada.query("v2/play:digest", { gameId })).packed.length, 36);
+  assert.equal((await ada.query("v2/playState:digest", { gameId })).packed.length, 36);
 
   assert.equal((await ada.query("v2/spectate:objectIds", { gameId, paginationOpts: page })).page.length, 12);
   assert.equal((await ada.query("v2/spectate:object", { objectId: objects[0] })).number, 1);
@@ -84,31 +84,31 @@ test("a player sees only their own rule, values and agents; a spectator sees no 
   const a = await ada.query("v2/play:object", { objectId: objects[0] });
   const b = await bo.query("v2/play:object", { objectId: objects[0] });
   assert.equal(a.state, b.state, "the state is shared");
-  const adaPlayer = await ada.query("v2/play:me", { gameId }), boPlayer = await bo.query("v2/play:me", { gameId });
+  const adaPlayer = await ada.query("v2/playState:me", { gameId }), boPlayer = await bo.query("v2/playState:me", { gameId });
   assert.notEqual(adaPlayer.memberId, boPlayer.memberId);
-  const adaAgent = (await ada.query("v2/play:agents", { gameId, paginationOpts: page })).page[0].agentId;
-  assert.equal(await errorCode(bo.query("v2/play:agentEnergy", { agentId: adaAgent })), "FORBIDDEN");
-  assert.equal(await errorCode(bo.query("v2/play:agentPrograms", { agentId: adaAgent })), "FORBIDDEN");
+  const adaAgent = (await ada.query("v2/playState:agents", { gameId, paginationOpts: page })).page[0].agentId;
+  assert.equal(await errorCode(bo.query("v2/playState:agentEnergy", { agentId: adaAgent })), "FORBIDDEN");
+  assert.equal(await errorCode(bo.query("v2/playState:agentPrograms", { agentId: adaAgent })), "FORBIDDEN");
 
   assert.equal((await sy.query("v2/games:header", { gameId })).me, null);
   assert.equal((await sy.query("v2/play:object", { objectId: objects[0] })).value, null);
-  for (const q of ["v2/play:me", "v2/play:myRule", "v2/play:digest"])
+  for (const q of ["v2/playState:me", "v2/play:myRule", "v2/playState:digest"])
     assert.equal(await errorCode(sy.query(q, { gameId })), "FORBIDDEN", q);
-  assert.equal(await errorCode(sy.query("v2/play:agents", { gameId, paginationOpts: page })), "FORBIDDEN", "v2/play:agents");
+  assert.equal(await errorCode(sy.query("v2/playState:agents", { gameId, paginationOpts: page })), "FORBIDDEN", "v2/playState:agents");
   const [outsider] = await humans("Contract Outsider");
   assert.equal(await errorCode(outsider!.query("v2/rooms:get", { roomId })), "FORBIDDEN");
   assert.equal(await errorCode(outsider!.query("v2/play:object", { objectId: objects[0] })), "FORBIDDEN");
 });
 
 test("every live query refuses a signed-out caller", async () => {
-  const agentId = (await ada.query("v2/play:agents", { gameId, paginationOpts: page })).page[0].agentId;
+  const agentId = (await ada.query("v2/playState:agents", { gameId, paginationOpts: page })).page[0].agentId;
   const calls: [string, Record<string, unknown>][] = [
     ["v2/rooms:list", { paginationOpts: page }], ["v2/rooms:get", { roomId }], ["v2/rooms:chat", { roomId, paginationOpts: page }],
     ["v2/rooms:history", { roomId, paginationOpts: page }], ["v2/games:header", { gameId }], ["v2/games:standings", { gameId }],
-    ["v2/games:standingsHistory", { gameId, after: -1 }], ["v2/play:myRule", { gameId }], ["v2/play:me", { gameId }],
-    ["v2/play:objectIds", { gameId, sort: "points", paginationOpts: page }], ["v2/play:object", { objectId: objects[0] }],
-    ["v2/play:agents", { gameId, paginationOpts: page }], ["v2/play:agentEnergy", { agentId }], ["v2/play:agentPrograms", { agentId }],
-    ["v2/play:moves", { gameId, paginationOpts: page }], ["v2/play:digest", { gameId }],
+    ["v2/games:standingsHistory", { gameId, after: -1 }], ["v2/play:myRule", { gameId }], ["v2/playState:me", { gameId }],
+    ["v2/playState:objectIds", { gameId, sort: "points", paginationOpts: page }], ["v2/play:object", { objectId: objects[0] }],
+    ["v2/playState:agents", { gameId, paginationOpts: page }], ["v2/playState:agentEnergy", { agentId }], ["v2/playState:agentPrograms", { agentId }],
+    ["v2/playState:moves", { gameId, paginationOpts: page }], ["v2/playState:digest", { gameId }],
     ["v2/spectate:objectIds", { gameId, paginationOpts: page }], ["v2/spectate:object", { objectId: objects[0] }],
     ["v2/layout:current", { roomId }], ["v2/replays:stored", { gameId }], ["v2/bids:state", { roomId }],
   ];

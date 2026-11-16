@@ -1,7 +1,7 @@
 /**
  * Line turnover in the app (engine docs/engine-v2/retirement-design.md): the rule said once above the lines, a mark on
  * a line that just arrived, and the retired lines below the live ones, each with its final state and the points it
- * banked for you. The retired list is a skeleton of ids (`v2/play:banked`, a page at a time) with each row its own
+ * banked for you. The retired list is a skeleton of ids (`v2/playState:banked`, a page at a time) with each row its own
  * subscription to its line (`v2/play:object`), as the live list is (docs/convex-read-architecture.md R1). Nothing shows
  * in a game without turnover.
  */

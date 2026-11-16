@@ -15,7 +15,7 @@ for (const preset of ["lines-beginner", "grids-beginner"]) test(`${preset}: plan
   const { roomId } = (await perform(ada!, "room.create", { name: "Planning board", preset })).result;
   await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
   const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
-  const objectIds = async () => (await ada!.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 50, cursor: null } })).page;
+  const objectIds = async () => (await ada!.query("v2/playState:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 50, cursor: null } })).page;
 
   assert.equal((await ada!.query("v2/games:header", { gameId })).phase, "planning");
   const planned = await objectIds();

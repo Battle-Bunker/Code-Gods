@@ -72,7 +72,7 @@ test("the start deals every seated member a converged rule and opens their accou
     assert.ok(rule.ruleKey.includes(rule.family) && rule.tieBreaker, rule.ruleKey);
     assert.equal(rule.layers.length, 2);
     assert.ok(rule.value.knots.length > 2 && rule.value.knots.at(-1).bits > 0, "the rule's value function comes with it");
-    const me = await h.query("v2/play:me", { gameId });
+    const me = await h.query("v2/playState:me", { gameId });
     assert.deepEqual([me.energy, me.agents, me.ready], [150, 0, false]);
   }
   assert.equal((await cy.query("v2/games:header", { gameId })).me, null, "the spectator is not dealt in");

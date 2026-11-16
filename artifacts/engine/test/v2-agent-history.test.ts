@@ -1,6 +1,6 @@
 /**
  * The agents pane's energy sparkline (v1's, v1-audit A6): each agent's balance just after each of its acts, kept by the
- * commit on the agent's own energy row (one subscription per agent row, `v2/play:agentEnergy`), at most one sample a
+ * commit on the agent's own energy row (one subscription per agent row, `v2/playState:agentEnergy`), at most one sample a
  * tick and at most AGENT_HISTORY of them. Between samples the balance grows at the agent's income up to its capacity,
  * which the same read returns, so the client draws the rise itself.
  *
@@ -29,11 +29,11 @@ test("an agent's energy row carries its balance after each act, oldest first, bo
   const summoned = await perform(ada, "agent.summon", { language: "typescript", source: simple!.source, name: "Sparkline" }, { gameId }, "action");
   assert.equal(summoned.ok, true, JSON.stringify(summoned));
   const agentId = summoned.result.agentId;
-  assert.deepEqual((await ada.query("v2/play:agentEnergy", { agentId })).history, [], "no acts, no samples");
+  assert.deepEqual((await ada.query("v2/playState:agentEnergy", { agentId })).history, [], "no acts, no samples");
   // v1's "estimate was N": the program's check, run in the background after the summon, on the agent's row.
   let estimate: any = null;
   for (let i = 0; i < 60 && !estimate; i++) {
-    estimate = (await ada.query("v2/play:agentEnergy", { agentId })).estimate;
+    estimate = (await ada.query("v2/playState:agentEnergy", { agentId })).estimate;
     if (!estimate) await new Promise(r => setTimeout(r, 500));
   }
   assert.ok(estimate && estimate.perAct > 0 && estimate.read > 0 && estimate.change >= 0, JSON.stringify(estimate));
@@ -44,7 +44,7 @@ test("an agent's energy row carries its balance after each act, oldest first, bo
 
   let e: any;
   for (let i = 0; i < 120; i++) {
-    e = await ada.query("v2/play:agentEnergy", { agentId });
+    e = await ada.query("v2/playState:agentEnergy", { agentId });
     if (e.history.length >= 3) break;
     await new Promise(r => setTimeout(r, 1000));
   }

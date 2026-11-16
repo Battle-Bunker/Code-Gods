@@ -35,7 +35,7 @@ the work is hours once the owner says yes. Nothing here changes a game until the
   stored rows to `live: true` with a `migrations.define` (idempotent), switch the reads, then drop the old indexes
   (CLAUDE.md "Schema migrations"). Dev and production hold no v2 games today, so the migration is a formality, but
   it runs as the rules require.
-- A small public query `v2/play:banked` (one index page) for the app's banked section; a row in the query-cost gate.
+- A small public query `v2/playState:banked` (one index page) for the app's banked section; a row in the query-cost gate.
 - Drift (`driftRules`) revalues live objects only; the snapshot's held states read live objects (plus retired holders
   while states are kept).
 

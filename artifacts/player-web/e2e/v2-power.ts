@@ -64,7 +64,7 @@ async function client(page: Page) {
 }
 const gameIdOf = (page: Page) => page.url().split("/games/")[1]!.split(/[/?#]/)[0]!;
 async function firstAgent(page: Page): Promise<string> {
-  const rows = (await (await client(page)).query("v2/play:agents" as never, { gameId: gameIdOf(page), paginationOpts: { numItems: 50, cursor: null } } as never) as { page: { agentId: string }[] }).page;
+  const rows = (await (await client(page)).query("v2/playState:agents" as never, { gameId: gameIdOf(page), paginationOpts: { numItems: 50, cursor: null } } as never) as { page: { agentId: string }[] }).page;
   return rows[0]!.agentId;
 }
 async function allocate(page: Page, shares: Record<string, number>) {
@@ -140,7 +140,7 @@ try {
     // Nobody presses anything: the new split applies by itself, and the first agent has its power again (round 6: it was
     // left at 1%, 9 moves and no points, while the new agent had the rest).
     await page.getByTestId("text-pull-back-done").waitFor({ timeout: 20_000 });
-    const shares = (await (await client(page)).query("v2/play:agents" as never, { gameId: gameIdOf(page), paginationOpts: { numItems: 50, cursor: null } } as never) as { page: { name: string; share: number }[] }).page;
+    const shares = (await (await client(page)).query("v2/playState:agents" as never, { gameId: gameIdOf(page), paginationOpts: { numItems: 50, cursor: null } } as never) as { page: { name: string; share: number }[] }).page;
     console.log(`${label}: split now ${shares.map(a => `${a.name} ${Math.round(a.share * 100)}%`).join(", ")}`);
     assert.equal(shares.length, 2, `${label}: two agents`);
     for (const a of shares) assert.ok(a.share >= 0.2, `${label}: ${a.name} has its power again (${a.share})`);

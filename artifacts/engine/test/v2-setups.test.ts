@@ -140,7 +140,7 @@ test("applying a setup to a room: the room's owner, anyone's setup; the next gam
   assert.equal(started.ok, true, JSON.stringify(started));
   const { gameId } = started.result;
   assert.equal((await cy.query("v2/games:header", { gameId })).planningSeconds, 45);
-  assert.equal((await cy.query("v2/play:me", { gameId })).energy, 140);
+  assert.equal((await cy.query("v2/playState:me", { gameId })).energy, 140);
   await perform(cy, "game.end", {}, { gameId });
 
   // A change by hand afterwards leaves the setup behind.

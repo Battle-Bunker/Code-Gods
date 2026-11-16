@@ -137,9 +137,9 @@ test("the objects list shows the live lines; the retired list shows the retired 
   const page = { numItems: 50, cursor: null };
   const t = await admin.query("v2/testing:turnoverOf", { gameId });
   const liveNumbers = t.lines.filter((l: any) => l.retiredAt === undefined).map((l: any) => l.number).sort((a: number, b: number) => a - b);
-  const listed = (await ada.query("v2/play:objectIds", { gameId, sort: "born", paginationOpts: page })).page.map((r: any) => r.number);
+  const listed = (await ada.query("v2/playState:objectIds", { gameId, sort: "born", paginationOpts: page })).page.map((r: any) => r.number);
   assert.deepEqual([...listed].sort((a, b) => a - b), liveNumbers, "the list is the live lines");
-  const banked = (await ada.query("v2/play:banked", { gameId, paginationOpts: page })).page;
+  const banked = (await ada.query("v2/playState:banked", { gameId, paginationOpts: page })).page;
   assert.deepEqual(banked.map((r: any) => r.number).sort((a: number, b: number) => a - b), t.retired.map((l: any) => l.number).sort((a: number, b: number) => a - b), "the retired list is the retired lines");
   assert.ok(banked[0].number > banked.at(-1).number, "the latest retired first");
   const me = (await ada.query("v2/games:header", { gameId })).me;
@@ -154,7 +154,7 @@ test("the objects list shows the live lines; the retired list shows the retired 
     assert.equal(o.state, events.find(e => e.kind === "retired" && e.data.number === r.number).data.state);
   }
   // A live line's object has no retirement.
-  const first = (await ada.query("v2/play:objectIds", { gameId, sort: "born", paginationOpts: page })).page[0];
+  const first = (await ada.query("v2/playState:objectIds", { gameId, sort: "born", paginationOpts: page })).page[0];
   assert.equal((await ada.query("v2/play:object", { objectId: first.objectId })).retiredAt, undefined);
 });
 

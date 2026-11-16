@@ -1,5 +1,5 @@
 /**
- * What your agents noted for you on their moves (lib/v2-agents `note`, on `v2/play:moves` rows), for the act log. An
+ * What your agents noted for you on their moves (lib/v2-agents `note`, on `v2/playState:moves` rows), for the act log. An
  * agent may repeat a note every turn, so each note shows once per agent, on its newest move, with how often it was
  * said. Pure: from the act log's rows, newest first.
  */

@@ -25,7 +25,7 @@ test("halfLife hides the end and ends at the drawn moment; standings every 5 s; 
   const live = await ada!.query("v2/games:header", { gameId });
   assert.deepEqual([live.phase, live.durationMode, live.worldSeconds, live.scoreIntervalSeconds, live.peerNoiseVariance], ["live", "halfLife", 60, 5, 0]);
   assert.equal(live.endsAt, null, "the end is hidden while live");
-  const ids = (await ada!.query("v2/play:objectIds", { gameId, sort: "born", paginationOpts: { numItems: 5, cursor: null } })).page;
+  const ids = (await ada!.query("v2/playState:objectIds", { gameId, sort: "born", paginationOpts: { numItems: 5, cursor: null } })).page;
   for (const { objectId } of ids) {
     const [o, e] = [await ada!.query("v2/play:object", { objectId }), await admin.query("v2/testing:valueOf", { objectId, userId: ada!.userId })];
     if (o.value.version === e.version) assert.ok(Math.abs(o.value.want - e.want) < 1e-9, "no noise at variance 0");

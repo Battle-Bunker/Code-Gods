@@ -54,7 +54,7 @@ export function useGame(): Header | undefined {
 export function useMe() {
   const { gameId, seated } = useGameScope();
   const replay = useReplaySource();
-  return useLiveValue(api.v2.play.me, gameId && seated && !replay ? { gameId } : "skip");
+  return useLiveValue(api.v2.playState.me, gameId && seated && !replay ? { gameId } : "skip");
 }
 
 export interface MyRule {
@@ -102,10 +102,10 @@ type CodeQuery = FunctionReference<"query", "public", { args: Record<string, unk
 export interface CodeRunRow { runId: string; title: string; language: string; dataset: string; status: "ok" | "error"; ms: number; at: number }
 export interface CodeRun extends CodeRunRow { source: string; gameId: string | null; result: unknown; error: string | null; output: string }
 
-/** Every rule this game's dealer could deal (v2/play:candidates; v1's "Possible gods"): never who holds which. */
+/** Every rule this game's dealer could deal (v2/playState:candidates; v1's "Possible gods"): never who holds which. */
 export function useRuleCandidates() {
   const { gameId } = useGameScope();
-  return useLiveValue(api.v2.play.candidates, gameId ? { gameId } : "skip");
+  return useLiveValue(api.v2.playState.candidates, gameId ? { gameId } : "skip");
 }
 
 /** The viewer's private rule: family, parameters, card, value function, the primary representation. */
@@ -127,7 +127,7 @@ export function useMyRule(): MyRule | undefined {
 export function useObjectIds(sort: ObjectSort, pageSize = 30, show: ObjectShow = "all") {
   const { gameId, seated } = useGameScope();
   const replay = useReplaySource();
-  const live = useLivePaged(api.v2.play.objectIds, gameId && seated && !replay ? { gameId, sort, ...(show !== "all" ? { filter: show } : {}) } : "skip", pageSize);
+  const live = useLivePaged(api.v2.playState.objectIds, gameId && seated && !replay ? { gameId, sort, ...(show !== "all" ? { filter: show } : {}) } : "skip", pageSize);
   const frame = replay?.frame, member = replay?.member;
   const replayed = useMemo(() => (frame && member ? pagedFrom(frame.objectIds(member, sort, show)) : null), [frame, member, sort, show]);
   return (replayed ?? live) as typeof live;
@@ -137,7 +137,7 @@ export function useObjectIds(sort: ObjectSort, pageSize = 30, show: ObjectShow =
 export function useBankedIds(pageSize = 30) {
   const { gameId, seated } = useGameScope();
   const replay = useReplaySource();
-  const live = useLivePaged(api.v2.play.banked, gameId && seated && !replay ? { gameId } : "skip", pageSize);
+  const live = useLivePaged(api.v2.playState.banked, gameId && seated && !replay ? { gameId } : "skip", pageSize);
   const frame = replay?.frame, member = replay?.member;
   const replayed = useMemo(() => (frame && member ? pagedFrom(frame.banked(member)) : null), [frame, member]);
   return (replayed ?? live) as typeof live;
@@ -172,7 +172,7 @@ export function useMyObjects(objectIds: readonly string[]): (PlayObject | undefi
 export function useMoves(pageSize = 30, { replayOnly = false }: { replayOnly?: boolean } = {}) {
   const { gameId, seated } = useGameScope();
   const replay = useReplaySource();
-  const live = useLivePaged(api.v2.play.moves, gameId && seated && !replay && !replayOnly ? { gameId } : "skip", pageSize);
+  const live = useLivePaged(api.v2.playState.moves, gameId && seated && !replay && !replayOnly ? { gameId } : "skip", pageSize);
   const frame = replay?.frame, member = replay?.member;
   const replayed = useMemo(() => (frame && member ? pagedFrom<Move>(frame.moves(member)) : null), [frame, member]);
   return (replayed ?? live) as typeof live;
@@ -185,7 +185,7 @@ export function useMoves(pageSize = 30, { replayOnly = false }: { replayOnly?: b
 export function useTugs(): Tug[] | null | undefined {
   const { gameId, seated } = useGameScope();
   const replay = useReplaySource();
-  const live = useLiveValue(api.v2.play.tugs, gameId && seated && !replay ? { gameId } : "skip");
+  const live = useLiveValue(api.v2.playState.tugs, gameId && seated && !replay ? { gameId } : "skip");
   return replay ? null : live;
 }
 
@@ -193,10 +193,10 @@ export function useTugs(): Tug[] | null | undefined {
 export function usePublicLog(pageSize = 50) {
   const { gameId } = useGameScope();
   const replay = useReplaySource();
-  return useLivePaged(api.v2.play.log, gameId && !replay ? { gameId } : "skip", pageSize);
+  return useLivePaged(api.v2.playState.log, gameId && !replay ? { gameId } : "skip", pageSize);
 }
 
-/** The first page of `v2/play:agents` (the server's page is at most 50). */
+/** The first page of `v2/playState:agents` (the server's page is at most 50). */
 const FIRST_AGENTS_PAGE = { numItems: 50, cursor: null };
 /**
  * The viewer's live agents (a player may hold 200, call 35): for now the first page of 50, oldest first, as one list.
@@ -205,7 +205,7 @@ const FIRST_AGENTS_PAGE = { numItems: 50, cursor: null };
 export function useMyAgents(): Agent[] | undefined {
   const { gameId, seated } = useGameScope();
   const replay = useReplaySource();
-  const live = useLiveValue(api.v2.play.agents, gameId && seated && !replay ? { gameId, paginationOpts: FIRST_AGENTS_PAGE } : "skip");
+  const live = useLiveValue(api.v2.playState.agents, gameId && seated && !replay ? { gameId, paginationOpts: FIRST_AGENTS_PAGE } : "skip");
   const frame = replay?.frame, member = replay?.member;
   const replayed = useMemo(() => (frame && member ? frame.agents(member) : null), [frame, member]);
   return replayed ?? live?.page;
@@ -214,17 +214,17 @@ export function useMyAgents(): Agent[] | undefined {
 export function useMyAgentPages() {
   const { gameId, seated } = useGameScope();
   const replay = useReplaySource();
-  return useLivePaged(api.v2.play.agents, gameId && seated && !replay ? { gameId } : "skip", 50);
+  return useLivePaged(api.v2.playState.agents, gameId && seated && !replay ? { gameId } : "skip", 50);
 }
 /** An agent's energy account; not in the record, so none in a replay. */
 export function useAgentEnergy(agentId: string | null | undefined) {
   const replay = useReplaySource();
-  return useLiveValue(api.v2.play.agentEnergy, agentId && !replay ? { agentId } : "skip");
+  return useLiveValue(api.v2.playState.agentEnergy, agentId && !replay ? { agentId } : "skip");
 }
 /** An agent's programs; not in the record, so none in a replay. */
 export function useAgentPrograms(agentId: string | null | undefined) {
   const replay = useReplaySource();
-  return useLiveValue(api.v2.play.agentPrograms, agentId && !replay ? { agentId } : "skip");
+  return useLiveValue(api.v2.playState.agentPrograms, agentId && !replay ? { agentId } : "skip");
 }
 
 /** The published scoreboard (null before the first). */
@@ -264,7 +264,7 @@ export function useChat(pageSize = 50) {
 export function useDigest() {
   const { gameId, seated } = useGameScope();
   const replay = useReplaySource();
-  const live = useLiveValue(api.v2.play.digest, gameId && seated && !replay ? { gameId } : "skip");
+  const live = useLiveValue(api.v2.playState.digest, gameId && seated && !replay ? { gameId } : "skip");
   const frame = replay?.frame, member = replay?.member;
   const replayed = useMemo(() => (frame && member ? frame.digest(member) : undefined), [frame, member]);
   return replay ? replayed : live;
@@ -357,13 +357,13 @@ export interface OthersAtMaps { want: ReadonlyMap<string, number>; taken: Readon
 export function useObjectMovesOf(numbers: readonly number[]) {
   const { gameId, seated } = useGameScope();
   const replay = useReplaySource();
-  return useLiveValues(api.v2.play.objectMoves, useMemo(() => (replay || !gameId || !seated ? [] : numbers.map(number => ({ gameId, number }))), [numbers.join("|"), !replay, gameId, seated])); // eslint-disable-line react-hooks/exhaustive-deps
+  return useLiveValues(api.v2.playState.objectMoves, useMemo(() => (replay || !gameId || !seated ? [] : numbers.map(number => ({ gameId, number }))), [numbers.join("|"), !replay, gameId, seated])); // eslint-disable-line react-hooks/exhaustive-deps
 }
 /** The viewer's own moves on one object, by number (≤ 50, newest first); none in a replay or without a number. */
 export function useObjectMoves(number: number | null | undefined) {
   const { gameId, seated } = useGameScope();
   const replay = useReplaySource();
-  return useLiveValue(api.v2.play.objectMoves, gameId && seated && !replay && number != null ? { gameId, number } : "skip");
+  return useLiveValue(api.v2.playState.objectMoves, gameId && seated && !replay && number != null ? { gameId, number } : "skip");
 }
 
 /**

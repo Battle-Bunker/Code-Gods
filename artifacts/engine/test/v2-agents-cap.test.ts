@@ -14,7 +14,7 @@ import { admin, humans, perform, type Human } from "./v2-helpers.ts";
 
 let ada: Human, roomId: string, gameId: string;
 const scope = () => ({ gameId });
-const me = () => ada.query("v2/play:me", { gameId });
+const me = () => ada.query("v2/playState:me", { gameId });
 /** Inserts `count` live agents for Ada without paying (a summon each would take minutes). */
 const seed = async (count: number) => await admin.mutation("v2/testing:seedAgents", { gameId, userId: ada.userId, count }) as string[];
 
@@ -22,7 +22,7 @@ async function allAgents(numItems: number) {
   const pages: { agentId: string }[][] = [];
   let cursor: string | null = null;
   for (;;) {
-    const r: any = await ada.query("v2/play:agents", { gameId, paginationOpts: { numItems, cursor } });
+    const r: any = await ada.query("v2/playState:agents", { gameId, paginationOpts: { numItems, cursor } });
     pages.push(r.page);
     if (r.isDone) return pages;
     cursor = r.continueCursor;

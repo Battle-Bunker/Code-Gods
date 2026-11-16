@@ -114,7 +114,7 @@ one player's rule):
   `v2/play:othersAt` applies the candidates' calls (≤ 4) to the live state on the server.
 - **The climb from here**: the best move for the points, or "Stuck here" when no single move raises them.
 - **Unique objects**: a candidate onto a state another object holds shows "Not available: line N is already like this".
-- **The last moves on the object** (`v2/play:objectMoves`, ≤ 50 of your own rows): each mover, ↑/↓ for you and for the
+- **The last moves on the object** (`v2/playState:objectMoves`, ≤ 50 of your own rows): each mover, ↑/↓ for you and for the
   others, and whether the moves climbed together or undo each other ("Stuck: these moves undo each other").
 - **The end summary**, per contested object: climbed together, undid each other, or mixed, with your points before and
   after.

@@ -197,7 +197,7 @@ test("Stop means stop: nothing the stopped turn, its queue or autopilot would do
   await perform(ada!, "game.ready", { ready: true }, { gameId });
   await perform(bo!, "game.ready", { ready: true }, { gameId });
   assert.equal((await perform(bo!, "assistant.setMode", { mode: "autopilot" }, { roomId })).ok, true);
-  const agents = async () => (await bo!.query("v2/play:agents", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page.length;
+  const agents = async () => (await bo!.query("v2/playState:agents", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page.length;
   const slowThenSummon = mock([
     ...Array.from({ length: 6 }, () => ({ tools: [{ name: "agent_check", input: { language: "python", source: "def agent(offer):\n  while True:\n    pass\n" } }] })),
     { tools: [{ name: "agent_summon", input: { language: "typescript", source: "function agent(offer) {\n  return null;\n}\n", name: "Unwanted" } }] },

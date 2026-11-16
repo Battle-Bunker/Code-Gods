@@ -30,7 +30,7 @@ test("three long games build their replays together while their players read", {
   try {
     for (const g of games) await admin.mutation("v2/testing:buildReplay", { gameId: g });
     // The players read their act logs while the builds run.
-    const reads = await Promise.all(players.map((p, i) => p!.query("v2/play:moves", { gameId: games[i], paginationOpts: { numItems: 200, cursor: null } })));
+    const reads = await Promise.all(players.map((p, i) => p!.query("v2/playState:moves", { gameId: games[i], paginationOpts: { numItems: 200, cursor: null } })));
     for (const r of reads) assert.ok(r.page.length > 0 && r.page.length <= 50, `a bounded page: ${r.page.length}`);
     for (const [i, g] of games.entries()) {
       for (let k = 0; !(await players[i]!.query("v2/replays:stored", { gameId: g })).stored; k++) {
