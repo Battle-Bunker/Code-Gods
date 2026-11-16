@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { dilate } from "@workspace/v2-economy";
 import { driftEventsDue, nextDriftAt, redrawParams } from "../../convex/v2/drift.ts";
-import { VALUE_INDEX as VALUE_RECORDS } from "../../convex/v2/values.gen.ts";
+import { VALUE_INDEX as VALUE_RECORDS } from "../../convex/v2/valuesIndex.gen.ts";
 
 test("staggered: seat k of n is redrawn at k × interval / n, each seat every interval; dilation divides it", () => {
   // Three seats at 120 s: one seat every 40 s (seats 1, 2, then 0), each seat every 120 s.
