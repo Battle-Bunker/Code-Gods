@@ -95,6 +95,8 @@ test("what an agent spent, split into reading and changing; its actual cost per 
   assert.equal(spentText({ spend: 30, spendRead: 12, spendChange: 18, acts: 4 }), "Spent 30.00 energy on 4 moves: 12.00 reading, 18.00 changing");
   assert.equal(spentText({ spend: 0, spendRead: 0, spendChange: 0, acts: 0 }), "Spent nothing yet");
   assert.equal(actualText({ spend: 30, acts: 4 }), "Actual average 7.50 energy per move");
+  assert.equal(actualText({ spend: 30, acts: 4, estimate: { perAct: 6.2, read: 2, change: 4.2 } }), "Actual average 7.50 energy per move (estimate was 6.20)");
+  assert.equal(actualText({ spend: 0, acts: 0, estimate: { perAct: 6.2, read: 2, change: 4.2 } }), "No moves yet (estimate 6.20 energy per move: 2.00 reading + 4.20 changing)");
   assert.equal(actualText({ spend: 0, acts: 0 }), null);
   assert.equal(lastActText({ at: 12, read: 1.5, change: 2, outcome: "moved" }), "Last move at 0:12: 1.50 reading + 2.00 changing (moved)");
   assert.equal(lastActText(null), null);

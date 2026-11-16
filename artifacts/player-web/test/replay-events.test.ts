@@ -26,3 +26,10 @@ test("around the playhead: the applied ones before, the next ones after", () => 
   assert.deepEqual(around(rows, 4, 1, 1).map(r => r.at), [4, 6]);
   assert.deepEqual(around(rows, 0, 2, 2).map(r => r.at), [1, 2]);
 });
+
+test("a summon whose program the record keeps links to it; one without does not", () => {
+  const withPrograms = { ...(ix as object), commands: new Map([["a", [{ at: 2, kind: "summon", agentId: "x", name: "Climber", version: 1, worldSeconds: 1 }, { at: 3, kind: "summon", agentId: "y", name: "Other", version: 1, worldSeconds: 2 }]]]),
+    programs: new Map([["x@1", { agentId: "x", memberId: "a", name: "Climber", version: 1, language: "typescript", source: "code", summonedAt: 1 }]]) } as never;
+  const rows = replayEvents(withPrograms).filter(r => r.kind === "command");
+  assert.deepEqual(rows.map(r => r.program ?? null), [{ agentId: "x", version: 1 }, null]);
+});

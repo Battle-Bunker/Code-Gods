@@ -59,7 +59,12 @@ export interface ReplayIndex {
   histories: Map<number, StandingsPoint[]>;
   /** Each line's answers by (member, state, value), likewise. */
   answers: Map<string, PlayObject>;
+  /** Every agent program version, by `agentId@version` (the file's `programs`; none in files stored before it). */
+  programs: Map<string, ReplayProgram>;
 }
+
+export interface ReplayProgram { agentId: string; memberId: string; name: string; version: number; language: string; source: string; summonedAt: number }
+export const programKey = (agentId: string, version: number) => `${agentId}@${version}`;
 
 /** The last index in a sorted-by-`at` list whose position is applied, or -1. */
 function lastAt<T extends { at: number }>(list: readonly T[], applied: number): number {
@@ -103,7 +108,7 @@ function drifted(end: MyRuleRow, p: RawStart, card: string | null, drifts: numbe
 
 /** Reads a downloaded file and folds it once; throws a sentence when it is not a replay this page reads. */
 export function indexReplay(file: unknown): ReplayIndex {
-  const f = file as { version?: unknown; game?: Record<string, unknown>; rules?: RawRule[]; events?: RawEvent[] } | null;
+  const f = file as { version?: unknown; game?: Record<string, unknown>; rules?: RawRule[]; events?: RawEvent[]; programs?: ReplayProgram[] } | null;
   if (!f || typeof f !== "object") throw new Error("The download is not a stored replay.");
   if (f.version !== STORED_REPLAY_VERSION) throw new Error(`The stored replay is version ${String(f.version)}; this page reads version ${STORED_REPLAY_VERSION}.`);
   if (!Array.isArray(f.events) || !f.game) throw new Error("The download is not a stored replay.");
@@ -115,6 +120,7 @@ export function indexReplay(file: unknown): ReplayIndex {
   const ix: ReplayIndex = {
     gameId: game.gameId, end: f.events.length, endWorld: game.settings?.worldSeconds ?? 0, roster: game.roster,
     world: [], stops: [], objects: [], byId: new Map(), ticks: [], moves: new Map(), commands: new Map(), rules, ruleTimes: new Map(), histories: new Map(), answers: new Map(),
+    programs: new Map((Array.isArray(f.programs) ? f.programs : []).map(p => [programKey(p.agentId, p.version), p])),
   };
   const events = [...f.events].sort((a, b) => a.seq - b.seq);
   let world = 0, moveSeq = 0;

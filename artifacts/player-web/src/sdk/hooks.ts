@@ -289,6 +289,10 @@ export function useAssistantTranscript(threadId: string | null | undefined, page
 export function useAssistantTurn(turnId: string | null | undefined) {
   return useLiveValue(api.v2.assistant.turn, turnId ? { turnId: turnId as Id<"v2AssistantTurns"> } : "skip");
 }
+/** One tool call of a turn in full (v1's ToolDetail): what was sent and what came back, subscribed only while shown. */
+export function useAssistantCall(turnId: string | null | undefined, index: number | null) {
+  return useLiveValue(api.v2.assistant.call, turnId && index !== null ? { turnId: turnId as Id<"v2AssistantTurns">, index } : "skip");
+}
 
 // ------------------------------------------------------------------ the viewer's stored panels (across rooms; not in the panel SDK)
 
