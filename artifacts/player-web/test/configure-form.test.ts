@@ -108,7 +108,8 @@ test("rules never dealt: a set (order does not matter), never all of the setup's
   assert.deepEqual(overridesFor({ ...d, excludedFamilies: [bidding.families[1]!, bidding.families[0]!] }, bidding), { excludedFamilies: [bidding.families[1], bidding.families[0]] });
   const saved = { preset: bidding.id, draft: { ...d, excludedFamilies: [bidding.families[0]!, bidding.families[1]!] } };
   assert.deepEqual(reviewDiff(saved, { preset: bidding.id, draft: { ...d, excludedFamilies: [bidding.families[1]!, bidding.families[0]!] } }), [], "the same set is no change");
-  assert.equal(draftErrors({ ...d, excludedFamilies: [...bidding.families] }, bidding).excludedFamilies, "Leave at least one rule to deal.");
+  assert.equal(draftErrors({ ...d, excludedFamilies: [...bidding.families] }, bidding).excludedFamilies, `Leave at least ${bidding.minPlayers} rule families to deal, one for each player.`);
+  assert.equal(draftErrors({ ...d, excludedFamilies: bidding.families.slice(bidding.minPlayers) }, bidding).excludedFamilies, undefined, "one per player is enough");
   assert.equal(formatValue("excludedFamilies", ["x", "y"]), "2 rules");
   assert.equal(choiceLabel("bidPricing", "second"), "Second price");
   assert.equal(choiceLabel("bidDisclosure", "none"), "Own result only");

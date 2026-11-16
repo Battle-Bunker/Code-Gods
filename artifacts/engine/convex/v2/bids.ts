@@ -7,6 +7,7 @@ import { v } from "convex/values";
 import { query } from "../_generated/server";
 import { MAX_MEMBERS, requireMember } from "./access";
 import { bidStateV } from "./validators";
+import { openBids } from "./lobby";
 
 export const state = query({
   args: { roomId: v.string() },
@@ -17,10 +18,7 @@ export const state = query({
     const rows = await ctx.db.query("v2RoomBids").withIndex("by_room_member", q => q.eq("roomId", room._id)).take(MAX_MEMBERS);
     const members = await ctx.db.query("v2Members").withIndex("by_room", q => q.eq("roomId", room._id)).take(MAX_MEMBERS);
     const mine = rows.find(r => r.memberId === member._id);
-    const visibility = room.bidding.visibility ?? "sealed";
-    const others = visibility === "open"
-      ? rows.filter(r => r.memberId !== member._id && r.bids.length > 0).map(r => ({ memberId: r.memberId, name: members.find(m => m._id === r.memberId)?.name ?? "", bids: r.bids }))
-      : [];
+    const visibility = room.bidding.visibility ?? "sealed", others = openBids(room.bidding, rows, members, member._id);
     return {
       visibility, others,
       open: true, deadline: room.bidding.deadline, families: room.bidding.families, mine: mine?.bids ?? [], done: mine?.done ?? false,

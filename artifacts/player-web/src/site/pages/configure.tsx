@@ -109,7 +109,9 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
     if (!editable || id === presetId) return;
     // The families never dealt are the old setup's: keep only those the new one deals too.
     const next = presetOf(id), kept = overridesFor(draft, preset);
-    setDraft(draftOf(next, { ...kept, excludedFamilies: draft.excludedFamilies.filter(f => next.families.includes(f)) }));
+    // A setup without a bid phase takes none of the bid settings (they would be saved where nothing shows them).
+    const { bidPricing: _p, bidVisibility: _v, bidDisclosure: _d, ...unbid } = kept;
+    setDraft(draftOf(next, { ...(next.bid ? kept : unbid), excludedFamilies: draft.excludedFamilies.filter(f => next.families.includes(f)) }));
     setPresetId(id);
   };
   const saveBlocker = !owner ? "Only the room's owner changes its setup." : locked ? locked : !editable ? "Settings cannot change here." : invalid ? "Fix the settings marked in red first." : !changes.length ? "Nothing has changed yet." : null;

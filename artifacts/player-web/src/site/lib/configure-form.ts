@@ -53,7 +53,7 @@ export const FIELDS: Readonly<Record<FieldKey, FieldSpec>> = {
     label: "Rules never dealt", section: "goals", tier: "more", control: "checklist",
     question: "Which rules are never dealt?",
     meaning: "Families of rules the setup deals that are never dealt in this room.",
-    consequence: "Excluding more families makes goals more predictable, and at least one must stay.",
+    consequence: "Excluding more families makes goals more predictable, and at least one family per player must stay.",
   },
   bidPricing: {
     label: "Bid price", section: "goals", tier: "more", control: "segmented", suggested: ["first", "second"], onlyWithBid: true,
@@ -239,10 +239,11 @@ export function fieldError(key: FieldKey, value: unknown): string | null {
   }
   return null;
 }
-export function draftErrors(d: Draft, p?: Pick<Preset, "families">): Partial<Record<FieldKey, string>> {
+export function draftErrors(d: Draft, p?: Pick<Preset, "families" | "minPlayers">): Partial<Record<FieldKey, string>> {
   const out: Partial<Record<FieldKey, string>> = {};
   for (const k of Object.keys(FIELDS) as FieldKey[]) { const e = fieldError(k, d[k]); if (e) out[k] = e; }
-  if (p && p.families.length > 0 && p.families.every(f => d.excludedFamilies.includes(f))) out.excludedFamilies = "Leave at least one rule to deal.";
+  // One family per player at least (the server's rule: two players on one family climb the same hill unopposed).
+  if (p && p.families.filter(f => !d.excludedFamilies.includes(f)).length < Math.min(p.minPlayers, p.families.length)) out.excludedFamilies = `Leave at least ${p.minPlayers} rule families to deal, one for each player.`;
   return out;
 }
 

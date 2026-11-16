@@ -22,7 +22,10 @@ export const roomV = v.object({
   preset: v.string(), overrides: overridesV, phase: roomPhaseV,
   members: v.array(memberRowV),
   game: v.union(gameHeadV, v.null()), lastGame: v.union(gameHeadV, v.null()),
-  bidding: v.union(v.object({ deadline: v.number(), pricing: v.union(v.literal("first"), v.literal("second")), families: v.array(offerV) }), v.null()),
+  bidding: v.union(v.object({
+    deadline: v.number(), pricing: v.union(v.literal("first"), v.literal("second")), families: v.array(offerV),
+    visibility: v.optional(v.union(v.literal("sealed"), v.literal("open"))),
+  }), v.null()),
 });
 export const roomListV = paginationResultValidator(v.object({ roomId: v.id("v2Rooms"), memberId: v.id("v2Members"), joinedAt: v.number() }));
 export const chatPageV = paginationResultValidator(v.object({ id: v.id("v2Chat"), from: v.string(), memberId: v.union(v.id("v2Members"), v.null()), text: v.string(), at: v.number() }));
@@ -179,7 +182,7 @@ export const spectateObjectV = v.object({ objectId: v.id("v2Objects"), number: v
 export const layoutV = v.union(v.object({ layout: v.any(), view: v.union(v.any(), v.null()), revision: v.number() }), v.null());
 export const replayV = v.object({ stored: v.boolean() });
 
-/** `v2/bids:state`: the open bid phase as the caller may see it (their own bids only). */
+/** `v2/bids:state`: the open bid phase as the caller may see it (their own bids; the others' only when bidding is open). */
 export const bidStateV = v.object({
   open: v.boolean(), deadline: v.union(v.number(), v.null()), families: v.array(offerV),
   mine: v.array(bidV), done: v.boolean(),

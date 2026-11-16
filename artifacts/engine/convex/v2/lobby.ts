@@ -94,6 +94,17 @@ export function roomPool(room: Pick<Doc<"v2Rooms">, "preset" | "overrides">) {
 }
 
 /**
+ * Refuses a fresh deal that the room's exclusions would leave with a family on two seats when the setup itself has one
+ * for every seat (two seats on one family climb the same hill unopposed: owner decision 30).
+ */
+function enoughFamilies(room: Doc<"v2Rooms">, seats: number) {
+  if (!room.overrides.excludedFamilies?.length) return;
+  const families = (pool: readonly DealtRule[]) => new Set(pool.map(r => r.family)).size;
+  const left = families(roomPool(room)), all = families(dealablePool(presetOf(room.preset)));
+  if (left < seats && all >= seats) throw new OpFailure(`${seats} players, but this room deals only ${left} rule families: two players would hold the same family.`, "Allow more rules in the room's settings (Rules never dealt).");
+}
+
+/**
  * Sets the preset and the overrides. Overrides, when given, replace the old ones (`{}` restores the preset's values);
  * a new preset starts without the old preset's overrides unless the call gives some.
  */
@@ -104,10 +115,13 @@ export async function changeSettings(ctx: MutationCtx, room: Doc<"v2Rooms">, a: 
   // The families never dealt must be the preset's and leave something to deal.
   const out = a.overrides?.excludedFamilies;
   if (out?.length) {
-    const preset = presetOf(a.preset ?? room.preset), families = new Set(dealablePool(preset).map(r => r.family));
+    const preset = presetOf(a.preset ?? room.preset), families = new Set(preset.families);
     const unknown = out.filter(f => !families.has(f));
     if (unknown.length) throw new OpFailure(`${preset.title} deals no rule ${unknown.join(", ")}.`, "Exclude only families the setup deals.");
-    if (roomPool({ preset: preset.id, overrides: { excludedFamilies: out } }).length === 0) throw new OpFailure("Every rule would be excluded: nothing could be dealt.", "Leave at least one family.");
+    // Every seat a family of its own (the deal never deals one twice while it can): two seats on the same family climb
+    // the same hill with no adversary (CLAUDE.md, owner decision 30). So at least the setup's minimum players' worth stay.
+    const left = new Set(roomPool({ preset: preset.id, overrides: { excludedFamilies: out } }).map(r => r.family)).size;
+    if (left < preset.minPlayers) throw new OpFailure(`That leaves ${left} rule famil${left === 1 ? "y" : "ies"} to deal; a game needs at least ${preset.minPlayers}, one for each player.`, "Exclude fewer families.");
   }
   await ctx.db.patch(room._id, {
     ...(a.preset !== undefined ? { preset: a.preset } : {}),
@@ -178,6 +192,7 @@ export async function nextDeal(ctx: QueryCtx, room: Doc<"v2Rooms">, seats: reado
   const { pool, dealKey, rotated } = await rotationFor(ctx, room, seats);
   if (pool.length === 0) throw new OpFailure("This preset has no rule with a converged valuation yet, so nothing can be dealt.");
   if (rotated) return { rules: rotated.rules, dealKey, rotation: { round: rotated.round, of: rotated.of } };
+  enoughFamilies(room, seats.length);
   const kinds = seats.map(s => s.kind);
   if (isPracticeGame(kinds)) return { rules: practiceDeal(pool, kinds, seed, presetOf(room.preset).variant), dealKey, rotation: null };
   return { rules: freshDeal(pool, seats.length, seed, presetOf(room.preset).variant), dealKey, rotation: null };
@@ -196,6 +211,7 @@ export async function openBidding(ctx: MutationCtx, room: Doc<"v2Rooms">) {
   if (seats.length < preset.minPlayers) throw new OpFailure(`Needs ${preset.minPlayers} players; ${seats.length} seated.`, "seats.fillPracticePartners");
   const pool = roomPool(room);
   if (pool.length === 0) throw new OpFailure("This preset has no rule with a converged valuation yet, so nothing can be dealt.");
+  enoughFamilies(room, seats.length);
   for (const row of await ctx.db.query("v2RoomBids").withIndex("by_room_member", q => q.eq("roomId", room._id)).take(MAX_MEMBERS)) await ctx.db.delete(row._id);
   const deadline = Date.now() + bid.seconds * 1000 / timeScaleOf(room.overrides);
   // v1's bid price and visibility, as the room sets them (else the preset's pricing, sealed).
@@ -219,6 +235,16 @@ export const setTimeScale = internalMutation({
 
 /** The humans who bid: seated (not spectating) and human (practice partners and AI players do not bid). */
 export const bidders = (members: readonly Doc<"v2Members">[]) => members.filter(m => m.kind === "human" && !m.spectator);
+
+/**
+ * v1's open bidding: the other seated bidders' bids as they stand, for the bid screen and `bid.state` alike; none when
+ * the room bids sealed (the default). A bid of a member who now watches or has left is not shown: it no longer counts.
+ */
+export function openBids(bidding: NonNullable<Doc<"v2Rooms">["bidding"]>, rows: readonly Doc<"v2RoomBids">[], members: readonly Doc<"v2Members">[], me: Id<"v2Members">) {
+  if ((bidding.visibility ?? "sealed") !== "open") return [];
+  const seated = new Map(bidders(members).map(m => [m._id as string, m.name]));
+  return rows.filter(r => r.memberId !== me && r.bids.length > 0 && seated.has(r.memberId)).map(r => ({ memberId: r.memberId, name: seated.get(r.memberId)!, bids: r.bids }));
+}
 
 /**
  * Closes the phase and deals with its bids (only the bids of members still seated count). Idempotent: a phase already
@@ -258,6 +284,7 @@ export async function rematchDeal(ctx: QueryCtx, room: Doc<"v2Rooms">): Promise<
   for (const r of await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", last._id)).take(MAX_MEMBERS)) {
     const rule = byKey.get(r.ruleKey);
     if (!rule) throw new OpFailure("The last game's rules are no longer dealt by this setup.", "game.start");
+    if (room.overrides.excludedFamilies?.includes(rule.family)) throw new OpFailure("The room no longer deals one of the last game's rules (Rules never dealt).", "game.start");
     rules.set(r.memberId, rule);
   }
   return { seed: last.seed, dealKey: last.dealKey, rules };
