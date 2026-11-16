@@ -17,7 +17,7 @@ const boxes = sandboxes();
 after(() => boxes.close());
 const line = (m: number, c: number) => ({ lines: [fromMC(Qn.q(m), Qn.q(c))] });
 type Line = ReturnType<typeof line>;
-const rule = { family: "prime-gradient", params: { suffix: "1" }, tieBreaker: "shared-factor" };
+const rule = { family: "prime-hug", params: { suffix: "1" }, tieBreaker: null };
 const run = predicateRunner<Line>(lineType, lineZ, await predicateBoxes(["typescript", "python"]));
 const rates = { createPerBit: 0.05, upkeepPerBit: 0.0002 };
 const ready = (id: string, language: "typescript" | "python", args: Record<string, string> = {}) => READY_PREDICATES.find(p => p.id === id)!.make(language, args);
@@ -230,7 +230,7 @@ test("the shipped starters never propose a move a lock forbids: on a locked line
   const { startersFor } = await import("../src/index.ts");
   const prime = ready("prime-intercept", "typescript");
   let committed = 0;
-  for (const language of ["typescript", "python"] as const) for (const a of startersFor("prime-gradient", language)) {
+  for (const language of ["typescript", "python"] as const) for (const a of startersFor("prime-hug", language)) {
     for (const seed of ["1", "2", "3"]) {
       const { record, state: after } = await runAct(await boxes.get(language), {
         type: lineType, variant: lineZ, state, rule, program: { language, source: a.source }, seed, energy: 500, locks: locks([live(1, prime)]),

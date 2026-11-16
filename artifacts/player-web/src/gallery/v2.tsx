@@ -14,7 +14,7 @@
 import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { q } from "@workspace/v2-core";
-import { divisibilityLadder, encodeLine, fromMC, lensMutators, lineQ, lineQLenses, lineType, lineZ, normalise, primeGradient, primeLanding, squareArea, treasure, wholeCrossing, type Line, type LineState } from "@workspace/v2-linear";
+import { crossingSliver, encodeLine, fromMC, lensMutators, lineQ, lineQLenses, lineType, lineZ, multiples, normalise, powerHug, primeHug, squareTriangle, steppingCoefficients, type Line, type LineState } from "@workspace/v2-linear";
 import { annotate, bitsLine, CompactFace, ExpandedFace, GameSummary, GoalCard, MoveLine, MoveSketch, ObjectChip, summarise, type RuleRef } from "@workspace/v2-views";
 import { valueFor } from "./values";
 import { abc, autoLines, CURATED, mc, type LineFamily } from "./line-examples";
@@ -118,15 +118,15 @@ function LineRow({ rule, state }: { rule: RuleRef<LineState, unknown>; state: Li
 
 /** Lines real games produce that a fixed window draws badly, under the rules that read them on the plane. */
 const HARD: readonly { title: string; family: Family; state: LineState; tb?: string }[] = [
-  { title: "y = 290x + 59 · Square Area", family: squareArea, state: mc(290, 59) },
-  { title: "y = 290x + 59 · Prime Landing", family: primeLanding, state: mc(290, 59) },
-  { title: "near-horizontal y = x/6 + 7/6 · Whole Crossing", family: wholeCrossing, state: mc(q(1, 6), q(7, 6)) },
-  { title: "far from the origin, c = 27,720 · Divisibility Ladder", family: divisibilityLadder, state: mc(27720, 27720) },
-  { title: "far from the origin, y = 5x + 27,720 · Prime Landing", family: primeLanding, state: mc(5, 27720) },
-  { title: "through the origin · Square Area", family: squareArea, state: mc(3, 0) },
-  { title: "near-vertical, x-intercept 90 · Whole Crossing", family: wholeCrossing, state: abc(1000, -1, -90001) },
-  { title: "Treasure y = 15x + 6", family: treasure, state: mc(15, 6) },
-  { title: "Prime Gradient y = 997x + 3", family: primeGradient, state: mc(997, 3) },
+  { title: "y = 290x + 59 · Square Triangle", family: squareTriangle, state: mc(290, 59) },
+  { title: "y = 290x + 59 · Power Hug", family: powerHug, state: mc(290, 59) },
+  { title: "near-horizontal y = x/6 + 7/6 · Crossing Sliver", family: crossingSliver, state: mc(q(1, 6), q(7, 6)) },
+  { title: "far from the origin, c = 27,720 · Multiples", family: multiples, state: mc(27720, 27720) },
+  { title: "far from the origin, y = 5x + 27,720 · Power Hug", family: powerHug, state: mc(5, 27720) },
+  { title: "through the origin · Square Triangle", family: squareTriangle, state: mc(3, 0) },
+  { title: "near-vertical, x-intercept 90 · Crossing Sliver", family: crossingSliver, state: abc(1000, -1, -90001) },
+  { title: "Stepping Coefficients y = 15x + 6", family: steppingCoefficients, state: mc(15, 6) },
+  { title: "Prime Hug y = 997x + 3", family: primeHug, state: mc(997, 3) },
 ];
 
 function Hard() {
@@ -139,9 +139,9 @@ function Hard() {
         return (
           <div key={h.title} className="g-row" data-hard={h.title}>
             <div className="g-small">
-              <Cell title={h.title}><CompactFace rule={rule} state={h.state} rep={h.family === squareArea ? "tri" : "cart"} /></Cell>
+              <Cell title={h.title}><CompactFace rule={rule} state={h.state} rep={h.family === squareTriangle ? "tri" : "cart"} /></Cell>
             </div>
-            <Cell title="expanded" wide><ExpandedFace rule={rule} state={h.state} value={valueOf(rule)} improvement={false} initialRep={h.family === squareArea ? "tri" : "cart"} /></Cell>
+            <Cell title="expanded" wide><ExpandedFace rule={rule} state={h.state} value={valueOf(rule)} improvement={false} initialRep={h.family === squareTriangle ? "tri" : "cart"} /></Cell>
           </div>
         );
       })}
@@ -183,7 +183,7 @@ function Lenses() {
 
 /** "What earned your points" for a ladder rule on lines on and off its rungs (round 29: "…dealt prime…: −½"). */
 function EndSummary() {
-  const rule = { type: lineType, family: primeGradient, params: { ends: 1 }, variant: lineQ, tieBreaker: primeGradient.tieBreakers[0]!.id } as RuleRef<LineState, unknown>;
+  const rule = { type: lineType, family: primeHug, params: primeHug.dealable(lineQ)[0], variant: lineQ, tieBreaker: primeHug.tieBreakers[0]?.id ?? null } as RuleRef<LineState, unknown>;
   const objects = [
     { number: 1, state: mc(11, 3), points: 41.2, bits: 6.1, want: 6.75 },
     { number: 2, state: mc(10, 3), points: 12.5, bits: 2.5, want: 5 },
@@ -210,7 +210,7 @@ const TREE: { title: string; state: LineState }[] = [
 ];
 
 function Tree() {
-  const rule = { type: lineType, family: treePrimeIntercept, params: { ends: 1 }, variant: lineQ, tieBreaker: "close>times" } as RuleRef<LineState, unknown>;
+  const rule = { type: lineType, family: treePrimeIntercept, params: primeHug.dealable(lineQ)[0], variant: lineQ, tieBreaker: "close>times" } as RuleRef<LineState, unknown>;
   return (
     <section className="g-section" id="tree" data-section="tree">
       <h2>A rule in the tree shape: target, closeness, third</h2>

@@ -33,39 +33,10 @@ async function both(agent: string, rule: RuleRef, at: ReturnType<typeof line>) {
   return out[0]!;
 }
 
-test("Prime Gradient with look and near: one read of si, then a tilt to the nearest prime", async () => {
-  const r = await both("prime-gradient", { family: "prime-gradient", params: { suffix: "1" } }, line(9, 1));
-  assert.deepEqual(r.transcript.map(t => t.request), [{ op: "view", rep: "si" }]);
-  assert.equal(r.outcome, "committed");
-  assert.deepEqual(r.calls.map(c => [c.mutator, c.args]), [["si.tilt", { k: "-2" }]], "9 → 7: on a tie the smaller prime");
-  assert.equal(r.after, lineType.encode({ lines: [fromMC(q(7), q(1))] }));
-  const skip = await both("prime-gradient", { family: "prime-gradient", params: { suffix: "1" } }, line(5, 3));
-  assert.equal(skip.outcome, "skipped");
-});
-
-test("m Meets c with cheapest: three routes priced, the cheapest made, by real v2-linear prices", async () => {
-  const r = await both("m-meets-c", { family: "m-meets-c", params: {} }, line(1, 5));
-  assert.deepEqual(r.transcript.map(t => t.request.op), ["view", "quote", "quote", "quote"]);
-  const charges = r.transcript.slice(1).map(t => (t.reply as { ok: true; result: { charge: number } }).result.charge);
-  const cheapest = Math.min(...charges);
-  assert.equal(r.outcome, "committed");
-  const picked = charges.indexOf(cheapest);
-  assert.equal(r.calls[0]!.mutator, ["si.shift", "si.tilt", "seq.step"][picked]);
-  assert.equal(r.calls[0]!.rep, ["si", "si", "seq"][picked]);
-});
-
-test("Triangle Area with goal and cheapest: one read, a search in the agent's own time, quotes only of the best", async () => {
-  const r = await both("triangle-area", { family: "triangle-area", params: { A: 6 } }, line(2, 3));
-  const ops = r.transcript.map(t => t.request.op);
-  assert.deepEqual(ops.slice(0, 2), ["view", "myRule"]);
-  assert.ok(ops.slice(2).every(op => op === "quote"));
-  assert.equal(r.outcome, "committed");
-});
-
 test("every helper gives the same answers in both languages", async () => {
   const out: string[] = [];
   for (const language of ["typescript", "python"] as Language[]) {
-    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(3, 2), q(-4), lineQ).state, rule: { family: "triangle-area", params: { A: 6 } }, energy: 100 });
+    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(3, 2), q(-4), lineQ).state, rule: { family: "square-triangle", params: { k: 3 } }, energy: 100, energySeed: "1" });
     const res = await (await boxes.get(language)).act({ source: source(`every-helper.${language === "python" ? "py" : "ts"}`), offer: { object: 0 }, seed: "1", host });
     assert.equal(res.ok, true, res.ok ? "" : res.error);
     if (res.ok) out.push(JSON.stringify({ calls: JSON.parse(res.calls), transcript: res.transcript, readBits: res.readBits }));
@@ -82,7 +53,7 @@ test("every helper gives the same answers in both languages", async () => {
 test("an agent may declare its own name that a helper has (the helpers are configurable globals)", async () => {
   const src = `const square = x => Q.mul(x, x);\nconst price = 3;\nfunction agent(offer) { return [move("si.shift", { k: Q.sub(square(price), 8) })]; }`;
   const { record } = await runAct(await boxes.get("typescript"), {
-    type: lineType, ...line(1, 1), rule: { family: "m-meets-c", params: {} }, program: { language: "typescript", source: src }, seed: "1", energy: 10,
+    type: lineType, ...line(1, 1), rule: { family: "power-hug", params: { k: 3 } }, program: { language: "typescript", source: src }, seed: "1", energy: 10,
   });
   assert.equal(record.outcome, "committed", record.reason);
   assert.deepEqual(record.calls[0]!.args, { k: "1" });
@@ -110,7 +81,7 @@ test("the points helpers: worth, rarity, recent, pushback and contested agree in
 `;
   const out = [];
   for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-    const host = new EngineHost({ type: lineType, ...line(1, 1), rule: { family: "m-meets-c", params: {} }, energy: 10, value, history, values });
+    const host = new EngineHost({ type: lineType, ...line(1, 1), rule: { family: "power-hug", params: { k: 3 } }, energy: 10, value, history, values });
     const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
     assert.equal(res.ok, true, res.ok ? "" : res.error);
     if (res.ok) out.push({ r: (JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r, notes: host.notes, readBits: res.readBits });
@@ -123,7 +94,7 @@ test("the points helpers: worth, rarity, recent, pushback and contested agree in
 test("without the game's values an agent still runs (worth is null, rarity 0, recent empty), and its notes reach the act record", async () => {
   const src = `function agent(offer) { note(offer, [worth(offer), rarity(offer, [1]), recent(offer).length, contested(offer, 1)].join("|")); return null; }`;
   const { record } = await runAct(await boxes.get("typescript"), {
-    type: lineType, ...line(1, 1), rule: { family: "m-meets-c", params: {} }, program: { language: "typescript", source: src }, seed: "1", energy: 10,
+    type: lineType, ...line(1, 1), rule: { family: "power-hug", params: { k: 3 } }, program: { language: "typescript", source: src }, seed: "1", energy: 10,
   });
   assert.equal(record.outcome, "skipped", record.reason);
   assert.deepEqual(record.notes, ["|0|0|false"]);
@@ -134,71 +105,11 @@ test("price() of the plan cheapest() just returned is answered without a second 
   const py = `def agent(offer):\n    plans = [[move("si.shift", k=1)], [move("si.tilt", k=1)]]\n    p = cheapest(offer, plans)\n    return None if price(offer, p) is None else p\n`;
   for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
     const { record } = await runAct(await boxes.get(language), {
-      type: lineType, ...line(1, 1), rule: { family: "m-meets-c", params: {} }, program: { language, source: src }, seed: "1", energy: 10,
+      type: lineType, ...line(1, 1), rule: { family: "power-hug", params: { k: 3 } }, program: { language, source: src }, seed: "1", energy: 10,
     });
     assert.equal(record.outcome, "committed", record.reason);
     assert.equal(record.transcript.filter(e => e.request.op === "quote").length, 2, `${language}: two plans, two quotes`);
   }
-});
-
-test("fair: true when a plan keeps the others' rarity, added up; the same in both languages; a small read each time", async () => {
-  const other = { family: "prime-gradient", params: { suffix: "1" }, tieBreaker: "shared-factor" };
-  const vf = findValues("line-q", other)!   /* the dealt ending is valued on line-q only */;
-  const gradientOff = { lines: [fromMC(q(11), q(3))] };   // m = 11 is a prime ending in 1: the other player's rule likes it
-  const ts = `function agent(offer) { return [move("probe", { r: [fair(offer, [move("si.shift", { k: 1 })]), fair(offer, [move("si.tilt", { k: 1 })]), fair(offer, [move("nope", {})])].join("|") })]; }`;
-  const py = `def agent(offer):\n    r = [fair(offer, [move("si.shift", k=1)]), fair(offer, [move("si.tilt", k=1)]), fair(offer, [move("nope")])]\n    return [move("probe", r="|".join(str(x).lower() for x in r))]\n`;
-  const out = [];
-  for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-    const host = new EngineHost({ type: lineType, variant: lineZ, state: gradientOff, rule: { family: "m-meets-c", params: {} }, energy: 10, others: [{ rule: other, values: vf }] });
-    const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
-    assert.equal(res.ok, true, res.ok ? "" : res.error);
-    if (res.ok) out.push({ r: (JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r, readBits: res.readBits });
-  }
-  assert.deepEqual(out[1], out[0], "Python and TypeScript differ");
-  // Shifting keeps the gradient 11 (a prime ending in 1): fair. Tilting to 12 loses it: not fair. A move that is not allowed: fair (it changes nothing).
-  assert.equal(out[0]!.r, "true|false|true");
-  assert.ok(out[0]!.readBits >= 3 * 6, "each othersAfter is a small read");
-  // Without the others' rules the game does not say, and fair is true.
-  const plain = new EngineHost({ type: lineType, variant: lineZ, state: gradientOff, rule: { family: "m-meets-c", params: {} }, energy: 10 });
-  const res = await (await boxes.get("typescript")).act({ source: ts, offer: { object: 0 }, seed: "1", host: plain });
-  assert.equal(res.ok && (JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r, "true|true|true");
-});
-
-test("climb: the step that raises my points most (rarity × the others' total), best for my rule first; null when none does; without values, my rule's best; the same in both languages", async () => {
-  const other = { family: "prime-gradient", params: { suffix: "1" }, tieBreaker: "shared-factor" };
-  const others = [{ rule: other, values: findValues("line-q", other)!   /* the dealt ending is valued on line-q only */ }];
-  const at = { lines: [fromMC(q(11), q(3))] };   // m = 11 is a prime ending in 1: the other player's rule likes it, so tilting lowers the others
-  const values = { knots: [[null, 0], [["1"], 3], [["2"], 7]].map(([u, bits]) => ({ u: u as string[] | null, bits: bits as number, lo: bits as number, hi: bits as number, source: "exact" as const })), tail: { secondary: { form: "linear" as const, slope: 1 }, primary: { form: "linear" as const, slope: 1 } } };
-  // Scores are given: the shift reaches 1 (3 bits), the tilt 2 (7 bits) but lowers the others, a third option is not allowed.
-  const ts = `function agent(offer) {
-  const sh = [move("si.shift", { k: 1 })], ti = [move("si.tilt", { k: 1 })], no = [move("nope", {})];
-  const pick = climb(offer, [[sh, [1]], [ti, [2]], [no, [9]]], [0]);
-  const one = climb(offer, [[sh, [1]], [ti, [2]]], [0], 1);
-  return [move("probe", { r: [pick ? pick[0].mutator : "none", one ? one[0].mutator : "none", climb(offer, [[sh, null]], [0]) === null].join("|") })];
-}`;
-  const py = `def agent(offer):
-    sh, ti, no = [move("si.shift", k=1)], [move("si.tilt", k=1)], [move("nope")]
-    pick = climb(offer, [(sh, [1]), (ti, [2]), (no, [9])], [0])
-    one = climb(offer, [(sh, [1]), (ti, [2])], [0], 1)
-    r = [pick[0]["mutator"] if pick else "none", one[0]["mutator"] if one else "none", str(climb(offer, [(sh, None)], [0]) is None).lower()]
-    return [move("probe", r="|".join(r))]
-`;
-  const out: string[][] = [];
-  for (const withValues of [true, false]) for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-    const host = new EngineHost({ type: lineType, variant: lineZ, state: at, rule: { family: "m-meets-c", params: {} }, energy: 10, others,
-      ...(withValues ? { values, value: { mine: 0.5, others: 1, points: 0.5 } } : {}) });
-    const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
-    assert.equal(res.ok, true, res.ok ? "" : res.error);
-    if (res.ok) out.push((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r.split("|"));
-  }
-  assert.deepEqual(out[1], out[0], "Python and TypeScript differ (with values)");
-  assert.deepEqual(out[3], out[2], "Python and TypeScript differ (without values)");
-  // With values: rarity 7 × the others after the tilt against 3 × the others after the shift; weighing only the best one, the tilt.
-  const shift = new EngineHost({ type: lineType, variant: lineZ, state: at, rule: { family: "m-meets-c", params: {} }, energy: 10, others });
-  const after = (k: "si.shift" | "si.tilt") => (shift.handle({ op: "othersAfter", calls: [{ mutator: k, site: 0, args: { k: "1" } }] } as never, { hostCallsLeft: 5 }) as { result: { after: number } }).result.after;
-  assert.equal(out[0]![0], 7 * after("si.tilt") > 3 * after("si.shift") ? "si.tilt" : "si.shift");
-  assert.deepEqual(out[0]!.slice(1), ["si.tilt", "true"], "most = 1 weighs only the rule's best; a step worth nothing to my rule (no score) is null");
-  assert.deepEqual(out[2], ["si.tilt", "si.tilt", "true"], "without values: the rule's best, or null when nothing beats now");
 });
 
 test("rounding: on a line with fractions, the steps to the whole number below and above, by one part, and a stretch by each denominator; the same in both languages", async () => {
@@ -215,7 +126,7 @@ test("rounding: on a line with fractions, the steps to the whole number below an
 `;
   const out: string[] = [];
   for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-    const host = new EngineHost({ type: lineType, ...line(1, 1), rule: { family: "m-meets-c", params: {} }, energy: 10 });
+    const host = new EngineHost({ type: lineType, ...line(1, 1), rule: { family: "power-hug", params: { k: 3 } }, energy: 10 });
     const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
     assert.equal(res.ok, true, res.ok ? "" : res.error);
     if (res.ok) out.push((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r);
@@ -242,7 +153,7 @@ test("fractions and tips: steps into halves and thirds; on a vertical line, the 
   for (const state of [{ lines: [{ a: 2n, b: 0n, c: -1n }] }, line(3, 4, lineQ).state]) {   // x = 1/2 (vertical), then y = 3x + 4
     const row: string[] = [];
     for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-      const host = new EngineHost({ type: lineType, variant: lineQ, state, rule: { family: "m-meets-c", params: {} }, energy: 10 });
+      const host = new EngineHost({ type: lineType, variant: lineQ, state, rule: { family: "power-hug", params: { k: 3 } }, energy: 10 });
       const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
       assert.equal(res.ok, true, res.ok ? "" : res.error);
       if (res.ok) row.push((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r);
@@ -257,41 +168,13 @@ test("fractions and tips: steps into halves and thirds; on a vertical line, the 
   assert.equal(tipsSloped, "", "a line that is not vertical has nothing to tip");
 });
 
-test("climb: a step dearer than the allowance (15 s of income) is paid from energy saved in hand, never on credit; the same in both languages", async () => {
-  const other = { family: "prime-gradient", params: { suffix: "1" }, tieBreaker: "shared-factor" };
-  const others = [{ rule: other, values: findValues("line-q", other)! }];
-  const at = { lines: [fromMC(q(11), q(3))] };   // shifting keeps m = 11, which the other rule likes
-  const values = { knots: [[null, 0], [["1"], 3], [["2"], 7]].map(([u, bits]) => ({ u: u as string[] | null, bits: bits as number, lo: bits as number, hi: bits as number, source: "exact" as const })), tail: { secondary: { form: "linear" as const, slope: 1 }, primary: { form: "linear" as const, slope: 1 } } };
-  const ts = `function agent(offer) {
-  const pick = climb(offer, [[[move("si.shift", { k: 5 })], [2]]], [0]);
-  return [move("probe", { r: (pick ? "shift" : "none") + "|" + price(offer, move("si.shift", { k: 5 })) + "|" + allowance(offer) })];
-}`;
-  const py = `def agent(offer):
-    pick = climb(offer, [([move("si.shift", k=5)], [2])], [0])
-    return [move("probe", r=("shift" if pick else "none") + "|" + str(price(offer, move("si.shift", k=5))) + "|" + str(allowance(offer)))]
-`;
-  const out: string[][] = [];
-  for (const energy of [400, 20]) for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-    const host = new EngineHost({ type: lineType, variant: lineZ, state: at, rule: { family: "m-meets-c", params: {} }, energy, income: 1, others, values, value: { mine: 0.5, others: 1, points: 0.5 } });
-    const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
-    assert.equal(res.ok, true, res.ok ? "" : res.error);
-    if (res.ok) out.push((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r.split("|"));
-  }
-  assert.equal(out[1]![0], out[0]![0], "Python and TypeScript differ (savings)");
-  assert.equal(out[3]![0], out[2]![0], "Python and TypeScript differ (no savings)");
-  const [, price, cap] = out[0]!.map(Number);
-  assert.ok(price! > cap! && price! > 20 && price! <= 400, `the shift costs ${price}, above the allowance ${cap} and within the savings`);
-  assert.equal(out[0]![0], "shift", "saved energy pays for it");
-  assert.equal(out[2]![0], "none", "without the savings it waits (no debt beyond the allowance)");
-});
-
 test("simplest: the fraction with the smallest denominator between two numbers (then the numerator nearest 0); the same in both languages", async () => {
   const cases = [["37/2", "39/2"], ["-81/100", "-77/100"], ["-3", "5"], ["5/7", "5/7"], ["-1", "-1/3"], ["1/1000", "1/999"]];
   const ts = `function agent(offer) { return [move("probe", { r: ${JSON.stringify(cases)}.map(([a, b]) => Q.toString(simplest(Q.from(a), Q.from(b)))).join("|") })]; }`;
   const py = `def agent(offer):\n    return [move("probe", r="|".join(str(simplest(Fraction(a), Fraction(b))) for a, b in ${JSON.stringify(cases)}))]\n`;
   const out: string[] = [];
   for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(3, 2), q(-4), lineQ).state, rule: { family: "triangle-area", params: { A: 6 } }, energy: 100 });
+    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(3, 2), q(-4), lineQ).state, rule: { family: "square-triangle", params: { k: 3 } }, energy: 100, energySeed: "1" });
     const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
     assert.equal(res.ok, true, res.ok ? "" : res.error);
     if (res.ok) out.push((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r);
@@ -318,7 +201,7 @@ test("shortcuts: each step in another view lands where the game puts it, the sam
 `;
   const rows: string[][] = [];
   for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-    const host = new EngineHost({ type: lineType, variant: lineQ, state: { lines: [fromMC(q(1), q(1))] }, rule: { family: "triangle-area", params: { A: 6 } }, energy: 100 });
+    const host = new EngineHost({ type: lineType, variant: lineQ, state: { lines: [fromMC(q(1), q(1))] }, rule: { family: "square-triangle", params: { k: 3 } }, energy: 100, energySeed: "1" });
     const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host, limits: { stepBudget: 5_000_000, wallMs: 20_000 } });
     assert.equal(res.ok, true, res.ok ? "" : res.error);
     if (res.ok) rows.push((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r.split("\n"));
@@ -349,7 +232,7 @@ test("shortcuts offers only the moves in the game's menu (myRule().mutators), in
   const ts = `function agent(offer) { const menu = goal(offer).mutators; return [move("probe", { r: [menu.includes("cart.mirror"), [...new Set(shortcuts(Q.from(2), Q.from(3), ["cart.mirror"]).map(([p]) => p.mutator))].join(",")].join("|") })]; }`;
   const py = `def agent(offer):\n    menu = goal(offer).mutators\n    kinds = sorted(set(p["mutator"] for p, _, _ in shortcuts(Fraction(2), Fraction(3), ["cart.mirror"])))\n    return [move("probe", r=("true" if "cart.mirror" in menu else "false") + "|" + ",".join(kinds))]\n`;
   for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(3, 2), q(-4), lineQ).state, rule: { family: "triangle-area", params: { A: 6 } }, energy: 100 });
+    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(3, 2), q(-4), lineQ).state, rule: { family: "square-triangle", params: { k: 3 } }, energy: 100, energySeed: "1" });
     const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
     assert.equal(res.ok, true, res.ok ? "" : res.error);
     if (res.ok) assert.equal((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r, `${lineQ.mutators.includes("cart.mirror")}|cart.mirror`, language);
@@ -372,22 +255,10 @@ test("simplest equals the brute-force definition (smallest denominator, then num
   const py = `def agent(offer):\n    return [move("probe", r="|".join(str(simplest(Fraction(a), Fraction(b))) for a, b in ${JSON.stringify(cases)}))]\n`;
   const want = cases.map(brute).map(s => (s.endsWith("/1") ? s.slice(0, -2) : s));
   for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(3, 2), q(-4), lineQ).state, rule: { family: "triangle-area", params: { A: 6 } }, energy: 100 });
+    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(3, 2), q(-4), lineQ).state, rule: { family: "square-triangle", params: { k: 3 } }, energy: 100, energySeed: "1" });
     const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host, limits: { stepBudget: 5_000_000, wallMs: 20_000 } });
     assert.equal(res.ok, true, res.ok ? "" : res.error);
     if (res.ok) assert.deepEqual((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r.split("|"), want, language);
   }
 });
 
-test("climb skips instead of failing when the act has few host calls left (64 an act), in both languages", async () => {
-  // Spend 56 of the 64 calls on budget reads, then climb over steps that each need a look at the others (worth is told).
-  const rule = { family: "prime-gradient", params: { suffix: "1" }, tieBreaker: "shared-factor" }, other = { family: "treasure", params: { k: 3 }, tieBreaker: "shared-factor" };
-  const ts = `function agent(offer) { for (let i = 0; i < 56; i++) offer.budget(); const opts = [11, 31, 41, 61, 71, 101].map(k => [move("si.tilt", { k }), [Q.of(k), Q.of(1)]]); return climb(offer, opts, [Q.of(-5), Q.of(0)], 6) ?? []; }`;
-  const py = `def agent(offer):\n    for _ in range(56):\n        offer.budget()\n    opts = [(move("si.tilt", k=k), [Fraction(k), Fraction(1)]) for k in (11, 31, 41, 61, 71, 101)]\n    return climb(offer, opts, [Fraction(-5), Fraction(0)], 6) or []\n`;
-  for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(0), q(3), lineQ).state, rule, energy: 1000,
-      values: findValues("line-q", rule)!, value: { mine: 0.01, others: 1, points: 0.01 }, others: [{ rule: other, values: findValues("line-q", other)! }] });
-    const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
-    assert.equal(res.ok, true, res.ok ? "" : `${language}: ${res.error}`);
-  }
-});

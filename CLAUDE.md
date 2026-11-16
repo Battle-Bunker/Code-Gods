@@ -87,10 +87,11 @@ query needs an entry in the query-cost gate (R8).
   that operate in another representation (swap, rotate, reverse, spin, mirror, stretch by a factor) are intended
   shortcuts, priced as choices (or by digits), never by the unit path: "That makes the state space more interestingly
   shaped in terms of cost function topology and more like real life exploration of problem spaces."
-- **Tie-breakers tie to the primary (owner decision 29).** A secondary is a relation between the primary's anchor and
-  another aspect of the object (e.g. the gcd of c's nearest whole number with ⌊m⌋), never an independent wish (e.g. "m
-  close to a large prime" beside a c-primary). Rules may be entangled to different degrees (decision 27); no maxima
-  (decision 26): coefficients are uncapped and value curves extend without bound.
+- **One utility per rule (owner decision 50, superseding decision 29's tie-breakers).** A rule is one pure function from
+  a state to a real number; no ordered tuples, no tie-breakers. Precision lives inside the utility (e.g. "sqrt of size of
+  nearest power of k minus distance to that power cubed"). Rules may be entangled to different degrees (decision 27); no
+  maxima (decision 26): parameters are uncapped and utilities extend without bound. Old rule ideas:
+  `docs/engine-v2/old-rule-ideas.md`.
 - **Unbounded hills, with adversaries (owner decision 30).** "Bigger is better" hills are wanted. What prevents
   collapse is adversaries to the climb and diversity of goals: rules in deliberate tension (small values against big,
   smooth numbers against large primes, opposite signs and directions on shared anchors), so that one basic strategy
@@ -110,9 +111,9 @@ query needs an entry in the query-cost gate (R8).
 - **What is wanted and what is the bug.** Hill climbing a combined landscape that improves several players' rules at
   once is wanted. The bug is when really high peaks are easy to find (by search, by a formula, or by being told the
   rules). The owner has little time for detailed decisions: learn the principles and make good calls.
-- **Every rule family passes `docs/engine-v2/design-principles.md` before it is dealt** (owner, 2026-11-15): an
-  unbounded main part, a long ladder, a tie-breaker defined by the main part's value (stepping up the main part restarts
-  the tie-breaker's climb), many dealable instances that are close to perpendicular, named adversaries. A pull request
+- **Every rule family passes `docs/engine-v2/design-principles.md` before it is dealt** (owner, 2026-11-15), as adapted
+  for one-number utilities in `docs/engine-v2/energy.md`: an unbounded utility, a long ladder, many dealable instances
+  that are close to perpendicular, named adversaries. A pull request
   that adds or changes a dealt rule carries that file's check table. The coordinator re-reads the file at every check-in.
 - Details, and what went wrong on 14 November: `.agents/memory/metastable-ecosystem.md`. Departures made during the
   rebuild: `docs/engine-v2/v1-audit.md`. Why optima were easy to find: `docs/engine-v2/landscape-analysis.md`.

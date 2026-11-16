@@ -13,7 +13,7 @@ after(() => boxes.close());
 // y = 2x + 3 on line-z: si reads m = 2 (6 bits) and c = 3 (6 bits); φ, the full read of the state, is less.
 const state = { lines: [fromMC(q(2), q(3))] };
 const PHI = lineType.readLength(state, lineZ);
-const rule: RuleRef = { family: "m-meets-c", params: {} };
+const rule: RuleRef = { family: "power-hug", params: { k: 3 } };
 const host = () => new EngineHost({ type: lineType, variant: lineZ, state, rule, energy: 50 });
 const ask = (h: EngineHost<typeof state>, request: HostRequest) => h.handle(request, { hostCallsLeft: 10 }) as HostReply & { ok: true; result: any };
 
@@ -45,19 +45,20 @@ test("a single static element counts towards its view's full read", () => {
 test("myScore charges the rule's views and reports each layer; myRule and budget are free", () => {
   const h = host();
   const s = ask(h, { op: "myScore" });
-  assert.deepEqual(s.result.score, ["-1", "3"], "main part: −|m − c|; tie-breaker (the family's first, size): |c|");
-  assert.deepEqual(s.result.layers.map((l: { id: string }) => l.id), ["gap", "size"]);
-  assert.equal(s.result.bits, null, "without the game's value function, no bits");
+  assert.equal(s.result.score.length, 1, "one number: the utility (owner decision 50)");
+  assert.ok(Math.abs(Number(s.result.score[0].split("/")[0]) / Number(s.result.score[0].split("/")[1] ?? 1) - Math.sqrt(Math.log2(3))) < 1e-6, "c = 3, a power of 3: √(log2 3)");
+  assert.deepEqual(s.result.layers.map((l: { id: string }) => l.id), ["utility"]);
+  assert.ok(typeof s.result.bits === "number" && s.result.bits >= 0, "a dynamic rule: its bits are the state's energy");
   assert.equal("level" in s.result || "top" in s.result, false, "no levels (owner decision 23)");
   assert.equal(s.bits, PHI);
   const r = ask(h, { op: "myRule" }).result;
-  assert.equal(r.tieBreaker, "size");
-  assert.deepEqual(r.layers.map((l: { id: string }) => l.id), ["gap", "size"]);
-  assert.match(r.card, /Secondary/);
+  assert.equal(r.tieBreaker, null);
+  assert.deepEqual(r.layers.map((l: { id: string }) => l.id), ["utility"]);
+  assert.match(r.card, /power of 3/);
   assert.equal(ask(h, { op: "budget" }).result.energy, 50);
   assert.equal(h.readBits, PHI);
   const alone = new EngineHost({ type: lineType, variant: lineZ, state, rule: { ...rule, tieBreaker: null }, energy: 50 });
-  assert.deepEqual(ask(alone, { op: "myScore" }).result.score, ["-1"], "tieBreaker null: the main layer alone");
+  assert.deepEqual(ask(alone, { op: "myScore" }).result.score, s.result.score, "tieBreaker null: the utility alone");
 });
 
 test("the first quote charges the first mutator's view; the price is v2-core's, the charge W + βW²", () => {
@@ -117,40 +118,11 @@ test("skips, invalid calls and broken programs change nothing and are charged th
   assert.equal(compile.record.charge, 3 / 32);
 });
 
-test("with the rule's value function, myScore and rarity give the bits valueLookup gives at the utility (owner decision 23)", () => {
-  const vf = findValues("line-z", { family: "m-meets-c", params: {}, tieBreaker: "size" });
-  assert.ok(vf, "line-z m-meets-c/size has a committed value function");
-  const h = new EngineHost({ type: lineType, variant: lineZ, state, rule, energy: 50, values: vf! });
-  const look = valueLookup(vf!);
-  const s = ask(h, { op: "myScore" }).result;
-  assert.equal(s.bits, look(s.score.map((x: string) => Qn.parse(x))).bits);
-  assert.ok(s.bits > 0);
-  assert.equal(ask(h, { op: "rarity", score: ["0", "5"] }).result.bits, look([Qn.parse("0"), Qn.parse("5")]).bits);
-  assert.equal(ask(h, { op: "rarity", score: null }).result.bits, 0, "the worst score is worth nothing");
-});
-
 test("unique objects: a plan onto a state another object holds is not allowed, so a quote refuses it", () => {
   const at = { lines: [fromMC(q(2), q(3))] }, held = lineType.encode({ lines: [fromMC(q(2), q(4))] });
-  const host = new EngineHost({ type: lineType, variant: lineZ, state: at, rule: { family: "m-meets-c", params: {} }, energy: 10, occupied: e => e === held });
+  const host = new EngineHost({ type: lineType, variant: lineZ, state: at, rule: { family: "power-hug", params: { k: 3 } }, energy: 10, occupied: e => e === held });
   const up = host.price([{ mutator: "si.shift", site: 0, args: { k: "1" } }]), down = host.price([{ mutator: "si.shift", site: 0, args: { k: "-1" } }]);
   assert.deepEqual([up.valid, up.valid ? "" : up.reason], [false, "another object is already in that state"]);
   assert.equal(down.valid, true);
 });
 
-test("disclosure noise: othersAfter reports the others' sum plus the noise at each state, unclamped as v1 disclosed it", () => {
-  const other = { family: "prime-gradient", params: { suffix: "1" }, tieBreaker: "shared-factor" };
-  const others = [{ rule: other, values: findValues("line-q", other)!   /* the dealt ending is valued on line-q only */ }];
-  const at = { lines: [fromMC(q(11), q(3))] }, next = lineType.encode({ lines: [fromMC(q(11), q(4))] });
-  const ask = (disclosed?: (e: string) => number) => {
-    const host = new EngineHost({ type: lineType, variant: lineZ, state: at, rule: { family: "m-meets-c", params: {} }, energy: 10, others, ...(disclosed ? { disclosed } : {}) });
-    const reply = host.handle({ op: "othersAfter", calls: [{ mutator: "si.shift", site: 0, args: { k: "1" } }] } as HostRequest, { hostCallsLeft: 10 });
-    assert.equal(reply.ok, true);
-    return (reply as { result: { before: number; after: number } }).result;
-  };
-  const exact = ask();
-  assert.ok(exact.before > 0 && exact.after > 0);
-  const noisy = ask(e => (e === next ? 2.5 : -1));
-  assert.deepEqual([noisy.before, noisy.after], [exact.before - 1, exact.after + 2.5], "the noise at the state before and at the state after");
-  // v1 (public-log-design §2): others = Σ + noise, unclamped; the server's disclosed want is the same number.
-  assert.deepEqual(ask(() => -1e6), { before: exact.before - 1e6, after: exact.after - 1e6 }, "the noisy sum as disclosed, below 0 too");
-});

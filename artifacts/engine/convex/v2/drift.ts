@@ -15,8 +15,7 @@
  */
 import { canonicalJson, driftParams } from "@workspace/v2-core";
 import { findVariant, ruleKey } from "@workspace/v2-valuation";
-import { familyOf, seatingClashes } from "./deal.ts";
-import type { SeatedRule } from "@workspace/v2-linear";
+import { familyOf, seatingClashes, type SeatedRule } from "./deal.ts";
 import { valueHead } from "./valuesHead.ts";
 
 /** A game's drift interval in world seconds (0: off; games stored before drift have none). */

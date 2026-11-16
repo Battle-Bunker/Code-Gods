@@ -7,7 +7,7 @@
 import { measuredToBits, valueRecord } from "../../convex/v2/values.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dealablePool, freshDeal, isPracticeGame, practiceDeal, rotatedDeal, ruleView, seatingClashes, shutOut, type DealtRule, type PastDeal, type SeatKind } from "../../convex/v2/deal.ts";
+import { dealablePool, freshDeal, isPracticeGame, practiceDeal, rotatedDeal, ruleView, seatingClashes, type DealtRule, type PastDeal, type SeatKind } from "../../convex/v2/deal.ts";
 import { presetOf } from "../../convex/v2/presets.ts";
 
 // The table-valued line pool (the beginner lines deal the dynamic families: see the test at the end).
@@ -101,18 +101,15 @@ test("bids: no bids gives the plain deal byte for byte; a win is exclusive and f
   assert.ok(dealt.deal.filter((_, i) => i !== 1).every(r => r.family !== target), "nobody else is dealt the won family");
 });
 
-// Practice games (the coordinator's call of 15 Nov): dealt exactly as a real game, the human's seat the anchor; the
-// one protection kept is that the partners never all exclude the human's family outright (shutOut).
-for (const id of ["lines-beginner", "grids-beginner"]) test(`a practice deal in ${id} is reproducible and never shuts the human out`, () => {
+// Practice games (the coordinator's call of 15 Nov): dealt exactly as a real game.
+for (const id of ["lines-beginner", "grids-beginner"]) test(`a practice deal in ${id} is reproducible`, () => {
   const preset = presetOf(id), pool = dealablePool(preset);
   for (const kinds of [["human", "practice"], ["practice", "human", "practice"], ["human", "practice", "practice", "practice"]] as SeatKind[][]) {
-    const h = kinds.indexOf("human");
     for (let s = 0; s < 40; s++) {
       const seed = `practice-${s}`, deal = practiceDeal(pool, kinds, seed, preset.variant);
       assert.deepEqual(deal, practiceDeal(pool, kinds, seed, preset.variant), "reproducible from its seed");
       assert.equal(deal.length, kinds.length);
       assert.equal(seatingClashes(preset.variant, deal).length, 0, `${id} ${kinds} ${seed}: no forbidden pair`);
-      assert.equal(shutOut(preset.variant, deal, h), false, `${id} ${kinds} ${seed}: some partner leaves the human room to score`);
     }
   }
 });
@@ -150,26 +147,13 @@ test("grids: a deal seats no forbidden pair, and the fewest aligned pairs the po
     }
     assert.ok(changed > 0, `${id}: the seating rule changes some deals`);
   }
-  assert.deepEqual(seatingClashes("line-q", [{ family: "magic-eighteen" }, { family: "opposite-nines" }]), [], "the grids' rule is not the lines'");
+  assert.deepEqual(seatingClashes("line-q", [{ family: "magic-eighteen" }, { family: "opposite-nines" }]), [], "lines have no seating rule");
   // Families in no seating cluster (Divisibility, Leading Digits): no forbidden or aligned pair but one family twice; both sit at two seats.
   assert.deepEqual(gridClashes(["divisibility", "leading-digits"]), []);
   assert.deepEqual(gridAlignedPairs(["divisibility", "leading-digits", "magic-eighteen"]), []);
   assert.deepEqual(gridClashes(["leading-digits", "leading-digits"]), ["leading-digits × leading-digits"]);
 });
 
-test("lines: a fresh deal never seats Prime Landing beside Whole Crossing on the same landings (lib/v2-linear seating.ts)", async () => {
-  const { seatingClashes } = await import("../../convex/v2/deal.ts");
-  const { lineClashes } = await import("@workspace/v2-linear");
-  const pool = dealablePool(beginner);
-  let both = 0;
-  for (let s = 0; s < 300; s++) {
-    const deal = freshDeal(pool, 5, `lines-seat-${s}`, beginner.variant);
-    assert.deepEqual(lineClashes(deal), [], `seed ${s}`);
-    assert.deepEqual(seatingClashes(beginner.variant, deal), []);
-    if (deal.some(r => r.family === "prime-landing") && deal.some(r => r.family === "whole-crossing")) both++;
-  }
-  assert.ok(both > 0, "the two families are still seated together, on landings that pull apart");
-});
 
 // Pair seating (lib/v2-pair seating.ts): no two rules one move climbs together, read from the rules' parameters.
 test("pairs: a lines-pairs deal seats no forbidden pair of rules, and records none", async () => {

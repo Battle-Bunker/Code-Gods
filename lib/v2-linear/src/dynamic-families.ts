@@ -47,6 +47,8 @@ export interface DynamicLineSpec<P> {
   readonly focus: readonly [rep: string, el: string];
   readonly space: ParamSpace<P>;
   readonly peers: readonly P[];
+  /** Whether its good states include lines with a whole gradient and y-intercept (dealt on the whole-number boards). */
+  readonly whole?: boolean;
   readonly searches: readonly { readonly id: string; propose(m: Q, c: Q, uStar: number, p: P, r: Rng): readonly LineTarget[] }[];
 }
 
@@ -68,7 +70,8 @@ export function dynamicLine<P>(s: DynamicLineSpec<P>): RuleFamily<LineState, P> 
     })),
   };
   return {
-    id: s.id, title: s.title, card: p => s.card(p), params: [], dealable: () => s.peers, depends: [...new Set(["si", s.focus[0]])],
+    id: s.id, title: s.title, card: p => s.card(p), params: [],
+    dealable: v => ((v.params as { domain?: string } | undefined)?.domain === "Z" && !s.whole ? [] : s.peers), depends: [...new Set(["si", s.focus[0]])],
     main: { id: "utility", title: s.goal, rep: s.focus[0], sense: "max", sentence: p => s.card(p) },
     tieBreakers: [], keepsParams: true, space: s.space, dynamic,
     evaluate(ctx, p) {
@@ -138,7 +141,7 @@ const powers = (k: number, top: number) => { const out: number[] = []; for (let 
 const nearestPower = (k: number, x: number) => powers(k, Math.max(k, 2 * x + k)).reduce((b, p) => (abs(p - x) < abs(b - x) ? p : b), k);
 const ph = intRange(2, 40, "k, a whole number from 2 to 40", [3, 5]);
 export const powerHug = dynamicLine<{ k: number }>({
-  id: "power-hug", title: "Power Hug", goal: "the y-intercept right on a power of k", reads: ["c"], focus: ["si", "c"], ...ph,
+  id: "power-hug", whole: true, title: "Power Hug", goal: "the y-intercept right on a power of k", reads: ["c"], focus: ["si", "c"], ...ph,
   card: ({ k }) => `The y-intercept (ignoring its sign) should sit exactly on a power of ${k}: ${k}, ${k ** 2}, ${k ** 3}, … A bigger power scores a little more (the square root of its number of binary digits), and every bit off costs a lot: the distance, cubed.`,
   u(_m, c, { k }) { const x = abs(toNum(c)); if (x >= LIMIT) return NaN; const P = nearestPower(k, x); return Math.sqrt(log2(P)) - cube(x - P); },
   searches: [{ id: "big-enough-powers", propose: (_m, c, uStar, { k }) => {
@@ -155,7 +158,7 @@ const primeHugU = (x: number, suffix: string) => {
   return p === null ? NaN : Math.sqrt(log2(p)) - cube(x - p);
 };
 export const primeHug = dynamicLine<{ suffix: string }>({
-  id: "prime-hug", title: "Prime Hug", goal: "the gradient right on a prime with the dealt last digits", reads: ["m"], focus: ["si", "m"],
+  id: "prime-hug", whole: true, title: "Prime Hug", goal: "the gradient right on a prime with the dealt last digits", reads: ["m"], focus: ["si", "m"],
   space: suffixSpace, peers: [{ suffix: "1" }, { suffix: "7" }],
   card: ({ suffix }) => `The gradient (ignoring its sign) should sit exactly on a prime number whose last digits are ${suffix}. A bigger prime scores a little more; every bit off costs a lot: the distance, cubed.`,
   u: (m, _c, { suffix }) => primeHugU(abs(toNum(m)), suffix),
@@ -180,7 +183,7 @@ const multiplesU = (x: number, k: number) => {
   return (log2(abs(n)) - Math.sqrt(abs(x - n))) * (kk - factors(rest).length);
 };
 export const multiples = dynamicLine<{ k: number }>({
-  id: "multiples", title: "Multiples", goal: "the y-intercept near a multiple of k made of many k's", reads: ["c"], focus: ["si", "c"], ...mk,
+  id: "multiples", whole: true, title: "Multiples", goal: "the y-intercept near a multiple of k made of many k's", reads: ["c"], focus: ["si", "c"], ...mk,
   card: ({ k }) => `Take the multiple of ${k} nearest the y-intercept. Count how many times ${k} divides it, take away how many prime factors are left over, and multiply by its size (in binary digits) less the square root of how far the y-intercept is from it. Bigger is better.`,
   u: (_m, c, { k }) => multiplesU(toNum(c), k),
   searches: [{ id: "powers-of-k-times-small", propose: (_m, c, uStar, { k }) => {
@@ -390,7 +393,7 @@ const sqTriU = (m: Q, c: Q, k: number) => {
 };
 const st = intRange(2, 30, "k, a whole number from 2 to 30", [3, 7]);
 export const squareTriangle = dynamicLine<{ k: number }>({
-  id: "square-triangle", title: "Square Triangle", goal: "the triangle under the line with the area of a square of side a multiple of k", reads: ["m", "c"], focus: ["tri", "area"], ...st,
+  id: "square-triangle", whole: true, title: "Square Triangle", goal: "the triangle under the line with the area of a square of side a multiple of k", reads: ["m", "c"], focus: ["tri", "area"], ...st,
   card: ({ k }) => `The line and the two axes make a triangle. Its area should be exactly a square number n × n, where n is a multiple of ${k} (${k * k}, ${4 * k * k}, ${9 * k * k}, …). A bigger n scores more (its binary digits); missing costs twice the square root of how far the area is from n × n.`,
   u: (m, c, { k }) => sqTriU(m, c, k),
   searches: [{ id: "square-areas", propose: (m, c, uStar, { k }) => {

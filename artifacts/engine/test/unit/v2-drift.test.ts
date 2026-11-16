@@ -53,17 +53,6 @@ test("a redraw keeps the family and tie-breaker, may keep or change the paramete
   assert.equal(redrawParams(r.variant, "no-such-family", null, {}, "seed", 0, 1), null, "no grid: no drift");
 });
 
-test("a redraw never seats a pair the line seating rule forbids (Prime Landing beside Whole Crossing on the same landings)", async () => {
-  const { lineClashes } = await import("@workspace/v2-linear");
-  // Both are ladder families now, never redrawn, so drift cannot make the forbidden pair; the seating filter in
-  // redrawParams stays for bounded families (lib/v2-core driftParams' allowed filter is tested there).
-  const wc = { family: "whole-crossing", params: { q: 5, r: 1 } };   // forbidden beside Prime Landing ending 1 (side 1) and 9 (side −1)
-  for (let tick = 1; tick <= 30; tick++) {
-    const drawn = redrawParams("line-q", "prime-landing", "shared-factor", { ends: 9 }, "seed", 1, tick, [wc]);
-    assert.equal(drawn, null, `tick ${tick}`);
-    assert.deepEqual(lineClashes([wc, { family: "prime-landing", params: { ends: 9 } }]), []);
-  }
-});
 
 test("a ladder family is never redrawn (the coordinator's amendment of call 18): its seat keeps its dealt parameters", async () => {
   const { familyOf } = await import("../../convex/v2/deal.ts");

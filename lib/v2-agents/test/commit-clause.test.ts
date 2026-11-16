@@ -9,23 +9,23 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { fromMC, lineQ, lineType } from "@workspace/v2-linear";
 import { Qn } from "@workspace/v2-core";
-import { findValues } from "../src/harness.ts";
 import { EngineHost, OTHERS_AFTER_BITS, runAct, sandboxes, SPEC_ECONOMY } from "../src/index.ts";
 
 const boxes = sandboxes();
 after(() => boxes.close());
 const q = (n: number) => Qn.q(n);
-const rule = { family: "prime-gradient", params: { suffix: "1" }, tieBreaker: "shared-factor" };
-const otherRule = { family: "treasure", params: { k: 3 }, tieBreaker: "shared-factor" };
-const values = findValues("line-q", rule)!, others = [{ rule: otherRule, values: findValues("line-q", otherRule)! }];
-const state = { lines: [fromMC(q(11), q(0))] };
-const shift = (k: number) => ({ lines: [fromMC(q(11), q(k))] });
+// Dynamic rules: the host values states by their energy (seeded by the act's seed, so one act sees one number per state).
+const rule = { family: "prime-hug", params: { suffix: "1" }, tieBreaker: null };
+const otherRule = { family: "multiples", params: { k: 3 }, tieBreaker: null };
+const values = undefined, others = [{ rule: otherRule }];
+const state = { lines: [fromMC(q(11), q(80))] };   // y = 11x + 80: 81 = 3⁴ is one shift up
+const shift = (k: number) => ({ lines: [fromMC(q(11), q(80 + k))] });
 const source = {
   typescript: (k: number) => `function agent(offer) { return onlyIfBetter([move("si.shift", { k: ${k} })]); }`,
   python: (k: number) => `def agent(offer):\n    return only_if_better([move("si.shift", k=${k})])\n`,
 };
 const host = (disclosed?: (e: string) => number) =>
-  new EngineHost({ type: lineType, variant: lineQ, state, rule, energy: 100, values, others, ...(disclosed ? { disclosed } : {}) });
+  new EngineHost({ type: lineType, variant: lineQ, state, rule, energy: 100, values, others, energySeed: "7", ...(disclosed ? { disclosed } : {}) });
 const act = (language: "typescript" | "python", k: number, extra: { commitClause?: boolean; disclosed?: (e: string) => number; noWorth?: boolean } = {}) =>
   boxes.get(language).then(box => runAct(box, {
     type: lineType, variant: lineQ, state, rule, program: { language, source: source[language](k) }, seed: "7", energy: 100,

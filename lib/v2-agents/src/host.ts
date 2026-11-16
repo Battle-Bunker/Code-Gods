@@ -16,6 +16,7 @@
  *  - The first `quote` of an act charges the representation the first quoted mutator belongs to, as if viewed.
  */
 import {
+  energyOf,
   actRunner, applyCalls, applyLockChanges, elementDecl, refKey, elementValue, evaluateObject, isInvalid, lockedAct, lockEnergyAt, LOCK_OPS_PER_ACT, lockProgram,
   lockFee, lockRate, Qn, ratBits, type ActLock, type LockLanguage, type LockOpWire, type LockProgram, type LockRates, type PredicateRunner,
   joinTieBreakers, representation, ruleLayers, type Call, type TieBreaker, type ElementRef, type ElementValue, type ObjectType, type Price, type RuleFamily, type Variant,
@@ -91,7 +92,12 @@ export interface HostInput<S> {
    * The other players' rules and value functions, so the host can answer `othersAfter` (their rarity on the line,
    * added up, before and after a plan). The agent never sees them, only the total.
    */
-  readonly others?: readonly { readonly rule: RuleRef; readonly values: GameValues; readonly defence?: DefenceRef }[];
+  readonly others?: readonly { readonly rule: RuleRef; readonly values?: GameValues; readonly defence?: DefenceRef }[];
+  /**
+   * Seeds the energy estimates of a dynamic rule (with the state), so one act sees one number per state and the commit
+   * clause decides on what othersAfter showed. Unset: fresh randomness on every estimate.
+   */
+  readonly energySeed?: string;
   /** The player's own defence goal, when the game deals them: `myScore`, `othersAfter`'s `mine` and the commit clause use it. */
   readonly defence?: DefenceRef;
   /** Owner decision 24 (objects are unique): whether another object already holds this state (as the type encodes it).
@@ -187,13 +193,18 @@ export class EngineHost<S> implements AgentHost {
   private readonly asked = new Set<string>();
   private quoted = false;
   /** The other players' rules, ready to score a state, and their value lookups (for othersAfter). */
-  private readonly others: { family: RuleFamily<S, unknown>; params: unknown; tieBreaker: TieBreaker; look: ReturnType<typeof valueLookup>; defence: ((s: S, reward: number) => number) | null }[] | undefined;
+  private readonly others: { bitsAt: (s: S) => number; defence: ((s: S, reward: number) => number) | null }[] | undefined;
   /** The player's own defence goal as a function of a state and its reward bits (null: none dealt). */
   private readonly defence: ((s: S, reward: number) => number) | null;
   /** The player's penalty family, when a defence goal is dealt (its views are charged with myScore). */
   private readonly defenceFamily: RuleFamily<S, unknown> | undefined;
   /** The value function's lookup, when the game gives one. */
   private readonly lookup: ReturnType<typeof valueLookup> | undefined;
+  /**
+   * The player's own bits at a state: the value function at the state's score, or, for a rule scored by the dynamic
+   * measure (docs/engine-v2/energy.md), the state's energy, estimated afresh as the server does. Undefined: neither.
+   */
+  private readonly ownAt: ((s: S) => number) | undefined;
 
   constructor(input: HostInput<S>) {
     this.type = input.type; this.variant = input.variant; this.state = input.state;
@@ -208,10 +219,14 @@ export class EngineHost<S> implements AgentHost {
     this.input = input;
     this.lockRun = input.locks ? actRunner(input.type, input.locks.run) : undefined;
     this.lookup = input.values ? gameLookup(input.values) : undefined;
+    this.ownAt = this.bitsOf(this.family, this.params, this.tieBreaker, input.values);
     this.others = input.others?.map(o => {
       const family = input.type.families.find(f => f.id === o.rule.family);
       if (!family) throw new Error(`${input.type.id} has no rule family ${o.rule.family}`);
-      return { family: family as RuleFamily<S, unknown>, params: o.rule.params, tieBreaker: joinTieBreakers(ruleLayers(family as RuleFamily<S, unknown>, o.rule.tieBreaker).slice(1).map(l => l.id)), look: gameLookup(o.values), defence: o.defence ? this.netOf(o.defence) : null };
+      const tb = joinTieBreakers(ruleLayers(family as RuleFamily<S, unknown>, o.rule.tieBreaker).slice(1).map(l => l.id));
+      const bitsAt = this.bitsOf(family as RuleFamily<S, unknown>, o.rule.params, tb, o.values);
+      if (!bitsAt) throw new Error(`no value function or energy measure for ${o.rule.family}`);
+      return { bitsAt, defence: o.defence ? this.netOf(o.defence) : null };
     });
     this.defence = input.defence ? this.netOf(input.defence) : null;
     this.defenceFamily = input.defence ? input.type.penalties?.find(f => f.id === input.defence!.family) as RuleFamily<S, unknown> | undefined : undefined;
@@ -225,7 +240,7 @@ export class EngineHost<S> implements AgentHost {
    * max(0, others). Null when the game does not say what lines are worth (no value function or no others).
    */
   payoffAt(state: S): { mine: number; others: number; points: number } | null {
-    if (!this.lookup || !this.others?.length) return null;
+    if (!this.ownAt || !this.others?.length) return null;
     const mine = this.mineAt(state);
     const others = this.othersDisclosed(state);
     return { mine, others, points: mine * Math.max(0, others) };
@@ -236,15 +251,22 @@ export class EngineHost<S> implements AgentHost {
    */
   private othersDisclosed(state: S): number {
     return this.others!.reduce((t, o) => {
-      const reward = o.look(evaluateObject(this.type, o.family, o.params, state, this.variant, o.tieBreaker).score).bits;
+      const reward = o.bitsAt(state);
       return t + (o.defence ? o.defence(state, reward) : reward);
     }, 0)
       + (this.input.disclosed?.(this.type.encode(state)) ?? 0);
   }
   /** The player's own bits at a state, as the commit values them (with the defence goal, when one is dealt). */
   private mineAt(state: S): number {
-    const reward = this.lookup!(evaluateObject(this.type, this.family, this.params, state, this.variant, this.tieBreaker).score).bits;
+    const reward = this.ownAt!(state);
     return this.defence ? this.defence(state, reward) : reward;
+  }
+  /** A rule's bits as a function of the state: its value function, else its energy (a dynamic rule), else undefined. */
+  private bitsOf(family: RuleFamily<S, unknown>, params: unknown, tieBreaker: TieBreaker, values: GameValues | undefined): ((s: S) => number) | undefined {
+    if (values) { const look = gameLookup(values); return s => look(evaluateObject(this.type, family, params, s, this.variant, tieBreaker).score).bits; }
+    const seed = this.input.energySeed;
+    if (family.dynamic) return s => energyOf(this.type, family, params, s, this.variant, seed === undefined ? undefined : { seed: `${seed}:${this.type.encode(s)}` }).energy;
+    return undefined;
   }
   /** A defence goal as a function of a state and its reward bits: n = s⁺ − w·(η(h) − E_π η(h)). */
   private netOf(d: DefenceRef): (s: S, reward: number) => number {
@@ -305,7 +327,7 @@ export class EngineHost<S> implements AgentHost {
         catch { return err("the others' worth could not be worked out for this plan"); }
         // With a defence goal the player's own bits after a plan are not their rule's rarity of the score it reaches: say them
         // (the player's own number; it discloses nothing of the others).
-        if (this.defence && this.lookup) {
+        if (this.defence && this.ownAt) {
           const mine = { before: this.mineAt(this.state), after: priced.valid ? this.mineAt(priced.result) : null };
           return ok({ before, after, mine }, this.attribute("othersAfter", OTHERS_AFTER_BITS));
         }
@@ -426,7 +448,7 @@ export class EngineHost<S> implements AgentHost {
     })));
     return ok({
       score: u === null ? null : u.map(x => (x === null ? null : Qn.toWire(x))),
-      bits: this.lookup ? (this.defence ? this.mineAt(this.state) : this.lookup(u).bits) : null,
+      bits: this.lookup ? (this.defence ? this.mineAt(this.state) : this.lookup(u).bits) : this.ownAt ? this.mineAt(this.state) : null,
       layers: ruleLayers(this.family, this.tieBreaker).map(l => ({ id: l.id })),
       terms,
     }, bits);

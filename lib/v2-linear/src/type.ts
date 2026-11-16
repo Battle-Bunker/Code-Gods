@@ -3,7 +3,7 @@ import type { ObjectType, Variant } from "@workspace/v2-core";
 import { decodeLine, encodeLine, inDomain, lineBits, lineParams, normalise, type LineState } from "./line.ts";
 import { representations } from "./representations.ts";
 import { allMutators, lensMutators, mutators } from "./mutators.ts";
-import { families } from "./families.ts";
+import { dynamicFamilies } from "./dynamic-families.ts";
 import { estimateLine, lineRule } from "./energy.ts";
 
 const ALL_MUTATORS = mutators.map(m => m.id);
@@ -83,7 +83,10 @@ export const lineType: ObjectType<LineState> = {
   },
   representations,
   mutators: allMutators,
-  // One line per object (a dynamic family is dealt only there).
-  estimate: (state, variant, rule, params, opts) => estimateLine(state.lines[0]!, lineRule(rule, params), variant, opts),
-  families: [...families],
+  // A rule scores each line; an object's energy is the sum of its lines' (each line's state is reached on its own).
+  estimate: (state, variant, rule, params, opts) => {
+    const r = lineRule(rule, params), each = state.lines.map((l, i) => estimateLine(l, r, variant, opts?.seed ? { ...opts, seed: `${opts.seed}:${i}` } : opts));
+    return each.length === 1 ? each[0]! : { energy: each.reduce((t, e) => t + e.energy, 0), u: each.reduce((t, e) => t + e.u, 0), K: each[0]!.K };
+  },
+  families: [...dynamicFamilies],
 };
