@@ -216,6 +216,9 @@ jobs:
           [ -z "$stale" ] || { echo "::error::Old CODE_GODS_ env vars on the deployment: $stale(move each to its new name, then remove it)"; exit 1; }
           [ -z "$forbidden" ] || { echo "::error::Test-only or preview-only env vars set on this deployment:$forbidden (remove them)"; exit 1; }
           [ -z "$missing" ] || { echo "::error::Missing deployment env vars:$missing (see PILOT.md)"; exit 1; }
+          # auth.config.ts inlines BETTER_AUTH_JWKS and PLAYER_JWT_JWKS: a value that disagrees with its signing key
+          # breaks sign-in the moment the functions are pushed, so refuse before the push (values stay in memory).
+          node scripts/check-auth-keys.mjs
 
       - name: Push functions
         working-directory: artifacts/engine
