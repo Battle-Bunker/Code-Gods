@@ -42,5 +42,7 @@ export function chessmaster(): RuleFamily<BoardState, ChessParams> {
     term(ctx, "chessboards", `2×2 chessboards of ${p.first} and ${p.second}`, boards, cells.refs);
     for (const i of inBoards) ctx.mark({ kind: "focus", ref: cells.refs[i]! });
     term(ctx, "seams", `places ${an(p.first)} cell touches ${an(p.second)} cell`, seams, [...onSeams].map(i => cells.refs[i]!));
+    // The secondary's own marks (shown only while it is dealt): the cells on a seam.
+    for (const i of onSeams) ctx.mark({ kind: "focus", ref: cells.refs[i]!, term: "seams" });
   });
 }
