@@ -162,4 +162,8 @@ export const sameOnBothRulers = ladder(family<PD>("same-on-both-rulers", "Same o
   ctx.term("palindrome", Qn.sign(u) > 0 ? `meets ${target(p)} at x = ${Qn.toWire(x)}, which rounds to ${Qn.sign(x) < 0 ? "−" : ""}${near}` : `meets ${target(p)} at x = ${Qn.toWire(x)}, ${Qn.toWire(Qn.abs(Qn.sub(Qn.abs(x), q(t))))} from ${Qn.sign(x) < 0 ? "−" : ""}${near}`, u, [mRef, cRef]);
   ctx.term("shared-factor", `${t}'s digits add up to ${sum}; the gradient's whole part is ${wm}: the biggest number dividing both is ${g}`, q(g), [mRef, cRef]);
   ctx.mark({ kind: "focus", ref: cRef });
+  // Marks only, from the plane the player already sees (not read, not in depends, never charged): where the line meets
+  // y = ±x is the reading, and the palindrome it should round to (with the meeting point's sign) is the target.
+  ctx.mark({ kind: "focus", ref: ref("cart", "pointAtX", { q: x }), term: "palindrome" });
+  ctx.mark({ kind: "candidate", ref: ref("cart", "xAxisMark", { x: q(Qn.sign(x) < 0 ? -t : t) }), term: "palindrome" });
 }), rulersWitness);

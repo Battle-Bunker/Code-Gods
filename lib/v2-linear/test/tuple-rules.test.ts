@@ -48,3 +48,8 @@ test("each tuple family's card says every part, and Prime Landing's reads the cr
   assert.deepEqual(tuple(landingTuple, { ends: 1 }, mc("-1", "31"))?.slice(0, 2), ["31", "0"]);
   assert.deepEqual(tuple(landingTuple, { ends: 1 }, mc("1", "31"))?.slice(0, 2), ["31", "0"]);   // crosses at −31
 });
+
+test("Prime Landing (tuple): a flat line reads its height, so a tilt to flat is not a knock to nothing", () => {
+  assert.deepEqual(tuple(landingTuple, { ends: 1 }, mc("0", "31"))?.slice(0, 2), ["31", "0"]);
+  assert.equal(tuple(landingTuple, { ends: 1 }, mc("0", "0")), null);   // the x-axis itself has no reading
+});

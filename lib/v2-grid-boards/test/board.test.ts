@@ -62,3 +62,31 @@ test("the old game's seeded boards each have a variant", () => {
   for (const v of BOARD_VARIANTS) assert.equal(boardTypeOf(v).id, `board${(v.params as { size: number }).size}`);
   for (const id of ["board-4-base10-rgb", "board-5-base10-rgby", "board-6-base16-rainbow6", "board-7-cards-rainbow6"]) assert.ok(ids.includes(id), id);
 });
+
+test("the board's scene carries each cell's colour and letter, and a card's glyph", () => {
+  const scene = boardType.representations[0]!.layout(decodeBoard("7R,3G,0B,1R/2R,9B,4G,4G/8R,0R,0R,0R/1B,1B,1B,1B"), 0) as { cellColours?: { letter: string; css: string }[]; cellGlyphs?: string[] };
+  assert.deepEqual(scene.cellColours!.slice(0, 3).map(c => c.letter), ["R", "G", "B"]);
+  assert.equal(scene.cellGlyphs, undefined);
+});
+
+test("Grids · original colours deals v1's eight colour families, Picture Frame on one symbol", async () => {
+  const { boardPresets } = await import("../src/index.ts");
+  const p = boardPresets.find(x => x.id === "grids-original-colours")!;
+  assert.deepEqual([...new Set(p.rules.map(r => r.family))].sort(), ["chessmaster", "colour-bonds", "colour-mirror", "honest-minesweeper", "kingdom", "parity-painter", "picture-frame", "set-spotter"]);
+  const frames = p.rules.filter(r => r.family === "picture-frame").map(r => (r.params as { symbol: string }).symbol);
+  assert.deepEqual(frames, ["7", "7", "7"]);
+});
+
+test("colour-renamed twins of a rule are valued as one: colours are renamed to the board's first, in order", async () => {
+  const { canonicalColours } = await import("../src/index.ts");
+  assert.deepEqual(canonicalColours({ first: "blue", second: "red" }, v4), { first: "red", second: "green" });
+  assert.deepEqual(canonicalColours({ colour: "green", symbol: "7" }, v4), { colour: "red", symbol: "7" });
+  assert.deepEqual(canonicalColours({ target: 10 }, v4), { target: 10 });
+});
+
+test("no board family has a one- or two-letter parameter (a card would replace that word everywhere)", async () => {
+  const { BOARD_FAMILIES, BOARD_VARIANTS } = await import("../src/index.ts");
+  for (const f of BOARD_FAMILIES) for (const v of BOARD_VARIANTS) for (const p of f.dealable(v) as object[]) {
+    for (const k of Object.keys(p)) assert.ok(k.length > 2, `${f.id}: parameter ${k}`);
+  }
+});

@@ -11,7 +11,7 @@ import { AffordanceButton } from "@/site/components/action";
 import { useMemo, useState } from "react";
 import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
-import { ANOTHER, ClimbHistory, climbOf, ExpandedFace, moves as candidatesOf, ObjectChip, shortTitle } from "@workspace/v2-views";
+import { ANOTHER, ClimbHistory, climbOf, ExpandedFace, moves as candidatesOf, ObjectChip, shortTitle, type ValuePart } from "@workspace/v2-views";
 import { representation } from "@workspace/v2-core";
 import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMyAgents, useMyObject, useMyRule, useObjectMoves, useOthersAt, useOthersBlurred, type OthersAtMaps } from "@/sdk";
 import { useReplaying, useView } from "@/core/affordance-runtime";
@@ -121,7 +121,9 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
           </p>
         )}
       </div>
+      {/* A tree-valued rule's points, part by part (the server's value.parts, W-server2 #1017; null otherwise). */}
       <ExpandedFace rule={rule} state={state} value={my!.bits ?? undefined} active={active} compare={compared}
+        parts={v && "parts" in v ? (v.parts as readonly ValuePart[] | null | undefined) ?? null : null}
         moves={candidates} others={othersAt} climb={<ClimbHistory climb={climb} noun={word.one} approx={blurred} />}
         onActive={rep => void run(activeOp(objectId, rep, compared))} onCompare={rep => void run(compareOp(objectId, active, rep))} />
       {!ended && !replaying && candidates.length > 0 && (

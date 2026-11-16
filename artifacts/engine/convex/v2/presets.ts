@@ -8,6 +8,7 @@ import { LINES_BEGINNER_ECONOMY, readPriceWeightFor, summonPriceScale } from "@w
 import { preset as linearPreset, type PoolRule } from "@workspace/v2-linear";
 import { gridPresets } from "@workspace/v2-grid";
 import { pairPresets } from "@workspace/v2-pair";
+import { boardPresets } from "@workspace/v2-grid-boards";
 
 export interface PresetBid { pricing: "first" | "second"; disclosure: "none" | "handicaps" | "all"; seconds: number }
 /** The economy a preset plays (docs/energy-model.md; `lib/v2-economy` owns the maths). */
@@ -78,7 +79,7 @@ const ECONOMY: PresetEconomy = {
  * A typical object's full read, in bits: the median over 1,000 births of each variant a preset plays (measured; the
  * unit test v2-presets keeps it within 10% of the births). The read-price weight is set from it.
  */
-export const MEDIAN_LOOK_BITS: Readonly<Record<string, number>> = { "line-q": 13.7, "line-q-lenses": 14.0, "grid-4-d10": 41.1, "pair-q": 26.4 };
+export const MEDIAN_LOOK_BITS: Readonly<Record<string, number>> = { "line-q": 13.7, "line-q-lenses": 14.0, "grid-4-d10": 41.1, "pair-q": 26.4, "board-4-base10-rgb": 57.5 };
 export function medianLookBits(variant: string): number {
   const bits = MEDIAN_LOOK_BITS[variant];
   if (bits === undefined) throw new Error(`No median look for the variant ${variant}: measure it (MEDIAN_LOOK_BITS)`);
@@ -102,9 +103,9 @@ export function beginnerStart(variant: string, powerPerSecond: number): number {
   return Math.round((STARTERS_AT_START * bits * summonPriceScale(powerPerSecond)) / 10) * 10;
 }
 
-/** A pool by id: the line presets' (v2-linear), the grid's (v2-grid) or the two-line systems' (v2-pair). */
+/** A pool by id: the line presets' (v2-linear), the grid's (v2-grid), the two-line systems' (v2-pair) or the coloured boards' (v2-grid-boards). */
 function poolPreset(id: string): { id: string; title: string; variant: string; rules: readonly PoolRule[] } {
-  const g = gridPresets.find(x => x.id === id) ?? pairPresets.find(x => x.id === id);
+  const g = gridPresets.find(x => x.id === id) ?? pairPresets.find(x => x.id === id) ?? boardPresets.find(x => x.id === id);
   return g ? { id: g.id, title: g.title, variant: g.variant, rules: g.rules as readonly PoolRule[] } : linearPreset(id);
 }
 
@@ -167,9 +168,15 @@ export const PRESETS: readonly Preset[] = [
   { ...GRIDS, id: "grids-beginner-bidding", title: "Grids · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
   // Grid starters are dearer: 900 to start, so a starter takes about the share of it a line starter takes of 600.
   fromPool("grids-more-rules", { ...V1_DEFAULT_BOARD, startingEnergy: 900 }),
-  // A readability playtest, not the default (docs/engine-v2/grid-params.md §13): Divisibility and Leading Digits, the
-  // board read as long numbers, on the beginner grid's game and economy.
-  fromPool("grids-arithmetic", { ...BEGINNER_WORLD, startingEnergy: GRIDS.startingEnergy }),
+  // Grids · arithmetic is withdrawn (16 Nov): Divisibility's tops are found by lattice reduction (grid-params.md §14).
+  // The old game's "Annotated colours" as an original-rules baseline (coordinator's call 37; lib/v2-grid-boards): its
+  // colour families ported as v1, bounded main parts included, to compare the rewrite with the original. Not the
+  // default. v1's setup: 4×4 digits in three colours, 10 objects, a birth every 10 s, 25 opportunities a second, a fixed
+  // 600 s game, 300 s to plan; the economy of v1's Grid defaults (power 64, a 30 s store, 600 to start).
+  fromPool("grids-original-colours", {
+    ...V1_DEFAULT_BOARD, durationMode: "fixed", worldSeconds: 600, planningSeconds: 300,
+    economy: { powerPerSecond: 64, fullChargeSeconds: 30, opportunitiesPerSecond: 25, birthsPerSecond: 0.1 },
+  }),
 ];
 export const DEFAULT_PRESET = BEGINNER.id;
 

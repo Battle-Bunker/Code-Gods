@@ -118,6 +118,28 @@ cost, as the ladder audit measures.
   - **(b) A main part counted in steps between targets.** The tie-breaker would be the share of the way from this
     prime to the next, so walking up between primes gains instead of losing. That is the spec lead's call for the pool.
 
+**Re-measured under the tree valuation** (the coordinator, 16 Nov: the spec lead found that bounding the inner terms
+removes the stall on single lines; scripts/prime-crossing-tree.ts).
+
+The setup:
+- 100,000 law draws, valued by lib/v2-valuation tree-value.ts.
+- 16 greedy climbs of one seat's 2,500⚡ on one pair. Each step takes the best bits per energy over every pair move:
+  shift, tilt, turn, slide, stretch, translate and zoom.
+
+| valuation | primes stepped per climb (median / max) | climbs stepping ≥ 2 primes | final bits (median / max) |
+|---|---|--:|---|
+| tree (chain rule) | 2 / 4 | 9 of 16 | 13.5 / 17.9 |
+| tree, closeness and third at most 2 bits each | 14 / 29 | 16 of 16 | 17.9 / 19.6 |
+| tree, closeness in units of the gap to the next target | 3 / 5 | 13 of 16 | 13.5 / 17.9 |
+
+- **Bounding the inner terms removes the stall for Prime Crossing too.** So it is dealable in the shape, on that
+  valuation, pending the energy gate and test 2 once built.
+- **Grading closeness by the gap barely helps here.** The gaps between primes ending in 1 are 10–30, so a unit step is
+  still a sizeable share.
+- **Every climb still ends frozen,** because the tree's level term stops growing past the largest prime its draws
+  measured (tree-value.ts: "nothing beyond the best measured u0"). That is a top of its own. A level tail like the
+  pairs' ladder-log, capped by witnesses, is needed before a bounded tree is dealt.
+
 **Versions:** the ending 1, 3, 7 or 9, equal by the symmetry of primes' endings.
 
 **Alternative thirds:**
@@ -130,7 +152,7 @@ cost, as the ladder audit measures.
 | row | Power Ratio | Prime Crossing |
 |---|---|---|
 | 1 unbounded | yes: powers without end | yes: primes without end |
-| 2 climbed all game | expected: the stretch shortcut joins targets, and its price rises with size (to measure) | **no as it stands**: the climb stalls after the first exact prime |
+| 2 climbed all game | expected: the stretch shortcut joins targets, and its price rises with size (to measure) | with inner terms bounded at 2 bits: a greedy seat steps 14 primes (median); without: 2, a stall |
 | 3 tie-breaker defined by the main part | yes: closeness to that power; the third reads the same power | yes: closeness to that prime; the third reads the same prime |
 | 3a ≥ 3 candidates of different forms | three thirds listed (near-multiple, near-multiple of another reading, near-whole) | three listed |
 | 3b nearest-target shape | yes | yes |
@@ -140,3 +162,48 @@ cost, as the ladder audit measures.
 | 11 robust to modest bumps | yes: closeness changes by fractions of a doubling | yes: closeness changes by up to 1 |
 | 12 the card states the scoring | yes: each layer says what is measured and which way is better | yes |
 | 13 good states among fractions | yes: ratios such as 4½ and ½ ÷ 2 | yes: heights such as 14¾ |
+
+## Walk-through 3: Power Crossing (versions k = 2, 3, 5, 7)
+
+**The card:**
+> The two lines cross at one point. Look at its height (its y, ignoring a minus sign).
+> - **Main:** the power of 2 (1, 2, 4, 8, 16, …) nearest that height, counted in doublings (12 is nearer 16 than 8).
+>   Higher is better.
+> - **Tie-breaker:** how many doublings the height is from that power. Closer is better.
+> - **Then:** multiply the steeper line's gradient (ignoring a minus sign) by that power. It should be as close to 1 as
+>   possible, counted in doublings (2 and ½ are both one doubling from 1).
+
+**Why this third and not "x near a multiple of the power".** A zoom by 2 multiplies the crossing by 2.
+- For y = 2x + 8 and y = −2x + 24, it took (2⁴, exact, x 0.75 of 16) to (2⁵, exact, x 0.75 of 32) for 8.2⚡. The
+  x-share is kept too, so with that third every layer survives the zoom: a frictionless shortcut, an aligned hill
+  limited only by price.
+- A gradient is not changed by a zoom. Each zoom that doubles the power moves "gradient × power" one doubling from 1,
+  and a tilt must earn it back. So each level costs a zoom and a tilt, and the two parts pull against each other.
+
+**Three systems:**
+
+| system | tuple | why |
+|---|---|---|
+| y = 2x + 8, y = −2x + 24 | (2⁴, 0, 5 doublings) | crossing (4, 16): exactly 2⁴; 2 × 16 = 32, five doublings from 1 |
+| the same zoomed by 2 | (2⁵, 0, 6) | crossing (8, 32): one level up; the third loses a doubling |
+| y = x/16 + 16, y = −x/32 + 16 | (2⁴, 0, 0) | crossing (0, 16); 1/16 × 16 = 1 |
+
+**What a cheap move does** (to the first system, (2⁴, 0, 5)):
+- a shift or slide by 1 moves the height by under 0.2 doublings and keeps 2⁴;
+- a turn about the crossing keeps the main part and the tie-breaker;
+- a tilt by 1 moves the third by about half a doubling;
+- a zoom by 2 steps the level up and loses a doubling of the third.
+
+So modest bumps keep most of the value (principle 11).
+
+- **Fractions (principle 13).** A height of 12¾ is 0.33 doublings from 16. Gradients of 1/16 are the good thirds at
+  height 16.
+- **Adversaries.** Steep Ratio (steep lines) against this third's gentle ones. Prime Crossing, which wants the same
+  height on a prime; no power of 2 above 2 is a prime.
+
+**Check table** (as walk-through 1, except):
+
+| row | Power Crossing |
+|---|---|
+| 2 climbed all game | expected: zoom then tilt, each level dearer through the zoom's size floor (to measure) |
+| 6 adversaries | Steep Ratio (gradients), Prime Crossing (the same height) |

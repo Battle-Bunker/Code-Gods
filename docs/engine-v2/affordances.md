@@ -154,7 +154,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `chat.send` | Send a chat message | text | server · room | member | room, planning, live, paused, ended | write |
 | `chat.list` | Read the chat | cursor, limit | server · room | member | room, planning, live, paused, ended, replay | read |
 | `game.rotation` | Show who gets which rule next | — | server · room | member | room, ended | read |
-| `room.settings` | Change the room's settings | preset, overrides | server · room | owner | room | write; confirm summary |
+| `room.settings` | Change the room's settings | preset, overrides, setupId | server · room | owner | room | write; confirm summary |
 | `room.aiQuotas` | Set the room's AI quotas | ai, assistant | server · room | owner | room, planning, live, paused, ended, replay | write; confirm inline |
 | `seats.fillPracticePartners` | Fill empty seats with practice partners | — | server · room | owner | room | write |
 | `seats.addAi` | Add an AI player | template | server · room | owner | room | write; spends aiBudget; confirm summary |
@@ -164,6 +164,11 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `game.startWorldNow` | End planning now | — | server · game | owner | planning | write |
 | `game.resume` | Resume the game | — | server · game | owner | paused | write |
 | `game.end` | End the game | — | server · game | owner | planning, live, paused | destructive; confirm modal |
+| `setups.page` | List saved setups | mine, cursor, limit | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
+| `setups.get` | Show a saved setup | setupId | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
+| `setups.save` | Save a setup | name, preset, overrides, setupId | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write |
+| `setups.duplicate` | Duplicate a saved setup | setupId, name | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write |
+| `setups.remove` | Delete a saved setup | setupId | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | destructive; confirm inline |
 | `bid.state` | Show the bid phase | — | server · room | seated | room | read |
 | `bid.place` | Bid on a rule family | family, percent | server · room | seated | room | write; confirm inline |
 | `bid.withdraw` | Withdraw a bid | family | server · room | seated | room | write |

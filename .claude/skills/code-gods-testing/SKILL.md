@@ -41,6 +41,8 @@ and turn the call into `check`. Never weaken an assertion to get green. With the
 | `e2e/v1-dock.ts` | the dock: default panes, pane menu, stored layout across reload and across a second tab, assistant as a pane, drag, `?panels=off`, the lines list's paging and sort (multi-client, stored-panels, objects-scroll) | `pnpm --filter @workspace/player-web e2e:v1-dock` | ~1 min |
 | `e2e/v1-replay.ts` | a practice game played to its end, then its replay from the room's past games: the bar, drag, play, steps and keys, palette, moment link, watch as, phone (replay-shot) | `pnpm --filter @workspace/player-web e2e:v1-replay` | ~2 min |
 | `e2e/v1-assistant-games.ts` | the in-client assistant (mock) in game 1, then a fresh one in game 2 in the same document (assistant-games) | `pnpm --filter @workspace/player-web e2e:v1-assistant-games` | ~1 min |
+| `e2e/v1-auto-update.ts` | an open page updates itself after a deploy (never over unsaved text) and keeps its route; redeploys build A at the end (auto-update) | `pnpm --filter @workspace/player-web e2e:v1-auto-update` | ~1 min |
+| `e2e/v1-account-mode.ts` | the app built for another origin (localhost): consent on /connect, a room and a game from there, reloads, sign-out revokes, no cookies (account-mode) | `pnpm --filter @workspace/player-web e2e:v1-account-mode` | ~2 min (builds the app) |
 
 `SKIP_DEPLOY=1` reuses the build already uploaded; `LIST_XFAIL=1` lists the expected failures at the end; failure
 screenshots go to `e2e/shots/v1/FAIL-*.png`. A session that changes a behaviour one of these suites covers runs that

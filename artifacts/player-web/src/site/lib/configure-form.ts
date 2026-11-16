@@ -11,6 +11,7 @@
  * The World section of v1 (object type and shape) is v2's preset choice, the "Setup" section.
  */
 import { presetOf, type Preset } from "@workspace/engine/convex/v2/presets.ts";
+import { SETUP_NAME_MAX } from "@workspace/v2-affordances";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, PEER_NOISE_VARIANCE_OPTIONS, SCORE_INTERVAL_OPTIONS, type DurationMode } from "@workspace/engine/convex/v2/duration.ts";
 
 /** Every value a room's next game can be given, as the page edits it (all present; the overrides are the differences). */
@@ -377,4 +378,29 @@ export function reviewDiff(saved: { preset: string; draft: Draft }, next: { pres
     if (!sameValue(saved.draft[k], next.draft[k])) out.push({ key: k, label: FIELDS[k].label, from: formatValue(k, saved.draft[k]), to: formatValue(k, next.draft[k]) });
   }
   return out;
+}
+
+/** A saved setup as `setups.get` returns it (the caller's own; v1's user setups). */
+export interface SavedSetup { setupId: string; name: string; preset: string; overrides: Record<string, unknown>; ownerName?: string; mine?: boolean }
+
+/**
+ * What Save sends to `room.settings`: the saved setup's id while the page holds exactly that setup (the room then
+ * shows its name, v1's owner.settings({setupId})); otherwise the preset (when it changes) and the overrides that
+ * differ from it (a change by hand: the room shows no setup).
+ */
+export function saveArgs(next: { preset: string; draft: Draft }, roomPreset: string, loaded: SavedSetup | null): { setupId: string } | { preset?: string; overrides: Overrides } {
+  if (loaded && holdsSetup(next, loaded)) return { setupId: loaded.setupId };
+  return { ...(next.preset !== roomPreset ? { preset: next.preset } : {}), overrides: overridesFor(next.draft, presetOf(next.preset)) };
+}
+/** Whether the page holds exactly this saved setup: its preset, and every value as the setup gives it (a set as a set). */
+export function holdsSetup(next: { preset: string; draft: Draft }, s: SavedSetup): boolean {
+  if (s.preset !== next.preset) return false;
+  const theirs = draftOf(presetOf(s.preset), s.overrides);
+  return (Object.keys(FIELDS) as FieldKey[]).every(k => sameValue(next.draft[k], theirs[k]));
+}
+
+/** Why a setup name is refused (v1's words), or null. */
+export function setupNameProblem(raw: string): string | null {
+  const name = raw.trim().replace(/\s+/g, " ");
+  return !name ? "Give the setup a name." : name.length > SETUP_NAME_MAX ? `At most ${SETUP_NAME_MAX} characters.` : null;
 }

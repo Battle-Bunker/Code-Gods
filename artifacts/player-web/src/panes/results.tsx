@@ -60,7 +60,7 @@ export function ResultsPane() {
       )}
       {ended && header.me && (
         <button type="button" data-testid="button-results-why" onClick={() => whyRef.current?.scrollIntoView({ block: "start", behavior: "smooth" })}
-          className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground">Why: your best {objectWord(header.variant).many} ↓</button>
+          className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground">Why: your best and worst {objectWord(header.variant).many} ↓</button>
       )}
       {rows.length > 0 && (
         <section className="space-y-1">

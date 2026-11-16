@@ -30,6 +30,8 @@ export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
 };
 /** Reads the room page shows (its members, past games, the rotation, the bid phase). */
 export const ROOM_READS: ReadonlySet<string> = new Set(["room.get", "room.history", "game.rotation", "bid.state"]);
+/** Reads the configure page shows (the owner's saved setups, under Setup). */
+export const SETUP_READS: ReadonlySet<string> = new Set(["setups.page", "setups.get"]);
 /** Reads the avatar menu shows (who you are, your connected apps). */
 export const ACCOUNT_READS: ReadonlySet<string> = new Set(["account.whoami", "account.connections"]);
 /** Reads the palette answers itself, in a notice (a command's status). */
@@ -81,10 +83,13 @@ function soleParam(id: AffordanceId): { name: string; kind: "string" | "number" 
 function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
   const id = e.id as AffordanceId;
   if (ROOM_READS.has(id) && host.roomPath) return { kind: "navigate", to: host.roomPath };
+  if (SETUP_READS.has(id) && host.roomPath) return { kind: "navigate", to: `${host.roomPath}/configure#section-setup` };
   if (ACCOUNT_READS.has(id)) return { kind: "form", page: { kind: "info", title: e.title, lines: ["Your account and connected apps are in the menu under your avatar (top right)."] } };
   if (id === "room.list") return { kind: "navigate", to: "/" };
   // The room's settings are a page of their own (v1's "Configure the room's setup"): every question, with a Review.
   if (id === "room.settings" && host.roomPath) return { kind: "navigate", to: `${host.roomPath}/configure` };
+  // v1's "New setup…": the configure page's Save as a setup, with every setting to pick first.
+  if (id === "setups.save" && host.roomPath) return { kind: "navigate", to: `${host.roomPath}/configure#field-save-setup` };
   const pane = READ_PANES[id];
   const panes = host.panes;
   if (pane && panes) return { kind: "submit", run: () => panes.open(pane) };

@@ -89,3 +89,18 @@ test("a game with a hidden end says so on Results, with when it ended (round 13:
   assert.equal(endNote({ durationMode: "halfLife", worldSeconds: 300, startedAt: null, endedAt: null }),
     "This game ended at a hidden moment: half of such games end within 5:30. Any second could have been the last.");
 });
+
+test("what an agent spent, split into reading and changing; its actual cost per act; its last act (v1, baseline-1 #6)", async () => {
+  const { spentText, actualText, lastActText, actState } = await import("../src/panes/agents-words.ts");
+  assert.equal(spentText({ spend: 30, spendRead: 12, spendChange: 18, acts: 4 }), "Spent 30.00 energy on 4 moves: 12.00 reading, 18.00 changing");
+  assert.equal(spentText({ spend: 0, spendRead: 0, spendChange: 0, acts: 0 }), "Spent nothing yet");
+  assert.equal(actualText({ spend: 30, acts: 4 }), "Actual average 7.50 energy per move");
+  assert.equal(actualText({ spend: 0, acts: 0 }), null);
+  assert.equal(lastActText({ at: 12, read: 1.5, change: 2, outcome: "moved" }), "Last move at 0:12: 1.50 reading + 2.00 changing (moved)");
+  assert.equal(lastActText(null), null);
+  assert.equal(actState({ energy: 5, perSecond: 1 }), "can act now");
+  assert.equal(actState({ energy: -1, perSecond: 1 }), "working: it spends energy as fast as it earns it");
+  assert.equal(actState({ energy: -5, perSecond: 1 }), "waiting for income");
+  assert.equal(actState({ energy: -20, perSecond: 1 }), "stuck: it owes more than 10 s of its income");
+  assert.equal(actState({ energy: -1, perSecond: 0 }), "stuck: it has no income");
+});
