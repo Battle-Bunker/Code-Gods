@@ -16,6 +16,8 @@ import { allUndefined, family, num, type L, type Shape } from "./layers.ts";
 import { nearestOnLadder, nearestPrimeEnding } from "./numbers.ts";
 import { digitSum, nearestPalindrome, nearestPile } from "./beginner-rulers.ts";
 
+/** A tuple family is valued down its tree (owner decision 45; lib/v2-valuation tree-value.ts). */
+const tree = <F extends object>(f: F): F & { valuation: "tree" } => ({ ...f, valuation: "tree" as const });
 /** A float as an exact rational to a millionth (log-space distances only). */
 const fromFloat = (x: number): Q => q(BigInt(Math.round(x * 1e6)), 1_000_000n);
 /** log2 of a positive whole number of any size (to double precision). */
@@ -36,7 +38,7 @@ const piShape: Shape<PI> = {
       sentence: () => "The gradient's size times that prime should be as close as possible to 1, counted in doublings: 2 and 1/2 are both one doubling away, 4 and 1/4 two." } as L<PI>,
   ],
 };
-export const primeIntercept = family<PI>("prime-intercept", "Prime Intercept", ["si", "cart"], piShape,
+export const primeIntercept = tree(family<PI>("prime-intercept", "Prime Intercept", ["si", "cart"], piShape,
   [1, 3, 7, 9].map(ends => ({ ends })), (ctx, pr) => {
     const cRef = ref("si", "c"), mRef = ref("si", "m");
     const cv = ctx.read(cRef), c = num(cv);
@@ -57,7 +59,7 @@ export const primeIntercept = family<PI>("prime-intercept", "Prime Intercept", [
     ctx.mark({ kind: "focus", ref: mRef, term: "gradient-log" });
     ctx.term("gradient-log", lg === null ? "a flat line: the gradient is 0" : `the gradient's size times ${p}: ${lg.toFixed(2)} doublings from 1`,
       lg === null ? { undefined: "a flat line has no gradient to compare" } : fromFloat(lg), [mRef, cRef]);
-  });
+  }));
 
 // ---------------------------------------------------------------- Power Area
 
@@ -80,7 +82,7 @@ export function nearestPower(a: Q, k: number): { j: number; at: bigint } {
   const lo = Qn.sub(a, q(at)), hi = Qn.sub(q(at * K), a);
   return Qn.cmp(hi, lo) <= 0 ? { j: j + 1, at: at * K } : { j, at };
 }
-export const powerArea = family<PA>("power-area", "Power Area", ["tri", "crossing"], paShape, [2, 3, 5, 7].map(k => ({ k })), (ctx, pr) => {
+export const powerArea = tree(family<PA>("power-area", "Power Area", ["tri", "crossing"], paShape, [2, 3, 5, 7].map(k => ({ k })), (ctx, pr) => {
   const area = ref("tri", "area"), xRef = ref("crossing", "x0");
   const av = ctx.read(area), a = num(av);
   if (a === null) return allUndefined(ctx, paShape, av, area);   // no triangle
@@ -96,7 +98,7 @@ export const powerArea = family<PA>("power-area", "Power Area", ["tri", "crossin
   ctx.mark({ kind: "note", ref: area, term: "closeness", text: `area ${Qn.toWire(a)} is ${Qn.toWire(d)} from ${pr.k}^${j} = ${at}` });
   ctx.mark({ kind: "focus", ref: xRef, term: "per-crossing" });
   ctx.mark({ kind: "note", ref: xRef, term: "per-crossing", text: `${Qn.toWire(a)} ÷ ${Qn.toWire(Qn.abs(x))} = ${Qn.toWire(r)}` });
-});
+}));
 
 // ---------------------------------------------------------------- the repaired families, recast (pool-plan.md v2)
 
@@ -122,7 +124,7 @@ function tupleFamily<P extends object>(o: {
     main: { id: "target", title: "the nearest target's size, the bigger the better", rep: o.rep, sense: "max", sentence: o.main },
     tieBreakers: [{ id: "closeness", title: "how close to that target", rep: o.rep, sense: "min", sentence: o.close } as L<P>, ...o.thirds.map(t => t.layer)],
   };
-  return family<P>(o.id, o.title, o.depends, shape, o.versions, (ctx, p) => {
+  return tree(family<P>(o.id, o.title, o.depends, shape, o.versions, (ctx, p) => {
     const r = o.read(ctx, p);
     if ("none" in r) return allUndefined(ctx, shape, r.none as never, r.from);
     const t = o.nearest(r.x, p);
@@ -145,7 +147,7 @@ function tupleFamily<P extends object>(o: {
       const at = o.thirdReads?.[th.layer.id];
       if (at) { ctx.read(at); ctx.mark({ kind: "focus", ref: at, term: th.layer.id }); }
     }
-  });
+  }));
 }
 type ElementValueLike = unknown;
 const lineMC = (ctx: Parameters<Parameters<typeof family>[5]>[0]) => ({ m: num(ctx.read(ref("si", "m"))), c: num(ctx.read(ref("si", "c"))) });

@@ -271,6 +271,12 @@ export interface RuleFamily<S, P> {
    */
   readonly keepsParams?: boolean;
   /**
+   * How a dealt rule's score becomes bits (owner decision 45). Absent: in order (the value function's knots over
+   * lexicographic scores). "tree": a tuple rule (principle 3b) valued down its tree, level then closeness within the
+   * target then the third (lib/v2-valuation tree-value.ts); its value function carries the tree.
+   */
+  readonly valuation?: "tree";
+  /**
    * For a ladder family: a few cheap states reaching the n-th unit of its ladder (n ≥ 1: n primes, n digits, a run of
    * n …), for the cap on its value tail (CLAUDE.md: a value tail never grows faster than the φ of the cheapest state
    * that reaches it; the coordinator's amendment of trial 28). Any of them may be invalid on a variant; none may be
