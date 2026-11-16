@@ -90,6 +90,7 @@ import type * as v2_ops_paging from "../v2/ops/paging.js";
 import type * as v2_ops_panel from "../v2/ops/panel.js";
 import type * as v2_ops_pitch from "../v2/ops/pitch.js";
 import type * as v2_ops_power from "../v2/ops/power.js";
+import type * as v2_ops_receipt from "../v2/ops/receipt.js";
 import type * as v2_ops_rep from "../v2/ops/rep.js";
 import type * as v2_ops_room from "../v2/ops/room.js";
 import type * as v2_ops_rule from "../v2/ops/rule.js";
@@ -215,6 +216,7 @@ declare const fullApi: ApiFromModules<{
   "v2/ops/panel": typeof v2_ops_panel;
   "v2/ops/pitch": typeof v2_ops_pitch;
   "v2/ops/power": typeof v2_ops_power;
+  "v2/ops/receipt": typeof v2_ops_receipt;
   "v2/ops/rep": typeof v2_ops_rep;
   "v2/ops/room": typeof v2_ops_room;
   "v2/ops/rule": typeof v2_ops_rule;
