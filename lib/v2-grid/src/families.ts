@@ -122,7 +122,7 @@ export function oppositeNines(n: number): RuleFamily<GridState, T> {
   return family<T>("opposite-nines", "Opposite Nines", ["turn", "cells"], shape, [{ T: 9 }], (ctx, p) => {
     const totals = readAll(ctx, "turn", ps.map((_, k) => `pair${k}`));
     ctx.term("pairs", `how far each pair's total is from ${p.T}, added up`, q(sumOf(totals.v.map(x => Math.abs(x - p.T)))), totals.refs);
-    noteEach(ctx, totals, x => x === p.T, x => `${x}`);
+    noteEach(ctx, totals, x => x === p.T, x => `adds up to ${x}: ${x < p.T ? `${p.T - x} short` : `${x - p.T} over`}`);
     const cells = readCells(ctx, n);
     totalOf(ctx, "top-half", "the top half's total", cells, ps.map(([a]) => a));
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
@@ -220,8 +220,15 @@ export function strangersFamily(n: number): RuleFamily<GridState, None> {
   return family<None>("strangers", "Strangers", ["boxes", "cells"], shape, [{}], ctx => {
     const st = readAll(ctx, "boxes", bx.map((_, k) => `strangers${k}`));
     ctx.term("strangers", "touching strangers in the boxes", q(sumOf(st.v)), st.refs);
-    noteEach(ctx, st, x => x === 4, x => `${x} of 4`);
     const cells = readCells(ctx, n);
+    // Each box's touching pairs that are not strangers, and why (v1's fact named the shared divisor or "next-door").
+    const why = (a: number, b: number) => (a <= 1 || b <= 1 ? `${a} and ${b}: ${Math.min(a, b)} is too small`
+      : gcd(a, b) > 1 ? `${a} and ${b} share ${gcd(a, b)}` : `${a} and ${b} are next-door`);
+    st.refs.forEach((r, k) => {
+      if (st.v[k] === 4) { ctx.mark({ kind: "focus", ref: r }); return; }
+      const fails = boxEdges(bx[k]!).filter(([a, b]) => !strangers(cells.v[a]!, cells.v[b]!)).map(([a, b]) => why(cells.v[a]!, cells.v[b]!));
+      ctx.mark({ kind: "note", ref: r, text: `${st.v[k]} of 4: ${[...new Set(fails)].join("; ")}` });
+    });
     const ones = sumOf(bx.map(cs => boxEdges(cs).filter(([a, b]) => { const x = cells.v[a]!, y = cells.v[b]!; return (x === 1 && y > 1) || (y === 1 && x > 1); }).length));
     ctx.term("ones", "1s touching a bigger number in their box", q(ones), cells.refs);
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
