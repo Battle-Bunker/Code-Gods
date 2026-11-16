@@ -29,6 +29,7 @@ export const KINDS = {
   "monotone-steps": "steps rising by one",
   "power-count": "how often a power divides the board's number",
   "leading-digits": "the board's number's leading digits",
+  "called-numbers": "cells showing dealt numbers, and complete rows, columns or diagonals of them",
 } as const;
 export type Kind = keyof typeof KINDS;
 
@@ -101,4 +102,5 @@ export const RULE_FORMS: Readonly<Record<string, FamilyForms>> = {
   fillomino: { kind: "region", forms: { "patch-kinds": "all-different", "patch-count": "count", "near-misses": "distance" } },
   divisibility: { kind: "power-count", forms: { "leftover-digits": "digit-sum" } },
   "leading-digits": { kind: "leading-digits", forms: { "exponent-digits": "digit-sum" } },
+  "bingo-caller": { kind: "called-numbers", forms: { "near-bingo": "count", "big-dabs": "big-values", "diagonal-dabs": "diagonals" } },
 };

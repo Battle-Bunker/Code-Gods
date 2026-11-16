@@ -69,6 +69,7 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "kings-and-subjects 4": "15 Nov, grids session", "stepping-stones 4": "15 Nov, grids session", "mountain-climb 4": "15 Nov, grids session",
   "uphill 4": "15 Nov, grids session", "staircase 4": "15 Nov, grids session", "magic-accountant 4": "15 Nov, grids session",
   "fillomino 4": "15 Nov, grids session",
+  "bingo-caller 4": "16 Nov, grids session: grid baseline: ported as v1",
   // Row 7: forms repeated within a family, kinds and forms shared by more than three families.
   "square-area 7-repeat": "15 Nov, grids session: spf and lpf are both prime-factor sizes (Square Area redesign)",
   "far-crossing 7-repeat": "15 Nov, pairs session: both secondaries are near-multiples",
