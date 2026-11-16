@@ -125,3 +125,15 @@ test("how often the rules' numbers change is a room setting (call 18): the prese
   assert.match(nextGameSummary(beginner, {}), /rules' numbers may change every 2 min/);
   assert.doesNotMatch(nextGameSummary(beginner, { driftSeconds: 0 }), /numbers change/);
 });
+
+test("the combobox's system rows: every setup matching the search by title or blurb, the Lab last and only for admins", async () => {
+  const { presetRows } = await import("../src/site/lib/setup-picker.ts");
+  const all = presetRows(presets, { admin: false, current: beginner.id, query: "" });
+  assert.ok(all.length > 0 && all.every(r => !r.lab), "a player sees no Lab setup");
+  assert.deepEqual(presetRows(presets, { admin: false, current: beginner.id, query: "BIDDING" }).map(r => r.preset.id).filter(id => id.startsWith("lines")), ["lines-beginner-bidding"]);
+  const grids = presetRows(presets, { admin: false, current: beginner.id, query: "grid of digits" });
+  assert.ok(grids.length > 0 && grids.every(r => /grid of digits/.test(setupBlurb(r.preset))), "the blurb is searched");
+  const admin = presetRows(presets, { admin: true, current: beginner.id, query: "" });
+  assert.equal(admin.at(-1)!.lab, true, "the Lab comes last");
+  assert.equal(presetRows(presets, { admin: false, current: lab.id, query: "" }).some(r => r.preset.id === lab.id), true, "the room's own setup always shows");
+});

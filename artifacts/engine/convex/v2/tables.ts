@@ -521,7 +521,9 @@ export const v2Tables = {
     ownerUserId: v.string(), ownerName: v.optional(v.string()), name: v.string(), nameKey: v.string(), preset: v.string(), overrides: overridesV,
     createdAt: v.number(), updatedAt: v.number(),
   }).index("by_owner_name", ["ownerUserId", "nameKey"])
-    .index("by_name", ["nameKey"]),
+    .index("by_name", ["nameKey"])
+    /** The room's setup picker searches every setup by name (v1's combobox; setups.ts `search`). */
+    .searchIndex("search_name", { searchField: "name" }),
 
   /**
    * Stored panels (convex/v2/panels.ts): TSX a human or their delegates write, compiled on save and rendered by every

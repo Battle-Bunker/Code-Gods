@@ -13,7 +13,7 @@
  * assistant): an untouched draft follows it; an edited one is kept, with an offer to load theirs (v1's behaviour).
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link, useLocation, useParams } from "wouter";
+import { Link, useLocation, useParams, useSearch } from "wouter";
 import { api } from "@workspace/engine/convex/_generated/api";
 import { PRESETS, presetOf } from "@workspace/engine/convex/v2/presets.ts";
 import { useAffordance } from "@workspace/v2-affordances/react";
@@ -85,7 +85,9 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
   const [draft, setDraft] = useState<Draft>(() => stored?.draft ?? saved.draft);
   const [elsewhere, setElsewhere] = useState(false);
   // The saved setup the page holds (loaded from Your setups, or the one the room runs): Save then applies it by id.
-  const [loadedId, setLoadedId] = useState<string | null>(() => (stored ? stored.loadedId ?? null : room.setup?.setupId ?? null));
+  // ?setup=<id> (the room's setup picker: Edit, Duplicate): that saved setup opens in the page.
+  const requested = new URLSearchParams(useSearch()).get("setup");
+  const [loadedId, setLoadedId] = useState<string | null>(() => requested ?? (stored ? stored.loadedId ?? null : room.setup?.setupId ?? null));
   const loadedQ = useLive(api.v2.setups.get, loadedId ? { setupId: loadedId } : "skip");
   const loaded = (loadedQ.data ?? null) as SavedSetup | null;
   const [saveName, setSaveName] = useState(room.setup?.name ?? "");
@@ -122,6 +124,13 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
     if (!editable) return;
     setPresetId(setup.preset); setDraft(draftOf(presetOf(setup.preset), setup.overrides)); setLoadedId(setup.setupId); setSaveName(setup.mine === false ? "" : setup.name);
   };
+  // The requested setup, once it arrives: into the page, once (the owner may change it from there).
+  const openedRequested = useRef(false);
+  useEffect(() => {
+    if (!requested || openedRequested.current || !loaded || loaded.setupId !== requested) return;
+    openedRequested.current = true;
+    loadSetup(loaded);
+  }, [requested, loaded]); // eslint-disable-line react-hooks/exhaustive-deps
   /** A new setup keeps the values the owner set by hand; everything else follows the new setup (as the server does). */
   const pickPreset = (id: string) => {
     if (!editable || id === presetId) return;

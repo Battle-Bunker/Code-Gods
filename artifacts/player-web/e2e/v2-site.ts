@@ -23,6 +23,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { chooseSetup } from "./setup-choice.ts";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
@@ -300,8 +301,7 @@ try {
         await page.goto(`${SITE}/`);
         await page.getByTestId("button-create-room").first().click();
         await page.waitForURL(/\/rooms\/[A-Z0-9]+$/);
-        await page.getByTestId("setup-grids-more-rules").click();
-        await page.waitForFunction(() => (document.querySelector("[data-testid=radio-setup-grids-more-rules]") as HTMLInputElement | null)?.checked === true);
+        await chooseSetup(page, "grids-more-rules", "Grids · more rules");
         await page.getByTestId("button-practice-game").click();
         await page.waitForURL(/\/games\//, { timeout: 30_000 });
         if (!await page.getByTestId("pane-my-card").count() && await page.getByTestId("button-jump-my-card").count()) await page.getByTestId("button-jump-my-card").click();
