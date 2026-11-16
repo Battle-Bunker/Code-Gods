@@ -12,6 +12,9 @@ const terms = (id: string, s: GridState, params: unknown) => {
 const el = (s: GridState, rep: string, name: string) => Number((elementValue(gridType, s, ref(rep, name)) as { q: Q }).q.n);
 
 const B = board("0120", "3001", "0000", "9000");
+const ROWS = { axis: "rows" } as const, COLUMNS = { axis: "columns" } as const;
+/** The board flipped over its main diagonal: its rows become its columns. */
+const transpose = (s: GridState): GridState => ({ cells: s.cells.map((_, i) => s.cells[(i % 4) * 4 + Math.floor(i / 4)]!) });
 
 test("representations: tallies, opposite pairs, mirror gaps, steps and boxes", () => {
   assert.equal(el(B, "cells", "r3c0"), 9);
@@ -27,10 +30,10 @@ test("representations: tallies, opposite pairs, mirror gaps, steps and boxes", (
 });
 
 test("each family's terms on one board", () => {
-  assert.deepEqual(terms("mirrormancer", B, {}), { mirror: 1 + 2 + 0 + 9, middle: 3, primes: 2, zeros: 11,
-    "mirror-columns": 12 + 1 + 2 + 1, "one-apart": 1 + 2 + 2 + 9, "small-middle": 3 });
-  assert.deepEqual(terms("magic-eighteen", B, { T: 18 }), { rows: 15 + 14 + 18 + 9, "first-column": 12, primes: 2, odd: 4,
-    columns: 6 + 17 + 16 + 17, diagonals: 18 + 9, "different-numbers": 0 });
+  assert.deepEqual(terms("mirrormancer", B, ROWS), { mirror: 1 + 2 + 0 + 9, middle: 3, primes: 2, zeros: 11,
+    "mirror-other-way": 12 + 1 + 2 + 1, "one-apart": 1 + 2 + 2 + 9, "small-middle": 3 });
+  assert.deepEqual(terms("magic-eighteen", B, { ...ROWS, T: 18 }), { lines: 15 + 14 + 18 + 9, "first-line": 12, primes: 2, odd: 4,
+    "other-way": 6 + 17 + 16 + 17, diagonals: 18 + 9, "different-numbers": 0 });
   assert.deepEqual(terms("opposite-nines", B, { T: 9 }), { pairs: 9 + 8 + 7 + 0 + 6 + 9 + 9 + 8, "top-half": 7, primes: 2, odd: 4,
     "mirror-nines": 9 + 6 + 5 + 9 + 9 + 9 + 0 + 9, "different-splits": 1, "big-on-top": 4 });
   assert.deepEqual(terms("two-pair", B, {}), { "two-pair": 2 + 1 + 9 + 2, apart: 3 + 2 + 9 + 0, primes: 2, corners: 9, "diagonal-pairs": 0, "small-pairs": 0 });
@@ -55,9 +58,9 @@ test("strangers and two pairs on boards made for them", () => {
 
 test("the tied tie-breakers on boards made for them", () => {
   const t = (id: string, s: GridState, p: unknown, ...ids: string[]) => { const x = terms(id, s, p); return ids.map(k => x[k]); };
-  assert.deepEqual(t("mirrormancer", board("4554", "4554", "0000", "0000"), {}, "mirror-columns", "one-apart", "small-middle"), [8 + 10 + 10 + 8, 0 + 0 + 2 + 2, 20]);
-  assert.deepEqual(t("magic-eighteen", board("9900", "0990", "4545", "3366"), { T: 18 }, "columns", "diagonals", "different-numbers"), [2 + 8 + 1 + 7, 10 + 1, 0]);
-  assert.deepEqual(t("magic-eighteen", board("0981", "0000", "0000", "0000"), { T: 18 }, "different-numbers"), [1]);
+  assert.deepEqual(t("mirrormancer", board("4554", "4554", "0000", "0000"), ROWS, "mirror-other-way", "one-apart", "small-middle"), [8 + 10 + 10 + 8, 0 + 0 + 2 + 2, 20]);
+  assert.deepEqual(t("magic-eighteen", board("9900", "0990", "4545", "3366"), { ...ROWS, T: 18 }, "other-way", "diagonals", "different-numbers"), [2 + 8 + 1 + 7, 10 + 1, 0]);
+  assert.deepEqual(t("magic-eighteen", board("0981", "0000", "0000", "0000"), { ...ROWS, T: 18 }, "different-numbers"), [1]);
   // Pairs 0+9, 1+8, 4+5 and 5+4 split 9 three ways (0, 1 and 4); only the 5 over the 4 has the bigger on top.
   assert.deepEqual(t("opposite-nines", board("0145", "0000", "0000", "4589"), { T: 9 }, "mirror-nines", "different-splits", "big-on-top"), [4 + 4 + 9 + 9 + 9 + 9 + 4 + 4, 3, 1]);
   assert.deepEqual(t("two-pair", board("3838", "8383", "1256", "1256"), {}, "diagonal-pairs", "small-pairs"), [2, 3 + 3 + 1 + 5]);
@@ -70,10 +73,42 @@ test("the tied tie-breakers on boards made for them", () => {
   assert.deepEqual(t("crosswise-threes", board("9630", "6300", "3000", "0000"), {}, "bigger-side", "other-fold", "fold-factors"), [6, 6 * 3, 6]);   // every folded partner is 0: 0 shares any factor of 9, 6 or 3
 });
 
+test("Mirrormancer and Magic Eighteen on the columns axis score the board flipped over its diagonal as the rows axis scores the board", () => {
+  // v1's axis (Mirrormancer LR or TB, Magic Eighteen rows or cols), restored: the instances are transposes of each other,
+  // so every term, the secondaries tied to the main part included (the other way, the first line, the middle), agrees.
+  const r = rng("grid-axis");
+  for (let i = 0; i < 40; i++) {
+    const s = { cells: Array.from({ length: 16 }, () => r.below(10)) };
+    assert.deepEqual(terms("mirrormancer", transpose(s), COLUMNS), terms("mirrormancer", s, ROWS));
+    assert.deepEqual(terms("magic-eighteen", transpose(s), { ...COLUMNS, T: 18 }), terms("magic-eighteen", s, { ...ROWS, T: 18 }));
+  }
+  // Worked boards on the columns axis: B's columns are 0309, 1000, 2000, 0100.
+  assert.deepEqual(terms("mirrormancer", B, COLUMNS), { mirror: 12 + 1 + 2 + 1, middle: 4, primes: 2, zeros: 11,
+    "mirror-other-way": 1 + 2 + 0 + 9, "one-apart": 2 + 8 + 0 + 1 + 1 + 1 + 0 + 1, "small-middle": 4 });
+  assert.deepEqual(terms("magic-eighteen", B, { ...COLUMNS, T: 18 }), { lines: 6 + 17 + 16 + 17, "first-line": 3, primes: 2, odd: 4,
+    "other-way": 15 + 14 + 18 + 9, diagonals: 18 + 9, "different-numbers": 0 });
+  assert.equal(el(B, "mirror", "cgap0"), 9 + 3);  // column 1 reads 0 3 0 9: |0−9| + |3−0|
+});
+
+test("Mirrormancer's and Magic Eighteen's cards name the dealt axis, and the secondaries follow it", () => {
+  const card = (id: string, p: unknown, tb: string) => fam(id).card(p as never, tb);
+  assert.deepEqual(fam("mirrormancer").dealable(grid4), [ROWS, COLUMNS]);
+  assert.deepEqual(fam("magic-eighteen").dealable(grid4), [{ ...ROWS, T: 18 }, { ...COLUMNS, T: 18 }]);
+  assert.equal(card("mirrormancer", ROWS, "mirror-other-way"),
+    "Every row should read the same backwards, like 3 1 1 3. Secondary: Every column should read the same from the bottom up as from the top down too.");
+  assert.equal(card("mirrormancer", COLUMNS, "mirror-other-way"),
+    "Every column should read the same from the bottom up as from the top down, like 3 1 1 3. Secondary: Every row should read the same backwards too.");
+  assert.equal(card("mirrormancer", COLUMNS, "small-middle"),
+    "Every column should read the same from the bottom up as from the top down, like 3 1 1 3. Secondary: Each column's middle pair should be as small as possible.");
+  assert.equal(card("magic-eighteen", { ...ROWS, T: 18 }, "other-way"), "Every row should add up to 18. Secondary: The columns should add up to 18 too.");
+  assert.equal(card("magic-eighteen", { ...COLUMNS, T: 18 }, "other-way"), "Every column should add up to 18. Secondary: The rows should add up to 18 too.");
+  assert.equal(card("magic-eighteen", { ...COLUMNS, T: 18 }, "different-numbers"), "Every column should add up to 18. Secondary: Each column should hold four different numbers.");
+});
+
 test("a perfect Magic Eighteen board scores 0 on the main layer, and its tie-breaker grades it", () => {
   const s = board("9090", "0909", "4545", "3366");
   const f = fam("magic-eighteen");
-  const e = evaluateSite(gridType, f, { T: 18 }, s, grid4, 0, "first-column");
+  const e = evaluateSite(gridType, f, { axis: "rows", T: 18 }, s, grid4, 0, "first-line");
   assert.deepEqual(e.score!.map(x => x === null ? null : `${x.n}/${x.d}`), ["0/1", "16/1"]);   // distance 0; the first column adds to 16
 });
 
