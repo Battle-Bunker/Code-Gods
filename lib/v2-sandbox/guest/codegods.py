@@ -194,6 +194,8 @@ class Offer:
             "layers": [Record(dict(l)) for l in r.get("layers", [])],
             # The moves this game offers, by id (absent from an older host: None).
             "mutators": list(r["mutators"]) if r.get("mutators") is not None else None,
+            # The defence goal dealt beside the rule (grids, when the room deals them): None when there is none.
+            "defence": Record(dict(r["defence"])) if r.get("defence") else None,
         })
 
     def my_score(self):

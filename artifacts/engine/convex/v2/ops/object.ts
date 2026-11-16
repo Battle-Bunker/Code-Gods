@@ -1,7 +1,7 @@
 /** `object.*`: reads of an object (free for a human; `bits` is what an agent pays), quotes and scores (reads.ts). */
 import { defineOp, inGame, seated } from "./define";
 import { ask, hostFor, objectIn } from "../reads.ts";
-import { decode, encode, scopeOf, typeOf, valueOf } from "../world.ts";
+import { decode, encode, penaltyWeightOf, scopeOf, typeOf, valueOf } from "../world.ts";
 import { elementValue, representation } from "@workspace/v2-core";
 import { text as equationText } from "@workspace/v2-views/equation-text";
 import { disclosed, measured } from "../disclose.ts";
@@ -46,11 +46,15 @@ export const { op: quote, as: quoteAs } = defineOp("object.quote", "query", asyn
   const calls = a.calls.map(c => ({ mutator: c.mutator, site: c.site ?? 0, args: c.args }));
   const q = ask(host, { op: "quote", calls });
   const priced = host.price(calls);
-  let after: { score: (string | null)[] | null; terms: unknown } | null = null;
+  let after: { score: (string | null)[] | null; terms: unknown; bits?: number } | null = null;
   if (priced.valid) {
     const terms = ask(await hostFor(env.ctx, game, member, encode(priced.result, game.variant)), { op: "myScore" }).terms;
     const rule = await myRuleRow(env.ctx, game._id, member._id);
-    if (rule) after = { score: valueOf(priced.result, game.variant, rule, scopeOf(game).objects).score, terms };
+    if (rule) {
+      // With a defence goal (v1, restored; call 1) the quote says the bits the commit would pay, the penalty taken off.
+      const v = valueOf(priced.result, game.variant, rule, scopeOf(game).objects, rule.defence, penaltyWeightOf(game));
+      after = { score: v.score, terms, ...(rule.defence ? { bits: v.rarityBits } : {}) };
+    }
   }
   return { valid: q.valid, ...(q.reason ? { reason: q.reason } : {}), bits: q.bits, total: q.total, charge: q.charge, after: after as never };
 });

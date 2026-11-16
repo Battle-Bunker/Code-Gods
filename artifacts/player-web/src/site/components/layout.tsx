@@ -21,11 +21,13 @@ import { ErrorLine } from "@/site/components/page-parts";
 import { Tip } from "@/site/components/action";
 import { ConnectedAppsSheet } from "@/site/components/sheets";
 import { AffordanceRuntimeProvider, useRuntime, type RuntimeScope } from "@/core/affordance-runtime";
+import { UncertainBanner } from "./uncertain-banner";
 import { touchGate } from "@/core/activity";
 import { GlossaryDialog } from "./glossary-dialog";
 import { codeCommands, paletteCommands } from "@/core/palette-commands";
 import { SAFE_MODE } from "@/core/safe-mode";
 import { useFilePanels } from "@/panels/store";
+import { requestComposer } from "@/panes/assistant-request";
 import "@/panels/registry";
 import { api, useLive } from "@/site/lib/convex";
 import { affordanceContext } from "@/core/affordance-context";
@@ -87,7 +89,7 @@ function Palette({ open, init, onOpenChange, placeholder, suggested, chip, roomP
   const filePanels = useMemo(() => fileEntries.map(e => e.id), [fileEntries]);
   const commands = useMemo(() => paletteCommands(rt.context, {
     perform: rt.perform, navigate, roomPath, notify: title => toast({ title }), ...(panes ? { panes } : {}), ...(noun ? { noun } : {}),
-    ...(storedPanels ? { storedPanels } : {}), filePanels, safeMode: SAFE_MODE, setSafeMode,
+    ...(storedPanels ? { storedPanels } : {}), filePanels, ...(panes ? { focusAssistant: () => requestComposer({}, panes.open) } : {}), safeMode: SAFE_MODE, setSafeMode,
   }), [rt, navigate, roomPath, panes, noun, storedPanels, filePanels]);
   const p = rt.context.principal;
   const ctx: PaletteContext = { role: p.owner ? "owner" : p.seated ? "seated" : p.member ? "member" : p.signedIn ? "signed-in" : "visitor", admin: p.admin, assistantOn: false };
@@ -139,6 +141,7 @@ export function Page({ children, context, scope = {}, crumbs = [], placeholder =
     <AffordanceRuntimeProvider context={ctx} scope={scope} onSignIn={login}>
       {isAuthenticated && <ActivityTouch />}
       <GlossaryDialog />
+      <UncertainBanner />
       <div className={bare ? "contents" : fill ? "h-[100dvh] flex flex-col overflow-hidden" : "min-h-[100dvh] flex flex-col"}>
         {!bare && <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur">
           <div className="mx-auto max-w-[1440px] px-4 md:px-6 h-14 flex items-center gap-3">

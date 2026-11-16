@@ -168,3 +168,15 @@ test("in a grid game the pane rows say grids (baseline-1: 'Open Lines', 'One lin
   assert.ok(titles.includes("Open Grids") && titles.includes("Open One grid"), titles.filter(t => t.startsWith("Open")).join(", "));
   assert.ok(!titles.some(t => /^Open .*\bline/i.test(t)), "no pane named for lines");
 });
+
+test("'Focus assistant (Ctrl+`)' is a row in a game with the assistant, and focuses its composer (v1)", async () => {
+  const ctx = affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: true, spectator: false }], preset: "lines-beginner" } as never, header: { phase: "live", me: "m1" } as never });
+  let focused = 0;
+  const host = { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, panes: { open: async () => {}, close: async () => {} }, focusAssistant: async () => { focused++; } };
+  const row = paletteCommands(ctx, host as never).find(r => r.id === "assistant-focus");
+  assert.ok(row && row.human.title === "Focus assistant (Ctrl+`)" && row.performer.kind === "submit");
+  await row.performer.run();
+  assert.equal(focused, 1);
+  const off = affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: true, spectator: false }], preset: "lines-beginner" } as never, header: { phase: "live", me: "m1" } as never, aiOff: "No AI here." });
+  assert.equal(paletteCommands(off, host as never).some(r => r.id === "assistant-focus"), false, "not in a room without AI");
+});

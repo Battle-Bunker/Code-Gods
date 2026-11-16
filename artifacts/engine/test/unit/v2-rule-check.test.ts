@@ -254,3 +254,41 @@ test("row 10: a cheap move from a rung keeps most of a line rule's bits, or the 
   assert.deepEqual([...found.keys()].filter(k => !(k in ROW10_EXEMPT)), [], "new failures: fix them, or list them in ROW10_EXEMPT with a date and an owner");
   assert.deepEqual(Object.keys(ROW10_EXEMPT).filter(k => !found.has(k)), [], "exemptions that now pass: remove them");
 });
+
+/**
+ * Defence goals (v1, restored; owner-decisions call 1): the penalties a grid preset could deal beside the rules, on the
+ * rows a penalty can be held to: 1 (an unbounded main part: a badness that keeps growing), 3a (dealt secondaries) and 4
+ * (dealt parameter sets). v1's penalties are counts of cells on a fixed board, with no tie-breaker: they fail as v1's
+ * did, and are ported as v1 had them (off by default, as in v1), listed here with the date.
+ */
+const DEFENCE_EXEMPT: Readonly<Record<string, string>> = {
+  "hated-number 1": "16 Nov, rules worker: ported as v1 (a count of cells, at most the board's 16)",
+  "hated-number 3a": "16 Nov, rules worker: ported as v1 (no tie-breaker)",
+  "number-crowd 1": "16 Nov, rules worker: ported as v1 (a count of cells, at most the board's 16)",
+  "number-crowd 3a": "16 Nov, rules worker: ported as v1 (no tie-breaker)",
+  "number-crowd 4": "16 Nov, rules worker: ported as v1 (one parameter set)",
+};
+
+test("defence goals pass rows 1, 3a and 4, or are listed in DEFENCE_EXEMPT as ported from v1", () => {
+  const found = new Set<string>();
+  for (const preset of PRESETS) {
+    const { type, variant } = findVariant(preset.variant);
+    for (const pf of type.penalties ?? []) {
+      const sets = pf.dealable(variant) as unknown[];
+      if (!sets.length) continue;
+      if (pf.tieBreakers.length < MIN_SECONDARIES) found.add(`${pf.id} 3a`);
+      if (sets.length < MIN_INSTANCES) found.add(`${pf.id} 4`);
+      // Row 1: a main part that keeps growing. A count of cells tops out on a board of one number: the badness there is
+      // the board's size, and nothing passes it.
+      const T = type as ObjectType<unknown>, [born] = births(T, variant, `rule-check-${pf.id}`, 1);
+      const size = (born as { cells?: unknown[] }).cells?.length;
+      if (size !== undefined) for (const p of sets) {
+        const v = (p as { value?: number }).value ?? 0, full = { cells: Array.from({ length: size }, () => v) };
+        const main = evaluateSite(T, pf as never, p, full, variant, 0, null).terms[0]?.value as { n: bigint; d: bigint } | undefined;
+        if (main && Number(main.n) / Number(main.d) === size) { found.add(`${pf.id} 1`); break; }
+      }
+    }
+  }
+  assert.deepEqual([...found].filter(k => !(k in DEFENCE_EXEMPT)).sort(), [], "new failures: fix them, or list them");
+  assert.deepEqual(Object.keys(DEFENCE_EXEMPT).filter(k => !found.has(k)), [], "exemptions that now pass: remove them");
+});
