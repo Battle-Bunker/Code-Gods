@@ -10,6 +10,7 @@ import { StrictMode, useEffect, useMemo, useRef, useState, type ReactElement, ty
 import { createRoot } from "react-dom/client";
 import { q, ruleLayers, type Q, type Score } from "@workspace/v2-core";
 import { describeLine, encodeLine, fromMC, intercept, isVertical, lineQ, lineType, normalise, shift, slope, tilt, type Line, type LineState } from "@workspace/v2-linear";
+import { areaSquare, gradientPrime, height as trialHeight, interceptSmooth, isPrimeN, TRIAL, trialScore, type TrialRule } from "@workspace/v2-linear";
 import { valueLookup, type Lookup, type ValueFunction } from "@workspace/v2-valuation";
 import { annotate, ExpandedFace, ObjectChip, partName, type RuleRef, type ValuePart } from "@workspace/v2-views";
 import { chanceText, exactOrDecimal, fmtBits, fmtQ, isApprox, rarerThanText } from "@workspace/v2-views/format";
@@ -276,10 +277,48 @@ function Rule({ f, line, onLine }: { f: MirrorFamily; line: Line; onLine: (l: Li
 
       <h3>What the rule makes of it</h3>
       <Verdict rule={rule} layers={layers} look={look} state={state} />
+      <TrialPanel line={line} />
       <div className="rm-face" data-testid="face">
         <ExpandedFace rule={rule} state={state} value={value} parts={parts} />
       </div>
     </section>
+  );
+}
+
+// ------------------------------------------------------------------ the scoring trial (docs/engine-v2/scoring-trial.md)
+
+/**
+ * The same line under the scoring trial: its height and three trial rules' scores (worth of the best trophy less k ×
+ * the price to reach it), computed from formulas, beside today's bits above. The trial's families are its own; the
+ * family chosen above has no trial form yet.
+ */
+function TrialPanel({ line }: { line: Line }) {
+  const [suffix, setSuffix] = useState("1"), [primes, setPrimes] = useState("3, 17");
+  const rules = useMemo<TrialRule[]>(() => {
+    const out: TrialRule[] = [];
+    try { out.push(gradientPrime(suffix.trim())); } catch { /* not a drawable suffix */ }
+    const ps = primes.split(/[ ,]+/).filter(Boolean).map(Number);
+    if (ps.length && ps.every(isPrimeN) && ps.length <= 4) out.push(interceptSmooth(ps, true));
+    out.push(areaSquare(100));
+    return out;
+  }, [suffix, primes]);
+  const H = trialHeight(line);
+  const rows = useMemo(() => rules.map(r => ({ r, s: trialScore(r, line) })), [rules, line]);
+  return (
+    <div className="rm-verdict" data-testid="trial">
+      <div className="rm-verdict-head"><span>Scoring trial</span> <span className="rm-muted">height {Number.isFinite(H) ? `${H.toFixed(2)} bits` : "off the trial board"}</span></div>
+      <p className="rm-muted">Worth of the best trophy less {TRIAL.k} × the cheapest price to reach it (g = {TRIAL.g}, α = {TRIAL.alpha.toFixed(4)}, {TRIAL.w}⚡ a bit).
+        Suffix <input className="rm-num" value={suffix} onChange={e => setSuffix(e.target.value)} size={4} aria-label="trial gradient suffix" />{" "}
+        primes <input className="rm-num" value={primes} onChange={e => setPrimes(e.target.value)} size={8} aria-label="trial intercept primes" /></p>
+      <table className="rm-trial"><tbody>
+        {rows.map(({ r, s }) => (
+          <tr key={r.family} data-testid="trial-row" data-family={r.family} data-score={s.score.toFixed(4)}>
+            <td title={r.card}>{r.family.replace("trial-", "")}</td><td><b>{s.score.toFixed(2)}</b></td>
+            <td className="rm-muted">{s.trophy ? `${s.trophy.label}: worth ${s.worth.toFixed(2)}, price ${s.price.toFixed(2)}` : "no trophy within reach"}</td>
+          </tr>
+        ))}
+      </tbody></table>
+    </div>
   );
 }
 
