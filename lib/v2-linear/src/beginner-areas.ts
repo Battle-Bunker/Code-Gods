@@ -71,7 +71,10 @@ export function squareRung(area: Q, d: number, near = false): { r: bigint; u: Q 
  * is r² exactly, with r² ending in d and r made of cheap primes (2, 3, 7, 11, 13; never 5, whose squares end in 5 or 0):
  * φ grows by about 1.7 bits a digit. Empty for a number of digits no such r reaches.
  */
-const ROOTS: bigint[] = (() => {
+// Built on first use, never at import: 7.6 million roots (~430 MB) at load broke the deploy (test/load-cost.test.ts). Only
+// the value generator asks for witnesses (lib/v2-valuation value.ts caps).
+let ROOTS: bigint[] | null = null;
+const roots = (): bigint[] => (ROOTS ??= (() => {
   const out: bigint[] = [];
   const walk = (n: bigint, i: number) => {
     out.push(n);
@@ -79,10 +82,10 @@ const ROOTS: bigint[] = (() => {
   };
   walk(1n, 0);
   return out;
-})();
+})());
 export function squareWitness(p: SquareEnds, n: number): LineState[] {
   const lo = 10n ** BigInt(n - 1), hi = 10n ** BigInt(n);
-  return ROOTS.filter(r => r >= 2n && (r * r) % 10n === BigInt(p.ends) && r * r >= lo && r * r < hi)
+  return roots().filter(r => r >= 2n && (r * r) % 10n === BigInt(p.ends) && r * r >= lo && r * r < hi)
     .map(r => ({ r, bits: LINE_Q_CODES.c.bits(2n * r) })).sort((x, y) => x.bits - y.bits).slice(0, 3)
     .map(({ r }) => ({ lines: [fromMC(q(-2), q(2n * r))] }));
 }
