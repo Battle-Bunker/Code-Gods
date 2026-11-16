@@ -15,9 +15,9 @@ import { humans, perform, SITE_ } from "./v2-helpers.ts";
 const REDIRECT = "http://127.0.0.1:9/callback";
 const form = (body: Record<string, string>) => ({ method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(body).toString() });
 
-async function startOAuth(room: string, scope: string) {
+async function startOAuth(room: string, scope: string, clientName = "v2 OAuth test") {
   const registered = await fetch(`${SITE_}/api/oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ client_name: "v2 OAuth test", redirect_uris: [REDIRECT] }) });
+    body: JSON.stringify({ client_name: clientName, redirect_uris: [REDIRECT] }) });
   assert.equal(registered.status, 201, await registered.clone().text());
   const { client_id } = await registered.json() as { client_id: string };
   const verifier = randomBytes(32).toString("base64url"), state = randomUUID();
@@ -126,11 +126,32 @@ test("a refresh token sent again moments after its rotation (a reload cut the an
   assert.equal(again.status, 200, `the same token moments later rotates again: ${await again.clone().text()}`);
   const { refresh_token: r3, access_token } = await again.json() as { refresh_token: string; access_token: string };
   assert.equal((await mcp(access_token, "tools/list")).result.tools.length > 0, true, "the connection still acts");
-  const later = await refresh(r3);
-  assert.equal(later.status, 200);
-  const { refresh_token: r4 } = await later.json() as { refresh_token: string };
+  // Once only: the same token a third time is a reuse, and revokes.
+  assert.equal((await refresh(r1)).status, 400, "the grace is taken once");
+  assert.equal((await refresh(r3)).status, 400, "and that reuse revoked the connection");
+});
+
+test("the refresh grace is for its own client only, and ends after 30 s", { timeout: 120_000 }, async () => {
+  const [ada] = await humans("Refresh Bo");
+  const { roomId } = (await perform(ada!, "room.create", { name: "Refresh room 2" })).result;
+  // Two clients: registration returns the same client for the same metadata, so each has its own name.
+  const connect = async (name: string) => {
+    const flow = await startOAuth(roomId, "act", name);
+    const completion = randomBytes(32).toString("base64url");
+    assert.equal((await perform(ada!, "account.approveConnection", { request: flow.request, completion, grant: "act", room: roomId })).ok, true);
+    const code = await complete(flow, completion);
+    const t = await (await fetch(`${SITE_}/api/oauth/token`, form({ grant_type: "authorization_code", code: code!, code_verifier: flow.verifier, client_id: flow.clientId, redirect_uri: REDIRECT, resource: SITE_ }))).json() as { refresh_token: string };
+    return { clientId: flow.clientId, r1: t.refresh_token };
+  };
+  const refresh = (token: string, clientId: string) => fetch(`${SITE_}/api/oauth/token`, form({ grant_type: "refresh_token", refresh_token: token, client_id: clientId, resource: SITE_ }));
+  const a = await connect("Refresh client A"), b = await connect("Refresh client B");
+  assert.notEqual(a.clientId, b.clientId);
+  const a2 = await (await refresh(a.r1, a.clientId)).json() as { refresh_token: string };
+  assert.equal((await refresh(a.r1, b.clientId)).status, 400, "another client's reuse is refused");
+  assert.equal((await refresh(a2.refresh_token, a.clientId)).status, 400, "and revoked the connection");
+  const b2 = await (await refresh(b.r1, b.clientId)).json() as { refresh_token: string };
   // Past the grace a rotated-out token is a reuse: the connection is revoked.
   await new Promise(r => setTimeout(r, 31_000));
-  assert.equal((await refresh(r1)).status, 400, "an old token is refused");
-  assert.equal((await refresh(r4)).status, 400, "and its reuse revoked the connection");
+  assert.equal((await refresh(b.r1, b.clientId)).status, 400, "an old token is refused");
+  assert.equal((await refresh(b2.refresh_token, b.clientId)).status, 400, "and its reuse revoked the connection");
 });
