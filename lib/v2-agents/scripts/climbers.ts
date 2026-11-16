@@ -7,7 +7,7 @@ import { riseTogether, TOGETHER } from "../src/collapse.ts";
 import { KAPPA, type Economy } from "@workspace/v2-economy";
 import { lineType, type LineState } from "@workspace/v2-linear";
 import type { Program } from "../src/act.ts";
-import { changeCharge, EngineHost, startersFor, type Sandboxes } from "../src/index.ts";
+import { changeCharge, EngineHost, scoreSource, startersFor, type Sandboxes } from "../src/index.ts";
 import { runTable, type TableReport } from "../src/table.ts";
 import { total, type Rule } from "./landscape-lib.ts";
 
@@ -231,3 +231,47 @@ export function frozenShare<S>(o: {
   }
   return o.final.length ? stuck / o.final.length : 0;
 }
+
+/**
+ * A cooperating pair (the coordinator, 16 Nov; the owner allows "specific states to be calculated in advance and then
+ * effortfully pursued by multiple cooperating agents over many steps"): two seats that have shared their rules carry both
+ * score functions. Each act on a line, both compute the same plan: the best state within two steps (shifts and tilts up
+ * to 2) that is no worse for either rule and better for one, ordered by the leader's score, then the follower's, then
+ * the shorter path. Each takes the plan's next step if it can pay for it, though that step alone may lower its own points
+ * (the partner does not undo it: it follows the same plan). With nothing better for the pair within reach it skips.
+ * TypeScript only; an experiment, not a shipped starter.
+ */
+export function pairClimber(own: { family: string }, partner: { family: string; params: unknown; tieBreaker: string | null }, leader: boolean): Program {
+  const mine = scoreSourceOf(own.family), theirs = scoreSourceOf(partner.family).replace(/\bfunction score\(/, "function scoreB(");
+  const body = `
+const PB = ${JSON.stringify(partner.params)}, TB = ${JSON.stringify(partner.tieBreaker)}, LEADER = ${leader};
+function agent(offer) {
+  if (saving(offer)) return null;
+  const v = look(offer, "si"), rule = goal(offer), m = v.m, c = v.c, p = rule.params, tie = rule.tieBreaker;
+  if (!Q.isQ(m)) return null;
+  const A = (m2, c2) => score(m2, c2, p, tie), B = (m2, c2) => scoreB(m2, c2, PB, TB);
+  const a0 = A(m, c), b0 = B(m, c);
+  const steps = [];
+  for (const k of [-2, -1, 1, 2]) { steps.push([move("si.shift", { k }), 0, k]); steps.push([move("si.tilt", { k }), k, 0]); }
+  const paths = [];
+  for (const s1 of steps) {
+    paths.push([[s1[0]], Q.add(m, s1[1]), Q.add(c, s1[2])]);
+    for (const s2 of steps) paths.push([[s1[0], s2[0]], Q.add(m, s1[1] + s2[1]), Q.add(c, s1[2] + s2[2])]);
+  }
+  let best = null;
+  for (const [plan, m2, c2] of paths) {
+    if (stepsLeft() < 0.5 * stepBudget()) break;
+    const a = A(m2, c2), b = B(m2, c2);
+    if (better(a0, a) || better(b0, b) || !(better(a, a0) || better(b, b0))) continue;   // worse for one of us, or no gain
+    const key = LEADER ? [a, b] : [b, a];   // the leader's score first, in both agents: the same plan
+    if (!best || better(key[0], best.key[0]) || (!better(best.key[0], key[0]) && (better(key[1], best.key[1]) || (!better(best.key[1], key[1]) && plan.length < best.plan.length)))) best = { key, plan };
+  }
+  if (!best) return null;
+  const first = [best.plan[0]], pr = price(offer, first);
+  return pr !== null && pr <= allowance(offer) ? first : null;
+}
+`;
+  return { language: "typescript", source: `${mine}\n${theirs}\n${body}` };
+}
+
+const scoreSourceOf = (family: string): string => scoreSource(family, null, "typescript");

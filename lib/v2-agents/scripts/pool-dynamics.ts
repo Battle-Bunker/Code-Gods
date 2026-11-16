@@ -54,7 +54,7 @@ import { sandboxes, startersFor } from "../src/index.ts";
 import { runTable } from "../src/table.ts";
 import { practiceDeal } from "../../../artifacts/engine/convex/v2/deal.ts";
 import { presetOf } from "../../../artifacts/engine/convex/v2/presets.ts";
-import { lensClimber, LENS_IDS, lineStarter, optionsClimber, SHORTCUT } from "./climbers.ts";
+import { lensClimber, LENS_IDS, lineStarter, optionsClimber, pairClimber, SHORTCUT } from "./climbers.ts";
 
 /**
  * --twostep (an experiment, TypeScript line starters only): when no single step raises the seat's points, it weighs
@@ -138,7 +138,7 @@ const { values: o } = parseArgs({ options: {
   games: { type: "string", default: "12" }, seconds: { type: "string", default: "600" }, drift: { type: "string", default: "120" },
   kind: { type: "string", default: "simple" }, objects: { type: "string", default: "3" }, births: { type: "string", default: String(1 / 240) },
   variant: { type: "string", default: "line-q" }, preset: { type: "string" }, instances: { type: "boolean", default: false }, only: { type: "string" }, from: { type: "string", default: "0" }, json: { type: "string" }, focus: { type: "string" }, climber: { type: "string", default: "plain" }, seed: { type: "string" },
-  seats: { type: "string", default: "3" }, cap: { type: "string" }, look: { type: "string" }, menu: { type: "string" }, "births-quiet": { type: "string" }, "retire-play": { type: "string" }, "retire-family": { type: "string" }, twostep: { type: "boolean", default: false },
+  seats: { type: "string", default: "3" }, cap: { type: "string" }, pair: { type: "boolean", default: false }, look: { type: "string" }, menu: { type: "string" }, "births-quiet": { type: "string" }, "retire-play": { type: "string" }, "retire-family": { type: "string" }, twostep: { type: "boolean", default: false },
   power: { type: "string", default: "1" }, reading: { type: "string" }, server: { type: "boolean", default: false }, practice: { type: "boolean", default: false }, "drift-ladders": { type: "boolean", default: false }, "no-mirror": { type: "boolean", default: false },
 } });
 
@@ -226,6 +226,8 @@ const lateUp = { young: 0, old: 0 };
 // the same seat's next move (it rose above where it dipped from: recovered), another seat's (undone: back to the state
 // before the dip), or nothing before the game ended.
 const failed = { acts: 0, n: 0, steps: 0, calls: 0 };
+// --pair: each game's gain for the two cooperating seats (0 and 1) and the third.
+const pairGain = { pair: [] as number[], third: [] as number[] };
 // Survival: of the bits other seats held on a line just before a seat's move, the share they still hold after it.
 const survival = { held: 0, kept: 0 };
 const dips = { n: 0, followed: 0, recovered: 0, interrupted: 0, undone: 0, open: 0 };
@@ -277,6 +279,11 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
     if (o["no-mirror"]) program.source = program.source.replaceAll("shortcuts(m, c, rule.mutators)", `shortcuts(m, c, rule.mutators).filter(([plan]) => plan.mutator !== "cart.mirror")`);
     return { name: `P${k}`, kind: "starter" as const, rule: { family: r.family, params: r.params as Record<string, unknown>, tieBreaker }, program };
   });
+  // --pair: seats 0 and 1 cooperate (pairClimber: each carries both rules, the same plan, seat 0 leads); drift off.
+  if (o.pair) for (const k of [0, 1]) {
+    const partner = seats[1 - k]!.rule;
+    (seats[k] as { program: { language: string; source: string } }).program = pairClimber({ family: seats[k]!.rule.family }, { family: partner.family, params: partner.params, tieBreaker: partner.tieBreaker }, k === 0);
+  }
   const fams = seats.map(s => type.families.find(f => f.id === s.rule.family)!);
   const params = seats.map(s => s.rule.params);
   const scoreOf = (i: number, s: unknown): Score => evaluateSite(type, fams[i]!, params[i], s, variant, 0, seats[i]!.rule.tieBreaker).score;
@@ -430,6 +437,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
     }
   });
   dips.open += dipOn.size;
+  pairGain.pair.push((rep.seats[0]!.gained + rep.seats[1]!.gained) / 2); if (rep.seats[2]) pairGain.third.push(rep.seats[2]!.gained);
   peaks.push({ seat: peakSeat, table: peakTable, stretchRun, runBy, game: g });
   if (o.cap) {
     for (let k = 0; k < rep.objects; k++) { life.rungs.push(rungsOn.get(k) ?? 0); if (!retiredAt.has(k)) life.censored++; }
@@ -465,6 +473,7 @@ for (const [f, s] of rows) console.log([
   s.taken ? `${s.taken} (${pct(s.reclimbed, s.taken)})` : "0",
 ].join(" | ").replace(/^/, "| ").concat(" |"));
 console.log(`survival: a seat's bits on a line that survive the next move by another seat ${survival.held ? ((100 * survival.kept) / survival.held).toFixed(0) : "-"}%`);
+console.log(`seats 0 and 1 (the pair under --pair): mean gain ${mean(pairGain.pair).toFixed(0)}; seat 2: ${mean(pairGain.third).toFixed(0)}`);
 console.log(`acts failed: ${failed.n} of ${failed.acts} (step limit ${failed.steps}, host-call cap ${failed.calls})`);
 console.log(`dips (moves that lowered the mover's points, own bits × the others'): ${dips.n}; next move on that line by the same seat ${dips.followed} (above where it dipped from: ${dips.recovered}), by another seat ${dips.interrupted} (back to the state before the dip: ${dips.undone}), none before the end ${dips.open}`);
 console.log(`late rungs: on lines younger than 60 s ${lateUp.young}, on older lines ${lateUp.old}`);
