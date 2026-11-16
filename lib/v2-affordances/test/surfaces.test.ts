@@ -123,3 +123,10 @@ test("palette titles speak the game's words: no “representation” or “mutat
   const { DIRECTORY } = await import("../src/index.ts");
   for (const a of DIRECTORY) assert.doesNotMatch(a.title, /representation's mutators/i, a.id);
 });
+
+test("a look in planning says why there is nothing to pay for (v1's reason, game/commands.ts:380)", () => {
+  assert.equal(refusal(AFFORDANCES["object.look"], ctx("planning", "seated"))?.reason,
+    "The world has not started: every object is still exactly as you see it, so there is nothing to pay for.");
+  assert.match(refusal(AFFORDANCES["object.whatIf"], ctx("planning", "seated"))?.reason ?? "", /^The world has not started/);
+  assert.equal(refusal(AFFORDANCES["agent.summon"], ctx("ended", "seated"))?.reason, "Not available after the game.", "others keep the general words");
+});

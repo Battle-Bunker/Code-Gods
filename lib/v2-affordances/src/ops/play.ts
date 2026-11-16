@@ -158,7 +158,7 @@ export const playOps = [
     description: "See one object as it is now, or every object when no objectId is given, paying each one's full read at the read price times the game's weight (readPriceWeight; a game at 0 reads free and has nothing to look at) from the caller's own store; each look is a fresh measurement of the others' bits. Until a look, an object shows as the caller was last told it: at its birth, by their own agents' changes and complete reads, or by an earlier look. Refused, with the price and the store, when the store cannot pay; keep some power for yourself to look.",
     tooltip: "Pay to see objects as they are now.", keywords: ["look", "refresh", "see", "observe", "update view"],
     params: obj({ objectId: id.optional(), requestId: requestId.optional() }), result: z.object({ looked: z.number().int(), price: z.number() }),
-    contexts: ["live", "paused"], caller: "seated", effect: "write", confirm: "inline", runs: "server",
+    contexts: ["live", "paused"], contextReasons: { planning: "The world has not started: every object is still exactly as you see it, so there is nothing to pay for." }, caller: "seated", effect: "write", confirm: "inline", runs: "server",
   }),
   affordance({
     id: "object.whatIf", title: "What if, for the others", group: "objects", scope: "game",
@@ -166,7 +166,7 @@ export const playOps = [
     tooltip: "Price what a move would do for the others.", keywords: ["what if", "quote", "preview", "others"],
     params: obj({ objectId: id, calls: z.array(call).min(1).max(4), requestId: requestId.optional() }),
     result: z.object({ state: z.string(), price: z.number(), after: z.array(z.object({ state: z.string(), want: z.number(), taken: z.number().int().nullable() }).nullable()) }),
-    contexts: ["live", "paused"], caller: "seated", effect: "write", confirm: "inline", runs: "server",
+    contexts: ["live", "paused"], contextReasons: { planning: "The world has not started: every object is still exactly as you see it, and quotes open when the world starts." }, caller: "seated", effect: "write", confirm: "inline", runs: "server",
   }),
   affordance({
     id: "moves.list", title: "List moves that concern me", group: "objects", scope: "game",
