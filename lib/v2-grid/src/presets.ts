@@ -11,6 +11,12 @@ import { gridParams } from "./grid.ts";
 
 const BEGINNER = new Set(beginnerGridFamilies(gridParams(grid4).size).map(f => f.id));
 const MORE = new Set(moreGridFamilies(gridParams(grid4).size).map(f => f.id));
+/**
+ * v1's Looking-Glass, Pinwheel and Constellation, ported as v1 (16 Nov) into the more-rules pool, with every parameter
+ * set v1 dealt: both folds, and every star number 0–9 (the energy gate's greedy climb tops 11.8–31.4 bits across the
+ * stars: unequal, but each under 35).
+ */
+for (const id of ["looking-glass", "pinwheel", "constellation"]) MORE.add(id);
 /** The arithmetic playtest pool: readings of the board as long numbers (grid-params.md §12–13). */
 const ARITHMETIC = new Set(["divisibility", "leading-digits"]);
 

@@ -731,4 +731,49 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       },
     },
   },
+  {
+    family: "looking-glass", simple: ["swap"],
+    mainSays: "the pairs of mirror twins holding the same number, folding left onto right (V) or top onto bottom (H) (more is better)",
+    main: {
+      ts: ["const T = i => (p.axis === \"V\" ? i - i % 4 + 3 - i % 4 : 12 - (i - i % 4) + i % 4);   // each cell's mirror twin across the fold", "const hits = [];   // the matching pairs, each once (by its first cell)", "for (let i = 0; i < 16; i++) if (T(i) > i && b[T(i)] === b[i]) hits.push(i);", "const main = hits.length;"],
+      py: ["def T(i):   # each cell's mirror twin across the fold", "    return i - i % 4 + 3 - i % 4 if p[\"axis\"] == \"V\" else 12 - (i - i % 4) + i % 4", "hits = [i for i in range(16) if T(i) > i and b[T(i)] == b[i]]   # the matching pairs, each once (by its first cell)", "main = len(hits)"],
+    },
+    tieBreakers: {
+      "twin-total": {
+        ts: "hits.reduce((t, i) => t + b[i], 0)", py: "sum(b[i] for i in hits)",
+        says: "bigger numbers in the matching pairs (one from each pair, added up) are better", lenses: ["add", "twin"], steps: 2,
+        tryThis: "remove the \"twin\" line: can single cells raise a matching pair without breaking it?",
+      },
+    },
+  },
+  {
+    family: "pinwheel", simple: ["swap"],
+    mainSays: "the sets of 4 a quarter turn moves round that all hold the same number (more is better)",
+    main: {
+      ts: ["const SETS = [[0, 3, 15, 12], [1, 7, 14, 8], [2, 11, 13, 4], [5, 6, 10, 9]];   // the sets of 4 a quarter turn moves round", "let main = 0, most = 0;", "for (const x of SETS) { const v = x.map(i => b[i]), same = Math.max(...v.map(y => v.filter(z => z === y).length)); most += same; if (same === 4) main++; }   // each set: how many hold its commonest number; all four scores"],
+      py: ["SETS = [[0, 3, 15, 12], [1, 7, 14, 8], [2, 11, 13, 4], [5, 6, 10, 9]]   # the sets of 4 a quarter turn moves round", "main, most = 0, 0", "for x in SETS:   # each set: how many hold its commonest number; all four scores", "    v = [b[i] for i in x]", "    same = max(v.count(y) for y in v)", "    most += same", "    if same == 4:", "        main += 1"],
+    },
+    tieBreakers: {
+      commonest: {
+        ts: "most", py: "most",
+        says: "more cells holding their set's commonest number is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; can it still bring a set's numbers together?",
+      },
+    },
+  },
+  {
+    family: "constellation", simple: ["swap"],
+    mainSays: "the stars (cells holding your number) in the biggest cluster, touching even at a corner (more is better)",
+    main: {
+      ts: ["const near = i => [-5, -4, -3, -1, 1, 3, 4, 5].map(d => i + d).filter(j => j >= 0 && j < 16 && Math.abs((j % 4) - (i % 4)) <= 1);   // the cells touching cell i, at a side or a corner", "const reach = g => new Set(g.map(i => Math.floor(i / 4))).size + new Set(g.map(i => i % 4)).size;   // the rows and columns a cluster reaches", "let best = [];   // the biggest cluster (on a tie, the one reaching furthest)", "const seen = new Set();", "for (let s = 0; s < 16; s++) {", "  if (b[s] !== p.star || seen.has(s)) continue;", "  const g = [s];", "  seen.add(s);", "  for (const i of g) for (const j of near(i)) if (!seen.has(j) && b[j] === p.star) { seen.add(j); g.push(j); }   // stars touching the cluster join it", "  if (g.length > best.length || (g.length === best.length && reach(g) > reach(best))) best = g;", "}", "const main = best.length;"],
+      py: ["def near(i):   # the cells touching cell i, at a side or a corner", "    return [i + d for d in (-5, -4, -3, -1, 1, 3, 4, 5) if 0 <= i + d < 16 and abs((i + d) % 4 - i % 4) <= 1]", "def reach(g):   # the rows and columns a cluster reaches", "    return len({i // 4 for i in g}) + len({i % 4 for i in g})", "best = []   # the biggest cluster (on a tie, the one reaching furthest)", "seen = set()", "for s in range(16):", "    if b[s] != p[\"star\"] or s in seen:", "        continue", "    g = [s]", "    seen.add(s)", "    for i in g:   # stars touching the cluster join it", "        for j in near(i):", "            if j not in seen and b[j] == p[\"star\"]:", "                seen.add(j)", "                g.append(j)", "    if len(g) > len(best) or (len(g) == len(best) and reach(g) > reach(best)):", "        best = g", "main = len(best)"],
+    },
+    tieBreakers: {
+      "cluster-reach": {
+        ts: "reach(best)", py: "reach(best)",
+        says: "a biggest cluster reaching into more rows and columns is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps stretch the cluster?",
+      },
+    },
+  },
 ];

@@ -99,6 +99,10 @@ export const RULE_FORMS: Readonly<Record<string, FamilyForms>> = {
   staircase: { kind: "monotone-steps", forms: { "long-flight": "run-length", "double-stairs": "second-axis", "low-stairs": "small-values" } },
   "magic-accountant": { kind: "line-sums", forms: { "other-way": "second-axis", diagonals: "diagonals", "all-different": "all-different" } },
   fillomino: { kind: "region", forms: { "patch-kinds": "all-different", "patch-count": "count", "near-misses": "distance" } },
+  // v1's grid families ported as v1 (16 Nov, grids session): one tie-breaker each, v1's secondary or one tied to the main part.
+  "looking-glass": { kind: "symmetry", forms: { "twin-total": "big-values" } },
+  pinwheel: { kind: "symmetry", forms: { commonest: "count" } },
+  constellation: { kind: "region", forms: { "cluster-reach": "reach" } },
   divisibility: { kind: "power-count", forms: { "leftover-digits": "digit-sum" } },
   "leading-digits": { kind: "leading-digits", forms: { "exponent-digits": "digit-sum" } },
 };
