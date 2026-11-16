@@ -112,7 +112,7 @@ export function magicEighteen(n: number): RuleFamily<GridState, AxedT> {
     ],
   };
   return family<AxedT>("magic-eighteen", "Magic Eighteen", ["tally", "cells"], shape, AXES.map(axis => ({ axis, T: 18 })), (ctx, p) => {
-    const [mine] = p.axis === "rows" ? ["row", "col"] : ["col", "row"];
+    const [mine, other] = p.axis === "rows" ? ["row", "col"] : ["col", "row"];
     const totals = readAll(ctx, "tally", rows(n).map((_, k) => `${mine}${k}`));
     ctx.term("lines", `how far the ${p.axis}' totals are from ${p.T}, added up`, q(sumOf(totals.v.map(x => Math.abs(x - p.T)))), totals.refs);
     const cells = readCells(ctx, n);
