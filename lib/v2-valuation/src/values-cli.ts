@@ -12,6 +12,7 @@ import { findVariant } from "./registry.ts";
 import { lineValueFunction } from "./value.ts";
 import { gridValueFunction } from "./value-grid.ts";
 import { pairValueFunction } from "./value-pair.ts";
+import { boardValueFunction } from "./value-board.ts";
 
 const args = process.argv.slice(2);
 const opt = (name: string): string | undefined => { const i = args.indexOf(`--${name}`); return i === -1 ? undefined : args[i + 1]; };
@@ -34,6 +35,8 @@ for (const family of families) for (const params of paramsOf(family)) {
     const t = Date.now();
     const vf = type.id === "pair"
       ? pairValueFunction(family, params, variant, { tieBreaker, ...(opt("seed") ? { seed: opt("seed")! } : {}), ...(opt("draws") ? { config: { drawsPerTilt: Number(opt("draws")) } } : {}) })
+      : type.id.startsWith("board")
+      ? boardValueFunction(type as never, family, params, variant, { tieBreaker, ...(opt("seed") ? { seed: opt("seed")! } : {}), ...(opt("draws") ? { draws: Number(opt("draws")) } : {}) })
       : type.id === "grid"
       ? gridValueFunction(type as never, family, params, variant, { tieBreaker, ...(opt("seed") ? { seed: opt("seed")! } : {}), ...(opt("draws") ? { draws: Number(opt("draws")) } : {}) })
       : lineValueFunction(family, params, variant, { tieBreaker, config: opt("draws") ? { drawsPerTilt: Number(opt("draws")) } : {} });
