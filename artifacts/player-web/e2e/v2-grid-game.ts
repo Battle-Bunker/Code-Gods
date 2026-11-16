@@ -236,6 +236,9 @@ try {
     const line = page.getByTestId("pane-object");
     await line.locator(".v2v-grid, [data-scene=grid]").first().waitFor({ state: "attached", timeout: 20_000 });
     assert.match(await line.getByTestId("text-line-formula").innerText(), FORMULA, "One line says yours × others' = points");
+    // v1's why?: how rare the grid is, as a share of random grids (only when it has bits).
+    const rarer = line.getByTestId("text-line-rarer");
+    if (await rarer.count()) assert.match(await rarer.innerText(), /^For your rule this grid is rarer than \d{1,3} of 1,000 random grids \(1 in [\d.,]+( \w+)? by chance\)\.$/);
     // What a bit is, on tap (a phone has no hover).
     await line.getByTestId("button-bits-help-line").click();
     await page.getByTestId("text-bits-help").getByText(/Each bit = twice as rare\./).waitFor();
