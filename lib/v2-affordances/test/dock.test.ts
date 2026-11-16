@@ -107,3 +107,19 @@ test("opening a pane never hides the one the player acted from: One line opened 
   const fronts = dockGroups(tree).map(l => l.group.active);
   for (const p of ["my-card", "results", "race", "object"]) assert.ok(fronts.includes(p), `${p} in view: ${formatDock(tree)}`);
 });
+
+test("v1's Reset layout and Layout: Two panels, on the screen in view", () => {
+  const ok = (r: ReturnType<typeof applyView>) => { assert.ok(r.outcome.ok, JSON.stringify(r.outcome)); return r.view; };
+  let v = ok(applyView(EMPTY_VIEW, "view.arrangeDock", { dock: "row(objects 60, feed|*race 40)", phase: "planning" }, live));
+  // Two panels: the screen's two first shown panes stacked on the left, every other pane in one group on the right.
+  v = ok(applyView(v, "view.twoPanels", {}, live));
+  assert.equal(formatDock(v.dock.live!), "row(column(my-card 50, agents 50) 40, objects|feed|race 60)");
+  assert.equal(formatDock(v.dock.planning!), "row(objects 60, feed|*race 40)", "other screens keep theirs");
+  // From a screen of fewer panes: the two stacked, nothing on the right.
+  const two = ok(applyView(v, "view.arrangeDock", { dock: "row(objects, race)" }, live));
+  assert.equal(formatDock(ok(applyView(two, "view.twoPanels", {}, live)).dock.live!), "column(objects 50, race 50)");
+  // Reset: the screen in view back to its default.
+  v = ok(applyView(v, "view.resetLayout", {}, live));
+  assert.deepEqual(Object.keys(v.dock), ["planning"]);
+  assert.equal(applyView(v, "view.resetLayout", {}, { ...live, context: "room" }).outcome.ok, false, "the room page has no dock");
+});

@@ -329,7 +329,9 @@ try {
       }
       // Carol keeps a bid (bidding-shots: the outcome shows on the winner's card), then is done.
       const carolFamily = (await c.locator('[data-testid^="bid-family-"]').first().getAttribute("data-testid"))!.replace("bid-family-", "");
-      await c.getByTestId(`button-bid-${carolFamily}-10`).click();
+      // v1's bidding.tsx:110: Enter in the amount box commits the bid.
+      await c.getByTestId(`input-bid-${carolFamily}`).fill("10");
+      await c.getByTestId(`input-bid-${carolFamily}`).press("Enter");
       await c.getByTestId(`text-my-bid-${carolFamily}`).filter({ hasText: "10%" }).waitFor();
       await c.getByTestId("button-bidding-done").click();
       for (const p of [b, c]) await p.waitForURL(GAME_URL, { timeout: 120_000 });
