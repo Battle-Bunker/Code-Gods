@@ -91,6 +91,13 @@ const failed = (error: SandboxError, channel: Channel | null): ActResult => {
   return { ok: false, code: error.code, error: error.message, transcript: channel?.transcript ?? [], readBits: channel?.readBits ?? 0 };
 };
 
+/** An inline sandbox can also run an act synchronously (a lock's predicate, checked inside a host call of another act). */
+export interface InlineSandbox extends Sandbox {
+  actSync(request: ActRequest): ActResult;
+}
+
+export async function createSandbox(options: SandboxOptions & { execution?: "inline" }): Promise<InlineSandbox>;
+export async function createSandbox(options: SandboxOptions): Promise<Sandbox>;
 export async function createSandbox(options: SandboxOptions): Promise<Sandbox> {
   const { language, execution = "inline" } = options;
   if (!["python", "typescript", "javascript"].includes(language)) throw new SandboxError("CONFIG", `unknown language ${language}`);
@@ -108,22 +115,20 @@ export async function createSandbox(options: SandboxOptions): Promise<Sandbox> {
   } catch (error) {
     throw new SandboxError("UNAVAILABLE", `The ${language} sandbox could not start: ${String((error as Error)?.message ?? error).slice(0, 500)}`);
   }
-  return {
-    language,
-    async act(request) {
-      const prepared = prepare(language, request);
-      if (prepared instanceof SandboxError) return failed(prepared, null);
-      const channel = new Channel(request.host, prepared.limits.hostCallCap);
-      try {
-        const result = engine.execute(prepared.execute, { host: text => channel.call(text) });
-        return { ok: true, ...result, transcript: channel.transcript, readBits: channel.readBits };
-      } catch (error) {
-        if (error instanceof SandboxError) return failed(error, channel);
-        throw error;
-      }
-    },
-    close() {},
+  const actSync = (request: ActRequest): ActResult => {
+    const prepared = prepare(language, request);
+    if (prepared instanceof SandboxError) return failed(prepared, null);
+    const channel = new Channel(request.host, prepared.limits.hostCallCap);
+    try {
+      const result = engine.execute(prepared.execute, { host: text => channel.call(text) });
+      return { ok: true, ...result, transcript: channel.transcript, readBits: channel.readBits };
+    } catch (error) {
+      if (error instanceof SandboxError) return failed(error, channel);
+      throw error;
+    }
   };
+  const inline: InlineSandbox = { language, actSync, async act(request) { return actSync(request); }, close() {} };
+  return inline;
 }
 
 // --- Worker execution.
