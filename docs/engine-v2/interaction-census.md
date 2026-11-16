@@ -412,6 +412,33 @@ states each (built; seen narrowly).
 How it could be wrong: one instance a family; 16 starts; routes are bounded (one shortcut, two additions); the grid
 stops at |m| ≤ 20, |c| ≤ 80, where the class's members are found.
 
+### Why sideways ranks against rarity within a level (diagnosis, seen narrowly)
+
+`lib/v2-linear/scripts/sideways-diagnosis.ts`: Quadrant Square (3/2 of a square), level n = 4 (target area 24, cell
+18.75 to 30.75), six grid states from far to exact, 24 starts each, the same estimate as the fourth run.
+
+| state | area | distance to 24 | closeness bits | class share of starts (in already) | sideways | cheapest route: none / one addition / two additions / via shortcut | unit tilt moves the area by |
+|---|---|---|---|---|---|---|---|
+| y = -11x + -26 | 30.73 | 6.73 | 0.00 | 1.00 | 0 | 24 / 0 / 0 / 0 | 3.1 |
+| y = 10/3x + -23/2 | 19.84 | 4.16 | 0.28 | 0.67 | 27 | 16 / 6 / 0 / 2 | 4.6 |
+| y = -9/2x + -31/2 | 26.69 | 2.69 | 0.79 | 0.71 | 16 | 17 / 5 / 0 / 2 | 7.6 |
+| y = -33/2x + 29 | 25.48 | 1.48 | 0.95 | 0.42 | 63 | 10 / 4 / 0 / 10 | 1.6 |
+| y = -15x + 53/2 | 23.41 | 0.59 | 1.60 | 0.17 | 71 | 4 / 6 / 0 / 14 | 1.7 |
+| y = 49/3x + 28 | 24.00 | 0.00 | 3.25 | 0.17 | 31 | 4 / 18 / 0 / 2 | 1.4 |
+
+The cause is the **bounded route search**, not the measure. Built: the class of a state is everything at least as good,
+so a near miss's class contains the exact state's class, and a correct search can never price a near miss above the
+exact state. Seen: it did (71 at 0.59 away, 63 at 1.48, against 31 on the target). The search finishes only onto the 30
+class members nearest in reading, rather than solving the addition that lands the reading on the target (as the trial's
+own `finish` does for its one-number rules). Near the target those members are other near misses that one addition
+rarely hits, so the estimate falls back on shortcut routes (14 of 24 starts at 0.59 away) and overprices. Rising
+sideways from the far states to the near ones does agree with rarity; only the near-to-exact end inverts.
+
+The other two candidates matter less here. Shortcuts are a symptom of the missed finish, not a cheaper path to "at
+least as close". Coarse jumps are real but secondary: a unit tilt moves the area by 1.4 to 7.6 in a level 12 wide. Next
+step, if the measure is pursued: solve the finishing addition per family from its reading (as `finish` does for m, c and
+area), and the near-exact inversion should vanish.
+
 ## Not covered
 
 - Grid Snap's secondary "snap-reach" (a grid family, reported by the app session): already at its top on most newborn
