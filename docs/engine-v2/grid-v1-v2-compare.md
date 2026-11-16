@@ -316,3 +316,22 @@ of the total), same β 0.05 (`v2-economy/charge.ts`). One-cell +1: v1 W 5.6 (7.1
 16. The Lab cost models (dial, log, multiply) and Lab bidding variants as setups (MISSING, about 7 h).
 17. User-saved setups and the Configure page (MISSING, call 35; 6–8 h).
 18. Agents per player 200 → 20 (CHANGED, R3; rarely reached).
+
+## Known reachable tops (kept dealt as the v1 baseline)
+
+Every beginner grid main part is bounded on the 0–9 board, as in v1, so a global top exists. In real games two have
+been reached within 10 minutes. The coordinator (16 Nov) keeps both dealt: the grid game is the baseline against the
+original, and the old rules stand for the comparison. A separate design session takes the grid rules to the owner's
+layered shape (pool-plan.md v2, design-principles.md 3b); nothing from it is dealt yet.
+
+| Family | Seen | Top reached |
+|---|---|---|
+| Leapfrog | grids session's end-to-end game (15 Nov), playtest round 34 (#943) | main "one apart · exactly" on 2 of 5 grids; grid 4 also cycled between two states against Two Pair (26 moves) |
+| Two Pair | playtest baseline 2 (#969) | grid 2 at 4332/3423/2110/1201: main "exactly" and secondary 4 of 4 boxes |
+| Mirrormancer (main part) | grid-annotations session (16 Nov) | any constant board (all 0s): every row reads the same backwards, distance 0. v1's base rule (Annotated basics dealt no tiers) had the same top: it counted mirror rows and never excluded a constant board. The secondary mirror-columns, v2's own (call 14), had no guard either; it gets v1's "different" guard from its tiers ("without it 7337/3773/3773/7337 tops both"), so only the main part keeps the v1 top |
+
+**Why v2 reaches these tops more often than v1 did.** The tops are the same as v1's, but v1 rarely met them: its boards
+were born with uniform digits, so a constant or near-constant board was far from every birth. v2's boards are born from
+the stationary law (owner decisions 10 and 11): P(0) is about 0.30 and P(9) about 0.013, so most births are mostly
+0s and 1s, a few cheap moves from a constant board and from the bounded tops above. This is a cost of that decision
+to the grid game, for the owner to weigh.

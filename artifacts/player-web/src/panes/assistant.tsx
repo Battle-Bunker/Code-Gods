@@ -8,7 +8,8 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useAffordance } from "@workspace/v2-affordances/react";
-import { useAssistantStatus, useAssistantThreads, useAssistantTranscript, useAssistantTurn, useGameScope } from "@/sdk";
+import { objectWord, useAgentCount, useAssistantStatus, useAssistantThreads, useAssistantTranscript, useAssistantTurn, useGame, useGameScope } from "@/sdk";
+import { suggestionsFor } from "./assistant-chips";
 import { useRuntime } from "@/core/affordance-runtime";
 import { AffordanceButton, failureText, TONES } from "@/site/components/action";
 import { GRANT_OPTIONS, MODE_OPTIONS, allowanceWords, chipView, isBusy, timeline, turnWords, type Grant, type Message, type Mode, type TurnGroup } from "./assistant-model";
@@ -229,14 +230,18 @@ function Composer({ status, threadId, fresh, onSent }: { status: Status; threadI
   const busy = isBusy(status.turn?.status);
   const allowance = allowanceWords(status.allowance);
   const reason = status.off ?? (!send.available ? send.reason ?? "Not available now." : null) ?? (allowance.out ? "This game's assistant allowance is used up." : null);
-  const go = async () => {
-    const t = text.trim();
+  const header = useGame();
+  const { seated } = useGameScope();
+  const agents = useAgentCount() ?? 0;
+  const chips = header ? suggestionsFor({ phase: header.phase === "paused" ? "paused" : header.phase === "planning" ? "planning" : header.phase === "ended" ? "ended" : "live", seated, agents, noun: objectWord(header.variant).one }) : [];
+  const go = async (said?: string) => {
+    const t = (said ?? text).trim();
     if (!t || sending || reason) return;
     setSending(true); setError(null);
     try {
       // Typing and pressing Send is the confirmation; the allowance is in the settings and warned about when low.
       const r = await send.run({ text: t, ...(fresh ? { newThread: true } : threadId ? { threadId } : {}) });
-      setText("");
+      if (said === undefined) setText("");
       onSent(r.threadId);
     } catch (e) { setError(failureText(e)); }
     finally { setSending(false); }
@@ -246,6 +251,12 @@ function Composer({ status, threadId, fresh, onSent }: { status: Status; threadI
   };
   return (
     <div className="space-y-1 border-t px-3 py-2">
+      {/* v1's starter chips: a question, sent as it reads (never while an answer is on its way). */}
+      {!busy && !reason && chips.length > 0 && (
+        <div className="flex flex-wrap gap-1.5" data-testid="assistant-suggestions">
+          {chips.map(c => <button key={c} type="button" disabled={sending} onClick={() => void go(c)} className="border px-2 py-0.5 text-xs hover:bg-muted disabled:opacity-50" data-testid="button-assistant-suggestion">{c}</button>)}
+        </div>
+      )}
       <div className="flex items-end gap-2">
         <textarea value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey} rows={2} maxLength={4000}
           placeholder={busy ? "Ask something else: it reads it next" : "Ask your assistant"} aria-label="Message to your assistant"

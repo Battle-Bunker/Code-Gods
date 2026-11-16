@@ -107,3 +107,10 @@ test("live, only each line's figures are estimates; the totals and standings are
   assert.doesNotMatch(BLURRED_NOTE, /your points are estimates/);
   assert.match(BLURRED_ENDED_NOTE, /totals were exact throughout/i);
 });
+
+test("the bar's own total reads as loading until the standings have the viewer's row, never “0.00 points” (a real Grids game)", async () => {
+  const { myTotalText } = await import("../src/core/words.ts");
+  assert.equal(myTotalText(undefined), "…");
+  assert.equal(myTotalText({ net: 0 }), "0.00 points");
+  assert.equal(myTotalText({ net: 12.5 }), "12.50 points");
+});

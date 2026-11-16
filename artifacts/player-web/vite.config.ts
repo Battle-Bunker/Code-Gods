@@ -102,7 +102,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, 'src'),
-      '@sdk': path.resolve(import.meta.dirname, 'src/sdk/index.ts'),
+      '@sdk': path.resolve(import.meta.dirname, 'src/panels/sdk.ts'),
     },
     dedupe: ['react', 'react-dom'],
   },

@@ -134,3 +134,11 @@ test("the rise-and-fall caption speaks the game's noun", () => {
   assert.match(s, /a grid's points change whenever an agent changes it/);
   assert.doesNotMatch(s, /\bline\b/);
 });
+
+test("lead changes: the world times the leader changed, for the replay's race (v1's markers)", async () => {
+  const { leadChanges } = await import("../src/panes/chart-model.ts");
+  const s = (key: string, ys: number[]) => ({ key, label: key, you: false, slot: 0, points: ys.map((y, i) => ({ x: i * 10, y })) });
+  assert.deepEqual(leadChanges([s("a", [1, 5, 5, 2]), s("b", [0, 3, 6, 9])]), [20]);
+  assert.deepEqual(leadChanges([s("a", [1, 1]), s("b", [1, 1])]), [], "a tie is no change of leader");
+  assert.deepEqual(leadChanges([]), []);
+});

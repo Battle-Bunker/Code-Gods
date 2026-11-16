@@ -34,6 +34,9 @@ const worthOf = (rule: { family: string; params: Record<string, unknown>; tieBre
   return v;
 };
 
+/** For comparing the languages' logic: enough steps that the scoring cutoff never fires (see step-budget.test.ts). */
+const PARITY_LIMITS = { stepBudget: 3_000_000, wallMs: 30_000 };
+
 test("the starters without a tie-breaker (they read the dealt one) run, and the languages agree", async () => {
   const [state] = births(gridType, grid4, "generic", 1);
   for (const e of DESCRIBED) {
@@ -43,7 +46,7 @@ test("the starters without a tie-breaker (they read the dealt one) run, and the 
     for (const [i, a] of ts!.entries()) {
       const records = [];
       for (const x of [a, py![i]!]) {
-        const { record } = await runAct(await boxes.get(x.language), { type: gridType, variant: grid4, state: state!, rule, program: program(x), seed: "1", energy: 500 });
+        const { record } = await runAct(await boxes.get(x.language), { type: gridType, variant: grid4, state: state!, rule, program: program(x), seed: "1", energy: 500, limits: PARITY_LIMITS });
         assert.notEqual(record.outcome, "failed", `${e.family} ${x.title} (${x.language}): ${record.reason}`);
         const { steps: _s, ...rest } = record;
         records.push(rest);
@@ -174,7 +177,9 @@ test("both languages make the same moves on newborn boards, with and without wha
       const told = others === undefined ? {} : { values: v.values, value: { mine: v.bits(state), others, points: v.bits(state) * others } };
       const records = [];
       for (const a of [ts, py]) {
-        const { record } = await runAct(await boxes.get(a.language), { type: gridType, variant: grid4, state, rule, program: program(a), seed: String(i), energy: 500, ...told });
+        // The languages' logic, compared with steps to spare: the shipped limit's scoring cutoff (scoreEach) counts
+        // TypeScript's steps and not Python's, and step-budget.test.ts holds every starter under that limit.
+        const { record } = await runAct(await boxes.get(a.language), { type: gridType, variant: grid4, state, rule, program: program(a), seed: String(i), energy: 500, ...told, limits: PARITY_LIMITS });
         assert.notEqual(record.outcome, "failed", `${a.family} ${a.title} (${a.language}) on ${gridType.encode(state)}: ${record.reason}`);
         const { steps: _s, ...rest } = record;
         records.push(rest);

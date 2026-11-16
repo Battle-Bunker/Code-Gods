@@ -65,7 +65,15 @@ function Legend({ items }: { items: { key: string; label: string; colour: string
  * Points over world time, one line per series (the viewer's drawn last, on top). Two or more series get a legend;
  * a single series is named by the pane's title.
  */
-export function LineChart({ series, height = 180, label, testId }: { series: readonly Series[]; height?: number; label: string; testId?: string }) {
+export function LineChart({ series, height = 180, label, testId, marker, marks, onPick }: {
+  series: readonly Series[]; height?: number; label: string; testId?: string;
+  /** A vertical line at this x (the replay's playhead). */
+  marker?: number;
+  /** Dashed lines at these x (the replay's lead changes). */
+  marks?: readonly number[];
+  /** A click on the chart picks the x under it (the replay seeks there). */
+  onPick?: (x: number) => void;
+}) {
   const { ref, width } = useWidth();
   const [hover, setHover] = useState<number | null>(null);
   const all = useMemo(() => series.flatMap(s => s.points), [series]);
@@ -83,7 +91,9 @@ export function LineChart({ series, height = 180, label, testId }: { series: rea
       <div ref={ref} className="relative w-full">
         <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label} className="block touch-pan-y select-none"
           onPointerMove={e => { const r = e.currentTarget.getBoundingClientRect(); const px = e.clientX - r.left; setHover(px >= left && px <= width - right ? px : null); }}
-          onPointerLeave={() => setHover(null)}>
+          onPointerLeave={() => setHover(null)}
+          onClick={onPick ? e => { const r = e.currentTarget.getBoundingClientRect(); const px = e.clientX - r.left; if (px >= left && px <= width - right) onPick(x.lo + ((px - left) / Math.max(1, width - left - right)) * (x.hi - x.lo)); } : undefined}
+          style={onPick ? { cursor: "crosshair" } : undefined}>
           <title>{label}</title>
           {yTicks.map(t => (
             <g key={`y${t}`}>
@@ -92,6 +102,8 @@ export function LineChart({ series, height = 180, label, testId }: { series: rea
             </g>
           ))}
           {xTicks.map(t => <text key={`x${t}`} x={sx(t)} y={height - 6} textAnchor="middle" className={TICK}>{clock(t)}</text>)}
+          {marks?.map(m => <line key={`m${m}`} x1={sx(m)} x2={sx(m)} y1={top} y2={height - bottom} stroke="hsl(var(--foreground))" strokeDasharray="2 3" opacity={0.3} data-testid="chart-lead-change" />)}
+          {marker !== undefined && <line x1={sx(marker)} x2={sx(marker)} y1={top} y2={height - bottom} stroke="hsl(var(--primary))" strokeWidth={1.5} data-testid="chart-playhead" />}
           {read && <line x1={sx(read.at)} x2={sx(read.at)} y1={top} y2={height - bottom} stroke="hsl(var(--muted-foreground))" strokeWidth={1} />}
           {drawn.map(s => {
             const d = s.points.map((p, i) => `${i ? "L" : "M"}${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join("");

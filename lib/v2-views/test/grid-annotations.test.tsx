@@ -57,8 +57,37 @@ test("a grid representation draws the marks a rule puts on the board's cells", (
   assert.match(html, /data-ref="cells\.r0c0"[^>]*data-focus=""/, "the focused cell is marked in the mirror view");
 });
 
-test("a note on a cell is said under the picture of any grid representation", () => {
+test("a note on a cell is said under the board, not repeated under every other view of it", () => {
   const e = annotate(rule("last"), B).sites[0]!.evaluation;
-  const html = renderToStaticMarkup(<RepView type={gridType} state={B} rep="mirror" size="expanded" marks={e.marks} terms={e.terms} />);
-  assert.match(html, /last note/);
+  const at = (rep: string) => renderToStaticMarkup(<RepView type={gridType} state={B} rep={rep} size="expanded" marks={e.marks} terms={e.terms} />);
+  assert.match(at("cells"), /last note/);
+  assert.doesNotMatch(at("mirror"), /last note/);
+});
+
+test("a focused cell carries its part's glyph (● main part, ◆ secondary), so a mark never relies on colour alone", () => {
+  const a = annotate(rule("corner"), B);
+  const sa = a.sites[0]!;
+  const html = renderToStaticMarkup(<RepView type={gridType} state={B} rep="cells" size="expanded" marks={sa.marks} terms={sa.evaluation.terms} parts={sa.parts} />);
+  assert.match(html, /data-ref="cells\.r0c0"[^]*?class="mark-glyph"[^>]*>◆</, "the secondary's focus on row 1, column 1 has ◆");
+});
+
+test("a third preference's marks carry ▲: glyphs follow the part's depth", () => {
+  const sa = annotate(rule("corner>last"), B).sites[0]!;
+  assert.equal(sa.parts.length, 3);
+  const html = renderToStaticMarkup(<RepView type={gridType} state={B} rep="cells" size="expanded" marks={sa.marks} terms={sa.evaluation.terms} parts={sa.parts} />);
+  assert.match(html, /▲ last note/);
+});
+
+test("every marked element is a keyboard stop, and each note under the board names the element it is about", () => {
+  const sa = annotate(rule("last"), B).sites[0]!;
+  const html = renderToStaticMarkup(<RepView type={gridType} state={B} rep="cells" size="expanded" marks={sa.marks} terms={sa.evaluation.terms} parts={sa.parts} onHover={() => {}} />);
+  assert.match(html, /<g class="cell" data-ref="cells\.r3c3"[^>]*tabindex="0"/, "the noted cell can be reached with Tab");
+  assert.doesNotMatch(html, /<g class="cell" data-ref="cells\.r1c1"[^>]*tabindex/, "an unmarked cell is not a stop");
+  assert.match(html, /<li[^>]*data-ref="cells\.r3c3"[^>]*>[^<]*row 4, column 4/, "the note's line points at its cell");
+});
+
+test("while an element is picked out, the cells outside it are dimmed", () => {
+  const sa = annotate(rule("corner"), B).sites[0]!;
+  const html = renderToStaticMarkup(<RepView type={gridType} state={B} rep="mirror" size="expanded" marks={sa.marks} terms={sa.evaluation.terms} highlight="mirrorGap:0" />);
+  assert.match(html, /<svg class="v2v-grid"[^>]*data-picked=""/);
 });

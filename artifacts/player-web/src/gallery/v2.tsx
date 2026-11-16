@@ -8,7 +8,7 @@
  * 3. Every dealable rule (family × parameters) as a compact face.
  * 4. Grids (v2-grids.tsx): a board in every representation, a storyboard, and every grid family on example boards.
  *
- * `?scheme=dark` for the dark scheme, `?family=<id>` for one family, `?section=story|families|dealt|grids|lenses|pairs` for one section.
+ * `?scheme=dark` for the dark scheme, `?family=<id>` for one family, `?section=story|families|dealt|grids|lenses|pairs|tree` for one section.
  * e2e/v2-views.ts takes the screenshots in docs/screenshots/v2-views/.
  */
 import { StrictMode, type ReactNode } from "react";
@@ -17,7 +17,7 @@ import { evaluateObject, q, rng, walkStep, type Q, type RuleFamily, type Score }
 import { divisibilityLadder, encodeLine, fromMC, lensMutators, lineQ, lineQLenses, lineType, lineZ, normalise, primeGradient, primeLanding, squareArea, treasure, wholeCrossing, type Line, type LineState } from "@workspace/v2-linear";
 import { annotate, bitsLine, CompactFace, ExpandedFace, GameSummary, GoalCard, MoveLine, MoveSketch, ObjectChip, summarise, type RuleRef } from "@workspace/v2-views";
 import { pickExamples, valueFor } from "./values";
-import { emptyTank } from "@workspace/v2-views/demo";
+import { emptyTank, treePrimeIntercept } from "@workspace/v2-views/demo";
 import "@workspace/v2-views/styles.css";
 import { GridsSection } from "./v2-grids";
 import { canonicalPair, pairQ, pairType, wholeAnswer, type PairState } from "@workspace/v2-pair";
@@ -229,6 +229,32 @@ function EndSummary() {
   );
 }
 
+// ------------------------------------------------------------------ the tree shape (pool-plan v2)
+
+/** Lines for the tree-shaped rule: on a target, a little off it, between targets, and on a big target. */
+const TREE: { title: string; state: LineState }[] = [
+  { title: "on the target 31", state: { lines: [fromMC(q(1, 31), q(31))] } },
+  { title: "1 above 31", state: { lines: [fromMC(q(1, 31), q(32))] } },
+  { title: "between 41 and 61", state: { lines: [fromMC(q(2, 7), q(103, 2))] } },
+  { title: "on 101", state: { lines: [fromMC(q(1, 101), q(101))] } },
+];
+
+function Tree() {
+  const rule = { type: lineType, family: treePrimeIntercept, params: { ends: 1 }, variant: lineQ, tieBreaker: "close>times" } as RuleRef<LineState, unknown>;
+  return (
+    <section className="g-section" id="tree" data-section="tree">
+      <h2>A rule in the tree shape: target, closeness, third</h2>
+      <p className="g-note">The line rules' coming shape (pool-plan v2), drawn from the annotation contract alone: the reading, the nearest target and its neighbours, the closeness as a bracket, the third's working.</p>
+      {TREE.map(t => (
+        <div key={t.title} className="g-row" data-tree={t.title}>
+          <div className="g-small"><Cell title={t.title}><CompactFace rule={rule} state={t.state} /></Cell></div>
+          <Cell title="expanded" wide><ExpandedFace rule={rule} state={t.state} improvement={false} initialRep="cart" /></Cell>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 // ------------------------------------------------------------------ two-line systems
 
 const pairOf = (p: [bigint, bigint, bigint], r: [bigint, bigint, bigint]) => canonicalPair([normalise(...p) as Line, normalise(...r) as Line], pairQ) as PairState;
@@ -326,7 +352,7 @@ function Gallery() {
         <h1>Engine v2 views</h1>
         <p className="g-note">The chip, the compact face and the expanded face for every rule of the line and of the grid. Point at a number to light the same quantity in every view; point at a part to see only its marks.</p>
         <nav className="g-nav">
-          <a href="#story">Storyboards</a><a href="#families">Families</a><a href="#dealt">Every dealable rule</a><a href="#grids">Grids</a><a href="#lenses">Lens moves</a><a href="#pairs">Pairs</a>
+          <a href="#story">Storyboards</a><a href="#families">Families</a><a href="#dealt">Every dealable rule</a><a href="#grids">Grids</a><a href="#lenses">Lens moves</a><a href="#pairs">Pairs</a><a href="#tree">Tree rules</a>
           <a href={link({ scheme: other })}>{other} scheme</a>
         </nav>
         {show("story") && !only && <Storyboards />}
@@ -340,6 +366,7 @@ function Gallery() {
         {show("grids") && <GridsSection only={only} />}
         {show("lenses") && !only && <Lenses />}
         {show("pairs") && !only && <Pairs />}
+        {show("tree") && !only && <Tree />}
         {show("summary") && !only && <EndSummary />}
         {section === "plot" && <Hard />}
       </main>

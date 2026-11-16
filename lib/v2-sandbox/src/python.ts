@@ -205,11 +205,13 @@ export class PythonEngine implements Engine {
     meta.sizeBuffer = x.malloc(4);
     meta.pointerBuffer = x.malloc(4);
     meta.codeBuffer = x.malloc(1024 * 1024);
-    for (const key of ["<agent>", "<prelude>", "__builtins__", "__name__", "__decode", "__encode_calls", "__host", "agent", "_exc", "_USER_CODE"]) meta[key] = this.cstring(key);
+    for (const key of ["<agent>", "<prelude>", "__builtins__", "__name__", "__decode", "__encode_calls", "__host", "__steps_left", "__step_budget", "agent", "_exc", "_USER_CODE"]) meta[key] = this.cstring(key);
     meta.truePtr = this.mainGet("_TRUE");
     meta.stepLimitType = this.mainGet("_StepLimit");
     meta.host = this.mainGet("_HOST");
-    if (!meta.truePtr || !meta.stepLimitType || !meta.host) throw new Error("Sandbox bootstrap failed");
+    meta.stepsLeft = this.mainGet("_steps_left");
+    meta.stepBudget = this.mainGet("_step_budget");
+    if (!meta.truePtr || !meta.stepLimitType || !meta.host || !meta.stepsLeft || !meta.stepBudget) throw new Error("Sandbox bootstrap failed");
     meta.moduleName = x.PyUnicode_FromStringAndSize(meta.agent, 5);
     meta.strType = x.PyObject_Type(meta.moduleName);
     this.wasi.mode = "guest";
@@ -270,7 +272,8 @@ export class PythonEngine implements Engine {
     const builtins = this.mainGet("_AGENT_BUILTINS");
     const globals = x.PyDict_New();
     if (!builtins || x.PyDict_SetItemString(globals, meta.__builtins__, builtins) || x.PyDict_SetItemString(globals, meta.__name__, meta.moduleName)
-        || x.PyDict_SetItemString(globals, meta.__host, meta.host)) throw new Error("Guest globals preparation failed");
+        || x.PyDict_SetItemString(globals, meta.__host, meta.host) || x.PyDict_SetItemString(globals, meta.__steps_left, meta.stepsLeft)
+        || x.PyDict_SetItemString(globals, meta.__step_budget, meta.stepBudget)) throw new Error("Guest globals preparation failed");
     return globals;
   }
   private steps() {

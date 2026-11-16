@@ -16,8 +16,16 @@ export function halfLifeInterval90(halfLifeSeconds: number): { lo: number; hi: n
 /** The game's exact length when its end is public ("fixed"), else null: a half-life game's end is hidden, never counted down to. */
 export const fixedLength = (h: { durationMode?: string; worldSeconds: number }): number | null => (h.durationMode === "halfLife" ? null : h.worldSeconds);
 
-/** null while planning counts down (the planning line under the header is the one countdown then). */
-export function timerText(h: Header, now: number): { label: string; value: string; note: string; tip: string } | null {
+/**
+ * null while planning counts down (the planning line under the header is the one countdown then). `resume`: the clock
+ * offers Resume (game.resume, shown to whoever may resume: the owner) for a pause; a parked game resumes on any press.
+ */
+export function timerText(h: Header, now: number): { label: string; value: string; note: string; tip: string; resume: boolean } | null {
+  const x = clockText(h, now);
+  return x && { ...x, resume: h.phase === "paused" && !h.parked };
+}
+
+function clockText(h: Header, now: number): { label: string; value: string; note: string; tip: string } | null {
   switch (h.phase) {
     case "planning": {
       const left = h.planningEndsAt ? (h.planningEndsAt - now) / 1000 : h.planningSeconds;

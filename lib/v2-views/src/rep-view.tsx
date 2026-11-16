@@ -52,12 +52,24 @@ export interface RepViewProps<S> {
   readonly label?: string;
   /** The elements each part of the viewer's rule reads (its sources): badged here and wherever they project by meaning. */
   readonly roles?: readonly { readonly ref: ElementRef; readonly role: "main" | "tb" }[];
+  /** The parts of the viewer's rule with their marks: a mark is drawn with its part's glyph, so a mark never relies on colour. */
+  readonly parts?: readonly { readonly depth: number; readonly marks: readonly Mark[] }[];
 }
 
-/** The marks a grid representation draws: its own elements' and those on the board's cells it shows. */
+/**
+ * The marks a grid representation draws: its own elements', and the focus a rule puts on the board's cells it shows
+ * (a cell's notes are said under the board itself, not repeated under every view of it).
+ */
 function gridMarks(repId: string, scene: GridScene, marks: readonly Mark[]): readonly Mark[] {
   const cells = new Set(scene.cells.map(r => refKey({ ...r, site: undefined })));
-  return marks.filter(m => markRefs(m).every(r => r.rep === repId || cells.has(refKey({ ...r, site: undefined }))));
+  return marks.filter(m => markRefs(m).every(r => r.rep === repId || (m.kind === "focus" && cells.has(refKey({ ...r, site: undefined })))));
+}
+
+/** A mark's part's depth (0: the main part), by identity: a mark is in at most one part (annotate.ts). */
+function markDepthOf(parts: NonNullable<RepViewProps<unknown>["parts"]>): (m: Mark) => number | null {
+  const by = new Map<Mark, number>();
+  for (const p of parts) for (const m of p.marks) by.set(m, p.depth);
+  return m => by.get(m) ?? null;
 }
 
 /** The marks with their notes' fractions typeset, once, so every view and its bookkeeping read the same text. */
@@ -74,9 +86,11 @@ export function RepView<S>(props: RepViewProps<S>): ReactElement {
   const meaningOf = (r: ElementRef) => meaningKey(type, r);
   // An element is badged when a part reads it, or reads what it means in another view (si.c and the plane's y-intercept).
   const roleKeys = new Map<string, "main" | "tb">();
+  const read: ElementRef[] = [];
   for (const { ref, role } of props.roles ?? []) {
     for (const r of [ref, ...projectRef(type, ref, [repId])]) {
       const k = refKey({ ...r, site: undefined });
+      if (r.rep === repId && !roleKeys.has(k)) read.push(r);
       if (!roleKeys.has(k) || role === "main") roleKeys.set(k, role);
     }
   }
@@ -105,7 +119,8 @@ export function RepView<S>(props: RepViewProps<S>): ReactElement {
         meaningOf,
         onHover: props.onHover ? r => props.onHover!(r ? meaningOf(r) : null, r) : undefined,
         labelOf: r => labelOf(type, r),
-        roleOf,
+        roleOf, read,
+        markDepth: props.parts ? markDepthOf(props.parts) : undefined,
       })}
     </div>
   );

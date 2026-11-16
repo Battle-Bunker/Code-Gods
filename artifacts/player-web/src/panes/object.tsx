@@ -55,7 +55,8 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
   const exact = useOthersAt(replaying || !ended ? null : objectId, calls);
   const whatIf = useAffordance("object.whatIf");
   // A quote holds for the state it was asked from (the server says which): once the line moves, it says so.
-  const [quote, setQuote] = useState<{ objectId: string; state: string; maps: OthersAtMaps } | null>(null);
+  // What the quote priced, kept with it: a paid quote stays on screen after the line moves on (coordinator, call 33).
+  const [quote, setQuote] = useState<{ objectId: string; state: string; maps: OthersAtMaps; priced: { words: string; want: number | null }[] } | null>(null);
   const myQuote = quote && quote.objectId === objectId ? quote : null;
   const quoteFresh = !!myQuote && myQuote.state === o?.state;
   const [quoting, setQuoting] = useState(false);
@@ -64,7 +65,8 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
     setQuoting(true);
     whatIf.run({ objectId, calls }).then(r => {
       const rows = r.after.flatMap(a => (a ? [a] : []));
-      setQuote({ objectId, state: r.state, maps: { want: new Map(rows.map(a => [a.state, a.want])), taken: new Map(rows.flatMap(a => (a.taken !== null ? [[a.state, a.taken] as const] : []))) } });
+      const priced = candidates.map((m, i) => ({ words: m.words, want: r.after[i]?.want ?? null }));
+      setQuote({ objectId, state: r.state, priced, maps: { want: new Map(rows.map(a => [a.state, a.want])), taken: new Map(rows.flatMap(a => (a.taken !== null ? [[a.state, a.taken] as const] : []))) } });
     }, failed("The quote did not come")).finally(() => setQuoting(false));
   };
   const others = ended ? exact : quoteFresh ? myQuote!.maps : undefined;
@@ -116,8 +118,13 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
             {quoting ? "Quoting…" : `${myQuote ? "Quote again" : "Quote what these moves do for the others"} (${quotePrice(o.lookPrice, candidates.length)})`}
           </button>
           <span data-testid="text-quote-state" data-fresh={quoteFresh || undefined}>{quoteFresh ? "An estimate (≈): each quote is a fresh blurred reading, so asking again draws fresh."
-            : myQuote ? `This ${word.one} has moved since your quote: quote again for its moves now.` : "Their sums are paid and blurred while the game runs."}</span>
+            : myQuote ? `This ${word.one} has moved since your quote. What you paid for, from where it was:` : "Their sums are paid and blurred while the game runs."}</span>
         </p>
+      )}
+      {!ended && !replaying && myQuote && !quoteFresh && (
+        <ul className="space-y-0.5 text-xs text-muted-foreground" data-testid="list-stale-quote">
+          {myQuote.priced.map((p, i) => <li key={i}>{p.words}: the others' bits after it about {p.want === null ? "unknown" : bitsText(p.want)} (≈)</li>)}
+        </ul>
       )}
       <button type="button" className="mr-4 text-xs underline underline-offset-4" data-testid="button-open-what-if" onClick={() => void openPane("what-if")}>
         Try a change on this {word.one}

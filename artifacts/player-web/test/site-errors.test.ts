@@ -21,3 +21,12 @@ test("a start that lost a race to its own game (CONFLICT: already a live game) c
   assert.equal(startRaced(new ConvexError({ code: "FORBIDDEN", message: "There is already a live game" })), false);
   assert.equal(startRaced(new Error("network")), false);
 });
+
+test("a game page whose header failed says why in plain words, and only a timeout or server error offers to ask again", async () => {
+  const { ConvexError } = await import("convex/values");
+  const { gameErrorWords } = await import("../src/site/lib/errors.ts");
+  const slow = gameErrorWords(new Error("[CONVEX Q(v2/games:header)] [Request ID: 1] Server Error Function execution timed out"));
+  assert.deepEqual(slow, { text: "This game could not load: the server took too long (it is busy right now). It comes back by itself when the server answers; Try again asks it now.", again: true });
+  assert.deepEqual(gameErrorWords(new ConvexError({ code: "NOT_FOUND", message: "x" })), { text: "No such game here. It may belong to another room.", again: false });
+  assert.deepEqual(gameErrorWords(new ConvexError({ code: "FORBIDDEN", message: "x" })), { text: "Join the room to watch or play its games.", again: false });
+});
