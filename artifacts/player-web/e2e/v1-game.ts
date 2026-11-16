@@ -294,7 +294,7 @@ try {
       await noHorizontalScroll(a, "phone spectator");
     });
 
-    await missing(["page-game-details"], "spectator: Game details shows the settings, rules and timings, with the world clock moving", async () => {
+    await missing(["e2e-site-smoke-10"], "spectator: live Game details shows the settings and timings, with the world clock moving (v2 shows who held which rule only after the end)", async () => {
       await a.getByTestId("text-world-t").waitFor({ timeout: 3_000 });
     });
 
