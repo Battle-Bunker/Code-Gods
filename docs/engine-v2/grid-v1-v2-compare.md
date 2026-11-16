@@ -335,3 +335,30 @@ were born with uniform digits, so a constant or near-constant board was far from
 the stationary law (owner decisions 10 and 11): P(0) is about 0.30 and P(9) about 0.013, so most births are mostly
 0s and 1s, a few cheap moves from a constant board and from the bounded tops above. This is a cost of that decision
 to the grid game, for the owner to weigh.
+
+## Coloured boards: does a rule's value survive a swap or a turn? (boards worker, 16 Nov)
+
+The owner's finding (15–16 Nov): on grids nearly every damaging knock is a rearrangement at no change of energy. For
+the coloured boards' original-rules baseline ("Grids · original colours", lib/v2-grid-boards; v1's rules kept as they
+were, coordinator's call 37) the measurement per dealt rule: from good states (the top tenth of 4,000 law draws by
+the rule's own bits, its committed value function), every swap of two cells (the whole cell, the colours only, the
+numbers only: 120 pairs each) and every turn or flip of the board (7), the median share of the rule's bits kept, and
+the share of knocks that keep under half. One parameter set and the dealt secondary per family.
+
+| Rule (good states) | Swap a whole cell | Swap colours only | Swap numbers only | Turn or flip |
+|---|---|---|---|---|
+| Chessmaster (3.1–12.7 bits) | 100%, 14% under half | 87%, 20% | 100%, 0% | 100%, 0% |
+| Parity Painter (2.8–9.5) | 100%, 0% | 100%, 19% | 100%, 15% | 100%, 0% |
+| Colour Mirror (3.3–12.8) | 100%, 29% | **55%, 42%** | 100%, 0% | **66%, 44%** |
+| Picture Frame (2.9–12.3) | 100%, 6% | 100%, 8% | 100%, 4% | 100%, 0% |
+| Colour Bonds (2.5–12.4) | 100%, 22% | 100%, 25% | 100%, 26% | 100%, 0% |
+| Honest Minesweeper (3.3–17.0) | 80%, 32% | 77%, 36% | 100%, 12% | 100%, 0% |
+| Kingdom (3.1–8.8) | 100%, 9% | 100%, 14% | 100%, 0% | 100%, 0% |
+| Set Spotter (2.6–9.6) | 100%, 36% | 100%, 36% | 100%, 36% | 100%, 0% |
+
+Reading: a typical swap or turn leaves most of these rules' value intact (median 100% for six of eight), because each
+reads a pattern that one swap touches only at two cells, and five of the eight are symmetric under every turn. The
+exposed ones are Colour Mirror (a colours-only swap or a quarter turn breaks the mirrors: a median 55–66% kept, over
+40% of knocks keep under half), and, less so, Honest Minesweeper and Set Spotter (a third of swaps keep under half).
+Unlike the digit grid's rules, none loses everything to a turn: the damaging knock here is a swap, and it costs no
+energy.
