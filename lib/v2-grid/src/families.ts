@@ -12,6 +12,10 @@ import { moreGridFamilies } from "./more-families.ts";
 import { paramGridFamilies } from "./param-families.ts";
 import { divisibility } from "./divisibility.ts";
 import { leadingDigits } from "./leading-digits.ts";
+import { fullHouse } from "./v1-full-house.ts";
+import { twentyOne } from "./v1-twenty-one.ts";
+import { seesaw } from "./v1-seesaw.ts";
+import { snap } from "./v1-snap.ts";
 import { boxEdges, boxes, cols, corners, folds, gcd, leaps, pairs, rows, strangers, windows } from "./units.ts";
 
 export { isPrimeCell };
@@ -377,4 +381,5 @@ export const beginnerGridFamilies = (n: number): readonly RuleFamily<GridState, 
 
 /** Every grid family: the beginner pool, the second pool, the parameterised trials (param-families.ts, in no preset yet), then the coupled rules (more-families.ts). */
 export const gridFamilies = (n: number): readonly RuleFamily<GridState, any>[] =>
-  [...beginnerGridFamilies(n), steadySteps(n), boxTotals(n), primeCells(n), ...paramGridFamilies(n), divisibility(n), leadingDigits(n), ...moreGridFamilies(n)];
+  [...beginnerGridFamilies(n), steadySteps(n), boxTotals(n), primeCells(n), ...paramGridFamilies(n), divisibility(n), leadingDigits(n), ...moreGridFamilies(n),
+    fullHouse(n), twentyOne(n), seesaw(n), snap(n)];

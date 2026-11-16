@@ -29,6 +29,8 @@ export const KINDS = {
   "monotone-steps": "steps rising by one",
   "power-count": "how often a power divides the board's number",
   "leading-digits": "the board's number's leading digits",
+  repeats: "equal numbers sharing a row, a column or a side (v1's Full House and Snap!)",
+  balance: "two halves of a row or column adding up to the same (v1's Seesaw)",
 } as const;
 export type Kind = keyof typeof KINDS;
 
@@ -101,4 +103,9 @@ export const RULE_FORMS: Readonly<Record<string, FamilyForms>> = {
   fillomino: { kind: "region", forms: { "patch-kinds": "all-different", "patch-count": "count", "near-misses": "distance" } },
   divisibility: { kind: "power-count", forms: { "leftover-digits": "digit-sum" } },
   "leading-digits": { kind: "leading-digits", forms: { "exponent-digits": "digit-sum" } },
+  // v1 ports, 16 Nov (grid baseline): Full House, Twenty-One, Seesaw, Snap!.
+  "full-house": { kind: "repeats", forms: { "pair-values": "big-values", "pair-kinds": "all-different", "pairs-apart": "distance" } },
+  "twenty-one": { kind: "line-sums", forms: { "bust-by-little": "distance", "crossing-blackjacks": "second-axis", "low-cards": "small-values" } },
+  seesaw: { kind: "balance", forms: { "other-way": "second-axis", "heavy-seesaws": "big-values", "ends-and-middle": "distance" } },
+  snap: { kind: "repeats", forms: { "snap-values": "big-values", "snap-kinds": "all-different", "snap-reach": "reach" } },
 };

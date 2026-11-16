@@ -731,4 +731,82 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       },
     },
   },
+  // v1's Full House, Seesaw and Snap! (lib/v2-grid v1-*.ts). Twenty-One is undealt and has no agents yet: its examples never
+  // raised bust-by-little or low-cards from births (newborn boards have no bust hand and no hand of exactly T).
+  {
+    family: "full-house", simple: ["swap"],
+    mainSays: "the pairs of equal numbers in each row (or column): three of a kind makes 3, four of a kind 6 (more is better)",
+    main: {
+      ts: ["const hands = [0, 1, 2, 3].map(k => [0, 1, 2, 3].map(j => (p.axis === \"rows\" ? 4 * k + j : 4 * j + k)));   // each hand: a row (or column), its cells in order", "const found = [];   // every pair of equal numbers in a hand: [its number, the steps between its cells]", "for (const h of hands) for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) if (b[h[i]] === b[h[j]]) found.push([b[h[i]], j - i]);", "let main = found.length;"],
+      py: ["hands = [[4 * k + j if p[\"axis\"] == \"rows\" else 4 * j + k for j in range(4)] for k in range(4)]   # each hand: a row (or column), its cells in order", "found = []   # every pair of equal numbers in a hand: (its number, the steps between its cells)", "for h in hands:", "    for i in range(4):", "        for j in range(i + 1, 4):", "            if b[h[i]] == b[h[j]]:", "                found.append((b[h[i]], j - i))", "main = len(found)"],
+    },
+    tieBreakers: {
+      "pair-values": {
+        ts: "found.reduce((t, x) => t + x[0], 0)", py: "sum(x[0] for x in found)",
+        says: "pairs of bigger numbers are better (each pair adds its number)", lenses: ["add", "twin"], steps: 2,
+        tryThis: "remove the \"twin\" line: can single cells raise a pair without breaking it?",
+      },
+      "pair-kinds": {
+        ts: "new Set(found.map(x => x[0])).size", py: "len({x[0] for x in found})",
+        says: "more different numbers making a pair is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; does it still find new numbers to pair?",
+      },
+      "pairs-apart": {
+        ts: "found.reduce((t, x) => t + x[1], 0)", py: "sum(x[1] for x in found)",
+        says: "pairs whose cells sit further apart are better (the steps between them, added up)", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps move a pair apart?",
+      },
+    },
+  },
+  {
+    family: "seesaw", simple: ["trade"],
+    mainSays: "how far each row's (or column's) two halves are from balancing, added up (closer is better)",
+    main: {
+      ts: ["const L = [0, 1, 2, 3].map(k => [0, 1, 2, 3].map(j => (p.axis === \"rows\" ? 4 * k + j : 4 * j + k)));   // each seesaw: a row (or column), its cells in order", "const O = [0, 1, 2, 3].map(k => [0, 1, 2, 3].map(j => (p.axis === \"rows\" ? 4 * j + k : 4 * k + j)));   // the other way", "const lean = l => Math.abs(b[l[0]] + b[l[1]] - b[l[2]] - b[l[3]]);   // how far its two halves are from balancing", "let main = -L.reduce((t, l) => t + lean(l), 0);"],
+      py: ["L = [[4 * k + j if p[\"axis\"] == \"rows\" else 4 * j + k for j in range(4)] for k in range(4)]   # each seesaw: a row (or column), its cells in order", "O = [[4 * j + k if p[\"axis\"] == \"rows\" else 4 * k + j for j in range(4)] for k in range(4)]   # the other way", "def lean(l):   # how far its two halves are from balancing", "    return abs(b[l[0]] + b[l[1]] - b[l[2]] - b[l[3]])", "main = -sum(lean(l) for l in L)"],
+    },
+    tieBreakers: {
+      "other-way": {
+        ts: "-O.reduce((t, l) => t + lean(l), 0)", py: "-sum(lean(l) for l in O)",
+        says: "the other way (columns, or rows) closer to balancing too is better", lenses: ["add", "trade"], steps: 2,
+        tryThis: "remove the \"trade\" line: can single steps balance the other way without tipping a seesaw?",
+      },
+      "heavy-seesaws": {
+        ts: "L.filter(l => lean(l) === 0).reduce((t, l) => t + b[l[0]] + b[l[1]] + b[l[2]] + b[l[3]], 0)", py: "sum(b[l[0]] + b[l[1]] + b[l[2]] + b[l[3]] for l in L if lean(l) == 0)",
+        says: "balanced seesaws holding bigger numbers are better", lenses: ["add", "twin"], steps: 2,
+        tryThis: "remove the \"twin\" line: can single steps make a seesaw heavier and keep it balanced?",
+      },
+      "ends-and-middle": {
+        ts: "-L.reduce((t, l) => t + Math.abs(b[l[0]] + b[l[3]] - b[l[1]] - b[l[2]]), 0)", py: "-sum(abs(b[l[0]] + b[l[3]] - b[l[1]] - b[l[2]]) for l in L)",
+        says: "each seesaw's two ends closer to its middle two (added up) is better", lenses: ["add", "trade"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; does it still even out the ends and the middle?",
+      },
+    },
+  },
+  {
+    family: "snap", simple: ["swap"],
+    mainSays: "the touching pairs of cells (across or down) holding the same number (more is better)",
+    main: {
+      ts: ["const snaps = [];   // every two touching cells holding the same number: both cells", "for (let i = 0; i < 16; i++) { if (i % 4 < 3 && b[i] === b[i + 1]) snaps.push([i, i + 1]); if (i < 12 && b[i] === b[i + 4]) snaps.push([i, i + 4]); }", "let main = snaps.length;"],
+      py: ["snaps = []   # every two touching cells holding the same number: both cells", "for i in range(16):", "    if i % 4 < 3 and b[i] == b[i + 1]:", "        snaps.append((i, i + 1))", "    if i < 12 and b[i] == b[i + 4]:", "        snaps.append((i, i + 4))", "main = len(snaps)"],
+    },
+    tieBreakers: {
+      "snap-values": {
+        ts: "snaps.reduce((t, s) => t + b[s[0]], 0)", py: "sum(b[s[0]] for s in snaps)",
+        says: "snaps of bigger numbers are better (each snap adds its number)", lenses: ["add", "twin"], steps: 2,
+        tryThis: "remove the \"twin\" line: can single cells raise a snap without breaking it?",
+      },
+      "snap-kinds": {
+        ts: "new Set(snaps.map(s => b[s[0]])).size", py: "len({b[s[0]] for s in snaps})",
+        says: "more different numbers making a snap is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; does it still find new numbers to snap?",
+      },
+      "snap-reach": {
+        pre: { ts: ["const hit = [...new Set(snaps.flat())];   // the cells of a snap"], py: ["hit = {i for s in snaps for i in s}   # the cells of a snap"] },
+        ts: "new Set(hit.map(i => Math.floor(i / 4))).size + new Set(hit.map(i => i % 4)).size", py: "len({i // 4 for i in hit}) + len({i % 4 for i in hit})",
+        says: "snaps reaching more rows and columns are better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps make a snap in a new row?",
+      },
+    },
+  },
 ];

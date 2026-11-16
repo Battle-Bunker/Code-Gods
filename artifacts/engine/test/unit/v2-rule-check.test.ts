@@ -69,6 +69,7 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "kings-and-subjects 4": "15 Nov, grids session", "stepping-stones 4": "15 Nov, grids session", "mountain-climb 4": "15 Nov, grids session",
   "uphill 4": "15 Nov, grids session", "staircase 4": "15 Nov, grids session", "magic-accountant 4": "15 Nov, grids session",
   "fillomino 4": "15 Nov, grids session",
+  "full-house 4": "16 Nov, grids session: grid baseline: ported as v1", "seesaw 4": "16 Nov, grids session: grid baseline: ported as v1", "snap 4": "16 Nov, grids session: grid baseline: ported as v1",
   // Row 7: forms repeated within a family, kinds and forms shared by more than three families.
   "square-area 7-repeat": "15 Nov, grids session: spf and lpf are both prime-factor sizes (Square Area redesign)",
   "far-crossing 7-repeat": "15 Nov, pairs session: both secondaries are near-multiples",
@@ -80,6 +81,9 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "lines-pairs 7-kind:base-ladder": "15 Nov, pairs session: every pair family climbs a base's ladder",
   "lines-pairs 7-form:shares-factor": "15 Nov, pairs session",
   "grids-beginner 7-form:second-axis": "15 Nov, grids session",
+  "grids-more-rules 7-form:all-different": "16 Nov, grids session: grid baseline: ported as v1",
+  "grids-more-rules 7-form:distance": "16 Nov, grids session: grid baseline: ported as v1",
+  "grids-more-rules 7-form:big-values": "16 Nov, grids session: grid baseline: ported as v1",
   // Row 5: no PMI table for the variant yet (lib/v2-agents scripts/pmi.ts).
   "lines-lenses 5-unmeasured": "15 Nov, spec lead: PMI table for line-q-lenses",
   "grids-beginner 5-unmeasured": "15 Nov, grids session: PMI table for grid-4-d10",
