@@ -47,6 +47,10 @@ export const overridesV = v.object({
   pauseSeconds: v.optional(v.number()),
   /** Offer the commit clause (v1, off by default): agents may mark acts only-if-better. */
   commitClause: v.optional(v.boolean()),
+  /** Locks (docs/engine-v2/locks.md, off by default): players and agents may defend a predicate on an object with energy. */
+  locks: v.optional(v.boolean()),
+  /** Lock prices (docs/engine-v2/locks.md §3): energy per bit of a predicate's complexity to create, per bit per world second to sustain. */
+  lockCreatePerBit: v.optional(v.number()), lockUpkeepPerBit: v.optional(v.number()),
   /** Defence goals (v1, restored; owner-decisions call 1): grids only, off by default; the penalty weight w (absent: 1). */
   defenceGoals: v.optional(v.boolean()), penaltyWeight: v.optional(v.number()), excludedDefenceFamilies: v.optional(v.array(v.string())),
   /** v1's world, energy and compute settings (absent: the preset's economy; the sandbox's 500,000 steps and 2,000 ms). */
@@ -103,6 +107,8 @@ export const offerV = v.object({ family: v.string(), title: v.string(), card: v.
 export const eventKindV = v.union(
   v.literal("gameStarted"), v.literal("objectBorn"), v.literal("act"), v.literal("values"), v.literal("tick"),
   v.literal("phase"), v.literal("command"), v.literal("gameEnded"), v.literal("drift"), v.literal("retired"),
+  /** A lock made, funded, drained or ended (docs/engine-v2/locks.md §6). */
+  v.literal("lock"),
 );
 
 // ---------------------------------------------------------------- the tables
@@ -176,6 +182,10 @@ export const v2Tables = {
       pauseSeconds: v.optional(v.number()),
       /** The commit clause is offered (v1, off by default): an only-if-better act commits only if its owner gains. */
       commitClause: v.optional(v.boolean()),
+      /** Locks are offered (docs/engine-v2/locks.md; off by default). */
+      locks: v.optional(v.boolean()),
+      /** The lock prices resolved at start (with `locks`): energy per bit to create, per bit per world second to sustain. */
+      lockRates: v.optional(v.object({ createPerBit: v.number(), upkeepPerBit: v.number() })),
       /** Defence goals are dealt (v1; grids only), with the penalty weight w (absent: 1) and the families left out. */
       defenceGoals: v.optional(v.boolean()), penaltyWeight: v.optional(v.number()), excludedDefenceFamilies: v.optional(v.array(v.string())),
       /** Per-act compute limits the room set (v1's stepBudget and interactionComputeMs); absent: the sandbox's defaults. */
@@ -324,10 +334,29 @@ export const v2Tables = {
     gameId: v.id("v2Games"), number: v.number(), bornAt: v.number(),
     /** Line turnover: the world second it retired (no agent is offered it again; its points as the settings say). */
     retiredAt: v.optional(v.number()),
+    /** How many locks were ever made on it (the next lock's number is one more; absent: none). */
+    locksMade: v.optional(v.number()),
   })
     .index("by_game", ["gameId", "number"])
     /** The live lines (retiredAt absent) apart from the retired ones (turnover): the spectator's list. */
     .index("by_game_live", ["gameId", "retiredAt", "number"]),
+  /**
+   * One live lock on an object (docs/engine-v2/locks.md): its predicate program (language, source, its author's words),
+   * complexity (description bits + read bits), upkeep (energy a world second), energy as of `settledAt` and the world
+   * second it runs out (`endsAt`, the sweep's index). Written only when it is made, funded or drained; deleted when it
+   * ends (the event log keeps it). `number` is the object's. `history`: its additions and withdrawals (the last
+   * LOCK_HISTORY; `by` is the member, never shown to others while the game is live); `byMember`: each member's totals,
+   * so a player can tell what went in beyond their own.
+   */
+  v2Locks: defineTable({
+    gameId: v.id("v2Games"), objectId: v.id("v2Objects"), number: v.number(), n: v.number(),
+    language: v.union(v.literal("typescript"), v.literal("python")), source: v.string(), words: v.string(),
+    programBits: v.number(), readBits: v.number(), bits: v.number(),
+    rate: v.number(), energy: v.number(), settledAt: v.number(), endsAt: v.number(), createdAt: v.number(),
+    added: v.number(), taken: v.number(),
+    history: v.array(v.object({ at: v.number(), op: v.union(v.literal("create"), v.literal("fund"), v.literal("drain")), amount: v.number(), by: v.string() })),
+    byMember: v.array(v.object({ memberId: v.string(), added: v.number(), taken: v.number() })),
+  }).index("by_object", ["objectId", "n"]).index("by_game_ends", ["gameId", "endsAt"]),
   /** An object's hot part, shared by every viewer: the state on the wire. */
   v2ObjectStates: defineTable({
     objectId: v.id("v2Objects"), gameId: v.id("v2Games"), state: v.string(), version: v.number(), changedAt: v.number(),
@@ -388,7 +417,9 @@ export const v2Tables = {
      * acts only), and the last act's two parts. Absent on rows stored before the split: read as 0 and null.
      */
     spendRead: v.optional(v.number()), spendChange: v.optional(v.number()),
-    lastAct: v.optional(v.object({ at: v.number(), read: v.number(), change: v.number(), outcome: v.string() })),
+    /** Energy put into or taken out of locks (docs/engine-v2/locks.md), beside reads and changes. */
+    spendLocks: v.optional(v.number()),
+    lastAct: v.optional(v.object({ at: v.number(), read: v.number(), change: v.number(), outcome: v.string(), locks: v.optional(v.number()) })),
     /** The balance is as of this world second. */
     settledAt: v.number(),
     /**

@@ -365,3 +365,15 @@ export function useObjectMoves(number: number | null | undefined) {
   const replay = useReplaySource();
   return useLiveValue(api.v2.play.objectMoves, gameId && seated && !replay && number != null ? { gameId, number } : "skip");
 }
+
+/**
+ * An object's live locks (docs/engine-v2/locks.md §5): program, energy, upkeep, history (amounts and times, the
+ * viewer's own marked), the viewer's own share. None when the game has no locks or in a replay.
+ */
+export function useObjectLocks(objectId: string | null | undefined) {
+  const { gameId } = useGameScope();
+  const replay = useReplaySource();
+  const locks = useGame()?.locks ?? null;
+  return useLiveValue(api.v2.locks.ofObject, gameId && locks && !replay && objectId ? { gameId, objectId: objectId as Id<"v2Objects"> } : "skip");
+}
+export type ObjectLock = NonNullable<ReturnType<typeof useObjectLocks>>[number];

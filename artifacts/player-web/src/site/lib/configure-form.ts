@@ -18,7 +18,7 @@ import { DEFAULT_SCORE_INTERVAL_SECONDS, PEER_NOISE_VARIANCE_OPTIONS, SCORE_INTE
 export interface Draft {
   planningSeconds: number; worldSeconds: number; startingEnergy: number;
   durationMode: DurationMode; scoreIntervalSeconds: number; peerNoiseVariance: number;
-  readPriceWeight: number; driftSeconds: number; pauseSeconds: number; commitClause: boolean;
+  readPriceWeight: number; driftSeconds: number; pauseSeconds: number; commitClause: boolean; locks: boolean; lockCreatePerBit: number; lockUpkeepPerBit: number;
   defenceGoals: boolean; penaltyWeight: number;
   startingObjects: number; birthsPerSecond: number; opportunitiesPerSecond: number;
   powerPerSecond: number; fullChargeSeconds: number; stepBudget: number; interactionComputeMs: number;
@@ -116,6 +116,24 @@ export const FIELDS: Readonly<Record<FieldKey, FieldSpec>> = {
     question: "May agents make their moves conditional?",
     meaning: "Whether agents may wrap moves in only_if_better, so that the moves apply only if they raise their owner's payoff on that object.",
     consequence: "Offering it makes agents safer and accidents rarer, at a few extra summon bits for each agent that uses it.",
+  },
+  locks: {
+    label: "Locks", section: "agents", tier: "more", control: "switch",
+    question: "May players lock what they have built?",
+    meaning: "Whether players and agents may put a lock on an object: a condition it meets now (say, its y-intercept is prime) that no move may break until someone pays the lock's energy out of it. A lock costs more the rarer its condition, and drains a little every second.",
+    consequence: "Locks let players defend high scores and cooperate on a shared target at a steady cost; off, every object can always be pushed anywhere.",
+  },
+  lockCreatePerBit: {
+    label: "Lock price", section: "agents", tier: "more", control: "number", suggested: [0.02, 0.0625, 0.25], unit: "energy a bit", limit: { min: 0, max: 100 },
+    question: "What does making a lock cost?",
+    meaning: "Energy per bit of a lock's complexity (its program's length plus what it reads) to make it, on top of the energy put in it. The default is a sixty-fourth of a player's power a bit, the scale of an agent's summon price.",
+    consequence: "Dearer locks are made only where they matter; cheap ones may cover the board. It only matters with locks on.",
+  },
+  lockUpkeepPerBit: {
+    label: "Lock upkeep", section: "agents", tier: "more", control: "number", suggested: [0.0001, 0.00026, 0.001], unit: "energy a bit a second", limit: { min: 0.000001, max: 10 },
+    question: "What does keeping a lock cost?",
+    meaning: "Energy per bit of a lock's complexity drained from the lock every world second; at zero it ends. The default re-pays the lock's price once per full charge.",
+    consequence: "Faster upkeep makes defence a steady expense that needs allies to keep funding; slower lets a lock stand alone. It only matters with locks on.",
   },
   stepBudget: {
     label: "Steps per act", section: "agents", tier: "more", control: "number", suggested: [100_000, 500_000, 2_000_000], unit: "steps", limit: { min: 1, max: 10_000_000, int: true },
@@ -251,7 +269,7 @@ export function presetDraft(p: Preset): Draft {
   return {
     planningSeconds: p.planningSeconds, worldSeconds: p.worldSeconds, startingEnergy: p.startingEnergy, durationMode: p.durationMode,
     scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS, peerNoiseVariance: p.peerNoiseVariance, readPriceWeight: p.readPriceWeight,
-    driftSeconds: p.driftSeconds, pauseSeconds: DEFAULT_PAUSE_SECONDS, commitClause: false, defenceGoals: false, penaltyWeight: 1,
+    driftSeconds: p.driftSeconds, pauseSeconds: DEFAULT_PAUSE_SECONDS, commitClause: false, locks: false, lockCreatePerBit: p.economy.powerPerSecond / 64, lockUpkeepPerBit: p.economy.powerPerSecond / 64 / p.economy.fullChargeSeconds, defenceGoals: false, penaltyWeight: 1,
     startingObjects: p.startingObjects, birthsPerSecond: p.economy.birthsPerSecond, opportunitiesPerSecond: p.economy.opportunitiesPerSecond,
     powerPerSecond: p.economy.powerPerSecond, fullChargeSeconds: p.economy.fullChargeSeconds,
     stepBudget: DEFAULT_STEP_BUDGET, interactionComputeMs: DEFAULT_COMPUTE_MS,
@@ -349,6 +367,7 @@ export function choiceLabel(key: FieldKey, v: number | string | boolean): string
 export function formatValue(key: FieldKey, v: unknown): string {
   if (key === "excludedFamilies" && Array.isArray(v)) return v.length ? `${v.length} rule${v.length === 1 ? "" : "s"}` : "none";
   if (key === "commitClause") return v ? "offered" : "off";
+  if (key === "locks") return v ? "on" : "off";
   if (key === "defenceGoals") return v ? "every player" : "off";
   if (key === "driftSeconds" && v === 0) return "never";
   if (key === "durationMode" && typeof v === "string") return choiceLabel(key, v).toLowerCase();

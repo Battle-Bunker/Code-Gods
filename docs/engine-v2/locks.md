@@ -27,9 +27,19 @@ its reads are charged (once into the complexity, or per check), and ready-made e
 examples.
 
 Built: `lib/v2-core` locks.ts (the lock arithmetic and the order of an act under locks, pure), `lib/v2-agents`
-predicates.ts (running a predicate program, its complexity, the ready-made predicates of §11) and the agent API. The
-server, the operations and the screens follow (§7); the hand-over that resumed the work is
+predicates.ts (running a predicate program, its complexity) and ready-predicates.ts (§11), the agent API, and the server
+(`artifacts/engine/convex/v2` locks.ts, lockNode.ts, ops/lock.ts; the tick and the commit in tick.ts and loop.ts). Live
+tests: `artifacts/engine/test/v2-locks.test.ts`. The screens follow (§7). The hand-over that resumed the work is
 `docs/engine-v2/handover/locks.md`.
+
+How the server runs it: the tick (Node) runs every check, in act order, on its running view of each offered object's
+locks, and records on the act which locks its calls were checked against (`lockChecked`) and what the act's lock
+changes measured. The commit (a mutation) runs no program: it applies the funds, drains and new locks again
+(`commitLocks`), clips drains to what is left, renumbers a new lock if another was made first, refuses a move if a lock
+it was not checked against is live by then (made or refilled since), and refuses a new lock if the object moved since
+it was measured. A player's `lock.create` measures the program in an action and writes through the same path, refused
+if the object moved meanwhile. An act's record carries the locks it saw without their programs (`lockSeen`); a replay
+joins each program from the lock's `create` event and re-executes the act exactly (tested).
 
 ## 1. What a lock is
 
@@ -130,11 +140,19 @@ reason `breaks lock #k (<description>), holding E: drain it first`; a quote does
 
 ## 7. Operations (affordances, `lib/v2-affordances`)
 
-`lock.list` (an object's live locks with their history), `lock.create` (object, program or a ready-made predicate,
-opening amount), `lock.fund` and `lock.drain` (object, lock, amount), `lock.test` (object, calls: which locks they would
-break, for the warning where a move is composed). Each generates the assistant tool, MCP, CLI, palette entry and
+`lock.list` (an object's live locks with their history), `lock.check` (object, program or a ready-made predicate:
+does the object meet it now, its bits, fee and upkeep, spending nothing), `lock.create` (the same, with the opening
+amount), `lock.fund` and `lock.drain` (object, lock, amount; a drain larger than the lock holds takes all of it),
+`lock.test` (object, calls: which locks they would break). All hidden when the setting is off. Each generates the assistant tool, MCP, CLI, palette entry and
 buttons. The agent API (both guest languages): `offer.locks()`, `offer.lock(source, amount, words)` (in the agent's own
 language), `offer.fund(n, amount)`, `offer.drain(n, amount)`, queued and applied at commit in the order of §4.
+
+Screens: One line shows the focused object's locks (`object-locks.tsx`): the description, energy, upkeep and time
+left, the program folded, the share line ("12 energy went in, 5 of it yours: the others put in 7"), the history, an
+Energy… form to add or take energy, and "Lock this line…" (a ready-made predicate or one written in the code editor,
+checked on the line before paying). What if offers, when the line has locks, one press that says which lock the
+composed change would break and what draining it costs (`lock-warning.tsx`). The room's configure page has the setting
+and the two prices. Browser test: `pnpm --filter @workspace/player-web e2e:locks` (on and off).
 
 ## 8. The life of a lock **[default unless marked]**
 

@@ -11,6 +11,7 @@ import type { LineState } from "@workspace/v2-linear";
 import { decodeState, objectWord, useGame, useGameScope, useMyObject, useMyRule, type GameRule, type MyRule } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
 import { bitsText, chanceText, energyText, pointsText } from "@/core/words";
+import { LockWarning } from "./lock-warning";
 import { formError, mutatorChoices, standing, whatIf, wireArgs, type MutatorChoice } from "./what-if-model";
 
 const field = "h-9 min-w-0 border bg-background px-2 text-sm";
@@ -28,7 +29,7 @@ function Delta({ label, from, to, fmt, testId }: { label: string; from: number |
   );
 }
 
-function Tryout({ rule, my, state, want, sites, testPrefix = "" }: { rule: GameRule; my: MyRule; state: unknown; want: number | null; sites: number; testPrefix?: string }) {
+function Tryout({ rule, my, state, want, sites, testPrefix = "", objectId }: { rule: GameRule; my: MyRule; state: unknown; want: number | null; sites: number; testPrefix?: string; objectId?: string }) {
   const tid = (id: string) => (testPrefix ? id.replace("what-if-", `what-if-${testPrefix}`) : id);
   const choices = useMemo(() => mutatorChoices(rule.variant), [rule.variant]);
   const [id, setId] = useState(choices[0]!.id);
@@ -97,6 +98,7 @@ function Tryout({ rule, my, state, want, sites, testPrefix = "" }: { rule: GameR
             </dl>
             {want !== null && <p className="text-xs text-muted-foreground">Points assume the others' bits on this {rule.type.id} stay as they are now ({bitsText(Math.max(0, want))}): their rules are secret, so nobody can tell how much they would want it after.</p>}
             <p className="text-xs text-muted-foreground" data-testid={tid("text-what-if-charge")}>An agent would spend about {energyText(out.charge)} on this change, plus what it reads first.</p>
+            {objectId && !testPrefix && <LockWarning objectId={objectId} call={{ mutator: choice.id, site, args: wireArgs(choice.args, args) }} noun={rule.type.id} />}
           </div>
         ) : null}
     </div>
@@ -119,7 +121,7 @@ function FocusedTryout({ objectId }: { objectId: string }) {
         <p><span className="font-semibold">{word.One} {o.number}</span>: <ObjectChip type={my.rule.type} state={state} sites={sites} /></p>
         <p className="text-xs text-muted-foreground">Try a change to see what it would do. Nothing happens to the {word.one}: only agents change {word.many}.</p>
       </div>
-      <Tryout key={objectId} rule={my.rule} my={my} state={state} want={o.value?.want ?? null} sites={sites} />
+      <Tryout key={objectId} rule={my.rule} my={my} state={state} want={o.value?.want ?? null} sites={sites} objectId={objectId} />
       {/* v1's "Compared with": a second change tried on the same line, under the first. */}
       {compare ? (
         <section className="space-y-2 border-t pt-3" data-testid="what-if-compared">

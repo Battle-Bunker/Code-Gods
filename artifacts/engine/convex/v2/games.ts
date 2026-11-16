@@ -10,6 +10,7 @@ import type { Doc } from "../_generated/dataModel";
 import { query } from "../_generated/server";
 import { requireGameMember, ruleOf } from "./access";
 import { gameDetailsV, headerV, standingsHistoryV, standingsV } from "./validators";
+import { locksOn, ratesOf } from "./locks.ts";
 
 export function headerView(game: Doc<"v2Games">, me: Doc<"v2Members">["_id"] | null) {
   return {
@@ -29,6 +30,7 @@ export function headerView(game: Doc<"v2Games">, me: Doc<"v2Members">["_id"] | n
     readPriceWeight: readPriceWeightOf(game),
     // The factor on summon and edit prices (power ÷ 64): the app scales the prices it quotes by it.
     priceScale: priceScaleOf(game),
+    locks: locksOn(game) ? ratesOf(game) : null,
     // Time dilation (decision 37): the game's settings are already dilated by it (simulations and local playtests).
     timeScale: timeScaleOf(game.settings),
     // Parameter drift (drift.ts): drift k at world second k × driftSeconds, so the app counts down from the clock.
