@@ -61,12 +61,7 @@ export const lineSums: Readonly<Record<string, LineSums<any>>> = {
   // Treasure is a ladder with an entangled tie-breaker since 15 Nov (design-principles.md): valued by sampling.
   "triangle-area": { bands: [{ atLeast: () => q(-2), ranges: (m, p: { A: number }) => areaBand(m, p.A, 2) }] },   // within 2
   // Same on Both Rulers is a ladder with an entangled tie-breaker since 15 Nov (design-principles.md): valued by sampling.
-  "square-area": { bands: [{ atLeast: (_p: object) => q(0), ranges: m => {                      // the area exactly a square
-    // c²/(2|m|) = r² needs 2|m| = t² and c a multiple of t.
-    if (m === 0n) return [];
-    const t = isqrt(2n * abs(m));
-    return t * t === 2n * abs(m) ? [{ lo: -BIG, hi: BIG, step: t }] : [];
-  } }] },
+  // Square Area is a window ladder since 15 Nov (design-principles.md): valued by sampling.
   // Whole Crossing has no plan since its dealt residue (the crossing near a whole number leaving r when divided by q):
   // valued by sampling (owner decision 22).
   // Prime Staircase is a graded ladder since 15 Nov (design-principles.md): valued by sampling.

@@ -4,7 +4,7 @@
  * main layer plus one tie-breaker, never a third layer: owner decision 14). The deal (W3-3) further refuses any rule
  * whose artefact is not dealable (spec §7.5), so a pool lists candidates and the artefacts decide what is live.
  */
-import { tieBreakersOn, type TieBreaker, type Variant } from "@workspace/v2-core";
+import { tieBreakersOn, type RuleFamily, type TieBreaker, type Variant } from "@workspace/v2-core";
 import { primeLanding, primeStaircase, pythagoreanArea, ruler, sameOnBothRulers, squareArea, treasure, wholeCrossing } from "./beginner.ts";
 import { primeGradient } from "./families.ts";
 import { smoothIntercept } from "./rational2.ts";
@@ -39,7 +39,7 @@ export interface Preset {
 // is dealt as a ladder on the rationals (it has no whole-number instances).
 export const beginnerPool = [primeLanding, smoothIntercept, squareArea, wholeCrossing, treasure, sameOnBothRulers, primeGradient, primeStaircase, ruler, pythagoreanArea] as const;
 
-const beginnerRules = (v: Variant): readonly PoolRule[] => beginnerPool.flatMap(f =>
+const beginnerRules = (v: Variant): readonly PoolRule[] => (beginnerPool as readonly RuleFamily<unknown, unknown>[]).flatMap(f =>
   f.dealable(v).map(params => ({ family: f.id, params, tieBreakers: tieBreakersOn(f, v).map(t => t.id) })));
 
 export const presets: readonly Preset[] = [

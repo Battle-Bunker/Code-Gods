@@ -25,7 +25,7 @@ function valueOf(variant: string, r: RuleRef<any, unknown>): ((u: Score) => numb
 
 test("Square Area's example has whole legs and a real square, and its tie-breaker counts", () => {
   for (const tb of squareArea.tieBreakers) {
-    const rule: RuleRef<LineState, unknown> = { type: lineType, family: squareArea as never, params: {}, variant: lineZ, tieBreaker: tb.id };
+    const rule: RuleRef<LineState, unknown> = { type: lineType, family: squareArea as never, params: squareArea.dealable(lineZ)[0], variant: lineZ, tieBreaker: tb.id };
     const ex = workedExample(rule, valueOf("line-z", rule));
     const [main, tie] = contributors(rule, ex).parts;
     assert.ok(main!.reference && main!.reference.value >= 1, `${tb.id}: a non-zero square: ${main!.sentence}`);
