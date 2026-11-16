@@ -73,6 +73,12 @@ export function useOthersBlurred(): boolean {
   return !replay && !!header && header.phase !== "ended" && blursOthers(header);
 }
 
+/** Every rule this game's dealer could deal (v2/play:candidates; v1's "Possible gods"): never who holds which. */
+export function useRuleCandidates() {
+  const { gameId } = useGameScope();
+  return useLiveValue(api.v2.play.candidates, gameId ? { gameId } : "skip");
+}
+
 /** The viewer's private rule: family, parameters, card, value function, the primary representation. */
 export function useMyRule(): MyRule | undefined {
   const { gameId, seated } = useGameScope();
