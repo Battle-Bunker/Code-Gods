@@ -118,7 +118,7 @@ function PastGames({ room }: { room: Room }) {
           {history.results.map((g, i) => (
             <li key={g.gameId} className="px-4 py-2.5 text-sm flex flex-wrap gap-x-4">
               <Link href={gamePath(room.code, g.gameId)} className="underline underline-offset-4" data-testid={`link-past-game-${g.gameId}`}>Game {g.number}</Link>
-              <span className="text-muted-foreground">{g.winner ? `won by ${names.get(g.winner) ?? "a player who left"}` : "no winner"}{g.endedAt ? ` · ${new Date(g.endedAt).toLocaleString()}` : ""}</span>
+              <span className="text-muted-foreground" data-testid={`text-game-winners-${g.gameId}`}>{g.winner ? `won by ${names.get(g.winner) ?? "a player who left"}` : "no winner"}{g.endedAt ? ` · ${new Date(g.endedAt).toLocaleString()}` : ""}</span>
               {g.endedAt !== null && (
                 <AffordanceButton id="replay.open" args={{ gameId: g.gameId }} label="Watch the replay" busyLabel="Opening…" tone="link" testId={`button-replay-${g.gameId}`}
                   onDone={() => navigate(gamePath(room.code, g.gameId))} />

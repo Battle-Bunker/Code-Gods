@@ -222,6 +222,19 @@ try {
       await a.getByTestId("text-not-found").waitFor({ timeout: 5_000 });
     });
 
+    await check("three humans: the room's past games say the ended game's winner; the Setup combobox applies a setup at once, with Undo (site-smoke 12)", async () => {
+      const gameId = gameUrl.split("/").at(-1)!;
+      await a.goto(`${SITE}/rooms/${code}`);
+      assert.match(await a.getByTestId(`text-game-winners-${gameId}`).innerText({ timeout: 30_000 }), /won by \w|no winner/);
+      const current = a.getByTestId("text-current-setup"), before = (await current.innerText()).trim();
+      await a.getByTestId("select-setup").click();
+      await a.getByTestId("input-setup-search").fill("grids");
+      await a.getByTestId("row-setup-preset-grids-beginner").click();
+      await current.filter({ hasText: /^Grids · beginner$/ }).waitFor({ timeout: 30_000 });
+      await a.getByTestId("button-undo-setup").click();
+      await current.filter({ hasText: before }).waitFor({ timeout: 30_000 });
+    });
+
     await check("signed out: a visit to the game's page shows the sign-in screen there, which reaches the provider; no CSP reports", async () => {
       const fresh = await browser.newContext();
       await fresh.route(/^https:\/\/accounts\.google\.com\//, (route: any) => route.fulfill({ status: 200, contentType: "text/html", body: "google" }));
