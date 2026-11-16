@@ -4,8 +4,28 @@
  * then the same values as a short table.
  */
 import { presetOf } from "@workspace/engine/convex/v2/presets.ts";
-import { useGame } from "@/sdk";
-import { rulesFacts, rulesParagraphs, type RulesInput } from "./rules-words";
+import { useState } from "react";
+import { agentPrimer } from "@workspace/v2-agents/pure";
+import { objectTypeOf, useGame, variantOf } from "@/sdk";
+import { toast } from "@/hooks/use-toast";
+import { rulesFacts, rulesForAi, rulesParagraphs, type RulesInput } from "./rules-words";
+
+/** v1's "Copy game rules for an AI": this pane's text and the agent primer, ready to paste into any assistant. */
+function CopyForAi({ input, variant }: { input: RulesInput; variant: string }) {
+  const [shown, setShown] = useState<string | null>(null);
+  const copy = () => {
+    const text = rulesForAi(input, agentPrimer(objectTypeOf(variant), variantOf(variant)));
+    void navigator.clipboard.writeText(text).then(
+      () => toast({ title: "Rules copied", description: "Paste them into any AI assistant." }),
+      () => setShown(text));   // no clipboard here: show the text to copy by hand
+  };
+  return (
+    <section className="space-y-1.5">
+      <button type="button" className="text-sm underline underline-offset-4" onClick={copy} data-testid="button-copy-rules-ai">Copy the rules for an AI assistant</button>
+      {shown && <textarea readOnly value={shown} className="h-48 w-full border bg-muted/40 p-2 font-mono text-[11px]" data-testid="text-rules-ai" onFocus={e => e.currentTarget.select()} />}
+    </section>
+  );
+}
 
 export function RulesPane() {
   const header = useGame();
@@ -31,6 +51,7 @@ export function RulesPane() {
           ])}
         </dl>
       </section>
+      <CopyForAi input={input} variant={header.variant} />
     </div>
   );
 }

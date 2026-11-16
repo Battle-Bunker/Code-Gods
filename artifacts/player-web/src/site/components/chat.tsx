@@ -10,6 +10,7 @@ import { useLivePaged } from "@/sdk/live";
 import { EmptyState } from "@/site/components/page-parts";
 import { failureText } from "@/site/components/action";
 import { chatFilter, type ChatFilter } from "./chat-filter";
+import { markSeen } from "./chat-unread";
 
 /** Who wrote what, for the filters (a game knows its roster): member kinds by id, your name and member id. */
 export interface ChatWho { kinds: ReadonlyMap<string, string>; myName: string | null; me: string | null }
@@ -28,6 +29,9 @@ export function RoomChat({ roomId, height = "h-[300px]", who }: { roomId: string
   const box = useRef<HTMLDivElement>(null);
   const newest = all.at(-1)?.id, oldest = all[0]?.id;
   useEffect(() => { end.current?.scrollIntoView({ block: "nearest" }); }, [newest]);
+  // Shown, so read: the unread mark clears (playtest round 34).
+  const newestAt = all.at(-1)?.at;
+  useEffect(() => { if (newestAt !== undefined) markSeen(roomId, newestAt); }, [roomId, newestAt]);
   // An older page loading above keeps what the reader was looking at in place.
   const before = useRef<{ oldest?: string; height: number }>({ height: 0 });
   useLayoutEffect(() => {

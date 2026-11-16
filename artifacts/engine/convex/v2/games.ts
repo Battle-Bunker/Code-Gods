@@ -8,7 +8,7 @@ import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query } from "../_generated/server";
 import { requireGameMember, ruleOf } from "./access";
-import { headerV, standingsHistoryV, standingsV } from "./validators";
+import { gameDetailsV, headerV, standingsHistoryV, standingsV } from "./validators";
 
 export function headerView(game: Doc<"v2Games">, me: Doc<"v2Members">["_id"] | null) {
   return {
@@ -65,5 +65,35 @@ export const standingsHistory = query({
     const { game } = await requireGameMember(ctx, gameId);
     const rows = await ctx.db.query("v2StandingsHistory").withIndex("by_game_seq", q => q.eq("gameId", game._id).gt("seq", after)).take(100);
     return rows.map(r => ({ seq: r.seq, worldSeconds: r.worldSeconds, totals: r.totals }));
+  },
+});
+
+/**
+ * "Game details" (v1's section on the game page): the settings and timings, and after the end every seat's rule with
+ * its holder (one index page, ≤ 16). While live no rule is named: a player reads their own with v2/play:myRule, and
+ * the rules any seat could hold with rule.candidates (which never says who holds which). Cold: changes with the phase.
+ */
+export const details = query({
+  args: { gameId: v.string() },
+  returns: gameDetailsV,
+  handler: async (ctx, { gameId }) => {
+    const { game } = await requireGameMember(ctx, gameId);
+    const ended = game.phase === "ended";
+    const rules = ended
+      ? (await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", game._id)).take(16)).map(r => {
+        const seat = game.roster.find(s => s.memberId === r.memberId);
+        return {
+          memberId: r.memberId, name: seat?.name ?? "", kind: seat?.kind ?? "human", family: r.family, params: r.params, tieBreaker: r.tieBreaker,
+          title: r.title, card: r.card, bid: r.bid ?? null, handicap: r.handicap ?? null, drifts: r.drifts ?? 0,
+        };
+      })
+      : null;
+    return {
+      gameId: game._id, phase: game.phase, preset: game.preset, variant: game.variant, settings: game.settings,
+      createdAt: game.createdAt, startedAt: game.startedAt ?? null, planningEndsAt: game.planningEndsAt ?? null,
+      endsAt: durationModeOf(game) === "halfLife" && !ended ? null : game.endsAt ?? null, endedAt: game.endedAt ?? null,
+      endWorld: ended ? game.endAtWorld ?? game.settings.worldSeconds : null,
+      rules,
+    };
   },
 });

@@ -5,15 +5,15 @@
  * `view.compareRepresentations`), so an assistant can switch them for them; "Draw every line in Lines this way" pins the
  * representation for the rule's family (`view.pinRepresentation`).
  */
-import { isPaid, lookLabel, seenWords } from "./seen";
+import { isPaid, lookLabel, quotePrice, seenWords } from "./seen";
 import { FreshMark, useWorldNow } from "./fresh-mark";
 import { AffordanceButton } from "@/site/components/action";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { ANOTHER, ClimbHistory, climbOf, ExpandedFace, moves as candidatesOf, ObjectChip, shortTitle } from "@workspace/v2-views";
 import { representation } from "@workspace/v2-core";
-import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMyAgents, useMyObject, useMyRule, useObjectMoves, useOthersAt, useOthersBlurred } from "@/sdk";
+import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMyAgents, useMyObject, useMyRule, useObjectMoves, useOthersAt, useOthersBlurred, type OthersAtMaps } from "@/sdk";
 import { useReplaying, useView } from "@/core/affordance-runtime";
 import { useOpenPane } from "@/dock/open-pane";
 import { bitsText, pointsText } from "@/core/words";
@@ -49,8 +49,27 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
   const rule0 = seated ? my?.rule ?? null : null, value0 = my?.bits ?? undefined;
   const candidates = useMemo(() => (rule0 && state ? candidatesOf(rule0, state, value0, { k: CANDIDATES }) : []), [rule0, state, value0]);
   const calls = useMemo(() => candidates.map(m => m.call as { mutator: string; site: number; args: Record<string, string> }), [candidates]);
-  // After the end too (the state is frozen): what each candidate would have earned.
-  const others = useOthersAt(replaying ? null : objectId, calls);
+  // After the end (the state is frozen) the others' sums at each candidate are open and exact: a live read. While the
+  // game runs they are paid and blurred (W3 #882, call 33): a quote on the player's press, one look's price a candidate.
+  const ended = header?.phase === "ended";
+  const exact = useOthersAt(replaying || !ended ? null : objectId, calls);
+  const whatIf = useAffordance("object.whatIf");
+  // A quote holds for the state it was asked from (the server says which): once the line moves, it says so.
+  // What the quote priced, kept with it: a paid quote stays on screen after the line moves on (coordinator, call 33).
+  const [quote, setQuote] = useState<{ objectId: string; state: string; maps: OthersAtMaps; priced: { words: string; want: number | null }[] } | null>(null);
+  const myQuote = quote && quote.objectId === objectId ? quote : null;
+  const quoteFresh = !!myQuote && myQuote.state === o?.state;
+  const [quoting, setQuoting] = useState(false);
+  const askQuote = () => {
+    if (quoting || !calls.length) return;
+    setQuoting(true);
+    whatIf.run({ objectId, calls }).then(r => {
+      const rows = r.after.flatMap(a => (a ? [a] : []));
+      const priced = candidates.map((m, i) => ({ words: m.words, want: r.after[i]?.want ?? null }));
+      setQuote({ objectId, state: r.state, priced, maps: { want: new Map(rows.map(a => [a.state, a.want])), taken: new Map(rows.flatMap(a => (a.taken !== null ? [[a.state, a.taken] as const] : []))) } });
+    }, failed("The quote did not come")).finally(() => setQuoting(false));
+  };
+  const others = ended ? exact : quoteFresh ? myQuote!.maps : undefined;
   // The climb on it lately: the viewer's own act-log rows on this object (≤ 50, one small read), oldest first.
   const recent = useObjectMoves(replaying ? null : o?.number);
   // Judged on the moves it shows (the last few), so the verdict matches the list.
@@ -71,7 +90,7 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
   const pinned = pinnedRep(view, rule.family.id, primary);
   const v = o.value;
   const othersAt = others && v
-    ? { now: v.want, at: (after: unknown) => others.want.get(rule.type.encode(after)) ?? null, taken: (after: unknown) => others.taken.get(rule.type.encode(after)) ?? null, approx: blurred }
+    ? { now: v.want, at: (after: unknown) => others.want.get(rule.type.encode(after)) ?? null, taken: (after: unknown) => others.taken.get(rule.type.encode(after)) ?? null, approx: !ended || blurred }
     : undefined;
   return (
     <div className="space-y-3 p-3" data-testid="line-expanded" data-line={o.number}>
@@ -93,6 +112,20 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
       <ExpandedFace rule={rule} state={state} value={my!.bits ?? undefined} active={active} compare={compared}
         moves={candidates} others={othersAt} climb={<ClimbHistory climb={climb} noun={word.one} approx={blurred} />}
         onActive={rep => void run(activeOp(objectId, rep, compared))} onCompare={rep => void run(compareOp(objectId, active, rep))} />
+      {!ended && !replaying && candidates.length > 0 && (
+        <p className="flex flex-wrap items-baseline gap-x-2 text-xs text-muted-foreground" data-testid="what-if-quote">
+          <button type="button" className="underline underline-offset-4 disabled:opacity-50" disabled={quoting || !whatIf.available} onClick={askQuote} data-testid="button-quote-what-if">
+            {quoting ? "Quoting…" : `${myQuote ? "Quote again" : "Quote what these moves do for the others"} (${quotePrice(o.lookPrice, candidates.length)})`}
+          </button>
+          <span data-testid="text-quote-state" data-fresh={quoteFresh || undefined}>{quoteFresh ? "An estimate (≈): each quote is a fresh blurred reading, so asking again draws fresh."
+            : myQuote ? `This ${word.one} has moved since your quote. What you paid for, from where it was:` : "Their sums are paid and blurred while the game runs."}</span>
+        </p>
+      )}
+      {!ended && !replaying && myQuote && !quoteFresh && (
+        <ul className="space-y-0.5 text-xs text-muted-foreground" data-testid="list-stale-quote">
+          {myQuote.priced.map((p, i) => <li key={i}>{p.words}: the others' bits after it about {p.want === null ? "unknown" : bitsText(p.want)} (≈)</li>)}
+        </ul>
+      )}
       <button type="button" className="mr-4 text-xs underline underline-offset-4" data-testid="button-open-what-if" onClick={() => void openPane("what-if")}>
         Try a change on this {word.one}
       </button>

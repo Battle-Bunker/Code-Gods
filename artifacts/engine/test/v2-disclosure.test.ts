@@ -24,7 +24,8 @@ test("nothing Bo is told names Ada's rule, and every value Bo gets is Bo's own",
   const told: unknown[] = [];
   const q = async (name: string, args: Record<string, unknown>) => { const r = await bo!.query(name, args); told.push(r); return r; };
   const op = async (id: string, args: Record<string, unknown>) => { const r = await perform(bo!, id, args, { gameId }, "query"); told.push(r); return r; };
-  for (const name of ["v2/games:header", "v2/games:standings", "v2/play:myRule", "v2/play:me", "v2/play:agents", "v2/play:digest"]) await q(name, { gameId });
+  for (const name of ["v2/games:header", "v2/games:standings", "v2/play:myRule", "v2/play:me", "v2/play:digest"]) await q(name, { gameId });
+  await q("v2/play:agents", { gameId, paginationOpts: page });
   await q("v2/games:standingsHistory", { gameId, after: -1 });
   await q("v2/rooms:get", { roomId });
   await q("v2/play:moves", { gameId, paginationOpts: page });

@@ -8,6 +8,8 @@
  */
 import { BITS_HELP, chanceText, fmtBits, fmtNum, pointsText, scoreFormula } from "@workspace/v2-views/format";
 export { chanceText, pointsText, scoreFormula };
+/** The game bar's own total: "…" until the standings hold the viewer's row (not a made-up 0.00 points). */
+export const myTotalText = (mine: { net: number } | undefined): string => (mine ? pointsText(mine.net) : "…");
 
 /** A measure in hundredths, as shown. */
 const shown = (x: number) => Math.round((Number.isFinite(x) ? x : 0) * 100);
@@ -94,6 +96,11 @@ export const TIE_NOTE = "Equal totals share a place.";
  * walker read as frozen), and a tooltip that says how it fills.
  */
 export function ownEnergy(m: { energy: number; capacity: number; ownPerSecond: number }): { text: string; full: boolean; title: string } {
+  // Below zero (debt moved to you with an agent's power, v1's header): overdrawn, and why nothing can be summoned yet.
+  if (m.energy < -0.005) {
+    const owed = energyAmount(-m.energy).replace(/^about /, "");
+    return { text: `overdrawn by ${owed}`, full: false, title: `You owe ${exactEnergy(-m.energy)} of energy: you cannot summon until your income (${powerText(m.ownPerSecond)}) has covered it.` };
+  }
   const full = m.capacity > 0 && m.energy >= m.capacity - 0.01;
   const seconds = m.ownPerSecond > 0 ? Math.round(m.capacity / m.ownPerSecond) : 0;
   const title = full

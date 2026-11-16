@@ -4,8 +4,8 @@
  * expanded face shows several side by side.
  */
 import type { ReactElement } from "react";
-import { elementDecl, elementValue, refKey, representation, type ElementRef, type ElementValue, type Mark, type ObjectType, type SceneData, type Term } from "@workspace/v2-core";
-import { marksForRep, meaningKey, projectRef } from "./refs.ts";
+import { elementDecl, elementValue, refKey, representation, type ElementRef, type ElementValue, type GridScene, type Mark, type ObjectType, type SceneData, type Term } from "@workspace/v2-core";
+import { markRefs, marksForRep, meaningKey, projectRef } from "./refs.ts";
 import { labelWithArgs, typesetNote } from "./format.ts";
 import { rendererFor, type DrawSize } from "./scene.ts";
 import "./render/register.ts";
@@ -52,6 +52,24 @@ export interface RepViewProps<S> {
   readonly label?: string;
   /** The elements each part of the viewer's rule reads (its sources): badged here and wherever they project by meaning. */
   readonly roles?: readonly { readonly ref: ElementRef; readonly role: "main" | "tb" }[];
+  /** The parts of the viewer's rule with their marks: a mark is drawn with its part's glyph, so a mark never relies on colour. */
+  readonly parts?: readonly { readonly depth: number; readonly marks: readonly Mark[] }[];
+}
+
+/**
+ * The marks a grid representation draws: its own elements', and the focus a rule puts on the board's cells it shows
+ * (a cell's notes are said under the board itself, not repeated under every view of it).
+ */
+function gridMarks(repId: string, scene: GridScene, marks: readonly Mark[]): readonly Mark[] {
+  const cells = new Set(scene.cells.map(r => refKey({ ...r, site: undefined })));
+  return marks.filter(m => markRefs(m).every(r => r.rep === repId || (m.kind === "focus" && cells.has(refKey({ ...r, site: undefined })))));
+}
+
+/** A mark's part's depth (0: the main part), by identity: a mark is in at most one part (annotate.ts). */
+function markDepthOf(parts: NonNullable<RepViewProps<unknown>["parts"]>): (m: Mark) => number | null {
+  const by = new Map<Mark, number>();
+  for (const p of parts) for (const m of p.marks) by.set(m, p.depth);
+  return m => by.get(m) ?? null;
 }
 
 /** The marks with their notes' fractions typeset, once, so every view and its bookkeeping read the same text. */
@@ -89,7 +107,8 @@ export function RepView<S>(props: RepViewProps<S>): ReactElement {
       {renderer.render({
         rep: repId, scene, values, size,
         // A plane also draws the marks of other representations that project onto it by meaning.
-        marks: typesetMarks(rep.scene === "plane" ? (props.marks ?? []) : marksForRep(repId, props.marks ?? [])),
+        // A grid representation draws the board's cells too, so it also draws the marks a rule puts on them.
+        marks: typesetMarks(rep.scene === "plane" ? (props.marks ?? []) : scene.kind === "grid" ? gridMarks(repId, scene, props.marks ?? []) : marksForRep(repId, props.marks ?? [])),
         project: (r, reps) => projectRef(type, r, reps),
         terms: new Map((props.terms ?? []).map(t => [t.id, t])),
         before: props.before === undefined ? undefined : valuesOf(type, props.before, site),
@@ -99,6 +118,7 @@ export function RepView<S>(props: RepViewProps<S>): ReactElement {
         onHover: props.onHover ? r => props.onHover!(r ? meaningOf(r) : null, r) : undefined,
         labelOf: r => labelOf(type, r),
         roleOf,
+        markDepth: props.parts ? markDepthOf(props.parts) : undefined,
       })}
     </div>
   );

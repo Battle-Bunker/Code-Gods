@@ -12,6 +12,7 @@ import { moreGridFamilies } from "./more-families.ts";
 import { paramGridFamilies } from "./param-families.ts";
 import { divisibility } from "./divisibility.ts";
 import { leadingDigits } from "./leading-digits.ts";
+import { withSecondaryMarks } from "./secondary-marks.ts";
 import { boxEdges, boxes, cols, corners, folds, gcd, leaps, pairs, rows, strangers, windows } from "./units.ts";
 
 export { isPrimeCell };
@@ -373,7 +374,7 @@ export function primeCells(n: number): RuleFamily<GridState, None> {
 
 /** The beginner pool: the old beginner grid's eight rules, regraded. */
 export const beginnerGridFamilies = (n: number): readonly RuleFamily<GridState, any>[] =>
-  [mirrormancer(n), magicEighteen(n), oppositeNines(n), twoPair(n), spreadOfThree(n), strangersFamily(n), leapfrog(n), crosswiseThrees(n)];
+  [mirrormancer(n), magicEighteen(n), oppositeNines(n), twoPair(n), spreadOfThree(n), strangersFamily(n), leapfrog(n), crosswiseThrees(n)].map(f => withSecondaryMarks(f as RuleFamily<GridState, object>, n));
 
 /** Every grid family: the beginner pool, the second pool, the parameterised trials (param-families.ts, in no preset yet), then the coupled rules (more-families.ts). */
 export const gridFamilies = (n: number): readonly RuleFamily<GridState, any>[] =>

@@ -43,10 +43,17 @@ test("what earned the points: the best lines first, each said through its rule's
   assert.match(s.earnedNote, /These 3 lines earned 105\.84 of your 105\.84 points\./);
 });
 
-test("what cost: each tug-of-war with whom and the energy your agent burnt, dearest first", () => {
+test("the tug named is the one that changed hands most, not the dearest (round 33: a 3-pull line over a 40-move cycle)", () => {
+  const s = summarise({ ...base, tugs: [{ number: 5, withNames: ["Ada"], flips: 3, mySpend: 236.89 }, { number: 3, withNames: ["Ada"], flips: 40, mySpend: 12 }] });
+  assert.equal(s.costs[0]!.number, 3);
+  assert.equal(s.next.number, 3);
+  assert.match(s.next.text, /line 3 back and forth: it changed hands 40 times/);
+});
+
+test("what cost: each tug-of-war with whom and the energy your agent burnt, most changes of hands first", () => {
   const s = summarise(base);
   assert.equal(s.costs.length, 2);
-  assert.equal(s.costs[0]!.text, "You and Ada pulled line 4 back and forth (6 pulls, 28.86 energy).");
+  assert.equal(s.costs[0]!.text, "You and Ada pulled line 4 back and forth: it changed hands 6 times (28.86 energy of yours).");
   assert.match(s.costs[1]!.text, /You and Ada and Bo|You, Ada and Bo/);
   assert.match(s.costNote ?? "", /38\.36 energy in all/);
 });
@@ -72,18 +79,18 @@ test("the component: three short sections, no steps, the noun of the object type
 test("one thing to try next game is built from this game's facts (rounds 26 and 28: the same words every game)", () => {
   const people = summarise(base);
   assert.equal(people.next.number, 4);
-  assert.equal(people.next.text, "This game you and Ada pulled line 4 back and forth (6 pulls, 28.86 energy). Next game, open a line you share in One line and order its moves by “Best for points”: your points there are your bits × theirs, so the top move counts their bits as well as yours and gives them less reason to undo it. Tell them in chat which way you are climbing.");
+  assert.equal(people.next.text, "This game you and Ada pulled line 4 back and forth: it changed hands 6 times (28.86 energy of yours). Next game, open a line you share in One line and order its moves by “Best for points”: your points there are your bits × theirs, so the top move counts their bits as well as yours. Tell them in chat which way you are climbing.");
   const practice = summarise({ ...base, tugs: base.tugs.map(t => ({ ...t, withNames: ["Practice partner 1"], practice: true })) });
   assert.doesNotMatch(practice.next.text, /chat/, "nobody to talk to in a practice game");
   // In a rotation the facts stay too (round 28 read the same words across the games of a rotation).
-  assert.match(summarise({ ...base, rotates: true }).next.text, /^This game you and Ada pulled line 4 back and forth \(6 pulls/);
+  assert.match(summarise({ ...base, rotates: true }).next.text, /^This game you and Ada pulled line 4 back and forth: it changed hands 6 times/);
 
   // Flat from 2:00 with the energy full: the stall, the energy left, and a change to the agent.
   const flat = { points: [{ x: 0, y: 0 }, { x: 60, y: 30 }, { x: 120, y: 50 }, { x: 300, y: 50 }, { x: 600, y: 50 }], endWorld: 600, energyLeft: 288, capacity: 288 };
   const stalled = summarise({ ...base, tugs: [], pace: flat });
   assert.equal(stalled.next.text, "Your points stopped rising at 2:00, and your energy sat full (288.00 energy unspent) for the rest of the game. Next game, when your points stop rising, change what your agent tries: pick another of its starting points in Agent code, or summon a second agent that tries different moves, so your energy keeps buying moves.");
   // A stall comes before the tug's lesson, and the tug is still named.
-  assert.match(summarise({ ...base, pace: flat }).next.text, /^This game you and Ada pulled line 4 back and forth .*\. Your points stopped rising at 2:00/);
+  assert.match(summarise({ ...base, pace: flat }).next.text, /^This game you and Ada pulled line 4 back and forth.*\. Your points stopped rising at 2:00/);
 
   // Still climbing in the last third: more power from the start.
   const climbing = { points: [{ x: 0, y: 0 }, { x: 300, y: 20 }, { x: 400, y: 30 }, { x: 600, y: 61.5 }], endWorld: 600, energyLeft: 12, capacity: 288 };
@@ -104,7 +111,7 @@ test("contested lines: each said as climbed together or undone, under its own he
   ] });
   assert.deepEqual(s.contested.map(c => [c.number, c.kind]), [[4, "undoing"], [7, "together"]], "a line only your agents moved is not contested");
   const t = text(renderToStaticMarkup(<GameSummary summary={s} rule={rule} />));
-  assert.match(t, /Contested lines Line 4: you and Ada undid each other's moves \(4 moves\)/);
+  assert.match(t, /Contested lines Line 4: you and Ada undid each other's moves: it changed hands 6 times;/);
   assert.match(t, /Line 7: you and Bo climbed together, every move raising the points: your points 6\.00 → 12\.00 points\./);
   assert.doesNotMatch(text(renderToStaticMarkup(<GameSummary summary={summarise(base)} rule={rule} />)), /Contested lines/);
 });

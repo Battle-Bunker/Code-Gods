@@ -208,7 +208,9 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
       "  }",
       "  return plans.length ? cheapest(offer, plans.slice(0, QUOTES)) : null;   // the cheapest of the best, or skip",
     ] : [
-      `  let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, ${args})]);   // each step and the score it reaches`,
+      (kind === "thorough" || kind === "bold"
+        ? `  let options = scoreEach(tries, ([plan, m2, c2]) => [plan, score(m2, c2, ${args})]);   // each step and the score it reaches (fewer on a big line)`
+        : `  let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, ${args})]);   // each step and the score it reaches`),
       ...POINTS.ts,
       "  // The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or null.",
       ...(kind === "thorough" ? [
@@ -217,10 +219,11 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
         "  // No single step helps: look two steps ahead (each step, then a shift or tilt by 1) and take the first",
         "  // step of the best pair, though it may lower your points for a moment. It weighs the 4 best pairs: a few more small reads.",
         "  // The first steps: the 6 best for your rule (options are tries with their scores, in the same order).",
-        "  const firsts = tries.map((t, i) => [t, options[i][1]]).filter(([[, m1]]) => Q.isQ(m1))",
+        "  const firsts = tries.slice(0, options.length).map((t, i) => [t, options[i][1]]).filter(([[, m1]]) => Q.isQ(m1))",
         "    .sort((a, b) => (better(a[1], b[1]) ? -1 : better(b[1], a[1]) ? 1 : 0)).slice(0, 6).map(([t]) => t);",
         "  const pairs = [];",
         "  for (const [plan, m1, c1] of firsts) {",
+        "    if (stepsLeft() < 0.45 * stepBudget()) break;   // a big line: weigh fewer pairs rather than fail",
         "    const first = Array.isArray(plan) ? plan : [plan];",
         "    for (const k of [-1, 1]) {",
         `      pairs.push([[...first, move("si.shift", { k })], score(m1, Q.add(c1, k), ${args})]);`,
@@ -356,7 +359,9 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
       "            plans.append(plan)             # as good as the best: the price decides",
       "    return cheapest(offer, plans[:QUOTES]) if plans else None   # the cheapest of the best, or skip",
     ] : [
-      `    options = [(plan, score(m2, c2, ${args})) for plan, m2, c2 in tries]   # each step and the score it reaches`,
+      (kind === "thorough" || kind === "bold"
+        ? `    options = score_each(tries, lambda t: (t[0], score(t[1], t[2], ${args})))   # each step and the score it reaches (fewer on a big line)`
+        : `    options = [(plan, score(m2, c2, ${args})) for plan, m2, c2 in tries]   # each step and the score it reaches`),
       ...POINTS.py,
       "    # The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or None.",
       ...(kind === "thorough" ? [
@@ -375,6 +380,8 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
         "        firsts.append(cands.pop(best)[0])",
         "    pairs = []",
         "    for plan, m1, c1 in firsts:",
+        "        if steps_left() < 0.45 * step_budget():   # a big line: weigh fewer pairs rather than fail",
+        "            break",
         "        first = list(plan) if isinstance(plan, (list, tuple)) else [plan]",
         "        for k in (-1, 1):",
         `            pairs.append((first + [move("si.shift", k=k)], score(m1, c1 + k, ${args})))`,

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { dockGroups, EMPTY_VIEW, parseDock } from "@workspace/v2-affordances";
-import { closePlan, columns, defaultPanes, dockFor, openPlan, PANE_IDS, PANES, paneTitle, readingOrder, shownPanes, storedPane, storedSlugOf } from "../src/panels.ts";
+import { closePlan, columns, defaultPanes, dockFor, openPlan, PANE_IDS, PANES, paneTitle, readingOrder, shownPanes, storedPane, storedSlugOf, filePane, fileIdOf } from "../src/panels.ts";
 
 test("a stored panel opens as a pane of its own in every phase, and keeps its slug", () => {
   // Catches: shownPanes dropping a stored panel's pane as an unknown id, so "Open as a pane" shows nothing.
@@ -17,6 +17,19 @@ test("a stored panel opens as a pane of its own in every phase, and keeps its sl
   assert.equal(paneTitle(pane), "my-stats");
   // The longest slug still fits the view operations' pane id.
   assert.ok(storedPane("a".repeat(48)).length <= 60);
+});
+
+test("a file panel (src/panels/*.tsx) opens as a pane of its own in every phase, and keeps its file id", () => {
+  const pane = filePane("my-bits");
+  assert.equal(pane, "file:my-bits");
+  assert.equal(fileIdOf(pane), "my-bits");
+  assert.equal(fileIdOf("panel:my-bits"), null);
+  assert.equal(fileIdOf("file:"), null);
+  assert.equal(storedSlugOf(pane), null);
+  for (const phase of ["planning", "live", "ended", "replay"] as const) {
+    assert.ok(shownPanes({ panes: [...defaultPanes(phase), { pane, place: "right" as const }] }, phase).some(p => p.pane === pane), phase);
+  }
+  assert.equal(paneTitle(pane), "my-bits");
 });
 
 test("the panels pane is offered in every phase", () => {
@@ -157,4 +170,8 @@ test("an assistant in front in planning is in front when the world starts (re-wa
   // Behind a tab in planning, it stays where the live screen puts it.
   const behind = { ...front, dock: { planning: parseDock("row(overview 25, my-card 40, *forge|assistant 35)") } };
   assert.notEqual(groupOf(behind).active, "assistant");
+});
+
+test("pane blurbs fit every game: none says “a line” (the palette showed it in a grid game)", () => {
+  for (const id of PANE_IDS) assert.doesNotMatch(PANES[id].blurb ?? "", /\ba line\b/, id);
 });

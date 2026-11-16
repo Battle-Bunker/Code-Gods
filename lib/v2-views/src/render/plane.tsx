@@ -145,13 +145,16 @@ const short = (p: Pick<P, "labelOf">, r: ElementRef) => p.labelOf(r).replace(/\s
 const readablePoint = (v: ElementValue): string => (v.kind === "point" ? `(${readable(v.x)}, ${readable(v.y)})` : fmtValue(v));
 
 /** "3 · 1 below" / "3 · exactly": a candidate's coordinate and how far the rule's quantity is from it. */
-function candLabel(p: Pick<P, "values" | "terms" | "size">, m: Candidate, measured: boolean): string {
+function candLabel(p: Pick<P, "values" | "terms" | "size" | "marks">, m: Candidate, measured: boolean): string {
   const arg = m.ref.args ? Object.values(m.ref.args)[0] : undefined;
   const v = p.values(m.ref);
   const axis = /AxisMark$/.test(m.ref.name) || v.kind === "segment";
   const what = axis && arg !== undefined ? readable(Qn.parse(arg)) : v.kind === "point" ? readablePoint(v) : arg !== undefined ? readable(Qn.parse(arg)) : "";
   const t = termQ(p as P, m);
-  if (!t || p.size === "compact" || measured) return what;
+  // Several values marked for one layer (a target and its neighbours: 11, 31, 41) are labelled by value alone; the
+  // layer's own number is not a distance to each of them.
+  const siblings = m.term ? p.marks.filter(x => x.kind === "candidate" && x.term === m.term).length : 1;
+  if (!t || p.size === "compact" || measured || siblings > 1) return what;
   return Qn.isZero(t) ? `${what} · exactly` : `${what} · ${readable(Qn.abs(t))} away`;
 }
 

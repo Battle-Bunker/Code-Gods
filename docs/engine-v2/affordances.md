@@ -176,19 +176,22 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `game.pause` | Pause the game | — | server · game | seated | live | write; confirm inline |
 | `rule.explain` | Explain my rule | — | server · game | seated | planning, live, paused, ended, replay | read |
 | `rule.values` | Show my rule's value curve | — | server · game | seated | planning, live, paused, ended, replay | read |
+| `rule.candidates` | List the rules that could be dealt | — | server · game | member | planning, live, paused, ended, replay | read |
+| `rule.fit` | Fit the others' rules | hints, exclude, top | server (action) · game | member | planning, live, paused, ended, replay | read |
 | `rule.worth` | Look up what a score is worth | score | server · game | seated | planning, live, paused, ended, replay | read |
-| `objects.list` | List objects | sort, cursor, limit | server · game | member | planning, live, paused, ended, replay | read |
+| `objects.list` | List objects | sort, filter, cursor, limit | server · game | member | planning, live, paused, ended, replay | read |
 | `object.read` | Read an object in one representation | objectId, rep, site | server · game | member | planning, live, paused, ended, replay | read |
 | `object.element` | Read one element of an object | objectId, rep, name, args, site | server · game | member | planning, live, paused, ended, replay | read |
-| `rep.mutators` | List a representation's mutators | rep | server · game | member | planning, live, paused, ended, replay | read |
+| `rep.mutators` | List a view's moves | rep | server · game | member | planning, live, paused, ended, replay | read |
 | `object.quote` | Price a change to an object | objectId, calls | server · game | seated | planning, live, paused, ended, replay | read |
 | `object.score` | Score an object under my rule | objectId | server · game | seated | planning, live, paused, ended, replay | read |
 | `object.look` | Look at objects | objectId | server · game | seated | live, paused | write; confirm inline |
 | `object.whatIf` | What if, for the others | objectId, calls | server · game | seated | live, paused | write; confirm inline |
 | `moves.list` | List moves that concern me | cursor, limit | server · game | seated | planning, live, paused, ended, replay | read |
 | `log.list` | Read the public log | cursor, limit | server · game | member | planning, live, paused, ended, replay | read |
+| `game.boardAt` | Show the board at a moment | world, after, limit | server (action) · game | member | planning, live, paused, ended, replay | read |
 | `pitch.draft` | Draft a cooperation pitch | to, aim | server (action) · game | seated | planning, live, paused | write; spends aiBudget; confirm summary |
-| `agents.list` | List my agents | — | server · game | seated | planning, live, paused, ended | read |
+| `agents.list` | List my agents | cursor, limit | server · game | seated | planning, live, paused, ended | read |
 | `agent.programs` | List an agent's versions | agentId | server · game | seated | planning, live, paused, ended | read |
 | `agent.check` | Check an agent's code | language, source, agentId | server (action) · game | seated | planning, live, paused | read |
 | `agent.summon` | Summon an agent | language, source, name, share | server (action) · game | seated | planning, live, paused | write; spends energy; confirm summary |
@@ -208,6 +211,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `view.sortObjects` | Sort objects | sort | client · room | member | planning, live, paused, ended, replay | write |
 | `view.filterObjects` | Filter objects | mine, minBits | client · room | member | planning, live, paused, ended, replay | write |
 | `view.showGlossary` | Explain a term | term | client · none | anyone | signedOut, home, room, planning, live, paused, ended, replay, admin | write |
+| `view.closeGlossary` | Close the glossary | — | client · none | anyone | signedOut, home, room, planning, live, paused, ended, replay, admin | write |
 | `replay.open` | Watch a replay | gameId | client · room | member | room, ended, replay | write |
 | `replay.play` | Play the replay | — | client · game | member | replay | write |
 | `replay.pause` | Pause the replay | — | client · game | member | replay | write |
@@ -215,6 +219,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `replay.step` | Step the replay | by | client · game | member | replay | write |
 | `replay.watchAs` | Watch the replay as a player | memberId | client · game | member | replay | write |
 | `replay.speed` | Set the replay speed | speed | client · game | member | replay | write |
+| `receipt.get` | Check a command's status | id | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
 | `account.whoami` | Show who I am | — | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
 | `account.connections` | List connected assistants | — | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
 | `account.revokeConnection` | Disconnect an assistant | connectionId | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | destructive; confirm modal |

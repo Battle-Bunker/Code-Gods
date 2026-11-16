@@ -36,10 +36,10 @@ test("joining by code asks for the code (a minimum length is not mistaken for no
 
 test("every read the palette offers in a game opens where the app shows it live (playtest: 'Show the auction's result' failed)", async () => {
   const { AFFORDANCES } = await import("@workspace/v2-affordances");
-  const { READ_PANES, ROOM_READS, ACCOUNT_READS } = await import("../src/core/palette-commands.ts");
+  const { READ_PANES, ROOM_READS, ACCOUNT_READS, NOTICE_READS } = await import("../src/core/palette-commands.ts");
   for (const a of Object.values(AFFORDANCES) as { id: string; effect: string; runs: string; kind?: string; contexts: readonly string[] }[]) {
     if (a.effect !== "read" || a.runs === "client" || a.id === "agent.check" || a.id === "room.list") continue;
-    const shown = a.id in READ_PANES || ROOM_READS.has(a.id) || ACCOUNT_READS.has(a.id);
+    const shown = a.id in READ_PANES || ROOM_READS.has(a.id) || ACCOUNT_READS.has(a.id) || NOTICE_READS.has(a.id);
     assert.ok(shown, `${a.id}: the palette has nowhere to show it`);
   }
 });
@@ -83,4 +83,70 @@ test("a grid game's palette says grids, not objects (round 8b)", () => {
   assert.equal(rows.find(r => r.id === "agent.leaveAlone")!.human.title, "Leave grids alone");
   for (const r of rows) assert.doesNotMatch(`${r.human.title} ${r.human.tooltip}`, /\bobjects?\b/i, r.id);
   assert.equal(nouned("Objects and an object", { one: "line", many: "lines" }), "Lines and a line");
+});
+
+test("the room's settings open the configure page (v1's \"Configure the room's setup\"), not a note to find the controls", () => {
+  const ctx = affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: true, spectator: false }], preset: "lines-beginner", phase: "lobby", game: null } as never });
+  const row = paletteCommands(ctx, { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, roomPath: "/rooms/ABCD" } as never).find(r => r.id === "room.settings");
+  assert.ok(row, "the owner is offered the room's settings");
+  assert.deepEqual(row.performer, { kind: "navigate", to: "/rooms/ABCD/configure" });
+  assert.equal(row.confirm, "none", "opening the page asks nothing; its Save confirms");
+});
+
+test("each enabled panel of yours is a typed-only row, 'Open your panel: <title>', and the pane pick lists it (v1)", async () => {
+  const ctx = affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: true, spectator: false }], preset: "lines-beginner" } as never, header: { phase: "live", me: "m1" } as never });
+  const opened: string[] = [];
+  const host = {
+    perform: async () => ({ ok: true as const, result: {} }), navigate() {}, panes: { open: async (p: string) => { opened.push(p); }, close: async () => {} },
+    storedPanels: [{ slug: "my-stats", title: "My stats", enabled: true }, { slug: "off-one", title: "Off one", enabled: false }],
+  };
+  const rows = paletteCommands(ctx, host as never);
+  const mine = rows.find(r => r.human.title === "Open your panel: My stats");
+  assert.ok(mine && mine.typedOnly && mine.performer.kind === "submit");
+  await mine.performer.run();
+  assert.deepEqual(opened, ["panel:my-stats"]);
+  assert.equal(rows.some(r => r.human.title.includes("Off one")), false, "a panel turned off is not offered");
+  const open = rows.find(r => r.id === "view.openPane")!.performer;
+  assert.ok(open.kind === "form" && open.page.kind === "pick");
+  const options = await open.page.options("");
+  assert.ok(options.some(o => o.id === "panel:my-stats" && o.label === "My stats"), "the pane pick lists your panels");
+});
+
+test("safe mode is a typed-only row that reloads the page with your panels off, and back (v1)", () => {
+  const ctx = affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: true, spectator: false }], preset: "lines-beginner" } as never, header: { phase: "live", me: "m1" } as never });
+  const host = (safeMode: boolean) => ({ perform: async () => ({ ok: true as const, result: {} }), navigate() {}, panes: { open: async () => {}, close: async () => {} }, storedPanels: [], safeMode, setSafeMode() {} });
+  const off = paletteCommands(ctx, host(false) as never).find(r => r.id === "safe-mode")!;
+  assert.ok(off.typedOnly && off.human.title === "Safe mode: your panels off" && off.performer.kind === "local");
+  const on = paletteCommands(ctx, host(true) as never).find(r => r.id === "safe-mode")!;
+  assert.equal(on.human.title, "Leave safe mode: run your panels");
+});
+
+test("a room code typed in the palette offers “Open room CODE”, which goes there (v1 parity: cmd-site-dyn-room-open)", async () => {
+  const { codeCommands } = await import("../src/core/palette-commands.ts");
+  const [row, ...rest] = codeCommands(" k7qx2 ");
+  assert.equal(rest.length, 0);
+  assert.equal(row!.human.title, "Open room K7QX2");
+  assert.deepEqual(row!.performer, { kind: "navigate", to: "/rooms/K7QX2" });
+  assert.deepEqual(codeCommands("summon an agent"), [], "a phrase is not a code");
+  assert.deepEqual(codeCommands("ab"), [], "too short");
+});
+
+test("a command's status reads as words: applied, or safe to send again (v1's 'Check a command's status…')", async () => {
+  const { receiptWords } = await import("../src/core/palette-commands.ts");
+  assert.equal(receiptWords({ applied: true, operation: "chat.send", result: null }), "That command (chat.send) went through.");
+  assert.match(receiptWords({ applied: false, operation: null, result: null }), /safe to send it again/);
+});
+
+test("each file panel (src/panels/*.tsx) is a typed-only row, 'Open file panel: <id>', and the pane pick lists it (v1)", async () => {
+  const ctx = affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: true, spectator: false }], preset: "lines-beginner" } as never, header: { phase: "live", me: "m1" } as never });
+  const opened: string[] = [];
+  const host = { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, panes: { open: async (p: string) => { opened.push(p); }, close: async () => {} }, filePanels: ["my-bits"] };
+  const rows = paletteCommands(ctx, host as never);
+  const row = rows.find(r => r.human.title === "Open file panel: my-bits");
+  assert.ok(row && row.typedOnly && row.performer.kind === "submit");
+  await row.performer.run();
+  assert.deepEqual(opened, ["file:my-bits"]);
+  const open = rows.find(r => r.id === "view.openPane")!.performer;
+  assert.ok(open.kind === "form" && open.page.kind === "pick");
+  assert.ok((await open.page.options("")).some(o => o.id === "file:my-bits"));
 });

@@ -73,6 +73,12 @@ export function useOthersBlurred(): boolean {
   return !replay && !!header && header.phase !== "ended" && blursOthers(header);
 }
 
+/** Every rule this game's dealer could deal (v2/play:candidates; v1's "Possible gods"): never who holds which. */
+export function useRuleCandidates() {
+  const { gameId } = useGameScope();
+  return useLiveValue(api.v2.play.candidates, gameId ? { gameId } : "skip");
+}
+
 /** The viewer's private rule: family, parameters, card, value function, the primary representation. */
 export function useMyRule(): MyRule | undefined {
   const { gameId, seated } = useGameScope();
@@ -151,14 +157,25 @@ export function usePublicLog(pageSize = 50) {
   return useLivePaged(api.v2.play.log, gameId && !replay ? { gameId } : "skip", pageSize);
 }
 
-/** The viewer's live agents (≤ 20). Undefined while loading, which never means none. */
+/** The first page of `v2/play:agents` (the server's page is at most 50). */
+const FIRST_AGENTS_PAGE = { numItems: 50, cursor: null };
+/**
+ * The viewer's live agents (a player may hold 200, call 35): for now the first page of 50, oldest first, as one list.
+ * Undefined while loading, which never means none.
+ */
 export function useMyAgents(): Agent[] | undefined {
   const { gameId, seated } = useGameScope();
   const replay = useReplaySource();
-  const live = useLiveValue(api.v2.play.agents, gameId && seated && !replay ? { gameId } : "skip");
+  const live = useLiveValue(api.v2.play.agents, gameId && seated && !replay ? { gameId, paginationOpts: FIRST_AGENTS_PAGE } : "skip");
   const frame = replay?.frame, member = replay?.member;
   const replayed = useMemo(() => (frame && member ? frame.agents(member) : null), [frame, member]);
-  return replayed ?? live;
+  return replayed ?? live?.page;
+}
+/** All of the viewer's agents, page by page (≤ 200 a player, 50 a page: W3 #898), for My agents; none in a replay. */
+export function useMyAgentPages() {
+  const { gameId, seated } = useGameScope();
+  const replay = useReplaySource();
+  return useLivePaged(api.v2.play.agents, gameId && seated && !replay ? { gameId } : "skip", 50);
 }
 /** An agent's energy account; not in the record, so none in a replay. */
 export function useAgentEnergy(agentId: string | null | undefined) {

@@ -9,6 +9,7 @@
  * At desktop (1440×900) and phone (390×844) widths:
  *  - home: the empty state offers Create room and Join with a code; Create room seats you and opens the room;
  *  - room: a lone owner is offered a practice game against practice partners (ux-lessons 1.1–1.2), never "not available";
+ *  - configure: the palette opens the room's settings page; a change shows in Review, is checked, saved and reaches the room;
  *  - a seeded live line game: your points and energy in the game bar (ux 2.5); the default panes; Lines rows with a
  *    compact face; opening a line shows every representation the rule depends on, and the Lines pane stays;
  *    the act log speaks in points and bits (yours × others' = points), 2 decimal places; no horizontal page scroll;
@@ -111,18 +112,51 @@ try {
       await page.getByText("Message sent to the room's chat.").first().waitFor({ timeout: 5_000 });
     });
 
+    await check(`${label}: the palette opens the configure page; a change shows in Review and reaches the room (v1 configure, site-smoke)`, async () => {
+      const roomUrl = page.url();
+      await page.keyboard.press("Control+K");
+      await page.getByTestId("input-palette").fill("Change the room's settings");
+      await page.keyboard.press("Enter");
+      await page.waitForURL(/\/configure$/, { timeout: 15_000 });
+      await page.getByTestId("section-time").waitFor();
+      for (const s of ["setup", "goals", "agents", "energy", "time", "players", "review"]) await page.getByTestId(`section-${s}`).waitFor();
+      assert.match(await page.getByTestId("button-save-settings-reason").innerText(), /Nothing has changed yet/);
+      await page.getByTestId("choice-planningSeconds-120").click();
+      await page.getByTestId("more-agents").locator("summary").click();
+      await page.getByTestId("switch-commitClause").click();
+      await page.getByTestId("change-planningSeconds").waitFor();
+      const review = await page.getByTestId("list-review-changes").innerText();
+      assert.match(review, /Planning: 1 min → 2 min/);
+      assert.match(review, /Conditional moves: off → offered/);
+      // A number outside the server's range is explained, and Save says why it cannot run.
+      await page.getByTestId("button-exact-planningSeconds").click();
+      await page.getByTestId("input-planningSeconds").fill("0.05");
+      await page.getByTestId("error-planningSeconds").getByText("Must be between 5 and 900 seconds.").waitFor();
+      await page.getByTestId("input-planningSeconds").fill("2");
+      await noHorizontalScroll(page, `${label} configure`);
+      await shot(page, `v2-configure-${label}`);
+      await page.getByTestId("button-save-settings").click();
+      await page.getByTestId("button-save-settings-confirm-ok").click();
+      await page.waitForURL(roomUrl, { timeout: 15_000 });
+      await page.getByTestId("text-next-game-summary").getByText(/120 s to plan/).waitFor({ timeout: 15_000 });
+      // A reload of the configure page starts from what the room holds now (no stale draft).
+      await page.getByTestId("link-configure").click();
+      await page.getByTestId("text-no-changes").waitFor({ timeout: 10_000 });
+      assert.equal(await page.getByTestId("switch-commitClause").getAttribute("aria-checked"), "true");
+      await page.goto(roomUrl);
+    });
+
     await check(`${label}: a live line game shows your totals, the panes and the lines' faces`, async () => {
       const room = code();
       const g = convexRun("v2/testing:seedGame", { owner: me.subject, practice: 2, code: room });
       await page.goto(`${SITE}/rooms/${room}/games/${g.gameId}`);
-      await page.getByTestId("text-my-total").waitFor();
-      assert.match(await page.getByTestId("text-my-total").innerText(), /points/);
+      await page.getByTestId("text-my-total").getByText(/points/).waitFor();   // "…" until the standings arrive
       assert.match(await page.getByTestId("text-my-energy").innerText(), /^Energy [\d,]+\.\d\d/);
       for (const pane of ["objects", "my-card", "feed", "agents", "race"]) await page.getByTestId(`pane-${pane}`).waitFor();
       const row = page.locator("[data-testid^=row-line-]").first();
       await row.waitFor();
       await page.locator("[data-testid^=marks-line-]").first().waitFor();   // each row's face arrives with its own subscription
-      await page.getByTestId("pane-feed").getByText(/Your agent/).first().waitFor();
+      await page.getByTestId("pane-feed").getByText(/Your agent\b/).first().waitFor();   // \b: not the folded table's "Your agents' move"
       const feed = await page.getByTestId("pane-feed").innerText();
       assert.match(feed, /Your agent/);
       assert.doesNotMatch(feed, /payoff|object|\p{Extended_Pictographic}/iu, "the act log speaks in player words");
@@ -190,6 +224,8 @@ try {
         await page.waitForURL(/\/games\//, { timeout: 30_000 });
         if (!await page.getByTestId("pane-my-card").count() && await page.getByTestId("button-jump-my-card").count()) await page.getByTestId("button-jump-my-card").click();
         const card = page.getByTestId("goal-card");
+        // The views are in the worked example, folded since #901: open it.
+        await card.locator("details.v2v-goal-example > summary").click();
         await card.locator(".v2v-switcher").first().waitFor({ timeout: 15_000 });
         const out = await card.evaluate((el: HTMLElement, w: number) => {
           const box = el.getBoundingClientRect(), right = Math.min(box.right, w);

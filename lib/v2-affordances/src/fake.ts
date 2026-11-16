@@ -250,6 +250,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
       families: FAMILIES.map(family => ({ family, card: `The ${family} rule.`, measuredTo: bitsAt(0) })),
       mine: Object.entries(b.bids[e.userId] ?? {}).map(([family, percent]) => ({ family, percent })),
       done: r.members.filter(m => m.userId && b.done.includes(m.userId)).map(m => ({ memberId: m.memberId, name: m.name })),
+      visibility: "sealed" as const, others: [],
     };
   },
   "bid.place": (e, a) => {
@@ -317,6 +318,25 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     const won = gameOf(e).auction?.wins[e.userId];
     return { family, params: {}, layers: ["main"], card: `Your rule, ${family}, wants the gradient close to its target.`, depends: ["si"], wonByBid: won ? { handicap: won.handicap } : null };
   },
+  "game.boardAt": (e, a) => {
+    const g = gameOf(e);
+    const all = Object.entries(g.objects).map(([objectId, o]) => ({ objectId, number: numberOf(g, objectId), state: null, own: bitsOf(g, e.userId, o), others: null, points: null }))
+      .sort((x, y) => x.number - y.number).filter(o => a.after === undefined || o.number > a.after);
+    const objects = all.slice(0, a.limit);
+    return { world: a.world, objects, nextAfter: all.length > a.limit ? objects.at(-1)!.number : null };
+  },
+  "rule.candidates": e => ({
+    rules: [...new Set(Object.values(gameOf(e).rules))].map(family => ({ family, params: {}, tieBreaker: null, card: `A rule of ${family}.` })),
+  }),
+  "rule.fit": (e, a) => {
+    const families = [...new Set(Object.values(gameOf(e).rules))];
+    const p = families.length ? 1 / families.length : 0;
+    return {
+      observations: 0, sigma: 8, exact: false,
+      hypotheses: families.slice(0, a.top).map(family => ({ posterior: p, rms: 8, rules: [{ family, params: {}, tieBreaker: null, card: `A rule of ${family}.` }] })),
+      families: families.map(family => ({ family, probability: p })), spectrum: [],
+    };
+  },
   "rule.values": () => ({ points: knots() }),
   "rule.worth": (_e, a) => {
     const first = a.score?.[0];
@@ -326,9 +346,14 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "objects.list": (e, a) => {
     const g = gameOf(e);
     const rows = Object.entries(g.objects).map(([objectId, o]) => ({ objectId, number: numberOf(g, objectId), bits: bitsOf(g, e.userId, o), points: bitsOf(g, e.userId, o) }));
-    const key = a.sort;
-    if (key !== "recent") rows.sort((x, y) => key === "rarity" ? y.bits - x.bits : y.points - x.points);
-    return page(rows, a);
+    const key = a.sort, filter = a.filter ?? "all";
+    // The fake has no others' sums, versions or change times: a filter keeps the objects with points (positive, contested)
+    // or none (chips); mutations and recent keep insertion order.
+    const kept = filter === "all" ? rows : rows.filter(r => (filter === "chips" ? r.points <= 0 : r.points > 0));
+    if (key === "oldest") kept.sort((x, y) => x.number - y.number);
+    else if (key === "born") kept.sort((x, y) => y.number - x.number);
+    else if (key === "rarity" || key === "points" || key === "want") kept.sort((x, y) => key === "rarity" ? y.bits - x.bits : y.points - x.points);
+    return page(kept, a);
   },
   "object.read": (e, a) => ({ rep: a.rep, site: a.site ?? 0, ...readRep(objectOf(e, a.objectId), a.rep) }),
   "object.element": (e, a) => {
@@ -365,7 +390,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "moves.list": (_e, a) => page([], a),
   "log.list": (_e, a) => page([], a),
   "pitch.draft": (e, a) => ({ draft: `Proposal to ${a.to?.length ? a.to.join(", ") : "everyone"}: let's protect lines whose gradient suits ${gameOf(e).rules[e.userId]}.${a.aim ? ` ${a.aim}` : ""}` }),
-  "agents.list": e => ({ agents: gameOf(e).agents.filter(a => a.ownerId === e.userId).map(a => ({ agentId: a.agentId, name: a.name, language: a.language, share: a.share, energy: a.energy, acts: a.acts, version: a.versions.length - 1 })) }),
+  "agents.list": (e, a) => page(gameOf(e).agents.filter(x => x.ownerId === e.userId).map(x => ({ agentId: x.agentId, name: x.name, language: x.language, share: x.share, energy: x.energy, acts: x.acts, version: x.versions.length - 1 })), a),
   "agent.programs": (e, a) => ({ versions: agentOf(e, a.agentId).versions.map((v, version) => ({ version, ...v, acts: 0 })).reverse() }),
   "agent.check": (e, a) => {
     const defined = a.language === "python" ? /def\s+agent\s*\(/.test(a.source) : /function\s+agent\s*\(/.test(a.source);
@@ -448,6 +473,11 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "account.touch": e => {
     if (e.grant === "read") throw new OpFailure("A read-only connection cannot wake the engine.");
     return { resumed: 0 };
+  },
+  "receipt.get": (e, a) => {
+    const key = Object.keys(e.state.receipts ?? {}).find(k => k.startsWith(`${e.userId}|`) && k.endsWith(`|${a.id}`));
+    const seen = key ? e.state.receipts[key] : undefined;
+    return seen?.ok ? { applied: true, operation: key!.split("|").at(-2)!, result: seen.result ?? null } : { applied: false, operation: null, result: null };
   },
   "account.whoami": e => ({ userId: e.userId, name: nameOf(e.state, e.userId), roomId: e.roomId, grant: e.grant ?? null }),
   "account.connections": e => ({ connections: Object.entries(e.state.connections).filter(([, c]) => c.userId === e.userId).map(([connectionId, c]) => ({ connectionId, client: c.client, roomId: c.roomId, grant: c.grant, lastUsedAt: null })) }),

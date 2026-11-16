@@ -86,8 +86,8 @@ export function whyLine(v: { rarity: number; want: number }, main: { sentence?: 
  */
 export function partsNote(parts: number, one = "line", many = `${one}s`): string | null {
   if (parts <= 1) return null;
-  const names = ["main part", "tie-breaker", "second tie-breaker", "third tie-breaker"].slice(0, parts);
-  return `Your rule scores a ${one} in ${parts} parts (${names.join(", ")}): the main part counts first, and each tie-breaker only decides between ${many} that tie on everything before it.`;
+  const names = ["main part", "secondary preference", "third preference", "fourth preference", "fifth preference"].slice(0, parts);
+  return `Your rule scores a ${one} in ${parts} parts (${names.join(", ")}): the main part counts first, and each preference after it only decides between ${many} that are equal on everything before it.`;
 }
 
 // ------------------------------------------------------------------ switcher and view state

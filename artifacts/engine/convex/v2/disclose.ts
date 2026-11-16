@@ -119,3 +119,11 @@ export const disclosesNoise = (game: Pick<NoiseGame, "phase">) => game.phase !==
 export function disclosed<V extends { want: number; points: number; shownWant?: number; shownPoints?: number }>(game: Pick<NoiseGame, "phase">, v: V): { want: number; points: number } {
   return disclosesNoise(game) ? { want: v.shownWant ?? v.want, points: v.shownPoints ?? v.points } : { want: v.want, points: v.points };
 }
+
+/**
+ * The objects pane's filters (v1's quadrants, lib/views quadrantOf): contested when the player's own bits and the
+ * others' sum as disclosed to them are both positive (exactly the objects whose shown points are positive: v1's
+ * "positive" and "contested" were the same set), chips when the others care and the player's own bits are 0, else other.
+ */
+export type Quadrant = "contested" | "chips" | "other";
+export const quadrantOf = (own: number, others: number): Quadrant => (others > 0 ? (own > 0 ? "contested" : "chips") : "other");

@@ -23,7 +23,11 @@ import { ConnectedAppsSheet } from "@/site/components/sheets";
 import { AffordanceRuntimeProvider, useRuntime, type RuntimeScope } from "@/core/affordance-runtime";
 import { touchGate } from "@/core/activity";
 import { GlossaryDialog } from "./glossary-dialog";
-import { paletteCommands } from "@/core/palette-commands";
+import { codeCommands, paletteCommands } from "@/core/palette-commands";
+import { SAFE_MODE } from "@/core/safe-mode";
+import { useFilePanels } from "@/panels/store";
+import "@/panels/registry";
+import { api, useLive } from "@/site/lib/convex";
 import { affordanceContext } from "@/core/affordance-context";
 import { usePaneOps } from "@/dock/open-pane";
 import type { GamePhase } from "@workspace/v2-client";
@@ -59,6 +63,13 @@ function ConnDot({ ok, label = "live" }: { ok: boolean; label?: string }) {
 
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
 
+/** Reloads the page in or out of safe mode (?panels=off). */
+function setSafeMode(on: boolean) {
+  const url = new URL(window.location.href);
+  if (on) url.searchParams.set("panels", "off"); else url.searchParams.delete("panels");
+  window.location.assign(url.toString());
+}
+
 /** The palette as the page frame shows it, from the runtime its page provides. */
 function Palette({ open, init, onOpenChange, placeholder, suggested, chip, roomPath, dockPhase, noun }: {
   open: boolean; init?: PaletteOpenInit; onOpenChange(o: boolean): void; placeholder: string; suggested: readonly string[]; chip?: string; roomPath?: string; dockPhase?: GamePhase; noun?: { one: string; many: string };
@@ -70,12 +81,20 @@ function Palette({ open, init, onOpenChange, placeholder, suggested, chip, roomP
   // An ended game shown in replay has the replay's arrangement.
   const paneOps = usePaneOps(dockPhase === "ended" && rt.context.context === "replay" ? "replay" : dockPhase ?? "planning");
   const panes = dockPhase ? paneOps : undefined;
-  const commands = useMemo(() => paletteCommands(rt.context, { perform: rt.perform, navigate, roomPath, notify: title => toast({ title }), ...(panes ? { panes } : {}), ...(noun ? { noun } : {}) }), [rt, navigate, roomPath, panes, noun]);
+  // The viewer's panels, in a game: the same live list the dock's pane titles read (one shared subscription).
+  const storedPanels = useLive(api.v2.panels.list, user && dockPhase && !SAFE_MODE ? {} : "skip").data;
+  const fileEntries = useFilePanels().entries;
+  const filePanels = useMemo(() => fileEntries.map(e => e.id), [fileEntries]);
+  const commands = useMemo(() => paletteCommands(rt.context, {
+    perform: rt.perform, navigate, roomPath, notify: title => toast({ title }), ...(panes ? { panes } : {}), ...(noun ? { noun } : {}),
+    ...(storedPanels ? { storedPanels } : {}), filePanels, safeMode: SAFE_MODE, setSafeMode,
+  }), [rt, navigate, roomPath, panes, noun, storedPanels, filePanels]);
   const p = rt.context.principal;
   const ctx: PaletteContext = { role: p.owner ? "owner" : p.seated ? "seated" : p.member ? "member" : p.signedIn ? "signed-in" : "visitor", admin: p.admin, assistantOn: false };
   return (
     <CommandPalette commands={commands} context={ctx} open={open} init={init} onOpenChange={onOpenChange}
       placeholder={placeholder} suggested={suggested} recentKey={user ? `code-gods:palette-recent:${user.id}` : undefined} chip={chip}
+      dynamic={q => (user ? codeCommands(q) : [])}
       onNavigate={to => navigate(to)} onError={(e, c) => toast({ title: `${c.human.title}: not done`, description: errMsg(e), variant: "destructive" })} />
   );
 }

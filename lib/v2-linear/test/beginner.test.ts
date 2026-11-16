@@ -16,12 +16,11 @@ function terms<P>(f: RuleFamily<LineState, P>, p: P, s: LineState, v = lineZ): R
   return out;
 }
 
-test("the beginner pool: the curator's eight families and two restored ones (Exact Change undealt), each a textbook main layer and graded tie-breakers", () => {
-  assert.deepEqual(beginnerPool.map(f => f.id), ["prime-landing", "smooth-intercept", "square-area", "whole-crossing", "divisibility-ladder", "treasure", "same-on-both-rulers", "prime-gradient", "prime-staircase", "ruler", "pythagorean-area"]);
-  for (const f of beginnerPool) {
-    // The ladder families have one or two secondaries, each read from the rung; the rest two to six.
-    assert.ok(f.tieBreakers.length >= (["prime-staircase", "smooth-intercept", "prime-landing", "whole-crossing", "prime-gradient", "divisibility-ladder", "pythagorean-area", "treasure", "same-on-both-rulers", "ruler"].includes(f.id) ? 1 : 2) && f.tieBreakers.length <= 6, f.id);
-  }
+test("the beginner pool: the curator's eight families and two restored ones (Exact Change undealt), each a textbook main layer and secondaries", () => {
+  assert.deepEqual(beginnerPool.map(f => f.id), ["prime-landing", "smooth-intercept", "square-area", "whole-crossing", "treasure", "same-on-both-rulers", "prime-gradient", "prime-staircase", "ruler", "pythagorean-area"]);
+  // How many secondaries each deals (row 3a: at least three) is checked on the dealt pools, with its known exemptions:
+  // artifacts/engine test/unit/v2-rule-check.test.ts.
+  for (const f of beginnerPool) assert.ok(f.tieBreakers.length >= 1, f.id);
 });
 
 test("restored families (decision 22), worked by hand", () => {

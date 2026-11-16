@@ -5,7 +5,7 @@
  */
 import { paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
-import { bidV, callV, languageV, memberKindV, offerV, overridesV, phaseV, scoreWireV, valueSnapV } from "./tables";
+import { bidV, callV, languageV, memberKindV, offerV, overridesV, phaseV, scoreWireV, valueSnapV } from "./tables.ts";
 
 export const roomPhaseV = v.union(v.literal("lobby"), phaseV);
 
@@ -22,7 +22,10 @@ export const roomV = v.object({
   preset: v.string(), overrides: overridesV, phase: roomPhaseV,
   members: v.array(memberRowV),
   game: v.union(gameHeadV, v.null()), lastGame: v.union(gameHeadV, v.null()),
-  bidding: v.union(v.object({ deadline: v.number(), pricing: v.union(v.literal("first"), v.literal("second")), families: v.array(offerV) }), v.null()),
+  bidding: v.union(v.object({
+    deadline: v.number(), pricing: v.union(v.literal("first"), v.literal("second")), families: v.array(offerV),
+    visibility: v.optional(v.union(v.literal("sealed"), v.literal("open"))),
+  }), v.null()),
 });
 export const roomListV = paginationResultValidator(v.object({ roomId: v.id("v2Rooms"), memberId: v.id("v2Members"), joinedAt: v.number() }));
 export const chatPageV = paginationResultValidator(v.object({ id: v.id("v2Chat"), from: v.string(), memberId: v.union(v.id("v2Members"), v.null()), text: v.string(), at: v.number() }));
@@ -110,7 +113,9 @@ export const meV = v.object({
    */
   ownPerSecond: v.number(), capacity: v.number(), settledAt: v.number(),
 });
-export const objectSortV = v.union(v.literal("points"), v.literal("rarity"), v.literal("want"), v.literal("born"), v.literal("recent"));
+/** v1's sorts and filters (objectOrder.ts). */
+export const objectSortV = v.union(v.literal("points"), v.literal("rarity"), v.literal("want"), v.literal("mutations"), v.literal("born"), v.literal("oldest"), v.literal("recent"));
+export const objectFilterV = v.union(v.literal("all"), v.literal("positive"), v.literal("contested"), v.literal("chips"));
 export const objectIdsV = paginationResultValidator(v.object({ objectId: v.id("v2Objects"), number: v.number() }));
 /** `v2/play:object`: one object's shared state and the caller's value of it. */
 export const playObjectV = v.object({
@@ -125,11 +130,15 @@ export const playObjectV = v.object({
 export const agentRowV = v.object({
   agentId: v.id("v2Agents"), name: v.string(), language: languageV, version: v.number(), share: v.number(), createdAt: v.number(),
 });
+/** The caller's live agents, a page at a time (≤ 200 a player, call 35; pages ≤ 50, R1); each row's energy is `agentEnergy`. */
+export const agentsPageV = paginationResultValidator(agentRowV);
 export const agentEnergyV = v.object({
   agentId: v.id("v2Agents"), energy: v.number(), acts: v.number(), skips: v.number(), failures: v.number(), spend: v.number(),
   pointsGained: v.number(), lastActAt: v.union(v.number(), v.null()),
   /** As the own store's: the agent's income and capacity, and `energy` settled to the world second `settledAt`. */
   perSecond: v.number(), capacity: v.number(), settledAt: v.number(),
+  /** The balance just after each act, oldest first (≤ AGENT_HISTORY); between samples it grows at perSecond up to capacity. */
+  history: v.array(v.object({ at: v.number(), energy: v.number() })),
 });
 export const agentProgramsV = v.array(v.object({
   version: v.number(), language: languageV, source: v.string(), price: v.number(), summonedAt: v.number(), acts: v.number(), pointsGained: v.number(),
@@ -177,9 +186,30 @@ export const spectateObjectV = v.object({ objectId: v.id("v2Objects"), number: v
 export const layoutV = v.union(v.object({ layout: v.any(), view: v.union(v.any(), v.null()), revision: v.number() }), v.null());
 export const replayV = v.object({ stored: v.boolean() });
 
-/** `v2/bids:state`: the open bid phase as the caller may see it (their own bids only). */
+/** `v2/bids:state`: the open bid phase as the caller may see it (their own bids; the others' only when bidding is open). */
 export const bidStateV = v.object({
   open: v.boolean(), deadline: v.union(v.number(), v.null()), families: v.array(offerV),
   mine: v.array(bidV), done: v.boolean(),
   players: v.array(v.object({ memberId: v.id("v2Members"), name: v.string(), done: v.boolean() })),
+  /** v1's open bidding: "open" shows every other player's bids as they are placed; sealed shows none. */
+  visibility: v.union(v.literal("sealed"), v.literal("open")),
+  others: v.array(v.object({ memberId: v.id("v2Members"), name: v.string(), bids: v.array(bidV) })),
+});
+
+/**
+ * `v2/games:details` (v1's "Game details"): the settings as frozen at the start (tables.ts v2Games.settings), the
+ * timings, and after the end every seat's rule (null while live: who holds which rule is private until the end).
+ */
+export const gameDetailsV = v.object({
+  gameId: v.id("v2Games"), phase: v.string(), preset: v.string(), variant: v.string(),
+  settings: v.any(),
+  createdAt: v.number(), startedAt: v.union(v.number(), v.null()), planningEndsAt: v.union(v.number(), v.null()),
+  endsAt: v.union(v.number(), v.null()), endedAt: v.union(v.number(), v.null()),
+  /** The world second the game ended at (after the end only: a halfLife game's end is hidden while live). */
+  endWorld: v.union(v.number(), v.null()),
+  rules: v.union(v.null(), v.array(v.object({
+    memberId: v.id("v2Members"), name: v.string(), kind: v.string(),
+    family: v.string(), params: v.any(), tieBreaker: v.union(v.string(), v.null()), title: v.string(), card: v.string(),
+    bid: v.union(v.number(), v.null()), handicap: v.union(v.number(), v.null()), drifts: v.number(),
+  }))),
 });

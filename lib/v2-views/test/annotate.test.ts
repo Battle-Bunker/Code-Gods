@@ -64,7 +64,7 @@ test("two parts: main part and tie-breaker, marks split by term (storyboard §3.
   const [main, tie] = a.sites[0]!.parts;
   assert.equal(main!.name, "main part");
   assert.equal(fmtQ(main!.value as Q), "⅓");
-  assert.equal(tie!.name, "tie-breaker");
+  assert.equal(tie!.name, "secondary preference");
   assert.ok(main!.marks.some(m => m.kind === "measure"));
   assert.ok(tie!.marks.length > 0 && tie!.marks.every(m => markTerm(m) === "pgap"));
   assert.ok(!main!.marks.some(m => markTerm(m) === "pgap"));
@@ -122,5 +122,34 @@ test("moves: each really improves the utility, at the price it quotes; the cheap
     if (forMain.length) assert.ok(forMain.every(m => m.price.total >= ms[0]!.price.total), `${f.id}: the cheapest for the main part leads`);
     const fill = ms.filter(m => /^rare/.test(m.reason));
     for (let i = 1; i < fill.length; i++) assert.ok(fill[i]!.price.total >= fill[i - 1]!.price.total, `${f.id}: the frontier ascends`);
+  }
+});
+
+test("a rule of any depth (#879): every dealt secondary is a part, in order, named as the card names it; a mark labelled with a layer is that layer's", async () => {
+  const { ruleLayers } = await import("@workspace/v2-core");
+  const { gridType, grid4 } = await import("@workspace/v2-grid");
+  const fam = gridType.families.find(f => f.tieBreakers.length >= 3)!;
+  const ids = fam.tieBreakers.slice(0, 3).map(t => t.id);
+  const rule = { type: gridType, family: fam, params: fam.dealable(grid4)[0], variant: grid4, tieBreaker: ids.join(">") } as never;
+  const state = { cells: [3, 1, 1, 3, 0, 4, 8, 0, 2, 2, 2, 2, 9, 0, 0, 3] };
+  const a = annotate(rule, state);
+  const parts = a.sites[0]!.parts;
+  assert.equal(parts.length, 4, "the main part and three secondaries");
+  assert.deepEqual(parts.map(p => p.term), ruleLayers(fam, ids.join(">")).map(l => l.id));
+  assert.deepEqual(parts.map(p => p.name), ["main part", "secondary preference", "third preference", "fourth preference"]);
+  assert.deepEqual(parts.map(p => p.depth), [0, 1, 2, 3]);
+  // A focus or note labelled with a layer belongs to it, at any depth; one labelled with none to the main part.
+  const { markTerm } = await import("../src/refs.ts");
+  assert.equal(markTerm({ kind: "focus", ref: { rep: "cells", name: "r0c0" }, term: ids[2]! }), ids[2]);
+  assert.equal(markTerm({ kind: "note", ref: { rep: "cells", name: "r0c0" }, text: "x" }), undefined);
+});
+
+test("a move no player could pay for is never offered (gallery: a move priced 21,123,744,906,456,000,000.00 energy)", async () => {
+  const { MAX_MOVE_PRICE } = await import("../src/moves.ts");
+  for (const f of [primeGradient, triangleArea] as RuleFamily<LineState, unknown>[]) {
+    const rule = { type: lineType, family: f, params: f.dealable(lineQ)[0], variant: lineQ } as RuleRef<LineState, unknown>;
+    for (const s of [fromMC(q(997), q(3)), fromMC(q(-3), q(10))].map(l => ({ lines: [l] }))) {
+      for (const m of moves(rule, s, undefined, { k: 4 })) assert.ok(m.price.total <= MAX_MOVE_PRICE, `${f.id}: ${m.words} at ${m.price.total}`);
+    }
   }
 });

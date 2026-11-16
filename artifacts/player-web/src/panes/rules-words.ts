@@ -78,3 +78,14 @@ export function rulesFacts(r: RulesInput): [string, string][] {
     ["Others' bits", (r.peerNoiseBits ?? 8) === 0 ? "exact" : `blurred while live (about ${r.peerNoiseBits ?? 8} bits); totals exact`],
   ];
 }
+
+/** v1's "Copy game rules for an AI": how to play and this game's values, then the agent primer (lib/v2-agents), as one text. */
+export function rulesForAi(r: RulesInput, primer: string): string {
+  return [
+    "# Code Gods: the rules, for an AI assistant",
+    "Paste this into any AI assistant to talk through the game or write agents with it. Your own rule is private: add it yourself if you want help with it.",
+    "## How to play", ...rulesParagraphs(r),
+    "## This game", rulesFacts(r).map(([k, v]) => `- ${k}: ${v}`).join("\n"),
+    "## Writing agents", primer.trim(),
+  ].join("\n\n") + "\n";
+}

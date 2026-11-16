@@ -31,7 +31,8 @@ test("expanded face: the rule's views, both parts with their rulers, the moves w
   const t = text(html);
   assert.equal((html.match(/class="v2v-panel"/g) ?? []).length, 3);
   assert.match(t, /Main part:/);
-  assert.match(t, /Tie-breaker:/);
+  assert.match(t, /Secondary preference:/);
+  assert.doesNotMatch(t, /tie-?break/i, "the owner's word is secondary preference, never tie-breaker");
   assert.match(t, /the closer, the better/);
   assert.match(t, /What would make it rarer/);
   assert.match(t, /\d energy/);
@@ -171,6 +172,8 @@ test("the climb: each move's points with the others' total and the change from n
   assert.match(html, /data-both=""/, "a candidate raising both is marked");
   assert.match(t, /The climb from here: “.+” takes your points from [\d.,]+ points? to [\d.,]+ points/);
   assert.doesNotMatch(html, /button-propose|button-hold/, "no destination: no propose, no hold");
+  // The hint proposes no state to settle on and hold (CLAUDE.md: settle-and-hold is the bug the game avoids).
+  assert.doesNotMatch(t, /reason to undo|nobody has/, "no settle-and-hold");
   // Another line already holds the best candidate's state: it is not available, with the reason, and drops to the end.
   const bestKey = [...others.entries()].sort((a, b) => b[1] - a[1])[0]![0];
   const taken = (x: LineState) => (lineType.encode(x) === bestKey ? 5 : null);

@@ -84,7 +84,7 @@ export const roomOps = [
   // The owner's lobby and game controls.
   affordance({
     id: "room.settings", title: "Change the room's settings", group: "owner", scope: "room",
-    description: "Sets the room's preset and the overrides it allows for the next game: planning seconds, game length, starting energy; how it ends (durationMode \"fixed\" at the length, or \"halfLife\" at a hidden random moment); seconds between published standings (scoreIntervalSeconds, default 10); reading noise on the others' sums (peerNoiseVariance: 0, 4, 16, 64 or 256 bits²); the look price weight (readPriceWeight, 0 to 4; 0 free); rule drift (driftSeconds, 0 off); pause length (pauseSeconds, default 180); the commit clause (commitClause). Unset values are the preset's.",
+    description: "Sets the preset and the next game's overrides (unset: the preset's): planningSeconds, worldSeconds, startingEnergy; durationMode fixed or halfLife; scoreIntervalSeconds (10); peerNoiseVariance 0/4/16/64/256; readPriceWeight 0-4; driftSeconds (0 off); pauseSeconds (180); commitClause; startingObjects 0-1000; birthsPerSecond 0-10; opportunitiesPerSecond 0-1000; powerPerSecond; fullChargeSeconds; stepBudget per act (500,000); interactionComputeMs per act (2,000); excludedFamilies (never dealt); bidPricing first/second; bidVisibility sealed/open; bidDisclosure none/handicaps/all.",
     tooltip: "Pick the preset and adjust its length.", keywords: ["settings", "configure", "preset", "length"],
     params: obj({
       preset: z.string().max(64).optional(),
@@ -96,6 +96,13 @@ export const roomOps = [
         driftSeconds: z.number().int().min(0).max(3600),
         pauseSeconds: z.number().int().min(1).max(1800),
         commitClause: z.boolean(),
+        // v1's ranges (archive game-core settings.ts and settings-form.ts LIMITS); the CPU limit's top is the sandbox's.
+        startingObjects: z.number().int().min(0).max(1000), birthsPerSecond: z.number().min(0).max(10),
+        opportunitiesPerSecond: z.number().min(0).max(1000),
+        powerPerSecond: z.number().min(0).max(1_000_000), fullChargeSeconds: z.number().min(1).max(1_000_000),
+        stepBudget: z.number().int().min(1).max(10_000_000), interactionComputeMs: z.number().int().min(1).max(60_000),
+        excludedFamilies: z.array(z.string().max(64)).max(64),
+        bidPricing: z.enum(["first", "second"]), bidVisibility: z.enum(["sealed", "open"]), bidDisclosure: z.enum(["none", "handicaps", "all"]),
       }).partial().strict().optional(),
       requestId: requestId.optional(),
     }), result: ok,

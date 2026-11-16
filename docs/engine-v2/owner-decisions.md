@@ -264,6 +264,15 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     good reason and it sounds like you've confirmed that it offers negligible marginal value." So hold rarity stays out
     of v2 (the measurement: docs/engine-v2/hold-measurement.md; coordinator's call 11).
 
+44. On Divisibility Ladder (relayed by the coordinator, 15 November): "This rule sucks. It has no parameters and it's
+    important for rules to be genuine parameters with a substantial state space. And it's absurdly fragile. Anyone who
+    bumps values a tiny bit into fractional parameters wipes out this player's score to zero. Rules should still keep
+    some of their value when modest sized perturbations occur. Throw this rule away and pick out a new one from the
+    backlog of candidates and populate it with a good parameter space and 3 secondaries." So Divisibility Ladder is
+    dealt by no preset, and its starters and its rows in the opponents table are gone. Its family code stays only
+    while the app's annotation tests use it as a fixture. A replacement family from the backlog is in design
+    (design-principles.md rows 1 to 13).
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact
@@ -779,6 +788,32 @@ back) or TRIAL (a declared experiment, measured and reported).
         candidates in two forms. A prime and a prime-count reading of its number were unequal between peers (q 7
         against 11, 1.0–1.4 bits).
     - **Effects:** §13.
+
+36. **CALL** (the coordinator's, 15 Nov, on the lens worker's account of v1's rival-inference tools): v1's
+    `get_utility_series`, `get_board_at` and `list_utility_candidates` are restored as v1 had them, through
+    lib/v2-affordances (assistant, MCP, CLI, palette and panes): live figures blurred exactly as every other live
+    disclosure, never attributed. `get_utility_series` is v2's `log.list`; `list_utility_candidates` is `rule.candidates`.
+    `fit_utility_mixture` is restored too (the owner ruled rival inference legitimate but "possible but hard"), offered
+    only in games whose disclosure noise is at least v1's (variance 64, σ 8) and refused with a plain reason elsewhere:
+    the beginner game's noise is 0, where the fit would hand over the others' rules in minutes ("high peaks easy to find
+    … by being told the rules"). Before it ships, a check: with a fitted rule set at σ 8, can a search find joint peaks
+    cheaply? If yes, it is held and reported. Order: the series and the board, then the candidates, then the fit.
+    **The check, and the coordinator's ruling (15 Nov):** collapse-check tests 2 and 5 at β 0.05. On line-q, identifying
+    the others' rules from sums blurred at σ 8 takes a median of 1,284 probes (14 of 40 tables unidentified at 3,000;
+    exact sums: one probe), and with the rules known only 1 of 8 tables has a cheaply found best (test 2 passes). On
+    grid-4-d10 no table is identified within 3,000 probes at σ 8, but with the rules known 2 of 3 tables are cheap
+    (test 2 fails). The fit ships with the σ 8 guard on lines and is refused on grids until grid test 2 passes.
+
+37. **CALL** (the coordinator's, 16 Nov): the old game's coloured grid boards (4×4 digits rgb, 5×5 rgby, 6×6 hex
+    rainbow6, 7×7 cards rainbow6; lib/v2-grid-boards) return with their rule families **ported as the old game had them**,
+    bounded main parts included, in clearly labelled, non-default original-rules baseline presets (e.g. "Grids ·
+    original colours"). The reason is the owner's (15 Nov): "the grid based game should be pretty close to the original
+    under the new engine ... a baseline to compare to the original code to check functionality is retained under the
+    rewrite"; rule redesign is happening on lines, with the owner, and redesigning grid rules is a later step with the
+    owner. Each family's failures against design-principles.md and its energy-gate result are recorded, dated, in the
+    rule check's exemption map under "grid baseline: ported as v1" and in the preset's description, never silently. Two
+    limits hold even for the baseline: a value function is honest (no extrapolated tail paying beyond what was measured),
+    and a family with a cheap peak in the hundreds of bits is reported to the coordinator before it is dealt.
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 

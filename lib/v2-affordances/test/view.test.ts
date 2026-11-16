@@ -112,3 +112,13 @@ test("objects sort by rarity and filter by bits (decision 23: values, not levels
   assert.deepEqual(v.objects, { sort: "rarity", filter: { minBits: 2.5 } });
   assert.equal(applyView(v, "view.sortObjects", { sort: "level" }, live).outcome.ok, false);
 });
+
+test("the glossary stays closed once closed: closing it is stored in the view, not only on one screen", () => {
+  let v = applyView(EMPTY_VIEW, "view.showGlossary", { term: "bits" }, live).view;
+  assert.equal(v.glossary, "bits");
+  const r = applyView(v, "view.closeGlossary", {}, live);
+  assert.ok(r.outcome.ok);
+  v = r.view;
+  assert.equal(v.glossary, null);
+  assert.equal(applyView(v, "view.showGlossary", {}, live).view.glossary, "");
+});

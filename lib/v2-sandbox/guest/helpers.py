@@ -141,6 +141,25 @@ def peek(offer, rep, name, args=None, site=None):
     return offer.element(rep, name, args, site)
 
 
+def steps_left():
+    # The act's steps left (the agent's own code's lines and jumps); free, no host call.
+    return _STEPS_LEFT()
+
+
+def step_budget():
+    return _STEP_BUDGET()
+
+
+def score_each(tries, f):
+    # f of each try in order until 30% of the act's steps are used: fewer tries on a big line, not a failed act.
+    out, floor = [], 0.7 * step_budget()
+    for t in tries:
+        if steps_left() < floor:
+            break
+        out.append(f(t))
+    return out
+
+
 def goal(offer):
     return offer.my_rule()
 
@@ -731,6 +750,11 @@ def climb(offer, options, now, most=None):
     options = sorted(options, key=_functools.cmp_to_key(lambda a, b: -1 if better(a[1], b[1]) else 1 if better(b[1], a[1]) else 0))
     if most is not None:
         options = options[:most]
+    # Host calls are capped (64 an act): with too few left to look and price, skip rather than fail.
+    calls = getattr(offer.budget(), "host_calls_left", None)
+    calls = 64 if calls is None else calls
+    if calls < 12:
+        return None
     w = worth(offer)
     if w is None:   # the best step for your rule that beats now and is allowed
         cap = allowance(offer)
@@ -741,7 +765,7 @@ def climb(offer, options, now, most=None):
             if p is not None and p <= cap:
                 return _as_plan(plan)
         return None
-    value, spare, ranked = w.mine * w.others, 2, []
+    value, spare, ranked, left = w.mine * w.others, 2, [], calls - 12
     for plan, s in options:
         r = rarity(offer, s)   # free
         if r <= 0:   # sorted best first: the rest score no points for you either
@@ -750,6 +774,9 @@ def climb(offer, options, now, most=None):
             if spare == 0:
                 break
             spare -= 1
+        left -= 1   # each look at the others is a host call: keep room for the prices
+        if left < 0:
+            break
         try:
             o = offer.others_after(_as_plan(plan))
         except HostError:

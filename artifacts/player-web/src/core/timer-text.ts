@@ -16,8 +16,16 @@ export function halfLifeInterval90(halfLifeSeconds: number): { lo: number; hi: n
 /** The game's exact length when its end is public ("fixed"), else null: a half-life game's end is hidden, never counted down to. */
 export const fixedLength = (h: { durationMode?: string; worldSeconds: number }): number | null => (h.durationMode === "halfLife" ? null : h.worldSeconds);
 
-/** null while planning counts down (the planning line under the header is the one countdown then). */
-export function timerText(h: Header, now: number): { label: string; value: string; note: string; tip: string } | null {
+/**
+ * null while planning counts down (the planning line under the header is the one countdown then). `resume`: the clock
+ * offers Resume (game.resume, shown to whoever may resume: the owner) for a pause; a parked game resumes on any press.
+ */
+export function timerText(h: Header, now: number): { label: string; value: string; note: string; tip: string; resume: boolean } | null {
+  const x = clockText(h, now);
+  return x && { ...x, resume: h.phase === "paused" && !h.parked };
+}
+
+function clockText(h: Header, now: number): { label: string; value: string; note: string; tip: string } | null {
   switch (h.phase) {
     case "planning": {
       const left = h.planningEndsAt ? (h.planningEndsAt - now) / 1000 : h.planningSeconds;
@@ -45,8 +53,17 @@ export function timerText(h: Header, now: number): { label: string; value: strin
     // World time stands still while paused: no countdown (the end moves out by the pause's length).
     case "paused": return h.parked
       ? { label: "Game", value: "paused", note: PARKED_NOTE, tip: "Nobody acted in this game for 30 minutes, so it was paused to save the engine. Any press or key resumes it; world time stood still meanwhile." }
-      : { label: "Game", value: "paused", note: "", tip: "World time stands still while the game is paused." };
+      : { label: "Game", value: "paused", note: pauseNote(h, now), tip: "World time stands still while the game is paused. A player's pause ends by itself after the room's pause length, or sooner when the owner resumes." };
     case "ended": return { label: "Game over", value: "0:00", note: "", tip: "This game has ended. Nothing changes any more." };
   }
 }
 
+
+/** "Paused by Bo · resumes in 2:41" (W3 #873: a player's pause ends by itself at `pauseEndsAt`). */
+function pauseNote(h: Header, now: number): string {
+  const who = h.pausedBy ? h.roster.find(r => r.memberId === h.pausedBy)?.name ?? null : null;
+  const by = who ? `Paused by ${who}` : "";
+  if (h.pauseEndsAt == null) return by;
+  const left = Math.ceil((h.pauseEndsAt - now) / 1000);
+  return [by, left > 0 ? `resumes in ${clock(left)}` : "resuming…"].filter(Boolean).join(" · ");
+}

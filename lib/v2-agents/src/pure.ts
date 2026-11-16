@@ -14,5 +14,8 @@ export * from "./compat.gen.ts";
 export { unopposedDirections, unopposedIn, WEAK_BELOW, OPPORTUNITY_FRACTION, LADDER_SLOPE, type UnopposedDirection } from "./unopposed.ts";
 export { TENSION, type TensionTable } from "./tension.gen.ts";
 export { pairPmi, pmiClass, INDEPENDENT_WITHIN, ALIGNED_ABOVE, type PmiClass, type PmiTable } from "./pmi.ts";
+export { PMI_TABLES } from "./pmi.gen.ts";
 export { readLeave, setLeave } from "./leave.ts";
 export { watcherFor, type WatcherAgent, type WatcherType } from "./watcher.ts";
+export { agentPrimer, HELPERS } from "./primer.ts";
+export { fitRules, nnls, SIGMA_FLOOR_BITS, type FitCandidate, type FitHint, type FitInput, type FitResult, type FitHypothesis } from "./inference.ts";

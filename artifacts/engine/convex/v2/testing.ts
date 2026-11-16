@@ -24,7 +24,7 @@ import { valueRecord as valueRecordOf } from "./values";
 import { seatRules as seatRulesOf } from "./loop";
 import { decode as decodeState, scopeOf as scopeOfGame, valuesOf as valuesOfState } from "./world";
 import { fullReadBits as fullReadBitsOf } from "./knowledge";
-import { newNoiseKey, objectReading, readingNoise, shownAt } from "./disclose";
+import { newNoiseKey, objectReading, quadrantOf, readingNoise, shownAt } from "./disclose";
 
 const fixtures = () => {
   if (!fixturesOn(process.env)) throw new ConvexError({ code: "FORBIDDEN", message: "v2 fixtures need TEST_FIXTURES=1" });
@@ -85,6 +85,8 @@ export const seedGame = internalMutation({
     moves: v.optional(v.number()),
     /** A disclosure-noise key (default none: exact, as games stored before the noise was restored). */
     noise: v.optional(v.boolean()),
+    /** Varied object versions (default every object at version 1): object i at 1 + (5i mod 7), for the "most mutated" sort. */
+    versions: v.optional(v.boolean()),
     /** Tugs-of-war in each member's v2Tugs (default none), on the first objects. */
     tugs: v.optional(v.number()),
     /** A line the owner's agent and the next seat's climbed together (every move raised both sides), by number. */
@@ -134,7 +136,8 @@ export const seedGame = internalMutation({
       const state: LineState = { lines: [fromMC({ n: BigInt(r.below(11) - 5), d: 1n }, { n: BigInt(r.below(21) - 10), d: 1n })] };
       const objectId = await ctx.db.insert("v2Objects", { gameId, number: i + 1, bornAt: i });
       objects.push(objectId);
-      await ctx.db.insert("v2ObjectStates", { objectId, gameId, state: lineType.encode(state), version: 1, changedAt: i });
+      const version = a.versions ? 1 + (5 * i) % 7 : 1;
+      await ctx.db.insert("v2ObjectStates", { objectId, gameId, state: lineType.encode(state), version, changedAt: i });
       const evals = rules.map(({ dealt }) => valueAt(state, lineZ.id, dealt, valueObjects({ startingObjects: preset.startingObjects, worldSeconds: preset.worldSeconds, economy: preset.economy })));
       const total = evals.reduce((s, e) => s + e.rarityBits, 0);
       // The object's birth in the public log (v1's), every seat's bits in roster order.
@@ -143,15 +146,16 @@ export const seedGame = internalMutation({
         const e = evals[k]!, want = total - e.rarityBits, points = e.rarityBits * want;
         pts.set(memberId, (pts.get(memberId) ?? 0) + points);
         packed.set(memberId, [...(packed.get(memberId) ?? []), i + 1, e.rarityBits, want]);
-        const shown = a.noise ? shownAt({ rarityBits: e.rarityBits, want }, readingNoise((await ctx.db.get(gameId))!, memberId, objectReading(objectId, 1))) : {};
-        await ctx.db.insert("v2ObjectValues", { objectId, gameId, memberId, number: i + 1, ...e, want, points, ...shown, version: 1, changedAt: i });
+        const shownRaw = a.noise ? shownAt({ rarityBits: e.rarityBits, want }, readingNoise((await ctx.db.get(gameId))!, memberId, objectReading(objectId, version))) : null;
+        const shown = shownRaw ? { ...shownRaw, quadrant: quadrantOf(e.rarityBits, shownRaw.shownWant) } : {};
+        await ctx.db.insert("v2ObjectValues", { objectId, gameId, memberId, number: i + 1, ...e, want, points, ...shown, version, changedAt: i });
       }
     }
 
     // Agents, programs, moves.
     const source = "function agent(offer) {\n  // Try this: tilt towards your target.\n  return [call(\"si.tilt\", { k: 1 })];\n}\n";
     for (const [k, { memberId }] of rules.entries()) {
-      const agentId = await ctx.db.insert("v2Agents", { gameId, memberId, name: "Simple", language: "typescript", sourceHash: "fixture", version: 0, share: 0.5, createdAt: now, source });
+      const agentId = await ctx.db.insert("v2Agents", { gameId, memberId, name: "Simple", language: "typescript", sourceHash: "fixture", version: 0, share: 0.5, createdAt: now });
       await ctx.db.insert("v2AgentEnergy", { agentId, gameId, energy: 10, acts: 3, skips: 1, failures: 0, spend: 4.5, pointsGained: 2, settledAt: 0 });
       await ctx.db.insert("v2AgentPrograms", { agentId, version: 0, language: "typescript", source, sourceHash: "fixture", price: 12, summonedAt: now, acts: 3, pointsGained: 2 });
       for (let s = 0; s < (a.moves ?? Math.min(3, n)); s++) {
@@ -179,7 +183,7 @@ export const seedGame = internalMutation({
       const owner = rules[0]!.memberId, other = rules[1]!.memberId, objectId = objects[number - 1]!;
       const value = (await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", owner)).unique())!;
       const state = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", objectId)).unique())!.state;
-      const ownerAgent = (await ctx.db.query("v2Agents").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", owner)).first())?._id;
+      const ownerAgent = (await ctx.db.query("v2Agents").withIndex("by_game_member_live", q => q.eq("gameId", gameId).eq("memberId", owner)).first())?._id;
       const at = (bits: number, want: number) => ({ score: value.score, rarityBits: bits, want, points: bits * want });
       let bits = value.rarityBits, want = value.want;
       for (let i = 0; i < 4; i++) {
@@ -336,6 +340,29 @@ export const totalsOf = internalQuery({
   },
 });
 
+/**
+ * `count` live agents for a seated user, inserted without paying (the 200-agent cap's test: a summon each would take
+ * minutes), each at a 0.1% share with a small TypeScript program, as a summon leaves them. No cap is checked here.
+ */
+export const seedAgents = internalMutation({
+  args: { gameId: v.id("v2Games"), userId: v.string(), count: v.number() },
+  handler: async (ctx, { gameId, userId, count }) => {
+    fixtures();
+    const game = (await ctx.db.get(gameId))!;
+    const memberId = (await ctx.db.query("v2Members").withIndex("by_room_user", q => q.eq("roomId", game.roomId).eq("userId", userId)).first())!._id;
+    const player = (await ctx.db.query("v2Players").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).unique())!;
+    const source = "function agent(offer) {\n  return null;\n}\n", now = Date.now(), share = 0.001, ids = [];
+    for (let i = 0; i < count; i++) {
+      const agentId = await ctx.db.insert("v2Agents", { gameId, memberId, name: `Seeded ${player.agents + i + 1}`, language: "typescript", sourceHash: "fixture", version: 0, share, createdAt: now });
+      await ctx.db.insert("v2AgentEnergy", { agentId, gameId, energy: 0, acts: 0, skips: 0, failures: 0, spend: 0, pointsGained: 0, settledAt: player.settledAt });
+      await ctx.db.insert("v2AgentPrograms", { agentId, version: 0, language: "typescript", source, sourceHash: "fixture", price: 0, summonedAt: now, acts: 0, pointsGained: 0 });
+      ids.push(agentId);
+    }
+    await ctx.db.patch(player._id, { agents: player.agents + count, allocated: Math.round((player.allocated + count * share) * 1000) / 1000 });
+    return ids;
+  },
+});
+
 /** Every agent of a game with its share and energy (the credit rule's test: no agent owes more than its capacity). */
 export const agentsOf = internalQuery({
   args: { gameId: v.id("v2Games") },
@@ -343,7 +370,7 @@ export const agentsOf = internalQuery({
     fixtures();
     const game = (await ctx.db.get(gameId))!;
     const out = [];
-    for (const a of await ctx.db.query("v2Agents").withIndex("by_game", q => q.eq("gameId", gameId)).take(320)) {
+    for (const a of await ctx.db.query("v2Agents").withIndex("by_game_live", q => q.eq("gameId", gameId)).take(320)) {
       const e = (await ctx.db.query("v2AgentEnergy").withIndex("by_agent", q => q.eq("agentId", a._id)).unique())!;
       out.push({ agentId: a._id, share: a.share, energy: e.energy, capacity: a.share * game.settings.economy.powerPerSecond * game.settings.economy.fullChargeSeconds });
     }

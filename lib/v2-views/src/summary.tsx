@@ -120,9 +120,11 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
     ? `${best.length === 1 ? `This ${noun}` : `These ${best.length} ${noun}s`} earned ${fmtNum(sum)} of your ${fmtNum(input.total)} points.`
     : `No ${noun} scored for you this game: a ${noun} scores when it is rare for your rule and for someone else's at the same time.`;
 
-  // What cost: each tug-of-war, dearest first, said as what happened.
-  const tugs = [...input.tugs].sort((a, b) => b.mySpend - a.mySpend);
-  const costs = tugs.map(t => ({ number: t.number, text: `${youAnd(t.withNames)} pulled ${noun} ${t.number} back and forth (${t.flips} pulls, ${fmtEnergy(t.mySpend)}).` }));
+  // What cost: each tug-of-war, the one that changed hands most first (round 33: ranked by energy, the advice named a
+  // 3-pull line over a 40-move cycle), said as what happened, in the same count as Contested lines.
+  const tugs = [...input.tugs].sort((a, b) => b.flips - a.flips || b.mySpend - a.mySpend);
+  const tugText = (t: (typeof tugs)[number]) => `pulled ${noun} ${t.number} back and forth: it changed hands ${t.flips} times (${fmtEnergy(t.mySpend)} of yours)`;
+  const costs = tugs.map(t => ({ number: t.number, text: `${youAnd(t.withNames)} ${tugText(t)}.` }));
   const spent = tugs.reduce((t, x) => t + x.mySpend, 0);
   const partial = input.movesRead ? ` (from your last ${input.movesRead.toLocaleString("en-US")} moves)` : "";
   const costNote = tugs.length > 1 ? `Tug-of-wars cost you ${fmtEnergy(spent)} in all${partial}: energy that moved no ${noun} for good.` : partial ? `Counted${partial}.` : null;
@@ -130,7 +132,8 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
   // Each contested object: whether the players climbed together or undid each other.
   const contested = (input.climbs ?? []).flatMap(c => {
     const climb = climbOf(c.moves);
-    return climb.kind === "alone" || !climb.steps.length ? [] : [{ number: c.number, kind: climb.kind, text: climbSentence(climb, noun, c.number) }];
+    const changes = tugs.find(t => t.number === c.number)?.flips;
+    return climb.kind === "alone" || !climb.steps.length ? [] : [{ number: c.number, kind: climb.kind, text: climbSentence(climb, noun, c.number, changes) }];
   });
 
   // One thing to try, from what happened this game, pointing only at what the player can find on screen (playtest round
@@ -142,7 +145,7 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
   const pace = input.pace ? paceFacts(input.pace) : null;
   // The facts of this game first, then one thing to try that follows from them (rounds 26 and 28: the same words every
   // game, even across a rotation's games).
-  const tugFact = top ? `This game ${youAnd(top.withNames).replace(/^You/, "you")} pulled ${noun} ${top.number} back and forth (${top.flips} pulls, ${fmtEnergy(top.mySpend)}).` : "";
+  const tugFact = top ? `This game ${youAnd(top.withNames).replace(/^You/, "you")} ${tugText(top)}.` : "";
   const stallFact = pace?.stalledAt != null
     ? `Your points stopped rising at ${clockOf(pace.stalledAt)}${pace.full ? `, and your energy sat full (${fmtEnergy(input.pace!.energyLeft)} unspent) for the rest of the game` : ""}.`
     : "";
@@ -150,7 +153,7 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
   if (stallFact && (pace!.full || !top)) {
     next = { number: top?.number ?? null, text: `${lead(tugFact)}${stallFact} Next game, when your points stop rising, change what your agent tries: pick another of its starting points in Agent code, or summon a second agent that tries different moves, so your energy keeps buying moves.` };
   } else if (top) {
-    next = { number: top.number, text: `${lead(tugFact)}${lead(stallFact)}Next game, open a ${noun} you share in One ${noun} and order its moves by “Best for points”: your points there are your bits × theirs, so the top move counts their bits as well as yours and gives them less reason to undo it.${top.practice ? "" : " Tell them in chat which way you are climbing."}` };
+    next = { number: top.number, text: `${lead(tugFact)}${lead(stallFact)}Next game, open a ${noun} you share in One ${noun} and order its moves by “Best for points”: your points there are your bits × theirs, so the top move counts their bits as well as yours.${top.practice ? "" : " Tell them in chat which way you are climbing."}` };
   } else if (pace && pace.stalledAt === null && pace.lastThird > 0) {
     next = { number: null, text: `Your agent was still raising your points at the end (+${fmtNum(pace.lastThird)} points in the last third). Next game, give it a bigger share of your power from the start, in My agents, so it climbs sooner.` };
   } else if (together) {

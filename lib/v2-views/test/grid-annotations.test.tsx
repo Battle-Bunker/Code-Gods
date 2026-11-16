@@ -1,0 +1,79 @@
+/** @jsxRuntime automatic */
+/**
+ * Grid annotations at v1 parity (docs/engine-v2/v1-audit.md §6): a mark names the layer it belongs to, a dealt
+ * secondary shows its own marks, an undealt layer's marks are shown to nobody, and a grid representation draws the
+ * marks a rule puts on the board's cells.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { renderToStaticMarkup } from "react-dom/server";
+import { q, ref, type RuleFamily } from "@workspace/v2-core";
+import { grid4, gridType, type GridState } from "@workspace/v2-grid";
+import { annotate, RepView, type RuleRef } from "../src/index.ts";
+
+const board = (...rows: string[]): GridState => ({ cells: rows.flatMap(r => [...r].map(Number)) });
+const B = board("3113", "0480", "2222", "9003");
+
+/** A made-up family: a main layer on the mirror view, two secondaries on the cells, each marking what it reads. */
+const probe: RuleFamily<GridState, Record<string, never>> = {
+  id: "probe", title: "Probe", card: () => "", params: [], dealable: () => [{}], depends: ["mirror", "cells"],
+  main: { id: "mirror", title: "mirror", sentence: () => "", rep: "mirror", sense: "min" },
+  tieBreakers: [
+    { id: "corner", title: "the top-left corner", sentence: () => "", rep: "cells", sense: "max" },
+    { id: "last", title: "the bottom-right corner", sentence: () => "", rep: "cells", sense: "max" },
+  ],
+  evaluate(ctx) {
+    const g = ref("mirror", "gap0");
+    ctx.term("mirror", "gap", (ctx.read(g) as { q: ReturnType<typeof q> }).q, [g]);
+    ctx.mark({ kind: "note", ref: g, text: "main note" });
+    const a = ref("cells", "r0c0"), z = ref("cells", "r3c3");
+    ctx.term("corner", "corner", (ctx.read(a) as { q: ReturnType<typeof q> }).q, [a]);
+    ctx.mark({ kind: "focus", ref: a, term: "corner" });
+    ctx.term("last", "last", (ctx.read(z) as { q: ReturnType<typeof q> }).q, [z]);
+    ctx.mark({ kind: "note", ref: z, text: "last note", term: "last" });
+  },
+};
+const rule = (tieBreaker: string | null): RuleRef<GridState, Record<string, never>> =>
+  ({ type: gridType, family: probe, params: {}, variant: grid4, tieBreaker });
+
+test("a focus or note mark labelled with a dealt secondary's term belongs to that secondary; unlabelled ones to the main part", () => {
+  const [main, corner] = annotate(rule("corner"), B).sites[0]!.parts;
+  assert.deepEqual(main!.marks.map(m => m.kind), ["note"]);
+  assert.deepEqual(corner!.marks.map(m => [m.kind, "ref" in m ? m.ref.name : ""]), [["focus", "r0c0"]]);
+});
+
+test("an undealt layer's marks are shown to nobody", () => {
+  const parts = annotate(rule("corner"), B).sites[0]!.parts;
+  const all = parts.flatMap(p => p.marks);
+  assert.ok(!all.some(m => m.kind === "note" && m.text === "last note"), "the undealt 'last' layer's note is not shown");
+  const alone = annotate(rule(null), B).sites[0]!.parts;
+  assert.equal(alone.length, 1);
+  assert.deepEqual(alone[0]!.marks.map(m => m.kind), ["note"], "the main layer alone: no secondary's marks");
+});
+
+test("a grid representation draws the marks a rule puts on the board's cells", () => {
+  const e = annotate(rule("corner"), B).sites[0]!.evaluation;
+  const html = renderToStaticMarkup(<RepView type={gridType} state={B} rep="mirror" size="expanded" marks={e.marks} terms={e.terms} />);
+  assert.match(html, /data-ref="cells\.r0c0"[^>]*data-focus=""/, "the focused cell is marked in the mirror view");
+});
+
+test("a note on a cell is said under the board, not repeated under every other view of it", () => {
+  const e = annotate(rule("last"), B).sites[0]!.evaluation;
+  const at = (rep: string) => renderToStaticMarkup(<RepView type={gridType} state={B} rep={rep} size="expanded" marks={e.marks} terms={e.terms} />);
+  assert.match(at("cells"), /last note/);
+  assert.doesNotMatch(at("mirror"), /last note/);
+});
+
+test("a focused cell carries its part's glyph (● main part, ◆ secondary), so a mark never relies on colour alone", () => {
+  const a = annotate(rule("corner"), B);
+  const sa = a.sites[0]!;
+  const html = renderToStaticMarkup(<RepView type={gridType} state={B} rep="cells" size="expanded" marks={sa.marks} terms={sa.evaluation.terms} parts={sa.parts} />);
+  assert.match(html, /data-ref="cells\.r0c0"[^]*?class="mark-glyph"[^>]*>◆</, "the secondary's focus on row 1, column 1 has ◆");
+});
+
+test("a third preference's marks carry ▲: glyphs follow the part's depth", () => {
+  const sa = annotate(rule("corner>last"), B).sites[0]!;
+  assert.equal(sa.parts.length, 3);
+  const html = renderToStaticMarkup(<RepView type={gridType} state={B} rep="cells" size="expanded" marks={sa.marks} terms={sa.evaluation.terms} parts={sa.parts} />);
+  assert.match(html, /▲ last note/);
+});

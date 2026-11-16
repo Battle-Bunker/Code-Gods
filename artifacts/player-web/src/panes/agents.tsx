@@ -6,7 +6,7 @@
  */
 import { summonFirst } from "./first-summon";
 import { useState } from "react";
-import { objectWord, useAgentPrograms, useAgentCount, useGame, useGameScope, useMe, useMyAgents, useAgentEnergy, type Agent } from "@/sdk";
+import { objectWord, useAgentPrograms, useAgentCount, useGame, useGameScope, useMe, useMyAgents, useMyAgentPages, useAgentEnergy, type Agent } from "@/sdk";
 import { useOpenPane } from "@/dock/open-pane";
 import { AffordanceButton, Tip } from "@/site/components/action";
 import { energyAmount } from "@/core/words";
@@ -117,9 +117,22 @@ export function AgentsPane() {
           )}
         </div>
       ) : (
-        <ul className="divide-y">{(agents ?? []).map(a => <AgentRow key={a.agentId} agent={a} power={me?.power} />)}</ul>
+        <AgentList first={agents ?? []} power={me?.power} />
       )}
       {!none && power}
     </div>
   );
+}
+
+/** Every agent, 50 at a time (a player may have 200: W3 #898); each row subscribes to its own energy. */
+function AgentList({ first, power }: { first: readonly Agent[]; power: number | undefined }) {
+  const pages = useMyAgentPages();
+  // The shared first page until the pane's own pages arrive (in a replay, the frame's agents).
+  const rows = pages.results.length ? pages.results : first;
+  return (<>
+    <ul className="divide-y">{rows.map(a => <AgentRow key={a.agentId} agent={a} power={power} />)}</ul>
+    {pages.status === "CanLoadMore" && (
+      <button type="button" className="w-full border-t py-2 text-xs text-muted-foreground underline underline-offset-4" onClick={() => pages.loadMore(50)} data-testid="button-agents-more">More agents</button>
+    )}
+  </>);
 }
