@@ -131,9 +131,12 @@ export async function changeSettings(ctx: MutationCtx, room: Doc<"v2Rooms">, a: 
     const left = new Set(roomPool({ preset: preset.id, overrides: { excludedFamilies: out } }).map(r => r.family)).size;
     if (left < preset.minPlayers) throw new OpFailure(`That leaves ${left} rule famil${left === 1 ? "y" : "ies"} to deal; a game needs at least ${preset.minPlayers}, one for each player.`, "Exclude fewer families.");
   }
+  // The time dilation is not a room setting (setTimeScale, for simulations and local playtests): a save keeps it.
+  const next = a.overrides ?? (presetChanged ? {} : room.overrides);
+  const timeScale = room.overrides?.timeScale;
   await ctx.db.patch(room._id, {
     ...(a.preset !== undefined ? { preset: a.preset } : {}),
-    overrides: a.overrides ?? (presetChanged ? {} : room.overrides),
+    overrides: timeScale !== undefined ? { ...next, timeScale } : next,
     revision: room.revision + 1,
   });
 }

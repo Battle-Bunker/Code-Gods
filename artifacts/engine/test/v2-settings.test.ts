@@ -9,6 +9,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { admin, humans, perform } from "./v2-helpers.ts";
+import { presetOf } from "../convex/v2/presets.ts";
 
 test("halfLife hides the end and ends at the drawn moment; standings every 5 s; noise variance 0 is exact", { timeout: 180_000 }, async () => {
   const [ada] = await humans("Settings Ada");
@@ -72,11 +73,12 @@ test("a room dilated by 10 plays the same game ten times faster: 600 world secon
   await admin.mutation("v2/lobby:setTimeScale", { roomId, factor: 10 });
   const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
   const h = await ada!.query("v2/games:header", { gameId });
-  // The game itself is the preset's: its world lasts 600 s at power 4, 3 opportunities a second, a 90 start.
+  // The game itself is the preset's: its world lasts 600 s at power 4, 3 opportunities a second, the preset's start.
   assert.deepEqual([h.timeScale, h.planningSeconds, h.worldSeconds, h.scoreIntervalSeconds, h.priceScale], [10, 60, 600, 10, 4 / 64]);
   const settings = await admin.query("v2/testing:settingsOf", { gameId });
   const e = settings.economy;
-  assert.deepEqual([e.powerPerSecond, e.opportunitiesPerSecond, e.fullChargeSeconds, settings.startingEnergy], [4, 3, 240, 90]);
+  // The start is derived from the starters' prices (presets.ts beginnerStart), so it is the preset's, not a constant.
+  assert.deepEqual([e.powerPerSecond, e.opportunitiesPerSecond, e.fullChargeSeconds, settings.startingEnergy], [4, 3, 240, presetOf("lines-beginner").startingEnergy]);
   // Planning's 60 world seconds take 6 wall seconds.
   assert.ok(Math.abs((h.planningEndsAt - h.startedAt) / 1000 - 6) < 1, `planning ends ${(h.planningEndsAt - h.startedAt) / 1000} s after the start`);
   const started = Date.now();
@@ -130,5 +132,18 @@ test("v1's world, energy and compute settings are room settings: objects, births
   }
   assert.ok(limited, "an act stopped at the room's step budget");
   assert.match(limited.data.reason, /Step limit exceeded: the agent took more than 1 steps/);
+  await perform(ada!, "game.end", {}, { gameId });
+});
+
+test("a settings save keeps the room's time dilation (it is set only by setTimeScale, never a room setting)", { timeout: 60_000 }, async () => {
+  // Catches: changeSettings replacing the overrides wholesale, so any save in the configure page dropped timeScale.
+  const [ada] = await humans("Dilated Saver");
+  const { roomId } = (await perform(ada!, "room.create", { name: "Dilated save room" })).result;
+  await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
+  await admin.mutation("v2/lobby:setTimeScale", { roomId, factor: 10 });
+  assert.equal((await perform(ada!, "room.settings", { overrides: { worldSeconds: 300 } }, { roomId })).ok, true);
+  const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
+  const h = await ada!.query("v2/games:header", { gameId });
+  assert.deepEqual([h.timeScale, h.worldSeconds], [10, 300], "the save applied and the dilation stayed");
   await perform(ada!, "game.end", {}, { gameId });
 });
