@@ -215,14 +215,13 @@ try {
     assert.ok(!scripts.some(url => /\/desktop-[^/]*\.(js|css)$/.test(url)), `the desktop dock was downloaded: ${scripts.filter(u => /desktop/.test(u)).join(", ")}`);
     await noHorizontalScroll(phone, "phone dock");
     assert.match(await phone.getByTestId("button-avatar").getAttribute("aria-label") ?? "", /Ada Admin/, "identity on the phone");
-    await missing(["e2e-multi-client-21"], "BUG: phone: one press on the assistant's sheet opens it (v2: the first press on a settled page is lost; the second opens it)", async () => {
-      await phone.waitForLoadState("networkidle").catch(() => {});
-      await phone.waitForTimeout(2_000);
-      await phone.getByTestId("button-assistant-sheet").click();
-      await phone.locator('[data-testid="assistant-sheet"][data-open] [data-testid="pane-assistant"]').waitFor({ timeout: 5_000 });
-    });
-    if (!await phone.locator('[data-testid="assistant-sheet"][data-open]').count()) await phone.getByTestId("button-assistant-sheet").click();
-    await phone.locator('[data-testid="assistant-sheet"][data-open] [data-testid="pane-assistant"]').waitFor({ timeout: 10_000 });
+    // One press on the assistant's sheet opens it (the stored view arriving with the assistant no longer raises the
+    // sheet by itself, which made the first press lower it: e2e-multi-client-21).
+    await phone.waitForLoadState("networkidle").catch(() => {});
+    await phone.waitForTimeout(2_000);
+    assert.equal(await phone.locator('[data-testid="assistant-sheet"][data-open]').count(), 0, "the sheet waits lowered when the view arrives with it");
+    await phone.getByTestId("button-assistant-sheet").click();
+    await phone.locator('[data-testid="assistant-sheet"][data-open] [data-testid="pane-assistant"]').waitFor({ timeout: 5_000 });
     await shot(phone, "dock-phone-sheet");
     await context.close();
   });
