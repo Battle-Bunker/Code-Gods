@@ -10,7 +10,7 @@
  */
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { evaluateSite, hashHex, rng, ruleLayers, type ObjectType, type Score, type Variant } from "@workspace/v2-core";
+import { evaluateSite, hashHex, rng, ruleLayers, type ObjectType, type Score, type Variant, familyById } from "@workspace/v2-core";
 import type { Sandbox } from "@workspace/v2-sandbox";
 import { runAct, type Program } from "./act.ts";
 import { births } from "./births.ts";
@@ -117,7 +117,7 @@ export function findValues(variant: string, rule: HarnessPlayer["rule"]): ValueF
  * (0 for every line without one); `values` is what `runAct` takes; `measuredTo` is the furthest measured knot's bits.
  */
 export function valuer<S>(type: ObjectType<S>, variant: Variant, rule: HarnessPlayer["rule"]) {
-  const family = type.families.find(f => f.id === rule.family)!;
+  const family = familyById(type, rule.family)!;
   const scoreOf = (s: S): Score => evaluateSite(type, family, rule.params, s, variant, 0, rule.tieBreaker).score;
   const vf = findValues(variant.id, rule);
   const look = vf ? valueLookup(vf) : null;

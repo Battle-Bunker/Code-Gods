@@ -11,3 +11,4 @@ export * from "./sums.ts";
 export * from "./type.ts";
 export * from "./presets.ts";
 export * from "./seating.ts";
+export * from "./defence.ts";
