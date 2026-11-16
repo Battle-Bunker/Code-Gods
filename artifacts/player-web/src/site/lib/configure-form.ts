@@ -381,7 +381,7 @@ export function reviewDiff(saved: { preset: string; draft: Draft }, next: { pres
 }
 
 /** A saved setup as `setups.get` returns it (the caller's own; v1's user setups). */
-export interface SavedSetup { setupId: string; name: string; preset: string; overrides: Record<string, unknown> }
+export interface SavedSetup { setupId: string; name: string; preset: string; overrides: Record<string, unknown>; ownerName?: string; mine?: boolean }
 
 /**
  * What Save sends to `room.settings`: the saved setup's id while the page holds exactly that setup (the room then

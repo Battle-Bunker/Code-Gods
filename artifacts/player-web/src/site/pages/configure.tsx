@@ -120,7 +120,7 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
   /** A saved setup into the draft (v1's "Edit" of one's own setup): its preset and its values. */
   const loadSetup = (setup: SavedSetup) => {
     if (!editable) return;
-    setPresetId(setup.preset); setDraft(draftOf(presetOf(setup.preset), setup.overrides)); setLoadedId(setup.setupId); setSaveName(setup.name);
+    setPresetId(setup.preset); setDraft(draftOf(presetOf(setup.preset), setup.overrides)); setLoadedId(setup.setupId); setSaveName(setup.mine === false ? "" : setup.name);
   };
   /** A new setup keeps the values the owner set by hand; everything else follows the new setup (as the server does). */
   const pickPreset = (id: string) => {
@@ -149,7 +149,7 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
         <div className="min-w-0">
           <h1 className="font-display text-4xl md:text-5xl leading-none break-words" data-testid="text-setup-title">{editable ? "Set up the next game" : preset.title}</h1>
           <p className="mt-2 text-sm text-muted-foreground" data-testid="text-setup-owner">
-            {room.setup ? <span data-testid="text-room-runs-setup">Room {code} runs {owner ? "your" : "its owner's"} setup “{room.setup.name}”. </span> : null}
+            {room.setup ? <span data-testid="text-room-runs-setup">Room {code} runs the setup “{room.setup.name}”. </span> : null}
             {owner ? (locked ? locked : `Saving puts room ${code}'s next game on these settings.`) : "Only the room's owner can change its setup."}
             {room.game ? ` Game ${room.game.number} keeps the settings it started with.` : ""}
           </p>
@@ -177,7 +177,8 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
             <SetupChoice current={presetId} admin={admin} editable={editable} onPick={id => { if (id !== presetId) setLoadedId(null); pickPreset(id); }} />
             {owner && (
               <ErrorBoundary FallbackComponent={({ error }) => <ErrorLine message={`Your setups could not load: ${errMsg(error)}`} />}>
-                <YourSetups editable={editable} loadedId={loadedId} onLoad={loadSetup} onGone={id => { if (id === loadedId) setLoadedId(null); }} />
+                <SavedSetups mine editable={editable} loadedId={loadedId} onLoad={loadSetup} onGone={id => { if (id === loadedId) setLoadedId(null); }} />
+                <SavedSetups mine={false} editable={editable} loadedId={loadedId} onLoad={loadSetup} onGone={() => {}} />
               </ErrorBoundary>
             )}
           </FormSection>
@@ -217,7 +218,7 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
                     disabledReason={saveBlocker} showReason confirmText={confirmText}
                     onDone={() => { saveDraft(key, null); toast({ title: `Saved: room ${code}'s next game runs ${preset.title}` }); navigate(roomPath(code)); }} />
                   <Link href={roomPath(code)} className="text-sm underline underline-offset-4" data-testid="link-cancel">Cancel</Link>
-                  {loaded && <span className="text-xs text-muted-foreground" data-testid="text-applies-setup">{"setupId" in saveTo ? `Applies your setup “${loaded.name}”.` : `Changed from your setup “${loaded.name}”: saved by hand.`}</span>}
+                  {loaded && <span className="text-xs text-muted-foreground" data-testid="text-applies-setup">{"setupId" in saveTo ? `Applies the setup “${loaded.name}”.` : `Changed from the setup “${loaded.name}”: saved by hand.`}</span>}
                   {Object.keys(room.overrides).some(k => k in FIELDS) && (
                     <AffordanceButton id="room.settings" args={{ overrides: {} }} label="Use the setup's own settings" tone="quiet" testId="button-reset-settings"
                       onDone={() => {
@@ -229,13 +230,13 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
                 </div>
                 <div className="border-t pt-4 space-y-2" id="field-save-setup" data-testid="field-save-setup">
                   <label htmlFor="input-setup-name" className="font-medium block">Keep these settings as one of your setups</label>
-                  <p className="text-sm text-muted-foreground">{loaded ? `Saving updates “${loaded.name}” (renaming it if you change the name); Duplicate it under Setup for a copy.` : "Your setups are yours alone: pick one here for any room you own. A name you already use is overwritten."}</p>
+                  <p className="text-sm text-muted-foreground">{loaded?.mine ? `Saving updates “${loaded.name}” (renaming it if you change the name); Duplicate it under Setup for a copy.` : "Your setups are yours alone: pick one here for any room you own. A name you already use is overwritten."}</p>
                   <div className="flex flex-wrap items-center gap-3">
                     <input id="input-setup-name" value={saveName} maxLength={SETUP_NAME_MAX + 10} onChange={e => setSaveName(e.target.value)} placeholder="Setup name" aria-invalid={(!!saveName && !!nameProblem) || undefined}
                       className="w-full max-w-xs border bg-background px-3 py-1.5 text-sm outline-none focus:border-primary" data-testid="input-setup-name" />
-                    <AffordanceButton id="setups.save" label={loaded ? `Update your setup “${loaded.name}”` : "Save as a setup"} busyLabel="Saving…" testId="button-save-setup" showReason
+                    <AffordanceButton id="setups.save" label={loaded?.mine ? `Update your setup “${loaded.name}”` : "Save as a setup"} busyLabel="Saving…" testId="button-save-setup" showReason
                       disabledReason={nameProblem ?? (invalid ? "Fix the settings marked in red first." : null)}
-                      args={() => ({ name: saveName.trim().replace(/\s+/g, " "), preset: presetId, overrides: overridesFor(draft, preset), ...(loaded ? { setupId: loaded.setupId } : {}) }) as never}
+                      args={() => ({ name: saveName.trim().replace(/\s+/g, " "), preset: presetId, overrides: overridesFor(draft, preset), ...(loaded?.mine ? { setupId: loaded.setupId } : {}) }) as never}
                       onDone={r => { const out = r as { setupId: string; name: string; created: boolean }; setLoadedId(out.setupId); toast({ title: `${out.created ? "Saved" : "Updated"} your setup “${out.name}”` }); }} />
                   </div>
                 </div>
@@ -264,22 +265,26 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
 }
 
 /**
- * The owner's saved setups (v1's "You" group): a paginated skeleton of ids, each row subscribing to its own setup
- * (read-architecture R1). Use loads one into the page; Duplicate and Delete act at once through their affordances.
+ * The saved setups (v1's "You" and owner groups; shared as in v1: anyone may use or copy a setup, only its owner saves
+ * over or deletes it). Each list is a paginated skeleton of ids, each row subscribing to its own setup (read-architecture
+ * R1). Use loads one into the page; Duplicate copies it as yours and loads the copy (v1's "Duplicate and edit"); Delete
+ * (yours only) acts at once through its affordance.
  */
-function YourSetups({ editable, loadedId, onLoad, onGone }: { editable: boolean; loadedId: string | null; onLoad: (s: SavedSetup) => void; onGone: (id: string) => void }) {
-  const list = useLivePages(api.v2.setups.mine, {}, { initialNumItems: 20 });
+function SavedSetups({ mine, editable, loadedId, onLoad, onGone }: { mine: boolean; editable: boolean; loadedId: string | null; onLoad: (s: SavedSetup) => void; onGone: (id: string) => void }) {
+  const list = useLivePages(mine ? api.v2.setups.mine : api.v2.setups.shared, {}, { initialNumItems: 20 });
+  const rows = mine ? list.results : list.results.filter(r => !r.mine);
+  if (!mine && rows.length === 0 && list.status !== "CanLoadMore") return null;
   return (
-    <fieldset className="space-y-2" data-testid="group-your-setups">
-      <legend className="label-mono mb-1">Your setups</legend>
-      {list.results.length === 0 ? (
-        <p className="text-sm text-muted-foreground" data-testid="text-no-setups">{list.isLoading ? "Loading…" : "None yet. Keep the settings below as a setup from the Review section."}</p>
+    <fieldset className="space-y-2" data-testid={mine ? "group-your-setups" : "group-others-setups"}>
+      <legend className="label-mono mb-1">{mine ? "Your setups" : "Other players' setups"}</legend>
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground" data-testid={mine ? "text-no-setups" : undefined}>{list.isLoading ? "Loading…" : mine ? "None yet. Keep the settings below as a setup from the Review section." : "None on this page."}</p>
       ) : (
         <ul className="grid gap-2 sm:grid-cols-2">
-          {list.results.map(r => <SavedSetupRow key={r.setupId} setupId={r.setupId} on={r.setupId === loadedId} editable={editable} onLoad={onLoad} onGone={onGone} />)}
+          {rows.map(r => <SavedSetupRow key={r.setupId} setupId={r.setupId} on={r.setupId === loadedId} editable={editable} onLoad={onLoad} onGone={onGone} />)}
         </ul>
       )}
-      {list.status === "CanLoadMore" && <button type="button" className="text-sm underline underline-offset-4" onClick={() => list.loadMore(20)} data-testid="button-more-setups">More setups</button>}
+      {list.status === "CanLoadMore" && <button type="button" className="text-sm underline underline-offset-4" onClick={() => list.loadMore(20)} data-testid={`button-more-setups-${mine ? "mine" : "others"}`}>More setups</button>}
     </fieldset>
   );
 }
@@ -292,14 +297,14 @@ function SavedSetupRow({ setupId, on, editable, onLoad, onGone }: { setupId: str
   return (
     <li className={`border p-3 text-sm space-y-2 ${on ? "border-primary bg-primary/10 ring-1 ring-primary" : ""}`} data-testid={`row-setup-${s.name}`}>
       <button type="button" role="radio" aria-checked={on} disabled={!editable} onClick={() => onLoad(s)} className="block w-full text-left disabled:cursor-default" data-testid={`choice-setup-${s.name}`}>
-        <span className="block font-medium">{s.name}</span>
+        <span className="block font-medium">{s.name}{s.mine === false ? <span className="font-normal text-muted-foreground"> · {s.ownerName}'s</span> : null}</span>
         <span className="block text-muted-foreground">{presetOf(s.preset).title}{changes ? `, ${changes} setting${changes === 1 ? "" : "s"} changed` : ", as it comes"}</span>
       </button>
       <span className="flex flex-wrap gap-3">
-        <AffordanceButton id="setups.duplicate" args={{ setupId }} label="Duplicate" tone="link" testId={`button-duplicate-setup-${s.name}`}
-          onDone={r => toast({ title: `Made “${(r as { name: string }).name}”` })} />
-        <AffordanceButton id="setups.remove" args={{ setupId }} label="Delete" tone="link" testId={`button-delete-setup-${s.name}`}
-          onDone={() => { onGone(setupId); toast({ title: `Deleted your setup “${s.name}”`, description: "Rooms it was applied to keep their settings." }); }} />
+        <AffordanceButton id="setups.duplicate" args={{ setupId }} label={s.mine === false ? "Duplicate and edit" : "Duplicate"} tone="link" testId={`button-duplicate-setup-${s.name}`}
+          onDone={r => { const c = r as { setupId: string; name: string }; toast({ title: `Made “${c.name}”` }); if (s.mine === false && editable) onLoad({ ...s, setupId: c.setupId, name: c.name, mine: true }); }} />
+        {s.mine !== false && <AffordanceButton id="setups.remove" args={{ setupId }} label="Delete" tone="link" testId={`button-delete-setup-${s.name}`}
+          onDone={() => { onGone(setupId); toast({ title: `Deleted your setup “${s.name}”`, description: "Rooms it was applied to keep their settings." }); }} />}
       </span>
     </li>
   );
