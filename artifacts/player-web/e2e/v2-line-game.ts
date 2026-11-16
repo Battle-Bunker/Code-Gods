@@ -345,8 +345,9 @@ try {
     // Coordinates ("meets y = x at x = −2½") are words a player reads, not parameter letters ("k is", "t close").
     assert.doesNotMatch(main, /\b[a-wz]\b(?= (close|is|=))|\bstep \d/, `no parameter letters and no steps: ${main}`);
     // 2. where it is: a distance with its direction or a size, on a ruler;
-    // Where the number is, or (a line that does not score, e.g. a flat line for a crossing rule) why not.
-    assert.match(main, /(\d+(\.\d+)?|[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]|[⁰¹²³⁴⁵⁶⁷⁸⁹]+⁄[₀₁₂₃₄₅₆₇₈₉]+) (above|below) |\bon [−\d]|on the whole number|off by |exactly|: [−\d≈]| = [−\d][^ ]* rounds to|never|not |\bno\b|undefined|cannot/i, `the main part says where the number is: ${main}`);
+    // Where the number is, or (a line that does not score, e.g. a flat line for a crossing rule) why not. Same on Both
+    // Rulers says it as the meeting point: "meets y = x at x = 5, which rounds to 7" or "…, 2 from 7".
+    assert.match(main, /(\d+(\.\d+)?|[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]|[⁰¹²³⁴⁵⁶⁷⁸⁹]+⁄[₀₁₂₃₄₅₆₇₈₉]+) (above|below) |\bon [−\d]|on the whole number|off by |exactly|: [−\d≈]| = [−\d][^ ]* rounds to|never|not |\bno\b|undefined|cannot|\bat x = [−\d]/i, `the main part says where the number is: ${main}`);
     // 3. what would make it rarer and what that costs: priced moves with their new bits (W5 passes the rule's value);
     const options = line.locator(".v2v-move-option");
     if (await options.count()) {
