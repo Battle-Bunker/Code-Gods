@@ -89,6 +89,12 @@ targets were v1 tables and are moot. **Green.**
 
 `.github/workflows/deploy.yml` on push to `main`, environment `production` (one secret: `CONVEX_DEPLOY_KEY`).
 
+Queueing (#966, 16 November): one run per branch at a time; a run that has started always finishes its gate and its
+deploy for the same commit, and only the newest waiting run is kept. On `main` this changes nothing in practice (one
+release at a time); on `develop` the gate now completes, so `lookup` can find a green run for the release's tree.
+Confirmed on the first three develop runs after the merge (ffa7a731 green, 67597754 a real unit failure, 361c6556
+green; superseded waiting runs show "cancelled" with no jobs).
+
 1. `lookup`: finds a develop run whose gate passed on the identical tree. A fast-forward promotion of a commit whose
    develop deploy run passed its `checks` reuses it; otherwise the gate (`typecheck`, `unit`, `runtime`) runs in full
    and the deploy waits for `checks`.
