@@ -56,6 +56,9 @@ export const V2_BUDGETS: readonly V2Budget[] = [
   { query: "v2/replays:stored", args: f => ({ gameId: f.gameId }), reads: "1 v2Games", cold: true },
   { query: "v2/connect:pending", args: () => ({ request: "gate-request-key-that-is-not-real" }), reads: "1 oauthRequests + the caller's v2Members (≤ 32) + their rooms", cold: true },
   { query: "v2/setups:presets", args: () => ({}), reads: "none (the deployed presets) + the caller's user row", cold: true },
+  { query: "v2/setups:mine", args: () => page, reads: "the caller's v2Setups by_owner_name page (≤ 50 exist)", cold: true },
+  // The fixture has no saved setup: measured on an id that names none (the lookup is one document either way).
+  { query: "v2/setups:get", args: () => ({ setupId: "no-such-setup" }), reads: "1 v2Setups + the caller's user row", cold: true },
   { query: "v2/gallery:family", args: () => ({ preset: "lines-beginner", family: "prime-landing" }), reads: "none (the bundled artefacts) + the caller's user row", cold: true },
   { query: "v2/rooms:aiQuotas", args: f => ({ roomId: f.roomId }), reads: "member + 1 v2RoomQuotas", cold: true },
   { query: "v2/assistant:status", args: f => ({ roomId: f.roomId }), reads: "room + member + owner + quotas + prefs + v2AiUsage + latest turn + queue (≤ 10)", cold: true },
