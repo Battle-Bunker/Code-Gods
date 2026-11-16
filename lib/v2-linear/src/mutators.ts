@@ -598,9 +598,12 @@ function parseMirror(x: unknown): Line {
 }
 
 /** cart.reflect's argument: a mirror line {mirror}, priced by its read length (the fold's mirror branch alone). */
-function mirrorArgs(_v: Variant): ArgCode<Args> {
+function mirrorArgs(v: Variant): ArgCode<Args> {
+  const bits = (a: Args) => mirrorBits(decodeLine(S(a, "mirror")));
   return {
-    bits: a => mirrorBits(decodeLine(S(a, "mirror"))),
+    bits,
+    // The fold's mirror lines, which cost it one bit more (its choice of branch).
+    enumerate: maxBits => foldArgs(v).enumerate!(maxBits + 1).filter(a => typeof a.mirror === "string" && bits(a) <= maxBits + 1e-9),
     sample: rng => {
       const A = sampleMixedInt(rng), B = sampleMixedInt(rng), C = sampleMixedInt(rng), n = normalise(A, B, C);
       // A triple that is not a line's own canonical form is the code's leftover mass.
