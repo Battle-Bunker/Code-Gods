@@ -204,6 +204,8 @@ async function endedGame(page: Page, preset: string, noun: string) {
   }
   const results = await open(page, "results");
   await results.getByText(/You finished/).waitFor();
+  // v1's rotation line: game 1 of a rotation with practice partners, so playing again deals you a named player's rule.
+  assert.match(await results.getByTestId("text-rotation-line").innerText(), /^Play again with the same players and you get .+'s rule/, `${label}: whose rule comes next`);
   assert.equal(await results.locator("[data-testid^=row-result-]").count(), 3, `${label}: the final standings, every player`);
   // v1's end page: a "Final standings" table, and "Why: your best and worst lines" (a link down to it, the chart, each line's score).
   await results.getByText("Final standings", { exact: true }).waitFor();

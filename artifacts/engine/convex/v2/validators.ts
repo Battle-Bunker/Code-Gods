@@ -35,6 +35,8 @@ export const chatPageV = paginationResultValidator(v.object({ id: v.id("v2Chat")
 export const roundV = v.union(v.object({
   round: v.number(), of: v.number(), games: v.array(v.object({ gameId: v.id("v2Games"), number: v.number() })),
   totals: v.array(v.object({ memberId: v.id("v2Members"), name: v.string(), net: v.number() })),
+  /** Whose rule in the latest game the caller gets next (v1's rotation line); null when the next deal is fresh. */
+  next: v.union(v.object({ memberId: v.id("v2Members"), name: v.string() }), v.null()),
 }), v.null());
 export const historyPageV = paginationResultValidator(v.object({
   gameId: v.id("v2Games"), number: v.number(), endedAt: v.union(v.number(), v.null()), winner: v.union(v.id("v2Members"), v.null()),
