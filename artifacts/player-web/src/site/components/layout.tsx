@@ -23,7 +23,7 @@ import { ConnectedAppsSheet } from "@/site/components/sheets";
 import { AffordanceRuntimeProvider, useRuntime, type RuntimeScope } from "@/core/affordance-runtime";
 import { touchGate } from "@/core/activity";
 import { GlossaryDialog } from "./glossary-dialog";
-import { paletteCommands } from "@/core/palette-commands";
+import { codeCommands, paletteCommands } from "@/core/palette-commands";
 import { SAFE_MODE } from "@/core/safe-mode";
 import { useFilePanels } from "@/panels/store";
 import "@/panels/registry";
@@ -94,6 +94,7 @@ function Palette({ open, init, onOpenChange, placeholder, suggested, chip, roomP
   return (
     <CommandPalette commands={commands} context={ctx} open={open} init={init} onOpenChange={onOpenChange}
       placeholder={placeholder} suggested={suggested} recentKey={user ? `code-gods:palette-recent:${user.id}` : undefined} chip={chip}
+      dynamic={q => (user ? codeCommands(q) : [])}
       onNavigate={to => navigate(to)} onError={(e, c) => toast({ title: `${c.human.title}: not done`, description: errMsg(e), variant: "destructive" })} />
   );
 }

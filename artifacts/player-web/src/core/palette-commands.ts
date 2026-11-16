@@ -13,6 +13,7 @@ import { AFFORDANCES, paletteFor, type AffordanceContext, type AffordanceId, typ
 import { filePane, PANES, PANE_IDS, storedPane, type PaneId } from "@workspace/v2-client";
 import type { z } from "zod/v4";
 import { requestForge } from "../panes/forge-request.ts";
+import { roomPath } from "../site/lib/routes.ts";
 
 /** Reads that a pane shows live: the row opens that pane. */
 export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
@@ -197,4 +198,17 @@ export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Comm
     });
   }
   return rows;
+}
+
+/**
+ * Rows made from the typed query (v1's codeCommands): a code-shaped query offers "Open room CODE", which goes to that
+ * room (the room page offers to join). Shown to a signed-in human only (site/components/layout.tsx).
+ */
+export function codeCommands(query: string): Command[] {
+  const code = query.trim().toUpperCase();
+  if (!/^[A-Z0-9-]{4,36}$/.test(code)) return [];
+  return [{
+    id: `dyn:room:${code}`, human: { title: `Open room ${code}`, tooltip: "Goes to that room; you can join it there." },
+    group: "room", section: "goto", performer: { kind: "navigate", to: roomPath(code) }, available: () => ({ ok: true }),
+  } as Command];
 }
