@@ -50,8 +50,8 @@ export interface PaletteHost {
   noun?: { one: string; many: string };
   /** The viewer's stored panels (their one live list), so each enabled one can be opened as a pane. */
   storedPanels?: readonly { slug: string; title: string; enabled: boolean }[];
-  /** Opens the assistant and focuses its composer (v1's Ctrl+`). */
-  focusAssistant?(): Promise<unknown>;
+  /** Opens the assistant and focuses its composer (v1's Ctrl+`), optionally on a new conversation or at its picker. */
+  focusAssistant?(request?: { thread?: "new" | "pick" }): Promise<unknown>;
   /** The file panels (src/panels/*.tsx) this copy of the app has; none in safe mode. */
   filePanels?: readonly string[];
   /** Whether the page is in safe mode (?panels=off), and how to reload it in or out of it. */
@@ -212,6 +212,17 @@ export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Comm
       id: "assistant-focus", human: { title: "Focus assistant (Ctrl+`)", tooltip: "Open your assistant and type to it. / does the same outside a field." },
       group: "view", keywords: ["assistant", "focus", "ask", "type", "chat with assistant"],
       performer: { kind: "submit", run: () => focusAssistant() }, available: () => ({ ok: true }),
+    });
+    // v1's "New conversation" and "Switch assistant conversation…".
+    rows.push({
+      id: "assistant-new", human: { title: "New conversation", tooltip: "Start a new conversation with your assistant." },
+      group: "view", keywords: ["assistant", "new conversation", "new thread", "fresh"],
+      performer: { kind: "submit", run: () => focusAssistant({ thread: "new" }) }, available: () => ({ ok: true }),
+    });
+    rows.push({
+      id: "assistant-threads", human: { title: "Switch assistant conversation…", tooltip: "Pick another of your conversations with the assistant." },
+      group: "view", keywords: ["assistant", "conversation", "thread", "switch", "history"],
+      performer: { kind: "submit", run: () => focusAssistant({ thread: "pick" }) }, available: () => ({ ok: true }),
     });
   }
   // v1's safe mode: reload the page with every panel of yours off (a panel that breaks the page can then be fixed), and back.

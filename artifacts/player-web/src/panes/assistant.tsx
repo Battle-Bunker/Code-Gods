@@ -200,7 +200,12 @@ function Queued({ status }: { status: Status }) {
             {editing?.queueId === q.queueId ? (
               <>
                 <textarea className="w-full resize-none border bg-background px-2 py-1 text-sm" rows={2} value={editing.text} aria-label="Edit the waiting message"
-                  onChange={e => setEditing({ queueId: q.queueId, text: e.target.value })} data-testid="input-assistant-queued" />
+                  onChange={e => setEditing({ queueId: q.queueId, text: e.target.value })} data-testid="input-assistant-queued" autoFocus
+                  onKeyDown={e => {
+                    // v1: Enter saves, Shift+Enter is a new line, Escape cancels.
+                    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void save(); }
+                    else if (e.key === "Escape") { e.preventDefault(); setEditing(null); }
+                  }} />
                 <div className="flex gap-2">
                   <button type="button" className={TONES.secondary + " px-2 py-1 text-xs"} onClick={() => void save()} data-testid="button-assistant-queued-save">Save</button>
                   <button type="button" className={TONES.quiet + " text-xs"} onClick={() => setEditing(null)}>Cancel</button>
@@ -223,7 +228,7 @@ function Queued({ status }: { status: Status }) {
   );
 }
 
-function Composer({ status, threadId, fresh, onSent }: { status: Status; threadId: string | null; fresh: boolean; onSent: (threadId: string) => void }) {
+function Composer({ status, threadId, fresh, onSent, onThread }: { status: Status; threadId: string | null; fresh: boolean; onSent: (threadId: string) => void; onThread: (t: "new" | "pick") => void }) {
   const send = useAffordance("assistant.send");
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -233,6 +238,8 @@ function Composer({ status, threadId, fresh, onSent }: { status: Status; threadI
     const take = () => {
       const r = takeComposerRequest();
       if (!r) return;
+      if (r.thread) onThread(r.thread);
+      if (r.thread === "pick") return;
       setText(t => filledDraft(t, r.fill));
       requestAnimationFrame(() => { const el = input.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } });
     };
@@ -298,6 +305,7 @@ export function AssistantPane() {
   // The conversation in view: the one picked, "new" for a new one, else the latest of this game.
   const [picked, setPicked] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const picker = useRef<HTMLSelectElement>(null);
   const known = picked === "new" || (!!picked && !!threads?.some(t => t.threadId === picked));
   const threadId = picked === "new" ? null : known ? picked : threads?.[0]?.threadId ?? null;
   if (status === undefined || threads === undefined) return null;
@@ -308,7 +316,7 @@ export function AssistantPane() {
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="assistant">
       <div className="flex flex-wrap items-center gap-2 border-b px-3 py-1.5">
-        <select className="min-w-0 flex-1 truncate border bg-background px-1 py-1 text-xs" aria-label="Conversation" value={threadId ?? "new"}
+        <select ref={picker} className="min-w-0 flex-1 truncate border bg-background px-1 py-1 text-xs" aria-label="Conversation" value={threadId ?? "new"}
           onChange={e => setPicked(e.target.value)} data-testid="select-assistant-thread">
           {threadId === null && <option value="new">{past ? "No conversations in this game" : "New conversation"}</option>}
           {threads.map(t => <option key={t.threadId} value={t.threadId}>{t.title}</option>)}
@@ -325,7 +333,8 @@ export function AssistantPane() {
       ) : (
         <>
           <Queued status={status} />
-          <Composer status={status} threadId={threadId} fresh={picked === "new"} onSent={id => setPicked(id)} />
+          <Composer status={status} threadId={threadId} fresh={picked === "new"} onSent={id => setPicked(id)}
+            onThread={t => { if (t === "new") setPicked("new"); else requestAnimationFrame(() => picker.current?.focus()); }} />
         </>
       )}
     </div>
