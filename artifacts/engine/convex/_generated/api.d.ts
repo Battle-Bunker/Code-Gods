@@ -132,6 +132,7 @@ import type * as v2_turnover from "../v2/turnover.js";
 import type * as v2_validators from "../v2/validators.js";
 import type * as v2_values from "../v2/values.js";
 import type * as v2_world from "../v2/world.js";
+import type * as v2_zzprobe from "../v2/zzprobe.js";
 import type * as v2Http from "../v2Http.js";
 import type * as version from "../version.js";
 
@@ -266,6 +267,7 @@ declare const fullApi: ApiFromModules<{
   "v2/validators": typeof v2_validators;
   "v2/values": typeof v2_values;
   "v2/world": typeof v2_world;
+  "v2/zzprobe": typeof v2_zzprobe;
   v2Http: typeof v2Http;
   version: typeof version;
 }>;
