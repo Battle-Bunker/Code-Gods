@@ -131,20 +131,19 @@ function anchoredDeal(pool: readonly DealtRule[], seats: number, a: number, r: R
  */
 export const hasSeatingRule = (variant: string): boolean => ["grid", "line", "pair"].includes(findVariant(variant).type.id);
 export const isGridVariant = (variant: string) => findVariant(variant).type.id === "grid";
-const isGrid = isGridVariant;
 const isPair = (variant: string) => findVariant(variant).type.id === "pair";
 const familiesOf = (rules: readonly SeatedRule[]) => rules.map(r => r.family);
 /** The pairs of seated rules a variant's seating rule forbids; none where it has none. */
 export function seatingClashes(variant: string, rules: readonly SeatedRule[]): string[] {
-  return !hasSeatingRule(variant) ? [] : isGrid(variant) ? gridClashes(familiesOf(rules)) : isPair(variant) ? pairClashes(rules) : lineClashes(rules);
+  return !hasSeatingRule(variant) ? [] : isGridVariant(variant) ? gridClashes(familiesOf(rules)) : isPair(variant) ? pairClashes(rules) : lineClashes(rules);
 }
 /** The aligned (allowed but avoided) pairs among seated rules; none where the variant has no seating rule. */
 export function seatingAligned(variant: string, rules: readonly SeatedRule[]): string[] {
-  return hasSeatingRule(variant) && isGrid(variant) ? gridAlignedPairs(familiesOf(rules)) : [];
+  return hasSeatingRule(variant) && isGridVariant(variant) ? gridAlignedPairs(familiesOf(rules)) : [];
 }
 /** A table's seating cost (forbidden pairs, then aligned ones); 0 where the variant has no seating rule. */
 export function seatingCost(variant: string, rules: readonly SeatedRule[]): number {
-  return !hasSeatingRule(variant) ? 0 : isGrid(variant) ? gridSeatingCost(familiesOf(rules)) : isPair(variant) ? pairSeatingCost(rules) : lineSeatingCost(rules);
+  return !hasSeatingRule(variant) ? 0 : isGridVariant(variant) ? gridSeatingCost(familiesOf(rules)) : isPair(variant) ? pairSeatingCost(rules) : lineSeatingCost(rules);
 }
 /**
  * The named-opponent seating rule (the coordinator's, from the spec lead's opponent table, lib/v2-linear

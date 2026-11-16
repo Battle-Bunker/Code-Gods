@@ -5,7 +5,7 @@ import { OpFailure } from "@workspace/v2-affordances";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { MAX_MEMBERS, MAX_PLAYERS, normaliseCode, userById } from "./access";
-import { bidDealer, dealDefence, isGridVariant, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, policyDeal, practiceDeal, type SeatKind, rotatedDeal, ruleView, hasSeatingRule, seatingAligned, seatingClashes, type DealtRule, type PastDeal } from "./deal.ts";
+import { bidDealer, dealDefence, defencePool, isGridVariant, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, policyDeal, practiceDeal, type SeatKind, rotatedDeal, ruleView, hasSeatingRule, seatingAligned, seatingClashes, type DealtRule, type PastDeal } from "./deal.ts";
 import { dealWithBids, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
 import { isPreset, presetOf } from "./presets.ts";
 import { DEFAULT_PENALTY_WEIGHT, typeOf } from "./world.ts";
@@ -96,6 +96,12 @@ export async function changeSettings(ctx: MutationCtx, room: Doc<"v2Rooms">, a: 
   if (room.bidding) throw new OpFailure("The bid phase is open: the settings change once it closes.");
   if (a.overrides?.defenceGoals && !isGridVariant(presetOf(a.preset ?? room.preset).variant))
     throw new OpFailure("Defence goals are dealt on grids only.", "Pick a grids preset, or leave defence goals off.");
+  if (a.overrides?.defenceGoals) {
+    const variant = presetOf(a.preset ?? room.preset).variant, ex = a.overrides.excludedDefenceFamilies ?? [];
+    const known = new Set(defencePool(variant).map(g => g[0]!.family)), unknown = ex.filter(f => !known.has(f));
+    if (unknown.length) throw new OpFailure(`No defence goal ${unknown.join(", ")}.`, `The defence goals here: ${[...known].join(", ")}.`);
+    if (defencePool(variant, ex).length === 0) throw new OpFailure("Every defence goal is excluded.", "Leave at least one in, or turn defence goals off.");
+  }
   const presetChanged = a.preset !== undefined && a.preset !== room.preset;
   await ctx.db.patch(room._id, {
     ...(a.preset !== undefined ? { preset: a.preset } : {}),
