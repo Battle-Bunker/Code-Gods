@@ -433,3 +433,35 @@ running the app.
 
 - **Missing:** about 81 hours to port, 31 of them old e2e scenarios. 27 missing rows need something from a server session first (the `server` field).
 - **Changed without a written decision ("changed?"):** 66 rows, about 27 hours if each is ported back rather than accepted. Each needs a look: some will turn out to be missing.
+
+## 6. Grid annotations against v1 (grid-annotations session, 15 November)
+
+v1's grid annotations at the archive tip ("scoring units", `lib/game-utilities/src/explain/*`, drawn by
+`lib/object-views/src/explain/GoalBoard.tsx`; design `docs/annotations-design.md` on `archive/engine-v1`) against v2
+grids on `develop` a907a8b7. v2 draws marks a rule family records (`ctx.mark`: focus, note, measure, candidate) on the
+family's own representation (`lib/v2-views/src/render/grid.tsx`), with a card per part of the rule beside it
+(`faces.tsx`). Measured: every dealt (family, secondary) pair in the three grid presets, 10 boards each
+(`lib/v2-views/test/` probe, not kept).
+
+| # | v1 capability (what the player saw) | v1 source | v2 today | Status |
+|---|---|---|---|---|
+| G1 | **The board marks what the rule counts.** Each scoring unit (cell, pair, row/column line, 2×2 block, 3×3 window, region, ring) is outlined or drawn as a capsule through its cells; pairs joined by an arc, solid ✓ when it scores, dashed ✗ when not | `GoalBoard.tsx:247-273`, `layout.ts` | Each family's main part marks its own representation: a row's gap/total/bend in the margin, focus (tinted) where on target, a short note ("9 short", "off by 4", "uneven by 2") beside it; groups (pairs, boxes, windows, leaps, folds) drawn as links with a badge or outlines with a label | **partial**: no ✓/✗ per unit, units only on target are tinted (colour + the value 0; no shape cue) |
+| G2 | **Secondary preferences marked.** Facts grouped by tier under "primary/secondary rule score" sub-headers; tier units on the board (★ lines, squares …) | `GoalBoard.tsx:96-111`, `tier-lenses.ts` | **No dealt secondary marks anything: 0 marks on 54 of 54 dealt (family, secondary) pairs.** The secondary's card shows its value and a ruler only. The mark contract cannot attribute a focus or note mark to a secondary (only measure/candidate carry a term) | **missing** |
+| G3 | **Which cells break a unit.** Mirrormancer: a link per mirror pair ("first and last: 3, 3" ✓/✗); Magic Eighteen: "4+5+2+2 = 13, not 18" and "18 − 13 = 5 short"; Minesweeper/Kings: spots on the king | lenses in `explain/lenses/*` | Row/box totals and gaps, never which pair or cell causes the gap (Mirrormancer shows "row 2 off by 4", not that 0≠0 is fine and 4≠8 is the cause); the sum itself is in the title tooltip only | **partial** |
+| G4 | **Unit list linked to the board both ways**: a scrollable list of units (gains first) with mini tiles, the points, ✓/✗ facts; selecting on either side lights the other, with an arrow between | `GoalBoard.tsx:73-186, 274-295` | One line per unit under the main part's card ("row 1: on target · row 2: off by 4"); pointing at a margin value lights its cells; no list of units, no per-unit selection | **partial** |
+| G5 | **Selection**: hover/tap a unit on the board (nearest-unit hit test), arrow keys step through units, others dimmed to 0.32, an aria-live line reads the unit | `GoalBoard.tsx:143-207`, `units.ts:64` | Hover an element lights the same quantity in every view; tap a part card to keep only its marks; no dimming, no keyboard stepping, no live readout | **partial** |
+| G6 | "Point at: Row / Column" mode toggle when unit kinds overlap | `GoalBoard.tsx:237-245` | Replaced by representations ("More views") | changed (by design: representations replace modes) |
+| G7 | Board total: "This board's rule score: (5, −3) — primary … · secondary …"; ★ tier notes ("2 more opposite pairs to open ★"), "Nothing on this board counts towards this goal yet." | `GoalBoard.tsx:212-235` | Part cards with value, sense and ruler; "The main part counts first; the tie-breaker decides …" | present (wording: says "Main part"/"Tie-breaker", not "Secondary") |
+| G8 | Goal card worked example (searched board that shows scoring and non-scoring units), caption "Point at a scoring unit …" | `card.tsx:62-71`, `explain/index.ts:223-303` | GoalCard with a worked example, randomise/edit, rarity scale (#901) | present; inherits G1–G3 gaps |
+| G9 | Object popover: hover opens, click pins, Close for phones, full annotated board, changed cells outlined | `object-views/src/views.tsx:190-275` | Object pane (`panes/object.tsx`) with ExpandedFace, compare-with, "was" digit on changed cells | present (changed: a pane, not a popover) |
+| G10 | "How this scores": breakdown, rarity, bits, net bits | `HowThisScores.tsx` | "How it was worked out" + bits line + "What would make it rarer" | present (changed) |
+| G11 | Marks never by colour alone: solid/dashed/dotted per tone, ✓/✗/· glyphs, ± signs | `layout.ts:22-24` | On-target is a tint plus the value; notes are words; ● / ◆ glyphs for parts | partial (G1) |
+| G12 | Disclosure: own goal only while live; replay follows the point-of-view god | `explain/context.tsx:1-5` | Own rule only (`panes/object.tsx`, `objects.tsx`) | present |
+| G13 | Layers of any depth | tuple of tiers | Views know two parts only (`role: "main" \| "tb"`); a third layer is not shown | **missing** (shared layer) |
+| G14 | Gallery shows dealt rules | `gallery/annotations.tsx` | Grid gallery shows each family's *first* secondary, often undealt (Magic Eighteen and Leapfrog show "the first column's total") | **broken** |
+
+Plan (porting, most visible first): (1) let a mark name the layer it belongs to and have every dealt grid secondary mark
+what it reads (G2, with the annotations and grids sessions); (2) mark the cells or pairs that break a unit, with a
+non-colour cue, per v1's lenses (G1, G3, G11); (3) a unit readout linked both ways with keyboard stepping (G4, G5);
+(4) the gallery deals real rules (G14). Layers of any depth and "Secondary:" in the views (G13, G7) are the shared
+layer's.

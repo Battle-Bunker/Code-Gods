@@ -58,8 +58,16 @@ function WatchBack({ query, args, onBack }: { query: unknown; args: unknown; onB
   return null;
 }
 
-function PaneError({ error, resetError }: ErrorFallbackProps) {
-  const w = paneErrorWords(error);
+function PaneError(props: ErrorFallbackProps) {
+  return <LiveErrorPanel {...props} what="This pane" testId="pane-error" className="p-4 text-sm space-y-2" />;
+}
+
+/**
+ * A failed live read in plain words, which comes back by itself on that read's next answer (WatchBack), and a Try
+ * again that asks it afresh: a pane's, or the game bar's ("Your totals").
+ */
+export function LiveErrorPanel({ error, resetError, what, testId, className }: ErrorFallbackProps & { what: string; testId: string; className: string }) {
+  const w = paneErrorWords(error, what);
   const source = liveSourceOf(error);
   // Try again on a failed read (W3, round 24: an errored result stays in its subscription until it is dropped): drop
   // that one subscription (WatchBack leaves), then show the pane on the next frame, which subscribes afresh. One
@@ -71,7 +79,7 @@ function PaneError({ error, resetError }: ErrorFallbackProps) {
     return () => cancelAnimationFrame(frame);
   }, [again]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div className="p-4 text-sm space-y-2" data-testid="pane-error" role="alert">
+    <div className={className} data-testid={testId} role="alert">
       {source && !again && <WatchBack query={source.query} args={source.args} onBack={resetError} />}
       <p className="text-destructive">{w.text}</p>
       <button type="button" className="underline underline-offset-4" data-testid="button-pane-retry" onClick={() => (w.reload ? window.location.reload() : source ? setAgain(true) : resetError())}>
