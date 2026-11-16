@@ -150,8 +150,7 @@ try {
       const room = code();
       const g = convexRun("v2/testing:seedGame", { owner: me.subject, practice: 2, code: room });
       await page.goto(`${SITE}/rooms/${room}/games/${g.gameId}`);
-      await page.getByTestId("text-my-total").waitFor();
-      assert.match(await page.getByTestId("text-my-total").innerText(), /points/);
+      await page.getByTestId("text-my-total").getByText(/points/).waitFor();   // "…" until the standings arrive
       assert.match(await page.getByTestId("text-my-energy").innerText(), /^Energy [\d,]+\.\d\d/);
       for (const pane of ["objects", "my-card", "feed", "agents", "race"]) await page.getByTestId(`pane-${pane}`).waitFor();
       const row = page.locator("[data-testid^=row-line-]").first();
