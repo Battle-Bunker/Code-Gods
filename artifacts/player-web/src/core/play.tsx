@@ -35,7 +35,7 @@ import { useReplaying } from "./affordance-runtime";
 import { GameTimer, useNow } from "./game-timer";
 import { navigate } from "./navigation";
 import { planningLine, SUMMON_FIRST } from "./planning-line";
-import { countedNote, exactTotalNote, isTied, ownEnergy, ordinal, pointsText, scoreSentence, totalNote, totalSumNote } from "./words";
+import { countedNote, exactTotalNote, isTied, ownEnergy, myTotalText, ordinal, scoreSentence, totalNote, totalSumNote } from "./words";
 import { objectWord } from "../sdk/object-types.ts";
 import { LineByLine, TiedMark } from "./score-help";
 import { SAFE_MODE } from "./safe-mode";
@@ -57,7 +57,7 @@ function GameBar({ header }: { header: Header }) {
       <span className="border px-2 py-0.5 text-xs font-medium uppercase tracking-wide" data-testid="text-phase">{replay ? "Replay" : PHASE[header.phase]}</span>
       {seat ? (<>
         <span data-testid="text-my-total" title={[blurred ? exactTotalNote(objectWord(header.variant).one) : null, scoreSentence(objectWord(header.variant).one, objectWord(header.variant).many), totalNote(totalSumNote(objectWord(header.variant).one), (mine?.handicap ?? 0) > 0), countedNote(standings?.worldSeconds, fixedLength(header))].filter(Boolean).join(" ")}>
-          {who}: <span className="font-semibold tabular-nums">{pointsText(mine?.net ?? 0)}</span>{mine && standings && standings.rows.length > 1 ? ` · ${ordinal(mine.rank)} of ${standings.rows.length}` : ""}
+          {who}: <span className="font-semibold tabular-nums">{myTotalText(mine)}</span>{mine && standings && standings.rows.length > 1 ? ` · ${ordinal(mine.rank)} of ${standings.rows.length}` : ""}
           {mine && standings && isTied(standings.rows, mine) && <> <TiedMark testId="text-my-tied" /></>}
         </span>
         <LineByLine testId="button-line-by-line-bar" />
