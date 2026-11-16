@@ -205,7 +205,7 @@ try {
       // v1 (baseline-1 #6): can it act now, what it spent on reading and on changing, its actual cost per move, its last move.
       assert.match(await row.locator("[data-testid^=text-agent-state-]").innerText(), /^(can act now|working: .*|waiting for income|stuck: .*)$/);
       await row.locator("[data-testid^=text-agent-spent-]").getByText(/^Spent [\d.,]+ energy on \d+ moves?: [\d.,]+ reading, [\d.,]+ changing$/).waitFor({ timeout: 30_000 });
-      assert.match(await row.locator("[data-testid^=text-actual-act-cost-]").innerText(), /^Actual average [\d.,]+ energy per move$/);
+      assert.match(await row.locator("[data-testid^=text-actual-act-cost-]").innerText(), /^Actual average [\d.,]+ energy per move( \(estimate was [\d.,]+\))?$/);
       assert.match(await row.locator("[data-testid^=text-agent-last-act-]").innerText(), /^Last move at \d+:\d\d: [\d.,]+ reading \+ [\d.,]+ changing \(\w[\w ]*\)$/);
       const more = row.locator("[data-testid^=button-agent-more-]");
       if (await more.count()) {

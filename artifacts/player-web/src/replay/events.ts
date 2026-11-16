@@ -5,9 +5,13 @@
  */
 import type { ReplayIndex } from "./fold";
 
-export interface ReplayEventRow { at: number; world: number; kind: "born" | "move" | "command"; text: string; memberId: string | null }
+export interface ReplayEventRow {
+  at: number; world: number; kind: "born" | "move" | "command"; text: string; memberId: string | null;
+  /** A summon or a code change: the program it started, when the record keeps it (v1's "code" on the timeline). */
+  program?: { agentId: string; version: number };
+}
 
-type EventSource = Pick<ReplayIndex, "objects" | "moves" | "commands" | "roster" | "world">;
+type EventSource = Pick<ReplayIndex, "objects" | "moves" | "commands" | "roster" | "world"> & Partial<Pick<ReplayIndex, "programs">>;
 
 const COMMAND: Record<string, string> = { summon: "summoned", destroy: "destroyed", replace: "changed the code of", edit: "changed the code of", allocate: "moved power between agents" };
 
@@ -32,7 +36,9 @@ export function replayEvents(ix: EventSource, noun = "line"): ReplayEventRow[] {
       if (c.kind === "summon" && c.name) agentNames.set(c.agentId, c.name);
       const verb = COMMAND[c.kind] ?? c.kind;
       const agent = c.kind === "allocate" ? "" : ` ${agentNames.get(c.agentId) ?? c.name ?? "an agent"}`;
-      out.push({ at: c.at, world: c.worldSeconds ?? worldAt(c.at), kind: "command", text: `${name(member)} ${verb}${agent}`, memberId: member });
+      const coded = (c.kind === "summon" || c.kind === "replace" || c.kind === "edit") && c.version !== undefined && ix.programs?.has(`${c.agentId}@${c.version}`);
+      out.push({ at: c.at, world: c.worldSeconds ?? worldAt(c.at), kind: "command", text: `${name(member)} ${verb}${agent}`, memberId: member,
+        ...(coded ? { program: { agentId: c.agentId, version: c.version! } } : {}) });
     }
   }
   return out.sort((a, b) => a.at - b.at);
