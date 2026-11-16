@@ -100,3 +100,11 @@ test("the page's compute defaults are the sandbox's (a room left on them records
   const limits = readFileSync(new URL("../../../lib/v2-sandbox/src/limits.ts", import.meta.url), "utf8");
   assert.match(limits, new RegExp(`DEFAULT_LIMITS = Object\\.freeze\\(\\{ stepBudget: ${DEFAULT_STEP_BUDGET.toLocaleString("en-US").replace(/,/g, "_")}, hostCallCap: \\d+, wallMs: ${DEFAULT_COMPUTE_MS} \\}`));
 });
+
+test("defence goals are asked on grid setups only, and never sent for a lines setup (the server refuses them there)", () => {
+  const grids = presetOf("grids-beginner");
+  assert.ok(FIELDS.defenceGoals.only!(grids) && !FIELDS.defenceGoals.only!(beginner));
+  const on = { ...draftOf(beginner, {}), defenceGoals: true, penaltyWeight: 2 };
+  assert.deepEqual(overridesFor(on, beginner), {});
+  assert.deepEqual(overridesFor({ ...draftOf(grids, {}), defenceGoals: true, penaltyWeight: 2 }, grids), { defenceGoals: true, penaltyWeight: 2 });
+});

@@ -149,10 +149,10 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
 
           {(["goals", "agents", "energy", "population", "time"] as const).filter(s => SECTIONS.some(x => x.id === s)).map(section => (
             <FormSection key={section} id={section}>
-              {fieldsOf(section).filter(k => FIELDS[k].tier === "ask").map(k => <Field key={k} k={k} draft={draft} editable={editable} change={change} error={errors[k]} />)}
-              {fieldsOf(section).some(k => FIELDS[k].tier === "more") && (
+              {fieldsOf(section).filter(k => FIELDS[k].tier === "ask" && (FIELDS[k].only?.(preset) ?? true)).map(k => <Field key={k} k={k} draft={draft} editable={editable} change={change} error={errors[k]} />)}
+              {fieldsOf(section).some(k => FIELDS[k].tier === "more" && (FIELDS[k].only?.(preset) ?? true)) && (
                 <More section={section}>
-                  {fieldsOf(section).filter(k => FIELDS[k].tier === "more").map(k => <Field key={k} k={k} draft={draft} editable={editable} change={change} error={errors[k]} />)}
+                  {fieldsOf(section).filter(k => FIELDS[k].tier === "more" && (FIELDS[k].only?.(preset) ?? true)).map(k => <Field key={k} k={k} draft={draft} editable={editable} change={change} error={errors[k]} />)}
                 </More>
               )}
             </FormSection>

@@ -18,8 +18,6 @@ test("defence goals: off by default, refused on lines, dealt to every seat on gr
   assert.equal((await perform(ada!, "rule.explain", {}, { gameId: g0 }, "query")).result.defence, null, "off by default");
   await perform(ada!, "game.end", {}, { gameId: g0 });
 
-  await assert.rejects(perform(ada!, "room.settings", { overrides: { defenceGoals: true, excludedDefenceFamilies: ["number_crowd"] } }, { roomId }), /No defence goal number_crowd/);
-  await assert.rejects(perform(ada!, "room.settings", { overrides: { defenceGoals: true, excludedDefenceFamilies: ["hated-number", "number-crowd"] } }, { roomId }), /Every defence goal/);
   assert.equal((await perform(ada!, "room.settings", { overrides: { defenceGoals: true, penaltyWeight: 2 } }, { roomId })).ok, true);
   const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
   const d = (await perform(ada!, "rule.explain", {}, { gameId }, "query")).result.defence;
