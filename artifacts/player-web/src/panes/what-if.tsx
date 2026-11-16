@@ -28,7 +28,8 @@ function Delta({ label, from, to, fmt, testId }: { label: string; from: number |
   );
 }
 
-function Tryout({ rule, my, state, want, sites }: { rule: GameRule; my: MyRule; state: unknown; want: number | null; sites: number }) {
+function Tryout({ rule, my, state, want, sites, testPrefix = "" }: { rule: GameRule; my: MyRule; state: unknown; want: number | null; sites: number; testPrefix?: string }) {
+  const tid = (id: string) => (testPrefix ? id.replace("what-if-", `what-if-${testPrefix}`) : id);
   const choices = useMemo(() => mutatorChoices(rule.variant), [rule.variant]);
   const [id, setId] = useState(choices[0]!.id);
   const choice = choices.find(c => c.id === id) ?? choices[0]!;
@@ -50,7 +51,7 @@ function Tryout({ rule, my, state, want, sites }: { rule: GameRule; my: MyRule; 
       <div className="flex flex-wrap items-end gap-2 text-sm">
         <label className="flex min-w-0 flex-col gap-1">
           <span className="text-xs text-muted-foreground">Change</span>
-          <select value={choice.id} onChange={e => pick(e.target.value)} className={`${field} max-w-full`} data-testid="select-what-if-change">
+          <select value={choice.id} onChange={e => pick(e.target.value)} className={`${field} max-w-full`} data-testid={tid("select-what-if-change")}>
             {groups.map(g => (
               <optgroup key={g} label={g}>
                 {choices.filter(c => c.repTitle === g).map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
@@ -61,41 +62,41 @@ function Tryout({ rule, my, state, want, sites }: { rule: GameRule; my: MyRule; 
         {sites > 1 && (
           <label className="flex flex-col gap-1">
             <span className="text-xs text-muted-foreground">Which line</span>
-            <select value={site} onChange={e => setSite(Number(e.target.value))} className={field} data-testid="select-what-if-site">
+            <select value={site} onChange={e => setSite(Number(e.target.value))} className={field} data-testid={tid("select-what-if-site")}>
               {Array.from({ length: sites }, (_, i) => <option key={i} value={i}>Line {i + 1}</option>)}
             </select>
           </label>
         )}
         {choice.args.map(a => (
           <label key={`${choice.id}:${a.name}`} className="flex max-w-[16rem] flex-col gap-1">
-            <span className="text-xs text-muted-foreground" data-testid={`label-what-if-${a.name}`}>{a.label}</span>
+            <span className="text-xs text-muted-foreground" data-testid={tid(`label-what-if-${a.name}`)}>{a.label}</span>
             {a.kind === "choice" ? (
-              <select value={args[a.name]} onChange={e => setArgs({ ...args, [a.name]: e.target.value })} className={field} data-testid={`select-what-if-${a.name}`}>
+              <select value={args[a.name]} onChange={e => setArgs({ ...args, [a.name]: e.target.value })} className={field} data-testid={tid(`select-what-if-${a.name}`)}>
                 {a.choices.map(v => <option key={v} value={v}>{a.choiceWords?.[v] ?? v}</option>)}
               </select>
             ) : (
               <input value={args[a.name] ?? ""} onChange={e => setArgs({ ...args, [a.name]: e.target.value })} className={`${field} w-28`} inputMode="text" placeholder={a.optional ? "or leave empty" : undefined}
-                aria-invalid={bad?.[0] === a.name || undefined} aria-describedby={a.hint ? `hint-what-if-${a.name}` : undefined} data-testid={`input-what-if-${a.name}`} />
+                aria-invalid={bad?.[0] === a.name || undefined} aria-describedby={a.hint ? `hint-what-if-${testPrefix}${a.name}` : undefined} data-testid={tid(`input-what-if-${a.name}`)} />
             )}
-            {a.hint && a.kind !== "choice" && <span id={`hint-what-if-${a.name}`} className="text-[11px] leading-snug text-muted-foreground" data-testid={`hint-what-if-${a.name}`}>{a.hint}</span>}
+            {a.hint && a.kind !== "choice" && <span id={`hint-what-if-${testPrefix}${a.name}`} className="text-[11px] leading-snug text-muted-foreground" data-testid={tid(`hint-what-if-${a.name}`)}>{a.hint}</span>}
           </label>
         ))}
       </div>
-      {bad ? <p className="text-sm text-destructive" data-testid="text-what-if-error">{choice.args.find(x => x.name === bad[0])?.label ?? bad[0]}: {bad[1]}</p>
-        : out && !out.ok ? <p className="text-sm text-destructive" data-testid="text-what-if-error">This change is not allowed: {out.reason}.</p>
+      {bad ? <p className="text-sm text-destructive" data-testid={tid("text-what-if-error")}>{choice.args.find(x => x.name === bad[0])?.label ?? bad[0]}: {bad[1]}</p>
+        : out && !out.ok ? <p className="text-sm text-destructive" data-testid={tid("text-what-if-error")}>This change is not allowed: {out.reason}.</p>
         : out && out.ok ? (
-          <div className="space-y-2 border-t pt-3 text-sm" data-testid="what-if-result">
-            <p data-testid="text-what-if-after">It would {out.what}: <ObjectChip type={rule.type} state={out.after} sites={sites} /></p>
+          <div className="space-y-2 border-t pt-3 text-sm" data-testid={tid("what-if-result")}>
+            <p data-testid={tid("text-what-if-after")}>It would {out.what}: <ObjectChip type={rule.type} state={out.after} sites={sites} /></p>
             {/* A lens move (turn, fold, swap, lean, zoom) drawn on the plane and said in plain words; other moves draw nothing. */}
             {rule.type.id === "line" && (
               <MoveSketch before={(state as LineState).lines[site]!} after={(out.after as LineState).lines[site]!} call={{ mutator: choice.id, args: wireArgs(choice.args, args) }} />
             )}
             <dl className="space-y-1">
-              <Delta label="Your rarity" from={out.from.rarity} to={out.to.rarity} fmt={b => `${bitsText(b)} (${chanceText(b)} by chance)`} testId="text-what-if-rarity" />
-              <Delta label="Your points on it" from={out.from.points} to={out.to.points} fmt={pointsText} testId="text-what-if-points" />
+              <Delta label="Your rarity" from={out.from.rarity} to={out.to.rarity} fmt={b => `${bitsText(b)} (${chanceText(b)} by chance)`} testId={tid("text-what-if-rarity")} />
+              <Delta label="Your points on it" from={out.from.points} to={out.to.points} fmt={pointsText} testId={tid("text-what-if-points")} />
             </dl>
             {want !== null && <p className="text-xs text-muted-foreground">Points assume the others' bits on this {rule.type.id} stay as they are now ({bitsText(Math.max(0, want))}): their rules are secret, so nobody can tell how much they would want it after.</p>}
-            <p className="text-xs text-muted-foreground" data-testid="text-what-if-charge">An agent would spend about {energyText(out.charge)} on this change, plus what it reads first.</p>
+            <p className="text-xs text-muted-foreground" data-testid={tid("text-what-if-charge")}>An agent would spend about {energyText(out.charge)} on this change, plus what it reads first.</p>
           </div>
         ) : null}
     </div>
@@ -107,6 +108,7 @@ function FocusedTryout({ objectId }: { objectId: string }) {
   const my = useMyRule();
   const variant = useGame()?.variant;
   const word = objectWord(variant);
+  const [compare, setCompare] = useState(false);
   const state = useMemo(() => (o ? decodeState(o.state, variant) : null), [o?.state, variant]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!o || !state || !my) return <p className="p-4 text-sm text-muted-foreground">Loading this {word.one}…</p>;
   if (!my.rule) return <p className="p-4 text-sm text-muted-foreground">This version of the app cannot work out your rule yet: reload the page to update it.</p>;
@@ -118,6 +120,18 @@ function FocusedTryout({ objectId }: { objectId: string }) {
         <p className="text-xs text-muted-foreground">Try a change to see what it would do. Nothing happens to the {word.one}: only agents change {word.many}.</p>
       </div>
       <Tryout key={objectId} rule={my.rule} my={my} state={state} want={o.value?.want ?? null} sites={sites} />
+      {/* v1's "Compared with": a second change tried on the same line, under the first. */}
+      {compare ? (
+        <section className="space-y-2 border-t pt-3" data-testid="what-if-compared">
+          <div className="flex items-baseline justify-between gap-2">
+            <h3 className="text-sm font-semibold">Compared with</h3>
+            <button type="button" className="text-xs underline underline-offset-4" onClick={() => setCompare(false)} data-testid="button-what-if-compare-off">Stop comparing</button>
+          </div>
+          <Tryout key={`${objectId}:compare`} rule={my.rule} my={my} state={state} want={o.value?.want ?? null} sites={sites} testPrefix="compare-" />
+        </section>
+      ) : (
+        <button type="button" className="text-xs underline underline-offset-4" onClick={() => setCompare(true)} data-testid="button-what-if-compare">Compare with another change</button>
+      )}
     </div>
   );
 }
