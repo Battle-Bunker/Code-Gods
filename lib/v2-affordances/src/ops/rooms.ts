@@ -157,7 +157,7 @@ export const roomOps = [
     tooltip: "Deal rules and start planning.", keywords: ["start", "begin", "deal", "go"],
     params: obj({ requestId: requestId.optional() }),
     result: z.object({ gameId: id.nullable().describe("null while the bid phase runs before the deal"), bidPhase: z.boolean() }),
-    contexts: ["room"], caller: "owner", effect: "write", confirm: "summary", runs: "server",
+    contexts: ["room"], caller: "owner", effect: "write", confirm: "none", runs: "server",
     available: ctx => {
       const r = ctx.room;
       if (r?.bidOpen) return { ok: false, reason: "The bid phase is open; the deal follows when it closes." };
