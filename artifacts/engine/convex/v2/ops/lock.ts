@@ -41,7 +41,12 @@ export const { op: check, as: checkAs } = defineOp("lock.check", "action", async
   const c = callerOf(env), program = programOf(a);
   // A tiny opening amount: the check measures the lock, it makes nothing.
   const m = await env.ctx.runAction(MEASURE, { userId: c.userId!, scope: c.scope, objectId: a.objectId, program, amount: 1e-9 });
-  if ("refused" in m) return { meets: false, words: program.words, why: m.refused };
+  if ("refused" in m) {
+    // Only "it does not hold here" or "its program fails here" is an answer about the predicate; anything else (no seat,
+    // the game over, the object full of locks) is a refusal of the check itself.
+    if (/does not meet the lock's program|cannot be locked with it/.test(m.refused)) return { meets: false, words: program.words, why: m.refused };
+    throw new OpFailure(m.refused);
+  }
   return { meets: true, words: program.words, bits: m.done.bits, fee: m.done.fee, rate: m.done.rate };
 });
 

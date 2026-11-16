@@ -5,15 +5,17 @@
  */
 import { useState } from "react";
 import { useAffordance } from "@workspace/v2-affordances/react";
-import { useObjectLocks } from "@/sdk";
+import { useMyObject, useObjectLocks } from "@/sdk";
 import { breakLine } from "./locks-model";
 
 type Call = { mutator: string; site: number; args: Record<string, string> };
 
 export function LockWarning({ objectId, call, noun }: { objectId: string; call: Call; noun: string }) {
   const locks = useObjectLocks(objectId);
+  const o = useMyObject(objectId);
   const test = useAffordance("lock.test");
-  const key = JSON.stringify(call);
+  // An answer holds for this change, this state of the object and these locks; any of them changing asks again.
+  const key = JSON.stringify([call, o?.state ?? null, (locks ?? []).map(l => [l.n, l.energy, l.settledAt])]);
   const [answer, setAnswer] = useState<{ key: string; text: string; breaks: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   if (!locks?.length) return null;

@@ -4,6 +4,12 @@ import type { Doc } from "../_generated/dataModel";
 
 type LockFields = Pick<Doc<"v2Locks">, "n" | "language" | "source" | "words" | "programBits" | "readBits" | "bits" | "energy" | "settledAt" | "rate">;
 
+/** The §3 default prices from a game's economy: create at power ÷ 64 a bit, upkeep re-paying that once per full charge. */
+export function defaultLockRates(economy: { powerPerSecond: number; fullChargeSeconds: number }, o: { lockCreatePerBit?: number; lockUpkeepPerBit?: number } = {}) {
+  const createPerBit = o.lockCreatePerBit ?? economy.powerPerSecond / 64;
+  return { createPerBit, upkeepPerBit: o.lockUpkeepPerBit ?? createPerBit / economy.fullChargeSeconds };
+}
+
 /** A lock document as an act sees it. */
 export function actLock(d: LockFields): ActLock {
   return { n: d.n, program: { language: d.language, source: d.source, words: d.words }, programBits: d.programBits, readBits: d.readBits, bits: d.bits,

@@ -130,7 +130,7 @@ export const FIELDS: Readonly<Record<FieldKey, FieldSpec>> = {
     consequence: "Dearer locks are made only where they matter; cheap ones may cover the board. It only matters with locks on.",
   },
   lockUpkeepPerBit: {
-    label: "Lock upkeep", section: "agents", tier: "more", control: "number", suggested: [0.0001, 0.00026, 0.001], unit: "energy a bit a second", limit: { min: 0, max: 10 },
+    label: "Lock upkeep", section: "agents", tier: "more", control: "number", suggested: [0.0001, 0.00026, 0.001], unit: "energy a bit a second", limit: { min: 0.000001, max: 10 },
     question: "What does keeping a lock cost?",
     meaning: "Energy per bit of a lock's complexity drained from the lock every world second; at zero it ends. The default re-pays the lock's price once per full charge.",
     consequence: "Faster upkeep makes defence a steady expense that needs allies to keep funding; slower lets a lock stand alone. It only matters with locks on.",

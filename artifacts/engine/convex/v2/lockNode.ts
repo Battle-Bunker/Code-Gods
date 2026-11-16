@@ -5,7 +5,7 @@
  * moved meanwhile.
  */
 import { predicateBits, predicateRunner } from "@workspace/v2-agents";
-import { applyCall, isInvalid, lockedAct, type Call, type LockOpDone, type LockProgram, type LockRates } from "@workspace/v2-core";
+import { applyCall, isInvalid, lockedAct, lockEnergyAt, type Call, type LockOpDone, type LockProgram, type LockRates } from "@workspace/v2-core";
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
@@ -40,8 +40,7 @@ export const test = internalAction({
     if ("refused" in c) return c;
     const type = typeOf(c.variant), variant = variantOf(c.variant);
     const locks = c.locks.map(actLock);
-    if (!locks.length) return { allowed: true, breaks: [] };
-    const run = predicateRunner(type, variant, await predicateBoxesFor(ctx, [...new Set(locks.map(l => l.program.language))]));
+    const run = locks.length ? predicateRunner(type, variant, await predicateBoxesFor(ctx, [...new Set(locks.map(l => l.program.language))])) : null;
     let s = decode(c.state, c.variant);
     const breaks = new Map<number, { lock: number; words: string; energy: number }>();
     for (const call of a.calls as Call[]) {
@@ -49,8 +48,9 @@ export const test = internalAction({
       if (isInvalid(next)) return { allowed: false, reason: next.invalid, breaks: [...breaks.values()] };
       s = next.result;
       for (const l of locks) {
-        const r = run(l.program, s);
-        if (!(r.ok && r.holds) && !breaks.has(l.n)) breaks.set(l.n, { lock: l.n, words: l.program.words, energy: l.energy });
+        const r = run!(l.program, s);
+        // What draining it would cost now: its energy settled to the world clock.
+        if (!(r.ok && r.holds) && !breaks.has(l.n)) breaks.set(l.n, { lock: l.n, words: l.program.words, energy: lockEnergyAt(l, c.world) });
       }
     }
     return { allowed: breaks.size === 0, breaks: [...breaks.values()].sort((x, y) => x.lock - y.lock) };

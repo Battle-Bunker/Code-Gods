@@ -20,7 +20,7 @@ import { capOf, liveLines, offerable, pickLine, retiringCount } from "./turnover
 import type { Turnover } from "./presets";
 import { actReadings } from "./disclose";
 import { penaltyMean, valueFnIn, valueRecord } from "./values";
-import { actLock, lockSeen, type LockWire } from "./lockWire";
+import { actLock, defaultLockRates, lockSeen, type LockWire } from "./lockWire";
 
 type Snapshot = {
   phase: string; seed: string; variant: string; leaseId: string; tick: number; acts: number; objects: number; endsAt: number | null;
@@ -105,9 +105,10 @@ export const tick = internalAction({
       const type = typeOf(snap.variant);
       const lockView = new Map<number, { live: ActLock[]; next: number }>();
       // Predicates run in their own sandboxes, one per language an agent or a live lock is written in (§2).
-      const lockLanguages = locking ? [...new Set([...snap.ready, ...[...states.values()].flatMap(s => (s.locks ?? []).map(l => l.language))])] : [];
+      // Only when something is offered: the live locks' languages, and the acting agents' own (an agent writes a new lock in it).
+      const lockLanguages = locking && picks.length ? [...new Set([...snap.ready, ...[...states.values()].flatMap(s => (s.locks ?? []).map(l => l.language))])] : [];
       const lockRun = locking ? predicateRunner(type, variant, await predicateBoxesFor(ctx, lockLanguages)) : null;
-      const rates: LockRates = snap.settings.lockRates ?? { createPerBit: econ.powerPerSecond / 64, upkeepPerBit: econ.powerPerSecond / 64 / econ.fullChargeSeconds };
+      const rates: LockRates = snap.settings.lockRates ?? defaultLockRates(econ);
       if (locking) for (const s of states.values()) lockView.set(s.number, { live: (s.locks ?? []).map(actLock), next: s.nextLock ?? 1 });
 
       // Energy settled to this tick's world time, then spent act by act (the commit settles again, authoritatively).

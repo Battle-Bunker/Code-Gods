@@ -18,7 +18,7 @@ import { pay } from "./agents.ts";
 import { outcome } from "./failure";
 import { appendEvent, clockOf } from "./loop";
 import { assertTurnRuns } from "./turnFence";
-import { actLock, lockWire } from "./lockWire";
+import { actLock, defaultLockRates, lockWire } from "./lockWire";
 export { actLock, lockWire, lockSeen, type LockWire, type LockSeen } from "./lockWire";
 
 /** The sweep ends at most this many decayed locks a commit (the rest at the next). */
@@ -30,9 +30,7 @@ export const locksOn = (game: { settings: object }): boolean => (game.settings a
 /** The game's lock prices (resolved at start; a game started before they were resolved takes the §3 defaults). */
 export function ratesOf(game: Doc<"v2Games">): LockRates {
   const s = game.settings as { lockRates?: LockRates; economy: { powerPerSecond: number; fullChargeSeconds: number } };
-  if (s.lockRates) return s.lockRates;
-  const createPerBit = s.economy.powerPerSecond / 64;
-  return { createPerBit, upkeepPerBit: createPerBit / s.economy.fullChargeSeconds };
+  return s.lockRates ?? defaultLockRates(s.economy);
 }
 
 /**

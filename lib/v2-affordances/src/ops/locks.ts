@@ -80,6 +80,6 @@ export const lockOps = [
     tooltip: "Would a lock refuse this change?", keywords: ["lock check", "would this break", "allowed"],
     params: obj({ objectId: id, calls: z.array(call).min(1).max(8) }),
     result: z.object({ allowed: z.boolean(), reason: z.string().optional(), breaks: z.array(z.object({ lock: z.number().int(), words: z.string(), energy: z.number() })) }),
-    contexts: IN_GAME, caller: "member", effect: "read", confirm: "none", runs: "server", action: true, available: locksCheck,
+    contexts: IN_GAME, caller: "seated", effect: "read", confirm: "none", runs: "server", action: true, available: locksCheck,
   }),
 ] as const;

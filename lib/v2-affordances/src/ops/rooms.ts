@@ -22,7 +22,7 @@ export const overrides = z.object({
   commitClause: z.boolean(),
   locks: z.boolean(),
   // Lock prices (docs/engine-v2/locks.md §3): energy per bit of a predicate's complexity to create, per bit per world second to sustain.
-  lockCreatePerBit: z.number().min(0).max(100), lockUpkeepPerBit: z.number().min(0).max(10),
+  lockCreatePerBit: z.number().min(0).max(100), lockUpkeepPerBit: z.number().positive().max(10),
   defenceGoals: z.boolean(), penaltyWeight: z.number().min(0).max(4),
   // v1's ranges (archive game-core settings.ts and settings-form.ts LIMITS); the CPU limit's top is the sandbox's.
   startingObjects: z.number().int().min(0).max(1000), birthsPerSecond: z.number().min(0).max(10),

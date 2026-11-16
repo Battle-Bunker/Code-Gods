@@ -201,7 +201,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `lock.check` | Check a lock before making it | objectId, ready, args, language, source, words | server (action) · game | seated | planning, live, paused | read |
 | `lock.fund` | Add energy to a lock | objectId, lock, amount | server (action) · game | seated | planning, live, paused | write; spends energy; confirm summary |
 | `lock.drain` | Take energy out of a lock | objectId, lock, amount | server (action) · game | seated | planning, live, paused | write; spends energy; confirm summary |
-| `lock.test` | Check a change against the locks | objectId, calls | server (action) · game | member | planning, live, paused | read |
+| `lock.test` | Check a change against the locks | objectId, calls | server (action) · game | seated | planning, live, paused | read |
 | `agents.list` | List my agents | cursor, limit | server · game | seated | planning, live, paused, ended | read |
 | `agent.programs` | List an agent's versions | agentId | server · game | seated | planning, live, paused, ended | read |
 | `agent.check` | Check an agent's code | language, source, agentId | server (action) · game | seated | planning, live, paused | read |
