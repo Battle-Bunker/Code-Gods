@@ -104,7 +104,7 @@ async function runRow(kinds: Kind[]): Promise<RowStat> {
     const seats = deal.map((r, i) => ({ name: `P${i}`, kind: "starter" as const, rule: r, program: programFor(r.family, seatKinds[i]!) }));
     const vals = seats.map(s => valuer(type, variant, s.rule));
     const fams = seats.map(s => type.families.find(x => x.id === s.rule.family)!);
-    const mainOf = (i: number, s: unknown) => { const sc = evaluateSite(type, fams[i]!, seats[i]!.rule.params, s, variant, 0, seats[i]!.rule.tieBreaker).score; return sc === null || sc[0] === null ? -Infinity : Number(sc[0]); };
+    const mainOf = (i: number, s: unknown) => { const sc = evaluateSite(type, fams[i]!, seats[i]!.rule.params, s, variant, 0, seats[i]!.rule.tieBreaker).score; if (sc === null || sc[0] === null) return -Infinity; const q = sc[0] as unknown as { n: bigint; d: bigint }; return Number(q.n) / Number(q.d); };
     // Per object: the moves (at, seat, bits of every seat after, state), for holds, cycles, knocks and repairs.
     const track = new Map<number, { at: number; by: number; bits: number[]; state: string; s: unknown; charge: number }[]>();
     const spent = seats.map(() => 0), edits = { n: 0, energy: 0 };
