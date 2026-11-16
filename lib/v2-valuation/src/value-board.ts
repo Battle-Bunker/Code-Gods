@@ -9,7 +9,7 @@
  * last measured knot, so a rule whose top is unmeasured is visible before it is dealt.
  */
 import { canonicalJson, evaluateObject, hashHex, rng, tieBreakerId, type ObjectType, type Rng, type RuleFamily, type Score, type TieBreaker, type Variant } from "@workspace/v2-core";
-import { boardParams, paletteOf, symbolCount, symbolValue, type BoardState } from "@workspace/v2-grid-boards";
+import { boardParams, canonicalColours, paletteOf, symbolCount, symbolValue, type BoardState } from "@workspace/v2-grid-boards";
 import { ruleKey, valuesHash } from "./keys.ts";
 import { knotsFrom, sampledOracle, tailOf, VALUE_CONFIG, type ValueConfig, type ValueFunction } from "./value.ts";
 
@@ -38,9 +38,11 @@ export function boardValueFunction<P>(type: ObjectType<BoardState>, family: Rule
   const tieBreaker = tieBreakerId(family, options.tieBreaker);
   const tb = tieBreaker === "none" ? null : tieBreaker;
   const n = options.draws ?? BOARD_DRAWS;
-  const draw = drawBoardFromPi(variant, rng("board-value", seed, family.id, JSON.stringify(params), String(tb), variant.id));
+  // Colour peers share one value function: the rule with its colours renamed in order is valued (canonicalColours).
+  const canon = canonicalColours(params, variant);
+  const draw = drawBoardFromPi(variant, rng("board-value", seed, family.id, JSON.stringify(canon), String(tb), variant.id));
   const draws: { u: Score; w: number }[] = [];
-  for (let i = 0; i < n; i++) draws.push({ u: evaluateObject(type, family, params, draw(), variant, tb).score, w: 1 });
+  for (let i = 0; i < n; i++) draws.push({ u: evaluateObject(type, family, canon, draw(), variant, tb).score, w: 1 });
   const { knots, candidates } = knotsFrom([sampledOracle("plain draws from π", draws)], cfg);
   const body = {
     schema: 7 as const, kind: "value-function" as const,

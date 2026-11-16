@@ -68,3 +68,18 @@ test("the board's scene carries each cell's colour and letter, and a card's glyp
   assert.deepEqual(scene.cellColours!.slice(0, 3).map(c => c.letter), ["R", "G", "B"]);
   assert.equal(scene.cellGlyphs, undefined);
 });
+
+test("Grids · original colours deals v1's eight colour families, Picture Frame on one symbol", async () => {
+  const { boardPresets } = await import("../src/index.ts");
+  const p = boardPresets.find(x => x.id === "grids-original-colours")!;
+  assert.deepEqual([...new Set(p.rules.map(r => r.family))].sort(), ["chessmaster", "colour-bonds", "colour-mirror", "honest-minesweeper", "kingdom", "parity-painter", "picture-frame", "set-spotter"]);
+  const frames = p.rules.filter(r => r.family === "picture-frame").map(r => (r.params as { symbol: string }).symbol);
+  assert.deepEqual(frames, ["7", "7", "7"]);
+});
+
+test("colour-renamed twins of a rule are valued as one: colours are renamed to the board's first, in order", async () => {
+  const { canonicalColours } = await import("../src/index.ts");
+  assert.deepEqual(canonicalColours({ a: "blue", b: "red" }, v4), { a: "red", b: "green" });
+  assert.deepEqual(canonicalColours({ colour: "green", symbol: "7" }, v4), { colour: "red", symbol: "7" });
+  assert.deepEqual(canonicalColours({ target: 10 }, v4), { target: 10 });
+});
