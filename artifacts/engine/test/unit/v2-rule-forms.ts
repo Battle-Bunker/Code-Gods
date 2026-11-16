@@ -29,6 +29,9 @@ export const KINDS = {
   "monotone-steps": "steps rising by one",
   "power-count": "how often a power divides the board's number",
   "leading-digits": "the board's number's leading digits",
+  "colour-pattern": "a pattern of colours over neighbouring cells (a chessboard, three in a line)",
+  "colour-match": "cells wearing the colour their number (or place) asks for",
+  "colour-count": "a number counting the colours around it",
 } as const;
 export type Kind = keyof typeof KINDS;
 
@@ -101,4 +104,13 @@ export const RULE_FORMS: Readonly<Record<string, FamilyForms>> = {
   fillomino: { kind: "region", forms: { "patch-kinds": "all-different", "patch-count": "count", "near-misses": "distance" } },
   divisibility: { kind: "power-count", forms: { "leftover-digits": "digit-sum" } },
   "leading-digits": { kind: "leading-digits", forms: { "exponent-digits": "digit-sum" } },
+  // The coloured boards' original-rules baseline (lib/v2-grid-boards; call 37): v1's families as v1 had them.
+  chessmaster: { kind: "colour-pattern", forms: { seams: "count" } },
+  "parity-painter": { kind: "colour-match", forms: {} },
+  "colour-mirror": { kind: "symmetry", forms: { "colour-pairs": "count" } },
+  "picture-frame": { kind: "colour-match", forms: {} },
+  "colour-bonds": { kind: "pair-sums", forms: {} },
+  "honest-minesweeper": { kind: "colour-count", forms: {} },
+  kingdom: { kind: "region", forms: {} },
+  "set-spotter": { kind: "colour-pattern", forms: {} },
 };

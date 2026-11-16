@@ -32,3 +32,42 @@ test("Parity Painter: the sampled value's tail stays under the exact rarity at t
   // A common score is worth little.
   assert.ok(look([q(0)]).bits < 2);
 });
+
+/**
+ * Every committed value function of the 4×4 colour board pays, at its family's top, no more than the top's exact
+ * rarity, where the top can be counted (call 37: the original-rules baseline's values are honest). The tops:
+ * Chessmaster 9 boards and 24 seams (the two checkerboards of a and b), Parity Painter 16 (each cell in its kind's
+ * colour), Colour Mirror 4 mirror rows and 8 pairs (each row x y y x), Kingdom 16 (the whole board one colour), Picture
+ * Frame 48 (all 12 edge cells your colour and symbol, the 4 middle cells neither).
+ */
+test("4×4 colour board: no committed value pays more at its family's top than the top's exact rarity", async () => {
+  const { readdirSync, readFileSync, existsSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const root = join(import.meta.dirname, "..", "values", "board-4-base10-rgb");
+  if (!existsSync(root)) return;
+  const C = 3, third = Math.log2(C);
+  const p = (s: number) => 3 * 2 ** -cellBits(board4rgb, s, 0);   // a number's chance, any colour
+  const tops: Record<string, (params: Record<string, unknown>) => { u: ReturnType<typeof q>[]; bits: number }> = {
+    "chessmaster": () => ({ u: [q(9), q(24)], bits: 16 * third - 1 }),
+    "parity-painter": () => ({ u: [q(16)], bits: 16 * third }),
+    "colour-mirror": () => ({ u: [q(4), q(8)], bits: 8 * third }),
+    "kingdom": () => ({ u: [q(16)], bits: 16 * third }),
+    "picture-frame": params => {
+      const ps = p(Number(params.symbol)), pc = 1 / C;
+      return { u: [q(48)], bits: -(12 * Math.log2(pc * ps) + 4 * Math.log2((1 - pc) * (1 - ps))) };
+    },
+  };
+  let checked = 0;
+  for (const fam of readdirSync(root)) {
+    const top = tops[fam];
+    if (!top) continue;
+    for (const file of readdirSync(join(root, fam))) {
+      const vf = JSON.parse(readFileSync(join(root, fam, file), "utf8"));
+      const t = top(vf.params);
+      const paid = valueLookup(vf)(t.u).bits;
+      assert.ok(paid <= t.bits + 0.5, `${fam} ${JSON.stringify(vf.params)}/${vf.tieBreaker}: pays ${paid.toFixed(1)} bits at the top, whose exact rarity is ${t.bits.toFixed(1)}`);
+      checked++;
+    }
+  }
+  assert.ok(checked > 0);
+});
