@@ -61,7 +61,7 @@ fails on such an import. `@workspace/ui-kit` (generic components) may be used by
 |---|---|---|
 | `lib/v2-core` (`@workspace/v2-core`) | exact rationals `Q`; integer and rational codes (§2.3); the seeded generator; the contracts as types: object type, variant, representation, element, evaluation context, rule family, ladder, mutator, call, price; the generic walk step (§5.4) | nothing |
 | `lib/v2-linear` | the linear-equation object type (§12): state, domains, representations, mutators, rule families, variants | v2-core |
-| `lib/v2-valuation` | value functions (exact sums and direct draws), their record format and lookup, the `values` command line, committed records under `values/` | v2-core (and object-type packages, by registry) |
+| `lib/v2-valuation` | the object types' registry (`findVariant`) and rule keys (`ruleKey`) only; the value functions it held were deleted on 17 Nov (decision 50: every rule is scored by energy, `energy.md`) | v2-core (and object-type packages, by registry) |
 | `lib/v2-sandbox` | a copy of `lib/game-runtime` (CPython WASI and QuickJS) with the synchronous host channel (§6.5) | — |
 | `lib/v2-agents` | the agent host: offers, priced queries, quotes, call parsing, act charge; the guest libraries for Python and TypeScript (thin: transport and a rational helper, no rule logic); the example agents | v2-core, v2-sandbox |
 | `lib/v2-economy` | power, capacity, energy, offer selection, act charge (copied and cleaned from `game-core/energy.ts` and `docs/energy-model.md`) | v2-core |
@@ -635,7 +635,13 @@ def agent(offer):
 > state of the same size. No tables. Lines · beginner deals only such rules. The tables below still value every other
 > preset until they are deleted.
 
-### 7.0 Value functions (normative; owner decision 23)
+### 7.0 Value functions (owner decision 23; SUPERSEDED)
+
+> **Superseded 17 Nov (owner decision 50).** Every dealt rule is one pure utility scored by the dynamic energy measure
+> (`docs/engine-v2/energy.md`): no value functions, value files, tails, uniqueness correction or W/PMI tables exist on
+> `develop` any more (deleted with their code, PR #1166). Sections 7.0–7.5 and the uniqueness correction in §2.6 describe
+> the value-table era and are kept as history; where they disagree with energy.md, energy.md is the spec.
+
 
 A rule's layers are **utilities**: each maps a state to a value in a totally ordered set (a number, bigger better; a
 distance enters negated). A dealt rule's **utility** is the pair (primary, secondary), compared lexicographically, with
