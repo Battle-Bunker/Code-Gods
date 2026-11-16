@@ -70,3 +70,21 @@ test("Magic Eighteen and Two Pair show each unit's working: the sum or the pairs
   assert.equal(tp.length, 4);
   assert.match(tp[0]!, /^off by \d+: /);
 });
+
+for (const preset of gridPresets) test(`every main part of ${preset.title} marks the board wherever it counts anything`, () => {
+  const boards = corpus();
+  const missing: string[] = [];
+  for (const rule of preset.rules) {
+    const family = gridType.families.find(f => f.id === rule.family)!;
+    let marked = 0, total = 0;
+    for (const s of boards) {
+      const e = evaluateObject(gridType, family, rule.params, s, grid4, rule.tieBreakers[0]).sites[0]!;
+      const t = e.terms.find(x => x.id === family.main.id);
+      if (!t || !("n" in t.value) || t.value.n === 0n) continue;
+      total++;
+      if (e.marks.some(m => m.term === undefined || m.term === family.main.id)) marked++;
+    }
+    if (marked < total) missing.push(`${rule.family} ${JSON.stringify(rule.params)}: ${marked}/${total}`);
+  }
+  assert.deepEqual(missing, [], "main parts that mark nothing where they count something");
+});

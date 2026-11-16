@@ -9,7 +9,7 @@
 import { type RuleFamily, type Variant } from "@workspace/v2-core";
 import { gridParams, type GridState } from "./grid.ts";
 import { cols, rows } from "./units.ts";
-import { diagonals, family, more, readCells, term, markFor, type Shape } from "./family-kit.ts";
+import { diagonals, family, more, readCells, term, markFor, upTo, type Shape } from "./family-kit.ts";
 
 export type Bingo = { called: readonly number[] };
 
@@ -33,10 +33,10 @@ export function bingoCaller(n: number): RuleFamily<GridState, Bingo> {
     main: { id: "bingo", title: "dabs, and BINGOs", rep: "cells", sense: "max",
       sentence: p => `Your called numbers are ${listed(p.called)}. Dab every cell showing one of them: each dab scores 1 point. A complete row, column or long diagonal of dabs is BINGO and scores ${n} more points. Score as many points as possible.` },
     tieBreakers: [
-      more<Bingo>("near-bingo", "rows, columns and long diagonals one dab short of BINGO",
-        "As many rows, columns and long diagonals as possible should be one dab short of BINGO.", "cells"),
+      upTo(more<Bingo>("near-bingo", "rows, columns and long diagonals one dab short of BINGO",
+        "As many rows, columns and long diagonals as possible should be one dab short of BINGO.", "cells"), 2 * n + 2),
       more<Bingo>("big-dabs", "the dabbed numbers, added up", "The dabbed numbers should add up to as much as possible.", "cells"),
-      more<Bingo>("diagonal-dabs", "dabs on the long diagonals", "As many dabs as possible should be on the two long diagonals.", "cells"),
+      upTo(more<Bingo>("diagonal-dabs", "dabs on the long diagonals", "As many dabs as possible should be on the two long diagonals.", "cells"), 2 * n - (n % 2)),
     ],
   };
   // v1's support: every set of ⌈ranks / 3⌉ called numbers, the dealt set first (where the variant has it).
@@ -52,7 +52,9 @@ export function bingoCaller(n: number): RuleFamily<GridState, Bingo> {
     const dabs = dabbed.filter(Boolean).length;
     const bingos = lines.filter(l => l.every(i => dabbed[i]));
     term(ctx, "bingo", `dabs, and ${n} for each BINGO`, dabs + n * bingos.length, cells.refs);
-    for (const i of new Set(bingos.flat())) ctx.mark({ kind: "focus", ref: cells.refs[i]! });
+    // Every dabbed cell counts (a called number); a BINGO line's cells also say so.
+    cells.refs.forEach((r, i) => { if (dabbed[i]) ctx.mark({ kind: "focus", ref: r }); });
+    for (const l of bingos) ctx.mark({ kind: "note", ref: cells.refs[l[0]!]!, text: `BINGO: ${l.map(i => cells.v[i]).join(", ")}: +${n}` });
     const dabRefs = cells.refs.filter((_, i) => dabbed[i]);
     markFor(ctx, "near-bingo", lines.filter(l => l.filter(i => dabbed[i]).length === n - 1).flat().map(i => cells.refs[i]!));
     markFor(ctx, "big-dabs", dabRefs);

@@ -95,6 +95,7 @@ export function steppingStones(n: number): RuleFamily<GridState, None> {
     const best = groups(n, cells.v, (a, b) => Math.abs(a - b) === 2).reduce((b, g) => (g.length > b.length ? g : b));
     ctx.term("stones", "cells in the biggest group you can hop between", q(best.length), cells.refs);
     if (best.length > 1) focusAll(ctx, cells, best);
+    else ctx.mark({ kind: "note", ref: cells.refs[0]!, text: "no two touching cells differ by exactly 2 yet: every group is one cell" });
     const refs = best.map(i => cells.refs[i]!);
     term(ctx, "outside-small", "the cells outside the biggest group, added up", cells.v.reduce((t, x, i) => (best.includes(i) ? t : t + x), 0), refs);
     term(ctx, "group-reach", "rows and columns the biggest group reaches", new Set(best.map(i => Math.floor(i / n))).size + new Set(best.map(i => i % n)).size, refs);
