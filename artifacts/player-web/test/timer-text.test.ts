@@ -56,3 +56,10 @@ test("a player's pause counts down to when it resumes by itself, and says who pa
   const late = timerText({ phase: "paused", pausedBy: "m1", pauseEndsAt: 1_000, roster, worldSeconds: 300, planningEndsAt: null, planningSeconds: 60 } as never, 5_000)!;
   assert.equal(late.note, "Paused by Bo · resuming…");
 });
+
+test("an owner's pause offers Resume beside the clock; a parked game (any press resumes it) and a running one do not (a real Grids game: no Resume button)", () => {
+  const base = { roster: [], worldSeconds: 300, planningEndsAt: null, planningSeconds: 60 };
+  assert.equal(timerText({ ...base, phase: "paused", pausedBy: null, pauseEndsAt: null } as never, 0)!.resume, true);
+  assert.equal(timerText({ ...base, phase: "paused", parked: true } as never, 0)!.resume, false);
+  assert.equal(timerText({ ...base, phase: "live", endsAt: 10_000 } as never, 0)!.resume, false);
+});
