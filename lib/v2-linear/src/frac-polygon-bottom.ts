@@ -13,7 +13,8 @@
  * smaller), and the y-intercept's whole part against the side n.
  */
 import { Qn, q, ref } from "@workspace/v2-core";
-import { allUndefined, distance, family, more, num, type Shape } from "./layers.ts";
+import { allUndefined, distance, family, ladder, more, num, type Shape } from "./layers.ts";
+import { fromMC, type LineState } from "./line.ts";
 import { isqrt } from "./numbers.ts";
 import { onRationals } from "./rational.ts";
 
@@ -56,7 +57,13 @@ const shape: Shape<PolygonParams> = {
   ],
 };
 
-export const polygonBottom = family<PolygonParams>("polygon-bottom", "Polygon Bottom", ["si"], shape,
+/** Witnesses for the ladder's tail cap (value.ts ladderCaps): lines whose bottoms are both the n-th polygon number. */
+export const polygonWitness = (p: PolygonParams, n: number): LineState[] => {
+  const P = polygonNumber(p.s, BigInt(n));
+  return [q(1, P), q(-1, P)].flatMap(m => [{ lines: [fromMC(m, q(1, P))] }, { lines: [fromMC(m, q(-1, P))] }]);
+};
+
+export const polygonBottom = ladder(family<PolygonParams>("polygon-bottom", "Polygon Bottom", ["si"], shape,
   onRationals(POLYGON_SIDES.map(s => ({ s }))), (ctx, p) => {
     const mRef = ref("si", "m"), cRef = ref("si", "c");
     const mv = ctx.read(mRef), m = num(mv);
@@ -76,4 +83,4 @@ export const polygonBottom = family<PolygonParams>("polygon-bottom", "Polygon Bo
     ctx.term("whole-side", `the y-intercept's whole part ${W} against side ${n}`, q(abs(W - n)), [cRef]);
     ctx.mark({ kind: "focus", ref: mRef });
     ctx.mark({ kind: "focus", ref: cRef });
-  });
+  }), polygonWitness);

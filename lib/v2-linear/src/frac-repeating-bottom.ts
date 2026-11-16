@@ -18,8 +18,8 @@
  * divided by the power n.
  */
 import { Qn, q, ref } from "@workspace/v2-core";
-import type { LineState } from "./line.ts";
-import { allUndefined, distance, family, more, num, type Shape } from "./layers.ts";
+import { allUndefined, distance, family, ladder, more, num, type Shape } from "./layers.ts";
+import { fromMC, type LineState } from "./line.ts";
 import { distanceToWhole } from "./numbers.ts";
 import { onRationals } from "./rational.ts";
 
@@ -60,7 +60,13 @@ const shape: Shape<RepeatingParams> = {
   ],
 };
 
-export const repeatingBottom = family<RepeatingParams>("repeating-bottom", "Repeating Bottom", ["si"], shape,
+/** Witnesses for the ladder's tail cap (value.ts ladderCaps): lines whose common bottom is the n-th target itself. */
+export const repeatingWitness = (p: RepeatingParams, n: number): LineState[] => {
+  const T = BigInt(p.B) ** BigInt(n) - 1n;
+  return T < 2n ? [] : [q(1, T), q(-1, T)].flatMap(m => [{ lines: [fromMC(m, q(0))] }, { lines: [fromMC(m, q(1, T))] }]);
+};
+
+export const repeatingBottom = ladder(family<RepeatingParams>("repeating-bottom", "Repeating Bottom", ["si"], shape,
   onRationals(REPEATING_BASES.map(B => ({ B }))), (ctx, p) => {
     const mRef = ref("si", "m"), cRef = ref("si", "c");
     const mv = ctx.read(mRef), m = num(mv);
@@ -81,4 +87,4 @@ export const repeatingBottom = family<RepeatingParams>("repeating-bottom", "Repe
     ctx.term("remainder", `${w} divided by ${n} leaves ${w % BigInt(n)}`, q(w % BigInt(n)), [cRef]);
     ctx.mark({ kind: "focus", ref: mRef });
     ctx.mark({ kind: "focus", ref: cRef });
-  });
+  }), repeatingWitness);
