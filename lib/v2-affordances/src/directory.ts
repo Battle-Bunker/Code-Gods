@@ -99,7 +99,7 @@ export function refusal(a: AnyAffordance, ctx: AffordanceContext, args?: Record<
     return { ok: false, reason: "Only the human can do this, with their own click.", hidden: true };
   if (!callerAllows(a.caller, ctx.principal)) return { ok: false, reason: callerReason(a.caller), hidden: true };
   if (!grantAllows(a, ctx)) return { ok: false, reason: "This connection's permission does not allow it.", fix: "Reconnect with a wider permission." };
-  if (!a.contexts.includes(ctx.context)) return { ok: false, reason: `Not available ${contextWords(ctx)}.` };
+  if (!a.contexts.includes(ctx.context)) return { ok: false, reason: a.contextReasons?.[ctx.context] ?? `Not available ${contextWords(ctx)}.` };
   if (ctx.room?.aiOff && needsAi(a)) return { ok: false, reason: ctx.room.aiOff, hidden: true };
   const own = a.available?.(ctx, args as never);
   return own && !own.ok ? own : null;

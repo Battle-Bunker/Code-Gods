@@ -19,6 +19,7 @@ import { RulesPane } from "./rules";
 import { AssistantPane } from "./assistant";
 import { WhatIfPane } from "./what-if";
 import { MyPanelsPane } from "./my-panels";
+import { CodeOutputPane } from "./code-output";
 export { StoredPanelPane } from "./stored-panel";
 
 function ChatPane() {
@@ -49,4 +50,5 @@ export const PANE_COMPONENTS: PaneComponents = {
   rules: RulesPane,
   assistant: AssistantPane,
   "my-panels": MyPanelsPane,
+  "code-output": CodeOutputPane,
 };

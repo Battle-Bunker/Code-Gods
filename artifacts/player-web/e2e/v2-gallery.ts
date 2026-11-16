@@ -201,6 +201,16 @@ try {
       await sketch.scrollIntoViewIfNeeded();
       await shot(page, `what-if-turn-${label}`);
     } else console.log(`${label}: the turn's start was refused here: ${await whatIf.getByTestId("text-what-if-error").innerText()}`);
+    // v1's "Compared with": a second change on the same line, under the first, with its own result.
+    await whatIf.getByTestId("button-what-if-compare").click();
+    const compared = whatIf.getByTestId("what-if-compared");
+    await compared.getByTestId("input-what-if-compare-k").fill("3");
+    await compared.getByTestId("text-what-if-compare-after").getByText(/up 3/).waitFor();
+    assert.equal(await whatIf.getByTestId("select-what-if-change").inputValue(), "rot.turn", "the first change keeps its own choice");
+    await compared.scrollIntoViewIfNeeded();
+    await shot(page, `what-if-compared-${label}`);
+    await whatIf.getByTestId("button-what-if-compare-off").click();
+    await compared.waitFor({ state: "detached" });
     assert.match(await page.getByTestId("text-phase").innerText(), /running/i, "the what-if was tried during the live game");
     await whatIf.scrollIntoViewIfNeeded();
     await noSideways(page, `${label} game`);

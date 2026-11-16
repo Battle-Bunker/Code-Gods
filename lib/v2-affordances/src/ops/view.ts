@@ -49,6 +49,27 @@ export const viewOps = [
     contexts: GAME, caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({
+    id: "view.twoPanels", title: "Layout: Two panels", group: "view", scope: "room",
+    description: "v1's two-panel layout on the screen in view: its first two shown panes stacked on the left, every other pane as tabs of one group on the right. Kept like view.arrangeDock.",
+    tooltip: "Two panes stacked on the left, the others as tabs on the right.", keywords: ["layout", "preset", "two panels", "arrange", "dock"],
+    params: obj({}), result: done,
+    contexts: GAME, caller: "member", effect: "write", confirm: "none", runs: "client",
+  }),
+  affordance({
+    id: "view.resetLayout", title: "Reset layout", group: "view", scope: "room",
+    description: "Puts the screen in view's dock back to its default arrangement (view.arrangeDock with empty text). Open panes stay open.",
+    tooltip: "Back to this screen's default layout.", keywords: ["layout", "default", "reset", "arrange", "dock"],
+    params: obj({}), result: done,
+    contexts: GAME, caller: "member", effect: "write", confirm: "none", runs: "client",
+  }),
+  affordance({
+    id: "view.maximisePane", title: "Maximise or restore a pane", group: "view", scope: "room",
+    description: "On the desktop dock, shows one pane over the others (v1's Maximise); the same pane again, or no pane while one is maximised, restores the others. Without a pane it maximises the largest pane on the screen in view. Phones show one pane at a time and ignore it.",
+    tooltip: "Give one pane the whole dock, or put the others back.", keywords: ["maximise", "maximize", "full screen", "zoom pane", "restore"],
+    params: obj({ pane: pane.optional() }), result: done,
+    contexts: GAME, caller: "member", effect: "write", confirm: "none", runs: "client",
+  }),
+  affordance({
     id: "view.pinRepresentation", title: "Show objects in a representation", group: "view", scope: "room",
     description: "Pins the representation every compact object face uses (for one rule family, or for all), e.g. the graph instead of y = mx + c. Replaces per-device pins.",
     tooltip: "Choose how objects are drawn.", keywords: ["representation", "switch view", "graph", "equation", "table", "machine"],

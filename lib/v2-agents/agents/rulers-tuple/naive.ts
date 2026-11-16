@@ -8,8 +8,8 @@
 
 // How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
-  if (Q.eq(m, p.meets)) return null;               // parallel to y = meets·x: they never meet
-  const x = Q.abs(Q.div(c, Q.sub(p.meets, m)));   // where the line meets y = meets·x, ignoring a minus sign
+  if (Q.eq(m, p.meets) && Q.isZero(c)) return null;   // y = meets·x itself scores nothing
+  const x = Q.abs(Q.eq(m, p.meets) ? c : Q.div(c, Q.sub(p.meets, m)));   // where it meets y = meets·x, ignoring a minus sign (parallel: its height)
   const n = nearestPalindrome(x, p.digits === "odd"), main = n;   // the palindrome nearest it: bigger is better
   // main: the palindrome with the rule's count of digits nearest where the line meets y = x (or y = -x), the bigger the better
   return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order

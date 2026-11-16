@@ -329,7 +329,9 @@ try {
       }
       // Carol keeps a bid (bidding-shots: the outcome shows on the winner's card), then is done.
       const carolFamily = (await c.locator('[data-testid^="bid-family-"]').first().getAttribute("data-testid"))!.replace("bid-family-", "");
-      await c.getByTestId(`button-bid-${carolFamily}-10`).click();
+      // v1's bidding.tsx:110: Enter in the amount box commits the bid.
+      await c.getByTestId(`input-bid-${carolFamily}`).fill("10");
+      await c.getByTestId(`input-bid-${carolFamily}`).press("Enter");
       await c.getByTestId(`text-my-bid-${carolFamily}`).filter({ hasText: "10%" }).waitFor();
       await c.getByTestId("button-bidding-done").click();
       for (const p of [b, c]) await p.waitForURL(GAME_URL, { timeout: 120_000 });
@@ -347,11 +349,15 @@ try {
       await a.waitForURL(GAME_URL, { timeout: 120_000 });
       await a.getByTestId("game-bar").getByTestId("text-watching").waitFor({ timeout: 60_000 });
       assert.equal(await a.getByTestId("button-summon-first").count(), 0, "a spectator has nothing to summon");
+      // v1's spectator page: the lines, the leaderboard (How to play before the world) and public chat; no goal card.
+      await a.getByTestId("button-jump-public-chat").waitFor({ timeout: 10_000 });
+      const panes = (await a.locator("[data-testid^=button-jump-]").evaluateAll((els: Element[]) => els.map(e => e.getAttribute("data-testid")!.slice("button-jump-".length)))).sort();
+      assert.ok(["objects,public-chat,rules", "objects,public-chat,race"].includes(panes.join()), `the spectator's panes: ${panes.join()}`);
       await shot(a, "game2-spectator-alice");
       await noHorizontalScroll(a, "phone spectator");
     });
 
-    await missing(["e2e-site-smoke-10"], "spectator: live Game details shows the settings and timings, with the world clock moving (v2 shows who held which rule only after the end)", async () => {
+    await check("spectator: live Game details shows the settings and timings, with the world clock moving (v2 shows who held which rule only after the end)", async () => {
       await a.getByTestId("text-world-t").waitFor({ timeout: 3_000 });
     });
 

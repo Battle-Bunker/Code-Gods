@@ -38,7 +38,7 @@ test("the panels pane is offered in every phase", () => {
 
 test("an empty view follows the phase's defaults; an own arrangement is kept", () => {
   assert.deepEqual(shownPanes(EMPTY_VIEW, "planning"), defaultPanes("planning"));
-  const own = { panes: [{ pane: "objects", place: "main" as const }] };
+  const own = { panes: [{ pane: "feed", place: "main" as const }] };
   assert.deepEqual(shownPanes(own, "live"), own.panes);
 });
 
@@ -174,4 +174,11 @@ test("an assistant in front in planning is in front when the world starts (re-wa
 
 test("pane blurbs fit every game: none says “a line” (the palette showed it in a grid game)", () => {
   for (const id of PANE_IDS) assert.doesNotMatch(PANES[id].blurb ?? "", /\ba line\b/, id);
+});
+
+test("planning shows the board (W3 #931: the starting objects are born, valued and scored at game start)", () => {
+  for (const id of ["objects", "object", "what-if"] as const) assert.ok(PANES[id].phases.includes("planning"), id);
+  assert.ok(defaultPanes("planning").some(p => p.pane === "objects" && p.place === "main"), "the lines are in the middle in planning");
+  // Still no act log or leaderboard before the world starts: nothing has moved yet.
+  for (const id of ["feed", "race"] as const) assert.ok(!PANES[id].phases.includes("planning"), id);
 });

@@ -35,7 +35,7 @@ export const LIMITS = {
   /** The history a turn replays, at most. */
   historyMessages: 60,
   /** Messages waiting at once, and stored sizes. */
-  queued: 5, textChars: 32 * 1024, argsChars: 8 * 1024,
+  queued: 5, textChars: 32 * 1024, argsChars: 8 * 1024, resultChars: 4 * 1024,
 } as const;
 
 type Ctx = QueryCtx | MutationCtx;
@@ -121,6 +121,30 @@ export const transcript = query({
 });
 
 /** One turn (its human only): its outcome and tool calls, the pane's activity chips. */
+/**
+ * One tool call of a turn, in detail (v1's ToolDetail): what the assistant sent and what came back, for the turn's own
+ * human only. One turn document and one call document. `args` and `result` are the stored JSON parsed (clipped text when
+ * the clip cut the JSON: `argsText`/`resultText`); `result` is null for a failed call or one recorded before results were kept.
+ */
+export const call = query({
+  args: { turnId: v.id("v2AssistantTurns"), index: v.number() },
+  returns: v.union(v.null(), v.object({
+    tool: v.string(), ok: v.boolean(), summary: v.string(), args: v.any(), argsText: v.union(v.string(), v.null()), result: v.any(), resultText: v.union(v.string(), v.null()), at: v.number(),
+  })),
+  handler: async (ctx, { turnId, index }) => {
+    const user = await requireUser(ctx), t = await ctx.db.get(turnId);
+    if (!t || t.userId !== user.userId) return null;
+    const c = await ctx.db.query("v2AssistantCalls").withIndex("by_turn", q => q.eq("turnId", t._id).eq("index", index)).unique();
+    if (!c) return null;
+    const parse = (text: string | undefined) => {
+      if (text === undefined) return { value: null, text: null };
+      try { return { value: JSON.parse(text) as unknown, text: null }; } catch { return { value: null, text }; }
+    };
+    const args = parse(c.argsJson), result = parse(c.resultJson);
+    return { tool: c.tool, ok: c.ok, summary: c.summary, args: args.value, argsText: args.text, result: result.value, resultText: result.text, at: c.createdAt };
+  },
+});
+
 export const turn = query({
   args: { turnId: v.id("v2AssistantTurns") },
   returns: v.union(v.null(), v.object({ ...turnV.fields, calls: v.array(v.object({ tool: v.string(), ok: v.boolean(), summary: v.string() })) })),

@@ -18,6 +18,11 @@ export function GameScopeProvider({ scope, children }: { scope: GameScope; child
   return <Scope.Provider value={scope}>{children}</Scope.Provider>;
 }
 
+/** Whether the viewer plays in the game on screen (true outside a game screen: nothing there is a spectator's). */
+export function useIsSeated(): boolean {
+  return useContext(Scope)?.seated ?? true;
+}
+
 export function useGameScope(): GameScope {
   const s = useContext(Scope);
   if (!s) throw new Error("useGameScope outside a game screen");
