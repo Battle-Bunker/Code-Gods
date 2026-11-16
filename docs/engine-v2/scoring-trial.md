@@ -122,3 +122,93 @@ Load-bearing (costly to change later):
 The example is three hand-picked rules on a handful of states; nothing about play follows from it. The bounds are
 true by construction; whether play under them stays dynamic is untested. Dials were chosen by reasoning, not
 measurement; a different α/g ratio changes which trophy each card prefers.
+
+# Log height: scale-invariant gravity (second trial mode, 16 November, evening)
+
+The owner, on the linear height: "If field strength is just a scalar times number size then it's just linear, which
+doesn't match the gravity metaphor, which is intended to create something resembling scale invariant dynamics ... We
+want gravity to gradually attenuate so that numbers climb superlinearly with constant investment of energy." Built as
+`TRIAL_LOG` beside `TRIAL` (the mirror's Scoring trial panel toggles them; log is the default there).
+
+## The form
+
+- **Force ∝ 1/size, height ∝ log.** Each number's height is g·log2(1 + size): every doubling costs g wherever it
+  is, so constant energy buys a constant number of doublings and numbers climb exponentially [built]. The +1 removes
+  the singularity at 0 (near zero the height is linear, about 1.44g a unit). A fraction's bottom number pays its own
+  doublings, g·log2 b, so 1/1000 costs ten doublings, not nothing. H = g·(log2(1+|m|) + log2(1+|c|) + log2 b).
+  The matching rarity law is a power law (scale-free) [built: 2^(−H/g) ∝ (1+size)^(−1)].
+- **Why not inverse square.** A force ∝ 1/size² gives a height that levels off: g·(1 − 1/(1 + size)), a finite
+  escape energy. Past a modest size every number would be reachable for the same price, so worth would stop growing
+  and "bigger is better" would end in a plateau. It would need something else (friction growing with size) to
+  confine, which brings back the linear case through the back door [built].
+- **Friction is the game's own fees** (adding by the amount, multiplying by the factor's digits, mirror and swap as
+  choices), floored by a friction distance in log coordinates X = log2(1+|m|), Y = log2(1+|c|), B = log2 b:
+  D = 2·|ΔX + ΔY| (along the size direction: a stretch) + 30·|ΔX − ΔY| (across it: a change of shape, which is the
+  crossing) + 30·|ΔB| + 3 per sign change. g = 100⚡ a doubling. A call's price = max(game fee, D) + lift [built: so
+  no call undercuts D, and the bounds hold as before].
+- **Shortcuts.** A stretch ×2 costs its fee (about 5.5⚡) plus 2g of lift at any size: a short move, as decision 25
+  wants. The price to a trophy is the log-distance metric, which includes every shortcut (a prime's multiples sit one
+  doubling from it). It is not the exact cheapest route: that is a shortest path over rationals with digit-priced
+  factors, not a closed form (see "the staircase" below).
+- **Why two frictions.** Under any metric that charges |ΔX| + |ΔY|, doubling both numbers (a stretch) and moving a
+  doubling from one number to the other (a swap, a turn) cost the same friction; so either stretches are dear or height
+  is fungible between coefficients and every card reads "be high". Splitting the metric into the size direction
+  (cheap) and the shape direction (dear, 30 > g/(2k) = 25) separates them [built]. Swapping y = 101x + 867 to
+  y = 867x + 101 costs 185⚡, not a choice's 3.
+
+## The tests
+
+The bound tests ran again in both modes: no call moves a score by more than k × its price or its undo's price, and no
+score exceeds the height (linear: 2,500 states; log: 250 states, sizes up to 3,000, 4 rules, exact; area to 1e−2 in
+log mode on 15 states) [built and tested].
+
+## Worked example, log mode (`node --experimental-strip-types lib/v2-linear/scripts/trial-log-example.ts`; ⚡)
+
+| State | H (doublings) | A gradient prime "1" | B 3s and 17s, layered | C square area (n ≤ 400) |
+|---|---|---|---|---|
+| y = 101x + 867 | 1,643 (16.4) | 667 (101) | 1,582 (729, ⌊m⌋ = 81) | 799 (400²) |
+| next good place up y = 131x + 1377 | 1,747 (17.5) | 704 (131) | 1,711 (1377, 153) | 837 |
+| ten times the size y = 1010x + 8670 | 2,306 (23.1) | 998 (1021) | 2,264 (7803, 867) | 931 |
+
+| Move at y = 101x + 867 | Price | Effect |
+|---|---|---|
+| Doubling (stretch ×2) | 5.5 + 199 lift = 205 | A +99, B +194, C +39 |
+| Halving (stretch ½) | 34 (the guard: a bottom of 2 is a doubling of shape) | A −103, B −138, C −37 (278 in all, 8× its price) |
+| Repair of the halving | 133 | all back |
+| Cheapest knock found (step +1) | 5.6 | 1.8 in all |
+| Shift −1 / −10 / +100 | 4.4 / 44 / 454 | B −0.1 / −0.9 / +7.7 |
+| Swap m and c | 185 | A +309, B −131, C −371 |
+
+Do trophies get rarer in cost terms? A's next rung (line y = px), from 11, 101, 1021 and 10061: lift 142, 37, 1.4 and
+0.4⚡, and A gains the same (worth gained = lift, by construction); the additive fee for the step is 88, 132, 44 and
+132⚡ (by the gap between primes). So in height the rungs get *denser* with size, not rarer: no practical ceiling, but
+also no reward for the next prime that a doubling would not give [seen in this narrow test; the density is a fact of
+primes: gaps grow like log p, so log-spacing shrinks like log(p)/p].
+
+## The three load-bearing costs of the linear height, re-checked
+
+1. **Shortcuts must pay distance: dissolved** for scaling (a stretch costs its fee at any size) [built]; it remains for
+   changes of shape (swap, turn, a halving that leaves a bottom number), now deliberately dear.
+2. **Height fungible across coefficients: dissolved in the shape direction** (moving a doubling from c to m costs
+   2·30 friction against g = 100 of worth gained, so k·60 > 100) [built]. It stays fungible in the size direction:
+   whoever stretches lifts both numbers, so A and B gain together (cooperation along scale, conflict across shape).
+3. **Families unequal; small-is-better worthless: half dissolved.** Area ∝ c²/m, so in log height an area trophy's
+   worth is about g·(1 + ½·log2(2A)): the same scale as a coefficient's, not a cube root [built]. Small-is-better rules
+   still have no worth (a trophy is worth its cheapest holder) [built].
+
+## New costs
+
+- **The staircase stays, and additive friction does not prevent it** [seen, built in its cause]. B's score at
+  m = 101 as c runs 767, 857, 866, 867, 868, 877, 967: 1,572, 1,581, 1,582, 1,582, 1,582, 1,583, 1,590, though the
+  direct shift back from 967 costs 438⚡. The score may only charge a lower bound on the cheapest route, and the only
+  closed-form lower bound every shortcut respects is the log distance, which makes 967 and 867 nearly the same place.
+  So an exact hit is worth almost nothing over a near miss, and each card reads "be high on my number". The exact
+  cheapest route (a shortest path over rationals with digit-priced factors) would restore two-sided hills of about one
+  shift's fee, but it is a search, not a formula: the by-construction bounds would then hold only for moves the search
+  covers. This is the clearest load-bearing choice for the owner now.
+- **Layers become as large as the main part.** B's second layer adds a gradient's height (g·log2(1+e)), as much as
+  A's whole rule; B's best trophy at y = 101x + 867 is (729, ⌊m⌋ = 81), not (867, ·) [seen].
+- **Knocks are levered.** A halving costs 34 and removes 278 points of score across seats (8×); its repair costs 133.
+  The owner wants repair dearer than damage; how much leverage is wanted is open.
+- **The area trophy's best is its cap** (n ≤ 400 in the example), because a high line sits a cheap trim of shape away
+  from big areas; the cap is a parameter, not a property [seen].

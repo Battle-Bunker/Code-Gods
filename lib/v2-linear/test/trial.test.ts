@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { q, Qn, rng, type Q } from "@workspace/v2-core";
 import {
   allMutators, areaSquare, axisArea, callPrice, fromMC, gradientPrime, height, interceptSmooth, isVertical, lineQ, pt,
-  smoothUpTo, trialScore, trophyPrice, trophyWorth, TRIAL, type Line, type TrialRule,
+  smoothUpTo, trialScore, trophyPrice, trophyWorth, TRIAL, TRIAL_LOG, type Line, type TrialDials, type TrialRule,
 } from "../src/index.ts";
 
 const line = (m: Q | number, c: Q | number): Line => fromMC(typeof m === "number" ? q(m) : m, typeof c === "number" ? q(c) : c);
@@ -71,11 +71,11 @@ function* states(n: number, seed: number, sizes: readonly number[] = [5, 30, 200
   for (let i = 0; i < n; i++) yield line(pick(), pick());
 }
 
-function checkBounds(rules: readonly TrialRule[], count: number, seed: number, tol: number, sizes?: readonly number[]) {
+function checkBounds(rules: readonly TrialRule[], count: number, seed: number, tol: number, sizes?: readonly number[], d: TrialDials = TRIAL) {
   let calls = 0, worst = -Infinity;
   for (const s of states(count, seed, sizes)) {
-    const before = rules.map(r => trialScore(r, s).score);
-    const H = height(s);
+    const before = rules.map(r => trialScore(r, s, d).score);
+    const H = height(s, d);
     before.forEach(v => assert.ok(v <= H + tol, `score ${v} above height ${H}`));
     for (const [id, args] of STEPS) {
       const m = BY_ID.get(id);
@@ -84,13 +84,13 @@ function checkBounds(rules: readonly TrialRule[], count: number, seed: number, t
       if ("invalid" in r) continue;
       const t = r.lines[0]!;
       if (isVertical(t)) continue;
-      const p = callPrice(id, args, s, t)!, undo = callPrice(id, args, t, s)!;
+      const p = callPrice(id, args, s, t, d)!, undo = callPrice(id, args, t, s, d)!;
       calls++;
       rules.forEach((rule, i) => {
-        const after = trialScore(rule, t).score, d = after - before[i]!;
-        worst = Math.max(worst, d - k * p.total, -d - k * undo.total);
-        assert.ok(d <= k * p.total + tol, `${rule.family} rose ${d} for ${id} costing ${p.total}`);
-        assert.ok(-d <= k * undo.total + tol, `${rule.family} fell ${-d} for ${id}, undo costs ${undo.total}`);
+        const after = trialScore(rule, t, d).score, dd = after - before[i]!;
+        worst = Math.max(worst, dd - d.k * p.total, -dd - d.k * undo.total);
+        assert.ok(dd <= d.k * p.total + tol, `${rule.family} rose ${dd} for ${id} costing ${p.total}`);
+        assert.ok(-dd <= d.k * undo.total + tol, `${rule.family} fell ${-dd} for ${id}, undo costs ${undo.total}`);
       });
     }
   }
@@ -114,4 +114,32 @@ test("price to a trophy is never above the price of a direct route onto it", () 
   const direct = callPrice("si.shift", { k: q(858) }, line(2, 9), line(2, 867))!.total - TRIAL.nu;
   assert.ok(trophyPrice(s, t) <= direct + 1e-9);
   assert.ok(Qn.eq(q(1), q(1)));
+});
+
+// ------------------------------------------------------------------ the log height (scale-invariant gravity)
+
+test("log height: every doubling of a number costs g, wherever it is; a fraction's bottom pays its doublings", () => {
+  const G = TRIAL_LOG.g, h = (m: Q | number, c: Q | number) => height(line(m, c), TRIAL_LOG);
+  assert.ok(Math.abs(h(0, 3) - G * 2) < 1e-9);                    // log2(1 + 3)
+  assert.ok(Math.abs(h(0, 1023) - h(0, 511) - G) < 1e-9);
+  assert.ok(Math.abs(h(q(1, 4), 0) - G * (Math.log2(1.25) + 2)) < 1e-9);
+  // A stretch by 2 pays its game fee plus about 2g of lift, the same at any size.
+  const small = callPrice("mach.stretch", { f: q(2) }, line(10, 86), line(20, 172), TRIAL_LOG)!;
+  const big = callPrice("mach.stretch", { f: q(2) }, line(10000, 86000), line(20000, 172000), TRIAL_LOG)!;
+  assert.ok(small.friction < 10 && big.friction < 10, `${small.friction} ${big.friction}`);
+  assert.ok(Math.abs(big.lift - 2 * G) < 0.01 && Math.abs(small.lift - 2 * G) < 20);
+  // A swap of m and c is priced across the size direction: dear when the two differ in size (no cuckoo).
+  const sw = callPrice("coef.swap", { pair: "m-c" }, line(2, 867), line(q(-1, 867), q(-2, 867)), TRIAL_LOG);
+  assert.ok(sw === null || sw.total > 100);
+});
+
+test("log mode keeps the bounds: no call moves a score by more than k × its price or its undo's; none above height", () => {
+  const rules = [gradientPrime("1"), gradientPrime("13"), interceptSmooth([3, 17]), interceptSmooth([2, 5], true)];
+  const { calls } = checkBounds(rules, 250, 13, 1e-6, [5, 30, 200, 3000], TRIAL_LOG);
+  assert.ok(calls > 5_000, `only ${calls} calls`);
+});
+
+test("log mode: the area rule keeps the bounds to the minimiser's tolerance", () => {
+  const { calls } = checkBounds([areaSquare(12)], 15, 17, 1e-2, [3, 12, 40], TRIAL_LOG);
+  assert.ok(calls > 300, `only ${calls} calls`);
 });
