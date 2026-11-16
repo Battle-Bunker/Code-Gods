@@ -89,7 +89,7 @@ const intSpace = (name: string, lo: number, hi: number, hint: string, ok: (k: nu
     size: all.length, hint,
     draw: r => ({ [name]: all[r.below(all.length)]! }),
     parse(text) {
-      const k = Number(text.trim().replace(new RegExp(`^${name}\\s*=\\s*`), ""));
+      const t = text.trim().replace(new RegExp(`^${name}\\s*=\\s*`), ""), k = /^\d+$/.test(t) ? Number(t) : NaN;
       return Number.isInteger(k) && k >= lo && k <= hi && ok(k) ? { [name]: k } : { invalid: hint };
     },
     label: p => String(p[name]),
