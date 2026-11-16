@@ -91,3 +91,15 @@ test("while an element is picked out, the cells outside it are dimmed", () => {
   const html = renderToStaticMarkup(<RepView type={gridType} state={B} rep="mirror" size="expanded" marks={sa.marks} terms={sa.evaluation.terms} highlight="mirrorGap:0" />);
   assert.match(html, /<svg class="v2v-grid"[^>]*data-picked=""/);
 });
+
+test("a view whose groups carry numbers says what those numbers are (the circled box totals)", () => {
+  const html = renderToStaticMarkup(<RepView type={gridType} state={B} rep="boxes" size="expanded" />);
+  assert.match(html, /class="v2v-legend"[^>]*>[^<]*box totals/);
+});
+
+test("a part lists only its own units: another layer's notes on the same cells are not its", () => {
+  const fam = gridType.families.find(f => f.id === "magic-eighteen")!;
+  const r: RuleRef<GridState, unknown> = { type: gridType, family: fam, params: { T: 18 }, variant: grid4, tieBreaker: "first-column" };
+  const part = annotate(r, board("3208", "3233", "2109", "1012")).sites[0]!.parts[1]!;
+  assert.ok(!part.units.some(u => /repeats|diagonal/.test(u.text)), part.units.map(u => u.text).join(" · "));
+});

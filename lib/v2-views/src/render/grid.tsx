@@ -271,7 +271,8 @@ function Scene({ p }: { p: P }): ReactElement {
 
   // While an element is picked out (pointed at, or reached with Tab), the cells outside it are dimmed (v1's 0.32).
   const picked = members.size > 0 || s.cells.some(r => lit(r) && citedKeys.has(key(r)));
-  const placed = new Set<string>([...s.cells, ...right, ...bottom, ...groups.map(gr => gr.el)].map(key).filter(k => !unsaid.has(k)));
+  // An element said in the notes under the picture is not said again as a readout.
+  const placed = new Set<string>([...[...s.cells, ...right, ...bottom, ...groups.map(gr => gr.el)].map(key).filter(k => !unsaid.has(k)), ...listedBy.keys()]);
   return (
     <>
       <svg className="v2v-grid" data-picked={picked ? "" : undefined} width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={gridText(s, p.values)}>
@@ -288,6 +289,10 @@ function Scene({ p }: { p: P }): ReactElement {
         {titleRow > 0 && <text className="margin-title" x={mx + g.margin / 2} y={oy - 4}>{s.rightTitle}</text>}
         {cornerTitle && <text className="margin-title" x={mx + g.margin / 2} y={fy + g.foot / 2 + 4}>{s.bottomTitle}</text>}
       </svg>
+      {/* The numbers drawn on groups of cells say what they are (a player read the circled box totals as part of the score). */}
+      {expanded && s.groupTitle && groups.some(gr => !unsaid.has(key(gr.el))) && (
+        <p className="v2v-legend">Numbers on the board's {groupNoun(groups)}: {s.groupTitle}.</p>
+      )}
       {listed.length > 0 && (
         // Each note points at its element: pointing at the line (or reaching it with Tab) picks the element out on the board.
         <ul className="v2v-notes">{listed.map(n => <li key={n.text} data-ref={key(n.ref)} {...stop(n.ref)} {...hover(q, n.ref)}>{n.text}</li>)}</ul>
@@ -295,6 +300,12 @@ function Scene({ p }: { p: P }): ReactElement {
       <Readouts p={q} placed={placed} drawnNotes={drawnNotes} />
     </>
   );
+}
+
+/** What a scene's groups are, in a word: steps between neighbours, links between pairs, or groups of cells. */
+function groupNoun(groups: readonly { kind: Kind }[]): string {
+  const kinds = new Set(groups.map(g => g.kind));
+  return kinds.size === 1 && kinds.has("step") ? "edges" : kinds.size === 1 && kinds.has("link") ? "pairs" : "groups of cells";
 }
 
 /** "3 1 1 3 / 0 4 8 0 / … · total per row: 8, 12, 8, 12 · total per column: … · pair totals: 6, …". */
