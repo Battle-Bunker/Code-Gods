@@ -26,6 +26,22 @@ derive expectations by hand; exercise real code and don't assert on mocks; run t
 | The app's site (rooms, practice partners, a live line game, one line, planning) at desktop and phone | browser e2e (Playwright) | `artifacts/player-web/e2e/v2-site.ts` | `pnpm --filter @workspace/player-web e2e:site` |
 | The v2 views' look | browser screenshots (Playwright) | `artifacts/player-web/e2e/v2-views.ts` | `pnpm --filter @workspace/player-web e2e:v2-views` |
 
+## The ported old scenarios (`e2e/v1-*.ts`)
+
+The old app's end-to-end scenarios (archive/engine-v1 `artifacts/player-web/e2e`) are ported as suites against the v2
+app, sharing `artifacts/player-web/e2e/v1-harness.ts`. Each keeps the old scenario's intent and assertions. A check
+the app does not pass because the behaviour is missing is `missing([rows], name, fn)`: an expected failure naming its
+rows in `docs/engine-v2/v1-parity.json`. When it starts passing the suite fails with `XPASS`: set the rows present
+and turn the call into `check`. Never weaken an assertion to get green. With the dev engine running (`[dev] READY`):
+
+| Suite | What it covers (old file) | Run | Time |
+|---|---|---|---|
+| `e2e/v1-lobby.ts` | sign-in and out, home, create and join a room, settings, setups, palette, device page, admin (site-smoke) | `pnpm --filter @workspace/player-web e2e:v1-lobby` | ~3 min |
+
+`SKIP_DEPLOY=1` reuses the build already uploaded; `LIST_XFAIL=1` lists the expected failures at the end; failure
+screenshots go to `e2e/shots/v1/FAIL-*.png`. A session that changes a behaviour one of these suites covers runs that
+suite once before merging, and flips the xfails its change makes pass.
+
 **Choosing a layer.** A rule belongs in a unit test of the library that owns it. A Convex function is tested
 through its public API with real identities; mock nothing inside the engine. Browser e2e is only for behaviour
 that needs a browser: rendering, layout, focus. Never add an e2e check for something an engine test can catch.
