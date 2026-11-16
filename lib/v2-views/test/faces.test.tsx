@@ -224,8 +224,8 @@ test("expanded face: locks are drawn as marks on what they read and listed apart
   const html = renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} value={VALUE} active="si" onActive={() => {}} locks={[lock]} improvement={false} />);
   const t = text(html);
   assert.match(html, /data-ref="si\.c"[^>]*data-focus/);
-  assert.match(t, /🔒 the y-intercept is at least 10 \(held by 12\.50 energy\)/);
-  assert.doesNotMatch(text(renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} value={VALUE} active="si" onActive={() => {}} improvement={false} />)), /🔒/);
+  assert.match(t, /Lock: the y-intercept is at least 10 \(held by 12\.50 energy\)/);
+  assert.doesNotMatch(text(renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} value={VALUE} active="si" onActive={() => {}} improvement={false} />)), /Lock:/);
   // A lock on another line of a system is not drawn on this one.
   const other = renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} value={VALUE} active="si" onActive={() => {}} improvement={false}
     locks={[{ ...lock, refs: [{ rep: "si", name: "c", site: 1 }] }]} />);

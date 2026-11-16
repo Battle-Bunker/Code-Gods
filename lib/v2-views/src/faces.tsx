@@ -361,7 +361,7 @@ export function lockMarks(locks: readonly FaceLock[], site: number): Mark[] {
     const refs = l.refs.filter(r => (r.site ?? site) === site).map(({ site: _site, ...r }) => r);
     if (!refs.length) return [];
     const term = `lock:${l.id}`;
-    return [...refs.map(ref => ({ kind: "focus" as const, ref, term })), { kind: "note" as const, ref: refs[0]!, text: `🔒 ${l.words}`, term }];
+    return [...refs.map(ref => ({ kind: "focus" as const, ref, term })), { kind: "note" as const, ref: refs[0]!, text: `Lock: ${l.words}`, term }];
   });
 }
 
@@ -488,8 +488,8 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
       <div className="v2v-exp-body">
         <PartsList parts={sa.parts} active={lit} onActive={setHoverPart} selected={sel} onSelect={setSelected} />
         {props.locks && props.locks.length > 0 && (
-          <ul className="v2v-locks" aria-label="Locks">
-            {props.locks.map(l => <li key={l.id} data-lock={l.id}>🔒 {l.words}{l.energy !== undefined ? ` (held by ${fmtEnergy(l.energy)})` : ""}</li>)}
+          <ul className="v2v-locks" aria-label="The locks on it">
+            {props.locks.map(l => <li key={l.id} data-lock={l.id}>Lock: {l.words}{l.energy !== undefined ? ` (held by ${fmtEnergy(l.energy)})` : ""}</li>)}
           </ul>
         )}
         {/* Lines' points become the sum of each layer's rarity (the owner's choice, 16 Nov): "counts first" would be false,
