@@ -229,7 +229,7 @@ export function strangersFamily(n: number): RuleFamily<GridState, None> {
       : gcd(a, b) > 1 ? `${a} and ${b} share ${gcd(a, b)}` : `${a} and ${b} are next-door`);
     st.refs.forEach((r, k) => {
       if (st.v[k] === 4) { ctx.mark({ kind: "focus", ref: r }); return; }
-      const fails = boxEdges(bx[k]!).filter(([a, b]) => !strangers(cells.v[a]!, cells.v[b]!)).map(([a, b]) => why(cells.v[a]!, cells.v[b]!));
+      const fails = (bx[k]!.length < 4 ? [] : boxEdges(bx[k]!)).filter(([a, b]) => !strangers(cells.v[a]!, cells.v[b]!)).map(([a, b]) => why(cells.v[a]!, cells.v[b]!));
       ctx.mark({ kind: "note", ref: r, text: `${st.v[k]} of 4: ${[...new Set(fails)].join("; ")}` });
     });
     const ones = sumOf(bx.map(cs => boxEdges(cs).filter(([a, b]) => { const x = cells.v[a]!, y = cells.v[b]!; return (x === 1 && y > 1) || (y === 1 && x > 1); }).length));
