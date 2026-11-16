@@ -61,7 +61,12 @@ export function applyPriced<S, A>(type: ObjectType<S>, variant: Variant, state: 
   const code = mutator.args(variant).bits(args);
   // A floored mutator's top-up counts as argument bits (Mutator.floor).
   const arg = mutator.floor ? Math.max(code, mutator.floor(state, result, mutator.perSite ? site : 0, args, variant) - which - where) : code;
-  const surcharge = Math.max(0, type.readLength(result, variant) - type.readLength(state, variant));
+  // EXPERIMENT: V2_PSI_PAR/V2_KAPPA (c′), V2_ABS (charge |Δφ|: a move to a simpler line pays too).
+  const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
+  const par = env.V2_PSI_PAR === undefined ? null : Number(env.V2_PSI_PAR), kappa = Number(env.V2_KAPPA ?? 1);
+  const psi = (phi: number) => (par === null ? phi : phi <= par ? phi : par + kappa * (phi - par));
+  const dphi = psi(type.readLength(result, variant)) - psi(type.readLength(state, variant));
+  const surcharge = env.V2_ABS ? Math.abs(dphi) : Math.max(0, dphi);
   return { result, price: { which, where, arg, surcharge, total: which + where + arg + surcharge } };
 }
 

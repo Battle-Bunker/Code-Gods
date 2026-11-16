@@ -21,7 +21,7 @@ const fmt = (s: Score) => (s === null ? "worst" : `(${scoreToWire(s)!.map(x => (
 for (const params of fam.dealable(lineQ).slice(0, Number(o.params))) {
   const t0 = Date.now();
   const { draws } = sampledDraws(lineType, lineLaw(lineQ), fam, params, lineQ, tb, { tilts: VALUE_CONFIG.tilts, drawsPerTilt: Number(o.draws) }, "tree");
-  const tree = buildTree(draws), look = treeLookup(tree);
+  const tree = buildTree(draws), env = process.env, look = treeLookup(tree, { capClose: env.CAP_CLOSE ? Number(env.CAP_CLOSE) : undefined, capThird: env.CAP_THIRD ? Number(env.CAP_THIRD) : undefined, levelWeight: env.LEVEL_W ? Number(env.LEVEL_W) : undefined });
   const score = (s: LineState) => evaluateSite(lineType, fam, params, s, lineQ, 0, tb).score;
   const bits = (s: LineState) => look(score(s)).bits;
   const parts = (s: LineState) => { const l = look(score(s)); return `${l.bits.toFixed(1)} = ${l.parts.map(x => x.toFixed(1)).join(" + ")}${l.borrowed ? " (cell borrowed)" : ""}`; };
@@ -40,7 +40,8 @@ for (const params of fam.dealable(lineQ).slice(0, Number(o.params))) {
   for (let n = 0; n < 4; n++) {
     let s: LineState | null = null;
     while (!s) s = law.draw(r, 1).state as LineState | null;
-    let spent = 0, top = bits(s), best = s;
+    let spent = 0, top = bits(s), best = s, levels = 0; const path: [number, number][] = [[0, bits(s)]];
+    const startBits = bits(s), lv = (x: LineState) => { const sc = score(x); return sc && sc[0] ? Qn.toNumber(sc[0]) : -Infinity; };
     const seen = new Set([lineType.encode(s)]);
     for (let i = 0; i < 60; i++) {
       const b0 = bits(s);
@@ -52,12 +53,15 @@ for (const params of fam.dealable(lineQ).slice(0, Number(o.params))) {
         if (g > 0 && (!pick || g > pick.g)) pick = { s: a.result as LineState, fee: a.price.total, g };
       }
       if (!pick) break;
+      if (lv(pick.s) > lv(s)) levels++;
       s = pick.s; spent += pick.fee; seen.add(lineType.encode(s));
+      path.push([spent, bits(s)]);
       if (bits(s) > top) { top = bits(s); best = s; }
     }
     const b = bits(best);
     for (const [, mu, a] of CHEAP) { const x = applyCall(lineType, lineQ, best, { mutator: mu, site: 0, args: a as Record<string, string> }); if (!isInvalid(x) && b > 0) kept.push(bits(x.result as LineState) / b); }
-    tops.push(`${top.toFixed(1)} bits for ${spent.toFixed(0)}⚡ at ${lineType.encode(best)} ${fmt(score(best))}`);
+    const half = path.find(([, b]) => b >= startBits + (top - startBits) / 2)!;
+    tops.push(`${top.toFixed(1)} bits for ${spent.toFixed(0)}⚡ (from ${startBits.toFixed(1)}; half the gain by ${half[0].toFixed(0)}⚡), ${levels} levels up, ${(Number(o.income) - spent).toFixed(0)}⚡ unspent at the stop`);
   }
   console.log(`\nrow 10: from each climb's best line, a cheap move keeps ${(100 * med(kept)).toFixed(0)}% of the bits (median; worst ${(100 * Math.min(...kept)).toFixed(0)}%)`);
   console.log(`gate (greedy climber, ${o.income}⚡):\n- ${tops.join("\n- ")}`);

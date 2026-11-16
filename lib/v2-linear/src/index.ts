@@ -7,6 +7,8 @@ export * from "./beginner.ts";
 export * from "./rational.ts";
 export * from "./rational2.ts";
 export * from "./frac-twin-fractions.ts";
+export * from "./frac-fraction-gradient.ts";
+export * from "./frac-mixed-intercept.ts";
 export * from "./tuple-rules.ts";
 export * from "./type.ts";
 export * from "./presets.ts";

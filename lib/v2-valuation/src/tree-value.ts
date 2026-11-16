@@ -77,21 +77,23 @@ export function buildTree(draws: readonly { u: Score; w: number }[]): TreeValue 
 }
 
 export interface TreeLookup { bits: number; parts: number[]; borrowed: boolean }
-export function treeLookup(t: TreeValue): (u: Score) => TreeLookup {
+/** EXPERIMENT options: cap the closeness and third parts, weigh the level part. */
+export interface TreeOptions { readonly capClose?: number; readonly capThird?: number; readonly levelWeight?: number }
+export function treeLookup(t: TreeValue, o: TreeOptions = {}): (u: Score) => TreeLookup {
   return (u: Score) => {
     if (u === null || u[0] === null) return { bits: 0, parts: [0], borrowed: false };
-    const u0 = num(u[0]), b0 = at(t.levels, u0);
+    const u0 = num(u[0]), b0 = at(t.levels, u0) * (o.levelWeight ?? 1);
     // The cell for u0, or the measured one nearest below it.
     let cell: Cell | undefined, a = 0, b = t.cells.length;
     while (a < b) { const h = (a + b) >> 1; if (t.cells[h]!.u0 <= u0) a = h + 1; else b = h; }
     cell = a > 0 ? t.cells[a - 1] : undefined;
     if (!cell) return { bits: b0, parts: [b0], borrowed: false };
-    const u1 = num(u[1]), b1 = u.length > 1 ? at(cell.close, u1) : 0;
+    const u1 = num(u[1]), b1 = Math.min(o.capClose ?? Infinity, u.length > 1 ? at(cell.close, u1) : 0);
     let b2 = 0;
     if (u.length > 2 && cell.third.length) {
       // The tightest bucket whose edge this closeness reaches (at least as close as its edge).
       const bucket = cell.third.find(x => u1 >= x.edge) ?? cell.third[cell.third.length - 1]!;
-      b2 = at(bucket.knots, num(u[2]));
+      b2 = Math.min(o.capThird ?? Infinity, at(bucket.knots, num(u[2])));
     }
     return { bits: b0 + b1 + b2, parts: [b0, b1, b2].slice(0, u.length), borrowed: cell.u0 !== u0 };
   };
