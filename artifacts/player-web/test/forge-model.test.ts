@@ -70,3 +70,12 @@ test("prices are scaled by the game's power, as the server charges them (W3 #695
   assert.ok(Math.abs(summonPrice("typescript", src, 0.125) * 8 - summonPrice("typescript", src, 1)) < 1e-9, "the beginner's power of 8 pays an eighth");
   assert.ok(Math.abs(editPrice("typescript", src, src + "\n// x", 0.125) * 8 - editPrice("typescript", src, src + "\n// x", 1)) < 1e-9);
 });
+
+test("v1's Replace it / Keep my code: a starting point asks first only when the editor holds code that would be lost", async () => {
+  const { openNeedsAsk, replaceQuestion } = await import("../src/panes/forge-model.ts");
+  const known = ["simple()", "bold()"];
+  assert.equal(openNeedsAsk("simple()", known), false, "an untouched starter is not lost");
+  assert.equal(openNeedsAsk("  ", known), false, "nothing typed");
+  assert.equal(openNeedsAsk("simple() # mine", known), true, "edited code would be lost");
+  assert.equal(replaceQuestion("Bold"), "Replace the code in the editor with Bold? Your summoned agents are not affected.");
+});
