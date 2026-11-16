@@ -285,7 +285,33 @@ await check("?panels=off runs no panel: the panes say safe mode, the built-ins s
   await sleep(1500);
   assert(await safe.locator("iframe").count() === 0, "a panel frame loaded in safe mode");
   assert(await safe.locator("[data-testid^=button-pane-menu-]").count() >= 2, "no built-in panes in safe mode");
+  // The palette leaves safe mode: the page reloads without ?panels=off and the panel runs again.
+  await safe.keyboard.press("Control+K");
+  await safe.getByTestId("input-palette").fill("Leave safe mode");
+  await safe.keyboard.press("Enter");
+  await safe.waitForURL((u: URL) => !u.search.includes("panels=off"), { timeout: 30_000 });
+  await frameShows(safe, "sec-live", "sp-text", /^phase \w+$/);
   await safe.close();
+});
+
+await check("the palette opens a panel of yours by its title, and turns safe mode on", async () => {
+  await page.getByTestId("pane-my-panels").waitFor({ state: "attached" }).catch(() => {});
+  await page.getByTestId("button-pane-menu-panel:sec-hostile").click();
+  await page.getByTestId("button-close-pane-panel:sec-hostile").click();
+  await page.getByTestId("panel-frame-sec-hostile").waitFor({ state: "detached", timeout: 20_000 });
+  await page.keyboard.press("Control+K");
+  await page.getByTestId("input-palette").fill("Open your panel: sec-hostile");
+  await page.keyboard.press("Enter");
+  await page.getByTestId("panel-frame-sec-hostile").waitFor({ state: "attached", timeout: 20_000 });
+  const other = await context.newPage();
+  await other.goto(`${SITE}${GAME}`);
+  await other.getByTestId("dock").waitFor({ timeout: 60_000 });
+  await other.keyboard.press("Control+K");
+  await other.getByTestId("input-palette").fill("Safe mode: your panels off");
+  await other.keyboard.press("Enter");
+  await other.waitForURL((u: URL) => u.search.includes("panels=off"), { timeout: 30_000 });
+  await other.getByTestId("text-safe-mode").waitFor({ timeout: 60_000 });
+  await other.close();
 });
 
 await check("the page runs under its CSP without violations of its own", async () => {
