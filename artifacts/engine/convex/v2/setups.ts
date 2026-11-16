@@ -1,12 +1,11 @@
 /**
  * The setup picker's reads. The presets this deployment plays (presets.ts), so the app never bundles its own copy;
  * `room.create` and `room.settings` refuse any other id. A preset that cannot deal yet (no value functions) is withheld.
- * Beside them, the viewer's own saved setups (v1's user setups, coordinator's call 35; table `v2Setups`): `mine` is a
- * list's skeleton (one index page, read-architecture R1) and `get` one setup, for that row's own subscription. Writes
- * are the `setups.*` affordances (ops/setups.ts); a setup is applied with `room.settings` `setupId` (lobby.ts).
- *
- * Setups are private: v1 shared every setup with everyone (owner-only edits), v2 keeps each human's to themselves
- * (the coordinator's brief for the restoration); another human's setup reads as absent, never as forbidden.
+ * Beside them, the saved setups (v1's user setups, coordinator's call 35; table `v2Setups`): `shared` (everyone's) and
+ * `mine` (the viewer's) are a list's skeleton (one index page each, read-architecture R1) and `get` one setup, for
+ * that row's own subscription. Writes are the `setups.*` affordances (ops/setups.ts); a setup is applied with
+ * `room.settings` `setupId` (lobby.ts). As in v1 (the coordinator, 16 Nov) every setup is shared: anyone lists, reads,
+ * copies and applies it; only its owner saves over it or removes it.
  */
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
@@ -41,40 +40,42 @@ export const presets = query({
 /** A setup name as the uniqueness check and the by-name order see it. */
 export const nameKeyOf = (name: string) => name.toLowerCase();
 
-/** One page of `userId`'s setups by name (the by_owner_name index). */
-export const setupsPage = (ctx: QueryCtx, userId: string, opts: { cursor: string | null; numItems: number }) =>
-  ctx.db.query("v2Setups").withIndex("by_owner_name", q => q.eq("ownerUserId", userId)).paginate(opts);
+/** One page of setups by name: `userId`'s (the by_owner_name index), or everyone's (by_name). */
+export const setupsPage = (ctx: QueryCtx, userId: string | null, opts: { cursor: string | null; numItems: number }) =>
+  (userId === null ? ctx.db.query("v2Setups").withIndex("by_name") : ctx.db.query("v2Setups").withIndex("by_owner_name", q => q.eq("ownerUserId", userId)))
+    .paginate(opts);
 
-/** `userId`'s setup by id, or null (unknown, deleted, or someone else's: never told apart). */
-export async function ownSetup(ctx: QueryCtx, userId: string, setupId: string): Promise<Doc<"v2Setups"> | null> {
+/** A setup by id, or null (unknown or deleted). */
+export async function setupById(ctx: QueryCtx, setupId: string): Promise<Doc<"v2Setups"> | null> {
   const id = ctx.db.normalizeId("v2Setups", setupId);
-  const doc = id ? await ctx.db.get(id) : null;
-  return doc && doc.ownerUserId === userId ? doc : null;
+  return id ? await ctx.db.get(id) : null;
 }
 
-export const rowOf = (d: Doc<"v2Setups">) => ({ setupId: d._id, name: d.name, preset: d.preset, updatedAt: d.updatedAt });
-export const viewOf = (d: Doc<"v2Setups">) => ({ ...rowOf(d), overrides: d.overrides, createdAt: d.createdAt });
+/** A row as `viewerId` sees it: `mine` when it is theirs to save over or remove. */
+export const rowOf = (viewerId: string) => (d: Doc<"v2Setups">) =>
+  ({ setupId: d._id, name: d.name, preset: d.preset, updatedAt: d.updatedAt, ownerName: d.ownerName ?? "a player", mine: d.ownerUserId === viewerId });
+export const viewOf = (viewerId: string, d: Doc<"v2Setups">) => ({ ...rowOf(viewerId)(d), overrides: d.overrides, createdAt: d.createdAt });
 
-const setupRowV = v.object({ setupId: v.id("v2Setups"), name: v.string(), preset: v.string(), updatedAt: v.number() });
+const setupRowV = v.object({ setupId: v.id("v2Setups"), name: v.string(), preset: v.string(), updatedAt: v.number(), ownerName: v.string(), mine: v.boolean() });
 
-/** The viewer's saved setups by name: a list's skeleton; each row's component subscribes to `get`. */
-export const mine = query({
-  args: { paginationOpts: paginationOptsValidator },
-  returns: paginationResultValidator(setupRowV),
-  handler: async (ctx, { paginationOpts }) => {
-    const user = await requireUser(ctx);
-    const page = await setupsPage(ctx, user.userId, pageOpts(paginationOpts));
-    return { ...page, page: page.page.map(rowOf) };
-  },
-});
+const listArgs = { paginationOpts: paginationOptsValidator }, listReturns = paginationResultValidator(setupRowV);
+async function listed(ctx: QueryCtx, own: boolean, paginationOpts: { cursor: string | null; numItems: number }) {
+  const user = await requireUser(ctx);
+  const page = await setupsPage(ctx, own ? user.userId : null, pageOpts(paginationOpts));
+  return { ...page, page: page.page.map(rowOf(user.userId)) };
+}
+/** Everyone's saved setups by name: a list's skeleton; each row's component subscribes to `get`. */
+export const shared = query({ args: listArgs, returns: listReturns, handler: (ctx, { paginationOpts }) => listed(ctx, false, paginationOpts) });
+/** The viewer's own saved setups by name: the same, for "Your setups". */
+export const mine = query({ args: listArgs, returns: listReturns, handler: (ctx, { paginationOpts }) => listed(ctx, true, paginationOpts) });
 
-/** One of the viewer's saved setups with its overrides; null for any other id. */
+/** A saved setup (anyone's) with its overrides; null for an unknown id. */
 export const get = query({
   args: { setupId: v.string() },
   returns: v.union(setupRowV.extend({ overrides: overridesV, createdAt: v.number() }), v.null()),
   handler: async (ctx, { setupId }) => {
     const user = await requireUser(ctx);
-    const doc = await ownSetup(ctx, user.userId, setupId);
-    return doc ? viewOf(doc) : null;
+    const doc = await setupById(ctx, setupId);
+    return doc ? viewOf(user.userId, doc) : null;
   },
 });

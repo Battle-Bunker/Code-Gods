@@ -499,13 +499,15 @@ export const v2Tables = {
 
   /**
    * A human's saved setups (convex/v2/setups.ts; v1's user setups, coordinator's call 35): a preset and its overrides
-   * under a name unique among theirs ignoring case (`nameKey`: the name lower-cased), at most 50 each. Private to the
-   * owner; the presets are the system's catalogue beside them.
+   * under a name unique among theirs ignoring case (`nameKey`: the name lower-cased), at most 50 each. Shared as in v1:
+   * anyone lists, reads, copies and applies them; only the owner changes or removes one. `ownerName` is the owner's
+   * name when they last saved it (absent on rows saved before sharing: shown as "a player"). The presets are the system's catalogue beside them.
    */
   v2Setups: defineTable({
-    ownerUserId: v.string(), name: v.string(), nameKey: v.string(), preset: v.string(), overrides: overridesV,
+    ownerUserId: v.string(), ownerName: v.optional(v.string()), name: v.string(), nameKey: v.string(), preset: v.string(), overrides: overridesV,
     createdAt: v.number(), updatedAt: v.number(),
-  }).index("by_owner_name", ["ownerUserId", "nameKey"]),
+  }).index("by_owner_name", ["ownerUserId", "nameKey"])
+    .index("by_name", ["nameKey"]),
 
   /**
    * Stored panels (convex/v2/panels.ts): TSX a human or their delegates write, compiled on save and rendered by every

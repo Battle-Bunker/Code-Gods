@@ -6,7 +6,7 @@ import { roomView } from "../rooms";
 import { DEFAULT_PRESET } from "../presets";
 import { callerOf, defineOp, inRoom } from "./define";
 import { pageOf } from "./paging";
-import { requireOwnSetup } from "./setups";
+import { requireSetup } from "./setups";
 import { changeSettings, checkPreset, createRoom, joinRoom, leaveRoom, setSpectator as setSpectatorIn } from "../lobby";
 
 export const { op: list, as: listAs } = defineOp("room.list", "query", async (env, a) => {
@@ -62,11 +62,11 @@ export const { op: setSpectator, as: setSpectatorAs } = defineOp("room.setSpecta
 });
 
 export const { op: settings, as: settingsAs } = defineOp("room.settings", "mutation", async (env, a) => {
-  const { room, user } = inRoom(env);
+  const { room } = inRoom(env);
   if (a.setupId !== undefined) {
-    // v1's owner.settings({setupId}): the room takes the setup's settings, as they are now, and its name.
+    // v1's owner.settings({setupId}): the room takes the setup's settings (anyone's setup), as they are now, and its name.
     if (a.preset !== undefined || a.overrides !== undefined) throw new OpFailure("Apply a setup or change the settings, not both.");
-    const setup = await requireOwnSetup(env.ctx, user.userId, a.setupId);
+    const setup = await requireSetup(env.ctx, a.setupId);
     checkPreset(setup.preset);
     await changeSettings(env.ctx, room, { preset: setup.preset, overrides: setup.overrides, setup: { setupId: setup._id, name: setup.name } });
     return { ok: true as const };

@@ -137,11 +137,14 @@ const memberOf = (e: FakeEnv, userId: string) => {
 };
 const ok = { ok: true as const };
 const ownSetups = (e: FakeEnv) => Object.values(e.state.setups ?? {}).filter(s => s.ownerId === e.userId);
+const anySetupOf = (e: FakeEnv, setupId: string) => e.state.setups?.[setupId] ?? (() => { throw new OpFailure("No such setup.", "setups.page"); })();
 const setupOf = (e: FakeEnv, setupId: string) => {
   const s = e.state.setups?.[setupId];
   if (!s || s.ownerId !== e.userId) throw new OpFailure("No such setup of yours.", "setups.page");
   return s;
 };
+const setupRowOf = (e: FakeEnv, { setupId, name, preset, updatedAt, ownerId }: FakeSetup) =>
+  ({ setupId, name, preset, updatedAt, ownerName: nameOf(e.state, ownerId), mine: ownerId === e.userId });
 
 type El = { kind: "number"; q: string } | { kind: "symbol"; text: string };
 function readRep(o: { m: number; c: number }, rep: string): { elements: Record<string, El>; bits: number } {
@@ -220,13 +223,13 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "room.settings": (e, a) => {
     if (a.setupId !== undefined) {
       if (a.preset !== undefined || a.overrides !== undefined) throw new OpFailure("Apply a setup or change the settings, not both.");
-      roomOf(e).preset = setupOf(e, a.setupId).preset;
+      roomOf(e).preset = anySetupOf(e, a.setupId).preset;
     } else if (a.preset) roomOf(e).preset = a.preset;
     return ok;
   },
-  "setups.page": (e, a) => page(ownSetups(e).sort((x, y) => x.name.toLowerCase().localeCompare(y.name.toLowerCase()))
-    .map(({ setupId, name, preset, updatedAt }) => ({ setupId, name, preset, updatedAt })), a),
-  "setups.get": (e, a) => { const { ownerId: _, ...s } = setupOf(e, a.setupId); return s; },
+  "setups.page": (e, a) => page((a.mine ? ownSetups(e) : Object.values(e.state.setups ?? {}))
+    .sort((x, y) => x.name.toLowerCase().localeCompare(y.name.toLowerCase())).map(s => setupRowOf(e, s)), a),
+  "setups.get": (e, a) => { const s = anySetupOf(e, a.setupId); return { ...setupRowOf(e, s), overrides: s.overrides, createdAt: s.createdAt }; },
   "setups.save": (e, a) => {
     const all = (e.state.setups ??= {});
     const same = ownSetups(e).find(s => s.name.toLowerCase() === a.name.toLowerCase());
@@ -240,12 +243,12 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     return { setupId, name: a.name, created: true };
   },
   "setups.duplicate": (e, a) => {
-    const source = setupOf(e, a.setupId);
+    const source = anySetupOf(e, a.setupId);
     if (ownSetups(e).length >= MAX_OWN_SETUPS) throw new OpFailure(`At most ${MAX_OWN_SETUPS} setups each; delete one first.`);
     const taken = new Set(ownSetups(e).map(s => s.name.toLowerCase()));
     const name = a.name === undefined ? freeSetupName(source.name, "'s copy", taken) : freeSetupName(a.name, "", taken);
     const setupId = newId(e.state, "s"), now = e.state.now++;
-    e.state.setups![setupId] = { ...source, setupId, name, createdAt: now, updatedAt: now };
+    e.state.setups![setupId] = { ...source, setupId, ownerId: e.userId, name, createdAt: now, updatedAt: now };
     return { setupId, name };
   },
   "setups.remove": (e, a) => { delete e.state.setups![setupOf(e, a.setupId).setupId]; return ok; },

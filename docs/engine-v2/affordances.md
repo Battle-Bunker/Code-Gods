@@ -164,7 +164,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `game.startWorldNow` | End planning now | — | server · game | owner | planning | write |
 | `game.resume` | Resume the game | — | server · game | owner | paused | write |
 | `game.end` | End the game | — | server · game | owner | planning, live, paused | destructive; confirm modal |
-| `setups.page` | List my saved setups | cursor, limit | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
+| `setups.page` | List saved setups | mine, cursor, limit | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
 | `setups.get` | Show a saved setup | setupId | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
 | `setups.save` | Save a setup | name, preset, overrides, setupId | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write |
 | `setups.duplicate` | Duplicate a saved setup | setupId, name | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write |
