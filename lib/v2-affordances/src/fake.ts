@@ -260,8 +260,9 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     return ok;
   },
   "bid.withdraw": (e, a) => { delete roomOf(e).bid!.bids[e.userId]?.[a.family]; return ok; },
-  "bid.done": e => {
+  "bid.done": (e, a) => {
     const r = roomOf(e), b = r.bid!;
+    if (a.done === false) { b.done = b.done.filter(u => u !== e.userId); return ok; }
     if (!b.done.includes(e.userId)) b.done.push(e.userId);
     const humans = r.members.filter(m => m.kind === "human" && !m.spectator).map(m => m.userId!);
     if (humans.every(u => b.done.includes(u))) deal(e.state, r);
