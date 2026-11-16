@@ -26,6 +26,9 @@ import { Dock } from "@/dock/dock";
 import { useOpenPane } from "@/dock/open-pane";
 import { LiveErrorPanel } from "@/dock/pane-parts";
 import { PANE_COMPONENTS, StoredPanelPane } from "@/panes";
+import { FilePanelPane } from "@/panes/file-panel";
+import { useFilePanels } from "@/panels/store";
+import { filePane } from "@workspace/v2-client";
 import { ReplayBar } from "@/replay/bar";
 import { parseMoment } from "@/replay/moment-link";
 import { ReplayProvider, useReplayControls } from "@/replay/controller";
@@ -147,9 +150,37 @@ function GameDock({ phase }: { phase: GamePhase }): ReactNode {
   return (
     <>
       {SAFE_MODE && <p className="shrink-0 px-3 py-1 text-xs text-muted-foreground" data-testid="text-safe-mode">Safe mode: your panels are off</p>}
-      <div className="min-h-0 flex-1" data-testid="dock"><StableDock phase={phase} panes={PANE_COMPONENTS} stored={SAFE_MODE ? SafeModePanel : StoredPanelPane} /></div>
+      <div className="min-h-0 flex-1" data-testid="dock"><StableDock phase={phase} panes={PANE_COMPONENTS} stored={SAFE_MODE ? SafeModePanel : StoredPanelPane} file={SAFE_MODE ? SafeModeFile : FilePanelPane} /></div>
+      {phase !== "replay" && <OpenNewFilePanels phase={phase} />}
     </>
   );
+}
+
+/** A file panel's pane in safe mode: it does not run. */
+function SafeModeFile({ id }: { id: string }) {
+  return <p className="p-4 text-sm text-muted-foreground" data-testid="file-panel-safe-mode">Safe mode is on (?panels=off), so src/panels/{id}.tsx does not run.</p>;
+}
+
+/**
+ * v1: a file panel added to src/panels while the game is open opens as a pane at once (a hot update, no reload). One
+ * that appears before the page may open panes (the room still loading) waits until it may.
+ */
+function OpenNewFilePanels({ phase }: { phase: GamePhase }) {
+  const { entries } = useFilePanels();
+  const open = useOpenPane(phase);
+  const may = useAffordance("view.openPane").available;
+  const known = useRef<Set<string> | null>(null);
+  const pending = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const ids = entries.map(e => e.id);
+    if (known.current) for (const id of ids) if (!known.current.has(id)) pending.current.add(id);
+    for (const id of pending.current) if (!ids.includes(id)) pending.current.delete(id);
+    known.current = new Set(ids);
+    if (!may) return;
+    for (const id of pending.current) void open(filePane(id));
+    pending.current.clear();
+  }, [entries, may]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
 }
 
 /** A stored panel's pane in safe mode: it does not run. */

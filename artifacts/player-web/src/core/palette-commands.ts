@@ -10,7 +10,7 @@
  */
 import type { Command, PaletteFormPage, Performer } from "@workspace/ui-kit/core";
 import { AFFORDANCES, paletteFor, type AffordanceContext, type AffordanceId, type OpOutcome, type PaletteEntry } from "@workspace/v2-affordances";
-import { PANES, PANE_IDS, storedPane, type PaneId } from "@workspace/v2-client";
+import { filePane, PANES, PANE_IDS, storedPane, type PaneId } from "@workspace/v2-client";
 import type { z } from "zod/v4";
 import { requestForge } from "../panes/forge-request.ts";
 
@@ -47,6 +47,8 @@ export interface PaletteHost {
   noun?: { one: string; many: string };
   /** The viewer's stored panels (their one live list), so each enabled one can be opened as a pane. */
   storedPanels?: readonly { slug: string; title: string; enabled: boolean }[];
+  /** The file panels (src/panels/*.tsx) this copy of the app has; none in safe mode. */
+  filePanels?: readonly string[];
   /** Whether the page is in safe mode (?panels=off), and how to reload it in or out of it. */
   safeMode?: boolean;
   setSafeMode?(on: boolean): void;
@@ -89,6 +91,7 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
       options: () => [
         ...PANE_IDS.map(p => ({ id: p as string, label: PANES[p].title, detail: PANES[p].blurb, keywords: PANES[p].keywords })),
         ...openablePanels(host).map(p => ({ id: storedPane(p.slug), label: p.title, detail: "Your panel", keywords: [p.slug, "panel", "your panel"] })),
+        ...(host.filePanels ?? []).map(id => ({ id: filePane(id), label: id, detail: `File panel: src/panels/${id}.tsx`, keywords: [id, "file panel"] })),
       ],
       onPick: p => (panes ? (id === "view.openPane" ? panes.open(p) : panes.close(p)) : run(host, id, { pane: p })),
     };
@@ -169,6 +172,15 @@ export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Comm
       rows.push({
         id: `panel:${p.slug}`, human: { title: `Open your panel: ${p.title}`, tooltip: "One of your panels, as a pane." }, group: "view", keywords: [p.slug, "panel", "your panel"],
         typedOnly: true, performer: { kind: "submit", run: () => panes.open(storedPane(p.slug)) }, available: () => ({ ok: true }),
+      });
+    }
+  }
+  if (panes && ctx.game) {
+    // v1's "Open file panel: <id>", one per src/panels/*.tsx.
+    for (const id of host.filePanels ?? []) {
+      rows.push({
+        id: `file:${id}`, human: { title: `Open file panel: ${id}`, tooltip: `src/panels/${id}.tsx, as a pane.` }, group: "view", keywords: [id, "file panel"],
+        typedOnly: true, performer: { kind: "submit", run: () => panes.open(filePane(id)) }, available: () => ({ ok: true }),
       });
     }
   }

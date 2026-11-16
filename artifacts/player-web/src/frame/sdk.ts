@@ -12,17 +12,7 @@ import type { HookName, PagedAnswer } from "./protocol";
 import { bitsOf, ruleRefOf, valueOf } from "../sdk/rule";
 import type { MyRuleRow } from "../sdk/types";
 
-export { definePanel, PANEL_SDK, type PanelDefinition, type PanelManifest } from "../sdk/panel";
-export { useGameScope, type GameScope } from "../sdk/game";
-export { decodeState, familyOf, ruleRefOf, valueOf, variantOf, type GameRule } from "../sdk/rule";
-export { defaultRepOf, objectTypeOf, objectWord } from "../sdk/object-types";
-export type * from "../sdk/types";
-export type { MyRule } from "../sdk/hooks";
-// Drawing and working out, as the app's own panes do (pure: nothing here reads or sends anything).
-export { LineChart, CareScatter, slotColour } from "../components/charts";
-export { raceSeries, careKind, carePoints, CARE_KINDS, type Series, type CarePoint, type CareKind } from "../panes/chart-model";
-export { standing, whatIf, mutatorChoices, wireArgs, formError, type Standing, type WhatIf, type MutatorChoice } from "../panes/what-if-model";
-export { fmtBits, fmtNum, pointsText } from "@workspace/v2-views/format";
+export * from "../sdk/panel-kit";
 
 function useBridged(hook: HookName, args: unknown[]) {
   const w = bridge().watch(hook, args);

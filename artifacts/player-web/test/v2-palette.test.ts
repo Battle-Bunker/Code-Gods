@@ -126,3 +126,17 @@ test("a command's status reads as words: applied, or safe to send again (v1's 'C
   assert.equal(receiptWords({ applied: true, operation: "chat.send", result: null }), "That command (chat.send) went through.");
   assert.match(receiptWords({ applied: false, operation: null, result: null }), /safe to send it again/);
 });
+
+test("each file panel (src/panels/*.tsx) is a typed-only row, 'Open file panel: <id>', and the pane pick lists it (v1)", async () => {
+  const ctx = affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: true, spectator: false }], preset: "lines-beginner" } as never, header: { phase: "live", me: "m1" } as never });
+  const opened: string[] = [];
+  const host = { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, panes: { open: async (p: string) => { opened.push(p); }, close: async () => {} }, filePanels: ["my-bits"] };
+  const rows = paletteCommands(ctx, host as never);
+  const row = rows.find(r => r.human.title === "Open file panel: my-bits");
+  assert.ok(row && row.typedOnly && row.performer.kind === "submit");
+  await row.performer.run();
+  assert.deepEqual(opened, ["file:my-bits"]);
+  const open = rows.find(r => r.id === "view.openPane")!.performer;
+  assert.ok(open.kind === "form" && open.page.kind === "pick");
+  assert.ok((await open.page.options("")).some(o => o.id === "file:my-bits"));
+});
