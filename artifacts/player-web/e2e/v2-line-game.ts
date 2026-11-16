@@ -193,6 +193,15 @@ try {
         await page.getByTestId("button-open-pane-agents").click();
       }
       const row = agentsPane.locator("[data-testid^=row-agent-]").first();
+      // v1's energy bar ("full in 14 s") and in-pane power button: more power raises the agent's share.
+      await row.locator("[data-testid^=agent-energy-bar-]").waitFor({ timeout: 15_000 });
+      assert.match(await row.locator("[data-testid^=agent-energy-bar-]").innerText(), /full in \d+ s|full: it gets no more|no power|repaying/);
+      const more = row.locator("[data-testid^=button-agent-more-]");
+      if (await more.count()) {
+        const shareBefore = await row.locator("[data-testid^=text-agent-share-]").innerText();
+        await more.click();
+        await page.waitForFunction(([sel, was]) => document.querySelector(sel as string)?.textContent !== was, [`[data-testid="${await row.locator("[data-testid^=text-agent-share-]").getAttribute("data-testid")}"]`, shareBefore] as const, { timeout: 10_000 });
+      }
       await row.locator("[data-testid^=details-agent-code-] summary").click();
       const edit = row.locator("[data-testid^=button-agent-edit-]");
       await edit.waitFor({ timeout: 15_000 });
@@ -328,8 +337,8 @@ try {
     // line-q) has no element for the main part to read; one that scores shows it, badged.
     const scoring = !/not scoring/.test(await line.innerText());
     if (scoring) assert.ok(await line.locator('[data-ref][data-role="main"]').count() > 0, "the element the main part reads carries its badge");
-    // A line named by its equation ("meets y = x") is words, not a parameter letter.
-    assert.doesNotMatch(main.replace(/\by = −?x\b/g, "the line"), /\b[a-z]\b(?= (close|is|=))|\bstep \d/, `no parameter letters and no steps: ${main}`);
+    // Coordinates ("meets y = x at x = −2½") are words a player reads, not parameter letters ("k is", "t close").
+    assert.doesNotMatch(main, /\b[a-wz]\b(?= (close|is|=))|\bstep \d/, `no parameter letters and no steps: ${main}`);
     // 2. where it is: a distance with its direction or a size, on a ruler;
     // Where the number is, or (a line that does not score, e.g. a flat line for a crossing rule) why not.
     assert.match(main, /(\d+(\.\d+)?|[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]|[⁰¹²³⁴⁵⁶⁷⁸⁹]+⁄[₀₁₂₃₄₅₆₇₈₉]+) (above|below) |\bon [−\d]|on the whole number|off by |exactly|: [−\d≈]| = [−\d][^ ]* rounds to|never|not |\bno\b|undefined|cannot/i, `the main part says where the number is: ${main}`);
