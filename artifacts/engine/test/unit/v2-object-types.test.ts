@@ -5,7 +5,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { objectTypes } from "@workspace/v2-valuation";
-import { valueRecord } from "../../convex/v2/values.ts";
 import { familyOf } from "../../convex/v2/deal.ts";
 import { decode, encode, typeOf, valuesOf } from "../../convex/v2/world.ts";
 import { mutatorsOf } from "../../convex/v2/reads.ts";
@@ -26,7 +25,6 @@ test("a grid variant is read and written as a grid; its rules are valued by ener
   const f = familyOf("row-multiples");
   const key = ruleKey(type, variant, f.id, { k: 13 }, "none");
   const seat = [{ memberId: "m1", rule: { family: f.id, params: { k: 13 }, tieBreaker: null, ruleKey: key, contentHash: "" } }];
-  assert.equal(valueRecord(key), null, "no table");
   const [v] = valuesOf(decode(wire, "grid-4-d10"), "grid-4-d10", seat, 1);
   assert.ok(Number.isFinite(v!.rarityBits) && v!.rarityBits >= 0, `energy ${v!.rarityBits}`);
 });

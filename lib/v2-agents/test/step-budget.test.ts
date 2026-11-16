@@ -13,7 +13,6 @@ import { fromMC, lineQ, lineType, presets } from "@workspace/v2-linear";
 import { pairPresets, pairQ, pairType } from "@workspace/v2-pair";
 import { DEFAULT_LIMITS } from "@workspace/v2-sandbox";
 import { births } from "../src/births.ts";
-import { findValues } from "../src/harness.ts";
 import { CATALOGUE, runAct, sandboxes, startersFor } from "../src/index.ts";
 
 const boxes = sandboxes();
@@ -47,13 +46,11 @@ test("every shipped starter stays within 60% of the step limit on big objects, i
       if (seen.has(key)) continue;   // the presets deal a family several times with other parameters: one is enough
       seen.add(key);
       const rule = { family: r.family, params: r.params as Record<string, unknown>, tieBreaker: tie };
-      const values = findValues(variant.id, rule) ?? undefined;
       for (const language of ["typescript", "python"] as const) {
         let shipped; try { shipped = startersFor(r.family, language, tie); } catch { continue; }
         for (const a of shipped) for (const state of states) {
           const { record } = await runAct(await boxes.get(language), {
             type, variant, state, rule, program: { language, source: a.source }, seed: "1", energy: 500,
-            ...(values ? { values, value: { mine: 1, others: 1, points: 1 } } : {}),
           });
           acts++;
           if (record.outcome === "failed" || (record.steps ?? 0) > MARGIN) over.push(`${key} ${a.kind} (${language}) on ${type.encode(state)}: ${record.outcome === "failed" ? record.reason : `${record.steps} steps`}`);

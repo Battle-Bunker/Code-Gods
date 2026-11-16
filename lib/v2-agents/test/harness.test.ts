@@ -14,14 +14,14 @@ const player = (name: string, family: string, tieBreaker: string | null, params?
 
 test("two players on shared lines spend their budget, by view, and both rules are measured", async () => {
   const r = await runHarness(boxes, {
-    type: lineType, variant: lineZ, lines: 3, seed: "t", budget: 60,
+    type: lineType, variant: lineZ, lines: 3, seed: "t", budget: 200,
     players: [player("A", "power-hug", null, { k: 3 }), player("B", "multiples", null, { k: 3 })]
   });
   assert.equal(r.rules.length, 2);
   for (const s of r.spend) {
     const views = Object.values(s.reads).concat(Object.values(s.changes)).reduce((a, b) => a + b, 0);
     assert.ok(Math.abs(views - s.spent) < 1e-6, `${s.player}: energy by view adds up to what was spent`);
-    assert.ok(s.spent >= 60 || s.acts.committed + s.acts.skipped + s.acts.failed === 400, "a player stops when its budget is spent");
+    assert.ok(s.spent >= 200 || s.acts.committed + s.acts.skipped + s.acts.failed === 400, "a player stops when its budget is spent");
     assert.ok(s.acts.committed > 0);
   }
   const a = r.rules[0]!;

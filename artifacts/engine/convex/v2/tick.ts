@@ -19,7 +19,6 @@ import { birthDraws, decode, penaltyWeightOf, scopeOf, typeOf, variantOf } from 
 import { capOf, liveLines, offerable, pickLine, retiringCount } from "./turnover";
 import type { Turnover } from "./presets";
 import { actReadings } from "./disclose";
-import { penaltyMean, valueFnIn, valueRecord } from "./values";
 import { knownFamily } from "./deal";
 import { actLock, defaultLockRates, lockSeen, type LockWire } from "./lockWire";
 
@@ -125,25 +124,11 @@ export const tick = internalAction({
       const per = Math.max(1, Math.floor(PAIRS_PER_BATCH / Math.max(1, memberIds.length)));
       const batches = [];
       for (let i = 0; i < objectIds.length; i += per) batches.push(ctx.runQuery(ACT_INPUTS, { gameId, memberIds, objectIds: objectIds.slice(i, i + per) }));
-      // Each seat's view of the others (W2 #517): their rules and value functions, for the host's othersAfter.
-      // Values in this game (decision 24): the uniqueness correction at the game's object count, as the commit values.
-      const scope = scopeOf(snap);
+      // Each seat's view of the others (W2 #517): their rules, for the host's othersAfter, valued by their energy
+      // (energy.md). A family without the measure (none is dealt since decision 50) is left out.
       const ruleOf = (r: Snapshot["seats"][number]["rule"]) => ({ family: r.family, params: r.params as Record<string, unknown>, tieBreaker: r.tieBreaker });
-      // A seat's defence goal (v1, restored; call 1), as the host values it beside the rule: the commit's signed bits.
-      // One per seat a tick, shared by every host that values that seat.
-      const weight = penaltyWeightOf(snap);
-      const defences = new Map(snap.seats.map(seat => {
-        const d = seat.defence, r = d ? valueRecord(d.ruleKey) : null;
-        return [seat.memberId, d && r ? { defence: { family: d.family, params: d.params, values: { knots: r.knots, tail: r.tail }, mean: penaltyMean(d.ruleKey), weight } } : {}] as const;
-      }));
-      const defenceOf = (memberId: string) => defences.get(memberId)!;
-      const othersOf = new Map(snap.seats.map(seat => [seat.memberId, snap.seats.flatMap(o => {
-        if (o.memberId === seat.memberId) return [];
-        const vf = valueFnIn(o.rule.ruleKey, scope);
-        if (vf) return [{ rule: ruleOf(o.rule), values: vf, ...defenceOf(o.memberId) }];
-        // A rule scored by the dynamic measure has no table: the host values it by its energy (energy.md).
-        return knownFamily(o.rule.family)?.dynamic ? [{ rule: ruleOf(o.rule) }] : [];
-      })]));
+      const othersOf = new Map(snap.seats.map(seat => [seat.memberId, snap.seats.flatMap(o =>
+        o.memberId !== seat.memberId && knownFamily(o.rule.family)?.dynamic ? [{ rule: ruleOf(o.rule) }] : [])]));
       const told = new Map<string, ActInput>();
       for (const rows of await Promise.all(batches)) for (const { memberId, objectId, ...input } of rows) told.set(`${memberId}:${objectId}`, input);
       const acts = [];
@@ -166,15 +151,13 @@ export const tick = internalAction({
         // Its income (W2: a starter climbs within what it earns), recorded with the act so a replay budgets alike.
         const income = agentIncome(econ.powerPerSecond, agent.share);
         const input = { ...(exact.value ? { ...exact, value: reads.value(exact.value) } : exact), income };
-        // The seat's value function (decision 23), as the deal recorded it by ruleKey: replay re-derives it from the bundle.
-        const vf = valueFnIn(seat.rule.ruleKey, scope);
         const lv = locking ? lockView.get(number)! : null;
         const seenLocks = lv ? { world, nextLock: lv.next, live: lv.live.map(lockSeen) } : null;
         const { record } = await runAct(sandbox, {
           type: typeOf(snap.variant), variant, state: decode(local.get(number) ?? s.state, snap.variant),
           rule: ruleOf(seat.rule),
           program: { language: agent.language, source: agent.source }, seed, energy, object: number, liveObjects,
-          ...input, ...(vf ? { values: vf, ...defenceOf(seat.memberId) } : {}), others: othersOf.get(seat.memberId)!,
+          ...input, others: othersOf.get(seat.memberId)!,
           // Any held state, the object's own included: v1's uniqueness, "a transformation onto any existing value
           // (including the object's own) fails entirely".
           occupied: e => holder.has(e), disclosed: reads.disclosed,

@@ -118,7 +118,7 @@ export function useMyRule(): MyRule | undefined {
   return useMemo(() => {
     if (!row || !header) return undefined;
     const rule = ruleRefOf(row, header.variant);
-    const value = valueOf(row.value?.knots, row.value?.tail, (row.value as { uniqueness?: never } | undefined)?.uniqueness);
+    const value = valueOf();
     return { row, rule, value, bits: bitsOf(value) };
   }, [row, header?.variant]); // eslint-disable-line react-hooks/exhaustive-deps
 }

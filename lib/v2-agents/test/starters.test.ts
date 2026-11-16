@@ -14,7 +14,6 @@ import assert from "node:assert/strict";
 import { isGridTypeFamily } from "../src/grid-starters.ts";
 import { readFileSync } from "node:fs";
 import { evaluateSite, q, Qn, scoreToWire, type Variant } from "@workspace/v2-core";
-import { valueLookup } from "@workspace/v2-valuation";
 import { firstAgentShare, GRIDS_BEGINNER_ECONOMY, LINES_BEGINNER_ECONOMY, summonPriceScale } from "@workspace/v2-economy";
 import { fromMC, lineType, lineQ, lineZ, presets, type LineState } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
@@ -22,7 +21,6 @@ import {
   BEGINNER_STARTING_ENERGY, GRID_BEGINNER_STARTING_ENERGY, births, CATALOGUE, check, stale, undescribed, EngineHost, exampleFor, runAct, sandboxes, scoreSource, shippedAgents, shippedPath,
   startersFor, summonBits, type ShippedAgent,
 } from "../src/index.ts";
-import { findValues } from "../src/harness.ts";
 
 const boxes = sandboxes();
 after(() => boxes.close());
@@ -122,37 +120,6 @@ test("both languages make the same moves, and no shipped agent fails on newborn 
         records.push(rest);
       }
       assert.deepEqual(records[1], records[0], `${ts.family} ${ts.title}: the languages differ on ${lineType.encode(state)}`);
-    }
-  }
-});
-
-test("each example gains value: on some newborn line its bits rise and the main part never falls (owner decision 23)", async () => {
-  for (const e of LIVE) {
-    const f = familyOf(e.family), params = paramsOf(e.family), v = variantOf(e.family);
-    for (const tb of Object.keys(e.tieBreakers).filter(tb => f.tieBreakers.some(t => t.id === tb))) {
-      const rule = { family: e.family, params, tieBreaker: tb };
-      const vf = findValues(v.id, rule);
-      if (!vf) continue;   // not valued yet: the score test above still checks it
-      const look = valueLookup(vf);
-      const utility = (s: LineState) => evaluateSite(lineType, f, params, s, v, 0, tb).score;
-      const a = exampleFor(e.family, tb, "typescript")!;
-      let rose = false;
-      for (const start of births(lineType, v, `climb-${e.family}`, 4)) {
-        let s = start;
-        for (let t = 0; t < 25; t++) {
-          const { record, state } = await runAct(await boxes.get("typescript"), {
-            type: lineType, variant: v, state: s, rule, program: program(a), seed: String(t), energy: 1000,
-          });
-          assert.notEqual(record.outcome, "failed", `${e.family}/${tb} on ${lineType.encode(s)}: ${record.reason}`);
-          if (record.outcome === "skipped") break;
-          s = state;
-        }
-        const u0 = utility(start), u1 = utility(s);
-        assert.ok(u1 !== null || u0 === null, `${e.family}/${tb}: a scored line lost its score on ${lineType.encode(start)}`);
-        if (u0 !== null && u1 !== null) assert.ok(Qn.cmp(u1[0]!, u0[0]!) >= 0, `${e.family}/${tb}: the main part fell on ${lineType.encode(start)}`);
-        if (look(u1).bits > look(u0).bits) rose = true;
-      }
-      assert.ok(rose, `${e.family}/${tb}: no line's bits rose`);
     }
   }
 });

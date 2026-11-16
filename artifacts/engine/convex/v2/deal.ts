@@ -1,7 +1,6 @@
 /**
- * The deal (spec §7.6, integration plan §4.3): which rule each seat holds. A dealt rule is a family's main layer plus
- * one of its tie-breakers, with parameters from the family's dealable grid, and is dealt only when it has a value
- * function (owner decision 23). Pure: the lobby (ops/game.ts) persists the result.
+ * The deal (spec §7.6, integration plan §4.3): which rule each seat holds. A dealt rule is a family scored by the dynamic
+ * energy measure (owner decision 50) with parameters from its dealable list. Pure: the lobby (ops/game.ts) persists it.
  *
  * Rotation (copied and cleaned from v1's lib/dealRotation.ts, docs/beginner-pool.md §6): when a room plays again with
  * the same players and the same deal key, the last game's rules pass one seat along, so over as many games as there
@@ -21,13 +20,12 @@
  */
 import { canonicalJson, hashHex, rng, ruleLayers, type Rng, type RuleFamily } from "@workspace/v2-core";
 import type { BidDealer } from "@workspace/v2-economy";
-import { hasStarters, pairPmi, unopposedDirections, type UnopposedDirection } from "@workspace/v2-agents/pure";
+import { hasStarters } from "@workspace/v2-agents/pure";
 import { findVariant, objectTypes, ruleKey } from "@workspace/v2-valuation";
 import { pairClashes, pairSeatingCost } from "@workspace/v2-pair";
-import { valueHead } from "./valuesHead.ts";
 import type { Preset } from "./presets.ts";
 
-/** A rule as dealt: enough to evaluate it (family, params, tie-breaker) and to find its value function. */
+/** A rule as dealt: enough to evaluate it (family, params, tie-breaker). */
 export interface DealtRule { family: string; params: unknown; tieBreaker: string | null; ruleKey: string; contentHash: string }
 
 /** Every object type's families, by id (ids are unique across types: test/unit/v2-deal.test.ts checks it). */
@@ -44,7 +42,7 @@ export const keepsParams = (id: string): boolean => FAMILIES.get(id)?.keepsParam
 
 const pools = new Map<string, DealtRule[]>();
 /**
- * Every rule the preset may deal: its pool's (family, parameters, tie-breaker) with a value function (decision 23)
+ * Every rule the preset may deal: its pool's (family, parameters) scored by energy (decision 50)
  * and shipped starters (a player, or a practice partner, must be able to summon one: integration plan §5.2).
  */
 export function dealablePool(preset: Preset): DealtRule[] {
@@ -57,23 +55,18 @@ function buildPool(preset: Preset): DealtRule[] {
   const out: DealtRule[] = [];
   for (const r of preset.pool) {
     if (!FAMILIES.has(r.family) || !hasStarters(r.family)) continue;
-    // A dynamic family (RuleFamily.dynamic) is valued by the energy estimate, not a table: always dealable, main part only.
-    if (FAMILIES.get(r.family)!.dynamic) {
-      out.push({ family: r.family, params: r.params, tieBreaker: null, ruleKey: ruleKey(type, variant, r.family, r.params, "none"), contentHash: hashHex(canonicalJson({ dynamic: r.family, params: r.params })) });
-      continue;
-    }
-    for (const tb of r.tieBreakers) {
-      const key = ruleKey(type, variant, r.family, r.params, tb ?? "none");
-      const vf = valueHead(key);
-      if (vf) out.push({ family: r.family, params: r.params, tieBreaker: tb, ruleKey: key, contentHash: vf.contentHash });
-    }
+    // Only a family scored by the energy estimate (RuleFamily.dynamic; decision 50) is dealt, main part only. A family
+    // valued by a table (the two-line systems, the coloured boards) has none since the tables were deleted: its preset is
+    // withheld until its rules are restated as utilities.
+    if (!FAMILIES.get(r.family)!.dynamic) continue;
+    out.push({ family: r.family, params: r.params, tieBreaker: null, ruleKey: ruleKey(type, variant, r.family, r.params, "none"), contentHash: hashHex(canonicalJson({ dynamic: r.family, params: r.params })) });
   }
   return out;
 }
 
 /**
- * Whether a preset can be played now: at least one of its rules has a value function (decision 23). A preset whose
- * value functions have not landed yet (a new object type) is withheld: not listed, and refused by room.create and
+ * Whether a preset can be played now: at least one of its rules is dealable (scored by energy, with starters). A preset
+ * with none (the two-line systems and the coloured boards since the tables went, 17 Nov) is withheld: not listed, and refused by room.create and
  * room.settings.
  */
 export const playable = (preset: Preset): boolean => dealablePool(preset).length > 0;
@@ -132,7 +125,7 @@ export const dealRng = (seed: string): Rng => rng(seed, "deal");
  * cheapest.
  */
 export function dealFrom(pool: readonly DealtRule[], seats: number, r: Rng, clashes?: (rules: readonly DealtRule[]) => number, entryTries = 1): DealtRule[] {
-  if (pool.length === 0) throw new Error("No rule of this preset is dealable (none has a value function): nothing can be dealt");
+  if (pool.length === 0) throw new Error("No rule of this preset is dealable (none is scored by energy): nothing can be dealt");
   const byFamily = new Map<string, DealtRule[]>();
   for (const x of pool) byFamily.set(x.family, [...(byFamily.get(x.family) ?? []), x]);
   const families = [...byFamily.keys()];
@@ -173,65 +166,6 @@ export function practiceDeal(pool: readonly DealtRule[], kinds: readonly SeatKin
   return freshDeal(pool, kinds.length, seed, variant);
 }
 
-// ---------------------------------------------------------------- the dealing trial, step 2 (logging only)
-
-/** A pair the W table has not read counts as this much PMI, in bits (the spec lead's policy). */
-export const MISSING_PMI = 1.5;
-/** Seeded candidate tables the policy weighs (v1's fair-aligned dealer: the best of 32). */
-export const POLICY_CANDIDATES = 32;
-const ruleId = (r: DealtRule) => `${r.family}/${r.tieBreaker}`;
-
-/**
- * v1's fair-aligned score of a table on the W table (lib/v2-agents pairPmi, depth-averaged PMI in bits): the mean
- * pairwise W minus the spread of each seat's mean W to the rest of the table; a missing pair counts MISSING_PMI.
- */
-export function fairAlignedScore(variant: string, deal: readonly DealtRule[]): number {
-  const n = deal.length;
-  if (n < 2) return 0;
-  const w = (a: DealtRule, b: DealtRule) => pairPmi(variant, ruleId(a), ruleId(b))?.pmi ?? MISSING_PMI;
-  let pairSum = 0;
-  const perSeat = deal.map((a, i) => deal.reduce((t, b, j) => (j === i ? t : t + w(a, b)), 0) / (n - 1));
-  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) pairSum += w(deal[i]!, deal[j]!);
-  const mean = pairSum / (n * (n - 1) / 2), avg = perSeat.reduce((t, x) => t + x, 0) / n;
-  return mean - Math.sqrt(perSeat.reduce((t, x) => t + (x - avg) ** 2, 0) / n);
-}
-
-/** What the policy would have dealt, and why (stored on the game; the deal itself is unchanged until the coordinator turns it on). */
-export interface PolicyChoice {
-  wouldDeal: string[];
-  unopposed: UnopposedDirection[];
-  score: number;
-  /** Why the choice is not a qualifying table: no W table for the variant (the lottery), or none of the candidates qualified. */
-  fallback?: string;
-}
-
-/**
- * The dealing trial's step 2 (the spec lead's policy, logging only): POLICY_CANDIDATES seeded tables (the seating rule
- * honoured). A table qualifies with no strong
- * unopposed shared direction and at most one weak; among those, the fewest unopposed directions, ties to the higher
- * fair-aligned score. None qualifying: the best by the same order, with the reason. No W table: the lottery's first.
- * Drawn from its own stream, so the real deal is untouched.
- */
-export function policyDeal(pool: readonly DealtRule[], kinds: readonly SeatKind[], seed: string, variant: string): PolicyChoice {
-  const r = rng(seed, "deal-policy");
-  const tables = Array.from({ length: POLICY_CANDIDATES }, () => dealFrom(pool, kinds.length, r, rules => seatingCost(variant, rules), entryTriesOf(variant)));
-  const ids = [...new Set(pool.map(ruleId))];
-  const measured = ids.some((a, i) => ids.some((b, j) => j > i && pairPmi(variant, a, b) !== null));
-  const shaped = tables.map(deal => {
-    const unopposed = unopposedDirections(variant, deal.map(ruleId));
-    const strong = unopposed.filter(u => u.strength === "strong").length, weak = unopposed.length - strong;
-    return { deal, unopposed, strong, weak, score: measured ? fairAlignedScore(variant, deal) : 0 };
-  });
-  const pick = (cs: typeof shaped) => cs.reduce((best, c) => (c.unopposed.length < best.unopposed.length || (c.unopposed.length === best.unopposed.length && c.score > best.score) ? c : best));
-  const out = (c: typeof shaped[number], fallback?: string): PolicyChoice =>
-    ({ wouldDeal: c.deal.map(x => x.ruleKey), unopposed: c.unopposed, score: c.score, ...(fallback ? { fallback } : {}) });
-  if (!measured) return out(shaped[0]!, `no W table for ${variant}: the lottery`);
-  const qualifying = shaped.filter(c => c.strong === 0 && c.weak <= 1);
-  if (qualifying.length) return out(pick(qualifying));
-  const best = shaped.reduce((b, c) => (c.strong < b.strong || (c.strong === b.strong && c.weak < b.weak) || (c.strong === b.strong && c.weak === b.weak && c.score > b.score) ? c : b));
-  return out(best, `none of ${shaped.length} tables had no strong and at most one weak unopposed direction`);
-}
-
 /**
  * The dealer as the bid mechanism reaches it (lib/v2-economy dealWithBids): a winner is dealt one of their family's
  * dealable rules; everybody else is dealt fresh from the rules of the families nobody won, from the same stream, so
@@ -261,7 +195,7 @@ export function offers(pool: readonly DealtRule[]) {
   const out: { family: string; title: string; card: string; top: number }[] = [];
   for (const id of [...new Set(pool.map(r => r.family))]) {
     const rules = pool.filter(r => r.family === id), f = familyOf(id);
-    const top = Math.max(...rules.map(r => valueHead(r.ruleKey)?.measuredTo ?? 0));
+    const top = 0;   // a family's scale: value tables measured it; energy has no fixed scale (decision 50)
     out.push({ family: id, title: f.title, card: f.card(rules[0]!.params, null), top: Math.round(top * 10) / 10 });
   }
   return out;
@@ -312,7 +246,7 @@ export function rotatedDeal(members: readonly string[], dealKey: string, history
 
 export interface RuleView { title: string; card: string; depends: string[]; primary: string; layers: string[] }
 
-/** What the player is shown about a dealt rule: its card and layers (its value function is `valueRecord(ruleKey)`). */
+/** What the player is shown about a dealt rule: its card and layers . */
 export function ruleView(rule: DealtRule): RuleView {
   const f = knownFamily(rule.family);
   if (!f) return { title: "A retired rule", card: "This rule was retired on 17 November 2026 (the rules are now one number each); it scores nothing.", depends: [], primary: "si", layers: [] };
@@ -321,19 +255,19 @@ export function ruleView(rule: DealtRule): RuleView {
 
 // ---------------------------------------------------------------- defence goals (v1, restored; owner-decisions call 1)
 
-/** A defence goal as dealt: one of the variant's penalty families, its parameters, its value function's key and card. */
+/** A defence goal as dealt: one of the variant's penalty families, its parameters, its key and card. */
 export interface DealtDefence { family: string; params: unknown; ruleKey: string; card: string }
 
 /**
- * Every penalty the variant could deal (ObjectType.penalties minus `excluded`), each instance that has a value
- * function, grouped by family. Empty for a type without penalties (lines).
+ * Every penalty the variant could deal (ObjectType.penalties minus `excluded`), each instance, grouped by family (the room
+ * refuses defence goals while every rule is scored by energy: lobby.ts). Empty for a type without penalties (lines).
  */
 export function defencePool(variantId: string, excluded: readonly string[] = []): DealtDefence[][] {
   const { type, variant } = findVariant(variantId);
   return (type.penalties ?? []).filter(f => !excluded.includes(f.id)).map(f =>
     (f.dealable(variant) as unknown[]).flatMap(params => {
       const key = ruleKey(type, variant, f.id, params, "none");
-      return valueHead(key) ? [{ family: f.id, params, ruleKey: key, card: f.card(params as never, null) }] : [];
+      return [{ family: f.id, params, ruleKey: key, card: f.card(params as never, null) }];
     })).filter(g => g.length > 0);
 }
 

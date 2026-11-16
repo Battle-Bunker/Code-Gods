@@ -1,5 +1,5 @@
 # Adding Rows · Simple
-# Your rule: line a + line b = line c, with line c big.
+# Your rule: two rows (or columns) adding up to a third, the third big.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 # other players' rarity there added up, so a change that suits your rule but spoils the board for the others can

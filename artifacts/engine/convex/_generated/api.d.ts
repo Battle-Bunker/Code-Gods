@@ -138,8 +138,6 @@ import type * as v2_tick from "../v2/tick.js";
 import type * as v2_turnFence from "../v2/turnFence.js";
 import type * as v2_turnover from "../v2/turnover.js";
 import type * as v2_validators from "../v2/validators.js";
-import type * as v2_values from "../v2/values.js";
-import type * as v2_valuesHead from "../v2/valuesHead.js";
 import type * as v2_variants from "../v2/variants.js";
 import type * as v2_world from "../v2/world.js";
 import type * as v2Http from "../v2Http.js";
@@ -282,8 +280,6 @@ declare const fullApi: ApiFromModules<{
   "v2/turnFence": typeof v2_turnFence;
   "v2/turnover": typeof v2_turnover;
   "v2/validators": typeof v2_validators;
-  "v2/values": typeof v2_values;
-  "v2/valuesHead": typeof v2_valuesHead;
   "v2/variants": typeof v2_variants;
   "v2/world": typeof v2_world;
   v2Http: typeof v2Http;

@@ -196,6 +196,8 @@ class Offer:
             "mutators": list(r["mutators"]) if r.get("mutators") is not None else None,
             # The defence goal dealt beside the rule (grids, when the room deals them): None when there is none.
             "defence": Record(dict(r["defence"])) if r.get("defence") else None,
+            # Scored by the dynamic energy measure (no table of scores): others_after says your own energy too.
+            "energy": r.get("energy") is True,
         })
 
     def my_score(self):

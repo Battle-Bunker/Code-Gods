@@ -6,11 +6,10 @@ import { OpFailure } from "@workspace/v2-affordances";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { MAX_MEMBERS, MAX_PLAYERS, normaliseCode, userById } from "./access";
-import { bidDealer, playable, dealDefence, defencePool, isGridVariant, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, policyDeal, practiceDeal, type SeatKind, rotatedDeal, ruleView, hasSeatingRule, seatingClashes, type DealtRule, type PastDeal } from "./deal.ts";
+import { bidDealer, playable, dealDefence, defencePool, isGridVariant, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, practiceDeal, type SeatKind, rotatedDeal, ruleView, hasSeatingRule, seatingClashes, type DealtRule, type PastDeal } from "./deal.ts";
 import { dealWithBids, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
 import { isPreset, presetOf, TURNOVER_DEFAULTS, type Preset, type PresetBid, type Turnover } from "./presets.ts";
 import { DEFAULT_PENALTY_WEIGHT, typeOf } from "./world.ts";
-import { valueHead } from "./valuesHead.ts";
 import { bidders } from "./bids.ts";
 import { summonPracticePartners } from "./agents.ts";
 import { makeFunctionReference } from "convex/server";
@@ -20,7 +19,6 @@ import { ensureWarm } from "./readiness.ts";
 import { dealHistory, membersOf, roomPool, rotationFor } from "./roomDeal.ts";
 export { membersOf, roomPool, rotationFor };
 import { bornAtStart, DEFAULT_PAUSE_SECONDS, endGame } from "./loop.ts";
-import { unopposedDirections } from "@workspace/v2-agents/pure";
 
 const PLANNING_ENDS = makeFunctionReference<"mutation", { gameId: Id<"v2Games"> }>("v2/loop:planningEnds");
 const AI_TURN = makeFunctionReference<"action", { gameId: Id<"v2Games">; memberId: Id<"v2Members">; n: number }>("v2/aiTurn:turn");
@@ -391,18 +389,12 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     planningEndsAt: now + settings.planningSeconds * 1000 / timeScale, dealKey, rotates: wins.length === 0 && !again,
     // Drawn once, at the start (v1); in halfLife mode it is never disclosed while live.
     endAtWorld: drawEnd(settings.durationMode, settings.worldSeconds),
-    // The dealing trial, step 1: what this table could climb together unopposed (private; deal.ts will use it later).
-    unopposed: unopposedDirections(preset.variant, rules.map(r => `${r.family}/${r.tieBreaker}`)),
-    // The dealing trial, step 2 (logging only): what the spec lead's policy would have dealt this table, beside the
-    // real deal, for fresh and practice deals (a rotation, a rematch or a won bid deals what it must).
-    ...(!again && !rotation && wins.length === 0
-      ? { unopposedPolicy: policyDeal(roomPool(room), seats.map(m => m.kind as SeatKind), seed, preset.variant) } : {}),
     // The seating rule's pairs this deal left (grids; deal.ts): forbidden ones (none unless the pool is too small) and aligned ones.
     ...(hasSeatingRule(preset.variant) ? { seating: { clashes: seatingClashes(preset.variant, rules), aligned: [] } } : {}),
     ...(rotation ? { rotation } : {}),
     artefacts: seats.map((m, i) => ({
       memberId: m._id, ruleKey: rules[i]!.ruleKey, contentHash: rules[i]!.contentHash,
-      ...(defence ? { defence: { ruleKey: defence[i]!.ruleKey, contentHash: valueHead(defence[i]!.ruleKey)!.contentHash } } : {}),
+      ...(defence ? { defence: { ruleKey: defence[i]!.ruleKey, contentHash: "" } } : {}),
     })),
   });
   for (const [i, m] of seats.entries()) {

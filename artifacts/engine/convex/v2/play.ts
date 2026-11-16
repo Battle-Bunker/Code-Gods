@@ -7,7 +7,6 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { query, type QueryCtx } from "../_generated/server";
-import { slimKnots, valueFnIn, type ValueScope } from "./values";
 import { holdingRows, seatRules } from "./loop";
 import { keepsParams, knownFamily } from "./deal";
 import { decode, encode, penaltyWeightOf, scopeOf, typeOf, valuesOf, valueWithParts, variantOf } from "./world";
@@ -24,13 +23,6 @@ import { disclosed, disclosesNoise, readingNoise } from "./disclose";
 import { knownOf, lookPrice, readPriceWeightOf, readsKnowledge } from "./knowledge";
 
 
-/** The rule's value function, as valueLookup takes it (knots and tail), with the game's uniqueness correction. */
-function valueFn(ruleKey: string, scope: ValueScope) {
-  const f = valueFnIn(ruleKey, scope);
-  if (!f) return null;   // a rule valued by the dynamic measure (energy.md) has no table
-  return { ...f, knots: slimKnots(f.knots), tail: f.tail as unknown };
-}
-
 export const myRule = query({
   args: { gameId: v.string() },
   returns: myRuleV,
@@ -38,7 +30,7 @@ export const myRule = query({
     const { rule: r, game } = await requireSeat(ctx, gameId);
     return {
       family: r.family, title: r.title, params: r.params, layers: r.layers, tieBreaker: r.tieBreaker, card: r.card, depends: r.depends, primary: r.primary,
-      ruleKey: r.ruleKey, contentHash: r.contentHash, drifts: r.drifts ?? 0, driftedAt: r.driftedAt ?? null, keepsParams: keepsParams(r.family), previous: r.previous ?? null, value: valueFn(r.ruleKey, scopeOf(game)), bid: r.bid ?? null, handicap: r.handicap ?? null,
+      ruleKey: r.ruleKey, contentHash: r.contentHash, drifts: r.drifts ?? 0, driftedAt: r.driftedAt ?? null, keepsParams: keepsParams(r.family), previous: r.previous ?? null, value: null, bid: r.bid ?? null, handicap: r.handicap ?? null,
     };
   },
 });
