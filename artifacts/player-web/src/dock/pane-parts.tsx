@@ -9,7 +9,8 @@ import { useAffordance } from "@workspace/v2-affordances/react";
 import { PANES, PANE_IDS, isPaneId, paneTitle, storedSlugOf, type GamePhase, type OpenPane } from "@workspace/v2-client";
 import type { Place, ViewState } from "@workspace/v2-affordances";
 import { ErrorBoundary, type ErrorFallbackProps } from "@/components/error-boundary";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { api, useLive } from "@/site/lib/convex";
 import { objectWord, useGame } from "@/sdk";
 import { useRuntime } from "@/core/affordance-runtime";
@@ -108,20 +109,35 @@ export function PaneMenu({ pane }: { pane: string }) {
   const name = usePaneName();
   const aiOff = !!useRuntime().context.room?.aiOff;
   const maximise = useContext(MaximiseContext);
+  const [shown, setShown] = useState(false);
   const others = PANE_IDS.filter(id => !open.some(p => p.pane === id) && PANES[id].phases.includes(phase) && id !== "object" && !(aiOff && id === "assistant"));
+  // v1's panel menu was a combobox (stored-panels): it opens with the filter focused, typing narrows it, Enter takes
+  // the first match, Esc closes it.
+  const pick = (run: () => unknown) => () => { setShown(false); void run(); };
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+    <Popover open={shown} onOpenChange={setShown}>
+      <PopoverTrigger asChild>
         <button type="button" className="p-1 text-muted-foreground hover:text-foreground" aria-label={`Options for ${name(pane)}`} data-testid={`button-pane-menu-${pane}`} onPointerDown={own}><MoreHorizontal className="h-4 w-4" /></button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-[14rem]">
-        {PLACES.map(p => <DropdownMenuItem key={p.place} disabled={!move.available} onSelect={() => void ops.open(pane, p.place)}>{p.label}</DropdownMenuItem>)}
-        {maximise && <DropdownMenuItem onSelect={() => maximise.toggle(pane)} data-testid={`button-maximise-pane-${pane}`}>{maximise.isMaximised(pane) ? "Restore the other panes" : "Maximise"}</DropdownMenuItem>}
-        <DropdownMenuItem disabled={!close.available} onSelect={() => void ops.close(pane)} data-testid={`button-close-pane-${pane}`}>Close</DropdownMenuItem>
-        {others.length > 0 && <><DropdownMenuSeparator /><DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Open another pane</DropdownMenuLabel></>}
-        {others.map(id => <DropdownMenuItem key={id} onSelect={() => void ops.open(id)} data-testid={`button-open-pane-${id}`}>{name(id)}</DropdownMenuItem>)}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[16rem] p-0" onPointerDown={own}>
+        <Command>
+          <CommandInput placeholder="Type a pane or an action…" data-testid={`input-pane-menu-${pane}`} autoFocus />
+          <CommandList>
+            <CommandEmpty>Nothing matches.</CommandEmpty>
+            <CommandGroup heading={name(pane)}>
+              {PLACES.map(p => <CommandItem key={p.place} value={p.label} disabled={!move.available} onSelect={pick(() => ops.open(pane, p.place))}>{p.label}</CommandItem>)}
+              {maximise && <CommandItem value={maximise.isMaximised(pane) ? "Restore the other panes" : "Maximise"} onSelect={pick(() => maximise.toggle(pane))} data-testid={`button-maximise-pane-${pane}`}>{maximise.isMaximised(pane) ? "Restore the other panes" : "Maximise"}</CommandItem>}
+              <CommandItem value="Close" disabled={!close.available} onSelect={pick(() => ops.close(pane))} data-testid={`button-close-pane-${pane}`}>Close</CommandItem>
+            </CommandGroup>
+            {others.length > 0 && (
+              <CommandGroup heading="Open another pane">
+                {others.map(id => <CommandItem key={id} value={`open ${name(id)} ${id}`} onSelect={pick(() => ops.open(id))} data-testid={`button-open-pane-${id}`}>{name(id)}</CommandItem>)}
+              </CommandGroup>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
 
