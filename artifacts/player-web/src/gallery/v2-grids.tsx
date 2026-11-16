@@ -9,12 +9,21 @@
  */
 import type { ReactNode } from "react";
 import { applyCall, evaluateObject, isInvalid, rng, walkStep, type RuleFamily, type Score } from "@workspace/v2-core";
-import { grid4, gridType, type GridState } from "@workspace/v2-grid";
+import { grid4, gridPresets, gridType, type GridState } from "@workspace/v2-grid";
 import { pickExamples, valueFor } from "./values";
 import { annotate, bitsLine, CompactFace, defaultRep, ExpandedFace, GoalCard, MoveLine, ObjectChip, RepView, type RuleRef } from "@workspace/v2-views";
 
 type Family = RuleFamily<GridState, unknown>;
-const ruleOf = (family: Family): RuleRef<GridState, unknown> => ({ type: gridType, family, params: family.dealable(grid4)[0], variant: grid4 });
+/** The secondaries a preset deals with this family (its first dealt parameters), or the family's own when none deals it. */
+function dealtOf(family: Family): { params: unknown; secondaries: readonly string[] } {
+  const r = gridPresets.flatMap(p => p.rules).find(x => x.family === family.id);
+  return r ? { params: r.params, secondaries: r.tieBreakers } : { params: family.dealable(grid4)[0], secondaries: family.tieBreakers.map(t => t.id) };
+}
+/** The family dealt with its k-th dealt secondary (the gallery's example boards take them in turn). */
+const ruleOf = (family: Family, k = 0): RuleRef<GridState, unknown> => {
+  const d = dealtOf(family);
+  return { type: gridType, family, params: d.params, variant: grid4, tieBreaker: d.secondaries.length ? d.secondaries[k % d.secondaries.length]! : null };
+};
 
 /** A hand-written board for the board-only views: every representation has something to show on it. */
 const SHOWN: GridState = gridType.decode("3113/0480/2222/9003");
@@ -22,13 +31,14 @@ const SHOWN: GridState = gridType.decode("3113/0480/2222/9003");
 /** Boards from a seeded walk: the best, a middling and a low one by the rule's bits (its first tie-breaker's value function). */
 function exampleBoards(family: Family): GridState[] {
   const r = rng(`gallery:${family.id}`);
-  const params = family.dealable(grid4)[0];
-  const value = valueFor(grid4.id, family.id, params, family.tieBreakers[0]?.id);
+  const rule = ruleOf(family);
+  const params = rule.params;
+  const value = valueFor(grid4.id, family.id, params, rule.tieBreaker);
   const met: { state: GridState; score: Score }[] = [];
   let s = gridType.origin(grid4);
   for (let i = 0; i < 4000; i++) {
     s = walkStep(gridType, grid4, s, r);
-    const score = evaluateObject(gridType, family, params, s, grid4).score;
+    const score = evaluateObject(gridType, family, params, s, grid4, rule.tieBreaker).score;
     if (score !== null) met.push({ state: s, score });
   }
   const boards = pickExamples(met, value);
@@ -81,12 +91,13 @@ function Storyboard() {
 }
 
 function FamilySection({ f }: { f: Family }) {
-  const rule = ruleOf(f);
+  const { secondaries } = dealtOf(f);
   return (
     <section className="g-rule" data-family={f.id}>
       <h3>{f.title}</h3>
-      <p className="g-note">{f.card(rule.params, f.tieBreakers[0]?.id ?? null)}</p>
-      {exampleBoards(f).map(s => {
+      <p className="g-note">Dealt with one of: {secondaries.map(id => f.tieBreakers.find(t => t.id === id)?.title ?? id).join("; ") || "no secondary"}. Each example board below is shown with the next of them.</p>
+      {exampleBoards(f).map((s, k) => {
+        const rule = ruleOf(f, k);
         const a = annotate(rule, s);
         return (
           <div key={gridType.encode(s)} className="g-row" data-grid={gridType.encode(s)}>

@@ -36,6 +36,8 @@ export interface RenderProps<D extends SceneData = SceneData> {
   readonly project?: (ref: ElementRef, reps: readonly string[]) => readonly ElementRef[];
   /** Which part of the viewer's rule reads an element (its identity badge: ● main part, ◆ tie-breaker), if any. */
   readonly roleOf?: (ref: ElementRef) => "main" | "tb" | null;
+  /** The depth of the part of the viewer's rule a mark belongs to (0: main part), if known: its glyph is partGlyph(depth). */
+  readonly markDepth?: (m: Mark) => number | null;
   /** Words for an element ("gradient"), for titles and screen readers. */
   readonly labelOf: (ref: ElementRef) => string;
 }
