@@ -9,6 +9,10 @@ Labels: **built** (in the code and tested), **seen narrowly** (measured under th
   (seen narrowly: one game, four seats, local backend). The R8 page-query gate's `play:myRule`, `play:object` and
   `locks:ofObject` take about 90 ms against 50 ms in the 1,000-object fixture; `develop` before the cutover measured
   102–113 ms on the same machine, so it predates this work. Open.
+- **Energy spread at small sizes** (the coordinator, from the rules mirror): y = 2x + 3 under Power Hug (k = 3) read
+  2.0 to 5.6 around 3.6 across estimates. Small states have few same-size starts and many reach u* in one cheap move,
+  so the relative jitter is large where the energy is small. Guess: harmless for points (small numbers either way); if
+  it matters, raise K for states whose read parameters are short, which costs little there.
 - **Known live-test notes** (full `test:v2` on 17 Nov): the assistant's queue test ends in `budget` (the room's
   assistant budget runs out on its slow sandbox loops; nothing in the cutover touches it). Several others failed only
   in the long run and pass alone (timing).
@@ -21,7 +25,10 @@ Labels: **built** (in the code and tested), **seen narrowly** (measured under th
   2. **Step 7.** Delete what only the tables needed: `lib/v2-valuation` (value files, `gen-v2-values`, tail formulas,
      the 35-bit gate, tree caps), `valuesIndex.gen.ts`, `values.ts` lookups, the W/PMI tables (`pairPmi`,
      `unopposedDirections`, compat.gen), table.ts; keep `spec.md` and `v1-audit.md` truthful.
-  3. **Step 8.** Run a line and a grid game to their end on dev; tell the coordinator what to try.
+  3. **Step 8.** Run a line and a grid game to their end: `test/v2-game.test.ts` (lines-beginner, grids-beginner) on the
+     local backend, then the browser suites `pnpm --filter @workspace/player-web e2e:site` and `e2e:v2-views` (the
+     views' gallery now uses the dynamic families; its screenshots will change). Then on dev; tell the coordinator
+     what to try.
   4. **Also open:** the views still show "bits"/rarity wording for line rules (faces, summary); the guest `climb`/`fair`
      helpers still read `worth`/`rarity` (null on dynamic games): give them the energy (`othersAfter` already works).
      Points are own energy × the others' sum; energy scales differ by rule (Square Triangle's good states ≈ 1000,
