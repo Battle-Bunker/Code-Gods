@@ -323,7 +323,7 @@ export const endAbandoned = internalMutation({
   args: { gameId: v.id("v2Games") },
   handler: async (ctx, { gameId }) => {
     const game = await ctx.db.get(gameId);
-    if (game && game.phase !== "ended") await endGame(ctx, game);
+    if (game && game.phase !== "ended") await endGame(ctx, game, "abandoned");
   },
 });
 

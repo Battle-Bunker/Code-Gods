@@ -216,6 +216,8 @@ export const gameDetailsV = v.object({
   endsAt: v.union(v.number(), v.null()), endedAt: v.union(v.number(), v.null()),
   /** The world second the game ended at (after the end only: a halfLife game's end is hidden while live). */
   endWorld: v.union(v.number(), v.null()),
+  /** Why it ended (v1's end reason); null while it runs, or for a game ended before reasons were kept. */
+  endReason: v.union(v.literal("lifetime"), v.literal("owner"), v.literal("abandoned"), v.literal("retired"), v.null()),
   rules: v.union(v.null(), v.array(v.object({
     memberId: v.id("v2Members"), name: v.string(), kind: v.string(),
     family: v.string(), params: v.any(), tieBreaker: v.union(v.string(), v.null()), title: v.string(), card: v.string(),

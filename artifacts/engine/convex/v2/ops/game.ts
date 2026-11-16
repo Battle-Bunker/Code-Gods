@@ -66,7 +66,7 @@ export const { op: resume, as: resumeAs } = defineOp("game.resume", "mutation", 
 });
 
 export const { op: end, as: endAs } = defineOp("game.end", "mutation", async env => {
-  await endGame(env.ctx, inGame(env).game);
+  await endGame(env.ctx, inGame(env).game, "owner");
   return { ok: true as const };
 });
 

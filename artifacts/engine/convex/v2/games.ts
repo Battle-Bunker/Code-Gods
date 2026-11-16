@@ -97,6 +97,7 @@ export const details = query({
       createdAt: game.createdAt, startedAt: game.startedAt ?? null, planningEndsAt: game.planningEndsAt ?? null,
       endsAt: durationModeOf(game) === "halfLife" && !ended ? null : game.endsAt ?? null, endedAt: game.endedAt ?? null,
       endWorld: ended ? game.endAtWorld ?? game.settings.worldSeconds : null,
+      endReason: ended ? game.endReason ?? null : null,
       rules,
     };
   },
