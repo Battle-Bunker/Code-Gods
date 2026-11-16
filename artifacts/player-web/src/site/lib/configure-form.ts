@@ -11,6 +11,7 @@
  * The World section of v1 (object type and shape) is v2's preset choice, the "Setup" section.
  */
 import { presetOf, type Preset } from "@workspace/engine/convex/v2/presets.ts";
+import { SETUP_NAME_MAX } from "@workspace/v2-affordances";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, PEER_NOISE_VARIANCE_OPTIONS, SCORE_INTERVAL_OPTIONS, type DurationMode } from "@workspace/engine/convex/v2/duration.ts";
 
 /** Every value a room's next game can be given, as the page edits it (all present; the overrides are the differences). */
@@ -21,7 +22,9 @@ export interface Draft {
   defenceGoals: boolean; penaltyWeight: number;
   startingObjects: number; birthsPerSecond: number; opportunitiesPerSecond: number;
   powerPerSecond: number; fullChargeSeconds: number; stepBudget: number; interactionComputeMs: number;
-  excludedFamilies: string[]; bidPricing: "first" | "second"; bidVisibility: "sealed" | "open"; bidDisclosure: "none" | "handicaps" | "all";
+  excludedFamilies: string[]; bidPricing: "first" | "second"; bidVisibility: "sealed" | "open"; bidDisclosure: "none" | "handicaps" | "all"; bidSeconds: number;
+  /** Line turnover (engine docs/engine-v2/retirement-design.md): 0 is off, and 0 births-every is the setup's births. */
+  liveCap: number; birthSeconds: number; retiredPoints: "banked" | "dropped"; retiredHolds: boolean;
 }
 export type FieldKey = keyof Draft;
 export type Overrides = Partial<Draft>;
@@ -59,6 +62,12 @@ export const FIELDS: Readonly<Record<FieldKey, FieldSpec>> = {
     question: "Which rules are never dealt?",
     meaning: "Families of rules the setup deals that are never dealt in this room.",
     consequence: "Excluding more families makes goals more predictable, and at least one family per player must stay.",
+  },
+  bidSeconds: {
+    label: "Bidding time", section: "goals", tier: "ask", control: "number", suggested: [0, 20, 30, 45, 60, 120], unit: "s", limit: { min: 0, max: 600, int: true },
+    question: "How long may players bid for rules before the game is dealt?",
+    meaning: "Before rules are dealt, each player may bid a share of their own score for the rules they want: the highest bid wins a rule for that player alone, the rest are dealt at random, and zero is no bidding.",
+    consequence: "Bidding lets players pay for the rule they want, so a strong rule costs its holder part of their score, and it adds up to this many seconds before planning.",
   },
   bidPricing: {
     label: "Bid price", section: "goals", tier: "more", control: "segmented", suggested: ["first", "second"], onlyWithBid: true,
@@ -144,6 +153,30 @@ export const FIELDS: Readonly<Record<FieldKey, FieldSpec>> = {
     meaning: "How many new random objects appear per second of world time.",
     consequence: "Raising it brings more fresh objects to claim, and totals grow faster.",
   },
+  liveCap: {
+    label: "Live objects at most", section: "population", tier: "more", control: "number", suggested: [0, 3, 5, 8], unit: "objects", limit: { min: 0, max: 50, int: true },
+    question: "How many objects are live at once?",
+    meaning: "New in v2 (line turnover): when a new object would make more than this many live, the oldest retires first. No agent acts on a retired object again. 0 means no limit.",
+    consequence: "A small number with frequent births keeps fresh objects coming and stops players pulling one object back and forth for the whole game.",
+  },
+  birthSeconds: {
+    label: "A new object every", section: "population", tier: "more", control: "number", suggested: [0, 15, 30, 60, 240], unit: "s", limit: { min: 0, max: 3600, int: true },
+    question: "Should a new object arrive on a fixed beat?",
+    meaning: "New in v2: one new object every this many seconds of world time, on a regular schedule, in place of the rate above. 0 keeps the setup's births.",
+    consequence: "With a live limit, this sets how long each object lives.",
+  },
+  retiredPoints: {
+    label: "Retired objects' points", section: "population", tier: "more", control: "segmented", suggested: ["banked", "dropped"],
+    question: "Do a retired object's points still count?",
+    meaning: "New in v2: kept, a retired object's points stay in every player's total as they stood when it retired. Dropped, they leave the totals.",
+    consequence: "Kept rewards what was built before an object retired; dropped makes only the live objects matter.",
+  },
+  retiredHolds: {
+    label: "Retired objects keep their place", section: "population", tier: "more", control: "switch",
+    question: "Does a retired object keep its state taken?",
+    meaning: "New in v2: no two objects may be in the same state. On, a retired object still holds its last state, so no other object can move there.",
+    consequence: "Off frees retired objects' states for the live ones.",
+  },
   opportunitiesPerSecond: {
     label: "World speed", section: "time", tier: "ask", control: "number", suggested: [3, 25, 100, 300, 1000], unit: "acts per second", limit: { min: 0, max: 1000 },
     question: "How fast does the world move?",
@@ -222,7 +255,8 @@ export function presetDraft(p: Preset): Draft {
     startingObjects: p.startingObjects, birthsPerSecond: p.economy.birthsPerSecond, opportunitiesPerSecond: p.economy.opportunitiesPerSecond,
     powerPerSecond: p.economy.powerPerSecond, fullChargeSeconds: p.economy.fullChargeSeconds,
     stepBudget: DEFAULT_STEP_BUDGET, interactionComputeMs: DEFAULT_COMPUTE_MS,
-    excludedFamilies: [], bidPricing: p.bid?.pricing ?? "first", bidVisibility: "sealed", bidDisclosure: p.bid?.disclosure ?? "none",
+    excludedFamilies: [], bidPricing: p.bid?.pricing ?? "first", bidVisibility: "sealed", bidDisclosure: p.bid?.disclosure ?? "none", bidSeconds: p.bid?.seconds ?? 0,
+    liveCap: p.turnover?.liveCap ?? 0, birthSeconds: 0, retiredPoints: p.turnover?.retiredPoints ?? "banked", retiredHolds: p.turnover?.retiredHolds ?? true,
   };
 }
 /** The room's next game: the preset with the room's overrides on top (a stored field the page does not know is ignored). */
@@ -240,8 +274,9 @@ export function overridesFor(d: Draft, p: Preset): Overrides {
 const sameValue = (a: unknown, b: unknown) => (typeof a === "number" && typeof b === "number" ? Math.abs(a - b) < 1e-9
   : Array.isArray(a) && Array.isArray(b) ? JSON.stringify([...a].sort()) === JSON.stringify([...b].sort()) : a === b);
 /** A field with no effect on this setup (the bid questions without a bid phase; defence goals off grids). */
-export const isHidden = (key: FieldKey, p: Pick<Preset, "bid" | "variant">) =>
-  (!!FIELDS[key].onlyWithBid && !p.bid) || (FIELDS[key].only ? !FIELDS[key].only!(p) : false);
+/** A field with no effect: the bid questions while there is no bid phase (v1: hidden while bidSeconds is 0). */
+export const isHidden = (key: FieldKey, p: Pick<Preset, "bid" | "variant">, d?: Pick<Draft, "bidSeconds">) =>
+  (!!FIELDS[key].onlyWithBid && !(d ? d.bidSeconds > 0 : p.bid)) || (FIELDS[key].only ? !FIELDS[key].only!(p) : false);
 
 const n = (v: number) => v.toLocaleString("en-US");
 const unitText = (u?: string) => (u ? ` ${u === "s" ? "seconds" : u}` : "");
@@ -283,24 +318,28 @@ const NAMED: Partial<Record<FieldKey, Record<string, string>>> = {
 };
 /** A stepped choice's label: "Normal (5 min)", "every 10 s", "Exact", "2×". */
 const BID_WORDS: Record<string, string> = {
+  banked: "Kept", dropped: "Dropped",
   first: "First price", second: "Second price", sealed: "Sealed", open: "Open", none: "Own result only", handicaps: "Everyone's handicap", all: "The whole auction",
 };
 export function choiceLabel(key: FieldKey, v: number | string | boolean): string {
   if (key === "durationMode") return v === "fixed" ? "Fixed duration" : "Half-life";
-  if ((key === "bidPricing" || key === "bidVisibility" || key === "bidDisclosure") && typeof v === "string") return BID_WORDS[v] ?? v;
-  if (typeof v === "boolean") return key === "defenceGoals" ? (v ? "On: everyone" : "Off") : v ? "Offered" : "Off";
+  if ((key === "bidPricing" || key === "bidVisibility" || key === "bidDisclosure" || key === "retiredPoints") && typeof v === "string") return BID_WORDS[v] ?? v;
+  if (typeof v === "boolean") return key === "defenceGoals" ? (v ? "On: everyone" : "Off") : key === "retiredHolds" ? (v ? "On" : "Off") : v ? "Offered" : "Off";
   const named = NAMED[key]?.[String(v)];
   if (typeof v === "number") {
     if (key === "worldSeconds") return named ? `${named} (${duration(v)})` : duration(v);
     if (key === "planningSeconds" || key === "pauseSeconds") return duration(v);
     if (key === "scoreIntervalSeconds") return `every ${duration(v)}`;
     if (key === "driftSeconds") return v === 0 ? "Never" : `every ${duration(v)}`;
+    if (key === "bidSeconds") return v === 0 ? "No bidding" : duration(v);
     if (key === "peerNoiseVariance") return v === 0 ? "Exact" : `±${Math.round(Math.sqrt(v) * 10) / 10} bits`;
     if (key === "readPriceWeight") return v === 0 ? "Free" : `${weightText(v)}×`;
     if (key === "penaltyWeight") return v === 0.5 ? "½" : n(v);
     if (key === "opportunitiesPerSecond") return named ? `${named} (${n(v)}/s)` : `${n(v)}/s`;
     if (key === "birthsPerSecond") return v === 0 ? "None" : v < 1 ? `1 every ${n(Math.round(1 / v))} s` : `${n(v)}/s`;
     if (key === "fullChargeSeconds") return duration(v);
+    if (key === "liveCap") return v === 0 ? "No limit" : n(v);
+    if (key === "birthSeconds") return v === 0 ? "The setup's" : `every ${duration(v)}`;
     if (key === "powerPerSecond") return `${n(v)}/s`;
     return n(v);
   }
@@ -339,4 +378,29 @@ export function reviewDiff(saved: { preset: string; draft: Draft }, next: { pres
     if (!sameValue(saved.draft[k], next.draft[k])) out.push({ key: k, label: FIELDS[k].label, from: formatValue(k, saved.draft[k]), to: formatValue(k, next.draft[k]) });
   }
   return out;
+}
+
+/** A saved setup as `setups.get` returns it (the caller's own; v1's user setups). */
+export interface SavedSetup { setupId: string; name: string; preset: string; overrides: Record<string, unknown>; ownerName?: string; mine?: boolean }
+
+/**
+ * What Save sends to `room.settings`: the saved setup's id while the page holds exactly that setup (the room then
+ * shows its name, v1's owner.settings({setupId})); otherwise the preset (when it changes) and the overrides that
+ * differ from it (a change by hand: the room shows no setup).
+ */
+export function saveArgs(next: { preset: string; draft: Draft }, roomPreset: string, loaded: SavedSetup | null): { setupId: string } | { preset?: string; overrides: Overrides } {
+  if (loaded && holdsSetup(next, loaded)) return { setupId: loaded.setupId };
+  return { ...(next.preset !== roomPreset ? { preset: next.preset } : {}), overrides: overridesFor(next.draft, presetOf(next.preset)) };
+}
+/** Whether the page holds exactly this saved setup: its preset, and every value as the setup gives it (a set as a set). */
+export function holdsSetup(next: { preset: string; draft: Draft }, s: SavedSetup): boolean {
+  if (s.preset !== next.preset) return false;
+  const theirs = draftOf(presetOf(s.preset), s.overrides);
+  return (Object.keys(FIELDS) as FieldKey[]).every(k => sameValue(next.draft[k], theirs[k]));
+}
+
+/** Why a setup name is refused (v1's words), or null. */
+export function setupNameProblem(raw: string): string | null {
+  const name = raw.trim().replace(/\s+/g, " ");
+  return !name ? "Give the setup a name." : name.length > SETUP_NAME_MAX ? `At most ${SETUP_NAME_MAX} characters.` : null;
 }

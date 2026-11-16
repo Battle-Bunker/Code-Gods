@@ -30,6 +30,8 @@ export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
 };
 /** Reads the room page shows (its members, past games, the rotation, the bid phase). */
 export const ROOM_READS: ReadonlySet<string> = new Set(["room.get", "room.history", "game.rotation", "bid.state"]);
+/** Reads the configure page shows (the owner's saved setups, under Setup). */
+export const SETUP_READS: ReadonlySet<string> = new Set(["setups.page", "setups.get"]);
 /** Reads the avatar menu shows (who you are, your connected apps). */
 export const ACCOUNT_READS: ReadonlySet<string> = new Set(["account.whoami", "account.connections"]);
 /** Reads the palette answers itself, in a notice (a command's status). */
@@ -48,6 +50,8 @@ export interface PaletteHost {
   noun?: { one: string; many: string };
   /** The viewer's stored panels (their one live list), so each enabled one can be opened as a pane. */
   storedPanels?: readonly { slug: string; title: string; enabled: boolean }[];
+  /** Opens the assistant and focuses its composer (v1's Ctrl+`). */
+  focusAssistant?(): Promise<unknown>;
   /** The file panels (src/panels/*.tsx) this copy of the app has; none in safe mode. */
   filePanels?: readonly string[];
   /** Whether the page is in safe mode (?panels=off), and how to reload it in or out of it. */
@@ -79,10 +83,13 @@ function soleParam(id: AffordanceId): { name: string; kind: "string" | "number" 
 function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
   const id = e.id as AffordanceId;
   if (ROOM_READS.has(id) && host.roomPath) return { kind: "navigate", to: host.roomPath };
+  if (SETUP_READS.has(id) && host.roomPath) return { kind: "navigate", to: `${host.roomPath}/configure#section-setup` };
   if (ACCOUNT_READS.has(id)) return { kind: "form", page: { kind: "info", title: e.title, lines: ["Your account and connected apps are in the menu under your avatar (top right)."] } };
   if (id === "room.list") return { kind: "navigate", to: "/" };
   // The room's settings are a page of their own (v1's "Configure the room's setup"): every question, with a Review.
   if (id === "room.settings" && host.roomPath) return { kind: "navigate", to: `${host.roomPath}/configure` };
+  // v1's "New setup…": the configure page's Save as a setup, with every setting to pick first.
+  if (id === "setups.save" && host.roomPath) return { kind: "navigate", to: `${host.roomPath}/configure#field-save-setup` };
   const pane = READ_PANES[id];
   const panes = host.panes;
   if (pane && panes) return { kind: "submit", run: () => panes.open(pane) };
@@ -90,7 +97,7 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
     const page: PaletteFormPage = {
       kind: "pick", title: e.title,
       options: () => [
-        ...PANE_IDS.map(p => ({ id: p as string, label: PANES[p].title, detail: PANES[p].blurb, keywords: PANES[p].keywords })),
+        ...PANE_IDS.map(p => ({ id: p as string, label: paneLabel(p, host.noun), detail: lined(PANES[p].blurb, host.noun), keywords: PANES[p].keywords })),
         ...openablePanels(host).map(p => ({ id: storedPane(p.slug), label: p.title, detail: "Your panel", keywords: [p.slug, "panel", "your panel"] })),
         ...(host.filePanels ?? []).map(id => ({ id: filePane(id), label: id, detail: `File panel: src/panels/${id}.tsx`, keywords: [id, "file panel"] })),
       ],
@@ -133,6 +140,18 @@ const DONE: Partial<Record<AffordanceId, string>> = { "chat.send": "Message sent
 /** A field's label in words: the parameter's name only when there is none. */
 const FIELD_LABELS: Record<string, string> = { text: "Your message", code: "Room code", name: "Name", question: "Your question", id: "The command's request id" };
 
+/** A pane's name in the game's words, as the dock's headers say it (usePaneName): "Grids", "One grid" in a grid game. */
+export function paneLabel(p: PaneId, noun?: { one: string; many: string }): string {
+  if (noun && p === "objects") return noun.many[0]!.toUpperCase() + noun.many.slice(1);
+  if (noun && p === "object") return `One ${noun.one}`;
+  return lined(PANES[p].title, noun) ?? PANES[p].title;
+}
+/** A pane's words written for lines ("Which lines earn you points") in the game's own words. */
+export function lined(text: string | undefined, noun?: { one: string; many: string }): string | undefined {
+  if (!text || !noun) return text;
+  return text.replace(/\b([Ll])ine(s?)\b/g, (_, l: string, s: string) => { const w = s ? noun.many : noun.one; return l === "L" ? w[0]!.toUpperCase() + w.slice(1) : w; });
+}
+
 /** "Leave objects alone" in a grid game: "Leave grids alone" (any case, singular and plural). */
 export function nouned(text: string, noun?: { one: string; many: string }): string {
   if (!noun) return text;
@@ -162,7 +181,8 @@ export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Comm
     for (const p of PANE_IDS) {
       if (p === "assistant" && ctx.room?.aiOff) continue;
       rows.push({
-        id: `pane:${p}`, human: { title: `Open ${PANES[p].title}`, tooltip: PANES[p].blurb }, group: "view", keywords: [...PANES[p].keywords],
+        // In the game's own words (baseline-1: a grid game listed "Lines" and "One line").
+        id: `pane:${p}`, human: { title: `Open ${paneLabel(p, host.noun)}`, tooltip: lined(PANES[p].blurb, host.noun) ?? PANES[p].blurb }, group: "view", keywords: [...PANES[p].keywords, ...(host.noun ? [host.noun.one, host.noun.many] : [])],
         typedOnly: true, performer: { kind: "submit", run: () => panes.open(p) }, available: () => ({ ok: true }),
       });
     }
@@ -184,6 +204,15 @@ export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Comm
         typedOnly: true, performer: { kind: "submit", run: () => panes.open(filePane(id)) }, available: () => ({ ok: true }),
       });
     }
+  }
+  // v1's "Focus assistant (Ctrl+`)".
+  const focusAssistant = host.focusAssistant;
+  if (focusAssistant && ctx.game && !ctx.room?.aiOff) {
+    rows.push({
+      id: "assistant-focus", human: { title: "Focus assistant (Ctrl+`)", tooltip: "Open your assistant and type to it. / does the same outside a field." },
+      group: "view", keywords: ["assistant", "focus", "ask", "type", "chat with assistant"],
+      performer: { kind: "submit", run: () => focusAssistant() }, available: () => ({ ok: true }),
+    });
   }
   // v1's safe mode: reload the page with every panel of yours off (a panel that breaks the page can then be fixed), and back.
   const setSafeMode = host.setSafeMode;

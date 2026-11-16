@@ -1,9 +1,9 @@
-// Gap Ratio · Example: the gap has a big smallest prime factor
-// Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Secondary preference: the gap has a big smallest prime factor.
+// Gap Ratio · Example: the gap plus your next power has a big smallest prime factor
+// Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Secondary preference: the gap plus your next power has a big smallest prime factor.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
-// Try this: change FAR = 3 to 5 so the gap can jump to a bigger prime.
+// Try this: add "shift" to KINDS: it changes the gap directly.
 
 // How good are the two lines L for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(L, p) {
@@ -11,13 +11,14 @@ function score(L, p) {
   const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
   if (f.ygap === null || f.xgap === null || f.origin) return null;   // no gaps, or a line through (0, 0): no score
   const main = powerLadder(p.k, t => Q.add(dist(f.ygap), Q.abs(Q.sub(f.ygap, Q.mul(t, f.xgap)))));
-  return [main, spf(whole(f.ygap))];   // main: the gaps' level: the y-intercepts' gap whole and k, k³, k⁶, … times the x-intercepts' gap (higher is better); secondary: a gap with a big smallest prime factor is better
+  const lv = levelOf(main, p.k), N = BigInt(p.k) ** BigInt((lv * (lv + 1)) / 2 + 1);   // your power reached, times k
+  return [main, spf(Q.add(Q.abs(whole(f.ygap)), Q.of(N)))];   // main: the gaps' level: the y-intercepts' gap whole and k, k³, k⁶, … times the x-intercepts' gap (higher is better); secondary: the gap plus k times your power reached with a big smallest prime factor is better
 }
 
 const FAR = 3;      // how far one move may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["shift","tilt","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
-const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
+const KINDS = ["shift","tilt","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
+const LEAVE = [];      // pairs your agent skips, e.g. [19] or [4, 9]: others may still move them
 const PROTECT = [];    // pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
 function agent(offer) {

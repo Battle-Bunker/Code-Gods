@@ -16,7 +16,7 @@ function score(b, p) {
 
 const FAR = 1;      // how far one change may go
 const QUOTES = 6;  // at most this many plans are priced (each price is a host call)
-const LEAVE = [];      // boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
+const LEAVE = [];      // boards your agent skips, e.g. [19] or [4, 9]: others may still move them
 const PROTECT = [];    // boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
 // The board after adding f(0), f(1), ... to the cells listed; the board unchanged if a number would leave 0 ... 9

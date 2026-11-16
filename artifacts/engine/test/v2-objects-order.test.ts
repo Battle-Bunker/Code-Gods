@@ -36,6 +36,8 @@ test("every sort is a full, correctly directed order over the reader's shown val
     return list.map(id => key(o.get(id)));
   };
   assert.ok(descending(await by("points", x => x.value.points)), "payoff, highest first (as shown)");
+  const least = await by("least", x => x.value.points);
+  assert.ok(descending([...least].reverse()), "least: fewest points first (v1's worst objects)");
   assert.ok(descending(await by("rarity", x => x.value.rarityBits)), "your bits, highest first");
   assert.ok(descending(await by("want", x => x.value.want)), "others' care, highest first (as shown)");
   const mutations = await by("mutations", x => x.version);
@@ -43,6 +45,10 @@ test("every sort is a full, correctly directed order over the reader's shown val
   assert.deepEqual(await by("born", x => x.number), [...Array(21).keys()].map(i => 21 - i), "newest first");
   assert.deepEqual(await by("oldest", x => x.number), [...Array(21).keys()].map(i => i + 1), "oldest first");
   assert.ok(descending(await by("recent", x => x.changedAt)), "recently mutated first");
+});
+
+test("today's lexicographic rules carry no points tree (value.parts null; tree rules: unit test v2-value-parts)", async () => {
+  for (const o of (await shown()).values()) assert.equal(o.value.parts, null, JSON.stringify(o.value));
 });
 
 test("filters keep exactly the objects the reader is shown inside them, in the sort's order", async () => {

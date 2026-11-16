@@ -1,5 +1,5 @@
-// Steep Ratio · Example: that number shares a factor with the y-intercepts' gap
-// Main part: one line a whole number of times as steep, on your pattern. Secondary preference: that number shares a factor with the y-intercepts' gap.
+// Steep Ratio · Example: the y-intercepts' gap near a multiple of that number
+// Main part: one line a whole number of times as steep, on your pattern. Secondary preference: the y-intercepts' gap near a multiple of that number.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
@@ -8,15 +8,17 @@
 // How good are the two lines L for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
+  const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1
+  const core = n => { const Qb = BigInt(p.q), zero = BigInt(0); let m = BigInt(n); if (m < zero) m = -m; while (m > zero && m % Qb === zero) m /= Qb; return m; };   // without its factors of q
   if (f.ratio === null) return null;   // no ratio of gradients: no score
   const { score: main, n: k } = valuationLadder(f.ratio, p.q, p.r, 0, 2);   // the whole number of times (at least 2 either way) on your ladder
-  return [main, f.ygap === null ? null : common(k, whole(f.ygap))];   // main: the level of the whole number of times as steep on your ladder (higher is better); secondary: that number sharing a big factor with the y-intercepts' gap is better
+  return [main, f.ygap === null ? null : Q.neg(offMultiple(f.ygap, mod1(k)))];   // main: the level of the whole number of times as steep on your ladder (higher is better); secondary: a y-intercepts' gap near a multiple of that number (not 0) is better
 }
 
 const FAR = 3;      // how far one move may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["tilt","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
-const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
+const KINDS = ["tilt","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
+const LEAVE = [];      // pairs your agent skips, e.g. [19] or [4, 9]: others may still move them
 const PROTECT = [];    // pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
 function agent(offer) {

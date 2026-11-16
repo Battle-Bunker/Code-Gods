@@ -194,6 +194,8 @@ class Offer:
             "layers": [Record(dict(l)) for l in r.get("layers", [])],
             # The moves this game offers, by id (absent from an older host: None).
             "mutators": list(r["mutators"]) if r.get("mutators") is not None else None,
+            # The defence goal dealt beside the rule (grids, when the room deals them): None when there is none.
+            "defence": Record(dict(r["defence"])) if r.get("defence") else None,
         })
 
     def my_score(self):
@@ -226,6 +228,19 @@ class Offer:
         if not isinstance(calls, (list, tuple)):
             raise TypeError("others_after takes a list of calls")
         return Record(_ask({"op": "othersAfter", "calls": [_normal(c) for c in calls]}))
+
+    # Locks (docs/engine-v2/locks.md): list them (a read), make one on the state your calls reach, add or take energy.
+    def locks(self):
+        return [Record(dict(l)) for l in _ask({"op": "locks"})["locks"]]
+
+    def lock(self, predicate, amount):
+        return Record(_ask({"op": "lock", "predicate": str(predicate), "amount": float(amount)}))
+
+    def fund(self, lock, amount):
+        return Record(_ask({"op": "fund", "lock": int(lock), "amount": float(amount)}))
+
+    def drain(self, lock, amount):
+        return Record(_ask({"op": "drain", "lock": int(lock), "amount": float(amount)}))
 
     def recent(self):
         return [Record(dict(m)) for m in _ask({"op": "recent"})["moves"]]

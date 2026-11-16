@@ -44,10 +44,11 @@ test("the second game passes the rules one seat along, and the round sums each s
   for (const t of round.totals) assert.ok(Math.abs(t.net - (await net(first, t.memberId)) - (await net(second, t.memberId))) < 1e-9);
 });
 
-test("a human with practice partners: three games rotate every rule round every seat, numbered, with running totals; the fourth deals afresh", { timeout: 240_000 }, async () => {
+// The grid too (baseline-1 item 1: the old app's grid game rotated the rules round the seats after each game).
+for (const preset of ["lines-beginner", "grids-beginner"]) test(`${preset}: a human with practice partners: three games rotate every rule round every seat, numbered, with running totals; the fourth deals afresh`, { timeout: 240_000 }, async () => {
   // Playtest round 9: a practice room's games 2 and 3 were fresh deals, each "Game 1 of 3", with no totals.
   const [alice] = await humans("Rotation Alice");
-  const room = (await perform(alice!, "room.create", { name: "Practice rotation" })).result.roomId;
+  const room = (await perform(alice!, "room.create", { name: "Practice rotation", preset })).result.roomId;
   await perform(alice!, "seats.fillPracticePartners", {}, { roomId: room });
   const playIn = async () => {
     const gameId = (await perform(alice!, "game.start", {}, { roomId: room })).result.gameId;

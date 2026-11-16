@@ -273,6 +273,21 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     while the app's annotation tests use it as a fixture. A replacement family from the backlog is in design
     (design-principles.md rows 1 to 13).
 
+45. On valuing tuple rules (relayed by the coordinator, 16 November), choosing "level plus closeness" over strict
+    order: "I think this is better ... It means we get something more like a tree structure in exploring score space
+    with 3 branching levels for rules with a tertiary preference. That's a good kind of complexity as long as the math
+    to calibrate energy/bits from utility remains tractable." So a tuple rule's bits are −log2 P(level ≥ j) −
+    log2 P(closeness at least this good | that target) − log2 P(third at least this good | that target, at least that
+    close): the chain rule, so bits never exceed the state's code length (lib/v2-valuation tree-value.ts).
+
+46. On the beginner line pool (relayed by the coordinator, 16 November): "It seems like you're attached to your
+    existing set of utility functions and want to amend them to fit the newly desired shape. That's ok, but I want some
+    utility functions that were crafted with rationals in mind from the beginning. Increase target utility function
+    pool for the beginner config to 12 and add 4 rules / utility functions that prefer non-integer rational values,
+    such as via rules in terms of numerators and denominators or other creative ways to prefer certain kinds of
+    fractional values." So the beginner line pool's target is 12 families: the recast families, the owner's two
+    examples, and four fraction-native families from the rule sessions.
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact
@@ -736,6 +751,58 @@ back) or TRIAL (a declared experiment, measured and reported).
     old game is the spec), and 200 agents per player is restored with paginated agent lists so the read rules R1–R9
     hold. In player text the second preference is a "secondary preference", never "tie-break" (the owner's own word;
     v1 forbade "tie-break" in player text).
+36. **TRIAL** (the coordinator's order after #856, carried out by the two-line-systems worker; two-line-systems.md §13):
+    a pair ladder's rung is a window, and a zoom joins residue rungs.
+    - **The window.** Level L is held while the state is within 1/(L + 2) of the level's number, counting the main
+      part's exactness too (the angle, a whole x): ½ at the first valuation level, ⅓ at the first residue or power
+      level, and narrower each level up. The tie-breakers read the rung's number, rounded. Cards say "near".
+    - **The zoom (`sys.zoom`).** A zoom of both lines about (0, 0) by a factor, priced as a factor, with trial 29's size
+      floor on the larger line. With a slide of the plane by the remainder r it takes a residue ladder's number N to
+      q·N + r, which is on the next level whenever N is on this one.
+    - **Motivation.** On exact rungs almost every single move broke the level, so a seat on a rung had no tie-breaker
+      work and no next step.
+      - From a rung, the share of single moves that keep the level: 7–53%.
+      - The share that also change the tie-breaker: 0–36%.
+      - The share that raise the level: about 0.
+    - **Effects:** §13 of two-line-systems.md.
+37. **TRIAL** (the coordinator's order after #856, rows 3 and 3a of design-principles.md; two-line-systems.md §13):
+    each pair family deals a repertoire of tie-breakers tied to the number its main part reached (N). Stepping up
+    changes N, so it restarts each climb.
+    - **Forms.** Each tie-breaker takes one of these:
+      - near a multiple of N, other than 0;
+      - a smallest prime factor of N or of |N| + another number;
+      - a common factor of N with another number;
+      - a count of prime factors;
+      - a size.
+    - **None is climbed by the ladder's own shortcut.** A stretch or zoom by q multiplies N. That lengthens a distance
+      to a multiple of N and lowers a smallest prime factor of a sum with it. On the valuation ladders, common factors
+      and counts read N without its factors of q, which no stretch by q raises.
+    - **Found by the energy gate on the way:**
+      - "y and D share a factor" reached 52 bits, because a stretch multiplies both.
+      - "the intercept shares a factor with the steeper gradient" reached 41 bits, and "the ratio shares a factor with
+        the gentler intercept" 38.
+      - All three were replaced.
+    - **The dealt repertoire:**
+      - **Whole Answer:** x near a multiple of y; |x| + |y| with a big smallest prime factor; y without its factors of
+        q sharing a factor with the steeper gradient.
+      - **Divide By:** it keeps its two, the numerators x·D and y·D, which change with D: their prime count and their
+        common factor. It adds the numerators small (a size).
+        - Relations to k^T(L) × k were tried instead and were unfair between peers: about log₂ k rarer for a bigger k,
+          3.85 bits apart. A smallest prime factor was 1.2 bits apart.
+      - **Right Angle:** the corner's x near a multiple of y; y and the steeper gradient sharing a factor; |x| + |y|
+        with a big smallest prime factor.
+      - **Forty-Five:** |x| + |y| and D sharing a factor; the gap near a multiple of |x| + |y|; |x| + |y| with many
+        prime factors.
+      - **Gap Ratio:** D and N sharing a factor; the gap near a multiple of N; |gap| + N with a big smallest prime
+        factor.
+      - **Steep Ratio:** the gap near a multiple of the ratio; the ratio's smallest prime factor; the ratio without its
+        factors of q with many prime factors.
+      - **High Start:** its two distance tie-breakers; |H| + |x| with a big smallest prime factor; H without its
+        factors of q sharing a factor with the steeper gradient.
+      - **Far Crossing (open):** its two distance tie-breakers and a common factor with the steeper gradient, so three
+        candidates in two forms. A prime and a prime-count reading of its number were unequal between peers (q 7
+        against 11, 1.0–1.4 bits).
+    - **Effects:** §13.
 
 36. **CALL** (the coordinator's, 15 Nov, on the lens worker's account of v1's rival-inference tools): v1's
     `get_utility_series`, `get_board_at` and `list_utility_candidates` are restored as v1 had them, through
@@ -762,6 +829,23 @@ back) or TRIAL (a declared experiment, measured and reported).
     rule check's exemption map under "grid baseline: ported as v1" and in the preset's description, never silently. Two
     limits hold even for the baseline: a value function is honest (no extrapolated tail paying beyond what was measured),
     and a family with a cheap peak in the hundreds of bits is reported to the coordinator before it is dealt.
+
+38. **CALL** (the coordinator's, 16 Nov, not the owner's): in the tree valuation of tuple rules (decision 45), each
+    part below the level adds at most `TREE_INNER_BITS` = 2 bits (`lib/v2-valuation` tree-value.ts). Measured by the
+    spec lead with the rule design session's families: uncapped, an exact hit was worth 4 to 14 bits of closeness, most
+    of the score, so a greedy climber with one seat's whole-game energy stopped at the first exact hit with 2,000 to
+    3,100⚡ unspent (Mixed Intercept 17.8 bits, 3 to 5 levels up). Capped at 2, the level carries the score and climbs go
+    on (Mixed Intercept 33 to 43 levels up for 1,600 to 3,000⚡; Fraction Gradient 5 to 12; Prime Intercept 6 to 11),
+    and a cheap move from a climbed line keeps 95 to 100% of the bits. Capping only lowers bits, so bits ≤ φ still holds
+    (tested). The rule design session's gap-unit grading of closeness is the alternative, kept as an option. (c′)
+    pricing stays with the owner and is not shipped. With it, Prime Landing and Whole Crossing read a flat line's
+    height in place of its (missing) crossing, so a tilt to flat is not a one-move knock to nothing.
+
+39. **CALL** (the coordinator's, 16 Nov): **Grids · arithmetic is withdrawn** from the setups. A lattice reduction finds
+    Divisibility's top boards by formula (an optimum found, reported as a bug): powers of 3 on halves reach 46 powers on
+    **1110/1212/1116/0261**, against search's 28–40, and the attack applies to every divisibility goal on readings
+    linear in the digits (grid-params.md §14). The preset was a v2 invention, not part of the original baseline.
+    Divisibility and Leading Digits keep their code and values, undealt, for the grid design session.
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 

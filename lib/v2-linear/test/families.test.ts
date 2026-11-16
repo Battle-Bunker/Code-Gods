@@ -79,7 +79,7 @@ test("no saturation (owner decision 23): a better primary outranks whatever the 
   assert.equal(compareScores(over.score, ev(toy, {}, mc(3, 1)).score), 1);
 });
 
-test("score and annotation come from the same terms; every mark cites a read", () => {
+test("score and annotation come from the same terms; every mark cites a read, or an element outside depends", () => {
   const r = rng("terms");
   let s = mc(1, 1);
   for (let i = 0; i < 300; i++) {
@@ -92,7 +92,8 @@ test("score and annotation come from the same terms; every mark cites a read", (
       if (e.score === null) assert.ok("undefined" in t.value);
       else assert.equal(Qn.toWire(e.score[0]!), Qn.toWire(f.main.sense === "min" ? Qn.neg(t.value as never) : t.value as never));
       const reads = new Set(e.reads.map(x => refKey(x, true)));
-      for (const m of e.marks) for (const x of m.kind === "measure" ? [m.from, m.to] : [m.ref]) assert.ok(reads.has(refKey(x, true)));
+      // A mark may cite a view the family does not depend on (drawn from the state the player holds, never charged).
+      for (const m of e.marks) for (const x of m.kind === "measure" ? [m.from, m.to] : [m.ref]) assert.ok(reads.has(refKey(x, true)) || !f.depends.includes(x.rep), `${f.id} cites ${refKey(x)}`);
     }
   }
 });

@@ -142,7 +142,7 @@ try {
     // The act log's times read as the countdown does ("3:39 left"), not elapsed (persona walk: 0:13 beside 3:39 left).
     await feed.locator("[data-testid^=row-move-] p:visible").getByText(/^\d+:\d\d left/).first().waitFor({ timeout: 60_000 });
     // Its own row, or inside a tug-of-war entry (contested lines fold their moves under "Show the N moves").
-    const mine = feed.locator("[data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed a line.*Your rarity/ }).first();
+    const mine = feed.locator("[data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed (a line|line \d+).*Your rarity/ }).first();
     await mine.waitFor({ state: "attached", timeout: 60_000 });
     const folded = mine.locator("xpath=ancestor::details[1]");
     if (await folded.count() && (await folded.getAttribute("open")) === null) await folded.locator("summary").click();
@@ -193,6 +193,20 @@ try {
         await page.getByTestId("button-open-pane-agents").click();
       }
       const row = agentsPane.locator("[data-testid^=row-agent-]").first();
+      // v1's energy bar ("full in 14 s") and in-pane power button: more power raises the agent's share.
+      await row.locator("[data-testid^=agent-energy-bar-]").waitFor({ timeout: 15_000 });
+      assert.match(await row.locator("[data-testid^=agent-energy-bar-]").innerText(), /full in \d+ s|full: it gets no more|no power|repaying/);
+      // v1 (baseline-1 #6): can it act now, what it spent on reading and on changing, its actual cost per move, its last move.
+      assert.match(await row.locator("[data-testid^=text-agent-state-]").innerText(), /^(can act now|working: .*|waiting for income|stuck: .*)$/);
+      await row.locator("[data-testid^=text-agent-spent-]").getByText(/^Spent [\d.,]+ energy on \d+ moves?: [\d.,]+ reading, [\d.,]+ changing$/).waitFor({ timeout: 30_000 });
+      assert.match(await row.locator("[data-testid^=text-actual-act-cost-]").innerText(), /^Actual average [\d.,]+ energy per move$/);
+      assert.match(await row.locator("[data-testid^=text-agent-last-act-]").innerText(), /^Last move at \d+:\d\d: [\d.,]+ reading \+ [\d.,]+ changing \(\w[\w ]*\)$/);
+      const more = row.locator("[data-testid^=button-agent-more-]");
+      if (await more.count()) {
+        const shareBefore = await row.locator("[data-testid^=text-agent-share-]").innerText();
+        await more.click();
+        await page.waitForFunction(([sel, was]) => document.querySelector(sel as string)?.textContent !== was, [`[data-testid="${await row.locator("[data-testid^=text-agent-share-]").getAttribute("data-testid")}"]`, shareBefore] as const, { timeout: 10_000 });
+      }
       await row.locator("[data-testid^=details-agent-code-] summary").click();
       const edit = row.locator("[data-testid^=button-agent-edit-]");
       await edit.waitFor({ timeout: 15_000 });
@@ -328,11 +342,12 @@ try {
     // line-q) has no element for the main part to read; one that scores shows it, badged.
     const scoring = !/not scoring/.test(await line.innerText());
     if (scoring) assert.ok(await line.locator('[data-ref][data-role="main"]').count() > 0, "the element the main part reads carries its badge");
-    // A line named by its equation ("meets y = x") is words, not a parameter letter.
-    assert.doesNotMatch(main.replace(/\by = −?x\b/g, "the line"), /\b[a-z]\b(?= (close|is|=))|\bstep \d/, `no parameter letters and no steps: ${main}`);
+    // Coordinates ("meets y = x at x = −2½") are words a player reads, not parameter letters ("k is", "t close").
+    assert.doesNotMatch(main, /\b[a-wz]\b(?= (close|is|=))|\bstep \d/, `no parameter letters and no steps: ${main}`);
     // 2. where it is: a distance with its direction or a size, on a ruler;
-    // Where the number is, or (a line that does not score, e.g. a flat line for a crossing rule) why not.
-    assert.match(main, /(\d+(\.\d+)?|[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]|[⁰¹²³⁴⁵⁶⁷⁸⁹]+⁄[₀₁₂₃₄₅₆₇₈₉]+) (above|below) |\bon [−\d]|on the whole number|off by |exactly|: [−\d≈]| = [−\d][^ ]* rounds to|never|not |\bno\b|undefined|cannot/i, `the main part says where the number is: ${main}`);
+    // Where the number is, or (a line that does not score, e.g. a flat line for a crossing rule) why not. Same on Both
+    // Rulers says it as the meeting point: "meets y = x at x = 5, which rounds to 7" or "…, 2 from 7".
+    assert.match(main, /(\d+(\.\d+)?|[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]|[⁰¹²³⁴⁵⁶⁷⁸⁹]+⁄[₀₁₂₃₄₅₆₇₈₉]+) (above|below) |\bon [−\d]|on the whole number|off by |exactly|: [−\d≈]| = [−\d][^ ]* rounds to|never|not |\bno\b|undefined|cannot|\bat x = [−\d]/i, `the main part says where the number is: ${main}`);
     // 3. what would make it rarer and what that costs: priced moves with their new bits (W5 passes the rule's value);
     const options = line.locator(".v2v-move-option");
     if (await options.count()) {

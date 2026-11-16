@@ -26,6 +26,8 @@ export const roomV = v.object({
     deadline: v.number(), pricing: v.union(v.literal("first"), v.literal("second")), families: v.array(offerV),
     visibility: v.optional(v.union(v.literal("sealed"), v.literal("open"))),
   }), v.null()),
+  /** The saved setup last applied, as named then; null after a change by hand. */
+  setup: v.union(v.object({ setupId: v.id("v2Setups"), name: v.string() }), v.null()),
 });
 export const roomListV = paginationResultValidator(v.object({ roomId: v.id("v2Rooms"), memberId: v.id("v2Members"), joinedAt: v.number() }));
 export const chatPageV = paginationResultValidator(v.object({ id: v.id("v2Chat"), from: v.string(), memberId: v.union(v.id("v2Members"), v.null()), text: v.string(), at: v.number() }));
@@ -80,6 +82,8 @@ export const headerV = v.object({
 export const standingsV = v.object({
   seq: v.number(), worldSeconds: v.number(),
   rows: v.array(v.object({ memberId: v.id("v2Members"), name: v.string(), total: v.number(), handicap: v.number(), net: v.number(), rank: v.number() })),
+  /** v1's private bid results while live: other players' rows show their net only (handicap 0, total = net). */
+  handicapsHidden: v.boolean(),
 });
 export const standingsHistoryV = v.array(v.object({ seq: v.number(), worldSeconds: v.number(), totals: v.array(v.object({ memberId: v.id("v2Members"), net: v.number() })) }));
 
@@ -116,14 +120,22 @@ export const meV = v.object({
   ownPerSecond: v.number(), capacity: v.number(), settledAt: v.number(),
 });
 /** v1's sorts and filters (objectOrder.ts). */
-export const objectSortV = v.union(v.literal("points"), v.literal("rarity"), v.literal("want"), v.literal("mutations"), v.literal("born"), v.literal("oldest"), v.literal("recent"));
+export const objectSortV = v.union(v.literal("points"), v.literal("least"), v.literal("rarity"), v.literal("want"), v.literal("mutations"), v.literal("born"), v.literal("oldest"), v.literal("recent"));
 export const objectFilterV = v.union(v.literal("all"), v.literal("positive"), v.literal("contested"), v.literal("chips"));
 export const objectIdsV = paginationResultValidator(v.object({ objectId: v.id("v2Objects"), number: v.number() }));
 /** `v2/play:object`: one object's shared state and the caller's value of it. */
 export const playObjectV = v.object({
   objectId: v.id("v2Objects"), number: v.number(), bornAt: v.number(),
   state: v.string(), version: v.number(), changedAt: v.number(),
-  value: v.union(v.object({ score: scoreWireV, rarityBits: v.number(), want: v.number(), points: v.number(), version: v.number() }), v.null()),
+  value: v.union(v.object({
+    score: scoreWireV, rarityBits: v.number(), want: v.number(), points: v.number(), version: v.number(),
+    /**
+     * The caller's own bits as a points tree (a tree-valued rule, treeLookup): each dealt layer's bits in rule order by
+     * layer id, then "uniqueness" and "defence" corrections when they change anything; they sum to rarityBits. Null for
+     * today's lexicographic rules. Absent from answers written before it.
+     */
+    parts: v.optional(v.union(v.array(v.object({ layer: v.string(), bits: v.number() })), v.null())),
+  }), v.null()),
   /** Paid observation (knowledge.ts): when the caller was last told this object (world seconds), and how many changes it has had since (public). */
   knownAt: v.optional(v.union(v.number(), v.null())), changesSince: v.optional(v.number()),
   /** In a game that pays to read (decision 35), live and seated: what a look at it costs now, in energy. */
@@ -136,6 +148,9 @@ export const agentRowV = v.object({
 export const agentsPageV = paginationResultValidator(agentRowV);
 export const agentEnergyV = v.object({
   agentId: v.id("v2Agents"), energy: v.number(), acts: v.number(), skips: v.number(), failures: v.number(), spend: v.number(),
+  /** `spend` split as v1's My agents showed it: reading and changing; and the last act's two parts and outcome. */
+  spendRead: v.number(), spendChange: v.number(),
+  lastAct: v.union(v.object({ at: v.number(), read: v.number(), change: v.number(), outcome: v.string() }), v.null()),
   pointsGained: v.number(), lastActAt: v.union(v.number(), v.null()),
   /** As the own store's: the agent's income and capacity, and `energy` settled to the world second `settledAt`. */
   perSecond: v.number(), capacity: v.number(), settledAt: v.number(),
@@ -165,6 +180,8 @@ export const tugsV = v.array(v.object({
   from: v.number(), to: v.number(),
   /** The state it passed through that was worth most to the caller, and those points. */
   best: v.union(v.object({ state: v.string(), points: v.number() }), v.null()),
+  /** The two-state cycle it is in, if any: the two states (a < b) and how many moves went between exactly those two. */
+  cycle: v.union(v.object({ a: v.string(), b: v.string(), moves: v.number() }), v.null()),
 }));
 /** `v2/play:log`: the public log, newest first, as the caller reads it (bits null for a member not seated). */
 export const logPageV = paginationResultValidator(v.object({
@@ -196,6 +213,9 @@ export const bidStateV = v.object({
   /** v1's open bidding: "open" shows every other player's bids as they are placed; sealed shows none. */
   visibility: v.union(v.literal("sealed"), v.literal("open")),
   others: v.array(v.object({ memberId: v.id("v2Members"), name: v.string(), bids: v.array(bidV) })),
+  pricing: v.union(v.literal("first"), v.literal("second")),
+  /** Whether the caller bids: a seated human (spectators watch the clock; the owner may cancel). */
+  bidder: v.boolean(),
 });
 
 /**

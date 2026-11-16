@@ -8,7 +8,7 @@
 import { q, ref, type ElementRef, type RuleFamily, type Variant } from "@workspace/v2-core";
 import { at, gridParams, type GridState } from "./grid.ts";
 import { boxes, cols, corners, rows } from "./units.ts";
-import { offTotals, diagonals, term, distance, family, more, readCells, readNum, type Ctx, type Shape } from "./family-kit.ts";
+import { offTotals, upTo, diagonals, term, distance, family, more, readCells, readNum, type Ctx, type Shape } from "./family-kit.ts";
 
 type None = Record<string, never>;
 type Cells = { v: number[]; refs: ElementRef[] };
@@ -46,9 +46,9 @@ export function kingsAndSubjects(n: number): RuleFamily<GridState, None> {
     main: distance<None>("kings", "every corner box's king equals his subjects",
       () => `In each corner box of four cells, the biggest number (the king) should equal the other three added up, like 9 with 2, 3 and 4. A box whose biggest number appears twice has no king and is ${NO_KING} off.`, "cells"),
     tieBreakers: [
-      more<None>("different-kings", "pairs of kings that are different numbers", "The kings should all be different numbers.", "cells"),
-      more<None>("king-multiples", "kings that are a multiple of the smallest number in their box", "Each king should be a multiple of the smallest number in his box, like 8 with a 2.", "cells"),
-      more<None>("kings-on-diagonals", "kings on the board's diagonals", "Each king should stand on one of the board's two diagonals.", "cells"),
+      upTo(more<None>("different-kings", "pairs of kings that are different numbers", "The kings should all be different numbers.", "cells"), (bx.length * (bx.length - 1)) / 2),
+      upTo(more<None>("king-multiples", "kings that are a multiple of the smallest number in their box", "Each king should be a multiple of the smallest number in his box, like 8 with a 2.", "cells"), bx.length),
+      upTo(more<None>("kings-on-diagonals", "kings on the board's diagonals", "Each king should stand on one of the board's two diagonals.", "cells"), bx.length),
     ],
   };
   return family<None>("kings-and-subjects", "Kings and Subjects", ["cells"], shape, [{}], ctx => {
@@ -86,8 +86,8 @@ export function steppingStones(n: number): RuleFamily<GridState, None> {
       "Make the biggest group of cells you can hop between: you can hop between touching cells whose numbers differ by exactly 2.", "cells"),
     tieBreakers: [
       distance<None>("outside-small", "the cells outside the biggest group, added up", () => "The cells outside the biggest group should add up to as little as possible.", "cells"),
-      more<None>("group-reach", "rows and columns the biggest group reaches", "The biggest group should reach into as many rows and columns as possible.", "cells"),
-      more<None>("group-corners", "board corners in the biggest group", "The biggest group should reach as many of the board's corners as possible.", "cells"),
+      upTo(more<None>("group-reach", "rows and columns the biggest group reaches", "The biggest group should reach into as many rows and columns as possible.", "cells"), 2 * n),
+      upTo(more<None>("group-corners", "board corners in the biggest group", "The biggest group should reach as many of the board's corners as possible.", "cells"), 4),
     ],
   };
   return family<None>("stepping-stones", "Stepping Stones", ["cells"], shape, [{}], ctx => {
@@ -113,8 +113,8 @@ export function mountainClimb(n: number): RuleFamily<GridState, None> {
     main: more<None>("climb", "cells on the longest climb from the top-left cell",
       "Starting at the top-left cell, climb as far as you can: each step goes to a touching cell exactly 1 bigger. Count the cells on your longest climb.", "cells"),
     tieBreakers: [
-      more<None>("climb-reach", "cells some climb reaches", "As many cells as possible should be on some climb from the top-left.", "cells"),
-      more<None>("climb-far", "how far the climb gets from the top-left cell", "The climb should end as far from the top-left cell as possible.", "cells"),
+      upTo(more<None>("climb-reach", "cells some climb reaches", "As many cells as possible should be on some climb from the top-left.", "cells"), n * n),
+      upTo(more<None>("climb-far", "how far the climb gets from the top-left cell", "The climb should end as far from the top-left cell as possible.", "cells"), 2 * (n - 1)),
       more<None>("climb-summit", "the biggest number the climb reaches", "The climb should reach as big a number as possible.", "cells"),
     ],
   };

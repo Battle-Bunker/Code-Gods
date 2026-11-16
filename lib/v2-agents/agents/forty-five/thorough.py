@@ -1,5 +1,5 @@
 # Forty-Five · Thorough
-# Main part: 45° at whole x and y, |x| + |y| on your pattern. Secondary preference: whichever you were dealt (that |x| + |y| has many prime factors; that |x| + |y| shares a factor with the y-intercepts' gap).
+# Main part: 45° at whole x and y, |x| + |y| on your pattern. Secondary preference: whichever you were dealt (that |x| + |y| shares a factor with the number you divide by; the y-intercepts' gap near a multiple of that |x| + |y|; that |x| + |y| has many prime factors).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -11,21 +11,24 @@ def score(L, p, tie):
     # How good are the two lines L for your rule? [main part, secondary]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
+    mod1 = lambda n: abs(int(n)) or 1   # |n|, at least 1
     if f.D == 0:   # parallel lines never cross: no score
         return None
     main, S = ladder(abs(f.x) + abs(f.y), p["q"], p["r"], f.off45 + dist(f.x))   # 45 degrees at a grid point, |x| + |y| on your ladder
     # main: the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better)
+    if tie == "corner-divisor":   # a corner whose |x| + |y| shares a big factor with the number you divide by is better
+        return [main, common(S, f.D)]
+    if tie == "corner-gap":   # a y-intercepts' gap near a multiple of the corner's |x| + |y| (not 0) is better
+        return [main, None if f.ygap is None else -off_multiple(f.ygap, mod1(S))]
     if tie == "corner-smooth":   # a corner whose |x| + |y| has many prime factors is better
         return [main, omega(S)]
-    if tie == "corner-gap":   # a corner whose |x| + |y| shares a big factor with the y-intercepts' gap is better
-        return [main, None if f.ygap is None else common(S, whole(f.ygap))]
     return [main]
 
 
 FAR = 2      # how far one move may go
 QUOTES = 16  # at most this many plans are priced (each price is a host call)
-KINDS = ["shift","tilt","stretch","turn","slide","combine","reflect","quarter","translate"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
-LEAVE = []      # pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
+KINDS = ["shift","tilt","stretch","turn","slide","combine","reflect","quarter","translate","zoom"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
+LEAVE = []      # pairs your agent skips, e.g. [19] or [4, 9]: others may still move them
 PROTECT = []    # pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
 

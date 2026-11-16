@@ -79,3 +79,53 @@ export function versionRows(programs: readonly { version: number; acts: number; 
 
 /** v1's "How energy works", in v2's terms. */
 export const ENERGY_HOW = "You earn energy every second of world time at your power. Each agent gets its share of that power into its own store; what you keep goes to your own store, for summoning and replacing agents. A store holds at most one full charge (its power × the full-charge time): income above that is not kept. Each chance to move goes to an agent with odds in proportion to the energy it holds, and moves cost energy by how far they change an object; looks cost energy too. An agent may borrow up to one full store to finish a change, and gets no chances until its income repays it.";
+
+/** v1's energy bar: how full the agent's store is and when it fills at its power (world seconds). */
+export function energyBar(e: { energy: number; capacity: number; perSecond: number }): { fraction: number; text: string } {
+  const fraction = e.capacity > 0 ? Math.max(0, Math.min(1, e.energy / e.capacity)) : 0;
+  if (e.capacity > 0 && e.energy >= e.capacity - 0.01) return { fraction: 1, text: "full: it gets no more until it spends" };
+  if (e.perSecond <= 0) return { fraction, text: "no power: it gets nothing" };
+  const s = Math.ceil((e.capacity - e.energy) / e.perSecond);
+  return { fraction, text: `${e.energy < 0 ? "repaying a debt: " : ""}full in ${s} s` };
+}
+
+/** "More power": half of the power you keep, added to this agent's share; null when you keep (almost) none. */
+export function morePower(share: number, free: number): number | null {
+  if (free < 0.01) return null;
+  return Math.round((share + free / 2) * 1e6) / 1e6;
+}
+/** "Less power": half its share back to you; null when it has too little to halve. */
+export function lessPower(share: number): number | null {
+  return share < 0.01 ? null : Math.round((share / 2) * 1e6) / 1e6;
+}
+
+const moves = (n: number) => `${n.toLocaleString("en-US")} ${n === 1 ? "move" : "moves"}`;
+
+/** v1's spent line: "Spent 30.00 energy on 4 moves: 12.00 reading, 18.00 changing" (agentEnergy's spendRead/spendChange). */
+export function spentText(e: { spend: number; spendRead: number; spendChange: number; acts: number }): string {
+  if (!(e.spend > 0)) return "Spent nothing yet";
+  return `Spent ${energyText(e.spend)} on ${moves(e.acts)}: ${num(e.spendRead)} reading, ${num(e.spendChange)} changing`;
+}
+
+/** v1's actual cost: "Actual average 7.50 energy per move" (null before its first move). */
+export function actualText(e: { spend: number; acts: number }): string | null {
+  return e.acts > 0 ? `Actual average ${energyText(e.spend / e.acts)} per move` : null;
+}
+
+const clockText = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+/** Its last move's own cost: "Last move at 0:12: 1.50 reading + 2.00 changing (moved)". */
+export function lastActText(a: { at: number; read: number; change: number; outcome: string } | null): string | null {
+  return a ? `Last move at ${clockText(a.at)}: ${num(a.read)} reading + ${num(a.change)} changing (${a.outcome})` : null;
+}
+
+/**
+ * v1's agent state (the My agents rule): above zero it can act now; overdrawn by at most 2 s of its income it is
+ * working (spending as fast as it earns, routine); past 10 s, or with no income, it is stuck; between, it waits.
+ */
+export function actState(e: { energy: number; perSecond: number }): string {
+  if (e.energy > 0) return "can act now";
+  if (!(e.perSecond > 0)) return "stuck: it has no income";
+  if (-e.energy <= 2 * e.perSecond) return "working: it spends energy as fast as it earns it";
+  if (-e.energy > 10 * e.perSecond) return "stuck: it owes more than 10 s of its income";
+  return "waiting for income";
+}

@@ -93,9 +93,10 @@ test("parts are the recorded terms on every family and a walk of states: no seco
           assert.ok(Qn.eq(part.sense === "min" ? Qn.neg(v) : v, e.score![j]!), `${f.id} part ${j}`);
         });
       }
-      // Every mark lands in exactly one part.
-      const owned = parts.flatMap(x => x.marks);
-      assert.equal(owned.length, e.sites[0]!.marks.length, f.id);
+      // Every mark of a dealt part (or of no part) lands in exactly one part; a mark of a layer not dealt here (a tuple
+      // family's third when only two parts are dealt) has no part to land in.
+      const owned = parts.flatMap(x => x.marks), dealt = new Set(e.sites[0]!.components.map(c => c.term));
+      assert.equal(owned.length, e.sites[0]!.marks.filter(m => !("term" in m) || m.term === undefined || dealt.has(m.term)).length, f.id);
     }
   }
 });

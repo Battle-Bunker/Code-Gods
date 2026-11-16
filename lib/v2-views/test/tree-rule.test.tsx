@@ -62,3 +62,29 @@ test("said once, and labelled truly: the compact line names the reading once; th
   const plane = renderToStaticMarkup(<ExpandedFace rule={rule} state={s} improvement={false} initialRep="cart" />);
   assert.doesNotMatch(text(plane), /41 · \d+ away/, "a neighbour target is not '31 away'");
 });
+
+test("coordinator, 16 Nov: compact lines are short and never cut; the plane marks the halfway points between targets; lines say nothing about how layers combine", () => {
+  const s = mc(q(1, 31), q(32));
+  const compact = text(renderToStaticMarkup(<CompactFace rule={rule} state={s} toScore={false} />));
+  assert.match(compact, /● main part: y-intercept 32: nearest 31, next 41/);
+  assert.match(compact, /▲ third preference: 31 × ¹⁄₃₁ = 1: exactly/);
+  const html = renderToStaticMarkup(<ExpandedFace rule={rule} state={s} improvement={false} initialRep="cart" />);
+  // Targets 11, 31, 41: halfway points 21 and 36.
+  assert.equal((html.match(/data-halfway=""/g) ?? []).length, 2);
+  assert.match(html, /Halfway between 31 and 41: past 36, the nearest is 41/);
+  assert.doesNotMatch(text(html), /counts first/);
+});
+
+test("the points tree: each layer's bits in its own words, the corrections, and the total; no 'counts first'", () => {
+  const s = mc(q(1, 31), q(32));
+  const parts = [{ layer: "target", bits: 4.6 }, { layer: "close", bits: 5.1 }, { layer: "times", bits: 0 }, { layer: "uniqueness", bits: -0.5 }];
+  const html = renderToStaticMarkup(<ExpandedFace rule={rule} state={s} improvement={false} initialRep="cart" parts={parts} />);
+  const t = text(html);
+  assert.match(html, /data-testid="points-tree"/);
+  assert.match(t, /● y-intercept 32: nearest 31, next 41 4\.60 bits/);
+  assert.match(t, /◆ .*1 above 31 \+5\.10 bits/);
+  assert.match(t, /▲ .*exactly \+0\.00 bits/);
+  assert.match(t, /others holding the same .*−0\.50 bits/);
+  assert.match(t, /together 9\.20 bits/);
+  assert.doesNotMatch(t, /counts first/);
+});
