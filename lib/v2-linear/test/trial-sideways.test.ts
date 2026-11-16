@@ -30,3 +30,12 @@ test("sideways is finite and positive for a target slot, and the energy adds the
   const s = sidewaysSampled(A, L(101, 867), 40);
   assert.ok(s.sideways > 0 && Number.isFinite(s.sideways) && Math.abs(s.energy - s.height - s.sideways) < 1e-9);
 });
+
+test("per part: bigger-is-better sideways is small next to the lift; a target rule's sideways falls with distance from the target", async () => {
+  const { partRule, sidewaysPerPart, targetsSmooth } = await import("../src/index.ts");
+  const big = sidewaysPerPart(biggerRule("c"), L(5, 1000), 60);
+  assert.ok(big.sideways < 0.15 * big.lift && big.inClass > 0.3, `${big.sideways} vs lift ${big.lift}`);
+  const B = partRule("B", "c", targetsSmooth([3, 17]));
+  const on = sidewaysPerPart(B, L(101, 867), 60).sideways, far = sidewaysPerPart(B, L(101, 1017), 60).sideways;
+  assert.ok(on > 2 * far, `on ${on}, 150 off ${far}`);
+});

@@ -394,3 +394,39 @@ Labels: **[built]**, **[seen]** (narrow: 300 starts per cell, three hand-picked 
     then a stretch, could lower some starts' prices.
   - The band is a Dirichlet split rounded to whole numbers, not the exact conditional law.
   - All figures come from three rules and 300 starts per cell.
+
+## Per part (the coordinator's follow-up: the band on the reading, not the line)
+
+The whole-order version priced moving height between numbers. The per-part version changes three things
+(`sidewaysPerPart`, `partRule`; numbers from `node --experimental-strip-types lib/v2-linear/scripts/trial-sideways-part.ts 200`):
+- **energy** = g·log2(1 + reading) + sideways;
+- **starts** are lines whose reading is within half a doubling of s's, with the other numbers drawn from the law;
+- **the class** is any target at or above s's target, at least as close as s is to its own target.
+
+B is measured without its third part. Results are [seen]: 200 starts, three rules. The additive fee is 4.4 per unit;
+"units" below is sideways divided by that fee.
+
+| Line | A: lift + sideways (units); tree closeness bits | B | C |
+|---|---|---|---|
+| on targets y = 101x + 867 | 667 + 66 (15); 4.95 | 976 + 267 (61); 8.09 | 1,186 + 224 (51); 6.38 |
+| one unit off | 669 + 60 (14); 3.37 | 976 + 269 (61); 6.50 | 1,184 + 26 (6); 0.43 |
+| halfway | 687 + 1 (0); 0.00 | 1,013 + 0 (0); 0.00 | 1,241 + 26 (6); 0.56 |
+| doubled, off targets | 767 + 66 (15); 0.37 | 1,076 + 10 (2); 0.07 | 1,286 + 32 (7); 0.87 |
+| ten times, on targets | 1,000 + 118 (27); 4.34 | 1,293 + 767 (175); 11.26 | 1,486 + 27 (6); 0.62 |
+
+- **Bigger-is-better** [seen, tested]: sideways is 38, 62 and 68 at c = 100, 1,000 and 10,000, against lifts of 666 to
+  1,329, with about half the starts already in the class. It is small, but not 0: starts half a doubling below pay a
+  little to come up.
+- **Ordering against conditional rarity** [seen]: the rank correlation of sideways with the tree's closeness bits,
+  over offsets 0 to 200 from a target, is 0.97 for B and 0.70 for A. A's dips come from the class definition: a far
+  offset that lands near the next prime ending in 1 is close to that target, which is the right answer.
+- **Exact against one off**: modest for coefficient rules (A 66 against 60, B 267 against 269, within noise). Not
+  modest for the area rule: C drops from 224 to 26 when m moves from 101 to 102, because the area moves by 37.
+- **Sparsity** [seen], on target at matched size near 5,000: suffix "1" gives 117, suffix "101" gives 699 and powers
+  of 2 give 861. Near 100: 56, 82 and 95. Sideways grows with sparsity.
+- **No saturation at the rename price** [seen]: a stretch onto a far target carries lift, so routes to sparse
+  targets keep growing.
+- **How this could be wrong**:
+  - The routes are bounded at two shortcuts plus one finish.
+  - The band is half a doubling, and narrowing it would lower bigger-is-better's residue.
+  - Rarity and sideways were compared on two rules and eleven offsets, so the 0.97 is narrow evidence.
