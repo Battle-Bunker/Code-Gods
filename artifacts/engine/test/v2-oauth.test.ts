@@ -126,9 +126,15 @@ test("a refresh token sent again moments after its rotation (a reload cut the an
   assert.equal(again.status, 200, `the same token moments later rotates again: ${await again.clone().text()}`);
   const { refresh_token: r3, access_token } = await again.json() as { refresh_token: string; access_token: string };
   assert.equal((await mcp(access_token, "tools/list")).result.tools.length > 0, true, "the connection still acts");
-  // Once only: the same token a third time is a reuse, and revokes.
-  assert.equal((await refresh(r1)).status, 400, "the grace is taken once");
-  assert.equal((await refresh(r3)).status, 400, "and that reuse revoked the connection");
+  // Quick reloads in a row (Parity C: four loads, each cutting its refresh off): the same token keeps rotating within
+  // the grace counted from its own rotation, and the newest successor carries on.
+  let newest = r3;
+  for (let i = 0; i < 3; i++) {
+    const again2 = await refresh(r1);
+    assert.equal(again2.status, 200, `reload ${i + 3} within the grace`);
+    newest = (await again2.json() as { refresh_token: string }).refresh_token;
+  }
+  assert.equal((await refresh(newest)).status, 200, "the newest successor carries on");
 });
 
 test("the refresh grace is for its own client only, and ends after 30 s", { timeout: 120_000 }, async () => {

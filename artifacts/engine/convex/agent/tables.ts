@@ -49,6 +49,6 @@ export const agentTables = {
   }).index("by_key", ["keyHash"]).index("by_code", ["codeHash"]).index("by_expires", ["expiresAt"]),
 
   /** Refresh tokens already rotated out: presenting one again revokes its credential (OAuth 2.1 reuse detection). */
-  oauthRetiredRefresh: defineTable({ hash: v.string(), credentialId: v.id("credentials"), retiredAt: v.number(), /** Taken once in its grace (oauthStore refresh). */ graced: v.optional(v.boolean()) })
+  oauthRetiredRefresh: defineTable({ hash: v.string(), credentialId: v.id("credentials"), retiredAt: v.number(), /** Unused since the grace allows quick reloads in a row (rows written before may carry it). */ graced: v.optional(v.boolean()) })
     .index("by_hash", ["hash"]).index("by_credential", ["credentialId"]).index("by_retired", ["retiredAt"]),
 };
