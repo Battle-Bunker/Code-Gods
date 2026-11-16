@@ -233,6 +233,12 @@ export interface Layer<P> {
    */
   readonly measure?: "prime" | "ladder";
   /**
+   * For a count bounded by its object (boxes on a board: Two Pair's 4 corner boxes), the most it can be on this variant.
+   * Read only by the views, so a count's ruler ends where the count can end (playtest baseline-2 #5: a 0–17 ruler for a
+   * count of 4); never by a value function (owner decision 26: no maxima).
+   */
+  most?(params: P, variant: Variant): number;
+  /**
    * For a tie-breaker: whether it is dealt on this variant (default: always). False where it cannot decide anything
    * there, e.g. a pile of b-coins on whole-number lines, where b is always 1.
    */
