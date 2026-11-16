@@ -46,3 +46,18 @@ test("the end reason (v1's): none while live, the owner's after they end it", as
   assert.equal(d.endReason, "owner");
   assert.ok(d.endedAt !== null && d.startedAt !== null);
 });
+
+// v1's "Who is here" ✓: which seats are ready. Partners are always ready; a human is once they say so.
+test("readiness: every seat's ready flag, a human's only once they mark ready", async () => {
+  const [ada] = await humans("Readiness Ada");
+  const { roomId } = (await perform(ada!, "room.create", { name: "Readiness room" })).result;
+  await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
+  const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
+  const header = await ada!.query("v2/games:header", { gameId });
+  const before = await ada!.query("v2/games:readiness", { gameId });
+  assert.equal(before.length, header.roster.length);
+  for (const r of before) assert.equal(r.ready, r.memberId !== header.me, "partners ready, Ada not yet");
+  await perform(ada!, "game.ready", { ready: true }, { gameId });
+  assert.ok((await ada!.query("v2/games:readiness", { gameId })).every((r: any) => r.ready));
+  await perform(ada!, "game.end", {}, { gameId });
+});
