@@ -1,5 +1,5 @@
 # Divide By · Naive (for learning)
-# Main part: the number you divide by on your powers. Secondary preference: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor).
+# Main part: the number you divide by on your powers. Secondary preference: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor; the answer's numerators small).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -18,12 +18,14 @@ def score(L, p, tie):
         return [main, omega(abs(nx) + abs(ny))]
     if tie == "numerator-shared":   # numerators sharing a big factor are better
         return [main, common(nx, ny)]
+    if tie == "numerator-small":   # small numerators are better
+        return [main, -(abs(nx) + abs(ny))]
     return [main]
 
 
 FAR = 2      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-KINDS = ["combine","turn","stretch"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
+KINDS = ["combine","turn","stretch"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
 
 
 def agent(offer):

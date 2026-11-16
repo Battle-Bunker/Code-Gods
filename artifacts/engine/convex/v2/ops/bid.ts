@@ -67,11 +67,12 @@ export const { op: withdraw, as: withdrawAs } = defineOp("bid.withdraw", "mutati
   return { ok: true as const };
 });
 
-export const { op: done, as: doneAs } = defineOp("bid.done", "mutation", async env => {
+export const { op: done, as: doneAs } = defineOp("bid.done", "mutation", async (env, a) => {
   const { room, member } = inRoom(env);
   openPhase(room);
   bidder(member);
-  await save(env.ctx, room, member, r => ({ ...r, done: true }));
+  // v1's "Change my bids": done false reopens the caller's bidding until they are done again.
+  await save(env.ctx, room, member, r => ({ ...r, done: a.done ?? true }));
   return { ok: true as const };
 });
 

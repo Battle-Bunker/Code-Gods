@@ -151,3 +151,10 @@ test("the summary renders for every beginner family on lines on and off their ru
     for (const e of s.earned) assert.doesNotMatch(e.chain, /: [−-][\d½⅓⅔¼¾]|\bdealt\b/, `${f.id}: ${e.chain}`);
   }
 });
+
+test("a tug that only flipped between two states says so (round 33: 'flipped back and forth between two states 27 times')", () => {
+  const s = summarise({ ...base, tugs: [{ number: 5, withNames: ["Ada"], flips: 3, mySpend: 236.89 }, { number: 2, withNames: ["Ada"], flips: 12, mySpend: 9, cycle: { moves: 27 } }] });
+  assert.equal(s.next.number, 2, "the cycle's 27 moves outrank 3 changes of hands");
+  assert.match(s.next.text, /flipped line 2 back and forth between two states 27 times \(9\.00 energy of yours\)/);
+  assert.match(s.costs[0]!.text, /between two states 27 times/);
+});

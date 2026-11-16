@@ -288,7 +288,7 @@ export function frameAt(ix: ReplayIndex, applied: number): ReplayFrame {
         if (sort === "recent") return t.states[lastAt(t.states, a)]!.changedAt;
         const v = valueOf(t, member);
         if (!v) return -Infinity;
-        return sort === "points" ? v.points : sort === "rarity" ? v.rarityBits : v.want;
+        return sort === "points" ? v.points : sort === "least" ? -v.points : sort === "rarity" ? v.rarityBits : v.want;
       };
       // The server pages its indexes in descending order, ties newest first.
       // v1's filters, as the server's: earning you points (and contested is the same here); chips need the server.

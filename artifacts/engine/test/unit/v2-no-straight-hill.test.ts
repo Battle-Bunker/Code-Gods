@@ -15,14 +15,14 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applyCall, evaluateSite, isInvalid, rng, variantMutators, type ObjectType } from "@workspace/v2-core";
+import { applyCall, evaluateSite, familyById, isInvalid, rng, variantMutators, type ObjectType } from "@workspace/v2-core";
 import { lineLaw, type LineState } from "@workspace/v2-linear";
 import { pairLaw, type PairState } from "@workspace/v2-pair";
 import { findVariant, valueLookup } from "@workspace/v2-valuation";
 import { births } from "@workspace/v2-agents/pure";
-import { dealablePool, familyOf } from "../../convex/v2/deal.ts";
+import { dealablePool, defencePool, familyOf } from "../../convex/v2/deal.ts";
 import { PRESETS } from "../../convex/v2/presets.ts";
-import { valueRecord } from "../../convex/v2/values.ts";
+import { penaltyBitsOf, valueRecord } from "../../convex/v2/values.ts";
 
 const LIMIT = 35, STARTS = 3, MAX_STEPS = 80;
 /**
@@ -58,6 +58,7 @@ const PAIR_CALLS: Record<string, readonly Record<string, string>[]> = {
   ...Object.fromEntries(Object.entries(CALLS).map(([m, list]) => [m, ["1", "2"].flatMap(line => list.map(a => ({ line, ...a })))])),
   "pair.reflect": [{ line: "1" }, { line: "2" }],
   "pair.quarter": [{ line: "1" }, { line: "2" }],
+  "sys.zoom": FACTORS.map(f => ({ f })),
 };
 
 /**
@@ -149,4 +150,49 @@ test(`no dealt line, pair or grid rule passes ${LIMIT} bits on one seat's whole-
   assert.deepEqual(failures, []);
   for (const [rule, worst] of openWorst) assert.ok(worst > LIMIT, `${rule} now stays at ${worst.toFixed(1)} bits: remove it from OPEN`);
   assert.deepEqual(Object.keys(OPEN).filter(k => !openWorst.has(k)), [], "OPEN entries for rules no preset deals: remove them");
+});
+
+/**
+ * Defence goals (v1, restored; owner-decisions call 1): the same gate on every penalty a grid preset could deal beside
+ * the rules, climbed the way an adversary would climb it (the badness's bits, h). A penalty's cost to its holder is
+ * w·η(h), so an h past the limit on one seat's income would be a cheap weapon.
+ */
+test(`no defence goal's badness passes ${LIMIT} bits on one seat's whole-game income spent on one object`, () => {
+  const failures: string[] = [], seen = new Set<string>();
+  let chains = 0;
+  for (const preset of PRESETS) {
+    const { type, variant } = findVariant(preset.variant);
+    if (type.id !== "grid") continue;
+    const T = type as ObjectType<unknown>, calls = gridCalls(T, variant);
+    const income = preset.economy.powerPerSecond * preset.worldSeconds + preset.startingEnergy;
+    for (const d of defencePool(preset.variant).flat()) {
+      const key = `${variant.id}|${d.ruleKey}|${income}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const pf = familyById(T, d.family)!;
+      const bitsOf = (s: unknown) => penaltyBitsOf(d.ruleKey, evaluateSite(T, pf as never, d.params, s, variant, 0, null).score);
+      let worst = 0;
+      for (const start of births(T, variant, `energy-gate-${d.ruleKey}`, STARTS)) {
+        let s = start, spent = 0, top = bitsOf(s);
+        const visited = new Set([T.encode(s)]);
+        for (let i = 0; i < MAX_STEPS; i++) {
+          let pick: { s: unknown; fee: number; g: number; b: number } | null = null;
+          const b0 = bitsOf(s);
+          for (const c of calls) {
+            const a = applyCall(T, variant, s, { mutator: c.mutator, site: 0, args: c.args });
+            if (isInvalid(a) || spent + a.price.total > income || visited.has(T.encode(a.result))) continue;
+            const b = bitsOf(a.result), g = (b - b0) / Math.max(a.price.total, 1e-9);
+            if (g > 0 && (!pick || g > pick.g)) pick = { s: a.result, fee: a.price.total, g, b };
+          }
+          if (!pick) break;
+          s = pick.s; spent += pick.fee; visited.add(T.encode(s)); top = Math.max(top, pick.b);
+        }
+        chains++;
+        worst = Math.max(worst, top);
+      }
+      if (worst > LIMIT) failures.push(`${preset.id} ${d.family} ${JSON.stringify(d.params)}: ${worst.toFixed(1)} bits`);
+    }
+  }
+  assert.ok(chains > 0, "some grid preset deals defence goals");
+  assert.deepEqual(failures, []);
 });

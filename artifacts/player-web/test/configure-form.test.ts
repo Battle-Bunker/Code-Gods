@@ -124,5 +124,9 @@ test("rules never dealt: a set (order does not matter), never all of the setup's
   assert.equal(isHidden("bidPricing", beginner), true);
   assert.equal(isHidden("bidPricing", bidding), false);
   assert.equal(isHidden("excludedFamilies", beginner), false);
+  assert.equal(isHidden("bidPricing", beginner, { bidSeconds: 30 }), false, "v1: any setup may bid");
+  assert.equal(isHidden("bidPricing", bidding, { bidSeconds: 0 }), true, "0 is no bid phase");
+  assert.equal(d.bidSeconds, bidding.bid!.seconds);
+  assert.deepEqual(overridesFor({ ...d, bidSeconds: 0 }, bidding), { bidSeconds: 0 });
   assert.equal(d.bidPricing, bidding.bid!.pricing);
 });

@@ -260,8 +260,9 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     return ok;
   },
   "bid.withdraw": (e, a) => { delete roomOf(e).bid!.bids[e.userId]?.[a.family]; return ok; },
-  "bid.done": e => {
+  "bid.done": (e, a) => {
     const r = roomOf(e), b = r.bid!;
+    if (a.done === false) { b.done = b.done.filter(u => u !== e.userId); return ok; }
     if (!b.done.includes(e.userId)) b.done.push(e.userId);
     const humans = r.members.filter(m => m.kind === "human" && !m.spectator).map(m => m.userId!);
     if (humans.every(u => b.done.includes(u))) deal(e.state, r);
@@ -351,6 +352,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     // or none (chips); mutations and recent keep insertion order.
     const kept = filter === "all" ? rows : rows.filter(r => (filter === "chips" ? r.points <= 0 : r.points > 0));
     if (key === "oldest") kept.sort((x, y) => x.number - y.number);
+    else if (key === "least") kept.sort((x, y) => x.points - y.points);
     else if (key === "born") kept.sort((x, y) => y.number - x.number);
     else if (key === "rarity" || key === "points" || key === "want") kept.sort((x, y) => key === "rarity" ? y.bits - x.bits : y.points - x.points);
     return page(kept, a);

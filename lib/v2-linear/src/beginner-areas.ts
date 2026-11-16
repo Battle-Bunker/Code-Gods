@@ -25,14 +25,14 @@ export const squareArea = family("square-area", "Square Area", ["tri", "cart"], 
   const a = num(av);
   if (a === null) return allUndefined(ctx, squareShape, av, area);
   const sq = squareGap(a);
-  ctx.term("square", `distance from the area to ${sq.root * sq.root}`, sq.d, [area]);
-  ctx.term("spf", factorLabel("smallest", "the root", q(sq.root)), q(smallestPrimeFactor(sq.root)), [area]);
-  ctx.term("lpf", factorLabel("largest", "the root", q(sq.root)), q(largestPrimeFactor(sq.root)), [area]);
-  ctx.term("omega", `prime factors of ${sq.root}`, q(primeFactorCount(sq.root)), [area]);
-  ctx.mark({ kind: "note", ref: area, text: `area ${Qn.toWire(a)}, nearest square ${sq.root * sq.root} = ${sq.root}²` });
-  // The nearest square itself, as a shape the plane draws beside the triangle (marks only: no term changes).
+  // The nearest square itself, drawn beside the triangle: the main part's target, and what the preferences read (its root).
   const sqRef = ref("tri", "square", { s: sq.root });
   ctx.read(sqRef);
+  ctx.term("square", `distance from the area to ${sq.root * sq.root}`, sq.d, [area]);
+  ctx.term("spf", factorLabel("smallest", "the root", q(sq.root)), q(smallestPrimeFactor(sq.root)), [area, sqRef]);
+  ctx.term("lpf", factorLabel("largest", "the root", q(sq.root)), q(largestPrimeFactor(sq.root)), [area, sqRef]);
+  ctx.term("omega", `prime factors of ${sq.root}`, q(primeFactorCount(sq.root)), [area, sqRef]);
+  ctx.mark({ kind: "note", ref: area, text: `area ${Qn.toWire(a)}, nearest square ${sq.root * sq.root} = ${sq.root}²` });
   ctx.mark({ kind: "candidate", ref: sqRef, term: "square" });
 });
 
@@ -108,6 +108,10 @@ export const ruler = ladder(family<Ends>("ruler", "Ruler", ["norm", "si", "gen"]
     ctx.term("shared-factor", `${p - 1n} and the y-intercept's whole part ${w}: the biggest number dividing both is ${w === 0n ? 0n : gcd(p - 1n, w)}`, q(w === 0n ? 0n : gcd(p - 1n, w)), [d2Ref, cRef]);
   }
   ctx.mark({ kind: "focus", ref: ref("norm", "foot") });
+  // Marks only (no term changes): the circle round (0, 0) of radius² p, the window's foot, which the line should reach.
+  const circle = ref("norm", "circle", { r2: q(p) });
+  ctx.read(circle);
+  ctx.mark({ kind: "candidate", ref: circle, term: "ruler" });
 }), rulerWitness);
 
 /**

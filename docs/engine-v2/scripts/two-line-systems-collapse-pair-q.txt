@@ -1,64 +1,37 @@
-pair-q: 114 rules (0 without a value function), E = 312.5 energy, 8 tables
-  pair-q β 0.02 tests 2/3: 1/8 tables cheap (≥ 50% of 12 searches reach 95% of the best known); search median 86% of best; W ≈ 6.8e+7; under drift 0/0 one-seat redraws leave a cheap best still at 95% of the new best |  (419.9 s)
-pair-q β 0.02 table 0 (far-crossing/far-gap, double-gap/gap-prime, steep-ratio/ratio-gap): W ≈ 5.9e+7 states, best F 615.0 at (-16, 1, 26, 2, 3, -3), searches hitting 95%: 1/12, median 312.3 (51%); 24 best keep 53%; top 3 (-16, 1, 26, 2, 3, -3) (-10, 1, 20, -2, 5, 10) (-7, 1, 14, 3, 9, 1)
-pair-q β 0.02 table 1 (right-angle/corner-steep, far-crossing/far-gap, whole-answer/south-west): W ≈ 6.8e+7 states, best F 352.1 at (-2, 1, -34, 0, 1, 14), searches hitting 95%: 2/12, median 287.6 (82%); 24 best keep 72%; top 3 (-2, 1, -34, 0, 1, 14) (-1, 9, -35, 1, 0, 17) (-2, 9, -34, -1, 6, 4)
-pair-q β 0.02 table 2 (forty-five/corner-smooth, double-gap/gap-divisor, high-start/start-echo): W ≈ 5.9e+7 states, best F 484.8 at (-4, 1, 24, 5, 1, -3), searches hitting 95%: 0/12, median 325.4 (67%); 24 best keep 67%; top 3 (-4, 1, 24, 5, 1, -3) (-15, 1, 12, 1, 1, -4) (-11, 1, 11, 1, 1, -4)
-pair-q β 0.02 table 3 (high-start/start-crossing, forty-five/corner-gap, no-fractions/numerator-smooth): W ≈ 6.8e+7 states, best F 439.5 at (1, 2, -28, 7, 3, 13), searches hitting 95%: 2/12, median 386.9 (88%); 24 best keep 83%; top 3 (1, 2, -28, 7, 3, 13) (1, 2, -32, 7, 3, 0) (1, 3, -48, 5, 4, 2)
-pair-q β 0.02 table 4 (far-crossing/far-height, forty-five/corner-smooth, steep-ratio/ratio-gap): W ≈ 5.9e+7 states, best F 309.6 at (-3, 2, 13, 4, 1, 12), searches hitting 95%: 3/12, median 274.5 (89%); 24 best keep 87%; top 3 (-3, 2, 13, 4, 1, 12) (-2, 1, 15, -1, 14, -6) (-2, 1, 16, -1, 14, -1)
-pair-q β 0.02 table 5 (right-angle/corner-prime, high-start/start-crossing, double-gap/gap-divisor): W ≈ 6.8e+7 states, best F 337.0 at (-4, 5, -15, 4, 3, 9), searches hitting 95%: 2/12, median 288.3 (86%); 24 best keep 82%; top 3 (-4, 5, -15, 4, 3, 9) (-4, 9, -27, 2, 1, 8) (-5, 7, -21, 5, 3, 12)
-pair-q β 0.02 table 6 (far-crossing/far-height, no-fractions/numerator-shared, right-angle/corner-prime): W ≈ 5.9e+7 states, best F 499.4 at (1, 0, 14, 2, 11, -5), searches hitting 95%: 10/12, median 499.4 (100%) CHEAP; after a redraw: no seat has another value; 24 best keep 78%; top 3 (1, 0, 14, 2, 11, -5) (-2, 1, 16, 3, 4, -2) (-5, 6, 7, 1, 1, -8)
-pair-q β 0.02 table 7 (whole-answer/south-west, far-crossing/far-gap, forty-five/corner-smooth): W ≈ 6.8e+7 states, best F 532.5 at (-1, 1, -32, 1, 0, -13), searches hitting 95%: 1/12, median 347.0 (65%); 24 best keep 72%; top 3 (-1, 1, -32, 1, 0, -13) (-4, 5, -33, 1, 0, -13) (-7, 5, -29, 1, 0, -13)
-### pair-q (preset lines-pairs: 114 rules with value functions; none skipped)
+pair-q: 176 rules (0 without a value function), E = 2530.0 energy, 8 tables
+  pair-q β 0.02 tests 2/3: 1/8 tables cheap (≥ 33% of 12 searches reach 95% of the best known); search median 73% of best; W ≈ 5.4e+12 |  (753.3 s)
+  pair-q β 0.05 tests 2/3: 1/8 tables cheap (≥ 33% of 12 searches reach 95% of the best known); search median 82% of best; W ≈ 1.2e+12 |  (744.0 s)
+  pair-q β 0.1 tests 2/3: 2/8 tables cheap (≥ 33% of 12 searches reach 95% of the best known); search median 88% of best; W ≈ 2.0e+11 |  (709.3 s)
+pair-q β 0.02 table 0 (far-crossing/far-steep, double-gap/gap-divisor, steep-ratio/ratio-prime): W ≈ 5.4e+12 states, best F 465.5 at (-14, 97, 1, -4, 1, -263), searches hitting 95%: 1/12, median 339.8 (73%); 24 best keep 76%; top 3 (-14, 97, 1, -4, 1, -263) (5, 47, -41, 9, 3, -287) (5, 46, -41, 9, 3, -287)
+pair-q β 0.02 table 1 (right-angle/corner-multiple, far-crossing/far-height, whole-answer/sum-prime): W ≈ 2.4e+12 states, best F 729.3 at (16, 5, -2513, 39, 17, -61), searches hitting 95%: 0/12, median 441.8 (61%); 24 best keep 69%; top 3 (16, 5, -2513, 39, 17, -61) (16, 5, -2513, 39, 17, -62) (0, 8, -2465, 46, 0, -139)
+pair-q β 0.02 table 2 (forty-five/corner-smooth, double-gap/gap-step, high-start/start-echo): W ≈ 5.4e+12 states, best F 407.2 at (5, 7, -100, 38, 4, -265), searches hitting 95%: 1/12, median 285.4 (70%); 24 best keep 78%; top 3 (5, 7, -100, 38, 4, -265) (-88, 2, 63, 18, 14, -229) (-87, 2, 63, 18, 14, -229)
+pair-q β 0.02 table 3 (high-start/start-steep, forty-five/corner-gap, no-fractions/numerator-shared): W ≈ 2.4e+12 states, best F 704.4 at (1, 3, -2500, 95, 69, 40), searches hitting 95%: 1/12, median 477.2 (68%); 24 best keep 85%; top 3 (1, 3, -2500, 95, 69, 40) (1, 3, -2500, 95, 69, 28) (1, 3, -2500, 95, 69, 36)
+pair-q β 0.02 table 4 (far-crossing/far-height, forty-five/corner-smooth, steep-ratio/ratio-smooth): W ≈ 5.4e+12 states, best F 447.9 at (-1, 173, 3, 11, 10, -176), searches hitting 95%: 1/12, median 394.7 (88%); 24 best keep 90%; top 3 (-1, 173, 3, 11, 10, -176) (4, 34, -129, 13, 11, -206) (4, 34, -127, 13, 11, -205)
+pair-q β 0.02 table 5 (right-angle/corner-prime, high-start/start-crossing, double-gap/gap-divisor): W ≈ 2.4e+12 states, best F 363.3 at (-14, 3, -2472, 12, 47, 134), searches hitting 95%: 0/12, median 259.4 (71%); 24 best keep 84%; top 3 (-14, 3, -2472, 12, 47, 134) (-14, 3, -2470, 12, 47, 134) (-14, 3, -2472, 12, 47, 135)
+pair-q β 0.02 table 6 (far-crossing/far-gap, no-fractions/numerator-small, right-angle/corner-steep): W ≈ 5.4e+12 states, best F 742.3 at (-5, 27, -90, 8, 0, -201), searches hitting 95%: 1/12, median 560.1 (75%); 24 best keep 66%; top 3 (-5, 27, -90, 8, 0, -201) (-6, 3, -49, 10, 31, -207) (-12, 72, -13, 3, 0, -140)
+pair-q β 0.02 table 7 (far-crossing/far-gap, right-angle/corner-multiple, whole-answer/y-steep): W ≈ 2.4e+12 states, best F 641.4 at (-9, 10, -2405, 22, 28, 17), searches hitting 95%: 4/12, median 530.4 (83%) CHEAP; 24 best keep 84%; top 3 (-9, 10, -2405, 22, 28, 17) (-17, 2, -2478, 12, 71, 85) (-17, 2, -2478, 12, 71, 84)
+pair-q β 0.05 table 0 (far-crossing/far-steep, double-gap/gap-divisor, steep-ratio/ratio-prime): W ≈ 1.2e+12 states, best F 414.8 at (-19, 122, 29, -13, 3, -224), searches hitting 95%: 2/12, median 339.5 (82%); 24 best keep 86%; top 3 (-19, 122, 29, -13, 3, -224) (-14, 74, 1, 4, 1, -127) (-14, 74, -1, 4, 1, -127)
+pair-q β 0.05 table 1 (right-angle/corner-multiple, far-crossing/far-height, whole-answer/sum-prime): W ≈ 4.3e+11 states, best F 510.9 at (0, 8, -2465, 37, 1, -123), searches hitting 95%: 1/12, median 443.0 (87%); 24 best keep 88%; top 3 (0, 8, -2465, 37, 1, -123) (-29, 3, -2460, 4, 47, -48) (-29, 6, -2464, 6, 31, 48)
+pair-q β 0.05 table 2 (forty-five/corner-smooth, double-gap/gap-step, high-start/start-echo): W ≈ 1.2e+12 states, best F 414.9 at (-69, 1, 55, -13, 15, -215), searches hitting 95%: 1/12, median 324.5 (78%); 24 best keep 98%; top 3 (-69, 1, 55, -13, 15, -215) (-65, 1, 54, -13, 15, -211) (-64, 1, 54, -13, 15, -211)
+pair-q β 0.05 table 3 (high-start/start-steep, forty-five/corner-gap, no-fractions/numerator-shared): W ≈ 4.3e+11 states, best F 719.4 at (3, 5, -2449, 69, 43, -23), searches hitting 95%: 1/12, median 517.4 (72%); 24 best keep 71%; top 3 (3, 5, -2449, 69, 43, -23) (-16, 116, -2465, -2, 1, -25) (-16, 116, -2465, -2, 1, -55)
+pair-q β 0.05 table 4 (far-crossing/far-height, forty-five/corner-smooth, steep-ratio/ratio-smooth): W ≈ 1.2e+12 states, best F 511.9 at (1, 135, -30, 14, 9, -225), searches hitting 95%: 2/12, median 428.8 (84%); 24 best keep 88%; top 3 (1, 135, -30, 14, 9, -225) (1, 143, -6, 11, 9, -175) (1, 143, 2, 11, 9, -174)
+pair-q β 0.05 table 5 (right-angle/corner-prime, high-start/start-crossing, double-gap/gap-divisor): W ≈ 4.3e+11 states, best F 486.0 at (-1, 4, -2464, 19, 5, -83), searches hitting 95%: 0/12, median 267.1 (55%); 24 best keep 83%; top 3 (-1, 4, -2464, 19, 5, -83) (-1, 4, -2464, 19, 5, -84) (-1, 4, -2464, 19, 5, -82)
+pair-q β 0.05 table 6 (far-crossing/far-gap, no-fractions/numerator-small, right-angle/corner-steep): W ≈ 1.2e+12 states, best F 741.6 at (-17, 33, -29, 5, 3, -180), searches hitting 95%: 1/12, median 529.1 (71%); 24 best keep 95%; top 3 (-17, 33, -29, 5, 3, -180) (-17, 33, -30, 5, 3, -180) (-17, 33, -31, 5, 3, -180)
+pair-q β 0.05 table 7 (far-crossing/far-gap, right-angle/corner-multiple, whole-answer/y-steep): W ≈ 4.3e+11 states, best F 649.4 at (-17, 3, -2483, 2, 16, -83), searches hitting 95%: 4/12, median 593.1 (91%) CHEAP; 24 best keep 86%; top 3 (-17, 3, -2483, 2, 16, -83) (-17, 1, -2483, 1, 137, -27) (-17, 1, -2483, 1, 136, -26)
+pair-q β 0.1 table 0 (far-crossing/far-steep, double-gap/gap-divisor, steep-ratio/ratio-prime): W ≈ 2.0e+11 states, best F 411.3 at (-7, 49, 2, 59, 1, -218), searches hitting 95%: 2/12, median 355.3 (86%); 24 best keep 88%; top 3 (-7, 49, 2, 59, 1, -218) (1, 49, -18, 13, 23, -236) (-4, 59, 16, 57, 12, -212)
+pair-q β 0.1 table 1 (right-angle/corner-multiple, far-crossing/far-height, whole-answer/sum-prime): W ≈ 6.2e+10 states, best F 470.5 at (-15, 45, -2479, 3, 1, -75), searches hitting 95%: 5/12, median 438.9 (93%) CHEAP; 24 best keep 97%; top 3 (-15, 45, -2479, 3, 1, -75) (-29, 3, -2461, 3, 32, -11) (-29, 3, -2461, 6, 63, -14)
+pair-q β 0.1 table 2 (forty-five/corner-smooth, double-gap/gap-step, high-start/start-echo): W ≈ 2.0e+11 states, best F 377.7 at (-49, 1, 36, -19, 16, -222), searches hitting 95%: 2/12, median 331.2 (88%); 24 best keep 92%; top 3 (-49, 1, 36, -19, 16, -222) (-44, 1, 27, -23, 16, -220) (-46, 1, 27, -23, 16, -221)
+pair-q β 0.1 table 3 (high-start/start-steep, forty-five/corner-gap, no-fractions/numerator-shared): W ≈ 6.2e+10 states, best F 852.1 at (5, 21, -2496, 11, 3, -48), searches hitting 95%: 0/12, median 570.0 (67%); 24 best keep 63%; top 3 (5, 21, -2496, 11, 3, -48) (6, 6, -2479, 36, 0, 31) (7, 6, -2479, 36, 0, 31)
+pair-q β 0.1 table 4 (far-crossing/far-height, forty-five/corner-smooth, steep-ratio/ratio-smooth): W ≈ 2.0e+11 states, best F 473.3 at (1, 93, -23, 13, 11, -209), searches hitting 95%: 2/12, median 423.9 (90%); 24 best keep 94%; top 3 (1, 93, -23, 13, 11, -209) (1, 57, -22, 15, 17, -242) (1, 57, -21, 15, 17, -242)
+pair-q β 0.1 table 5 (right-angle/corner-prime, high-start/start-crossing, double-gap/gap-divisor): W ≈ 6.2e+10 states, best F 486.0 at (-1, 4, -2464, 19, 5, -83), searches hitting 95%: 1/12, median 270.8 (56%); 24 best keep 60%; top 3 (-1, 4, -2464, 19, 5, -83) (-5, 11, -2466, 7, 3, 13) (-5, 11, -2466, 7, 3, 12)
+pair-q β 0.1 table 6 (far-crossing/far-gap, no-fractions/numerator-small, right-angle/corner-steep): W ≈ 2.0e+11 states, best F 898.3 at (-9, 27, -19, 7, 3, -177), searches hitting 95%: 0/12, median 662.3 (74%); 24 best keep 75%; top 3 (-9, 27, -19, 7, 3, -177) (-9, 27, -20, 7, 3, -177) (-9, 27, -17, 7, 3, -177)
+pair-q β 0.1 table 7 (far-crossing/far-gap, right-angle/corner-multiple, whole-answer/y-steep): W ≈ 6.2e+10 states, best F 649.6 at (-17, 3, -2482, 2, 15, -57), searches hitting 95%: 4/12, median 602.0 (93%) CHEAP; 24 best keep 98%; top 3 (-17, 3, -2482, 2, 15, -57) (-17, 3, -2482, 5, 31, 5) (-17, 2, -2478, 14, 89, -34)
+### pair-q (preset lines-pairs: 176 rules with value functions; none skipped)
 
 | β | W (energy) | 2 no cheap optimum |
 |--:|--:|---|
-| 0.02 | 313 | **PASS**: 1/8 tables cheap (≥ 50% of 12 searches reach 95% of the best known); search median 86% of best; W ≈ 6.8e+7; under drift 0/0 one-seat redraws leave a cheap best still at 95% of the new best |
-
-collapse check: 0 failures
-done
-pair-q: 114 rules (0 without a value function), E = 312.5 energy, 8 tables
-  pair-q β 0.05 tests 2/3: 2/8 tables cheap (≥ 50% of 12 searches reach 95% of the best known); search median 89% of best; W ≈ 2.1e+7; under drift 0/0 one-seat redraws leave a cheap best still at 95% of the new best |  (364.0 s)
-pair-q β 0.05 table 0 (far-crossing/far-gap, double-gap/gap-prime, steep-ratio/ratio-gap): W ≈ 2.0e+7 states, best F 425.3 at (-9, 1, 19, 5, 2, -10), searches hitting 95%: 0/12, median 331.0 (78%); 24 best keep 75%; top 3 (-9, 1, 19, 5, 2, -10) (-8, 3, 21, 3, 4, -8) (-9, 1, 11, 6, 7, -7)
-pair-q β 0.05 table 1 (right-angle/corner-steep, far-crossing/far-gap, whole-answer/south-west): W ≈ 2.1e+7 states, best F 320.1 at (-1, 1, -17, 1, 1, -1), searches hitting 95%: 0/12, median 283.4 (89%); 24 best keep 78%; top 3 (-1, 1, -17, 1, 1, -1) (-2, 1, -34, -1, 2, 4) (1, 0, -32, 3, 7, 2)
-pair-q β 0.05 table 2 (forty-five/corner-smooth, double-gap/gap-divisor, high-start/start-echo): W ≈ 2.0e+7 states, best F 457.5 at (-15, 1, 12, 1, 1, -4), searches hitting 95%: 1/12, median 366.9 (80%); 24 best keep 66%; top 3 (-15, 1, 12, 1, 1, -4) (-10, 1, 22, -1, 2, 6) (-11, 1, 11, 1, 1, -4)
-pair-q β 0.05 table 3 (high-start/start-crossing, forty-five/corner-gap, no-fractions/numerator-smooth): W ≈ 2.1e+7 states, best F 439.5 at (1, 2, -28, 7, 3, 13), searches hitting 95%: 6/12, median 431.1 (98%) CHEAP; after a redraw: no seat has another value; 24 best keep 76%; top 3 (1, 2, -28, 7, 3, 13) (1, 2, -32, 7, 3, 0) (-5, 2, -28, 3, 1, 12)
-pair-q β 0.05 table 4 (far-crossing/far-height, forty-five/corner-smooth, steep-ratio/ratio-gap): W ≈ 2.0e+7 states, best F 297.9 at (-2, 1, 15, -1, 14, -6), searches hitting 95%: 3/12, median 279.2 (94%); 24 best keep 87%; top 3 (-2, 1, 15, -1, 14, -6) (1, 1, 14, 1, 4, 5) (-2, 1, 16, -1, 14, -1)
-pair-q β 0.05 table 5 (right-angle/corner-prime, high-start/start-crossing, double-gap/gap-divisor): W ≈ 2.1e+7 states, best F 419.5 at (-4, 9, -27, 2, 1, 13), searches hitting 95%: 2/12, median 282.8 (67%); 24 best keep 64%; top 3 (-4, 9, -27, 2, 1, 13) (-5, 7, -28, 3, 2, 10) (-7, 9, -27, 5, 4, 12)
-pair-q β 0.05 table 6 (far-crossing/far-height, no-fractions/numerator-shared, right-angle/corner-prime): W ≈ 2.0e+7 states, best F 458.1 at (-3, 4, 13, 2, 1, 6), searches hitting 95%: 11/12, median 458.1 (100%) CHEAP; after a redraw: no seat has another value; 24 best keep 77%; top 3 (-3, 4, 13, 2, 1, 6) (-2, 1, 16, 3, 4, -2) (-5, 6, 7, 1, 1, -8)
-pair-q β 0.05 table 7 (whole-answer/south-west, far-crossing/far-gap, forty-five/corner-smooth): W ≈ 2.1e+7 states, best F 587.0 at (-1, 1, -30, 1, 0, 9), searches hitting 95%: 0/12, median 367.7 (63%); 24 best keep 58%; top 3 (-1, 1, -30, 1, 0, 9) (1, 0, -24, 1, 1, 4) (1, 0, -24, 1, 1, 3)
-### pair-q (preset lines-pairs: 114 rules with value functions; none skipped)
-
-| β | W (energy) | 2 no cheap optimum |
-|--:|--:|---|
-| 0.05 | 313 | **PASS**: 2/8 tables cheap (≥ 50% of 12 searches reach 95% of the best known); search median 89% of best; W ≈ 2.1e+7; under drift 0/0 one-seat redraws leave a cheap best still at 95% of the new best |
-
-collapse check: 0 failures
-done
-pair-q: 114 rules (0 without a value function), E = 312.5 energy, 8 tables
-  pair-q β 0.1 tests 2/3: 4/8 tables cheap (≥ 50% of 12 searches reach 95% of the best known); search median 98% of best; W ≈ 5.0e+6; under drift 0/0 one-seat redraws leave a cheap best still at 95% of the new best |  (285.4 s)
-pair-q β 0.1 table 0 (far-crossing/far-gap, double-gap/gap-prime, steep-ratio/ratio-gap): W ≈ 5.0e+6 states, best F 424.6 at (-8, 2, 13, 3, 2, -5), searches hitting 95%: 1/12, median 346.2 (82%); 24 best keep 67%; top 3 (-8, 2, 13, 3, 2, -5) (-7, 1, 14, -3, 12, -1) (-6, 1, 10, 2, 7, -7)
-pair-q β 0.1 table 1 (right-angle/corner-steep, far-crossing/far-gap, whole-answer/south-west): W ≈ 4.7e+6 states, best F 270.8 at (1, 0, -32, 1, 2, -4), searches hitting 95%: 2/12, median 229.6 (85%); 24 best keep 79%; top 3 (1, 0, -32, 1, 2, -4) (1, 1, -32, 2, 3, -1) (1, 1, -32, 7, 9, 0)
-pair-q β 0.1 table 2 (forty-five/corner-smooth, double-gap/gap-divisor, high-start/start-echo): W ≈ 5.0e+6 states, best F 457.5 at (-15, 1, 12, 1, 1, -4), searches hitting 95%: 9/12, median 457.5 (100%) CHEAP; after a redraw: no seat has another value; 24 best keep 65%; top 3 (-15, 1, 12, 1, 1, -4) (-5, 1, 8, 1, 1, -4) (-11, 1, 11, 1, 1, -4)
-pair-q β 0.1 table 3 (high-start/start-crossing, forty-five/corner-gap, no-fractions/numerator-smooth): W ≈ 4.7e+6 states, best F 434.3 at (1, 2, -32, 7, 3, 0), searches hitting 95%: 8/12, median 434.3 (100%) CHEAP; after a redraw: no seat has another value; 24 best keep 74%; top 3 (1, 2, -32, 7, 3, 0) (1, 2, -28, 9, 7, 0) (1, 2, -28, 7, 4, -6)
-pair-q β 0.1 table 4 (far-crossing/far-height, forty-five/corner-smooth, steep-ratio/ratio-gap): W ≈ 5.0e+6 states, best F 271.1 at (-4, 9, 16, -2, 1, -6), searches hitting 95%: 9/12, median 265.5 (98%) CHEAP; after a redraw: no seat has another value; 24 best keep 88%; top 3 (-4, 9, 16, -2, 1, -6) (-2, 1, 16, -1, 2, -4) (-7, 13, 17, -2, 1, -6)
-pair-q β 0.1 table 5 (right-angle/corner-prime, high-start/start-crossing, double-gap/gap-divisor): W ≈ 4.7e+6 states, best F 307.9 at (-4, 9, -27, 2, 1, 8), searches hitting 95%: 1/12, median 282.8 (92%); 24 best keep 77%; top 3 (-4, 9, -27, 2, 1, 8) (-5, 7, -28, 3, 2, 10) (-5, 9, -27, 3, 1, 8)
-pair-q β 0.1 table 6 (far-crossing/far-height, no-fractions/numerator-shared, right-angle/corner-prime): W ≈ 5.0e+6 states, best F 451.5 at (-2, 1, 16, 3, 4, -2), searches hitting 95%: 11/12, median 451.5 (100%) CHEAP; after a redraw: no seat has another value; 24 best keep 68%; top 3 (-2, 1, 16, 3, 4, -2) (-5, 6, 7, 1, 1, -8) (-5, 6, 12, 1, 1, -9)
-pair-q β 0.1 table 7 (whole-answer/south-west, far-crossing/far-gap, forty-five/corner-smooth): W ≈ 4.7e+6 states, best F 475.9 at (-3, 1, -28, 2, 1, 2), searches hitting 95%: 3/12, median 367.8 (77%); 24 best keep 68%; top 3 (-3, 1, -28, 2, 1, 2) (-3, 2, -36, 1, 0, -2) (-4, 1, -34, 5, 3, 0)
-### pair-q (preset lines-pairs: 114 rules with value functions; none skipped)
-
-| β | W (energy) | 2 no cheap optimum |
-|--:|--:|---|
-| 0.1 | 313 | **FAIL**: 4/8 tables cheap (≥ 50% of 12 searches reach 95% of the best known); search median 98% of best; W ≈ 5.0e+6; under drift 0/0 one-seat redraws leave a cheap best still at 95% of the new best |
-
-collapse check: 1 failures
-done
-pair-q: 114 rules (0 without a value function), E = 312.5 energy, 8 tables
-  pair-q test 5: σ = 8 bits: median > 3000 probes (floor 200), 40/40 unidentified in 3,000; exact: σ = 0 bits: median 1 probes (floor 200), 0/40 unidentified in 3,000 (27.7 s)
-### pair-q (preset lines-pairs: 114 rules with value functions; none skipped)
-
-| β | W (energy) | 5 disclosure |
-|--:|--:|---|
-| 0.05 | 313 | **PASS**: σ = 8 bits: median > 3000 probes (floor 200), 40/40 unidentified in 3,000 |
-| 0.05 (exact disclosure, σ = 0; not counted) | 313 | **FAIL**: σ = 0 bits: median 1 probes (floor 200), 0/40 unidentified in 3,000 |
+| 0.02 | 2530 | **PASS**: 1/8 tables cheap (≥ 33% of 12 searches reach 95% of the best known); search median 73% of best; W ≈ 5.4e+12 |
+| 0.05 | 2530 | **PASS**: 1/8 tables cheap (≥ 33% of 12 searches reach 95% of the best known); search median 82% of best; W ≈ 1.2e+12 |
+| 0.1 | 2530 | **PASS**: 2/8 tables cheap (≥ 33% of 12 searches reach 95% of the best known); search median 88% of best; W ≈ 2.0e+11 |
 
 collapse check: 0 failures

@@ -35,6 +35,8 @@ export interface SummaryTug<S = unknown> {
   readonly mySpend: number;
   /** Every other side is a practice partner (they do not read chat). */
   readonly practice?: boolean;
+  /** It only flipped between two states, this many moves (the tick's tug row, W3-2 #967). */
+  readonly cycle?: { readonly moves: number } | null;
 }
 
 /** A contested object's moves (the player's own act-log rows on it, oldest first): did the players climb together? */
@@ -122,8 +124,12 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
 
   // What cost: each tug-of-war, the one that changed hands most first (round 33: ranked by energy, the advice named a
   // 3-pull line over a 40-move cycle), said as what happened, in the same count as Contested lines.
-  const tugs = [...input.tugs].sort((a, b) => b.flips - a.flips || b.mySpend - a.mySpend);
-  const tugText = (t: (typeof tugs)[number]) => `pulled ${noun} ${t.number} back and forth: it changed hands ${t.flips} times (${fmtEnergy(t.mySpend)} of yours)`;
+  // A two-state cycle counts by its moves (each undoing the last), else by changes of hands.
+  const weight = (t: SummaryTug<S>) => Math.max(t.flips, t.cycle?.moves ?? 0);
+  const tugs = [...input.tugs].sort((a, b) => weight(b) - weight(a) || b.mySpend - a.mySpend);
+  const tugText = (t: (typeof tugs)[number]) => t.cycle
+    ? `flipped ${noun} ${t.number} back and forth between two states ${t.cycle.moves} times (${fmtEnergy(t.mySpend)} of yours)`
+    : `pulled ${noun} ${t.number} back and forth: it changed hands ${t.flips} times (${fmtEnergy(t.mySpend)} of yours)`;
   const costs = tugs.map(t => ({ number: t.number, text: `${youAnd(t.withNames)} ${tugText(t)}.` }));
   const spent = tugs.reduce((t, x) => t + x.mySpend, 0);
   const partial = input.movesRead ? ` (from your last ${input.movesRead.toLocaleString("en-US")} moves)` : "";

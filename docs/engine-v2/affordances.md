@@ -167,7 +167,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `bid.state` | Show the bid phase | — | server · room | seated | room | read |
 | `bid.place` | Bid on a rule family | family, percent | server · room | seated | room | write; confirm inline |
 | `bid.withdraw` | Withdraw a bid | family | server · room | seated | room | write |
-| `bid.done` | Finish bidding | — | server · room | seated | room | write |
+| `bid.done` | Finish bidding | done | server · room | seated | room | write |
 | `bid.cancel` | Cancel the bid phase | — | server · room | owner | room | write; confirm summary |
 | `game.auction` | Show the auction's result | — | server · game | member | planning, live, paused, ended, replay | read |
 | `game.get` | Show the game | — | server · game | member | planning, live, paused, ended, replay | read |
