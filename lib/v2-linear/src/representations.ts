@@ -113,6 +113,8 @@ export const cart: Representation<LineState> = {
       { params: [{ name: "q", domain: "Q" }] }),
     el("yAxisMark", "a mark on the y-axis", "point", "dynamic", (_l, a) => pt(Qn.ZERO, arg(a, "y")), { params: [{ name: "y", domain: "Q" }] }),
     el("xAxisMark", "a mark on the x-axis", "point", "dynamic", (_l, a) => pt(arg(a, "x"), Qn.ZERO), { params: [{ name: "x", domain: "Q" }] }),
+    // A point a rule compares the line with (a target the line should touch or pass through): drawn, never part of the line.
+    el("mark", "a marked point", "point", "dynamic", (_l, a) => pt(arg(a, "x"), arg(a, "y")), { params: [{ name: "x", domain: "Q" }, { name: "y", domain: "Q" }] }),
     el("ghost", "the line of gradient g through the same y-intercept", "segment", "dynamic",
       nonVertical((l, a) => { const g = arg(a, "g"), c = intercept(l); return through(-g.n * c.d, g.d * c.d, -c.n * g.d); }),
       { params: [{ name: "g", domain: "Q" }] }),
