@@ -1,7 +1,7 @@
 /** View operations: the layout reducer, its checks, the fake's stored view, and useAffordance's handle. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DIRECTORY, EMPTY_VIEW, PRINCIPALS, VIEW_REDUCERS, applyView, pinnedRep, SCORING_PAGE, type AffordanceContext } from "../src/index.ts";
+import { DIRECTORY, EMPTY_VIEW, PRINCIPALS, VIEW_REDUCERS, applyView, pinnedRep, REPLAY_END, SCORING_PAGE, type AffordanceContext } from "../src/index.ts";
 import { createFake } from "../src/fake.ts";
 import { AffordanceError, affordanceHandle } from "../src/react.ts";
 
@@ -45,6 +45,11 @@ test("replay controls move a cursor and refuse without a replay", () => {
   assert.deepEqual(applyView(EMPTY_VIEW, "replay.step", { by: 3 }, replay).outcome,
     { ok: false, error: { code: "failed", message: "Open a replay first.", fix: "replay.open" } });
   let v = applyView(EMPTY_VIEW, "replay.open", { gameId: "g1" }, replay).view;
+  // v1 opened a replay at its end (the final board; parity e2e-replay-shot): every event up to any game's end.
+  assert.deepEqual(v.replay!.cursor, REPLAY_END);
+  v = applyView(v, "replay.step", { by: -2 }, replay).view;
+  assert.deepEqual(v.replay!.cursor, { ...REPLAY_END, plus: -2 }, "a step back from the end moves back from it");
+  v = applyView(v, "replay.seek", { seq: 0 }, replay).view;
   v = applyView(v, "replay.step", { by: 3 }, replay).view;
   v = applyView(v, "replay.step", { by: -10 }, replay).view;
   v = applyView(v, "replay.speed", { speed: 4 }, replay).view;

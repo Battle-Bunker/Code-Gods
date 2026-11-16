@@ -78,7 +78,7 @@ try {
     assert.ok(await page.locator('[data-testid^="replay-mark-"]').count() > 0, "key moments are marked");
   });
 
-  await missing(["e2e-replay-shot"], "an ended game's replay opens at its end", async () => {
+  await check("an ended game's replay opens at its end", async () => {
     await openReplay(page, gameUrl);
     assert.equal(await applied(page), await endOf(page), "it opens at the end");
   });
