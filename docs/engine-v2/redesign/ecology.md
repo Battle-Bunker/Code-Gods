@@ -107,3 +107,55 @@ it: seats that adapt between games, a frontier-AI seat asked to break it, then p
 
 It ended at a hidden random moment, so any second might be the photograph **[built]**. Its own study found
 time-averaged scoring took a last-30-seconds wrecker from 69% wins to 6% **[seen]**, in an equally narrow model.
+
+---
+
+# Second task: candidate Z judged as an ecosystem (16 November)
+
+Labels: **[built]** true by construction of Z; **[narrow]** seen in a small simulation; **[guess]**. Nothing here
+is [narrow]: Z is unbuilt.
+
+**The predator is built in.** Coming down costs friction only, and score follows the nearest trophy. So a player whose
+trophy lies below an object can pull it down onto that trophy cheaply, and the players above must pay lift to undo it
+**[built]**. A floor lock is the exact counter **[built]**. Toppler against floor-keeper is Z's central relationship.
+
+**Niches [guess].** Pioneer (lifts newborn objects: cheap, low pay). Joiner (nudges a lifted object toward its own
+trophy nearby). Toppler. Floor-keeper. Free-rider on a partner's lock.
+
+**What a player decides each minute [guess].** Which of the live objects gets scarce lift; whether to lift toward
+their own trophy or toward where the others' total is rising; lift or fund a floor; which ageing object to abandon.
+
+**Coalitions.** They form where two players' trophies sit close on one object: shared lift, shared floor **[built]**.
+They break when a third player's trophy is cheaper below, when one partner stops paying the lock, and at the known end
+of the object's life **[guess]**.
+
+**The outsider.** Has a stake only within reach of one of their trophies (worth ÷ k in price) **[built]**. Because
+descent is cheap, a high object is close to every trophy below it on its reading, so stakes grow with height
+**[built]**. That is also the main way Z goes dull: if most players have trophies below most high states, everyone's
+score is roughly the height, all rules say "up", and nothing opposes **[guess]**. Opposition must then come from
+rules reading different numbers, or opposite signs of the same number.
+
+**Product or square root.** With linear lift cost the product pays more the more is piled on one object **[built]**:
+one tower, one big fight, and one object may be enough to do well, which the owner calls a bug. The square root gives
+no bonus for piling on, and pays most steeply for a first small stake **[built]**, which pulls outsiders in to join.
+I would take the square root **[guess]**. It also compresses leads, so standings stay close.
+
+**Objects per player.** Two conditions, not a number: at least one object per pair of players plus one (four for
+three players), so each partnership can have a home; and more objects than one income can lift, so choosing and
+abandoning are real **[guess]**.
+
+**Lifetimes.** Staggered births give overlapping generations, which is good. Under flow, a known end only makes late
+lift worth smoothly less **[built]**. The harm is to coalitions: everyone knows when paying for a floor stops being
+worthwhile, so partnerships unravel on schedule **[guess]**. If a bell rhythm appears, make the lifetime random with
+the same average, as the old game's hidden end was.
+
+**The two choices that matter most [guess].** (1) Trophy geometry: how far apart different players' trophies sit on
+a shared reading, against the reach worth ÷ k. Too close and all agree; too far and objects are private. (2) The
+combining rule, product or root.
+
+**What would make it dull.** The "everyone up" case above. And transparency: prices and scores are smooth and known,
+so one's own best move is computable; surprise can only come from the others' hidden trophies.
+
+**How I could be wrong.** I have not traced Z3 through real mutators: shortcuts may make the cheapest route to a
+trophy tiny everywhere, flattening scores. The toppler may be too strong for one-for-one floors, or irrelevant if
+trophies are sparse. I assume players play for rank. I have reasoned about three players only.
