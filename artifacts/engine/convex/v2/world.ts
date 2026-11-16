@@ -3,7 +3,7 @@
  * plain lexicographic score), the utility's rarity worth n_i in bits from the rule's value function, and
  * π_i = n_i · Σ_{j≠i} n_j. Used by the commit (loop.ts) and the read affordances, so a value has one definition.
  */
-import { energyOf, evaluateObject, familyById, ruleLayers, scoreToWire, type ObjectType } from "@workspace/v2-core";
+import { energyOf, evaluateObject, familyById, type EstimateOpts, ruleLayers, scoreToWire, type ObjectType } from "@workspace/v2-core";
 import { defenceNet } from "@workspace/v2-valuation";
 import { findVariant } from "@workspace/v2-valuation";
 import { familyOf, type DealtRule } from "./deal.ts";
@@ -27,8 +27,8 @@ import { encode, typeOf, variantOf } from "./variants.ts";
  * One player's utility (as its wire) and its worth in bits. With a defence goal, the worth is v1's signed bits
  * n = s⁺ − w·(η(h) − E_π η(h)) (lib/v2-valuation defence.ts), and `badnessBits` is h.
  */
-export function valueOf(state: unknown, variantId: string, rule: DealtRule, objects: number, defence?: DefenceRule, weight = DEFAULT_PENALTY_WEIGHT) {
-  return valueWithParts(state, variantId, rule, objects, defence, weight).value;
+export function valueOf(state: unknown, variantId: string, rule: DealtRule, objects: number, defence?: DefenceRule, weight = DEFAULT_PENALTY_WEIGHT, estimate?: EstimateOpts) {
+  return valueWithParts(state, variantId, rule, objects, defence, weight, estimate).value;
 }
 
 /** A layer's share of a player's own bits (a tree-valued rule's points tree), or a correction on them. */
@@ -50,12 +50,12 @@ export function partsOf(look: { parts?: readonly number[] }, layers: readonly st
 }
 
 /** valueOf, and the parts of the bits for a tree-valued rule (null otherwise): what a player's own object read shows. */
-export function valueWithParts(state: unknown, variantId: string, rule: DealtRule, objects: number, defence?: DefenceRule, weight = DEFAULT_PENALTY_WEIGHT) {
+export function valueWithParts(state: unknown, variantId: string, rule: DealtRule, objects: number, defence?: DefenceRule, weight = DEFAULT_PENALTY_WEIGHT, estimate?: EstimateOpts) {
   const family = familyOf(rule.family);
   if (family.dynamic) {
     // The dynamic measure (owner, 16 Nov): energy is a fresh estimate each time, in energy units (energy.md); no
     // uniqueness correction and no defence goal (neither is dealt with a dynamic family).
-    const type = typeOf(variantId), variant = variantOf(variantId), e = energyOf(type, family as never, rule.params, state, variant);
+    const type = typeOf(variantId), variant = variantOf(variantId), e = energyOf(type, family as never, rule.params, state, variant, estimate);
     return { value: { score: scoreToWire(evaluateObject(type, family as never, rule.params, state, variant, null).score), rarityBits: e.energy }, parts: null };
   }
   // One-site variants only: a multi-site object has no score yet (per-line bits summed comes next; none is dealt).
