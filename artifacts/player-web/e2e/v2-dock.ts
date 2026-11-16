@@ -225,7 +225,9 @@ try {
       }
       await page.waitForTimeout(800);   // the smooth scroll
       const box = await page.getByTestId("pane-agents").boundingBox() as Box;
-      assert.ok(box.y >= 0 && box.y < 844 / 2, `the phone scrolled to My agents (top at ${box.y})`);
+      // Its top in the upper half, or (the last pane, shorter than the screen) the page scrolled to its end with it on screen.
+      const atEnd = await page.getByTestId("dock-stacked").evaluate((el: Element) => el.scrollTop + el.clientHeight >= el.scrollHeight - 2);
+      assert.ok(box.y >= 0 && (box.y < 844 / 2 || atEnd && box.y + Math.min(box.height, 200) <= 844), `the phone scrolled to My agents (top at ${box.y}, at the end: ${atEnd})`);
       console.log(`phone: Open My agents kept ${now.join(", ")} and scrolled to it`);
     } else console.log("phone: SKIPPED Open My agents (the forge status offered no link)");
     await page.screenshot({ path: path.join(shots, "dock-phone.png") });
