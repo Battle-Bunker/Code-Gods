@@ -16,7 +16,8 @@
  *  - The first `quote` of an act charges the representation the first quoted mutator belongs to, as if viewed.
  */
 import {
-  applyCalls, elementDecl, refKey, elementValue, evaluateObject, isInvalid, Qn, ratBits,
+  applyCalls, applyLockChanges, elementDecl, refKey, elementValue, evaluateObject, isInvalid, lockedAct, lockEnergyAt, LOCK_OPS_PER_ACT, parsePredicate,
+  canonicalPredicate, plainWords, holds, lockFee, Qn, ratBits, type ActLock, type InformationContent, type LockOpWire, type Predicate,
   joinTieBreakers, representation, ruleLayers, type Call, type TieBreaker, type ElementRef, type ElementValue, type ObjectType, type Price, type RuleFamily, type Variant,
 } from "@workspace/v2-core";
 import { BETA, KAPPA } from "@workspace/v2-economy";
@@ -102,6 +103,20 @@ export interface HostInput<S> {
    * exact + noise, unclamped as v1 disclosed it (only points clamp: own × max(0, others)); 0 or absent is exact.
    */
   readonly disclosed?: (encoded: string) => number;
+  /** The offered object's locks, when the game has them (the room setting `locks`; docs/engine-v2/locks.md). */
+  readonly locks?: LockInput<S>;
+}
+
+/** What an act knows of the offered object's locks. */
+export interface LockInput<S> {
+  /** The world second the act is made at (locks settle their upkeep to it). */
+  readonly world: number;
+  readonly live: readonly ActLock[];
+  /** The number the object's next lock takes. */
+  readonly nextLock: number;
+  readonly fullChargeSeconds: number;
+  /** I(P) at a state (lib/v2-agents locks.ts `lockInfo`). */
+  readonly info: (p: Predicate, s: S) => InformationContent;
 }
 
 /** Read bits charged for `worth()`: three summary numbers the player could read off the line's row. */
@@ -152,6 +167,8 @@ export class EngineHost<S> implements AgentHost {
   readonly economy: Economy;
   /** Notes the agent left its owner this act. */
   readonly notes: string[] = [];
+  /** The lock changes the agent asked for this act, in order (applied at commit: funds and drains, calls, new locks). */
+  readonly lockOps: LockOpWire[] = [];
   private readonly input: HostInput<S>;
   /** Read bits charged so far this act, in total and by representation id. */
   readBits = 0;
@@ -297,6 +314,15 @@ export class EngineHost<S> implements AgentHost {
         const moves = (this.input.history ?? []).slice(-8).map(m => ({ mine: m.mine, pointsBefore: m.pointsBefore, pointsAfter: m.pointsAfter }));
         return ok({ moves }, this.charged("recent", RECENT_BITS_PER_MOVE * moves.length));
       }
+      case "locks": {
+        if (!this.input.locks) return err("this game has no locks");
+        const live = this.locksNow();
+        const list = live.map(l => ({ lock: l.n, predicate: l.text, words: plainWords(this.type, l.predicate), energy: l.energy, rate: l.rate, info: l.info }));
+        // Reading a lock tells you its I bits about the state: charged once an act.
+        return ok({ locks: list }, this.charged("locks", live.reduce((t, l) => t + l.info, 0)));
+      }
+      case "lock": return this.lockOp({ op: "create", predicate: String(request.predicate ?? ""), amount: Number(request.amount) });
+      case "fund": case "drain": return this.lockOp({ op: request.op, lock: Number(request.lock), amount: Number(request.amount) });
       case "note": {
         const text = typeof request.text === "string" ? request.text.trim().slice(0, NOTE_CHARS) : "";
         if (!text) return err("a note needs some text");
@@ -402,10 +428,45 @@ export class EngineHost<S> implements AgentHost {
     const parsed = parseCalls(calls);
     if (typeof parsed === "string") return { valid: false, reason: parsed };
     if (!parsed.length) return { valid: false, reason: "a plan needs at least one move" };
-    const applied = applyCalls(this.type, this.variant, this.state, parsed);
+    const applied = this.applyLocked(parsed);
     if (isInvalid(applied)) return { valid: false, reason: applied.invalid };
     if (this.input.occupied?.(this.type.encode(applied.result))) return { valid: false, reason: "another object is already in that state" };
     return { valid: true, prices: [...applied.prices], total: applied.total, result: applied.result };
+  }
+
+  /** The calls on the offered state, each result checked against the locks left after this act's funds and drains. */
+  private applyLocked(calls: readonly Call[]) {
+    const L = this.input.locks;
+    if (!L) return applyCalls(this.type, this.variant, this.state, calls);
+    return lockedAct({ type: this.type, variant: this.variant, state: this.state, calls, ops: this.lockOps.filter(o => o.op !== "create"),
+      locks: L.live, world: L.world, nextLock: L.nextLock, fullChargeSeconds: L.fullChargeSeconds, info: L.info });
+  }
+
+  /** The object's live locks after this act's queued funds and drains, settled at the act's world second. */
+  private locksNow(): ActLock[] {
+    const L = this.input.locks!;
+    const r = applyLockChanges(L.live, this.lockOps, L.world);
+    return isInvalid(r) ? L.live.map(l => ({ ...l, energy: lockEnergyAt(l, L.world) })).filter(l => l.energy > 0) : r.locks;
+  }
+
+  private lockOp(op: LockOpWire): HostReply {
+    const L = this.input.locks;
+    if (!L) return err("this game has no locks");
+    if (this.lockOps.length >= LOCK_OPS_PER_ACT) return err(`at most ${LOCK_OPS_PER_ACT} lock changes in one act`);
+    if (op.op === "create") {
+      const p = parsePredicate(this.type, op.predicate);
+      if (isInvalid(p)) return err(p.invalid);
+      if (!(typeof op.amount === "number" && Number.isFinite(op.amount) && op.amount > 0)) return err("a new lock's opening amount is a positive number");
+      const ic = L.info(p, this.state);
+      this.lockOps.push({ op: "create", predicate: canonicalPredicate(p), amount: op.amount });
+      // Made on the state the act's calls reach: `holdsNow` says only whether the offered state meets it.
+      return ok({ queued: true, predicate: canonicalPredicate(p), words: plainWords(this.type, p), info: ic.bits, fee: lockFee(ic.bits), holdsNow: holds(this.type, p, this.state) }, 0);
+    }
+    const next = applyLockChanges(L.live, [...this.lockOps, op], L.world);
+    if (isInvalid(next)) return err(next.invalid);
+    this.lockOps.push(op);
+    const after = next.locks.find(l => l.n === op.lock);
+    return ok({ queued: true, lock: op.lock, energy: after?.energy ?? 0 }, 0);
   }
 
   private quote(calls: unknown): HostReply {

@@ -3,7 +3,8 @@
  * predicate language (parse, canonical text, plain words, evaluation), its information content under the stationary
  * law, and the lock arithmetic (fee, upkeep, decay, which locks a state breaks). Pure and shared by every object type.
  */
-import type { ElementRef, ObjectType, Variant, Invalid } from "./contracts.ts";
+import type { Call, ElementRef, Invalid, ObjectType, Price, Variant } from "./contracts.ts";
+import { applyCall } from "./walk.ts";
 import { elementDecl, elementValue, refKey } from "./evaluate.ts";
 import { cmp, eq, parse as parseQ, q, toWire, type Q } from "./q.ts";
 import { rng, type Rng } from "./rng.ts";
@@ -352,4 +353,131 @@ export interface LiveLock extends LockEnergy {
 /** The numbers of the locks still holding energy at `world` whose predicate `state` breaks, in order. */
 export function breaksLocks<S>(type: ObjectType<S>, locks: readonly LiveLock[], state: S, world: number): number[] {
   return locks.filter(l => lockEnergyAt(l, world) > 0 && !holds(type, l.predicate, state)).map(l => l.n).sort((a, b) => a - b);
+}
+
+// ---------------------------------------------------------------- an act's locks (shared by runAct and the server commit)
+
+/** What an act asks of the locks, as the guest sends it. */
+export type LockOpWire =
+  | { readonly op: "fund"; readonly lock: number; readonly amount: number }
+  | { readonly op: "drain"; readonly lock: number; readonly amount: number }
+  | { readonly op: "create"; readonly predicate: string; readonly amount: number };
+/** At most this many lock changes in one act. */
+export const LOCK_OPS_PER_ACT = 8;
+
+/** A lock change as applied: drains clipped to what the lock held, creates with their number, predicate, I and fee. */
+export type LockOpDone =
+  | { readonly op: "fund" | "drain"; readonly lock: number; readonly amount: number; readonly spend: number }
+  | { readonly op: "create"; readonly lock: number; readonly predicate: string; readonly info: number; readonly bounded: boolean; readonly fee: number; readonly amount: number; readonly rate: number; readonly spend: number };
+
+/** A lock as an act sees it: live, with its energy settled at the act's world second. */
+export interface ActLock extends LiveLock {
+  readonly info: number;
+  readonly text: string;
+}
+
+const lockWords = <S,>(type: ObjectType<S>, l: { n: number; predicate: Predicate }, energy: number) =>
+  `breaks lock #${l.n} (${plainWords(type, l.predicate)}), holding ${Math.round(energy * 100) / 100}: drain it first`;
+
+/** The check a call's result must pass: null, or why a live lock forbids it. */
+export function lockCheck<S>(type: ObjectType<S>, locks: readonly LiveLock[], world: number): (s: S) => Invalid | null {
+  return s => {
+    const broken = breaksLocks(type, locks, s, world);
+    if (!broken.length) return null;
+    const l = locks.find(x => x.n === broken[0])!;
+    return bad(lockWords(type, l, lockEnergyAt(l, world)));
+  };
+}
+
+const amountOk = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x) && x > 0 && x <= 1e9;
+
+/**
+ * The lock changes before the calls (funds and drains), in order: the locks after them, settled at `world` and with any
+ * drained to zero gone, and each change as applied. Or why not.
+ */
+export function applyLockChanges(locks: readonly ActLock[], ops: readonly LockOpWire[], world: number):
+  { readonly locks: ActLock[]; readonly done: LockOpDone[] } | Invalid {
+  let live: ActLock[] = locks.map(l => ({ ...l, energy: lockEnergyAt(l, world), settledAt: world })).filter(l => l.energy > 0);
+  const done: LockOpDone[] = [];
+  for (const o of ops) {
+    if (o.op === "create") continue;
+    if (!amountOk(o.amount)) return bad("an amount of energy is a positive number");
+    const l = live.find(x => x.n === o.lock);
+    if (!l) return bad(`there is no live lock #${o.lock} on this object`);
+    if (o.op === "fund") {
+      live = live.map(x => (x === l ? { ...x, energy: x.energy + o.amount } : x));
+      done.push({ op: "fund", lock: l.n, amount: o.amount, spend: o.amount });
+    } else {
+      const take = Math.min(o.amount, l.energy);
+      live = live.map(x => (x === l ? { ...x, energy: x.energy - take } : x)).filter(x => x.energy > 1e-12);
+      done.push({ op: "drain", lock: l.n, amount: take, spend: take });
+    }
+  }
+  return { locks: live, done };
+}
+
+export interface LockedActInput<S> {
+  readonly type: ObjectType<S>;
+  readonly variant: Variant;
+  readonly state: S;
+  readonly calls: readonly Call[];
+  readonly ops: readonly LockOpWire[];
+  /** The object's live locks (any not yet settled are settled at `world`). */
+  readonly locks: readonly ActLock[];
+  readonly world: number;
+  /** The number the next new lock takes on this object. */
+  readonly nextLock: number;
+  readonly fullChargeSeconds: number;
+  /** A predicate's information content at a state (`informationContent` with the type's law). */
+  readonly info: (p: Predicate, state: S) => InformationContent;
+}
+export interface LockedActResult<S> {
+  readonly result: S;
+  readonly prices: readonly Price[];
+  readonly total: number;
+  readonly done: readonly LockOpDone[];
+  /** The live locks after the act, settled at `world` (new ones included). */
+  readonly locks: readonly ActLock[];
+  /** Energy the lock changes cost the actor (funds, drains, fees and opening amounts), on top of the act's charge. */
+  readonly spend: number;
+}
+
+/**
+ * One act under locks (docs/engine-v2/locks.md §4): funds and drains first, then the calls in order, each result
+ * checked against the locks left, then the new locks, each of which must hold on the state the calls reached. Atomic:
+ * any failure is the act's reason and nothing changes.
+ */
+export function lockedAct<S>(input: LockedActInput<S>): LockedActResult<S> | Invalid {
+  const { type, ops } = input;
+  if (ops.length > LOCK_OPS_PER_ACT) return bad(`at most ${LOCK_OPS_PER_ACT} lock changes in one act`);
+  const changed = applyLockChanges(input.locks, ops, input.world);
+  if ("invalid" in changed) return changed;
+  const check = lockCheck(type, changed.locks, input.world);
+  let s = input.state;
+  const prices: Price[] = [];
+  for (const c of input.calls) {
+    const a = applyCall(type, input.variant, s, c);
+    if ("invalid" in a) return a;
+    const why = check(a.result);
+    if (why) return why;
+    s = a.result;
+    prices.push(a.price);
+  }
+  const live = [...changed.locks], done = [...changed.done];
+  let next = input.nextLock;
+  for (const o of ops) {
+    if (o.op !== "create") continue;
+    if (!amountOk(o.amount)) return bad("a new lock's opening amount is a positive number");
+    if (live.length >= LOCKS_PER_OBJECT) return bad(`an object holds at most ${LOCKS_PER_OBJECT} live locks`);
+    const p = parsePredicate(type, o.predicate);
+    if ("invalid" in p) return p;
+    const text = canonicalPredicate(p);
+    if (!holds(type, p, s)) return bad(`the object does not meet "${plainWords(type, p)}", so it cannot be locked to it`);
+    const ic = input.info(p, s);
+    const fee = lockFee(ic.bits), rate = lockRate(ic.bits, input.fullChargeSeconds);
+    const n = next++;
+    live.push({ n, predicate: p, text, info: ic.bits, energy: o.amount, settledAt: input.world, rate });
+    done.push({ op: "create", lock: n, predicate: text, info: ic.bits, bounded: ic.bounded, fee, amount: o.amount, rate, spend: fee + o.amount });
+  }
+  return { result: s, prices, total: prices.reduce((t, p) => t + p.total, 0), done, locks: live, spend: done.reduce((t, d) => t + d.spend, 0) };
 }
