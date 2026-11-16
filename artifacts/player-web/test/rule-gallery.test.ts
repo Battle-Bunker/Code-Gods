@@ -7,13 +7,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { presetOf } from "@workspace/engine/convex/v2/presets.ts";
-import { beginnerFamilies, lineQ, lineType, lineZ } from "@workspace/v2-linear";
+import { dynamicFamilies, lineQ, lineType, lineZ } from "@workspace/v2-linear";
 import { beginnerGridFamilies, grid4, gridType } from "@workspace/v2-grid";
 import { BOARDS, familyPage, galleryFamilies, gallerySearch, setupFromSearch } from "../src/site/lib/rule-gallery.ts";
 
 test("the gallery lists every family the board deals, the beginner pool first, and nothing it does not deal", () => {
   const g = galleryFamilies("line-q");
-  assert.deepEqual(g.beginner.map(e => e.id), beginnerFamilies.filter(f => f.dealable(lineQ).length).map(f => f.id));
+  assert.deepEqual(g.beginner.map(e => e.id), dynamicFamilies.filter(f => f.dealable(lineQ).length).map(f => f.id));
   const all = [...g.beginner, ...g.more].map(e => e.id).sort();
   assert.deepEqual(all, lineType.families.filter(f => f.dealable(lineQ).length).map(f => f.id).sort());
   const tri = g.more.find(e => e.id === "triangle-area")!;

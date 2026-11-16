@@ -84,7 +84,8 @@ test("presets: four pools over the beginner families, every named tie-breaker ex
     for (const r of p.rules) {
       const f = families.find(x => x.id === r.family)!;
       assert.ok(f, r.family);
-      for (const tb of r.tieBreakers) assert.ok(f.tieBreakers.some(x => x.id === tb), `${r.family}.${tb}`);
+      // null: the main part alone (a dynamic family has no tie-breakers).
+      for (const tb of r.tieBreakers) assert.ok(tb === null || f.tieBreakers.some(x => x.id === tb), `${r.family}.${tb}`);
     }
   }
 });

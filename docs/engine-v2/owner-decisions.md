@@ -294,6 +294,16 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     docs/engine-v2/locks.md §2–§3): "I don't think we already have a predicate DSL and I don't want to add complexity to build one just for this use case. Predicates should just be programs with the same degrees of freedom as agents and the same complexity scoring rules in terms of information read and program description length. The upkeep rate should be a config param proportional to predicate complexity that we will find the balanced level for with experience of playing the game." Lock implementation is paused with the scoring and costing design
     (the owner, about 02:00 UTC); the design is docs/engine-v2/locks.md §0.
 
+49. On scoring (relayed by the coordinator, 16 November; it replaces the value tables of decision 23, the levels and the
+    lift): "energy of an object is the expected energy cost of reaching a state at least this good from a random object
+    of the same 'size'"; "every rule defines its own intelligent search heuristics to be randomly sampled"; "Every time
+    a player queries an object we can calculate energies again as a natural noise function and every time the object
+    changes the server does a new energies estimate for it for the leaderboard. We're comfortable with some jitter here
+    as long as the macro score sums remain meaningful signals of skill." On precision: "If utility were sqrt of size of
+    nearest power of k minus distance to that power cubed then it really pays to be closer to the target power." On
+    grids: "grids don't have variations in size ... the expected heuristic energy cost of reaching a given utility or
+    higher from a globally random state." Built for lines (docs/engine-v2/energy.md); grids follow.
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact

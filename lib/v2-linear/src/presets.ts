@@ -8,6 +8,7 @@ import { tieBreakersOn, type RuleFamily, type TieBreaker, type Variant } from "@
 import { primeLanding, primeStaircase, pythagoreanArea, ruler, sameOnBothRulers, squareArea, treasure, wholeCrossing } from "./beginner.ts";
 import { primeGradient } from "./families.ts";
 import { smoothIntercept } from "./rational2.ts";
+import { dynamicFamilies } from "./dynamic-families.ts";
 import { lineQ, lineQLenses, lineZ, lineZ4 } from "./type.ts";
 
 export interface PoolRule {
@@ -42,9 +43,14 @@ export const beginnerPool = [primeLanding, smoothIntercept, squareArea, wholeCro
 const beginnerRules = (v: Variant): readonly PoolRule[] => (beginnerPool as readonly RuleFamily<unknown, unknown>[]).flatMap(f =>
   f.dealable(v).map(params => ({ family: f.id, params, tieBreakers: tieBreakersOn(f, v).map(t => t.id) })));
 
+const dynamicRules = (v: Variant): readonly PoolRule[] => (dynamicFamilies as readonly RuleFamily<unknown, unknown>[]).flatMap(f =>
+  f.dealable(v).map(params => ({ family: f.id, params, tieBreakers: [null] })));
+
 export const presets: readonly Preset[] = [
   // Owner decision 2: lines are played on the rationals. Whole numbers are an explicitly chosen, easier variant.
-  { id: "lines-beginner", title: "Lines · beginner", variant: "line-q", rules: beginnerRules(lineQ) },
+  // The dynamic energy measure (the owner, 16 Nov; docs/engine-v2/energy.md): the beginner game deals the families written
+  // for it. The table-valued pool stays on the other line presets until the tables go.
+  { id: "lines-beginner", title: "Lines · beginner", variant: "line-q", rules: dynamicRules(lineQ) },
   { id: "lines-whole", title: "Lines · whole numbers (easier)", variant: "line-z", rules: beginnerRules(lineZ) },
   { id: "lines-four", title: "Lines · four lines", variant: "line-z4", rules: beginnerRules(lineZ4) },
   // A trial (lenses-and-mutators.md §5): the beginner pool on line-q with five more ways to move a line. Not the default.

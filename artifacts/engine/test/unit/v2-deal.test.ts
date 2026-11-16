@@ -10,7 +10,8 @@ import assert from "node:assert/strict";
 import { dealablePool, freshDeal, isPracticeGame, practiceDeal, rotatedDeal, ruleView, seatingClashes, shutOut, type DealtRule, type PastDeal, type SeatKind } from "../../convex/v2/deal.ts";
 import { presetOf } from "../../convex/v2/presets.ts";
 
-const beginner = presetOf("lines-beginner");
+// The table-valued line pool (the beginner lines deal the dynamic families: see the test at the end).
+const beginner = presetOf("lines-lenses");
 
 test("the pool holds exactly the preset's rules with a value function, from every beginner family", () => {
   const pool = dealablePool(beginner);
@@ -184,4 +185,16 @@ test("pairs: a lines-pairs deal seats no forbidden pair of rules, and records no
     if (JSON.stringify(deal) !== JSON.stringify(freshDeal(pool, 3, seed))) changed++;
   }
   assert.ok(changed > 0, "the seating rule changes some deals");
+});
+
+test("the beginner lines deal the dynamic families, main part only, with no value table (energy.md)", async () => {
+  const { dynamicFamilies } = await import("@workspace/v2-linear");
+  const pool = dealablePool(presetOf("lines-beginner"));
+  assert.deepEqual([...new Set(pool.map(r => r.family))].sort(), dynamicFamilies.map(f => f.id).sort());
+  for (const r of pool) {
+    assert.equal(r.tieBreaker, null);
+    assert.equal(valueRecord(r.ruleKey), null);
+  }
+  const deal = freshDeal(pool, 5, "dyn", "line-q");
+  assert.equal(new Set(deal.map(r => r.family)).size, 5);
 });

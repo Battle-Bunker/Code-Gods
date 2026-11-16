@@ -59,6 +59,11 @@ function buildPool(preset: Preset): DealtRule[] {
   const out: DealtRule[] = [];
   for (const r of preset.pool) {
     if (!FAMILIES.has(r.family) || !hasStarters(r.family)) continue;
+    // A dynamic family (RuleFamily.dynamic) is valued by the energy estimate, not a table: always dealable, main part only.
+    if (FAMILIES.get(r.family)!.dynamic) {
+      out.push({ family: r.family, params: r.params, tieBreaker: null, ruleKey: ruleKey(type, variant, r.family, r.params, "none"), contentHash: hashHex(canonicalJson({ dynamic: r.family, params: r.params })) });
+      continue;
+    }
     for (const tb of r.tieBreakers) {
       const key = ruleKey(type, variant, r.family, r.params, tb ?? "none");
       const vf = valueHead(key);

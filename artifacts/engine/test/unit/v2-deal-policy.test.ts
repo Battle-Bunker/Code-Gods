@@ -33,6 +33,7 @@ test("a variant without a W table (grids today: only line-q is measured) falls b
   const preset = presetOf("grids-beginner"), pool = dealablePool(preset);
   const c = policyDeal(pool, kinds, "seed", preset.variant);
   assert.match(c.fallback ?? "", /no W table for grid-4-d10/);
+  // The beginner lines deal the dynamic families (energy.md), which no W table measures: the lottery too.
   const lines = presetOf("lines-beginner");
-  assert.doesNotMatch(policyDeal(dealablePool(lines), kinds, "seed", lines.variant).fallback ?? "", /W table/, "line-q has one");
+  assert.match(policyDeal(dealablePool(lines), kinds, "seed", lines.variant).fallback ?? "", /W table/);
 });

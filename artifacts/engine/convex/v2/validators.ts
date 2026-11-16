@@ -105,11 +105,11 @@ export const myRuleV = v.object({
   /** The rule before its last redraw (params and card), or null when it never drifted. */
   previous: v.union(v.object({ params: v.any(), card: v.string() }), v.null()),
   /** The rule's value function (decision 23), as `valueLookup` takes it: what any utility is worth, in bits. */
-  value: v.object({
+  value: v.union(v.object({
     knots: v.array(v.object({ u: scoreWireV, bits: v.number(), lo: v.number(), hi: v.number() })), tail: v.any(),
     /** The game's uniqueness correction (decision 24): `withUniqueness(valueLookup(value), uniqueness, uniqueness.objects)`. */
     uniqueness: v.optional(uniquenessV),
-  }),
+  }), v.null()),   // null: valued by the dynamic measure (energy.md), no table
   contentHash: v.string(),
   bid: v.union(v.number(), v.null()), handicap: v.union(v.number(), v.null()),
 });

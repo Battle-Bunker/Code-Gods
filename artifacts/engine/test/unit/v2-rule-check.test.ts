@@ -122,9 +122,7 @@ const EXEMPT: Readonly<Record<string, string>> = {
   // Row 7: forms repeated within a family, kinds and forms shared by more than three families.
   "far-crossing 7-repeat": "15 Nov, pairs session: both secondaries are near-multiples",
   "high-start 7-repeat": "15 Nov, pairs session: both secondaries are near-multiples",
-  "lines-beginner 7-kind:large-prime": "15 Nov, spec lead: proposal #28 (two of the prime-ending families change kind)",
   "lines-lenses 7-kind:large-prime": "15 Nov, spec lead: proposal #28",
-  "lines-beginner 7-form:shares-factor": "15 Nov, spec lead: the repertoire adds other forms",
   "lines-lenses 7-form:shares-factor": "15 Nov, spec lead: the repertoire adds other forms",
   "lines-pairs 7-kind:base-ladder": "15 Nov, pairs session: every pair family climbs a base's ladder",
   "lines-pairs 7-form:shares-factor": "15 Nov, pairs session",
@@ -137,6 +135,7 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "grids-more-rules 7-form:count": "16 Nov, grids session: grid baseline: ported as v1",
   "grids-more-rules 7-form:reach": "16 Nov, grids session: grid baseline: ported as v1",
   // Row 5: no PMI table for the variant yet (lib/v2-agents scripts/pmi.ts).
+  "lines-beginner 5-unmeasured": "16 Nov, implementation session: PMI is measured from value tables; the dynamic measure has none (energy.md)",
   "lines-lenses 5-unmeasured": "15 Nov, spec lead: PMI table for line-q-lenses",
   "grids-beginner 5-unmeasured": "15 Nov, grids session: PMI table for grid-4-d10",
   "grids-more-rules 5-unmeasured": "15 Nov, grids session: PMI table for grid-4-d10",
@@ -173,6 +172,10 @@ function problems(): { found: Problem[]; families: Set<string>; presets: Set<str
     for (const [id, rs] of byFamily) {
       families.add(id);
       const fam = familyOf(id);
+      // A family scored by the dynamic energy measure has no tie-breakers (precision is in its utility) and a large
+      // parameter space dealt as peers: rows 3a, 4 and 7 read layers and tables it does not have. Its check table is
+      // docs/engine-v2/energy.md.
+      if (fam.dynamic) continue;
       const tbs = [...new Set(rs.map(r => r.tieBreaker))];
       // Row 3a.
       if (tbs.filter(t => t !== null).length < MIN_SECONDARIES) add(`${id} 3a`, `${tbs.filter(t => t !== null).length} dealt secondaries (${tbs.join(", ")})`);

@@ -23,3 +23,4 @@ export * from "./trial-rarity.ts";
 export * from "./trial-sideways.ts";
 export * from "./energy.ts";
 export * from "./trial-dynamic.ts";
+export * from "./dynamic-families.ts";

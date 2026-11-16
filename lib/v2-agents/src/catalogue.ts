@@ -11,6 +11,7 @@
 
 /** A way to change the line, as the agent predicts it: the move and where it takes m and c. */
 import { TUPLE_CATALOGUE } from "./tuple-catalogue.ts";
+import { DYNAMIC_CATALOGUE } from "./dynamic-catalogue.ts";
 
 export interface Lens {
   readonly comment: string;
@@ -1203,4 +1204,5 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     },
   },
   ...TUPLE_CATALOGUE,
+  ...DYNAMIC_CATALOGUE,
 ];

@@ -292,6 +292,7 @@ function scorePy(e: FamilyEntry, tieBreaker: string | null): string[] {
       const tb = e.tieBreakers[l.id]!;
       out.push(`        if t == ${JSON.stringify(l.id)}:   # ${tb.says}`, ...(tb.pre?.py ?? []).map(x => `            ${inTier(x)}`), `            return ${tb.py}`);
     }
+    if (!f.tieBreakers.some(t => e.tieBreakers[t.id])) out.push("        return None   # none described (a family with no tie-breakers)");
     out.push(`    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]`);
   }
   return out;

@@ -15,6 +15,8 @@ import { decode, valueOf } from "./world.ts";
 export const FIT_MIN_NOISE_VARIANCE = 64;
 /** The most observed states a fit reads (the newest distinct ones): bounds the action's work. */
 export const FIT_MAX_OBSERVATIONS = 400;
+/** The observations a fit over a dynamic pool reads (the latest). */
+export const DYNAMIC_FIT_OBSERVATIONS = 24;
 
 export interface FitContext { variant: string; preset: string; noiseVariance: number; others: number; ownFamily: string | null; objects: number }
 export interface FitRow { objectId: string; state: string | null; others: number | null }
@@ -43,10 +45,13 @@ export function observations(rows: readonly FitRow[], max = FIT_MAX_OBSERVATIONS
 export interface FitArgs { hints?: FitHint[]; exclude?: string[]; top: number }
 
 export function fitGame(c: FitContext, rows: readonly FitRow[], a: FitArgs) {
-  const obs = observations(rows);
-  const states = obs.map(o => decode(o.state, c.variant));
   const pool = dealablePool(presetOf(c.preset)).filter(r => r.family !== c.ownFamily);
-  const candidates = pool.map(r => ({ family: r.family, params: r.params, tieBreaker: r.tieBreaker, bits: states.map(s => valueOf(s, c.variant, r, c.objects).rarityBits) }));
+  // A dynamic pool (energy.md) is estimated, not looked up: one start per state, on the latest observations only, so a
+  // fit stays inside a query's time limit (about 1 ms an estimate).
+  const dynamic = pool.some(r => familyOf(r.family).dynamic);
+  const obs = dynamic ? observations(rows).slice(-DYNAMIC_FIT_OBSERVATIONS) : observations(rows);
+  const states = obs.map(o => decode(o.state, c.variant));
+  const candidates = pool.map(r => ({ family: r.family, params: r.params, tieBreaker: r.tieBreaker, bits: states.map(s => valueOf(s, c.variant, r, c.objects, undefined, undefined, dynamic ? { K: 1 } : undefined).rarityBits) }));
   const sigma = Math.sqrt(c.noiseVariance);
   const fit = fitRules({ y: obs.map(o => o.others), candidates, others: c.others, sigma, hints: a.hints, exclude: a.exclude, top: a.top });
   const card = (r: { family: string; params: unknown; tieBreaker: string | null }) => familyOf(r.family).card(r.params, r.tieBreaker as never);
