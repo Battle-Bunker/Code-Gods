@@ -2,6 +2,31 @@
 
 Labels: **built** (in the code and tested), **seen narrowly** (measured under the stated assumptions), **guess**.
 
+## Update, 17 Nov (Melbourne morning): steps 1–5 done; what is next
+
+- **Step 5 (#1164):** `test/v2-energy-cost.test.ts` reads a commit's and a look's time from the backend's execution
+  log. At K = 8 (`LINE_K`, lowered from 12) a commit takes about 200 ms median, a look at every object at most 173 ms
+  (seen narrowly: one game, four seats, local backend). The R8 page-query gate's `play:myRule`, `play:object` and
+  `locks:ofObject` take about 90 ms against 50 ms in the 1,000-object fixture; `develop` before the cutover measured
+  102–113 ms on the same machine, so it predates this work. Open.
+- **Known live-test notes** (full `test:v2` on 17 Nov): the assistant's queue test ends in `budget` (the room's
+  assistant budget runs out on its slow sandbox loops; nothing in the cutover touches it). Several others failed only
+  in the long run and pass alone (timing).
+- **Next, in order:**
+  1. **Step 6, grids.** `lib/v2-grid/src/trial-dynamic.ts` is the start (about 1.5 s an estimate in Node: cut it).
+     Random-board starts, family heuristics, a cheaper move enumeration, K about 8. New pure-utility grid rules (one
+     number each, decision 50; cards in words; adversaries), then delete the old grid families as the lines were
+     (old-rule-ideas.md gets a grid section; widen nothing in the schema; `knownFamily` already makes retired families
+     score 0). The grid deal still uses its seating rule and value tables until then.
+  2. **Step 7.** Delete what only the tables needed: `lib/v2-valuation` (value files, `gen-v2-values`, tail formulas,
+     the 35-bit gate, tree caps), `valuesIndex.gen.ts`, `values.ts` lookups, the W/PMI tables (`pairPmi`,
+     `unopposedDirections`, compat.gen), table.ts; keep `spec.md` and `v1-audit.md` truthful.
+  3. **Step 8.** Run a line and a grid game to their end on dev; tell the coordinator what to try.
+  4. **Also open:** the views still show "bits"/rarity wording for line rules (faces, summary); the guest `climb`/`fair`
+     helpers still read `worth`/`rarity` (null on dynamic games): give them the energy (`othersAfter` already works).
+     Points are own energy × the others' sum; energy scales differ by rule (Square Triangle's good states ≈ 1000,
+     Unit Fraction's ≈ 10): check in step 8 whether dear rules dominate.
+
 ## Update, 17 Nov: step 3 (and part of 4) done
 
 - **Deleted** (owner decision 50; one line per old family in `docs/engine-v2/old-rule-ideas.md`): every old line family
