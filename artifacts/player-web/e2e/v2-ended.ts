@@ -183,6 +183,9 @@ async function endedGame(page: Page, preset: string, noun: string) {
       assert.ok(await s.getByTestId("row-possible-god").count() >= 2, `${label}: the rules anyone could hold`);
     }
     if (pane === "rules") {
+      // v1's game details: after the end, who held which rule.
+      await s.getByTestId("dealt-rules").waitFor({ timeout: 15_000 });
+      assert.equal(await s.getByTestId("row-dealt-rule").count(), 3, `${label}: every seat's rule, after the end`);
       // v1's "Copy game rules for an AI": copied, or (no clipboard here) shown to copy by hand, the primer included.
       await s.getByTestId("button-copy-rules-ai").click();
       await page.getByText("Rules copied").or(s.getByTestId("text-rules-ai")).first().waitFor({ timeout: 5_000 });
