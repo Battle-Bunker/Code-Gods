@@ -82,7 +82,7 @@ test(`no dealt line, pair or grid rule passes ${LIMIT} bits on one seat's whole-
   for (const preset of PRESETS) {
     const { type, variant } = findVariant(preset.variant);
     type S = LineState | PairState | unknown;
-    const T = type as ObjectType<S>, pair = type.id === "pair", grid = type.id === "grid";
+    const T = type as ObjectType<S>, pair = type.id === "pair", grid = type.id === "grid" || type.id.startsWith("board");
     const income = preset.economy.powerPerSecond * preset.worldSeconds + preset.startingEnergy;
     const offered = new Set(variantMutators(type, variant).map(m => m.id));
     const calls = grid ? gridCalls(T, variant)

@@ -9,6 +9,7 @@ import { AFFORDANCES, isAffordanceId, type AffordanceId, type Via } from "./dire
 import { applyView, EMPTY_VIEW, type ViewState } from "./layout.ts";
 import { memoryReceipts, OpFailure, runOp, type OpOutcome, type ServerHandlers } from "./server.ts";
 import type { AffordanceContext, Grant } from "./types.ts";
+import { freeSetupName, MAX_OWN_SETUPS } from "./ops/setups.ts";
 
 type Phase = "planning" | "live" | "paused" | "ended";
 interface FakeMember { memberId: string; userId: string | null; name: string; kind: "human" | "practice" | "ai"; spectator: boolean }
@@ -42,8 +43,11 @@ export interface FakeState {
   denied?: string[];
   /** Each human's stored panels by `${userId}|${slug}` (no compiler: the source stands in for the compiled code). */
   panels?: Record<string, FakePanel>;
+  /** Each human's saved setups by setup id. */
+  setups?: Record<string, FakeSetup>;
   next: number; now: number;
 }
+interface FakeSetup { setupId: string; ownerId: string; name: string; preset: string; overrides: Record<string, unknown>; createdAt: number; updatedAt: number }
 interface FakeAssistant { mode: "autopilot" | "onRequest" | "readOnly"; grant: Grant; threadId: string; messages: string[]; queue: { queueId: string; text: string }[] }
 
 export const FAKE_PRESET = { id: "lines-beginner", minPlayers: 3, startingEnergy: 100, summonPrice: 10 };
@@ -132,6 +136,15 @@ const memberOf = (e: FakeEnv, userId: string) => {
   return e.state.rooms[g.roomId]!.members.find(m => m.userId === userId)?.memberId ?? userId;
 };
 const ok = { ok: true as const };
+const ownSetups = (e: FakeEnv) => Object.values(e.state.setups ?? {}).filter(s => s.ownerId === e.userId);
+const anySetupOf = (e: FakeEnv, setupId: string) => e.state.setups?.[setupId] ?? (() => { throw new OpFailure("No such setup.", "setups.page"); })();
+const setupOf = (e: FakeEnv, setupId: string) => {
+  const s = e.state.setups?.[setupId];
+  if (!s || s.ownerId !== e.userId) throw new OpFailure("No such setup of yours.", "setups.page");
+  return s;
+};
+const setupRowOf = (e: FakeEnv, { setupId, name, preset, updatedAt, ownerId }: FakeSetup) =>
+  ({ setupId, name, preset, updatedAt, ownerName: nameOf(e.state, ownerId), mine: ownerId === e.userId });
 
 type El = { kind: "number"; q: string } | { kind: "symbol"; text: string };
 function readRep(o: { m: number; c: number }, rep: string): { elements: Record<string, El>; bits: number } {
@@ -207,7 +220,38 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "chat.send": (e, a) => { roomOf(e).chat.push({ from: nameOf(e.state, e.userId), text: a.text, at: e.state.now++ }); return ok; },
   "chat.list": (e, a) => page([...roomOf(e).chat].reverse(), a),
   "game.rotation": e => ({ seats: roomOf(e).members.filter(m => !m.spectator).map((m, i) => ({ memberId: m.memberId, name: m.name, family: FAMILIES[i % FAMILIES.length]! })) }),
-  "room.settings": (e, a) => { if (a.preset) roomOf(e).preset = a.preset; return ok; },
+  "room.settings": (e, a) => {
+    if (a.setupId !== undefined) {
+      if (a.preset !== undefined || a.overrides !== undefined) throw new OpFailure("Apply a setup or change the settings, not both.");
+      roomOf(e).preset = anySetupOf(e, a.setupId).preset;
+    } else if (a.preset) roomOf(e).preset = a.preset;
+    return ok;
+  },
+  "setups.page": (e, a) => page((a.mine ? ownSetups(e) : Object.values(e.state.setups ?? {}))
+    .sort((x, y) => x.name.toLowerCase().localeCompare(y.name.toLowerCase())).map(s => setupRowOf(e, s)), a),
+  "setups.get": (e, a) => { const s = anySetupOf(e, a.setupId); return { ...setupRowOf(e, s), overrides: s.overrides, createdAt: s.createdAt }; },
+  "setups.save": (e, a) => {
+    const all = (e.state.setups ??= {});
+    const same = ownSetups(e).find(s => s.name.toLowerCase() === a.name.toLowerCase());
+    const target = a.setupId !== undefined ? setupOf(e, a.setupId) : same;
+    if (target && same && same !== target) throw new OpFailure(`You already have a setup named "${same.name}".`);
+    const now = e.state.now++;
+    if (target) { Object.assign(target, { name: a.name, preset: a.preset, overrides: a.overrides ?? {}, updatedAt: now }); return { setupId: target.setupId, name: a.name, created: false }; }
+    if (ownSetups(e).length >= MAX_OWN_SETUPS) throw new OpFailure(`At most ${MAX_OWN_SETUPS} setups each; delete one first.`);
+    const setupId = newId(e.state, "s");
+    all[setupId] = { setupId, ownerId: e.userId, name: a.name, preset: a.preset, overrides: a.overrides ?? {}, createdAt: now, updatedAt: now };
+    return { setupId, name: a.name, created: true };
+  },
+  "setups.duplicate": (e, a) => {
+    const source = anySetupOf(e, a.setupId);
+    if (ownSetups(e).length >= MAX_OWN_SETUPS) throw new OpFailure(`At most ${MAX_OWN_SETUPS} setups each; delete one first.`);
+    const taken = new Set(ownSetups(e).map(s => s.name.toLowerCase()));
+    const name = a.name === undefined ? freeSetupName(source.name, "'s copy", taken) : freeSetupName(a.name, "", taken);
+    const setupId = newId(e.state, "s"), now = e.state.now++;
+    e.state.setups![setupId] = { ...source, setupId, ownerId: e.userId, name, createdAt: now, updatedAt: now };
+    return { setupId, name };
+  },
+  "setups.remove": (e, a) => { delete e.state.setups![setupOf(e, a.setupId).setupId]; return ok; },
   "seats.fillPracticePartners": e => {
     const r = roomOf(e);
     let added = 0;

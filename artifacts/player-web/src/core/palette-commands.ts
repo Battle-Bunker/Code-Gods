@@ -29,7 +29,8 @@ export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
   "rule.fit": "others-care", "rule.candidates": "others-care",
 };
 /** Reads the room page shows (its members, past games, the rotation, the bid phase). */
-export const ROOM_READS: ReadonlySet<string> = new Set(["room.get", "room.history", "game.rotation", "bid.state"]);
+// setups.page and setups.get: the room page until the configure page lists the saved setups (the setups UI).
+export const ROOM_READS: ReadonlySet<string> = new Set(["room.get", "room.history", "game.rotation", "bid.state", "setups.page", "setups.get"]);
 /** Reads the avatar menu shows (who you are, your connected apps). */
 export const ACCOUNT_READS: ReadonlySet<string> = new Set(["account.whoami", "account.connections"]);
 /** Reads the palette answers itself, in a notice (a command's status). */

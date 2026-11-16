@@ -121,6 +121,8 @@ export const v2Tables = {
       /** v1's bid visibility: "open" shows every player's bids as they are placed (absent: sealed). */
       visibility: v.optional(v.union(v.literal("sealed"), v.literal("open"))),
     })),
+    /** The saved setup the owner last applied (room.settings `setupId`), as it was then; cleared by a change by hand. */
+    setup: v.optional(v.object({ setupId: v.id("v2Setups"), name: v.string() })),
   }).index("by_code", ["code"]),
 
   /** A seat or a spectator in a room (≤ 16 per room): a human, a practice partner or an AI player. */
@@ -494,6 +496,18 @@ export const v2Tables = {
     bids: v.array(v.object({ memberId: v.id("v2Members"), family: v.string(), percent: v.number() })),
     wins: v.array(v.object({ memberId: v.id("v2Members"), family: v.string(), percent: v.number(), handicap: v.number() })),
   }).index("by_game", ["gameId"]),
+
+  /**
+   * A human's saved setups (convex/v2/setups.ts; v1's user setups, coordinator's call 35): a preset and its overrides
+   * under a name unique among theirs ignoring case (`nameKey`: the name lower-cased), at most 50 each. Shared as in v1:
+   * anyone lists, reads, copies and applies them; only the owner changes or removes one. `ownerName` is the owner's
+   * name when they last saved it (absent on rows saved before sharing: shown as "a player"). The presets are the system's catalogue beside them.
+   */
+  v2Setups: defineTable({
+    ownerUserId: v.string(), ownerName: v.optional(v.string()), name: v.string(), nameKey: v.string(), preset: v.string(), overrides: overridesV,
+    createdAt: v.number(), updatedAt: v.number(),
+  }).index("by_owner_name", ["ownerUserId", "nameKey"])
+    .index("by_name", ["nameKey"]),
 
   /**
    * Stored panels (convex/v2/panels.ts): TSX a human or their delegates write, compiled on save and rendered by every

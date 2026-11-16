@@ -196,13 +196,17 @@ async function endedGame(page: Page, preset: string, noun: string) {
   const results = await open(page, "results");
   await results.getByText(/You finished/).waitFor();
   assert.equal(await results.locator("[data-testid^=row-result-]").count(), 3, `${label}: the final standings, every player`);
-  // v1's end page: a "Final standings" table, and "Why: your best lines" (a link down to it, the chart, each line's score).
+  // v1's end page: a "Final standings" table, and "Why: your best and worst lines" (a link down to it, the chart, each line's score).
   await results.getByText("Final standings", { exact: true }).waitFor();
   assert.match(await results.getByTestId("results-standings").locator("thead").innerText(), /#\s+player[\s\S]*points/);
   await results.getByTestId("button-results-why").click();
   const why = results.getByTestId("section-results-why");
   await why.waitFor({ timeout: 15_000 });
   await why.locator("[data-testid^=row-results-why-]").first().getByText(/your [\d.,]+ bits? × others' [\d.,]+ bits? [=≈] [\d.,]+ points?/).waitFor({ timeout: 15_000 });
+  // The worst lines leave out the best: a game of three or fewer lines has none to list.
+  if (await why.getByTestId("list-results-worst").count()) {
+    assert.match(await why.locator("[data-testid^=row-results-worst-]").first().innerText(), /your [\d.,]+ bits? × others' [\d.,]+ bits? [=≈] [\d.,]+ points?/);
+  }
   console.log(`${label}: why: ${(await why.innerText()).replace(/\s+/g, " ").slice(0, 160)}`);
   // Never a Results page without advice (round 12: Exact Change's said nothing): "Try next game" is there.
   await results.getByTestId("text-summary-next").waitFor({ timeout: 15_000 });

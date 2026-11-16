@@ -53,9 +53,12 @@ The owner's examples, as predicates:
 - **Computed** by plain draws from π (the object type's direct law: `lineLaw`, `pairLaw`, the grid's independent cells),
   `INFO_DRAWS = 65 536` draws seeded by the variant and the canonical text, so every machine gets the same number. With
   k ≥ 16 hits, `I = −log2(k / N)` (standard error ≤ 0.36 bits). With fewer, the predicate is rarer than the draws see and
-  `I` is the **reading bound**: the code length of the coordinates the predicate reads, at the state it is made on (a
-  predicate is never dearer than pinning the coordinates it reads, which implies it; so the bound only ever charges a
-  rare predicate at most that). **[default]** `I` is fixed on the lock when it is made.
+  `I` is the **state bound** φ(s), the read length of the state the lock is made on (a predicate the state meets has
+  mass at least 2^−φ(s), so φ bounds it; `I` is never more than φ(s)). **[default]** `I` is fixed on the lock when it is made.
+- Measured on whole-number lines: `si.m = -2` 5.1 bits, `si.c is prime` 3.9, `si.c >= 100` 5.6, `si.c >= 1013` 7.8,
+  `tri.area is square` 5.8, the owner's prime-with-digit-sum-7-ending-in-3 bounded at φ = 30.7. Under π's heavy tail a
+  floor on a large value is cheap to state (c ≥ 1013 is 7.8 bits while the state c = 1013 reads in 512): the
+  simulation should watch floor locks first.
 - **Creating** a lock costs a fee of `I` energy bits (`CREATE_PER_BIT = 1`: one energy bit per bit of predicate, the unit
   of a move's price), burned, plus the opening amount the creator puts in it (at least 1). **[owner]** "the expense of
   creating the lock … proportional to the information content". The constant **[default]**.

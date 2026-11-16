@@ -12,7 +12,8 @@ import { mutatorsOf } from "../../convex/v2/reads.ts";
 import { ruleKey } from "@workspace/v2-valuation";
 
 test("family ids are unique across object types", () => {
-  const ids = objectTypes.flatMap(t => t.families.map(f => f.id));
+  // A family shared by several types (the coloured boards, one type per size) is one object: the deal finds it by id.
+  const ids = [...new Set(objectTypes.flatMap(t => t.families))].map(f => f.id);
   assert.deepEqual(ids.length, new Set(ids).size);
 });
 

@@ -8,6 +8,7 @@ export * from "./births.ts";
 export { CATALOGUE, LENSES, type FamilyEntry, type TieBreakerEntry, type Lens, type LensId } from "./catalogue.ts";
 export { GRID_CATALOGUE, GRID_LENSES, type GridFamilyEntry, type GridTieBreakerEntry, type GridLens, type GridLensId } from "./grid-catalogue.ts";
 export { gridUndescribed, isGridFamily } from "./grid-starters.ts";
+export { boardUndescribed, isBoardFamily, BOARD_CATALOGUE } from "./board-starters.ts";
 export { PAIR_CATALOGUE, isPairFamily, isPairTypeFamily, pairUndescribed, type PairFamilyEntry, type PairKind } from "./pair-starters.ts";
 export * from "./primer.ts";
 export * from "./compat.gen.ts";

@@ -28,7 +28,7 @@ try {
   const page = me.page;
   watch(page);
   const room = code();
-  const g = convexRun("v2/testing:seedGame", { owner: me.subject, practice: 2, code: room, objects: 60 });
+  const g = convexRun("v2/testing:seedGame", { owner: me.subject, practice: 2, code: room, objects: 200 });
   const gameUrl = `${SITE}/rooms/${room}/games/${g.gameId}`;
   await page.goto(gameUrl);
   await page.getByTestId("dock-desktop").waitFor({ timeout: 60_000 });
@@ -104,19 +104,21 @@ try {
     await page.getByTestId("pane-public-chat").waitFor({ timeout: 3_000 });
   }, () => escapeAll(page));
 
-  await missing(["e2e-objects-scroll"], "the lines list pages itself: scrolling to its end loads the next page (\"N of M\" footer)", async () => {
+  await check("the lines list pages itself: scrolling to its end loads the next page (\"N of M\" footer)", async () => {
     const lines = page.getByTestId("pane-objects");
     if (!await lines.count()) {
       await page.locator("[data-testid^=button-pane-menu-]").first().click();
       await page.getByTestId("button-open-pane-objects").click();
     }
     const footer = page.getByTestId("text-objects-footer");
-    const [first, total] = (await footer.innerText({ timeout: 5_000 })).match(/^(\d+) of (\d+)/)!.slice(1).map(Number) as [number, number];
+    const said = await footer.innerText({ timeout: 5_000 });
+    const m = said.match(/^(\d+) of (\d+)/);
+    assert.ok(m, `the footer says how many of how many: "${said}"`);
+    const [first, total] = m.slice(1).map(Number) as [number, number];
     assert.ok(total > first, `more lines than one page (${first} of ${total})`);
-    await footer.scrollIntoViewIfNeeded();
-    await page.mouse.wheel(0, 4000);
+    await page.getByTestId("lines-list").first().evaluate(el => { el.scrollTop = el.scrollHeight; });
     await page.waitForFunction((n: number) => Number(document.querySelector("[data-testid=text-objects-footer]")?.textContent?.match(/^(\d+) of/)?.[1]) > n, first, { timeout: 10_000 });
-  }, () => escapeAll(page));
+  });
 
   await check("the lines list's sort persists as the pane's parameter across a reload", async () => {
     if (await page.getByTestId("tab-objects").count()) await page.getByTestId("tab-objects").click({ position: { x: 6, y: 10 } });

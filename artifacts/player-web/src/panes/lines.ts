@@ -59,6 +59,23 @@ export function digestScale(packed: readonly number[] | undefined): PayoffScale 
   return { max };
 }
 
+/**
+ * The lines list's footer (v1 objects-scroll's "N of M"): how many rows are shown of how many the filter holds, counted
+ * from the digest ([number, own bits, others' bits] per object; the server's quadrants: positive and contested both
+ * positive, chips others only). M is left out when the digest lags behind the rows shown.
+ */
+export function listFooter(o: { shown: number; packed: readonly number[] | undefined; show: (typeof SHOWS)[number]["show"]; more: boolean; many: string }): string {
+  let total = 0;
+  if (o.packed) for (let i = 0; i + 2 < o.packed.length; i += 3) {
+    if (!(o.packed[i]! > 0)) continue;
+    const own = o.packed[i + 1]!, others = o.packed[i + 2]!;
+    if (o.show === "all" || (o.show === "chips" ? others > 0 && !(own > 0) : own > 0 && others > 0)) total++;
+  }
+  // A digest behind the list (fewer than shown) gives no M; one that covers it says whether more is to come.
+  if (total < o.shown || total === 0) return `${o.shown} ${o.many}${o.more ? " · scroll for more" : ""}`;
+  return `${o.shown} of ${total} ${o.many}${total > o.shown ? " · scroll for more" : ""}`;
+}
+
 /** A row's values widen the scale when the digest lags behind them (a line changed since the last digest). */
 export const widen = (scale: PayoffScale, rarity: number, want: number): PayoffScale =>
   ({ max: Math.max(scale.max, finite(rarity), finite(want)) });
