@@ -8,14 +8,15 @@ import {
   amountCode, applyCall, applyPriced, cycleDiagnostic, factorCode, isInvalid, mixedIntBits, nonzeroRatBits, Qn, q, ratBits, rng, stepsRatBits,
   drawMutator, variantMutators, walkStep, type Q,
 } from "@workspace/v2-core";
-import { describeLine, LINE_Q_CODES, lensMutators, lineBits, lineParams, lineQ, lineQLenses, lineType, normalise, preset, shortcutFactor, type Line, type LineState } from "../src/index.ts";
+import { coefficientBits, describeLine, lensMutators, lineBits, lineParams, lineQ, lineQLenses, lineType, normalise, preset, shortcutFactor, type Line, type LineState } from "../src/index.ts";
 import { abc, mc } from "./helpers.ts";
 
 const v = lineQLenses;
 /** A mutator's "which" bits under line-q-lenses' weighted code. */
 const W = (id: string) => v.which![id]!;
 /** coef.swap's floor: φ of the dearer number it swaps (line-q's code for a and c), in ax + by + c = 0 (the same pair before and after). */
-const swapFloor = (l: Line, pair: string) => Math.max(...(pair === "m-c" ? [l.a, l.c] : [l.b, l.c]).map(n => LINE_Q_CODES.c.bits(n)));
+const C = (n: bigint) => coefficientBits(n, lineParams(lineQ));
+const swapFloor = (l: Line, pair: string) => Math.max(...(pair === "m-c" ? [l.a, l.c] : [l.b, l.c]).map(C));
 const run = (s: LineState, mutator: string, args: Record<string, string>) => applyCall(lineType, v, s, { mutator, site: 0, args });
 const to = (s: LineState, mutator: string, args: Record<string, string>) => {
   const r = run(s, mutator, args);
@@ -62,11 +63,11 @@ test("coef.swap: y = mx + c ↦ y = cx + m, and b ↔ c; a choice of 2", () => {
   assert.equal(to(mc(-4, 0), "coef.swap", { pair: "b-c" }), "x = -1/4");      // y = −4x (4, 1, 0) ↦ 4x + 1 = 0
   assert.equal(to(abc(0, 1, 4), "coef.swap", { pair: "b-c" }), "y = -1/4");   // y = −4 ↦ y = −¼ (the study's 4.2× shortcut)
   // A swap costs at least φ of the dearer number it swaps: y = 2x + 5 is 2x − y + 5 = 0, so φ(5) against φ(2).
-  near(fee(mc(2, 5), "coef.swap", { pair: "m-c" }), Math.max(W("coef.swap") + 1, LINE_Q_CODES.c.bits(5n)));
-  near(fee(mc(2, 517), "coef.swap", { pair: "m-c" }), LINE_Q_CODES.c.bits(517n));
-  // The dearer, not the larger: 1009 (a prime) costs more to write than 1024 (2^10).
-  near(fee(mc(1024, 1009), "coef.swap", { pair: "m-c" }), LINE_Q_CODES.c.bits(1009n));
-  assert.ok(LINE_Q_CODES.c.bits(1009n) > LINE_Q_CODES.c.bits(1024n));
+  near(fee(mc(2, 5), "coef.swap", { pair: "m-c" }), Math.max(W("coef.swap") + 1, C(5n)));
+  near(fee(mc(2, 517), "coef.swap", { pair: "m-c" }), C(517n));
+  // Under gravity the dearer is the larger: 1024 costs more to write than 1009, prime or not (gravity.md).
+  near(fee(mc(1024, 1009), "coef.swap", { pair: "m-c" }), C(1024n));
+  assert.ok(C(1024n) > C(1009n));
   // The same fee both ways (the exact potential): y = 517x + 2 back to y = 2x + 517.
   near(fee(mc(517, 2), "coef.swap", { pair: "m-c" }), fee(mc(2, 517), "coef.swap", { pair: "m-c" }));
   // The swap and its line cross at x = 1.

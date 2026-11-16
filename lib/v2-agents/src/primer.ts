@@ -116,7 +116,7 @@ const WORDS: Readonly<Record<string, PrimerWords>> = {
   line: {
     title: "lines", one: "line", many: "lines",
     game: "The game is played on lines: every piece is one line, read in several views. Each player has a rule about lines: a main part and a secondary preference (for example \"make the gradient close to a prime; secondary: the bigger that prime, the better\").",
-    prices: "A move by k costs k moves by 1, so a big jump never saves; ×6 (mach.stretch) costs ×2 plus ×3. Numbers made of small primes are cheap (24), big primes dear (23).",
+    prices: "A move by k costs k moves by 1, so a big jump never saves; ×6 (mach.stretch) costs ×2 plus ×3. Gravity: a line costs more to write the higher it sits (the bigger its gradient and y-intercept, and a fraction a little more for its bottom number), and every bit higher costs 10 energy; moving down is free.",
     deal: "\"I leave line 4's y-intercept alone if you keep its gradient prime\"",
     typescript: "the same shape with Q for arithmetic",
     example: () => ["m-meets-c", "meetPrime"],

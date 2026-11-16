@@ -92,15 +92,17 @@ test("seating: Ruler and Pythagorean Area with one ending are a forbidden pair (
   assert.equal(lineClash({ family: "ruler", params: { ends: 3 } }, { family: "pythagorean-area", params: { ends: 7 } }), false);
 });
 
-test("witnesses for the ladder's tail cap: cheap lines whose distance² rounds down to an n-digit prime ending in k", () => {
-  for (const ends of [1, 3, 7, 9]) for (const n of [1, 2, 5, 12, 30]) {
+test("witnesses for the ladder's tail cap: lines whose distance² rounds down to an n-digit prime ending in k, dearer with each digit", () => {
+  for (const ends of [1, 3, 7, 9]) { let last = 0; for (const n of [1, 2, 5, 12, 30]) {
     const ws = rulerWitness({ ends }, n);
     if (n === 1 && (ends === 1 || ends === 9)) { assert.deepEqual(ws, []); continue; }   // no one-digit prime ends in 1 or 9
     assert.ok(ws.length >= 1, `ending ${ends}, ${n} digits`);
     for (const w of ws) {
       const u = Qn.parse(terms(ends, w).ruler);
       assert.equal(Qn.floor(u), Qn.floor(digitLevel(10n ** BigInt(n - 1))), `ending ${ends}: a rung of ${n} digits`);
-      assert.ok(lineType.readLength(w, lineQ) < 20 + 2 * n, `cheap: ${lineType.readLength(w, lineQ).toFixed(1)} bits for ${n} digits`);
     }
-  }
+    // Under gravity (docs/engine-v2/gravity.md) a big distance is dear: the cheapest witness costs more with each digit.
+    const least = Math.min(...ws.map(w => lineType.readLength(w, lineQ)));
+    if (ws.length) { assert.ok(least > last, `ending ${ends}, ${n} digits: ${least.toFixed(1)} bits after ${last.toFixed(1)}`); last = least; }
+  } }
 });

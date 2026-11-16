@@ -30,6 +30,13 @@ export interface Variant {
    * each. A move and its inverse are the same mutator, so they pay the same bits and the potential stays exact.
    */
   readonly which?: Readonly<Record<string, number>>;
+  /**
+   * The price of height (docs/engine-v2/gravity.md; the owner, 16 Nov: bigger solutions "energy expensive ... rewarded
+   * commensurate with the expense"): energy per bit of φ a call raises, the surcharge w·max(0, Δφ). Absent: 1. Falling is
+   * free whatever w is, and w·Δφ telescopes around any loop, so prices stay an exact potential. The walk and the law
+   * do not use it (they accept growth with probability 2^−Δφ).
+   */
+  readonly heightPrice?: number;
 }
 
 export interface ObjectType<S> {

@@ -13,6 +13,7 @@
  * caller can weigh a draw by p/q = 2^(−φ) / Π q_t = 2^(−(1 − t)φ + log2Norm(t)).
  */
 import { mixedInt, type IntCode, type Rng, type Variant } from "@workspace/v2-core";
+import { gravityLineCode } from "./gravity.ts";
 import { inDomain, LINE_Q_CODES, lineParams, normalise, type Line, type LineState } from "./line.ts";
 
 export interface LawDraw<S> {
@@ -32,6 +33,23 @@ export function lineLaw(variant: Variant): Law<LineState> {
   const p = lineParams(variant);
   // The codes one line's coordinates are drawn from, in order: (m, c) on Z, (a, b, c) on Q.
   const codes: readonly IntCode[] = p.domain === "Z" ? [mixedInt, mixedInt] : [LINE_Q_CODES.a, LINE_Q_CODES.b, LINE_Q_CODES.c];
+  if (p.gravity) {
+    const code = gravityLineCode(p.gravity);
+    return {
+      draw(r, t) {
+        const lines: Line[] = [];
+        let bits = 0, ok = true;
+        for (let i = 0; i < p.linesPerObject; i++) {
+          const x = code.sample(r, t);
+          bits += x.bits;
+          const l = inDomain(normalise(x.a, x.b, x.c), p);
+          if ("invalid" in l || l.a !== x.a || l.b !== x.b || l.c !== x.c) ok = false; else lines.push(l);
+        }
+        return { state: ok ? { lines } : null, bits };
+      },
+      log2Norm: t => p.linesPerObject * code.log2Norm(t),
+    };
+  }
   return {
     draw(r, t) {
       const lines: Line[] = [];

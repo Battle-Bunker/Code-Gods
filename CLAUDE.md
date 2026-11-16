@@ -74,6 +74,13 @@ query needs an entry in the query-cost gate (R8).
   rarely raises several seated rules' bits at once. The bug found 14 Nov (a stretch to y = −2x + 734 paid 102k points)
   was two seated rules rewarding the same number in the same direction with no adversary; it is fixed in the pool and the
   deal, not by removing hills. A value tail never grows faster than the φ of the cheapest state that reaches it.
+- **Strong gravity toward small numbers (owner, 2026-11-16).** "We want a meaningful progression of expensively
+  obtained bigger solutions to a preference that are rewarded commensurate with the expense of reaching them. We want
+  gravity towards smaller numbers to be a configurable force size ... scaled up considerably so that it really behaves
+  like a force of gravity"; and "the difference in energy score between states near to the integer and exactly on it
+  should be modest." So φ grows with a number's size (a field of g bits per unit of height), never with its prime
+  factors; climbing pays energy per bit of height (`heightPrice`); falling is free. Design and measurements:
+  `docs/engine-v2/gravity.md`.
 - **The old game is the spec; only its implementation is disposable.** "The old code acts as a precious spec of what I
   want and a demonstration of what I'm trying to accomplish, even though the specific implementation of that logic is
   not precious." The owner (later the same day): "keep the rules we already designed prior to this engine upgrade, but

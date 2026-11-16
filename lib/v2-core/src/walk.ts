@@ -61,7 +61,7 @@ export function applyPriced<S, A>(type: ObjectType<S>, variant: Variant, state: 
   const code = mutator.args(variant).bits(args);
   // A floored mutator's top-up counts as argument bits (Mutator.floor).
   const arg = mutator.floor ? Math.max(code, mutator.floor(state, result, mutator.perSite ? site : 0, args, variant) - which - where) : code;
-  const surcharge = Math.max(0, type.readLength(result, variant) - type.readLength(state, variant));
+  const surcharge = (variant.heightPrice ?? 1) * Math.max(0, type.readLength(result, variant) - type.readLength(state, variant));
   return { result, price: { which, where, arg, surcharge, total: which + where + arg + surcharge } };
 }
 

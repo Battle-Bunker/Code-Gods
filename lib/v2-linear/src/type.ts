@@ -20,12 +20,20 @@ export const lineZ: Variant = {
   id: "line-z", objectType: "line", mutators: ALL_MUTATORS, birthMixSteps: 64,
   params: { domain: "Z", linesPerObject: 1, argDomain: "Z" },
 };
+/**
+ * Gravity on fraction lines (docs/engine-v2/gravity.md; the owner, 16 Nov: "gravity towards smaller numbers ... a
+ * configurable force size ... scaled up considerably"): φ is g bits per unit of height (|gradient|, |y-intercept|) plus
+ * the bottom number's bits, and climbing costs HEIGHT_PRICE ⚡ per bit of φ gained. Both are the variant's, so a preset
+ * picks them; a different g is a different law and needs its own value files.
+ */
+export const LINE_Q_GRAVITY = { g: 0.25, alpha: 1 } as const;
+export const HEIGHT_PRICE = 10;
 export const lineQ: Variant = {
   id: "line-q", objectType: "line", mutators: [...ALL_MUTATORS, ...BEGINNER_LENSES], birthMixSteps: 64,
   // The weighted which code: the turn keeps the price it was measured at (log2 20 = 4.32 bits, as on line-q-lenses),
   // and the nine share the rest (log2 (9 / 0.95) = 3.24 bits each).
   which: Object.fromEntries([...ALL_MUTATORS.map(id => [id, Math.log2(9 / 0.95)]), ...BEGINNER_LENSES.map(id => [id, Math.log2(20)])]),
-  params: { domain: "Q", linesPerObject: 1, argDomain: "Q" },
+  params: { domain: "Q", linesPerObject: 1, argDomain: "Q", gravity: LINE_Q_GRAVITY }, heightPrice: HEIGHT_PRICE,
 };
 /**
  * line-q with the other four lens mutators (lenses-and-mutators.md §5: a swap, a lean, a zoom, a fold) beside line-q's
@@ -35,7 +43,7 @@ export const lineQLenses: Variant = {
   id: "line-q-lenses", objectType: "line", mutators: [...lineQ.mutators, ...TRIAL_LENSES], birthMixSteps: 64, valuesOf: "line-q",
   // line-q's ten share 3/4 of the mass in line-q's proportions, the four share 1/4 (log2 16 = 4 bits each).
   which: Object.fromEntries([...lineQ.mutators.map(id => [id, lineQ.which![id]! + Math.log2(4 / 3)]), ...TRIAL_LENSES.map(id => [id, Math.log2(4 * TRIAL_LENSES.length)])]),
-  params: { domain: "Q", linesPerObject: 1, argDomain: "Q" },
+  params: lineQ.params, heightPrice: HEIGHT_PRICE,
 };
 export const lineZ4: Variant = {
   id: "line-z4", objectType: "line", mutators: ALL_MUTATORS, birthMixSteps: 64,

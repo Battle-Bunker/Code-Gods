@@ -15,3 +15,4 @@ export * from "./law.ts";
 export * from "./seating.ts";
 export * from "./opponents.gen.ts";
 export * from "./witnesses.ts";
+export * from "./gravity.ts";

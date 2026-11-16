@@ -14,7 +14,7 @@ test("each mutator's effect and price on worked examples (spec §12.4)", () => {
   // line-z offers the nine (log2 9 each); line-q adds the turn, and the nine pay log2 (9 / 0.95) there.
   const which = Math.log2(9), whichQ = Math.log2(9 / 0.95);
   const phi = (st: ReturnType<typeof mc>, v: Variant) => lineType.readLength(st, v);
-  const up = (from: ReturnType<typeof mc>, to: ReturnType<typeof mc>, v: Variant) => Math.max(0, phi(to, v) - phi(from, v));
+  const up = (from: ReturnType<typeof mc>, to: ReturnType<typeof mc>, v: Variant) => (v.heightPrice ?? 1) * Math.max(0, phi(to, v) - phi(from, v));
   // A sized call's whole fee is rate(o)·size, o the bits of the rest of the call (v2-core codes.ts, far moves are dear).
   const rate = (o: number, dims: 1 | 2 = 1, rational = false) => amountCode(o, dims, rational).rate;
   const s = mc(1, 5);  // y = x + 5

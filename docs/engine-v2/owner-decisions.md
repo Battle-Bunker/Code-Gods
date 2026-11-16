@@ -288,6 +288,29 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     fractional values." So the beginner line pool's target is 12 families: the recast families, the owner's two
     examples, and four fraction-native families from the rule sessions.
 
+47. On gravity (relayed by the coordinator, 16 November), in reply to the finding that under the tree valuation a
+    level was worth 1 to 2.6 bits while the first exact hit was worth 10 to 24 bits for 17 to 75 energy, after which
+    play stopped: "Well this is completely broken. We want a meaningful progression of expensively obtained bigger
+    solutions to a preference that are rewarded commensurate with the expense of reaching them. We want gravity towards
+    smaller numbers to be a configurable force size I think and it should be scaled up considerably so that it really
+    behaves like a force of gravity. Think about appropriate physics metaphors which work naturally with the scoring
+    math we already have and ideally have deep alignment with the information theory lens. We want strong gravity so
+    that it becomes increasingly rare and energy expensive to reach bigger solutions and they score commensurately more
+    in energy/bits because it would be rarer for random mutations to reach them as the expense of moving further
+    outward from the origin grows.
+    As for exact hits causing a sudden jump in energy value, that's dysfunctional and I'm not immediately sure what the
+    right solution is, except that, if it is in fact easy/cheap to get from near to an integer to exactly the integer
+    (such as with a `floor` mutator or the like) then the energy distance between values close to the round integer and
+    the actual integer should be modest and rarity of random walks crossing that gap should be comparably low as well,
+    meaning the difference in energy score between states near to the integer and exactly on it should be modest. Is
+    there anything about our current scoring system that prevents this intuitive behaviour from actually occurring?"
+    Earlier the same day: "mixed costing was supposed to impose log cost on multiplication mutators and linear cost on
+    addition mutators ... These should be cost functions that are asymmetric in direction towards or away from zero which
+    imposes a kind of gravity towards smaller numbers." What was built (docs/engine-v2/gravity.md): line-q's φ is g bits
+    per unit of height plus the bottom number's bits (the factorisation code for a and c is gone), g a variant
+    parameter (default 0.25); climbing pays heightPrice ⚡ per bit of φ gained (default 10), falling is free; the tree's
+    inner parts stay capped at 2 bits so an exact hit is a modest step.
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact

@@ -5,7 +5,7 @@ import {
   type ArgCode, type Invalid, type Mutator, type Q, type Rng, type Variant,
 } from "@workspace/v2-core";
 import { isqrt as isqrtBig } from "./numbers.ts";
-import { decodeLine, describeLine, encodeLine, fromMC, inDomain, LINE_Q_CODES, intercept, isVertical, lineBits, lineParams, normalise, slope, yAt, type Domain, type Line, type LineState } from "./line.ts";
+import { coefficientBits, decodeLine, describeLine, encodeLine, fromMC, inDomain, LINE_Q_CODES, intercept, isVertical, lineBits, lineParams, normalise, slope, yAt, type Domain, type Line, type LineState } from "./line.ts";
 
 export type Args = Readonly<Record<string, Q | string>>;
 
@@ -478,11 +478,11 @@ export const swap: M = {
   inverse: { kind: "self" },
   // Swapping two numbers keeps every digit, so Δφ is about 0 and a swap was nearly free: in play two swaps in three gained
   // more than their fee (coordinator's call 23, 15 Nov). Its fee is at least φ of the dearer number it swaps, each read
-  // with line-q's code for a and c (the mixed code, LINE_Q_CODES.c), from both lines (the same pair, so the same floor
-  // for the swap back).
-  floor: (before, after, site, a) => Math.max(...[before, after].flatMap(s => {
-    const l = s.lines[site]!;
-    return (S(a, "pair") === "m-c" ? [l.a, l.c] : [l.b, l.c]).map(n => LINE_Q_CODES.c.bits(n));
+  // with the variant's code for c (coefficientBits: under gravity, g bits a unit of size plus the grid's constant), from
+  // both lines (the same pair, so the same floor for the swap back).
+  floor: (before, after, site, a, v) => Math.max(...[before, after].flatMap(s => {
+    const l = s.lines[site]!, p = lineParams(v);
+    return (S(a, "pair") === "m-c" ? [l.a, l.c] : [l.b, l.c]).map(n => coefficientBits(n, p));
   })),
 };
 

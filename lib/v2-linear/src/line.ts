@@ -2,6 +2,7 @@
  * The line object (spec §12.1): a tuple of k lines, each the primitive integer triple (a, b, c) of a·x + b·y + c = 0
  * with gcd 1 and b > 0, or b = 0 and a > 0.
  */
+import { gravityLineCode, type Gravity } from "./gravity.ts";
 import { gcd, mixedIntBits, mixedIntCode, Qn, q, stepsIntCode, type Invalid, type IntCode, type Q, type Variant } from "@workspace/v2-core";
 
 export interface Line {
@@ -18,6 +19,8 @@ export interface LineParams {
   readonly domain: Domain;
   readonly linesPerObject: number;
   readonly argDomain: Domain;
+  /** Gravity on fraction lines (gravity.ts): the size code with strength g in place of LINE_Q_CODES. */
+  readonly gravity?: Gravity;
 }
 
 export function lineParams(v: Variant): LineParams {
@@ -27,6 +30,7 @@ export function lineParams(v: Variant): LineParams {
     domain,
     linesPerObject: typeof p.linesPerObject === "number" ? p.linesPerObject : 1,
     argDomain: p.argDomain === "Q" || p.argDomain === "Z" ? p.argDomain : domain,
+    ...(domain === "Q" && p.gravity && typeof (p.gravity as Gravity).g === "number" ? { gravity: p.gravity as Gravity } : {}),
   };
 }
 
@@ -80,7 +84,14 @@ export const LINE_Q_CODES: { readonly a: IntCode; readonly b: IntCode; readonly 
 /** φ (spec §12.2): the mixed number code (owner decision 17) on (m, c) for Z; LINE_Q_CODES on the primitive triple for Q. */
 export function lineBits(l: Line, p: LineParams): number {
   if (p.domain === "Z") return mixedIntBits(-l.a) + mixedIntBits(-l.c);
+  if (p.gravity) return gravityLineCode(p.gravity).bits(l.a, l.b, l.c);
   return LINE_Q_CODES.a.bits(l.a) + LINE_Q_CODES.b.bits(l.b) + LINE_Q_CODES.c.bits(l.c);
+}
+
+/** The code length of one whole coefficient alone (the swap's floor): the variant's code for c, as an intercept on b = 1. */
+export function coefficientBits(n: bigint, p: LineParams): number {
+  if (p.gravity) return gravityLineCode(p.gravity).coefficient(n, 1);
+  return LINE_Q_CODES.c.bits(n);
 }
 
 export const encodeLine = (l: Line): string => `${l.a},${l.b},${l.c}`;
