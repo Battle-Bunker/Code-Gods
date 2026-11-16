@@ -15,9 +15,11 @@ production. The one serious risk was latent: since 13 November `auth.config.ts` 
 player/MCP token breaks at the push. #913 makes the production deploy check them **before** the push and stop if they
 disagree, so the worst case is a red deploy with production untouched, not a broken site.
 
-What players lose at the switch, by design (decision 15): every v1 room, game in progress, ended game and replay
-disappears from the app (the rows stay in the database until D3); room-bound device and MCP credentials stop working;
-AI spend counters restart at zero.
+**What a production user sees at the switch (the owner must agree to this before promoting).** Every v1 room, game
+in progress, ended game and replay disappears from the app; the rows stay in the database, untouched, until D3.
+Accounts are kept and players stay signed in. Old room and game links show "not found" messages, not errors.
+Room-bound device and MCP credentials stop working; account-wide ones keep working. AI spend counters start again at
+zero (the code's ceilings still apply). Details: §4.
 
 ## 1. Schema against stored production data
 
@@ -83,6 +85,10 @@ targets were v1 tables and are moot. **Green.**
      key values into memory (never printed) and stops the deploy, before anything is pushed, unless `PLAYER_JWT_JWKS`
      holds `PLAYER_JWT_PRIVATE_KEY`'s public key and `BETTER_AUTH_JWKS` is one unexpired key that decrypts with
      `BETTER_AUTH_SECRET` and pairs with its public key. Checked against a real `rotateKeys` value on the local backend.
+   - **New (#913), last in the smoke test:** `npx convex run auth/keysCheck:deployed` mints a player JWT and signs a
+     Better Auth token with the deployment's keys, and verifies both against the JWKS the pushed auth config inlined
+     (catches a value changed after the push, or a config that fell back to fetching by URL). Checked on the local
+     backend, including a player key changed without a push (fails, naming `PLAYER_JWT_JWKS`).
    - `convex deploy --typecheck enable`; `version:record`; `BETTER_AUTH_JWKS` only if unset (it is set on production);
      migrations (§2); `upload-runtime` (the pinned Python bundle, re-hashed by the server); `deploy-static
      --if-changed`; smoke test (`/api/health`, `/mcp` answers 401 without a token).
@@ -107,9 +113,18 @@ workflow above is authoritative.
   New codes are unique only among v2 rooms, so an old code can later be issued to an unrelated new room and an old
   bookmark would offer to join it (codes are invitations anyway; low impact, accepted).
 - **Old game links:** "No such game here. It may belong to another room." No crash. `/rooms/X/configure` → "Nothing here".
-- **Games in progress under v1:** stop. v1's functions are deleted; its scheduled tick chains come due, find no
-  function and fail once each (log noise, no effect; the Convex docs do not describe this case, so this is expected,
-  not observed). v1's crons (engine watchdog, assistant sweeper, calibration and program prunes) are removed.
+- **Games in progress under v1:** stop. v1's functions are deleted; its crons (engine watchdog, assistant sweeper,
+  calibration and program prunes) are removed with them.
+- **v1's scheduled functions.** v1 schedules only short follow-ups: the next tick (`runAt`, about a second ahead), AI
+  and assistant turns (seconds), start/hold/calibration/replay steps (mostly `runAfter 0`), and two longer ones: the
+  start watchdog (`PREPARING_WATCHDOG_MS`) and `engine.hold.dropFile` (deletes an old hold file after a grace period).
+  Each job that comes due after the push finds no function and fails once, as a log entry. Nothing re-schedules it
+  (every chain was re-armed by the function that no longer exists), so the noise stops within seconds, apart from the
+  odd late `dropFile`, whose only effect is an old hold file left in storage. Games parked by v1's idle watchdog have
+  no pending jobs at all. They cannot be stopped more cleanly: cancelling them before the push would mean writing to
+  production under v1, and a cleanup after the push could only reach the few long-delay jobs. Recommendation: let
+  them fail. (The Convex docs do not describe a scheduled job whose function was deleted; "fails when due" is the
+  expected behaviour, not observed on production. The dev deployment went through the same change on 14 November.)
 - **Ended games and replays:** not shown (no reader of v1 tables; "Past games" lists a room's v2 games). Old
   `/api/replay/*` links get a JSON 404. The old event log is not compatible (decision 15); the rows remain until D3.
 - **Credentials:** account-scoped device/MCP grants still work; room-bound ones point at v1 rooms and are refused. MCP
@@ -166,7 +181,26 @@ Would not be undone:
 
 Before promoting, export production (`npx convex export --prod`, read-only); D3-a asks for this anyway.
 
-## 7. Go/no-go checklist
+## 7. For the owner: checking the two auth key values on production before promoting
+
+Only the owner holds the production deploy key. These steps read values into memory and print names only.
+
+1. Get a production deploy key: Convex dashboard → production deployment (`original-bear-509`) → Settings → General →
+   generate a deploy key (or reuse the one in the GitHub Environment `production`).
+2. In a checkout of `develop` (after #913): `cd artifacts/engine && pnpm install`.
+3. Check: `CONVEX_DEPLOY_KEY=<the key> node scripts/check-auth-keys.mjs`. It ends with "auth keys agree (…)" or
+   lists problems by variable name.
+4. If it names `PLAYER_JWT_JWKS` or `PLAYER_JWT_PRIVATE_KEY`: `CONVEX_DEPLOY_KEY=<the key> pnpm gen-jwt-key --set`
+   (sets both together; outstanding 10-minute player tokens are re-fetched). v1 does not read `PLAYER_JWT_JWKS`, so
+   this is safe before promotion.
+5. If it names `BETTER_AUTH_JWKS` or `BETTER_AUTH_SECRET`: with the key set,
+   `npx convex run auth/betterAuth:rotateKeys | npx convex env set BETTER_AUTH_JWKS`. Safe under v1 too: v1 signs and
+   verifies with the key `rotateKeys` also stores in its table. Signed-in browsers fetch a new token within 10
+   minutes; sessions survive.
+6. Run step 3 again; it should agree. Then promote. The deploy runs the same check before its push and
+   `auth/keysCheck:deployed` after it.
+
+## 8. Go/no-go checklist
 
 | # | Item | State | Evidence |
 |---|---|---|---|
@@ -174,7 +208,7 @@ Before promoting, export production (`npx convex export --prod`, read-only); D3-
 | 2 | Schema accepts every stored production row | green | §1; `production-schema.test.ts` |
 | 3 | Migrations safe and fast on production | green | §2: all five on empty v2 tables |
 | 4 | Required env vars present on production | green (by history) | same names as `main`'s check, green on 11 Nov |
-| 5 | `BETTER_AUTH_JWKS` / `PLAYER_JWT_JWKS` agree with their keys on production | **unknown** | never used on production before; #913 checks them before the push and stops a bad deploy harmlessly. To know in advance, run `node artifacts/engine/scripts/check-auth-keys.mjs` with the production deploy key (read-only) |
+| 5 | `BETTER_AUTH_JWKS` / `PLAYER_JWT_JWKS` agree with their keys on production | **unknown** | never used on production before; #913 checks them before the push (stops a bad deploy with production untouched) and after it. The owner can know in advance with §7 (read-only) |
 | 6 | No test or preview switch on production | green | env check refuses `DEV`, `TEST_FIXTURES`, `AI_MOCK`, `FAKE_OIDC_URL`, `PREVIEW_SIGN_IN_CODE` |
 | 7 | `ANTHROPIC_API_KEY` set on production (AI seats, assistant) | unknown | not checked by the workflow; v1 read it too, so it is likely set |
 | 8 | AI spend bounded | green | USD 2/game, USD 5/day per pool, admin rooms only (`v2/spend.ts`) |

@@ -24,6 +24,8 @@ import type * as auth_crypto from "../auth/crypto.js";
 import type * as auth_device from "../auth/device.js";
 import type * as auth_identity from "../auth/identity.js";
 import type * as auth_jwt from "../auth/jwt.js";
+import type * as auth_keyAgreement from "../auth/keyAgreement.js";
+import type * as auth_keysCheck from "../auth/keysCheck.js";
 import type * as auth_preview from "../auth/preview.js";
 import type * as auth_previewRoutes from "../auth/previewRoutes.js";
 import type * as auth_principal from "../auth/principal.js";
@@ -143,6 +145,8 @@ declare const fullApi: ApiFromModules<{
   "auth/device": typeof auth_device;
   "auth/identity": typeof auth_identity;
   "auth/jwt": typeof auth_jwt;
+  "auth/keyAgreement": typeof auth_keyAgreement;
+  "auth/keysCheck": typeof auth_keysCheck;
   "auth/preview": typeof auth_preview;
   "auth/previewRoutes": typeof auth_previewRoutes;
   "auth/principal": typeof auth_principal;

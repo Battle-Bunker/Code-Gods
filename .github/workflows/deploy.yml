@@ -273,3 +273,5 @@ jobs:
           curl -fsS "$site/api/health"; echo
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$site/mcp" -H 'Content-Type: application/json' -d '{}')
           [ "$code" = 401 ] || { echo "::error::/mcp answered $code without a token (expected 401)"; exit 1; }
+          # The auth config just pushed verifies tokens signed with the deployment's keys (convex/auth/keysCheck.ts).
+          npx convex run auth/keysCheck:deployed
