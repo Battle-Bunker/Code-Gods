@@ -174,3 +174,22 @@ export function careTitle(p: CarePoint, One = "Line", approx = false): string {
   return `${One} ${p.number}: ${scoreFormula(p.rarity, p.want, approx)}${only ? `. ${only}` : ""}`;
 }
 
+
+/** The world times at which the leader changed (a tie keeps the leader before it): v1's replay markers. */
+export function leadChanges(series: readonly Series[]): number[] {
+  const xs = [...new Set(series.flatMap(s => s.points.map(p => p.x)))].sort((a, b) => a - b);
+  const out: number[] = [];
+  let leader: string | null = null;
+  for (const x of xs) {
+    let best: { key: string; y: number } | null = null, tie = false;
+    for (const s of series) {
+      const p = s.points.find(q => q.x === x);
+      if (!p) continue;
+      if (!best || p.y > best.y) { best = { key: s.key, y: p.y }; tie = false; } else if (p.y === best.y) tie = true;
+    }
+    if (!best || tie) continue;
+    if (leader !== null && best.key !== leader) out.push(x);
+    leader = best.key;
+  }
+  return out;
+}
