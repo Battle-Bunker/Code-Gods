@@ -21,7 +21,7 @@ const PRIMES = [2, 3, 5, 7, 11, 13, 17, 19];
 
 export type Smooth = { k: number; primes: number[]; top: number; bottom: number };
 /** The whole numbers built only from these primes (1 included), in order, up to `max`. */
-export function smoothUpTo(primes: readonly number[], max: bigint): bigint[] {
+export function smoothNumbersUpTo(primes: readonly number[], max: bigint): bigint[] {
   let out = [1n];
   for (const p of primes) {
     const P = BigInt(p), next: bigint[] = [];
@@ -34,7 +34,7 @@ type SM = Target & { w: bigint };
 export function smoothNear(x: Q, p: Smooth): SM {
   const f = q(p.top, p.bottom), min = BigInt(Math.min(...p.primes));
   // Up to the smooth number past the one above x (the next smooth number after w is at most w × the smallest prime).
-  const list = smoothUpTo(p.primes, ((Qn.floor(x) + 2n) * min + min) * min), last = list[list.length - 1]!;
+  const list = smoothNumbersUpTo(p.primes, ((Qn.floor(x) + 2n) * min + min) * min), last = list[list.length - 1]!;
   // Past the list the ladder only needs to keep rising (the search never picks there).
   const w = (n: bigint) => (n <= BigInt(list.length) ? list[Number(n) - 1]! : last * 2n ** (n - BigInt(list.length)));
   const r = nearestOn(x, n => Qn.add(q(w(n)), f));
@@ -69,7 +69,7 @@ export const smoothMixed = treeFamily<Smooth, SM>({
   featured: [{ k: 2, primes: [2, 3], top: 1, bottom: 4 }, { k: -1, primes: [3, 17], top: 0, bottom: 1 }, { k: 3, primes: [2, 5, 7], top: 2, bottom: 3 }, { k: 1, primes: [5, 11], top: 1, bottom: 2 }],
   mainTitle: "the whole part of the smooth target nearest the height at x = k, the bigger the better",
   main: p => {
-    const f = p.top === 0 ? "" : ` plus ${p.top}/${p.bottom}`, eg = smoothUpTo(p.primes, 100n).slice(0, 5).map(w => mixed(Qn.add(q(w), q(p.top, p.bottom))));
+    const f = p.top === 0 ? "" : ` plus ${p.top}/${p.bottom}`, eg = smoothNumbersUpTo(p.primes, 100n).slice(0, 5).map(w => mixed(Qn.add(q(w), q(p.top, p.bottom))));
     return `Find the line's height at x = ${p.k}, ignoring a minus sign. The targets are the whole numbers made by multiplying only ${p.primes.join(", ")} (any number of times; 1 counts)${f}: ${eg.join(", ")}, … Find the target nearest that height. The bigger its whole part, the better.`;
   },
   closeTitle: "how close the height is to that target",
