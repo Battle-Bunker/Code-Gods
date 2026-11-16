@@ -79,7 +79,7 @@ test("the component: three short sections, no steps, the noun of the object type
 test("one thing to try next game is built from this game's facts (rounds 26 and 28: the same words every game)", () => {
   const people = summarise(base);
   assert.equal(people.next.number, 4);
-  assert.equal(people.next.text, "This game you and Ada pulled line 4 back and forth: it changed hands 6 times (28.86 energy of yours). Next game, open a line you share in One line and order its moves by “Best for points”: your points there are your bits × theirs, so the top move counts their bits as well as yours and gives them less reason to undo it. Tell them in chat which way you are climbing.");
+  assert.equal(people.next.text, "This game you and Ada pulled line 4 back and forth: it changed hands 6 times (28.86 energy of yours). Next game, open a line you share in One line and order its moves by “Best for points”: your points there are your bits × theirs, so the top move counts their bits as well as yours. Tell them in chat which way you are climbing.");
   const practice = summarise({ ...base, tugs: base.tugs.map(t => ({ ...t, withNames: ["Practice partner 1"], practice: true })) });
   assert.doesNotMatch(practice.next.text, /chat/, "nobody to talk to in a practice game");
   // In a rotation the facts stay too (round 28 read the same words across the games of a rotation).
