@@ -20,7 +20,7 @@
  *   stretch by 2, 3, 1/2, 1/3, −1); and each shortcut followed by one such solved move. A route counts when the line it
  *   reaches has u ≥ u(s).
  * - heuristics: each proposes targets (values for the readings it names); a target is reached by the solved moves onto
- *   each named reading (one, or two in either order), directly or after one shortcut. Every proposal is tried, so adding a heuristic can only lower the
+ *   each named reading (one, or two in either order); and after each shortcut, the targets proposed from where it lands. Every proposal is tried, so adding a heuristic can only lower the
  *   energy for the same starts (built; tested). Heuristics draw from their own random stream.
  * - Price: the log trial's friction (TRIAL_LOG: the game's fee for the call, floored by the friction distance).
  * Nothing is computed at import time.
@@ -151,6 +151,28 @@ export function tiedFamily(suffix: string): DynamicFamily {
         return out;
       },
     }],
+  };
+}
+/**
+ * The owner's precision example (16 Nov): "sqrt of size of nearest power of k minus distance to that power cubed" on
+ * |c|: √(log2 P) − |c − P|³ (size read as log2 P, my choice), P the nearest power of k.
+ */
+export function powerCubedFamily(k: number): DynamicFamily {
+  const powers = (top: number) => { const out: number[] = []; for (let p = k; p <= top; p *= k) out.push(p); return out; };
+  const near = (c: number) => closestTo(c, powers(Math.max(k, 2 * c + k)), 1)[0]!;
+  const u = (r: Readings) => { const c = Math.abs(r.c), P = near(c); return Math.sqrt(Math.log2(P)) - Math.abs(c - P) ** 3; };
+  return {
+    id: `power-cubed-${k}`, label: `√(log2 P) − |c − P|³, P the nearest power of ${k}`, reads: ["c"], u,
+    searches: [{ id: "nearest-big-enough-power", propose: (x, uStar) => closestTo(Math.abs(x.c), powers(Math.max(k, 8 * Math.abs(x.c))).filter(P => Math.sqrt(Math.log2(P)) >= uStar - 1e-12), 2).map(P => ({ c: signed(P, x.c) })) }],
+  };
+}
+/** The same shape on primes with a suffix, on |m|: √(log2 p) − |m − p|³. */
+export function primeCubedFamily(suffix: string): DynamicFamily {
+  const mod = 10 ** suffix.length, end = Number(suffix), ok = (n: number) => n % mod === end && n < 1e12 && isPrimeN(n);
+  const u = (r: Readings) => { const m = Math.abs(r.m), p = closestTo(m, nearestWith(m, ok), 1)[0] ?? 7; return Math.sqrt(Math.log2(p)) - Math.abs(m - p) ** 3; };
+  return {
+    id: `prime-cubed-${suffix}`, label: `√(log2 p) − |m − p|³, p the nearest prime ending in ${suffix}`, reads: ["m"], u,
+    searches: [{ id: "nearest-qualifying-prime", propose: (x, uStar) => nearestWith(Math.max(Math.abs(x.m), 2 ** (uStar * uStar)), n => ok(n) && Math.sqrt(Math.log2(n)) >= uStar - 1e-12).map(p => ({ m: signed(p, x.m) })) }],
   };
 }
 export const dynamicExamples: readonly DynamicFamily[] = [biggerFamily, primeGradientFamily("1"), smoothFamily([3, 7]), ownerFamily(3), tiedFamily("1")];
@@ -291,10 +313,17 @@ export function dynamicEnergy(s: Line, F: DynamicFamily, o: DynamicOpts = {}): D
     for (const h of hs) for (const t of h.propose(rx, uStar, hr)) {
       const m = t.m === undefined ? undefined : toQ(t.m), c = t.c === undefined ? undefined : toQ(t.c);
       if (m === null || c === null) continue;
-      const tq = { ...(m ? { m } : {}), ...(c ? { c } : {}) };
-      heuristic = Math.min(heuristic, toTarget(x, tq, ok));
-      // A shortcut first, then the solved moves onto the target (generic, for every family's targets).
-      for (const [p1, l1] of shortcutsFrom(x)) if (p1 < heuristic) heuristic = Math.min(heuristic, p1 + toTarget(l1, tq, ok));
+      heuristic = Math.min(heuristic, toTarget(x, { ...(m ? { m } : {}), ...(c ? { c } : {}) }, ok));
+    }
+    // A shortcut first, then the solved moves onto the targets the heuristics propose from where it lands (generic).
+    for (const [p1, l1] of shortcutsFrom(x)) {
+      const r1 = readings(l1);
+      if (!r1 || p1 >= heuristic) continue;
+      for (const h of hs) for (const t of h.propose(r1, uStar, hr)) {
+        const m = t.m === undefined ? undefined : toQ(t.m), c = t.c === undefined ? undefined : toQ(t.c);
+        if (m === null || c === null) continue;
+        heuristic = Math.min(heuristic, p1 + toTarget(l1, { ...(m ? { m } : {}), ...(c ? { c } : {}) }, ok));
+      }
     }
     samples.push({ from: x, direct, floor, heuristic, cost: Math.min(direct, floor, heuristic) });
   }

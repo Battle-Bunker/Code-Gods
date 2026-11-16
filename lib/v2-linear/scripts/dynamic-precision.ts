@@ -5,7 +5,7 @@
  *   node --experimental-strip-types scripts/dynamic-precision.ts
  */
 import { q } from "@workspace/v2-core";
-import { dynamicEnergy, dynamicExamples, fromMC, isPrimeN, type DynamicFamily, type Line } from "../src/index.ts";
+import { dynamicEnergy, dynamicExamples, fromMC, isPrimeN, powerCubedFamily, primeCubedFamily, type DynamicFamily, type Line } from "../src/index.ts";
 
 const nearestOk = (T: number, ok: (n: number) => boolean) => { for (let d = 0; ; d++) { if (ok(T - d)) return T - d; if (ok(T + d)) return T + d; } };
 const prime1 = (T: number) => nearestOk(T, n => n % 10 === 1 && isPrimeN(n));
@@ -23,7 +23,7 @@ const f0 = (x: number) => x.toFixed(0), f1 = (x: number) => x.toFixed(1), f2 = (
 
 const fams = dynamicExamples.slice(1), objs = Array.from({ length: 20 }, (_, i) => fams[i % fams.length]!), SUMS = 10;
 console.log("### On target against a little off, 20-object sums at T ≈ 1000 (10 sums each)\n\n| K | ms per estimate | fresh: A − B (sd of one sum) | z fresh | same starts: mean of A − B (sd) | z same starts |\n|---|---|---|---|---|---|");
-for (const K of [30, 100, 300, 600]) {
+for (const K of [30, 100, 300]) {
   let ms = 0, n = 0;
   const est = (s: Line, F: DynamicFamily, seed?: string) => { const t = performance.now(), e = dynamicEnergy(s, F, { K, ...(seed ? { seed } : {}) }).energy; ms += performance.now() - t; n++; return e; };
   const A = Array.from({ length: SUMS }, () => objs.reduce((a, F) => a + est(climb(F, 1000).exact, F), 0));
@@ -45,3 +45,17 @@ const [, pg, sm, , tied] = dynamicExamples as readonly DynamicFamily[];
 probe(sm!, fromMC(q(3, 2), q(81)), fromMC(q(3, 2), q(2401)), "c = 81 = 3⁴", "c = 2401 = 7⁴ (same Ω)");
 probe(tied!, fromMC(q(1031), q(516)), fromMC(q(1031), q(516 * 1001)), "m = 1031, c = 516", "c = 516 × 1001 (same gcd)");
 probe(pg!, fromMC(q(1031), q(5, 3)), fromMC(q(1031), q(1000003, 3)), "m = 1031, c = 5/3", "c = 1000003/3 (unread)");
+
+// The owner's precision utilities (cubed distance): on target against off by 1/4 and by 1, 20-object sums at K = 30.
+console.log("\n### Cubed-distance utilities: on target against a little off (20 objects, K = 30, 10 sums; T ≈ 1000)\n\n| off by | u on / off (power, prime) | A − B fresh (sd) | z fresh | same starts: A − B (sd) | z same starts |\n|---|---|---|---|---|---|");
+const pc = powerCubedFamily(3), pr = primeCubedFamily("7"), P = pow3(1000), p7 = nearestOk(1000, n => n % 10 === 7 && isPrimeN(n));
+const cubedObjs = Array.from({ length: 20 }, (_, i) => (i % 2 ? pr : pc));
+const at = (F: DynamicFamily, off: [number, number]) => F === pc ? fromMC(q(3, 2), q(P * off[1] + off[0], off[1])) : fromMC(q(p7 * off[1] + off[0], off[1]), q(5, 3));
+for (const off of [[1, 4], [1, 1]] as [number, number][]) {
+  const est = (s: Line, F: DynamicFamily, seed?: string) => dynamicEnergy(s, F, { K: 30, ...(seed ? { seed } : {}) }).energy;
+  const A = Array.from({ length: SUMS }, () => cubedObjs.reduce((a, F) => a + est(at(F, [0, 1]), F), 0));
+  const B = Array.from({ length: SUMS }, () => cubedObjs.reduce((a, F) => a + est(at(F, off), F), 0));
+  const D = Array.from({ length: SUMS }, (_, j) => cubedObjs.reduce((a, F, i) => a + est(at(F, [0, 1]), F, `c:${j}:${i}`) - est(at(F, off), F, `c:${j}:${i}`), 0));
+  const u = (F: DynamicFamily, o: [number, number]) => dynamicEnergy(at(F, o), F, { K: 1 }).u.toFixed(2);
+  console.log(`| ${off[0]}/${off[1]} | ${u(pc, [0, 1])}/${u(pc, off)}, ${u(pr, [0, 1])}/${u(pr, off)} | ${f0(mean(A) - mean(B))} (${f0(Math.max(sd(A), sd(B)))}) | ${f2((mean(A) - mean(B)) / Math.max(sd(A), sd(B)))} | ${f0(mean(D))} (${f0(sd(D))}) | ${f2(mean(D) / sd(D))} |`);
+}
