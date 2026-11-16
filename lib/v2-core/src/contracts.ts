@@ -52,6 +52,12 @@ export interface ObjectType<S> {
   readonly mutators: readonly Mutator<S, any>[];
   readonly families: readonly RuleFamily<S, any>[];
   /**
+   * The dynamic energy measure for a family with `dynamic` (owner, 16 Nov; docs/engine-v2/energy.md): the mean, over
+   * random starts whose read parameters have the state's size, of the cheapest price found to any state at least as
+   * good. Fresh randomness unless `opts.seed` is given. Absent: the type has no dynamic families.
+   */
+  estimate?(state: S, variant: Variant, rule: DynamicRule<S, any>, params: unknown, opts?: EstimateOpts): Estimate;
+  /**
    * Defence goals (v1, restored; owner-decisions call 1): penalty families, never dealt as a rule; a seat may be dealt
    * one beside its rule. A penalty's main part is badness, bigger is worse; its value function prices how rare "at
    * least this bad" is (lib/v2-valuation defence.ts). Absent: the type has none.
@@ -313,6 +319,44 @@ export interface RuleFamily<S, P> {
    * `tieBreakers` in order (a tree family) or each tie-breaker alone.
    */
   readonly chains?: readonly string[];
+  /**
+   * Scored by the dynamic energy measure (ObjectType.estimate) instead of a value table. Such a family has no
+   * tie-breakers: precision and ties are part of its utility. Its main term is u.
+   */
+  readonly dynamic?: DynamicRule<S, P>;
+}
+
+// ---------------------------------------------------------------- the dynamic energy measure (owner, 16 Nov)
+
+/**
+ * A rule scored by the dynamic energy measure (docs/engine-v2/energy.md): "energy of an object is the expected energy
+ * cost of reaching a state at least this good from a random object of the same 'size'". No tables, levels or lift.
+ */
+export interface DynamicRule<S, P> {
+  /** The utility: any real-valued function of the state, bigger better; NaN counts as worst. */
+  u(state: S, params: P): number;
+  /** The readings u depends on, in the type's own names: a start matches the state's size on these only. */
+  readonly reads: readonly string[];
+  /** The family's search heuristics ("every rule defines its own intelligent search heuristics"): target states for a start. */
+  readonly searches: readonly Search<S, P>[];
+}
+export interface Search<S, P> {
+  readonly id: string;
+  /** Target states to try from `start` toward utility `uStar`; the estimator prices the route to each. */
+  propose(start: S, uStar: number, params: P, r: Rng): readonly S[];
+}
+export interface EstimateOpts {
+  /** Starts sampled (the type's default when absent). */
+  readonly K?: number;
+  /** Fixed randomness (tests, replays); fresh when absent. */
+  readonly seed?: string;
+}
+export interface Estimate {
+  /** The mean cost over the starts, in energy (the act charge of each move). */
+  readonly energy: number;
+  /** The state's utility. */
+  readonly u: number;
+  readonly K: number;
 }
 
 /** A family's parameter space: drawable and typeable (RuleFamily.space). */

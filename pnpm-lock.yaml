@@ -579,7 +579,6 @@ importers:
       '@workspace/v2-core':
         specifier: workspace:*
         version: link:../v2-core
-    devDependencies:
       '@workspace/v2-economy':
         specifier: workspace:*
         version: link:../v2-economy

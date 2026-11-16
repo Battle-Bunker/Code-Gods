@@ -1,46 +1,18 @@
 /**
- * The scoring trial's DYNAMIC mode (docs/engine-v2/scoring-trial.md, "Dynamic energy"; the owner, 16 November, late).
- * Comparison only. The owner: "energy of an object is the expected energy cost of reaching a state at least this good
- * from a random object of the same 'size' ... we can still make the sampling from size neighbourhoods calibrated to the
- * representations used by the rule being evaluated"; "every rule defines its own intelligent search heuristics to be
- * randomly sampled"; fresh randomness each time ("we can calculate energies again as a natural noise function").
- *
- *   energy(s, F) = mean over K starts x of min(direct(x → s), floor(x), heuristics(x))
- *
- * - A family F: a continuous utility u of the line's readings, the readings it `reads` (the gradient m, the
- *   y-intercept c), and its `searches`: heuristics that propose target readings for a start (parameterised by the
- *   family's drawn parameters). No tables, no levels, no lift.
- * - Start: a random line whose read numbers each have the same size as s's (by default the magnitude: a whole number
- *   whose log2 is uniform in [log2|v|, log2|v| + 0.5); see SizeBy for the bits option), the others from the law. Never
- *   below s, so that a start needs no climb in size to match s (a start below would add the price of climbing, which
- *   the measure subtracts out).
- * - direct (the ceiling): the cheapest solved move, or pair of moves (tilt then shift, shift then tilt), onto s itself.
- * - floor (shared by all families): every single move with a solved amount putting one reading on s's value of it
- *   (either sign): tilt, shift, cross.shift, area.shift, stretch by the exact ratio; the shortcuts (the four mirrors,
- *   stretch by 2, 3, 1/2, 1/3, −1); and each shortcut followed by one such solved move. A route counts when the line it
- *   reaches has u ≥ u(s).
- * - heuristics: each proposes targets (values for the readings it names); a target is reached by the solved moves onto
- *   each named reading (one, or two in either order); and after each shortcut, the targets proposed from where it lands. Every proposal is tried, so adding a heuristic can only lower the
- *   energy for the same starts (built; tested). Heuristics draw from their own random stream.
- * - Price: the log trial's friction (TRIAL_LOG: the game's fee for the call, floored by the friction distance).
- * Nothing is computed at import time.
+ * The dynamic measure's example families from the scoring trial (docs/engine-v2/scoring-trial.md, "Dynamic energy"),
+ * written on a line's readings: the owner's examples (the k-multiple product, the power-cubed precision shape) and the
+ * trial's prime, smooth and tied ones. Undealt; the estimator is the engine's (energy.ts), which these adapt to.
  */
-import { Qn, q, rng as makeRng, type Q, type Rng } from "@workspace/v2-core";
-import { isVertical, fromMC, type Line } from "./line.ts";
-import { allMutators } from "./mutators.ts";
 import { lineQ } from "./type.ts";
-import { callPrice, isPrimeN, TRIAL_LOG } from "./trial.ts";
-import { drawLine } from "./trial-rarity.ts";
+import { isPrimeN } from "./trial.ts";
+import { fromMC, type Line } from "./line.ts";
+import { cq, estimateLine, mq, readings, toQ, type LineEstimateOpts, type LineRule, type LineSample, type Readings } from "./energy.ts";
+import type { Rng } from "@workspace/v2-core";
 
-// ------------------------------------------------------------------ readings, families
+export { readings, toQ, type Readings };
 
-export interface Readings { readonly m: number; readonly c: number; readonly X: number | null; readonly area: number | null }
-const mq = (l: Line): Q => q(-l.a, l.b), cq = (l: Line): Q => q(-l.c, l.b);
-export function readings(l: Line): Readings | null {
-  if (isVertical(l)) return null;
-  const m = Qn.toNumber(mq(l)), c = Qn.toNumber(cq(l));
-  return { m, c, X: m === 0 ? null : -c / m, area: m === 0 || c === 0 ? null : -(c * c) / (2 * m) };
-}
+// ------------------------------------------------------------------ families
+
 /** A target: values for some of the readings. */
 export interface DynamicTarget { readonly m?: number; readonly c?: number }
 /** A search heuristic: target proposals for a start, given the utility to reach. */
@@ -177,190 +149,28 @@ export function primeCubedFamily(suffix: string): DynamicFamily {
 }
 export const dynamicExamples: readonly DynamicFamily[] = [biggerFamily, primeGradientFamily("1"), smoothFamily([3, 7]), ownerFamily(3), tiedFamily("1")];
 
-// ------------------------------------------------------------------ moves and prices
+// ------------------------------------------------------------------ the energy (the engine's estimator, energy.ts)
 
-const BY_ID = new Map(allMutators.map(m => [m.id, m]));
-interface Mv { readonly id: string; readonly args: Readonly<Record<string, unknown>> }
-function applyMv(mv: Mv, l: Line): Line | null {
-  const r = BY_ID.get(mv.id)!.apply({ lines: [l] }, 0, mv.args as never, lineQ);
-  return "invalid" in r || isVertical(r.lines[0]!) ? null : r.lines[0]!;
-}
-const priceOf = (mv: Mv, a: Line, b: Line) => callPrice(mv.id, mv.args, a, b, TRIAL_LOG)?.friction ?? Infinity;
-/** A number as a fraction: exact when whole, else the nearest with a bottom up to 64. */
-export function toQ(v: number): Q | null {
-  if (!Number.isFinite(v)) return null;
-  if (Number.isInteger(v) && Math.abs(v) < 2 ** 53) return q(BigInt(v));
-  let best = q(Math.round(v)), err = Math.abs(Math.round(v) - v);
-  for (let d = 2; d <= 64; d++) { const n = Math.round(v * d), e = Math.abs(n / d - v); if (e < err) { best = q(n, d); err = e; } }
-  return best;
-}
-/** The solved single moves putting the gradient (on "m") or the y-intercept (on "c") on v: [price, line, move]. */
-function solved(l: Line, on: "m" | "c", v: Q): [number, Line, string][] {
-  const cur = on === "m" ? mq(l) : cq(l);
-  if (Qn.eq(cur, v)) return [[0, l, ""]];
-  const out: [number, Line, string][] = [], k = Qn.sub(v, cur);
-  const push = (mv: Mv) => { const u = applyMv(mv, l); if (u && Qn.eq(on === "m" ? mq(u) : cq(u), v)) out.push([priceOf(mv, l, u), u, mv.id]); };
-  if (on === "m") push({ id: "si.tilt", args: { k } });
-  else { push({ id: "si.shift", args: { k } }); if (!Qn.isZero(mq(l))) push({ id: "cross.shift", args: { k: Qn.div(Qn.neg(k), mq(l)) } }); }
-  if (!Qn.isZero(cur) && !Qn.isZero(v)) push({ id: "mach.stretch", args: { f: Qn.div(v, cur) } });
-  return out;
-}
-/** The cheapest route of solved moves onto a target (one reading: one move; two: two moves in either order). */
-function toTarget(x: Line, t: { m?: Q; c?: Q }, ok: (l: Line) => boolean): number {
-  let best = Infinity;
-  const ons = (["m", "c"] as const).filter(k => t[k] !== undefined);
-  const orders: (readonly ("m" | "c")[])[] = ons.length === 2 ? [["m", "c"], ["c", "m"]] : [ons];
-  for (const order of orders) {
-    let frontier: [number, Line][] = [[0, x]];
-    for (const on of order) frontier = frontier.flatMap(([p, l]) => solved(l, on, t[on]!).map(([p2, u]) => [p + p2, u] as [number, Line]));
-    for (const [p, l] of frontier) if (p < best && ok(l)) best = p;
-  }
-  return best;
-}
-const SHORTCUTS: Mv[] = [
-  ...["x", "y", "origin", "diagonal"].map(axis => ({ id: "cart.mirror", args: { axis } })),
-  ...[q(2), q(3), q(1, 2), q(1, 3), q(-1)].map(f => ({ id: "mach.stretch", args: { f } })),
-];
-/** The generic floor's single moves: solved amounts onto s's readings (either sign), and the shortcuts. */
-function floorMoves(x: Line, s: Line): [number, Line, string][] {
-  const out: [number, Line, string][] = [], m = mq(s), c = cq(s);
-  for (const on of ["m", "c"] as const) for (const v of on === "m" ? [m, Qn.neg(m)] : [c, Qn.neg(c)]) for (const step of solved(x, on, v)) if (step[0] > 0) out.push(step);
-  const mx = mq(x), cx = cq(x), one = (mv: Mv) => { const l = applyMv(mv, x); if (l) out.push([priceOf(mv, x, l), l, mv.id]); };
-  if (!Qn.isZero(mx) && !Qn.isZero(m)) {
-    // s's crossing and area, by the moves that keep the gradient.
-    const X = Qn.div(Qn.neg(c), m), Xx = Qn.div(Qn.neg(cx), mx);
-    for (const v of [X, Qn.neg(X)]) if (!Qn.eq(v, Xx)) one({ id: "cross.shift", args: { k: Qn.sub(v, Xx) } });
-    if (!Qn.isZero(c) && !Qn.isZero(cx)) {
-      const A = Qn.div(Qn.neg(Qn.mul(c, c)), Qn.mul(q(2), m)), Ax = Qn.div(Qn.neg(Qn.mul(cx, cx)), Qn.mul(q(2), mx));
-      if (!Qn.eq(A, Ax)) one({ id: "area.shift", args: { k: Qn.sub(A, Ax) } });
-    }
-  }
-  for (const mv of SHORTCUTS) one(mv);
-  // A shortcut, then a solved move onto one of s's readings (the pattern the deeper search found, #1157).
-  for (const mv of SHORTCUTS) {
-    const l1 = applyMv(mv, x);
-    if (!l1) continue;
-    const p1 = priceOf(mv, x, l1);
-    for (const on of ["m", "c"] as const) for (const v of on === "m" ? [m, Qn.neg(m)] : [c, Qn.neg(c)]) for (const [p2, l2, id] of solved(l1, on, v)) if (p2 > 0) out.push([p1 + p2, l2, `${mv.id}+${id}`]);
-  }
-  return out;
-}
-const shortcutsFrom = (x: Line): [number, Line][] => SHORTCUTS.flatMap(mv => { const l = applyMv(mv, x); return l ? [[priceOf(mv, x, l), l] as [number, Line]] : []; });
-/** The ceiling: the direct route onto s itself. */
-const directTo = (x: Line, s: Line) => toTarget(x, { m: mq(s), c: cq(s) }, l => l.a === s.a && l.b === s.b && l.c === s.c);
-
-// ------------------------------------------------------------------ starts of the same size
-
-/** Bits of a fraction: of its top plus of its bottom. */
-export const sizeOf = (v: Q): number => Math.log2(Number(Qn.abs(v).n) + 1) + Math.log2(Number(v.d));
-/** A fraction of the same size as v: a bottom of the same bit length; the top's size uniform in [S, S + band) bits. */
-function sameSize(v: Q, band: number, r: Rng, by: SizeBy): Q {
-  if (by === "magnitude") {
-    // Magnitude only: a whole number whose log2 is uniform in [log2|v|, log2|v| + band).
-    const L = Math.log2(Math.max(1, Qn.toNumber(Qn.abs(v)))), n = Math.max(1, Math.round(2 ** (L + band * r.unit())));
-    return q(r.bit() ? n : -n);
-  }
-  const dBits = Math.floor(Math.log2(Number(v.d))), d = dBits === 0 ? 1 : 2 ** dBits + r.below(2 ** dBits);
-  const S = Math.log2(Number(Qn.abs(v).n) + 1), n = Math.max(1, Math.round(2 ** (S + band * r.unit()) - 1));
-  return q(r.bit() ? n : -n, d);
-}
-/** A start for s under F: the read numbers of s's size, the others from the law. */
-/**
- * How a start's size is matched: "magnitude" (the default: log2 of the number's size; whole starts) or "bits" (bits of
- * the top plus bits of the bottom). Seen in a narrow test (scoring-trial.md, "Dynamic energy"): under "bits" a state a
- * little off target with a fraction (m = p + 1/4) scored about three times its on-target neighbour, because its starts
- * are fractions too and tidying them costs; a player could raise a score by adding bottom bits. Magnitude removes it.
- */
-export type SizeBy = "bits" | "magnitude";
-export function startLike(s: Line, F: DynamicFamily, band: number, r: Rng, by: SizeBy = "magnitude"): Line {
-  const d = drawLine(r), lawM = q(d.m.p, d.m.q), lawC = q(d.c.p, d.c.q);
-  return fromMC(F.reads.includes("m") ? sameSize(mq(s), band, r, by) : lawM, F.reads.includes("c") ? sameSize(cq(s), band, r, by) : lawC);
-}
-
-// ------------------------------------------------------------------ the energy
-
-export interface DynamicOpts {
-  readonly K?: number;
-  /** The band of start sizes above s's, in bits (0.5). */
-  readonly band?: number;
-  /** Use the family's heuristics (true) or the generic floor alone (false). */
-  readonly heuristics?: boolean;
+export interface DynamicOpts extends LineEstimateOpts {
   /** Extra heuristics beside the family's (for trials and tests). */
   readonly extra?: DynamicFamily["searches"];
-  /** Fixed randomness, for tests and comparisons on the same starts; fresh by default. */
-  readonly seed?: string;
-  /** How a start's size is matched (magnitude by default). */
-  readonly sizeBy?: SizeBy;
 }
-export interface Sample { readonly from: Line; readonly direct: number; readonly floor: number; readonly heuristic: number; readonly cost: number }
-export interface DynamicEnergy { readonly energy: number; readonly u: number; readonly evals: number; readonly samples: readonly Sample[] }
-
-let fresh = 0;
-/** energy(s, F): the mean over K same-size starts of min(direct, floor, heuristics). */
+export interface DynamicEnergy { readonly energy: number; readonly u: number; readonly samples: readonly LineSample[] }
+/** A trial family as the engine's estimator takes it. */
+export function asLineRule(F: DynamicFamily, extra: DynamicFamily["searches"] = []): LineRule {
+  return {
+    u: l => { const r = readings(l); return r ? F.u(r) : NaN; }, reads: F.reads,
+    propose: (x, uStar, r) => {
+      const rx = readings(x);
+      if (!rx) return [];
+      return [...F.searches, ...extra].flatMap(h => h.propose(rx, uStar, r)).flatMap(t => {
+        const m = t.m === undefined ? mq(x) : toQ(t.m), c = t.c === undefined ? cq(x) : toQ(t.c);
+        return m && c ? [fromMC(m, c)] : [];
+      });
+    },
+  };
+}
+/** energy(s, F) on line-q (energy.ts estimateLine), K = 30 unless given. */
 export function dynamicEnergy(s: Line, F: DynamicFamily, o: DynamicOpts = {}): DynamicEnergy {
-  const K = o.K ?? 30, band = o.band ?? 0.5, seed = o.seed ?? `fresh:${Date.now()}:${fresh++}:${Math.random()}`;
-  const starts = makeRng("dynamic-starts", seed), hr = makeRng("dynamic-heuristics", seed);
-  const rs = readings(s);
-  if (!rs) return { energy: NaN, u: NaN, evals: 0, samples: [] };
-  let evals = 1;
-  const uStar = F.u(rs), ok = (l: Line) => { const r = readings(l); evals++; return r !== null && F.u(r) >= uStar - 1e-9; };
-  const hs = [...(o.heuristics === false ? [] : F.searches), ...(o.extra ?? [])], samples: Sample[] = [];
-  for (let i = 0; i < K; i++) {
-    const x = startLike(s, F, band, starts, o.sizeBy), rx = readings(x)!;
-    if (ok(x)) { samples.push({ from: x, direct: 0, floor: 0, heuristic: 0, cost: 0 }); continue; }
-    const direct = directTo(x, s), floor = floorMoves(x, s).reduce((b, [p, l]) => (p < b && ok(l) ? p : b), Infinity);
-    let heuristic = Infinity;
-    for (const h of hs) for (const t of h.propose(rx, uStar, hr)) {
-      const m = t.m === undefined ? undefined : toQ(t.m), c = t.c === undefined ? undefined : toQ(t.c);
-      if (m === null || c === null) continue;
-      heuristic = Math.min(heuristic, toTarget(x, { ...(m ? { m } : {}), ...(c ? { c } : {}) }, ok));
-    }
-    // A shortcut first, then the solved moves onto the targets the heuristics propose from where it lands (generic).
-    for (const [p1, l1] of shortcutsFrom(x)) {
-      const r1 = readings(l1);
-      if (!r1 || p1 >= heuristic) continue;
-      for (const h of hs) for (const t of h.propose(r1, uStar, hr)) {
-        const m = t.m === undefined ? undefined : toQ(t.m), c = t.c === undefined ? undefined : toQ(t.c);
-        if (m === null || c === null) continue;
-        heuristic = Math.min(heuristic, p1 + toTarget(l1, { ...(m ? { m } : {}), ...(c ? { c } : {}) }, ok));
-      }
-    }
-    samples.push({ from: x, direct, floor, heuristic, cost: Math.min(direct, floor, heuristic) });
-  }
-  return { energy: samples.reduce((a, b) => a + b.cost, 0) / K, u: uStar, evals, samples };
-}
-
-// ------------------------------------------------------------------ a deeper search, for the overvaluation hunt
-
-/**
- * A beam search of up to `depth` moves from x: each step tries the floor's moves and the solved moves onto the
- * family's heuristic targets read from the line it starts on, keeping the `beam` best by utility. Used only to look for
- * starts the estimate overvalues.
- */
-export function deepSearch(x: Line, s: Line, F: DynamicFamily, depth = 4, beam = 6): { cost: number; route: string[] } {
-  const uStar = F.u(readings(s)!), hr = makeRng("deep", `${x.a},${x.b},${x.c}`);
-  let best = { cost: Infinity, route: [] as string[] };
-  let frontier: { l: Line; cost: number; route: string[]; u: number }[] = [{ l: x, cost: 0, route: [], u: -Infinity }];
-  for (let d = 0; d < depth && frontier.length; d++) {
-    const kids: typeof frontier = [];
-    for (const node of frontier) {
-      const rn = readings(node.l);
-      if (!rn) continue;
-      const steps = floorMoves(node.l, s);
-      for (const h of F.searches) for (const t of h.propose(rn, uStar, hr)) for (const on of ["m", "c"] as const) {
-        const v = t[on] === undefined ? null : toQ(t[on]!);
-        if (v) for (const st of solved(node.l, on, v)) if (st[0] > 0) steps.push(st);
-      }
-      for (const [p, l, id] of steps) {
-        const r = readings(l);
-        if (!r) continue;
-        const cost = node.cost + p, uu = F.u(r);
-        if (cost >= best.cost) continue;
-        if (uu >= uStar - 1e-9) { best = { cost, route: [...node.route, id] }; continue; }
-        kids.push({ l, cost, route: [...node.route, id], u: uu });
-      }
-    }
-    frontier = kids.sort((a, b) => b.u - a.u || a.cost - b.cost).slice(0, beam);
-  }
-  return best;
+  return estimateLine(s, asLineRule(F, o.extra), lineQ, { K: 30, ...o });
 }

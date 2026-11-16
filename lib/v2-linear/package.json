@@ -10,9 +10,7 @@
     "test": "node --experimental-strip-types --test test/*.test.ts"
   },
   "dependencies": {
-    "@workspace/v2-core": "workspace:*"
-  },
-  "devDependencies": {
+    "@workspace/v2-core": "workspace:*",
     "@workspace/v2-economy": "workspace:*"
   }
 }

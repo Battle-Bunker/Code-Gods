@@ -1,0 +1,180 @@
+/**
+ * The dynamic energy measure on lines (the owner, 16 Nov; docs/engine-v2/energy.md): "energy of an object is the
+ * expected energy cost of reaching a state at least this good from a random object of the same 'size'".
+ *
+ *   energy(s) = mean over K starts x of min(direct(x → s), floor(x), heuristics(x))
+ *
+ * - Start: a random line whose read numbers (the gradient m, the y-intercept c: what the rule `reads`) each have s's
+ *   magnitude (log2 uniform in [log2|v|, log2|v| + ½)), the others from the law. Never below s.
+ * - direct (the ceiling): the cheapest solved move, or pair of moves, onto s itself.
+ * - floor (shared by every rule): each single move with a solved amount putting one reading on s's (either sign):
+ *   tilt, shift, cross.shift, area.shift, stretch by the exact ratio; the shortcuts (mirrors, stretch by 2, 3, ½, ⅓,
+ *   −1); and each shortcut followed by one solved move. A route counts when it reaches u ≥ u(s).
+ * - heuristics: the rule's own target proposals, reached by solved moves onto the readings that differ (either order),
+ *   from the start and from where each shortcut lands. Adding one can only lower the energy on the same starts.
+ * - Price: the game's own act charge for each move as its own act (v2-economy changeCharge of the call's bits), so
+ *   energy is in the units players pay. Moves the variant does not offer are never used.
+ * Nothing is computed at import time.
+ */
+import { Qn, q, rng as makeRng, whichBits, type DynamicRule, type Estimate, type EstimateOpts, type Q, type Rng, type Variant } from "@workspace/v2-core";
+import { changeCharge } from "@workspace/v2-economy";
+import { fromMC, isVertical, type Line, type LineState } from "./line.ts";
+import { allMutators } from "./mutators.ts";
+import { drawLine } from "./trial-rarity.ts";
+
+// ------------------------------------------------------------------ readings
+
+export interface Readings { readonly m: number; readonly c: number; readonly X: number | null; readonly area: number | null }
+export const mq = (l: Line): Q => q(-l.a, l.b), cq = (l: Line): Q => q(-l.c, l.b);
+export function readings(l: Line): Readings | null {
+  if (isVertical(l)) return null;
+  const m = Qn.toNumber(mq(l)), c = Qn.toNumber(cq(l));
+  return { m, c, X: m === 0 ? null : -c / m, area: m === 0 || c === 0 ? null : -(c * c) / (2 * m) };
+}
+/** A number as a fraction: exact when whole, else the nearest with a bottom up to 64. */
+export function toQ(v: number): Q | null {
+  if (!Number.isFinite(v)) return null;
+  if (Number.isInteger(v) && Math.abs(v) < 2 ** 53) return q(BigInt(v));
+  let best = q(Math.round(v)), err = Math.abs(Math.round(v) - v);
+  for (let d = 2; d <= 64; d++) { const n = Math.round(v * d), e = Math.abs(n / d - v); if (e < err) { best = q(n, d); err = e; } }
+  return best;
+}
+
+/** A line rule as the estimator takes it: u of a line, what it reads, and target lines proposed from a start. */
+export interface LineRule {
+  u(l: Line): number;
+  readonly reads: readonly string[];
+  propose(x: Line, uStar: number, r: Rng): readonly Line[];
+}
+/** A dynamic rule on line states (one line per object) as a LineRule. */
+export function lineRule<P>(rule: DynamicRule<LineState, P>, params: P): LineRule {
+  const st = (l: Line): LineState => ({ lines: [l] });
+  return {
+    u: l => rule.u(st(l), params), reads: rule.reads,
+    propose: (x, uStar, r) => rule.searches.flatMap(h => h.propose(st(x), uStar, params, r).map(t => t.lines[0]!)),
+  };
+}
+
+// ------------------------------------------------------------------ moves and prices
+
+const BY_ID = new Map(allMutators.map(m => [m.id, m]));
+interface Mv { readonly id: string; readonly args: Readonly<Record<string, unknown>> }
+type Priced = [price: number, line: Line];
+
+/** Applies and prices moves on one variant: a move it does not offer is refused (null). */
+class Mover {
+  readonly v: Variant;
+  constructor(v: Variant) { this.v = v; }
+  apply(mv: Mv, l: Line): Priced | null {
+    if (!this.v.mutators.includes(mv.id)) return null;
+    const m = BY_ID.get(mv.id)!, r = m.apply({ lines: [l] }, 0, mv.args as never, this.v as never);
+    if ("invalid" in r || isVertical(r.lines[0]!)) return null;
+    let bits: number;
+    try { bits = whichBits(this.v, mv.id) + m.args(this.v).bits(mv.args as never); } catch { return null; }
+    return Number.isFinite(bits) ? [changeCharge([bits]), r.lines[0]!] : null;
+  }
+  /** The solved single moves putting the gradient ("m") or the y-intercept ("c") on v. */
+  solved(l: Line, on: "m" | "c", v: Q): Priced[] {
+    const cur = on === "m" ? mq(l) : cq(l);
+    if (Qn.eq(cur, v)) return [[0, l]];
+    const out: Priced[] = [], k = Qn.sub(v, cur);
+    const push = (mv: Mv) => { const p = this.apply(mv, l); if (p && Qn.eq(on === "m" ? mq(p[1]) : cq(p[1]), v)) out.push(p); };
+    if (on === "m") push({ id: "si.tilt", args: { k } });
+    else { push({ id: "si.shift", args: { k } }); if (!Qn.isZero(mq(l))) push({ id: "cross.shift", args: { k: Qn.div(Qn.neg(k), mq(l)) } }); }
+    if (!Qn.isZero(cur) && !Qn.isZero(v)) push({ id: "mach.stretch", args: { f: Qn.div(v, cur) } });
+    return out;
+  }
+  /** The cheapest route of solved moves onto the readings of t that differ from x's (either order) reaching ok. */
+  toTarget(x: Line, t: Line, ok: (l: Line) => boolean): number {
+    const ons = (["m", "c"] as const).filter(k => !Qn.eq(k === "m" ? mq(x) : cq(x), k === "m" ? mq(t) : cq(t)));
+    const orders: (readonly ("m" | "c")[])[] = ons.length === 2 ? [["m", "c"], ["c", "m"]] : [ons];
+    let best = Infinity;
+    for (const order of orders) {
+      let frontier: Priced[] = [[0, x]];
+      for (const on of order) frontier = frontier.flatMap(([p, l]) => this.solved(l, on, on === "m" ? mq(t) : cq(t)).map(([p2, u]) => [p + p2, u] as Priced));
+      for (const [p, l] of frontier) if (p < best && ok(l)) best = p;
+    }
+    return best;
+  }
+}
+const SHORTCUTS: Mv[] = [
+  ...["x", "y", "origin", "diagonal"].map(axis => ({ id: "cart.mirror", args: { axis } })),
+  ...[q(2), q(3), q(1, 2), q(1, 3), q(-1)].map(f => ({ id: "mach.stretch", args: { f } })),
+];
+const shortcutsFrom = (mv: Mover, x: Line): Priced[] => SHORTCUTS.flatMap(s => { const p = mv.apply(s, x); return p ? [p] : []; });
+
+/** The generic floor's routes: solved moves onto s's readings (either sign), its crossing and area, the shortcuts, and a shortcut then a solved move. */
+function floorRoutes(mv: Mover, x: Line, s: Line): Priced[] {
+  const out: Priced[] = [], m = mq(s), c = cq(s);
+  const onto = (from: Line, p0: number) => {
+    for (const on of ["m", "c"] as const) for (const v of on === "m" ? [m, Qn.neg(m)] : [c, Qn.neg(c)])
+      for (const [p, l] of mv.solved(from, on, v)) if (p > 0) out.push([p0 + p, l]);
+  };
+  onto(x, 0);
+  const mx = mq(x), cx = cq(x), one = (move: Mv) => { const p = mv.apply(move, x); if (p) out.push(p); };
+  if (!Qn.isZero(mx) && !Qn.isZero(m)) {
+    const X = Qn.div(Qn.neg(c), m), Xx = Qn.div(Qn.neg(cx), mx);
+    for (const v of [X, Qn.neg(X)]) if (!Qn.eq(v, Xx)) one({ id: "cross.shift", args: { k: Qn.sub(v, Xx) } });
+    if (!Qn.isZero(c) && !Qn.isZero(cx)) {
+      const A = Qn.div(Qn.neg(Qn.mul(c, c)), Qn.mul(q(2), m)), Ax = Qn.div(Qn.neg(Qn.mul(cx, cx)), Qn.mul(q(2), mx));
+      if (!Qn.eq(A, Ax)) one({ id: "area.shift", args: { k: Qn.sub(A, Ax) } });
+    }
+  }
+  for (const [p1, l1] of shortcutsFrom(mv, x)) { out.push([p1, l1]); onto(l1, p1); }
+  return out;
+}
+
+// ------------------------------------------------------------------ starts of the same size
+
+/** A whole number of v's magnitude: log2 uniform in [log2|v|, log2|v| + band), either sign. */
+function sameSize(v: Q, band: number, r: Rng): Q {
+  const L = Math.log2(Math.max(1, Qn.toNumber(Qn.abs(v)))), n = Math.max(1, Math.round(2 ** (L + band * r.unit())));
+  return q(r.bit() ? n : -n);
+}
+/** A start for s: the read numbers of s's size, the others from the law. */
+export function startLike(s: Line, reads: readonly string[], band: number, r: Rng): Line {
+  const d = drawLine(r), lawM = q(d.m.p, d.m.q), lawC = q(d.c.p, d.c.q);
+  return fromMC(reads.includes("m") ? sameSize(mq(s), band, r) : lawM, reads.includes("c") ? sameSize(cq(s), band, r) : lawC);
+}
+
+// ------------------------------------------------------------------ the energy
+
+/** K on the server (each estimate is a few milliseconds a start); tests and trials pass their own. */
+export const LINE_K = 12;
+export interface LineEstimateOpts extends EstimateOpts {
+  /** The band of start sizes above s's, in bits (½). */
+  readonly band?: number;
+  /** Use the rule's heuristics (true) or the floor alone (false). */
+  readonly heuristics?: boolean;
+}
+export interface LineSample { readonly from: Line; readonly direct: number; readonly floor: number; readonly heuristic: number; readonly cost: number }
+export interface LineEstimate extends Estimate { readonly samples: readonly LineSample[] }
+
+let fresh = 0;
+/** energy(s) under a line rule on a variant: the mean over K same-size starts of min(direct, floor, heuristics). */
+export function estimateLine(s: Line, rule: LineRule, variant: Variant, o: LineEstimateOpts = {}): LineEstimate {
+  const K = o.K ?? LINE_K, band = o.band ?? 0.5, seed = o.seed ?? `fresh:${Date.now()}:${fresh++}:${Math.random()}`;
+  const starts = makeRng("dynamic-starts", seed), hr = makeRng("dynamic-heuristics", seed), mv = new Mover(variant);
+  const uOf = (l: Line) => { const v = isVertical(l) ? NaN : rule.u(l); return Number.isNaN(v) ? -Infinity : v; };
+  const uStar = uOf(s), ok = (l: Line) => uOf(l) >= uStar - 1e-9;
+  if (!Number.isFinite(uStar) && uStar < 0) return { energy: 0, u: uStar, K: 0, samples: [] };
+  const samples: LineSample[] = [];
+  for (let i = 0; i < K; i++) {
+    const x = startLike(s, rule.reads, band, starts);
+    if (ok(x)) { samples.push({ from: x, direct: 0, floor: 0, heuristic: 0, cost: 0 }); continue; }
+    const direct = mv.toTarget(x, s, l => l.a === s.a && l.b === s.b && l.c === s.c);
+    const floor = floorRoutes(mv, x, s).reduce((b, [p, l]) => (p < b && ok(l) ? p : b), Infinity);
+    let heuristic = Infinity;
+    if (o.heuristics !== false) {
+      for (const t of rule.propose(x, uStar, hr)) heuristic = Math.min(heuristic, mv.toTarget(x, t, ok));
+      for (const [p1, l1] of shortcutsFrom(mv, x)) {
+        if (p1 >= Math.min(heuristic, direct, floor)) continue;
+        for (const t of rule.propose(l1, uStar, hr)) heuristic = Math.min(heuristic, p1 + mv.toTarget(l1, t, ok));
+      }
+    }
+    samples.push({ from: x, direct, floor, heuristic, cost: Math.min(direct, floor, heuristic) });
+  }
+  // A start with no route at all (none found, not even the direct one) costs nothing it could be charged: skip it.
+  const finite = samples.filter(x => Number.isFinite(x.cost));
+  return { energy: finite.length ? finite.reduce((a, b) => a + b.cost, 0) / finite.length : 0, u: uStar, K, samples };
+}
