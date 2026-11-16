@@ -19,6 +19,8 @@ export const MAX_NESTING = 3;
 /** Draws from the law that estimate a predicate's information content, and the hits below which it is bounded. */
 export const INFO_DRAWS = 65_536;
 export const INFO_MIN_HITS = 16;
+/** A predicate carrying less information than this holds almost everywhere and cannot be locked. */
+export const MIN_LOCK_BITS = 0.1;
 /** Energy per bit of information to create a lock (burned), the unit of a move's price. */
 export const CREATE_PER_BIT = 1;
 
@@ -474,10 +476,24 @@ export function lockedAct<S>(input: LockedActInput<S>): LockedActResult<S> | Inv
     const text = canonicalPredicate(p);
     if (!holds(type, p, s)) return bad(`the object does not meet "${plainWords(type, p)}", so it cannot be locked to it`);
     const ic = input.info(p, s);
+    if (!(ic.bits >= MIN_LOCK_BITS)) return bad(`"${plainWords(type, p)}" holds almost everywhere: a lock on it would defend nothing`);
     const fee = lockFee(ic.bits), rate = lockRate(ic.bits, input.fullChargeSeconds);
     const n = next++;
     live.push({ n, predicate: p, text, info: ic.bits, energy: o.amount, settledAt: input.world, rate });
     done.push({ op: "create", lock: n, predicate: text, info: ic.bits, bounded: ic.bounded, fee, amount: o.amount, rate, spend: fee + o.amount });
   }
   return { result: s, prices, total: prices.reduce((t, p) => t + p.total, 0), done, locks: live, spend: done.reduce((t, d) => t + d.spend, 0) };
+}
+
+/** The live locks after an act's applied lock changes (`LockOpDone`), settled at `world`: the tick's running view. */
+export function locksAfterDone<S>(type: ObjectType<S>, live: readonly ActLock[], done: readonly LockOpDone[], world: number): ActLock[] {
+  const ops: LockOpWire[] = done.flatMap(d => (d.op === "create" ? [] : [{ op: d.op, lock: d.lock, amount: d.amount }]));
+  const changed = applyLockChanges(live, ops, world);
+  const out = "invalid" in changed ? live.map(l => ({ ...l, energy: lockEnergyAt(l, world), settledAt: world })).filter(l => l.energy > 0) : changed.locks;
+  for (const d of done) {
+    if (d.op !== "create") continue;
+    const p = parsePredicate(type, d.predicate);
+    if (!("invalid" in p)) out.push({ n: d.lock, predicate: p, text: d.predicate, info: d.info, energy: d.amount, settledAt: world, rate: d.rate });
+  }
+  return out;
 }

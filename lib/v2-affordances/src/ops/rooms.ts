@@ -20,6 +20,7 @@ export const overrides = z.object({
   driftSeconds: z.number().int().min(0).max(3600),
   pauseSeconds: z.number().int().min(1).max(1800),
   commitClause: z.boolean(),
+  locks: z.boolean(),
   defenceGoals: z.boolean(), penaltyWeight: z.number().min(0).max(4),
   // v1's ranges (archive game-core settings.ts and settings-form.ts LIMITS); the CPU limit's top is the sandbox's.
   startingObjects: z.number().int().min(0).max(1000), birthsPerSecond: z.number().min(0).max(10),
@@ -111,7 +112,7 @@ export const roomOps = [
   // The owner's lobby and game controls.
   affordance({
     id: "room.settings", title: "Change the room's settings", group: "owner", scope: "room",
-    description: "Sets the preset and next game's overrides (unset: preset's): planningSeconds, worldSeconds, startingEnergy; durationMode; scoreIntervalSeconds; peerNoiseVariance; readPriceWeight; driftSeconds; pauseSeconds; commitClause; startingObjects; birthsPerSecond; opportunitiesPerSecond; powerPerSecond; fullChargeSeconds; stepBudget; interactionComputeMs; excludedFamilies; bidPricing; bidVisibility; bidDisclosure; bidSeconds (0 no bid phase); defenceGoals (grids), penaltyWeight; turnover: liveCap, birthSeconds, retiredPoints banked/dropped, retiredHolds. Or setupId (a saved setup).",
+    description: "Sets the preset and next game's overrides (unset: preset's): planningSeconds, worldSeconds, startingEnergy; durationMode; scoreIntervalSeconds; peerNoiseVariance; readPriceWeight; driftSeconds; pauseSeconds; commitClause; locks; startingObjects; birthsPerSecond; opportunitiesPerSecond; powerPerSecond; fullChargeSeconds; stepBudget; interactionComputeMs; excludedFamilies; bidPricing; bidVisibility; bidDisclosure; bidSeconds (0 no bid phase); defenceGoals (grids), penaltyWeight; turnover: liveCap, birthSeconds, retiredPoints banked/dropped, retiredHolds. Or setupId (a saved setup).",
     tooltip: "Pick the preset and adjust its length.", keywords: ["settings", "configure", "preset", "length"],
     params: obj({
       preset: z.string().max(64).optional(),

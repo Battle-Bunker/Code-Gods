@@ -96,7 +96,7 @@ The owner's examples, as predicates:
   information content. **[coordinator default (e)]** It is a **read**: each lock costs its `I` read bits (knowing the lock
   holds tells you `I` bits about the state), so at κ = 32 a look at four 20-bit locks costs 2.5 energy. **[default]**
 - `quote(calls)` and the host's dry runs report a call that breaks a lock as `valid: false`, `reason: "breaks lock #k
-  (<plain words>), holding E: drain it first"` and `breaks: [k]`. A quote does not charge for the locks it names (they
+  (<plain words>), holding E: drain it first"`; they see the act's own queued funds and drains. A quote does not charge for the locks it names (they
   are public and the agent could read them). **[default]**
 - `whatIf` / `othersAfter` report values at the resulting state as before (valuation is untouched) and add
   `forbidden: true` and the breaking locks; the commit clause (`onlyIfBetter`) refuses a forbidden plan before judging
@@ -108,10 +108,15 @@ The owner's examples, as predicates:
 
 - Locks are public on the object, like moves: predicate, energy, upkeep, information content. During a live game they
   are **unattributed** (no creator, no funder, no drainer); after the end, fully attributed. **[coordinator default (f)]**
-- Events (append-only, in the game's event log): `lockCreated {objectId, lock, predicate, info, energy, rate, world,
-  by}`, `lockFunded {…, amount, by}`, `lockDrained {…, amount, by}`, `lockEnded {…, why: "drained" | "decayed" |
-  "retired" | "game ended"}`. `by` is stored and disclosed only after the end. Replay folds them; the move check is a pure
-  function of the state and the live locks, so replay re-executes exactly.
+- Events (append-only, in the game's event log), one kind `lock`: `{op: "create", lock, predicate, info, fee, amount,
+  rate, spend}`, `{op: "fund" | "drain", lock, amount, spend}`, `{op: "ended", lock, why: "drained" | "decayed" |
+  "retired"}`, each with the object, world second and `memberId`/`agentId` (the actor; the event log is not public during
+  a live game). An act's event carries the lock changes it made and, in its inputs, the locks it saw (`lockSeen`), so a
+  replay re-executes it exactly (`artifacts/engine/test/v2-locks.test.ts`). An act whose lock changes the commit applied
+  differently (another act of the same tick got there first) records what was applied and is marked `charged`.
+- Built: `lib/v2-core` locks.ts (language, information content, `lockedAct`), `lib/v2-agents` (host ops, `runAct`,
+  `lockInfo`), `artifacts/engine/convex/v2` locks.ts (the `v2Locks` table, the commit's re-check, sweep, retirement, the
+  public `v2/locks:ofObject`). The room setting is `locks` (configure page: "May players lock what they have built?").
 
 ## 7. Operations (affordances, `lib/v2-affordances`)
 
@@ -130,7 +135,7 @@ the spec, both guest languages): `offer.locks()`, `offer.lock(predicate, amount)
 | Retirement (turnover) | A retiring object's locks end (`why: "retired"`); their energy is lost. [coordinator default (g)] |
 | Drift | Drift redraws rules' parameters, not objects: locks are untouched. |
 | Pause | World time stops, so upkeep stops. |
-| End of the game | Locks stop decaying and end (`why: "game ended"`); the final record attributes them. |
+| End of the game | World time stops, so locks stop decaying and stay as they were; the record attributes every change (`by`). |
 | `locks` setting off | No lock can be made; the move path skips the check (no reads); the energy gate is unaffected. |
 
 ## 9. What stays fixed

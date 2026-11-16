@@ -6,6 +6,7 @@
  *
  * Copied and cleaned in spirit from v1's engine/loop.ts (lease, commit pattern); nothing is imported from it.
  */
+import { isInvalid, type LockOpDone } from "@workspace/v2-core";
 import { agentIncome, chargeAct, energyCapacity, readCharge, settle, type Account } from "@workspace/v2-economy";
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
@@ -22,6 +23,7 @@ import { paysToRead, tell } from "./knowledge.ts";
 import { driftEventsDue, driftSecondsOf, redrawParams } from "./drift.ts";
 import { ruleView } from "./deal.ts";
 import { capOf, liveLines } from "./turnover.ts";
+import { liveLockDocs, lockDocs, locksOn, lockWire, nextLockOf, recheck, retireLocks, sweepLocks, writeLocks } from "./locks.ts";
 
 /** Wall milliseconds between ticks; world time advances by the wall time that passed, at most MAX_DT a tick. */
 export const TICK_MS = 1500;
@@ -157,6 +159,7 @@ async function retireLine(ctx: MutationCtx, game: Doc<"v2Games">, number: number
   const object = await ctx.db.query("v2Objects").withIndex("by_game", q => q.eq("gameId", game._id).eq("number", number)).unique();
   if (!object || object.retiredAt !== undefined) return;
   await ctx.db.patch(object._id, { retiredAt: world });
+  if (locksOn(game)) await retireLocks(ctx, object._id, world, (k, d) => appendEvent(ctx, game._id, k, d));
   const st = await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", object._id)).unique();
   if (st && !turnover.retiredHolds) await ctx.db.patch(st._id, { released: true });
   const rows = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", object._id)).take(16);
@@ -613,14 +616,16 @@ export const HISTORY = 8;
 
 /** The states of the objects with these numbers. */
 export const statesOf = internalQuery({
-  args: { gameId: v.id("v2Games"), numbers: v.array(v.number()) },
-  handler: async (ctx, { gameId, numbers }) => {
+  args: { gameId: v.id("v2Games"), numbers: v.array(v.number()), locks: v.optional(v.boolean()) },
+  handler: async (ctx, { gameId, numbers, locks }) => {
     const out = [];
     for (const n of [...new Set(numbers)]) {
       const o = await ctx.db.query("v2Objects").withIndex("by_game", q => q.eq("gameId", gameId).eq("number", n)).unique();
       if (!o) continue;
       const st = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", o._id)).unique())!;
-      out.push({ number: n, objectId: o._id, state: st.state, version: st.version });
+      // With locks (the room setting): the object's live locks and the number its next lock takes.
+      const lk = locks ? { locks: (await lockDocs(ctx, o._id)).map(lockWire), nextLock: nextLockOf(o) } : {};
+      out.push({ number: n, objectId: o._id, state: st.state, version: st.version, ...lk });
     }
     return out;
   },
@@ -680,13 +685,14 @@ export const commit = internalMutation({
     }
 
     await applyDrops(ctx, game._id, drops);
+    if (locksOn(game)) await sweepLocks(ctx, game._id, world, (k, d) => appendEvent(ctx, game._id, k, d));
     const P = game.settings.economy;
     for (const act of a.acts) {
       const agent = await ctx.db.get(act.agentId);
       const energy = await ctx.db.query("v2AgentEnergy").withIndex("by_agent", q => q.eq("agentId", act.agentId)).unique();
       if (!agent || agent.destroyedAt !== undefined || !energy) continue;   // destroyed since the tick read it
       if (retiredNow.has(act.number)) continue;   // retired by this commit's births (the tick offers none such)
-      const record = act.record as { outcome: string; after: string; before: string; charge: number; readBits: number; calls: { mutator: string; site: number; args: Record<string, string>; rep: string }[]; reason?: string; notes?: string[] };
+      const record = act.record as { outcome: string; after: string; before: string; charge: number; readBits: number; calls: { mutator: string; site: number; args: Record<string, string>; rep: string }[]; reason?: string; notes?: string[]; locks?: unknown[] };
       const st = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", act.objectId)).unique())!;
       const income = agentIncome(P.powerPerSecond, agent.share), capacity = energyCapacity(income, P.fullChargeSeconds);
       const account: Account = settle({ balance: energy.energy, settledWorldSeconds: energy.settledAt }, world, income, capacity);
@@ -696,10 +702,33 @@ export const commit = internalMutation({
       const current = verdict === "committed" && st.version === act.version;
       // Decision 24: a move onto a state another object holds is refused like an invalid call (it pays its reads).
       const holder = current ? await holderOf(ctx, game._id, record.after, act.objectId) : null;
-      const committed = current && !holder;
-      const outcome = holder ? "failed" : verdict === "committed" && !committed ? "stale" : verdict;
-      const charge = committed || outcome === "skipped" || (outcome === "failed" && !holder) ? record.charge : readCharge(record.readBits);
-      const charged = chargeAct(account, charge);
+      let committed = current && !holder;
+      let outcome = holder ? "failed" : verdict === "committed" && !committed ? "stale" : verdict;
+      let charge = committed || outcome === "skipped" || (outcome === "failed" && !holder) ? record.charge : readCharge(record.readBits);
+      // Locks (docs/engine-v2/locks.md §4): the act re-run against the object's state and live locks now; a lock this
+      // commit made or drained first counts. A refusal fails the act (it pays its reads); the lock changes cost on top.
+      let lockFail: string | null = null, lockSpend = 0, locked: Exclude<ReturnType<typeof recheck>, { invalid: string }> | null = null;
+      let lockObject: Doc<"v2Objects"> | null = null, lockDocsNow: Doc<"v2Locks">[] = [];
+      const lockOps = (record.locks ?? []) as LockOpDone[];
+      if (locksOn(game) && (committed || (outcome === "skipped" && lockOps.length))) {
+        // A skip's lock changes need no version: funds and drains do not read the state, and a new lock is checked
+        // against the state as it is now. A move commits only on the version it was made on (above).
+        lockObject = await ctx.db.get(act.objectId);
+        lockDocsNow = await liveLockDocs(ctx, act.objectId, world, (k, d) => appendEvent(ctx, game._id, k, d));
+        if (!lockObject) lockFail = "the object is gone";
+        else if (lockOps.length || lockDocsNow.length) {
+          const r = recheck(game, lockObject, lockDocsNow, st.state, committed ? record.calls : [], lockOps, world);
+          if (isInvalid(r)) lockFail = r.invalid;
+          else if (account.balance - charge < r.spend - 1e-9) lockFail = "not enough energy for these lock changes";
+          else { locked = r; lockSpend = r.spend; }
+        }
+        if (lockFail !== null) { committed = false; outcome = "failed"; charge = readCharge(record.readBits); }
+      }
+      // What the commit applied, when it differs from what the tick ran (a lock renumbered, a drain clipped further, or
+      // none applied): the act event records the applied changes and is marked `charged`, like any act the commit overrode.
+      const applied = locked?.done ?? [];
+      const lockOverride = JSON.stringify(applied) !== JSON.stringify(lockOps) ? { locks: applied, lockSpend, charged: charge } : {};
+      const charged = chargeAct(account, charge + lockSpend);
       // v1's split of the spend: what the reads cost (paid whatever happened) and the rest, the change (committed acts only).
       const readPart = Math.min(charge, readCharge(record.readBits)), changePart = charge - readPart;
       const n = act.n;
@@ -707,9 +736,10 @@ export const commit = internalMutation({
       const kept = (energy.history ?? []).filter(h => h.at < world);
       const history = [...kept, { at: world, energy: charged.balance }].slice(-AGENT_HISTORY);
       await ctx.db.patch(energy._id, {
-        energy: charged.balance, settledAt: charged.settledWorldSeconds, acts: energy.acts + 1, spend: energy.spend + charge, lastActAt: world, history,
+        energy: charged.balance, settledAt: charged.settledWorldSeconds, acts: energy.acts + 1, spend: energy.spend + charge + lockSpend, lastActAt: world, history,
         spendRead: (energy.spendRead ?? 0) + readPart, spendChange: (energy.spendChange ?? 0) + changePart,
-        lastAct: { at: world, read: readPart, change: changePart, outcome },
+        ...(lockSpend > 0 ? { spendLocks: (energy.spendLocks ?? 0) + lockSpend } : {}),
+        lastAct: { at: world, read: readPart, change: changePart, outcome, ...(lockSpend > 0 ? { locks: lockSpend } : {}) },
         ...(outcome === "skipped" ? { skips: energy.skips + 1 } : outcome === "failed" ? { failures: energy.failures + 1 } : {}),
       });
       const actSeq = await appendEvent(ctx, game._id, "act", {
@@ -720,7 +750,11 @@ export const commit = internalMutation({
         // game's writes); an act that moved or failed keeps it. Any act can be re-run from its seed and inputs.
         ...(outcome === "skipped" ? withoutTranscript(record) : record), ...(outcome !== record.outcome ? { outcome, after: record.before, charged: charge } : {}),
         ...(holder ? { reason: heldReason(game.variant, holder.number) } : {}),
+        ...lockOverride, ...(lockFail !== null ? { reason: lockFail } : {}),
       });
+      if (locked && lockObject) {
+        await writeLocks(ctx, game, lockObject, lockDocsNow, locked.locks, locked.done, world, { memberId: act.memberId, agentId: act.agentId }, (k, d) => appendEvent(ctx, game._id, k, d));
+      }
       // Owner decision 36: "Players should still know everything their agents learn for free". Every act an agent runs
       // on an object tells its owner the object as the agent saw it, with the agent's own measurement of its value (a
       // change commits below and tells it as changed). A stale act saw an older version: nothing newer to tell.
