@@ -92,3 +92,5 @@ body { margin: 0; background: var(--rm-bg); color: var(--rm-ink); }
   .rm-select select { font: inherit; font-size: 16px; color: var(--rm-ink); background: var(--rm-card); border: 1px solid var(--rm-rule); border-radius: 8px; padding: 8px; width: 100%; }
   .rm-page h1 { font-size: 21px; }
 }
+.rm-trial { border-collapse: collapse; font-size: 14px; }
+.rm-trial td { padding: 2px 10px 2px 0; vertical-align: top; }

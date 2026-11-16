@@ -33,7 +33,7 @@ export interface TrialDials {
   readonly nu: number;
   /** Friction per doubling of a multiplying factor (stretch, zoom), before the distance floor. */
   readonly mu: number;
-  /** Pickiness: score = worth − k·price. At least 1. */
+  /** Pickiness: score = worth − k·price. Above 1 (at k = 1 every card reads "be high"; the trophy scan needs k > 1). */
   readonly k: number;
   /** Energy per bit (the exchange rate to the game's energy). */
   readonly w: number;
@@ -190,8 +190,9 @@ export interface TrialScore { readonly score: number; readonly trophy: Trophy | 
 export function trialScore(rule: TrialRule, line: Line, d: TrialDials = TRIAL): TrialScore {
   const s = pt(line);
   if (!s) return { score: 0, trophy: null, worth: 0, price: Infinity, height: Infinity };
+  if (!(d.k > 1)) throw new RangeError("the trial needs pickiness k > 1 (it bounds which trophies can score)");
   const H = heightOf(s, d);
-  const cap = d.k > 1 ? (d.k * H) / (d.k - 1) : Infinity;
+  const cap = (d.k * H) / (d.k - 1);
   let best: TrialScore = { score: 0, trophy: null, worth: 0, price: Infinity, height: H };
   for (const t of rule.trophies(cap, d)) {
     const w = trophyWorth(t, d);

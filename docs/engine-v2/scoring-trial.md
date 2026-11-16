@@ -23,7 +23,7 @@ Vertical lines are off the trial board.
 | Score | max(0, max over the rule's trophies of worth(T) − k·P(s,T)) | k = 2 |
 | Points | as today: own score × the others' scores summed | |
 
-**What follows [built; the bounds tested on 2,500 states × 41 calls × 4 rules, the area rule on 40 states to 1e−4]:**
+**What follows [built; the bounds tested on 2,500 states × a fixed list of 43 calls (those valid there) × 4 rules, over 50,000 calls, the area rule on 40 states to 1e−4]:**
 d = D + L is a quasi-metric that no call undercuts (the `max` makes every call pay at least the distance it covers), so
 a call of price p raises no score by more than k·p and lowers none by more than k × its undo's price; and since
 worth(T) ≤ H(t*) ≤ H(s) + P, no score exceeds the line's height (k ≥ 1). No tables, no sampling: worth is a formula of
