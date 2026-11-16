@@ -126,6 +126,11 @@ const replayOf = (v: ViewState) => {
   return v.replay;
 };
 
+/**
+ * Whether a pane the arrangement names is open: the human's open panes once they have any (the arrangement keeps a
+ * closed pane's place, but it is not drawn); every pane of a screen still at its defaults.
+ */
+const isOpen = (v: ViewState) => (pane: string) => !v.panes.length || v.panes.some(p => p.pane === pane);
 /** The game screen in view, whose dock a layout command changes. */
 function screenOf(ctx: AffordanceContext): DockKind {
   const kind = dockKindOf(ctx.context);
@@ -133,10 +138,12 @@ function screenOf(ctx: AffordanceContext): DockKind {
   return kind;
 }
 /** v1's "Two panels": the first two shown panes stacked on the left; every other pane as tabs of one group on the right. */
-function twoPanels(tree: DockNode): DockNode {
-  const shown = dockGroups(tree).map(l => l.group.active);
-  const left = shown.slice(0, 2);
-  const rest = dockPanes(tree).filter(p => !left.includes(p));
+function twoPanels(v: ViewState, tree: DockNode): DockNode {
+  const open = isOpen(v);
+  const panes = [...dockPanes(tree).filter(open), ...v.panes.map(p => p.pane).filter(p => !dockPanes(tree).includes(p))];
+  const shown = [...dockGroups(tree).map(l => l.group.active).filter(open), ...panes];
+  const left = [...new Set(shown)].slice(0, 2);
+  const rest = panes.filter(p => !left.includes(p));
   const stack: DockNode = left.length < 2 ? { tabs: left, active: left[0]! } : { split: "column", sizes: [50, 50], children: left.map(p => ({ tabs: [p], active: p })) };
   if (!rest.length) return stack;
   return { split: "row", sizes: [40, 60], children: [stack, { tabs: rest, active: shown.find(p => rest.includes(p)) ?? rest[0]! }] };
@@ -173,12 +180,14 @@ export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
     if (a.pane ? now === a.pane : now) return rest;
     if (a.pane) return { ...rest, maximised: a.pane };
     const kind = screenOf(ctx);
-    const largest = dockGroups(v.dock[kind] ?? defaultDock(kind)).reduce((best, l) => (l.rect.w * l.rect.h > best.rect.w * best.rect.h ? l : best));
+    const groups = dockGroups(v.dock[kind] ?? defaultDock(kind)).filter(l => isOpen(v)(l.group.active));
+    if (!groups.length) throw new OpFailure("Name the pane to maximise.");
+    const largest = groups.reduce((best, l) => (l.rect.w * l.rect.h > best.rect.w * best.rect.h ? l : best));
     return { ...rest, maximised: largest.group.active };
   },
   "view.twoPanels": (v, _a, ctx) => {
     const kind = screenOf(ctx);
-    return { ...v, dock: { ...v.dock, [kind]: twoPanels(v.dock[kind] ?? defaultDock(kind)) } };
+    return { ...v, dock: { ...v.dock, [kind]: twoPanels(v, v.dock[kind] ?? defaultDock(kind)) } };
   },
   "view.resetLayout": (v, _a, ctx) => {
     const { [screenOf(ctx)]: _old, ...rest } = v.dock;
