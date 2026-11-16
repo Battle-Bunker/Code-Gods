@@ -13,8 +13,8 @@ nothing to invest it in spends it on conflict: that is the flip-flopping, and it
 pays more" dominates. The knock costs its maker nothing they wanted.
 
 **Land is too scarce.** What players really compete for is the single state of each object. With three to five
-objects and three rules there is no room for niches, so every improvement for one seat is a knock for another. The
-only lever that turned undoing into climbing was more objects (`tug-of-war.md`).
+objects and three rules there is no room for niches, so every improvement for one seat is a knock for another. More
+objects was the only lever that turned undoing into climbing (`tug-of-war.md`).
 
 **The score is a photograph.** Final score is the standing at the last instant (or at the instant an object retires).
 So a state held for five minutes and knocked at the end earns nothing, and a knock just before the photograph cannot be
@@ -71,7 +71,7 @@ each. The object has 100 seconds left.
   object's life C gains 2,000 points, and 1,000 on each rival.
 - Under today's photograph scoring, the same knock made at the last second is permanent, and beats joining five to one.
 
-So under flow, knocking wins only where repair is slow or the rules truly oppose. Which is where it should.
+So under flow, knocking wins only where repair is slow or the rules truly oppose.
 
 **One leader, two trailers.** Leader 110, trailers 95 and 95. A raid takes 80 off the leader.
 
@@ -92,8 +92,7 @@ ahead taxes itself. Builder, raider and guard each win in some company and lose 
 - Hold rarity, the fragility-averse "defender", tie-breaker tiers and the convex surcharge as answers to fragility.
 - The attempt to make the energy function see patterns so that repair is dearer than damage everywhere. Size handles
   height; locks handle everything else.
-- Starter-side anti-flip-flop devices (back off, no repeat, two-step look as a cure).
-- Probably the 35-bit gate and the "energy weight" patch, if rule 2 is done at the source.
+- Starter-side cures for flip-flopping, and probably the 35-bit gate, if rule 2 is done at the source.
 
 ## 5. The two most serious risks
 
@@ -113,13 +112,11 @@ everything rests on rule 2.
 
 ## 7. What the old game did that worked
 
-- It ended at a hidden random moment, so any second might be the photograph. That is flow scoring by another route.
-  Fixed ten-minute games lost it.
-- Its own study (`coordination-incentives.md`) found spoilers win on rank while earning less, and that time-averaged
-  scoring cut a last-30-seconds wrecker from 69% wins to 6%.
-- Offers went in proportion to stored energy, so saved energy had a use. That survives.
+It ended at a hidden random moment, so any second might be the photograph: flow scoring by another route, lost with
+fixed ten-minute games. Its own study (`coordination-incentives.md`) found time-averaged scoring cut a
+last-30-seconds wrecker from 69% wins to 6%.
 
 ## 8. Unsure
 
-How fast repairs happen in play (the 10 seconds is a guess). Whether one-for-one locks defend enough. Whether flow
-scoring alone moves the knocker's win share. Whether five live objects is enough land for three players.
+How fast repairs happen in play (the 10 seconds is a guess). Whether one-for-one locks defend enough. Whether five
+live objects is enough land for three players.
