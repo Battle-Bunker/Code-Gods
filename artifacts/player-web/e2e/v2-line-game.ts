@@ -196,6 +196,11 @@ try {
       // v1's energy bar ("full in 14 s") and in-pane power button: more power raises the agent's share.
       await row.locator("[data-testid^=agent-energy-bar-]").waitFor({ timeout: 15_000 });
       assert.match(await row.locator("[data-testid^=agent-energy-bar-]").innerText(), /full in \d+ s|full: it gets no more|no power|repaying/);
+      // v1 (baseline-1 #6): can it act now, what it spent on reading and on changing, its actual cost per move, its last move.
+      assert.match(await row.locator("[data-testid^=text-agent-state-]").innerText(), /^(can act now|working: .*|waiting for income|stuck: .*)$/);
+      await row.locator("[data-testid^=text-agent-spent-]").getByText(/^Spent [\d.,]+ energy on \d+ moves?: [\d.,]+ reading, [\d.,]+ changing$/).waitFor({ timeout: 30_000 });
+      assert.match(await row.locator("[data-testid^=text-actual-act-cost-]").innerText(), /^Actual average [\d.,]+ energy per move$/);
+      assert.match(await row.locator("[data-testid^=text-agent-last-act-]").innerText(), /^Last move at \d+:\d\d: [\d.,]+ reading \+ [\d.,]+ changing \(\w[\w ]*\)$/);
       const more = row.locator("[data-testid^=button-agent-more-]");
       if (await more.count()) {
         const shareBefore = await row.locator("[data-testid^=text-agent-share-]").innerText();
