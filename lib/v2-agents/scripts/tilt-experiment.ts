@@ -12,7 +12,7 @@ import { nearestPalindrome } from "../../v2-linear/src/beginner-rulers.ts";
 const { type, variant } = findVariant(process.argv[2] ?? "line-q");
 const law = lineLaw(variant);
 const T = 0.6, N = Number(process.argv[3] ?? 150_000);
-type Grade = "hard" | "soft" | "digit" | "log";
+type Grade = "hard" | "soft" | "digit" | "log" | "both";
 const num = (x: Q) => Number(x.n) / Number(x.d);
 const lvl = (t: bigint) => num(digitLevel(t));
 function graded(x: Q, t: bigint, onRung: boolean, g: Grade): number {
@@ -25,8 +25,20 @@ function graded(x: Q, t: bigint, onRung: boolean, g: Grade): number {
   return L - step + (0.5 * step) / (d + 1);
 }
 // Prime Landing, ends k, side ±1: X = −c/m (where y = 0).
+function plAt(x: Q, k: number, g: Grade): number {
+  const n = nearestInteger(x);
+  if (n > 0n && isPrimeEnding(n, k)) return graded(x, n, true, g);
+  return graded(x, nearestPrimeEnding(x, k), false, g);
+}
 function pl(s: LineState, k: number, side: 1 | -1, g: Grade): number | null {
   const l = s.lines[0]!;
+  if (g === "both") {
+    // The better of two readings on the dealt side: where it crosses the x-axis, and minus where it crosses the y-axis.
+    const ys = l.b === 0n ? null : (side === 1 ? Qn.neg(intercept(l)) : intercept(l));
+    const xs = l.a === 0n ? null : (side === 1 ? xAt(l, q(0)) : Qn.neg(xAt(l, q(0))));
+    const us = [xs, ys].filter((v): v is Q => v !== null).map(v => plAt(v, k, "digit"));
+    return us.length ? Math.max(...us) : null;
+  }
   if (l.a === 0n) return null;
   const x0 = xAt(l, q(0)), x = side === 1 ? x0 : Qn.neg(x0);
   const n = nearestInteger(x);
@@ -76,7 +88,7 @@ function valueFn(score: (s: LineState) => number | null) {
   };
 }
 function report(name: string, score: (s: LineState, g: Grade) => number | null, witnesses: LineState[]) {
-  for (const g of (name.startsWith("prime") ? ["hard", "digit"] : ["hard", "log"]) as Grade[]) {
+  for (const g of (name.startsWith("prime") ? ["digit", "both"] : ["log"]) as Grade[]) {
     const bits = valueFn(s => score(s, g)), kept: number[] = [];
     let worst = 1, worstMove = "", b0s: number[] = [], poles = 0, worstModest = 1, worstModestMove = "";
     for (const s of witnesses) {
