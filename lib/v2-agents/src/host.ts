@@ -166,6 +166,8 @@ export class EngineHost<S> implements AgentHost {
   private readonly others: { family: RuleFamily<S, unknown>; params: unknown; tieBreaker: TieBreaker; look: ReturnType<typeof valueLookup>; defence: ((s: S, reward: number) => number) | null }[] | undefined;
   /** The player's own defence goal as a function of a state and its reward bits (null: none dealt). */
   private readonly defence: ((s: S, reward: number) => number) | null;
+  /** The player's penalty family, when a defence goal is dealt (its views are charged with myScore). */
+  private readonly defenceFamily: RuleFamily<S, unknown> | undefined;
   /** The value function's lookup, when the game gives one. */
   private readonly lookup: ReturnType<typeof valueLookup> | undefined;
 
@@ -187,6 +189,7 @@ export class EngineHost<S> implements AgentHost {
       return { family: family as RuleFamily<S, unknown>, params: o.rule.params, tieBreaker: joinTieBreakers(ruleLayers(family as RuleFamily<S, unknown>, o.rule.tieBreaker).slice(1).map(l => l.id)), look: gameLookup(o.values), defence: o.defence ? this.netOf(o.defence) : null };
     });
     this.defence = input.defence ? this.netOf(input.defence) : null;
+    this.defenceFamily = input.defence ? input.type.penalties?.find(f => f.id === input.defence!.family) as RuleFamily<S, unknown> | undefined : undefined;
     this.sites = input.type.sites(input.state, input.variant);
     this.phi = input.type.readLength(input.state, input.variant);
   }
@@ -375,7 +378,9 @@ export class EngineHost<S> implements AgentHost {
 
   private score(): HostReply {
     let bits = 0;
-    for (const rep of this.family.depends) for (let s = 0; s < this.sites; s++) bits += this.chargeView(rep, s);
+    // With a defence goal the bits also read what the penalty reads: charge its views too (once each).
+    const views = new Set([...this.family.depends, ...(this.defenceFamily?.depends ?? [])]);
+    for (const rep of views) for (let s = 0; s < this.sites; s++) bits += this.chargeView(rep, s);
     const e = evaluateObject(this.type, this.family, this.params, this.state, this.variant, this.tieBreaker);
     // The utilities (owner decision 23: plain lexicographic, bigger better, nothing saturates), and what they are worth.
     const u = e.score;

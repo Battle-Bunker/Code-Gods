@@ -15,10 +15,9 @@ import { internalAction } from "../_generated/server";
 import { MAX_DT } from "./loop";
 import { regularBirths, timeScaleOf } from "./duration";
 import { sandboxFor } from "./runtime";
-import { birthDraws, decode, scopeOf, typeOf, variantOf } from "./world";
+import { birthDraws, decode, penaltyWeightOf, scopeOf, typeOf, variantOf } from "./world";
 import { actReadings } from "./disclose";
 import { penaltyMean, valueFnIn, valueRecord } from "./values";
-import { DEFAULT_PENALTY_WEIGHT } from "./world";
 
 type Snapshot = {
   phase: string; seed: string; variant: string; leaseId: string; tick: number; acts: number; objects: number; endsAt: number | null;
@@ -102,14 +101,16 @@ export const tick = internalAction({
       const scope = scopeOf(snap);
       const ruleOf = (r: Snapshot["seats"][number]["rule"]) => ({ family: r.family, params: r.params as Record<string, unknown>, tieBreaker: r.tieBreaker });
       // A seat's defence goal (v1, restored; call 1), as the host values it beside the rule: the commit's signed bits.
-      const weight = snap.settings.penaltyWeight ?? DEFAULT_PENALTY_WEIGHT;
-      const defenceOf = (d: Snapshot["seats"][number]["defence"]) => {
-        const r = d ? valueRecord(d.ruleKey) : null;
-        return d && r ? { defence: { family: d.family, params: d.params, values: { knots: r.knots, tail: r.tail }, mean: penaltyMean(d.ruleKey), weight } } : {};
-      };
+      // One per seat a tick, shared by every host that values that seat.
+      const weight = penaltyWeightOf(snap);
+      const defences = new Map(snap.seats.map(seat => {
+        const d = seat.defence, r = d ? valueRecord(d.ruleKey) : null;
+        return [seat.memberId, d && r ? { defence: { family: d.family, params: d.params, values: { knots: r.knots, tail: r.tail }, mean: penaltyMean(d.ruleKey), weight } } : {}] as const;
+      }));
+      const defenceOf = (memberId: string) => defences.get(memberId)!;
       const othersOf = new Map(snap.seats.map(seat => [seat.memberId, snap.seats.flatMap(o => {
         const vf = o.memberId === seat.memberId ? null : valueFnIn(o.rule.ruleKey, scope);
-        return vf ? [{ rule: ruleOf(o.rule), values: vf, ...defenceOf(o.defence) }] : [];
+        return vf ? [{ rule: ruleOf(o.rule), values: vf, ...defenceOf(o.memberId) }] : [];
       })]));
       const told = new Map<string, ActInput>();
       for (const rows of await Promise.all(batches)) for (const { memberId, objectId, ...input } of rows) told.set(`${memberId}:${objectId}`, input);
@@ -139,7 +140,7 @@ export const tick = internalAction({
           type: typeOf(snap.variant), variant, state: decode(local.get(number) ?? s.state, snap.variant),
           rule: ruleOf(seat.rule),
           program: { language: agent.language, source: agent.source }, seed, energy, object: number, liveObjects: snap.objects,
-          ...input, ...(vf ? { values: vf, ...defenceOf(seat.defence) } : {}), others: othersOf.get(seat.memberId)!,
+          ...input, ...(vf ? { values: vf, ...defenceOf(seat.memberId) } : {}), others: othersOf.get(seat.memberId)!,
           // Any held state, the object's own included: v1's uniqueness, "a transformation onto any existing value
           // (including the object's own) fails entirely".
           occupied: e => holder.has(e), disclosed: reads.disclosed,

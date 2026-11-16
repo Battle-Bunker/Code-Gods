@@ -261,10 +261,15 @@ test("defence goals pass rows 1, 3a and 4, or are listed in DEFENCE_EXEMPT as po
       if (!sets.length) continue;
       if (pf.tieBreakers.length < MIN_SECONDARIES) found.add(`${pf.id} 3a`);
       if (sets.length < MIN_INSTANCES) found.add(`${pf.id} 4`);
-      // Row 1: the badness over many births never passes what the board can hold (a bounded count).
-      const T = type as ObjectType<unknown>, cells = births(T, variant, `rule-check-${pf.id}`, 1)
-        .map(s => (s as { cells?: unknown[] }).cells?.length ?? Infinity)[0]!;
-      if (Number.isFinite(cells)) found.add(`${pf.id} 1`);
+      // Row 1: a main part that keeps growing. A count of cells tops out on a board of one number: the badness there is
+      // the board's size, and nothing passes it.
+      const T = type as ObjectType<unknown>, [born] = births(T, variant, `rule-check-${pf.id}`, 1);
+      const size = (born as { cells?: unknown[] }).cells?.length;
+      if (size !== undefined) for (const p of sets) {
+        const v = (p as { value?: number }).value ?? 0, full = { cells: Array.from({ length: size }, () => v) };
+        const main = evaluateSite(T, pf as never, p, full, variant, 0, null).terms[0]?.value as { n: bigint; d: bigint } | undefined;
+        if (main && Number(main.n) / Number(main.d) === size) { found.add(`${pf.id} 1`); break; }
+      }
     }
   }
   assert.deepEqual([...found].filter(k => !(k in DEFENCE_EXEMPT)).sort(), [], "new failures: fix them, or list them");

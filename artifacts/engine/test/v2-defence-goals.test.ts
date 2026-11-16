@@ -33,6 +33,7 @@ test("defence goals: off by default, refused on lines, dealt to every seat on gr
     acts = (await admin.query("v2/testing:events", { gameId, after: -1 })).filter((e: any) => e.kind === "act");
     if (!acts.length) await new Promise(r => setTimeout(r, 500));
   }
+  assert.deepEqual(acts.filter((e: any) => e.data.outcome === "failed").map((e: any) => e.data.reason ?? e.data.code), [], "no act fails in the host");
   // A quote says the bits the commit would pay, the penalty taken off (a move to any cell: one of the two directions is allowed).
   const quotes = await Promise.all(["1", "-1"].map(k => perform(ada!, "object.quote", { objectId: log[0].objectId, calls: [{ mutator: "cells.add", args: { cell: "r0c0", k } }] }, { gameId }, "query")));
   const after = quotes.map((q: any) => q.result).find((r: any) => r.valid)!.after;

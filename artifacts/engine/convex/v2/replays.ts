@@ -13,12 +13,12 @@ import { internalMutation, internalQuery, query } from "../_generated/server";
 import { requireGameMember } from "./access";
 import { replayV } from "./validators";
 
-/** A rule's value function for the replay file (what valueLookup takes, with the game's uniqueness correction). */
 /** A penalty's value function as the replay embeds it: knots, tail and E_π η(h) (no uniqueness correction). */
 const penaltyValueOf = (ruleKey: string) => {
   const r = valueRecord(ruleKey);
   return r ? { knots: slimKnots(r.knots), tail: r.tail, mean: penaltyMean(ruleKey) } : null;
 };
+/** A rule's value function for the replay file (what valueLookup takes, with the game's uniqueness correction). */
 const valueFnOf = (ruleKey: string, scope: ValueScope) => {
   const f = valueFnIn(ruleKey, scope);
   return f ? { ...f, knots: slimKnots(f.knots), tail: f.tail ?? null } : null;
