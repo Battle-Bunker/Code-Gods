@@ -6,6 +6,24 @@ coordinator decides the default). Each choice is marked **[owner]** (the owner's
 and every price list are untouched: a lock changes which moves are allowed and what defending or attacking costs in
 energy, never what a state is worth.
 
+## 0. The owner's latest direction (16 November, about 02:00 UTC, relayed by the coordinator): supersedes §2–§3
+
+Implementation of locks is **paused** with all work that depends on the scoring and costing design, until that design
+is clear. The owner's latest words, which override this document where they differ (the code does not follow them yet):
+
+- **Predicates are programs, like agents.** A lock's predicate is a program, not an expression in the small language
+  of §2.
+- **A predicate's complexity is scored like an agent's.** Creating and sustaining a lock is priced by the program's
+  complexity, as an agent's program is, not by the predicate's information content under π (§3).
+- **The upkeep rate is a configuration parameter**, not derived from the economy as in §3.
+
+What is on `develop` (behind nothing: unused until wired): `lib/v2-core` locks.ts (the §2 language, the §3 information
+content, `lockedAct`: funds and drains, then each call checked, then new locks) and the agent API (`lib/v2-agents`
+host ops `locks`, `lock`, `fund`, `drain`; `runAct` under locks; guest methods in both languages). The server side
+(room setting `locks`, `v2Locks`, the commit's re-check, sweep, events, replay; live test) is on the branch
+`claude/locks-server`, not merged. Of all this, the move path (a call refused when its result breaks a live lock,
+drains first) and the act order carry over to program predicates; the predicate language and its pricing do not.
+
 ## 1. What a lock is
 
 - A **lock** sits on one object and holds an **amount of energy** and a **predicate** the object's state meets when the
