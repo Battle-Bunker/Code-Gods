@@ -735,3 +735,40 @@ ones lower energies by unknown amounts (item 4); "near" is a single offset (a qu
 example); the deeper search is itself bounded (depth 4, beam 6), so overvaluation may be larger than seen; the owner's
 "length" read as log2|n| and the conjunction as a minimum are my readings; whole starts under magnitude ignore how
 fractions are distributed at a size.
+
+
+## Dynamic energy: follow-ups (the owner's replies, 16 November)
+
+- **Size is defined only on the readings a family declares** (`reads`): a reading that is a value gets its magnitude.
+  (Built: a family that reads a top and a bottom separately would declare both; none does yet.) **Cause of the bits
+  exploit:** bottoms were counted for rules that read only the value. A fractional state then got starts with
+  bottoms of the same length, and tidying them is dear, because an amount's fee grows with its size, not its digits.
+  Measured (log trial): a tilt by 1/4 costs 19, by 1/1000 4,767, by 100 477, by 10,000 47,669. A many-digit fraction
+  therefore costs far more than its digits.
+- **The generic floor now tries a shortcut followed by a solved move**, onto s's readings and onto the targets the
+  family's heuristics propose from where the shortcut lands (built).
+- **The owner's precision shapes are added:** `powerCubedFamily(k)` (√(log2 P) − |c − P|³, P the nearest power of k)
+  and `primeCubedFamily(suffix)` (the same on primes with a suffix, on |m|). Precision is the rule's job; these are not
+  dealt.
+- **Grids** (`lib/v2-grid/src/trial-dynamic.ts`, `scripts/dynamic-grid.ts`): starts are law boards; the floor is the
+  cheapest single move of the variant (arguments up to 24 bits); the ceiling rewrites the board onto s, one cells.add
+  per differing cell. Seen narrowly (one board of each kind per family, K = 30; "good" is four greedy steps from the
+  random board, "top" is greedy until no single move improves):
+
+| family | board | score | energy | ceiling binds | already as good | ms |
+|---|---|---|---|---|---|---|
+| magic-eighteen | random | [-38,-32] | 6 | 0% | 43% | 801 |
+| magic-eighteen | good | [-1,-3] | 506 | 100% | 0% | 1792 |
+| magic-eighteen | top | [0,-2] | 503 | 100% | 0% | 1752 |
+| opposite-nines | random | [-43,-43] | 3 | 0% | 67% | 310 |
+| opposite-nines | good | [-1,-19] | 452 | 100% | 0% | 1264 |
+| opposite-nines | top | [0,0] | 475 | 100% | 0% | 1388 |
+| strangers | random | [0,0] | 0 | 0% | 100% | 2 |
+| strangers | good | [11,3] | 378 | 100% | 0% | 1226 |
+| strangers | top | [16,8] | 443 | 100% | 0% | 1148 |
+
+  The rewrite ceiling binds for every start on good and top boards: from a random board no single move reaches them, so
+  their energy is the rewrite price (about 380 to 510), and good and top boards score alike. A random board scores
+  about 0. One estimate takes about 1.1 to 1.8 seconds in Node (every single move is tried from each start). How it
+  could be wrong: one board per kind; a floor of two moves or family heuristics would separate good from top; the
+  rewrite by cells.add alone overstates the ceiling where a swap or a spin is cheaper.
