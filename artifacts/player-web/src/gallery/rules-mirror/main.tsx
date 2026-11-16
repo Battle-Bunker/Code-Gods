@@ -8,7 +8,7 @@
  */
 import { StrictMode, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { q, ruleLayers, type Q, type Score } from "@workspace/v2-core";
+import { q, rng, ruleLayers, type Q, type Score } from "@workspace/v2-core";
 import { describeLine, encodeLine, fromMC, intercept, isVertical, lineQ, lineType, normalise, shift, slope, tilt, type Line, type LineState } from "@workspace/v2-linear";
 import { valueLookup, type Lookup, type ValueFunction } from "@workspace/v2-valuation";
 import { annotate, ExpandedFace, ObjectChip, partName, type RuleRef, type ValuePart } from "@workspace/v2-views";
@@ -223,9 +223,43 @@ function FamilyList({ title, families, current, onPick }: { title: string; famil
 const firstDealt = (vs: readonly { dealt?: boolean; variants?: readonly MirrorVariant[] }[]) =>
   Math.max(0, vs.findIndex(v => v.dealt ?? v.variants!.some(x => x.dealt)));
 
+/** A family whose parameter sets are too many to list: draw another from its space, or type one in. */
+function SpaceControls({ f, onParams }: { f: MirrorFamily; onParams: (p: MirrorParams) => void }) {
+  const space = f.space!;
+  const draws = useRef(0);
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const use = () => {
+    const p = space.parse(text);
+    if (p && typeof p === "object" && "invalid" in p) { setError(String((p as { invalid: string }).invalid)); return; }
+    setError(null);
+    onParams(f.paramsOf(p));
+  };
+  return (
+    <div className="rm-field" data-testid="space">
+      <span className="rm-hint">The sets above are a sample of about {space.size.toLocaleString("en")} that can be drawn. {space.says}</span>
+      <div className="rm-buttons">
+        <button type="button" className="rm-btn" data-testid="draw-another" onClick={() => { setError(null); onParams(f.paramsOf(space.draw(rng(`mirror:${f.family.id}:${draws.current++}`)))); }}>Draw another</button>
+        <input className="rm-num" data-wide="" style={{ width: "16em" }} aria-label="Type a parameter set" placeholder={f.params[0]?.label} spellCheck={false} autoComplete="off"
+          data-testid="type-params" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === "Enter") use(); }} />
+        <button type="button" className="rm-btn" data-testid="use-params" onClick={use}>Use these</button>
+      </div>
+      {error && <span className="rm-error" data-testid="params-error">{error}</span>}
+    </div>
+  );
+}
+
 function Rule({ f, line, onLine }: { f: MirrorFamily; line: Line; onLine: (l: Line) => void }) {
   const [pi, setPi] = useState(() => firstDealt(f.params));
-  const p: MirrorParams = f.params[pi] ?? f.params[0]!;
+  // Parameter sets drawn or typed on this page, after the family's listed ones.
+  const [extra, setExtra] = useState<readonly MirrorParams[]>([]);
+  const listed = useMemo(() => [...f.params, ...extra], [f, extra]);
+  const addParams = (x: MirrorParams) => {
+    const at = listed.findIndex(y => y.label === x.label);
+    if (at >= 0) { setPi(at); return; }
+    setExtra([...extra, x]); setPi(listed.length);
+  };
+  const p: MirrorParams = listed[pi] ?? listed[0]!;
   const [vi, setVi] = useState(() => firstDealt(p.variants));
   const v: MirrorVariant = p.variants[vi] ?? p.variants[0]!;
   const rule = useMemo<RuleRef<LineState, unknown>>(() => ({ type: lineType, family: f.family, params: p.params, variant: lineQ, tieBreaker: v.tieBreaker }), [f, p, v]);
@@ -247,10 +281,11 @@ function Rule({ f, line, onLine }: { f: MirrorFamily; line: Line; onLine: (l: Li
       <h2>{f.family.title} <span className="rm-status" data-dealt={v.dealt || undefined}>{v.dealt ? "dealt in the beginner line preset" : f.dealt ? "this variant is not dealt" : "not dealt"}</span></h2>
       <p className="rm-id">{f.family.id}{f.tree ? " · tree-shaped tuple family" : ""}</p>
 
-      <h3>Parameters <span className="rm-muted">({f.params.length} dealable {f.params.length === 1 ? "set" : "sets"})</span></h3>
+      <h3>Parameters <span className="rm-muted">({f.space ? `about ${f.space.size.toLocaleString("en")} drawable sets; ${listed.length} shown` : `${f.params.length} dealable ${f.params.length === 1 ? "set" : "sets"}`})</span></h3>
       <div className="rm-buttons" data-testid="params">
-        {f.params.map((x, i) => <Pill key={x.label} on={i === pi} testId="param" onClick={() => { setPi(i); setVi(Math.min(vi, x.variants.length - 1)); }}>{x.label}</Pill>)}
+        {listed.map((x, i) => <Pill key={x.label} on={i === pi} testId="param" onClick={() => { setPi(i); setVi(Math.min(vi, x.variants.length - 1)); }}>{x.label}</Pill>)}
       </div>
+      {f.space && <SpaceControls f={f} onParams={addParams} />}
       <h3>{f.tree ? "Layers after the main part" : "Secondary preference"} <span className="rm-muted">({p.variants.length} {p.variants.length === 1 ? "variant" : "variants"})</span></h3>
       <div className="rm-buttons" data-testid="variants">
         {p.variants.map((x, i) => (

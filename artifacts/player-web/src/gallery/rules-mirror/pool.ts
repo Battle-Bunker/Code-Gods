@@ -5,7 +5,7 @@
  * starters and a value function under its rule key. test/rules-mirror-pool.test.ts holds this list to the dealer's.
  * Pure: the caller says which rule keys have a value function.
  */
-import { joinTieBreakers, type ObjectType, type RuleFamily, type TieBreaker } from "@workspace/v2-core";
+import { joinTieBreakers, type Invalid, type ObjectType, type Rng, type RuleFamily, type TieBreaker } from "@workspace/v2-core";
 import { hasStarters } from "@workspace/v2-agents/pure";
 import { lineQ, lineType, preset, type LineState } from "@workspace/v2-linear";
 import { ruleKey } from "@workspace/v2-valuation";
@@ -25,8 +25,14 @@ export interface MirrorVariant {
   readonly valued: boolean;
 }
 export interface MirrorParams { readonly params: unknown; readonly label: string; readonly variants: readonly MirrorVariant[] }
+/** A family's whole parameter space, when it is too large to list (lib/v2-linear tree-geo-kit.ts ParamSpace). */
+export interface MirrorSpace { readonly size: number; readonly says: string; draw(rng: Rng): unknown; parse(text: string): unknown | Invalid; format(p: unknown): string }
 export interface MirrorFamily {
   readonly family: LineFamily;
+  /** Present when `params` is only a showcase of a larger space: the page can draw another set or take a typed one. */
+  readonly space?: MirrorSpace;
+  /** The variants of any parameter set of the family (a drawn or typed one included). */
+  paramsOf(params: unknown): MirrorParams;
   readonly dealt: boolean;
   /** A tuple family valued down its tree (RuleFamily.valuation). */
   readonly tree: boolean;
@@ -43,11 +49,17 @@ export interface MirrorCatalogue {
 export const paramsLabel = (params: unknown): string =>
   Object.entries((params ?? {}) as object).map(([k, v]) => `${k} = ${String(v)}`).join(", ") || "no parameters";
 
-/** The secondary variants a family can be shown with: each tie-breaker alone; for a tree family its chains, longest first. */
+const spaceOf = (f: LineFamily): MirrorSpace | undefined => (f as { space?: MirrorSpace }).space;
+/**
+ * The secondary variants a family can be shown with: each tie-breaker alone; for a tree family its chains, longest first.
+ * A tree family with a parameter space declares ALTERNATIVE thirds after its second layer (principle 3a): each alone
+ * after the second layer, then the second layer alone, then all of them in a row (every layer drawn at once).
+ */
 function variantIds(f: LineFamily, tree: boolean): TieBreaker[] {
   const ids = f.tieBreakers.map(t => t.id);
   if (!ids.length) return [null];
   if (!tree) return ids;
+  if (spaceOf(f) && ids.length > 2) return [...ids.slice(1).map(id => joinTieBreakers([ids[0]!, id])), ids[0]!, joinTieBreakers(ids)];
   return ids.map((_, i) => joinTieBreakers(ids.slice(0, ids.length - i)));
 }
 
@@ -66,15 +78,17 @@ export function mirrorCatalogue(valued: (ruleKey: string) => boolean): MirrorCat
   }
   const all: MirrorFamily[] = lineType.families.map(f => {
     const tree = f.valuation === "tree";
-    const params = (f.dealable(variant) as unknown[]).map(ps => ({
-      params: ps, label: paramsLabel(ps),
+    const paramsOf = (ps: unknown): MirrorParams => ({
+      params: ps, label: spaceOf(f)?.format(ps) ?? paramsLabel(ps),
       variants: variantIds(f, tree).map(tb => {
         const key = keyOf(f, ps, tb);
         const layers = (tb === null ? [] : tb.split(">")).map(id => f.tieBreakers.find(t => t.id === id)!.title);
         return { tieBreaker: tb, layers, ruleKey: key, dealt: dealtKeys.has(key), valued: valued(key) };
       }),
-    }));
-    return { family: f, tree, params, dealt: params.some(x => x.variants.some(v => v.dealt)) };
+    });
+    const params = (f.dealable(variant) as unknown[]).map(paramsOf);
+    const space = spaceOf(f);
+    return { family: f, tree, params, paramsOf, ...(space ? { space } : {}), dealt: params.some(x => x.variants.some(v => v.dealt)) };
   });
   return {
     preset: { id: p.id, title: p.title, variant: p.variant },
