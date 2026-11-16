@@ -17,7 +17,7 @@ def score(b, p):
 
 FAR = 1      # how far one change may go
 QUOTES = 4  # at most this many plans are priced (each price is a host call)
-LEAVE = []      # boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
+LEAVE = []      # boards your agent skips, e.g. [19] or [4, 9]: it does not act on them (others still may)
 PROTECT = []    # boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 BOXES = [[r, r + 1, r + 4, r + 5] for r in (0, 2, 8, 10)]   # the corner boxes' cells: top-left, top-right, bottom-left, bottom-right
 

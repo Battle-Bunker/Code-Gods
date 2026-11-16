@@ -18,7 +18,7 @@ function score(b, p) {
 
 const FAR = 2;      // how far one change may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const LEAVE = [];      // boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
+const LEAVE = [];      // boards your agent skips, e.g. [19] or [4, 9]: it does not act on them (others still may)
 const PROTECT = [];    // boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 const LINE = [], LINES = [];   // the rows and columns: their names, and their cells
 for (let i = 0; i < 4; i++) { LINE.push("row" + i, "col" + i); LINES.push([4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3], [i, i + 4, i + 8, i + 12]); }

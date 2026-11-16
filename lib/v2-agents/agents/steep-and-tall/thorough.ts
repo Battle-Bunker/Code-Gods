@@ -22,7 +22,7 @@ function score(m, c, p, tie) {
 
 const FAR = 3;      // how far one change may go
 const QUOTES = 20;  // at most this many plans are priced (each price is a host call)
-const LEAVE = [];      // lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
+const LEAVE = [];      // lines your agent skips, e.g. [19] or [4, 9]: it does not act on them (others still may)
 const PROTECT = [];    // lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
 function agent(offer) {

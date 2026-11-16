@@ -37,6 +37,8 @@ const FIXED_POINT = [
   /\ba state to reach\b/i,
   /\btoward (its|their|a|the) (own )?state\b/i,
   /\bdefend(s|ed|ing)? (it|them|the line|lines)?\b/i,
+  /\b(line|board|pair|object)s? [\d, and]+ (is|are) (yours|mine|theirs)\b/i,
+  /\bagreed to leave\b/i,
 ];
 
 /** Sentences that match a pattern but say the opposite, or mean something else; each says why. */
