@@ -8,7 +8,7 @@
  */
 import { StrictMode, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { q, rng, ruleLayers, type Q, type Score } from "@workspace/v2-core";
+import { q, Qn, rng, ruleLayers, type Q, type Score } from "@workspace/v2-core";
 import { describeLine, encodeLine, fromMC, intercept, isVertical, lineQ, lineType, normalise, shift, slope, tilt, type Line, type LineState } from "@workspace/v2-linear";
 import { areaSquare, gradientPrime, height as trialHeight, interceptSmooth, isPrimeN, mcOf, rarityHeight, rarityOfLine, rarityRules, TRIAL, TRIAL_LOG, trialScore, type TrialRule } from "@workspace/v2-linear";
 import { valueLookup, type Lookup, type ValueFunction } from "@workspace/v2-valuation";
@@ -17,7 +17,8 @@ import { chanceText, exactOrDecimal, fmtBits, fmtQ, isApprox, rarerThanText } fr
 import "@workspace/v2-views/styles.css";
 import "./style.css";
 import { autoLines, CURATED } from "../line-examples";
-import { mirrorCatalogue, type MirrorFamily, type MirrorParams, type MirrorVariant } from "./pool";
+import { mirrorCatalogue, paramsLabel, type MirrorFamily, type MirrorParams, type MirrorVariant } from "./pool";
+import { drawRules, togetherMap, type TogetherRule } from "./together";
 
 const RECORDS = import.meta.glob("../../../../../lib/v2-valuation/values/line-q/*/*.json", { eager: true, import: "default" }) as Record<string, ValueFunction>;
 const BY_KEY = new Map(Object.values(RECORDS).map(r => [r.ruleKey, r]));
@@ -378,10 +379,84 @@ function TrialPanel({ line }: { line: Line }) {
   );
 }
 
+// ------------------------------------------------------------------ rules together (the second view)
+
+const ALL_FAMILIES = FAMILIES.map(x => x.family);
+/** Two or three rules on one line: each rule's card and tuple side by side, and a map of where they agree near the line. */
+function Together({ line, onLine }: { line: Line; onLine: (l: Line) => void }) {
+  const [count, setCount] = useState(3), [draws, setDraws] = useState(0);
+  const [rules, setRules] = useState<TogetherRule[]>(() => drawRules(ALL_FAMILIES, 3, "together:0"));
+  const draw = (n = count) => { const k = draws + 1; setDraws(k); setRules(drawRules(ALL_FAMILIES, n, `together:${k}`)); };
+  const setFamily = (i: number, id: string) => {
+    const family = ALL_FAMILIES.find(f => f.id === id)!;
+    const one = drawRules([family], 1, `together:${draws}:${i}:${id}`)[0]!;
+    setRules(rules.map((r, j) => (j === i ? one : r)));
+  };
+  const state = useMemo<LineState>(() => ({ lines: [line] }), [line]);
+  const vertical = isVertical(line);
+  const map = useMemo(() => (vertical ? null : togetherMap(rules, slope(line), intercept(line))), [rules, line, vertical]);
+  const refs = rules.map(r => ({ type: lineType, family: r.family, params: r.params, variant: lineQ, tieBreaker: r.tieBreaker }) as RuleRef<LineState, unknown>);
+  const label = (r: TogetherRule) => (r.family.space ? r.family.space.label(r.params as never) : paramsLabel(r.params));
+  const joint = (x: number) => `hsl(${Math.round(120 * x)} 60% ${Math.round(85 - 45 * x)}%)`;
+  return (
+    <section className="rm-rule" data-testid="together">
+      <h2>Rules together</h2>
+      <p className="rm-muted">Two or three rules, drawn from every line family (dealt or not) with parameters drawn from each family's whole space, on one line.
+        The map below ranks the lines near this one for each rule (main part first, then its later layers); a square's colour is the weakest rule's rank, so green is where all of them do well together.
+        It is not the game's worth: it shows where the rules agree and where they pull apart.</p>
+      <div className="rm-buttons">
+        <Pill on={count === 2} onClick={() => { setCount(2); draw(2); }}>two rules</Pill>
+        <Pill on={count === 3} onClick={() => { setCount(3); draw(3); }}>three rules</Pill>
+        <button type="button" className="rm-btn" data-testid="together-draw" onClick={() => draw()}>Draw other rules</button>
+      </div>
+      <h3>The line</h3>
+      <Editor line={line} onLine={onLine} />
+      <div className="rm-together" style={{ display: "grid", gridTemplateColumns: `repeat(${rules.length}, minmax(0, 1fr))`, gap: "12px" }}>
+        {rules.map((r, i) => {
+          const a = annotate(refs[i]!, state), layers = ruleLayers(r.family, r.tieBreaker);
+          return (
+            <div key={i} className="rm-verdict" data-testid="together-rule" data-family={r.family.id}>
+              <select value={r.family.id} onChange={e => setFamily(i, e.target.value)} aria-label={`rule ${i + 1}`}>
+                {ALL_FAMILIES.map(f => <option key={f.id} value={f.id}>{f.title}</option>)}
+              </select>
+              <p className="rm-muted">{label(r)}{r.tieBreaker ? ` · ${r.tieBreaker}` : ""}</p>
+              <blockquote className="rm-card">{r.family.card(r.params, r.tieBreaker)}</blockquote>
+              {a.utility === null ? <p>Score: none. {a.worst ?? ""}</p> : (
+                <table className="rm-score"><tbody>
+                  {layers.map((l, k) => <tr key={l.id}><td>{partName(k)}</td><td>{l.title}</td><td className="rm-n">{a.utility![k] == null ? "none" : fmtQ(a.utility![k]!)}</td></tr>)}
+                </tbody></table>
+              )}
+              <ul className="rm-muted">{a.sites[0]?.parts.map(pt => <li key={pt.depth}>{pt.title}: {pt.valueText}</li>)}</ul>
+            </div>
+          );
+        })}
+      </div>
+      <h3>Where they agree, near this line</h3>
+      {map === null ? <p className="rm-muted">A vertical line has no gradient: choose another line to see the map.</p> : (
+        <>
+          <p className="rm-muted">Across: the gradient, {Qn.toWire(map.ms[0]!)} to {Qn.toWire(map.ms.at(-1)!)} in halves. Down: the y-intercept, {Qn.toWire(map.cs.at(-1)!)} to {Qn.toWire(map.cs[0]!)}. The ringed square is this line; click a square to move there.</p>
+          <div data-testid="together-map" style={{ display: "grid", gridTemplateColumns: `repeat(${map.ms.length}, 18px)`, gap: "1px", width: "max-content", maxWidth: "100%", overflowX: "auto" }}>
+            {[...map.cs].reverse().flatMap(c => map.ms.map(m => {
+              const cell = map.cells.find(x => Qn.cmp(x.m, m) === 0 && Qn.cmp(x.c, c) === 0)!, here = Qn.cmp(m, slope(line)) === 0 && Qn.cmp(c, intercept(line)) === 0;
+              return <button key={`${Qn.toWire(m)},${Qn.toWire(c)}`} type="button" title={`${describeLine(fromMC(m, c))}: ${cell.standing.map(x => `${Math.round(100 * x)}%`).join(", ")}`}
+                onClick={() => onLine(fromMC(m, c))} style={{ width: 18, height: 18, padding: 0, border: here ? "2px solid currentColor" : "none", background: joint(cell.joint) }} />;
+            }))}
+          </div>
+          <p data-testid="together-best">{map.best.length
+            ? <>Jointly good places in this window (every rule in its top {Math.round(100 * (1 - 0.85))}% here, no better neighbour): {map.best.slice(0, 6).map(b => (
+              <button key={`${Qn.toWire(b.m)},${Qn.toWire(b.c)}`} type="button" className="rm-btn" onClick={() => onLine(fromMC(b.m, b.c))}>{describeLine(fromMC(b.m, b.c))}</button>))}</>
+            : "No line in this window is in the top 15% for every rule: these rules pull apart here."}</p>
+        </>
+      )}
+    </section>
+  );
+}
+
 function Page(): ReactElement {
   const scheme = useScheme();
   const [familyId, setFamilyId] = useState(FAMILIES[0]!.family.id);
   const [line, setLine] = useState<Line>(() => fromMC(q(2), q(3)));
+  const [view, setView] = useState<"one" | "together">("one");
   const f = FAMILIES.find(x => x.family.id === familyId)!;
   const n = CATALOGUE.dealt.length;
   return (
@@ -415,7 +490,13 @@ function Page(): ReactElement {
               <FamilyList title={`Not dealt: tree-shaped tuple families (${UNDEALT_TREE.length})`} families={UNDEALT_TREE} current={familyId} onPick={setFamilyId} />
             </div>
           </nav>
-          <Rule key={f.family.id} f={f} line={line} onLine={setLine} />
+          <div>
+            <div className="rm-buttons" data-testid="view">
+              <Pill on={view === "one"} onClick={() => setView("one")}>One rule</Pill>
+              <Pill on={view === "together"} onClick={() => setView("together")} testId="view-together">Rules together</Pill>
+            </div>
+            {view === "one" ? <Rule key={f.family.id} f={f} line={line} onLine={setLine} /> : <Together line={line} onLine={setLine} />}
+          </div>
         </div>
       </main>
     </div>

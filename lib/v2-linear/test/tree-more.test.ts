@@ -16,9 +16,11 @@ test("Drawn Step: the multiple of 3/7 nearest the y-intercept, whole multiples l
 });
 
 test("Leg Ratio and Quadrant Square on the triangle with the axes", () => {
-  // y = −(2/3)x + 4: base 6, height 4; 10 = 5 × 2, so the 3 : 2 triangle of size 2 (sizes in halves); base 6 = 3 × 2; area 12 = 3 × 2 × 4 ÷ 2.
-  assert.deepEqual(tuple(legRatio, { p: 3, q: 2, d: 2 }, mc(f(-2, 3), 4), "closeness>base"), ["2", "0", "0"]);
-  assert.deepEqual(tuple(legRatio, { p: 3, q: 2, d: 2 }, mc(f(-2, 3), 4), "closeness>area"), ["2", "0", "0"]);
+  // y = −(2/3)x + 4: base 6, height 4; 10 = 5 × 2, so the 3 : 2 triangle of size 2 (sizes in halves). The gradient's
+  // bottom 3 is 1 from d = 2; at x = 2 the height is 8/3, 1/3 from 3; the crossing +6 is on +3 × 2.
+  assert.deepEqual(tuple(legRatio, { p: 3, q: 2, d: 2 }, mc(f(-2, 3), 4), "closeness>bottom"), ["2", "0", "-1"]);
+  assert.deepEqual(tuple(legRatio, { p: 3, q: 2, d: 2 }, mc(f(-2, 3), 4), "closeness>height-at-size"), ["2", "0", "-1/3"]);
+  assert.deepEqual(tuple(legRatio, { p: 3, q: 2, d: 2 }, mc(f(-2, 3), 4), "closeness>east"), ["2", "0", "0"]);
   // y = −3x + 12: X = 4, Y = 12, area 24 = 3/2 × 4².
   assert.deepEqual(tuple(quadrantSquare, { p: 3, q: 2 }, mc(-3, 12), "closeness>east"), ["4", "0", "0"]);
   assert.deepEqual(tuple(quadrantSquare, { p: 3, q: 2 }, mc(-3, 12), "closeness>west"), ["4", "0", "-8"]);

@@ -119,8 +119,11 @@ interface DrawResult {
 
 function draw(rules: Rule[]): DrawResult {
   const sc = rules.map(scoreRule);
+  // Each rule's own bar: T bits, or just under its best on the grid when its ties are coarser than that (a rule reading
+  // one rounded number has few distinct scores on a bounded grid). Joint bits are each rule's bits over its bar, times T.
+  const bar = sc.map(s => Math.min(T, s.bits.reduce((a, b) => Math.max(a, b), 0) - 0.5));
   const joint = new Float32Array(N);
-  for (let k = 0; k < N; k++) { let m = Infinity; for (const s of sc) m = Math.min(m, s.bits[k]!); joint[k] = m; }
+  for (let k = 0; k < N; k++) { let m = Infinity; for (let i = 0; i < sc.length; i++) m = Math.min(m, (sc[i]!.bits[k]! / bar[i]!) * T); joint[k] = m; }
   // Places: union-find in descending joint bits (a Kruskal bottleneck tree); a merge of two components that each
   // already hold a good line is a valley between two places.
   const parent = new Int32Array(N).fill(-1), best = new Int32Array(N);
@@ -153,7 +156,7 @@ function draw(rules: Rule[]): DrawResult {
   let spread = 0;
   for (const a of placeBestK) for (const b of placeBestK) spread = Math.max(spread, Math.abs(Math.floor(a / NC) - Math.floor(b / NC)) + Math.abs(a % NC - b % NC));
   const goodLines = joint.reduce((s, v) => s + (v >= T ? 1 : 0), 0);
-  const each = sc.map(s => s.bits.reduce((n, v) => n + (v >= T ? 1 : 0), 0) / N);
+  const each = sc.map((s, i) => s.bits.reduce((n, v) => n + (v >= bar[i]! ? 1 : 0), 0) / N);
   const pmi = goodLines ? Math.log2(goodLines / N / each.reduce((a, b) => a * b, 1)) : -Infinity;
 
   // Cheap moves: from sampled lines, each rule's improving steps, and their effect on the other rules.
@@ -190,9 +193,12 @@ function draw(rules: Rule[]): DrawResult {
       if (!alliance || Math.abs(rho) > Math.abs(alliance.rho)) alliance = { rule: rules[a]!.label, layer: rules[a]!.chain!.split(">").at(-1)!, with: rules[b]!.label, rho };
     }
   }
+  // Verdicts (the census's own definitions, documented in interaction-census.md): hopeless, no line good for all; dull,
+  // the rules ignore each other (good places as often as chance, and under 1 in 10 cheap moves touching another rule);
+  // conflict, good places much rarer than chance and harm well above help; rich, the rest with two or more places.
   const verdict: DrawResult["verdict"] = goodLines === 0 ? "hopeless"
-    : Math.abs(pmi) < 0.5 && share.help < 0.1 && share.harm < 0.1 ? "dull"
-    : share.harm > 0.6 && share.help < 0.1 ? "conflict" : "rich";
+    : Math.abs(pmi) < 0.5 && share.help + share.harm < 0.1 ? "dull"
+    : pmi < -1 && share.harm > 2 * share.help ? "conflict" : placeBestK.length >= 2 ? "rich" : "dull";
   return {
     rules: rules.map(x => x.label), goodLines, places: placeBestK.length,
     placeBest: [...placeBestK].sort((x, y) => joint[y]! - joint[x]!).slice(0, 4).map(k => `${lineText(k)} (${joint[k]!.toFixed(1)})`),
@@ -242,3 +248,9 @@ for (const id of IDS) {
   const c = (v: string) => rs.filter(r => r.verdict === v).length;
   console.log(`| ${id} | ${rs.length} | ${c("rich")} | ${c("dull")} | ${c("conflict")} | ${c("hopeless")} | ${(median(rs.map(r => r.moves.help)) * 100).toFixed(0)}% | ${(median(rs.map(r => r.moves.harm)) * 100).toFixed(0)}% |`);
 }
+
+// Pairs of families: the verdicts of draws of two that hold both.
+console.log(`\n## Pairs (draws of two)\n\n| pair | verdicts |\n|---|---|`);
+const pairs = new Map<string, string[]>();
+for (const r of results.filter(x => x.size === 2)) { const k = r.rules.map(x => x.slice(0, x.indexOf("("))).sort().join(" + "); pairs.set(k, [...(pairs.get(k) ?? []), r.verdict]); }
+for (const [k, v] of [...pairs].sort()) console.log(`| ${k} | ${v.join(", ")} |`);

@@ -3,8 +3,8 @@
  * X is where the line crosses the x-axis and Y the y-intercept, both signed.
  *
  * Leg Ratio: (1) the size s of the drawn p : q triangle whose base plus height, (p + q)·s, is nearest |X| + |Y|
- * (sizes n/d), the bigger the better; (2) how close; (3) the base near p·s / the area near p·q·s²/2 / the crossing on
- * the right, X near +p·s (the sign-caring ally).
+ * (sizes n/d), the bigger the better; (2) how close; (3) the gradient's bottom near d / the height at x = s near a
+ * whole number / the crossing on the right, X near +p·s (the sign-caring ally).
  *
  * Quadrant Square: (1) the n whose p/q of a square, (p/q)·n², is nearest the triangle's area, the bigger the better;
  * (2) how close; (3) one of four quarters, each a sign preference (the owner, 16 Nov: the sign "decided by allies that
@@ -66,10 +66,12 @@ export const legRatio = treeFamily<Legs, LT>({
   nearest: legsNear,
   draw: () => null,
   thirds: [
-    legThird("base", "the base near p times the size", p => `The base (along the x-axis, ignoring a minus sign) should be as close as possible to ${p.p} times that size.`,
-      (X, _Y, s, p) => { const w = Qn.mul(q(p.p), s), d = Qn.abs(Qn.sub(Qn.abs(X), w)); return { d, working: `base ${mixed(Qn.abs(X))}, ${mixed(d)} from ${p.p} × ${mixed(s)} = ${mixed(w)}` }; }),
-    legThird("area", "the area near the drawn triangle's area", p => `The triangle's area should be as close as possible to that of the ${p.p} : ${p.q} triangle of that size (${p.p} × ${p.q} × size × size ÷ 2).`,
-      (X, Y, s, p) => { const a = Qn.abs(Qn.div(Qn.mul(X, Y), q(2))), w = Qn.div(Qn.mul(q(p.p * p.q), Qn.mul(s, s)), q(2)), d = Qn.abs(Qn.sub(a, w)); return { d, working: `area ${mixed(a)}, ${mixed(d)} from ${mixed(w)}` }; }),
+    // Thirds that the drawn shape does not imply (a line of gradient −q/p meets base = p·s and area = p·q·s²/2 for free,
+    // seen in the walk-through, so those were dropped): the gradient's bottom number near d, and the height at x = s.
+    legThird("bottom", "the gradient's bottom number near d", p => `Write the gradient as a fraction in lowest terms. Its bottom number should be as close as possible to ${p.d}.`,
+      (X, Y, _s, p) => { const m = Qn.neg(Qn.div(Y, X)), d = Qn.abs(Qn.sub(q(m.d), q(p.d))); return { d, working: `the gradient ${Qn.toWire(m)} has bottom ${m.d}: ${d.n} from ${p.d}` }; }),
+    legThird("height-at-size", "the line's height at x = the size near a whole number", () => "Go along to x = that size. The line's height there should be as close as possible to a whole number.",
+      (X, Y, s) => { const y = Qn.add(Qn.mul(Qn.neg(Qn.div(Y, X)), s), Y), f = Qn.sub(y, q(Qn.floor(y))), d = Qn.cmp(f, q(1, 2)) <= 0 ? f : Qn.sub(Qn.ONE, f); return { d, working: `at x = ${mixed(s)} the height is ${mixed(y)}: ${mixed(d)} from a whole number` }; }),
     legThird("east", "the crossing on the right, at p times the size", p => `The line should cross the x-axis on the right of (0, 0), as close as possible to ${p.p} times that size (a crossing on the left counts its whole distance).`,
       (X, _Y, s, p) => { const w = Qn.mul(q(p.p), s), d = Qn.abs(Qn.sub(X, w)); return { d, working: `crossing ${mixed(X)}, ${mixed(d)} from +${mixed(w)}` }; }),
   ],

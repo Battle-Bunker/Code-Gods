@@ -1,10 +1,12 @@
 /**
- * Prints the tuples a geometry tree family gives example lines, and what each cheap move does to them: the tables of
+ * Prints the tuples a tree family (any family with a parameter space) gives example lines, and what each cheap move does to them: the tables of
  * docs/engine-v2/tree-families/*.md.
- *   node --experimental-strip-types lib/v2-linear/scripts/tree-geo-walk.ts <family id> '<params as typed>' 'a,b,c' ['a,b,c' …]
+ *   node --experimental-strip-types lib/v2-linear/scripts/tree-walk.ts <family id> '<params as typed>' 'a,b,c' ['a,b,c' …]
  */
 import { applyCall, evaluateSite, isInvalid, scoreToWire } from "@workspace/v2-core";
-import { describeLine, lineQ, lineType, normalise, treeGeoFamilies, type Line, type LineState } from "../src/index.ts";
+import { describeLine, lineQ, lineType, normalise, type Line, type LineState } from "../src/index.ts";
+
+const treeGeoFamilies = lineType.families.filter(x => x.space) as unknown as { id: string; title: string; space: { parse(t: string): unknown; label(p: never): string }; main: { id: string }; tieBreakers: { id: string }[]; card(p: never, tb: string): string }[];
 
 const [id, typed, ...lines] = process.argv.slice(2);
 const f = treeGeoFamilies.find(x => x.id === id);
@@ -18,6 +20,7 @@ const MOVES: [string, object][] = [
   ["tilt +1", { mutator: "si.tilt", site: 0, args: { k: "1" } }], ["tilt −1", { mutator: "si.tilt", site: 0, args: { k: "-1" } }],
   ["mirror in the x-axis", { mutator: "cart.mirror", site: 0, args: { axis: "x" } }], ["mirror in the y-axis", { mutator: "cart.mirror", site: 0, args: { axis: "y" } }],
   ["stretch by 2", { mutator: "mach.stretch", site: 0, args: { f: "2" } }],
+  ["tilt +1/7", { mutator: "si.tilt", site: 0, args: { k: "1/7" } }],
 ];
 console.log(`${f.title}, ${f.space.label(p as never)}; layers: ${[f.main.id, ...f.tieBreakers.map(t => t.id)].join(", ")}\n\n${f.card(p as never, chain)}\n`);
 for (const l of lines) {
