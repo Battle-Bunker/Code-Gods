@@ -812,7 +812,7 @@ def allowance(offer):
     return min(max(0, b.energy) + _CREDIT_SECONDS * income, _ALLOWANCE_SECONDS * income)
 
 
-def best(options, most=None):
+def _best(options, most=None):
     """The `most` best options, best first, ties in their given order (a stable sort's first `most`); all when no `most`.
     A sort of every option compares each about log2 n times; keeping only the best `most` compares most options once."""
     if most is None:
@@ -833,7 +833,7 @@ def best(options, most=None):
 
 
 def climb(offer, options, now, most=None):
-    options = best(options, most)
+    options = _best(options, most)
     # Host calls are capped (64 an act): with too few left to look and price, skip rather than fail.
     calls = getattr(offer.budget(), "host_calls_left", None)
     calls = 64 if calls is None else calls
