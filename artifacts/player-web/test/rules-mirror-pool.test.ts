@@ -22,3 +22,21 @@ test("the mirror's dealt rules are the dealer's pool, and every line family is l
   assert.ok(c.undealt.some(f => f.tree), "the tree-shaped tuple families are listed as not dealt");
   for (const f of c.dealt) for (const p of f.params) assert.equal(f.family.card(p.params, p.variants[0]!.tieBreaker).length > 0, true);
 });
+
+test("a family with a parameter space lists a sample, offers each alternative third, and takes a drawn or typed set", async () => {
+  const { rng } = await import("@workspace/v2-core");
+  const c = mirrorCatalogue(k => keys.has(k));
+  const spaced = [...c.dealt, ...c.undealt].filter(f => f.space);
+  assert.ok(spaced.length >= 3, "Prime Gradient and the tree families carry their space");
+  for (const f of spaced) {
+    assert.ok(f.space!.size > f.params.length, f.family.id);
+    const ids = f.family.tieBreakers.map(t => t.id);
+    // A family that declares chains is shown with each, then with all its layers in a row.
+    if (f.family.chains) assert.deepEqual(f.params[0]!.variants.map(v => v.tieBreaker), [...new Set([...f.family.chains, ids.join(">")])]);
+    const drawn = f.paramsOf(f.space!.draw(rng(`pool-test:${f.family.id}`)));
+    assert.deepEqual(f.space!.parse(drawn.label), drawn.params, "the label of a set is what a reader types to get it back");
+    const deepest = [...drawn.variants].sort((a, b) => b.layers.length - a.layers.length)[0]!;
+    if (f.tree) assert.ok(f.family.card(drawn.params, deepest.tieBreaker).includes("Third: "), f.family.id);
+    assert.ok("invalid" in (f.space!.parse("nonsense") as object));
+  }
+});
