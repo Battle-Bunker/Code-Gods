@@ -36,6 +36,16 @@ test("a grid variant is read and written as a grid; it is valued only once it ha
   }
 });
 
+test("a coloured board is read and written as a board of its own size, in the old game's wire", () => {
+  for (const [variant, size] of [["board-4-base10-rgb", 4], ["board-7-cards-rainbow6", 7]] as const) {
+    assert.equal(typeOf(variant).id, `board${size}`);
+    const wire = encode(typeOf(variant).origin(typeOf(variant).variants[0]!), variant);
+    assert.equal(encode(decode(wire, variant), variant), wire);
+  }
+  assert.equal(encode(decode("7R,3G,0B,1R/2R,9B,4G,4G/8R,0R,0R,0R/1B,1B,1B,1B", "board-4-base10-rgb"), "board-4-base10-rgb"), "7R,3G,0B,1R/2R,9B,4G,4G/8R,0R,0R,0R/1B,1B,1B,1B");
+  assert.ok(mutatorsOf("cells", "board-4-base10-rgb").some(m => m.id === "colours.step"));
+});
+
 test("a grid representation's mutators name their arguments, with choices for cells and lines", () => {
   const ms = mutatorsOf("cells", "grid-4-d10");
   assert.deepEqual(ms.map(m => m.id), ["cells.add", "cells.swap"]);

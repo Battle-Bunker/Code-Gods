@@ -19,6 +19,9 @@
       "path": "./lib/v2-pair"
     },
     {
+      "path": "./lib/v2-grid-boards"
+    },
+    {
       "path": "./lib/v2-valuation"
     },
     {
