@@ -85,6 +85,14 @@ export async function roomSettings(page: Page, code: string, overrides: Record<s
   return found.roomId;
 }
 
+/** Runs a room affordance through its Convex op as the page's signed-in person (e.g. "room:setSpectator", "seats:fillPracticePartners"). */
+export async function roomOp(page: Page, code: string, op: string, args: Record<string, unknown> = {}) {
+  const client = await clientOf(page);
+  const found = await client.query("v2/rooms:byCode" as never, { code } as never) as { roomId: string };
+  const out = await client.mutation(`v2/ops/${op}` as never, { args, roomId: found.roomId } as never) as { ok: boolean; error?: { message: string } };
+  assert.ok(out.ok, `${op}: ${out.error?.message}`);
+}
+
 export async function noHorizontalScroll(page: Page, label: string) {
   const { sw, iw } = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth }));
   assert.ok(sw <= iw, `${label}: the page scrolls sideways (${sw}px in ${iw}px)`);
@@ -104,7 +112,11 @@ const pagesForShots: Page[] = [];
 export function watch(...pages: Page[]) { pagesForShots.push(...pages); }
 const slug = (s: string) => s.replace(/[^a-z0-9]+/gi, "-").slice(0, 80);
 async function failureShots(name: string) {
-  for (const [i, p] of pagesForShots.entries()) await shot(p, `FAIL-${slug(name)}-${i}`);
+  for (const [i, p] of pagesForShots.entries()) {
+    await shot(p, `FAIL-${slug(name)}-${i}`);
+    // A menu or dialog left open by the failure would make the next check fail too.
+    for (let k = 0; k < 2; k++) await p.keyboard?.press("Escape").catch(() => {});
+  }
 }
 
 /** A ported scenario that must pass. A failure is reported (with screenshots) and the suite goes on. */

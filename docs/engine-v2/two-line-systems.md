@@ -880,3 +880,92 @@ Traced with `TRACE=1 scripts/pair-climb.ts`:
 |---|---|---|
 | 2 | Is the ladder climbed all game, in play? | Seats stepping up the main part in the last third: Whole Answer 100%, No Fractions 75%, Steep Ratio 67%, Gap Ratio 60%, Far Crossing 60%, Forty-Five 56%, Right Angle 40%, High Start 33%. Short of two in three for four families, as in #847. |
 | 3 | Is the tie-breaker defined by the main part's value? | Far Crossing and High Start: yes, the target is q^(L+1). The other six read the crossing or the coefficients directly, not the level; under §12.2 their bits now depend on the level reached, but their best states do not. |
+
+## 13. Rung windows, a zoom, and tie-breakers tied to the level (trials 36 and 37, 16 November)
+
+The coordinator's orders after #856:
+- (1) **Rung geometry:** a seat on a rung should have tie-breaker work and a next step.
+- (2) **Row 3:** each tie-breaker is a relation to the level's own number.
+- (3) **Test 2:** re-run it.
+- (4) **Whole Answer's under-dealing at 4–5 seats.**
+- **Principle 3a**, from the owner via the coordinator: at least three tie-breaker candidates per family, of
+  different forms.
+
+The trials are in owner-decisions.md (36 and 37).
+
+### 13.1 Rung windows and the zoom (trial 36)
+
+- **The window.** Level L is held within 1/(L + 2) of its number, counting the exactness the main part asks for.
+- **The zoom (`sys.zoom`).** It zooms both lines about (0, 0), priced as a factor with the size floor. A zoom by q, then
+  a slide by r, takes a residue rung N to q·N + r, the next level.
+- **Holding a rung** ([rung-hold](scripts/two-line-systems-rung-hold.txt), 8 rung starts per rule, single moves):
+
+| | exact rungs (#856) | windows + zoom + §13.2 |
+|---|--:|--:|
+| moves that keep the level | 7–53% | 12–55% |
+| keep it and change the tie-breaker | 0–36% | 3–42% |
+| raise the level in one move | ≈ 0 | 0–3% |
+| starts with a next step by zoom then slide (residue ladders) | — | 1–5 of 8 |
+
+- **Divide By's main part cannot use a window.** D is always whole.
+- **Whole Answer's and the corner families' tie-breakers change least on a rung (3–19%).** They read rounded
+  numbers, which most small moves leave alone.
+
+### 13.2 Tie-breakers tied to the level, three or more per family (trial 37)
+
+- **The dealt repertoire** is listed in trial 37.
+- **Three energy-gate findings were fixed along the way.**
+  - *Aligned common factors.* A stretch by q multiplies N and a partner together, so the common factor climbed with
+    the main part: 52, 41 and 38 bits. These now read N without its factors of q, or the form was changed.
+  - *Distance curves.*
+    - A one-point curve from a −10¹⁹ floor paid 25 bits.
+    - A sparse level's fitted rate of 4 bits a halving paid 34.
+    - A carried curve read a higher level's distances on the lower level's scale.
+    - The fixes: at least 3 points a level; distances on halvings of the distance; 1 bit a halving past the measured
+      range; carried distances rescaled by base per level.
+  - *Precision bought by single tilts.* A crossing within a hair of a multiple of 1,331 paid 22 bits. Rounding the
+    distance fixed it but made peers unequal, so it was reverted; the 1-bit rate holds it instead.
+- **The equal-opportunity audit set two families' forms.**
+  - Divide By keeps its numerator tie-breakers and adds their size.
+  - Far Crossing's prime readings were unequal between q 7 and 11, so it deals two forms (open).
+- **The energy gate's pair maximum is 34.3 bits** (Far Crossing {11, 2}, far-height).
+
+### 13.3 Test 2, play, deal
+
+- **Collapse test 2** (cheap tables of 8;
+  [collapse](scripts/two-line-systems-collapse-pair-q.txt)). W is 2,530 energy on develop's current economy, against
+  314 at #856.
+
+| β | #856 | §13 |
+|--:|--:|--:|
+| 0.02 | 3/8 FAIL | 1/8 PASS |
+| 0.05 | 3/8 FAIL | 1/8 PASS |
+| 0.1 | 5/8 FAIL | 2/8 PASS |
+
+  - The regression recorded open in §12.3 is closed.
+  - Table 0 is now found by 2 of 12 searches at β 0.05.
+- **Play** (`pool-dynamics.ts --type pairs`, 12 games of 600 s, #855's starters):
+
+| | #856 | §13 |
+|---|---|---|
+| seats still stepping up the main part in the last third | 33–100% | 40–100% (Whole Answer 100, High Start and Steep Ratio 67, Gap Ratio 60, Divide By 50, Forty-Five 44, Far Crossing and Right Angle 40) |
+| objects changed per minute, by third | 1.72 / 1.08 / 1.11 | 1.86 / 1.03 / 1.11 |
+| a seat's peak bits, median / max | 11.1 / 16.5 | 11.3 / 14.9 |
+| balance (best family over worst) | 1.6 | 1.2 |
+
+- **Straight climb.**
+  - Peaks are at most 26.9 bits with the whole income on one object.
+  - 41 of 43 climbs end frozen. The greedy single seat still runs out of improving single moves, so this is not a
+    straight hill.
+- **The deal.**
+  - Whole Answer was under-dealt because the seating rule rejected more of the shuffles that seated it.
+  - Pairs now redraw the seats' numbers (up to 12 times) before reshuffling families.
+  - At 4 and 5 seats Whole Answer is at 94% and 87% of uniform (was 67% and 61%). High Start is lowest, at 86%.
+
+### 13.4 The check table (design-principles.md), rows 2, 3 and 3a
+
+| row | question | pairs after §13 |
+|---|---|---|
+| 2 | Is the ladder climbed all game, in play? | Seats stepping up in the last third: 40–100% (§13.3). Short of two in three for five families. |
+| 3 | Is the tie-breaker defined by the main part's value? | Yes for every dealt tie-breaker: each reads the level's number N, or (Divide By) the numerators x·D and y·D, which change with D. A step up changes N and restarts the climb. |
+| 3a | How many secondary candidates? | Three or more per family, in three forms. Far Crossing is the exception: three candidates in two forms (open, §13.2). The code takes the list of layers of #879: `tieBreakerIds`, `cardText`. |

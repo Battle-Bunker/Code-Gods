@@ -24,3 +24,18 @@ test("each part is the rarity of 'at least this good' given the parts above it, 
   // A worse closeness never scores more.
   assert.ok(look([q(4), q(-1), q(4)]).bits < best.bits);
 });
+
+test("a tree-valued family's value function carries its tree, and valueLookup reads it, with the parts", async () => {
+  const { evaluateSite, Qn } = await import("@workspace/v2-core");
+  const { fromMC, lineQ, lineType, primeIntercept } = await import("@workspace/v2-linear");
+  const { lineValueFunction, valueLookup } = await import("../src/index.ts");
+  assert.equal(primeIntercept.valuation, "tree");
+  const tb = "closeness>gradient-log";
+  const vf = lineValueFunction(primeIntercept, { ends: 1 }, lineQ, { tieBreaker: tb, config: { drawsPerTilt: 4000 } });
+  assert.ok(vf.tree && vf.tree.cells.length > 0);
+  const s = { lines: [fromMC(Qn.parse("1/31"), Qn.parse("31"))] };
+  const l = valueLookup(vf)(evaluateSite(lineType, primeIntercept, { ends: 1 }, s, lineQ, 0, tb).score);
+  assert.equal(l.at, "tree");
+  assert.equal(l.parts!.length, 3);
+  assert.ok(Math.abs(l.parts!.reduce((a, b) => a + b, 0) - l.bits) < 1e-9);
+});

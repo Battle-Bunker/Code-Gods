@@ -251,6 +251,8 @@ export const norm: Representation<LineState> = {
   elements: [
     el("dist2", "distance from (0, 0), squared", "number", "derived", l => num(q(l.c * l.c, h2(l)))),
     el("foot", "the foot of the perpendicular from (0, 0)", "point", "derived", l => pt(q(-l.a * l.c, h2(l)), q(-l.b * l.c, h2(l)))),
+    // A circle round (0, 0) by its radius squared (its value): what a distance² is compared with; drawn round the origin.
+    el("circle", "the circle round (0, 0) of radius² r2", "number", "dynamic", (_l, a) => num(arg(a, "r2")), { params: [{ name: "r2", domain: "Q" }], meaning: "circleOfRadius2" }),
   ],
   layout: (_s, site) => ({
     kind: "plane", window: [q(-WINDOW), q(-WINDOW), q(WINDOW), q(WINDOW)],

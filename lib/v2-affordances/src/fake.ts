@@ -351,6 +351,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     // or none (chips); mutations and recent keep insertion order.
     const kept = filter === "all" ? rows : rows.filter(r => (filter === "chips" ? r.points <= 0 : r.points > 0));
     if (key === "oldest") kept.sort((x, y) => x.number - y.number);
+    else if (key === "least") kept.sort((x, y) => x.points - y.points);
     else if (key === "born") kept.sort((x, y) => y.number - x.number);
     else if (key === "rarity" || key === "points" || key === "want") kept.sort((x, y) => key === "rarity" ? y.bits - x.bits : y.points - x.points);
     return page(kept, a);

@@ -36,6 +36,8 @@ test("every sort is a full, correctly directed order over the reader's shown val
     return list.map(id => key(o.get(id)));
   };
   assert.ok(descending(await by("points", x => x.value.points)), "payoff, highest first (as shown)");
+  const least = await by("least", x => x.value.points);
+  assert.ok(descending([...least].reverse()), "least: fewest points first (v1's worst objects)");
   assert.ok(descending(await by("rarity", x => x.value.rarityBits)), "your bits, highest first");
   assert.ok(descending(await by("want", x => x.value.want)), "others' care, highest first (as shown)");
   const mutations = await by("mutations", x => x.version);
