@@ -32,6 +32,7 @@ import { useFilePanels } from "@/panels/store";
 import { filePane } from "@workspace/v2-client";
 import { ReplayBar } from "@/replay/bar";
 import { ChatButton } from "@/site/components/chat-button";
+import { OwnerMenu } from "./owner-menu";
 import { parseMoment } from "@/replay/moment-link";
 import { ReplayProvider, useReplayControls } from "@/replay/controller";
 import { toast } from "@/hooks/use-toast";
@@ -72,6 +73,7 @@ function GameBar({ header }: { header: Header }) {
         </span>; })()}
       </>) : <span className="text-muted-foreground" data-testid="text-watching">You're watching this game.</span>}
       {!replay && <ChatButton />}
+      {!replay && <OwnerMenu />}
     </div>
   );
 }
