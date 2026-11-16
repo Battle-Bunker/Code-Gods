@@ -567,3 +567,63 @@ each member's basin, reached at its nearest edge. On the y-intercept; one seed. 
 How it could be wrong: one seed; a band of 0.5 doublings fixes how many trophies pool (seven at T = 100 for ending in 7,
 one for powers of 2), so the comparison depends on it; routes are one shift or one stretch; prices are the trial's log
 mode only.
+
+
+## Tied conditions (nearest member over pooled levels, no lift; the coordinator, 16 November)
+
+Script: `lib/v2-linear/scripts/tied-conditions.ts` (`--pairs 120`). Question: does a rule's energy rise when it demands
+more at once? Built: nested joint levels, every member meeting all parts. Prime Gradient (suffix 1): L1 |m| rounds to a
+pooled prime p; L2 also gcd(p + 1, ⌊|c|⌋) ≥ g. Smooth Intercept {3, 7}: L1 |c| a pooled smooth s; L2 also gcd(s + 1,
+⌊|m|⌋) ≥ g. Prime Top (ends 13, over 7): L1 the crossing in a pooled fraction's basin; L2 also within δ of p/7; L3 also
+||c| − r| ≤ ½ (r the leftover top). Start: the main number log-Gaussian matched to the level's members; the other number
+from the law (its members span every size, so there is no size to match). Energy: the mean cheapest route found of up to
+two solved moves (si.tilt or mach.stretch onto a gradient; si.shift, cross.shift or mach.stretch onto a y-intercept),
+each aimed from the line it starts on, membership tested on the line reached; friction only. E (Δ) is the energy and its
+rise over L1 (over L2 at δ = 1/16 for L3); [bits] is the added condition's conditional rarity: for gcd, the share of
+whole parts 1 to 4096 that pass, averaged over the level; for δ, 2δ over the basin width; for L3, the share of law draws
+of |c| within ½ of r. Hold: from an L2 member at p, the cost of stepping p up to the next member keeping L2 (g ≥ 4),
+tied (the secondary reads p′ + 1) against independent (it keeps reading p + 1). Seen narrowly (one seed, one parameter
+per family):
+
+#### Prime Gradient (suffix 1)
+
+| T (members) | L1 | L2 g ≥ 2: E (Δ) [bits] | L2 g ≥ 4: E (Δ) [bits] | L2 g ≥ 8: E (Δ) [bits] | L2 g ≥ 16: E (Δ) [bits] | hold g ≥ 4: tied / independent |
+|---|---|---|---|---|---|---|
+| 100 (3) | 93 | 165 (72) [0.5] | 234 (141) [1.6] | 369 (276) [2.7] | 601 (508) [3.9] | 100 / 108 |
+| 1000 (24) | 153 | 217 (64) [0.7] | 394 (241) [2.0] | 845 (692) [3.3] | 1267 (1114) [4.2] | 528 / 130 |
+| 10000 (182) | 192 | 199 (6) [0.7] | 267 (75) [2.1] | 2060 (1868) [3.3] | 7014 (6821) [4.3] | 3094 / 166 |
+
+#### Smooth Intercept {3, 7}
+
+| T (members) | L1 | L2 g ≥ 2: E (Δ) [bits] | L2 g ≥ 4: E (Δ) [bits] | L2 g ≥ 8: E (Δ) [bits] | L2 g ≥ 16: E (Δ) [bits] | hold g ≥ 4: tied / independent |
+|---|---|---|---|---|---|---|
+| 100 (1) | 135 | 229 (94) [1.0] | 854 (719) [5.4] | 854 (719) [5.4] | 854 (719) [5.4] | 42 / 77 |
+| 1000 (3) | 237 | 248 (10) [0.8] | 322 (85) [2.2] | 1265 (1028) [3.7] | 3114 (2877) [6.8] | 366 / 172 |
+| 10000 (3) | 358 | 391 (32) [0.9] | 992 (633) [2.2] | 8905 (8547) [4.1] | 14904 (14546) [5.0] | 157 / 180 |
+
+#### Prime Top (ends 13, over 7)
+
+| T (members) | L1 | L2 δ = 1/4: E (Δ) [bits] | L2 δ = 1/16: E (Δ) [bits] | L2 δ = 1/64: E (Δ) [bits] | L3 (δ = 1/16 and ||c| − r| ≤ ½): E (Δ over L2) [bits] |
+|---|---|---|---|---|---|
+| 100 (1) | 14 | 71 (57) [5.4] | 343 (329) [7.4] | 514 (500) [9.4] | 509 (165) [2.2] |
+| 1000 (2) | 317 | 534 (216) [6.4] | 939 (622) [8.4] | 2963 (2646) [10.4] | 1247 (308) [4.2] |
+| 10000 (20) | 1060 | 1264 (205) [6.4] | 3232 (2173) [8.4] | 9243 (8184) [10.4] | 3773 (540) [3.9] |
+
+1. **Added conditions cost, and more the more they demand** (seen narrowly). Every row rises with g, δ and L3, apart from
+   ties within noise at small g. The earlier "joint tied ≈ parent or cheaper" (#1148) came from drawing the tied number
+   near its own target (built there); here the tied number comes from the law, and that is the difference.
+2. **The increment does not track the conditional rarity in bits.** It tracks how far the condition forces the tied
+   number to move. A dense condition met near the start is nearly free (Prime Gradient at T ≈ 10,000, g ≥ 2: +6 for 0.7
+   bits). A condition that forces a large tied number is dear well beyond its bits (g ≥ 16: +6,821 for 4.3 bits): a
+   member needs a divisor of p + 1 of at least g, often only a large prime factor, so |c| must grow to it. Per bit, Δ runs
+   from about 9 to 2,900; it is not a constant rate.
+3. **A secondary read from the main part's value costs more to hold, at size** (seen narrowly). Stepping p up and keeping
+   L2: Prime Gradient 528 against 130 at T ≈ 1,000 and 3,094 against 166 at T ≈ 10,000; Smooth Intercept 366 against
+   172 at T ≈ 1,000. At small T, and Smooth Intercept at 10,000, the two are about equal (42 against 77, 157 against
+   180). There a stretch onto the next rung can land on a tied number that passes by luck. The restart that decision 29
+   asks for shows up as a price.
+
+How it could be wrong: the routes found are upper bounds (two moves, a few aims each), so a cleverer route could close
+gaps, most likely the large ones; the rarity measure (whole parts 1 to 4096) is a choice, and a law-sized measure would
+give larger bits for g ≥ 8; levels at T ≈ 100 hold one to three members (Smooth Intercept's single level hides g ≥ 4 to
+16 behind one factor of 82); one suffix, one prime set and one Prime Top parameter; friction only.
