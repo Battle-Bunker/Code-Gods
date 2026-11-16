@@ -16,3 +16,4 @@ export * from "./seating.ts";
 export * from "./opponents.gen.ts";
 export * from "./witnesses.ts";
 export * from "./trial.ts";
+export * from "./trial-rarity.ts";
