@@ -44,6 +44,13 @@ export const overridesV = v.object({
   startingObjects: v.optional(v.number()), birthsPerSecond: v.optional(v.number()), opportunitiesPerSecond: v.optional(v.number()),
   powerPerSecond: v.optional(v.number()), fullChargeSeconds: v.optional(v.number()),
   stepBudget: v.optional(v.number()), interactionComputeMs: v.optional(v.number()),
+  /** v1's "Rules never dealt": the preset's families this room never deals (absent: none). */
+  excludedFamilies: v.optional(v.array(v.string())),
+  /** v1's bid price and bid visibility, on a preset with a bid phase (absent: the preset's pricing; sealed). */
+  bidPricing: v.optional(v.union(v.literal("first"), v.literal("second"))),
+  bidVisibility: v.optional(v.union(v.literal("sealed"), v.literal("open"))),
+  /** v1's bid results shown, during the game (absent: the preset's; after the end everything is shown). */
+  bidDisclosure: v.optional(v.union(v.literal("none"), v.literal("handicaps"), v.literal("all"))),
   /**
    * Time dilation (owner decision 37): every rate × this, every duration ÷ it (v2-economy dilate), so the room's games
    * run this many times faster with the same per-act quantities. For simulations and local playtests only: set by the
@@ -94,7 +101,11 @@ export const v2Tables = {
     /** Games started in this room so far (a game's `number`). */
     games: v.number(),
     /** The open bid phase (plan §5.9): a step of the start, before the game exists. */
-    bidding: v.optional(v.object({ deadline: v.number(), pricing: v.union(v.literal("first"), v.literal("second")), families: v.array(offerV) })),
+    bidding: v.optional(v.object({
+      deadline: v.number(), pricing: v.union(v.literal("first"), v.literal("second")), families: v.array(offerV),
+      /** v1's bid visibility: "open" shows every player's bids as they are placed (absent: sealed). */
+      visibility: v.optional(v.union(v.literal("sealed"), v.literal("open"))),
+    })),
   }).index("by_code", ["code"]),
 
   /** A seat or a spectator in a room (≤ 16 per room): a human, a practice partner or an AI player. */
