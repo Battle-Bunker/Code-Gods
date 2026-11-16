@@ -29,8 +29,9 @@ export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
   "rule.fit": "others-care", "rule.candidates": "others-care",
 };
 /** Reads the room page shows (its members, past games, the rotation, the bid phase). */
-// setups.page and setups.get: the room page until the configure page lists the saved setups (the setups UI).
-export const ROOM_READS: ReadonlySet<string> = new Set(["room.get", "room.history", "game.rotation", "bid.state", "setups.page", "setups.get"]);
+export const ROOM_READS: ReadonlySet<string> = new Set(["room.get", "room.history", "game.rotation", "bid.state"]);
+/** Reads the configure page shows (the owner's saved setups, under Setup). */
+export const SETUP_READS: ReadonlySet<string> = new Set(["setups.page", "setups.get"]);
 /** Reads the avatar menu shows (who you are, your connected apps). */
 export const ACCOUNT_READS: ReadonlySet<string> = new Set(["account.whoami", "account.connections"]);
 /** Reads the palette answers itself, in a notice (a command's status). */
@@ -49,8 +50,8 @@ export interface PaletteHost {
   noun?: { one: string; many: string };
   /** The viewer's stored panels (their one live list), so each enabled one can be opened as a pane. */
   storedPanels?: readonly { slug: string; title: string; enabled: boolean }[];
-  /** Opens the assistant and focuses its composer (v1's Ctrl+`). */
-  focusAssistant?(): Promise<unknown>;
+  /** Opens the assistant and focuses its composer (v1's Ctrl+`), optionally on a new conversation or at its picker. */
+  focusAssistant?(request?: { thread?: "new" | "pick" }): Promise<unknown>;
   /** The file panels (src/panels/*.tsx) this copy of the app has; none in safe mode. */
   filePanels?: readonly string[];
   /** Whether the page is in safe mode (?panels=off), and how to reload it in or out of it. */
@@ -82,10 +83,13 @@ function soleParam(id: AffordanceId): { name: string; kind: "string" | "number" 
 function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
   const id = e.id as AffordanceId;
   if (ROOM_READS.has(id) && host.roomPath) return { kind: "navigate", to: host.roomPath };
+  if (SETUP_READS.has(id) && host.roomPath) return { kind: "navigate", to: `${host.roomPath}/configure#section-setup` };
   if (ACCOUNT_READS.has(id)) return { kind: "form", page: { kind: "info", title: e.title, lines: ["Your account and connected apps are in the menu under your avatar (top right)."] } };
   if (id === "room.list") return { kind: "navigate", to: "/" };
   // The room's settings are a page of their own (v1's "Configure the room's setup"): every question, with a Review.
   if (id === "room.settings" && host.roomPath) return { kind: "navigate", to: `${host.roomPath}/configure` };
+  // v1's "New setup…": the configure page's Save as a setup, with every setting to pick first.
+  if (id === "setups.save" && host.roomPath) return { kind: "navigate", to: `${host.roomPath}/configure#field-save-setup` };
   const pane = READ_PANES[id];
   const panes = host.panes;
   if (pane && panes) return { kind: "submit", run: () => panes.open(pane) };
@@ -208,6 +212,17 @@ export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Comm
       id: "assistant-focus", human: { title: "Focus assistant (Ctrl+`)", tooltip: "Open your assistant and type to it. / does the same outside a field." },
       group: "view", keywords: ["assistant", "focus", "ask", "type", "chat with assistant"],
       performer: { kind: "submit", run: () => focusAssistant() }, available: () => ({ ok: true }),
+    });
+    // v1's "New conversation" and "Switch assistant conversation…".
+    rows.push({
+      id: "assistant-new", human: { title: "New conversation", tooltip: "Start a new conversation with your assistant." },
+      group: "view", keywords: ["assistant", "new conversation", "new thread", "fresh"],
+      performer: { kind: "submit", run: () => focusAssistant({ thread: "new" }) }, available: () => ({ ok: true }),
+    });
+    rows.push({
+      id: "assistant-threads", human: { title: "Switch assistant conversation…", tooltip: "Pick another of your conversations with the assistant." },
+      group: "view", keywords: ["assistant", "conversation", "thread", "switch", "history"],
+      performer: { kind: "submit", run: () => focusAssistant({ thread: "pick" }) }, available: () => ({ ok: true }),
     });
   }
   // v1's safe mode: reload the page with every panel of yours off (a panel that breaks the page can then be fixed), and back.

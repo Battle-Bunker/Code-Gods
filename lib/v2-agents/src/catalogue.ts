@@ -10,6 +10,8 @@
  */
 
 /** A way to change the line, as the agent predicts it: the move and where it takes m and c. */
+import { TUPLE_CATALOGUE } from "./tuple-catalogue.ts";
+
 export interface Lens {
   readonly comment: string;
   readonly ts: string;
@@ -119,6 +121,8 @@ export interface FamilyEntry {
   readonly rungs?: Lines;
   /** Functions the score and the rungs share, written once above score() (top level: they take the rule's numbers as arguments). */
   readonly helpers?: Lines;
+  /** The score is dear (the tuple targets): Simple too scores its tries with scoreEach, stopping when 30% of the act's steps are used. */
+  readonly boundedSimple?: boolean;
 }
 
 const neg = (ts: string) => `Q.neg(${ts})`;
@@ -1173,4 +1177,5 @@ export const CATALOGUE: readonly FamilyEntry[] = [
       },
     },
   },
+  ...TUPLE_CATALOGUE,
 ];

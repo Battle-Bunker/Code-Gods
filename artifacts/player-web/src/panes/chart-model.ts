@@ -99,6 +99,9 @@ export function seriesOf(history: readonly HistoryPoint[], memberId: string): XY
   return out;
 }
 
+/** The series a chart can draw: those with at least one point (an empty one has no last point to mark). */
+export const drawable = (series: readonly Series[]): Series[] => series.filter(s => s.points.length > 0);
+
 /** Every seated player's line, in roster order (the colour order), the viewer's named "You". */
 export function raceSeries(history: readonly HistoryPoint[], roster: readonly RosterEntry[], me: string | null): Series[] {
   return roster.map((m, slot) => ({ key: m.memberId, label: m.memberId === me ? "You" : m.name, you: m.memberId === me, slot, points: seriesOf(history, m.memberId) }))
