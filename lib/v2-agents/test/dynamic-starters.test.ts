@@ -7,7 +7,7 @@ import { births, EngineHost, sandboxes, scoreSource, startersFor } from "../src/
 
 const boxes = sandboxes();
 const lines: LineState[] = [
-  ...[[q(7), q(81)], [q(3, 2), q(1, 8)], [q(1031), q(243)], [q(1, 13), q(-27)], [q(17, 5), q(1, 23)], [q(-1, 9), q(1, 3)], [q(11), q(64)], [q(2, 7), q(-48)], [q(0), q(0)]].map(([m, c]) => ({ lines: [fromMC(m!, c!)] })),
+  ...[[q(7), q(81)], [q(3, 2), q(1, 8)], [q(1031), q(243)], [q(1, 13), q(-27)], [q(17, 5), q(1, 23)], [q(-1, 9), q(1, 3)], [q(11), q(64)], [q(2, 7), q(-48)], [q(0), q(0)], [q(3, 4), q(25, 4)], [q(-7, 10), q(-13, 10)], [q(-1, 8), q(21)], [q(1031), q(5, 3)]].map(([m, c]) => ({ lines: [fromMC(m!, c!)] })),
   ...births(lineType, lineQ, "dyn-scores", 20).filter(s => s.lines[0]!.b !== 0n),
 ];
 

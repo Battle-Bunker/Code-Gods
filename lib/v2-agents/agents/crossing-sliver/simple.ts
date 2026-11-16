@@ -1,5 +1,5 @@
-// Smooth Hug · Simple
-// Main part: the y-intercept right on a number made only of the dealt primes. Secondary preference: whichever you were dealt ().
+// Crossing Sliver · Simple
+// Main part: the line crossing the x-axis at one over a big whole number. Secondary preference: whichever you were dealt ().
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -35,14 +35,13 @@ function gcdB(a, b) { while (b !== 0n) [a, b] = [b, a % b]; return a; }
 
 // How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
-  const x = Math.abs(num(c));                      // the y-intercept's size
-  if (x >= LIMIT) return null;
-  const list = [], top = 2 * x + 64;               // the numbers made only of the dealt primes, up to top
-  const walk = (n, i) => { if (i === p.primes.length) { if (n > 1) list.push(n); return; } for (let t = n; t <= top; t *= p.primes[i]) walk(t, i + 1); };
-  walk(1, 0);
-  const s = list.reduce((b, t) => (Math.abs(t - x) < Math.abs(b - x) ? t : b));
-  const main = Math.sqrt(factorsN(s).length) - cube(x - s);
-  // main: the square root of the nearest smooth number's prime factors, less the distance to it cubed (bigger is better)
+  if (m.n === 0n) return null;                      // a flat line never crosses the x-axis
+  const x = Math.abs(num(c) / num(m));               // where it crosses, ignoring the sign
+  if (x === 0 || x < 1 / LIMIT) return null;
+  const step = 10 ** p.suffix.length, n = nearestN(1 / x, t => t % step === Number(p.suffix) % step, suffixFloor(p.suffix, 1 / x), step, 4);
+  if (n === null) return null;
+  const main = Math.log2(n) - 4 * Math.abs(n * x - 1);
+  // main: binary digits of the whole number n with 1/n nearest the x-crossing, less four times how far n × crossing is from 1
   return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     return null;
   })];

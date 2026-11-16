@@ -1,5 +1,5 @@
-// Smooth Hug · Thorough
-// Main part: the y-intercept right on a number made only of the dealt primes. Secondary preference: whichever you were dealt ().
+// Stepping Coefficients · Simple
+// Main part: a, b, c going up in equal steps of d. Secondary preference: whichever you were dealt ().
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -7,7 +7,7 @@
 // with that player and put the line in LEAVE to keep it.
 // Changing it later costs only what you change. To summon another agent, first move power from your agents to your
 // own store (energy moves with it), pay, then share the power out again.
-// Try this: change QUOTES = 20 to 6: fewer prices asked, but it may miss a cheaper plan.
+// Try this: add the seq.step line from the Thorough starter: a third way to change the line.
 
 // Number helpers for the rule's utility (decimal numbers; past 10^10 the rule gives no score).
 const LIMIT = 1e10, num = v => Number(v.n) / Number(v.d), cube = d => Math.abs(d) * Math.abs(d) * Math.abs(d);
@@ -35,21 +35,22 @@ function gcdB(a, b) { while (b !== 0n) [a, b] = [b, a % b]; return a; }
 
 // How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
-  const x = Math.abs(num(c));                      // the y-intercept's size
-  if (x >= LIMIT) return null;
-  const list = [], top = 2 * x + 64;               // the numbers made only of the dealt primes, up to top
-  const walk = (n, i) => { if (i === p.primes.length) { if (n > 1) list.push(n); return; } for (let t = n; t <= top; t *= p.primes[i]) walk(t, i + 1); };
-  walk(1, 0);
-  const s = list.reduce((b, t) => (Math.abs(t - x) < Math.abs(b - x) ? t : b));
-  const main = Math.sqrt(factorsN(s).length) - cube(x - s);
-  // main: the square root of the nearest smooth number's prime factors, less the distance to it cubed (bigger is better)
+  // ax + by + c = 0 in whole numbers sharing no factor, b > 0 (y = mx + c is -m·x + y - c = 0).
+  const ab = x => (x < 0n ? -x : x), L0 = m.d * c.d / gcdB(m.d, c.d);
+  let a = -m.n * (L0 / m.d), b = L0, cc = -c.n * (L0 / c.d);
+  const g = gcdB(gcdB(ab(a), b), ab(cc));
+  a /= g; b /= g; cc /= g;
+  const top = [a, b, cc].reduce((t, x) => (ab(x) > t ? ab(x) : t), 0n);
+  if (top >= BigInt(LIMIT)) return null;
+  const main = Math.log2(Number(top)) - 2 * (Math.abs(Number(b - a) - p.k) + Math.abs(Number(cc - b) - p.k));
+  // main: binary digits of the biggest of a, b, c, less twice how far each step is from d
   return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     return null;
   })];
 }
 
-const FAR = 3;      // how far one change may go
-const QUOTES = 20;  // at most this many plans are priced (each price is a host call)
+const FAR = 2;      // how far one change may go
+const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
 const LEAVE = [];      // lines your agent skips, e.g. [19] or [4, 9]: others may still move them
 const PROTECT = [];    // lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
@@ -69,33 +70,12 @@ function agent(offer) {
     if (k === 0) continue;
     tries.push([move("si.shift", { k }), m, Q.add(c, k)]);   // move the line up or down
     tries.push([move("si.tilt", { k }), Q.add(m, k), c]);   // make it steeper or flatter
-    tries.push([move("seq.step", { k }), Q.add(m, k), Q.sub(c, k)]);   // change the pattern's step, keeping y(1)
-    tries.push([move("cart.pivot", { x0: -1, k }), Q.add(m, k), Q.add(c, k)]);   // turn the line about its point at x = -1 (m and c both change by k)
-    const f = k > 0 ? k + 1 : k - 1;
-    tries.push([move("mach.stretch", { f }), Q.mul(m, f), Q.mul(c, f)]);   // multiply every output by f (m and c both)
   }
   tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
   tries.push(...shortcuts(m, c, rule.mutators));   // other views the game offers: mirrors, a slide, turns, one intercept moved
-  let options = scoreEach(tries, ([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches (fewer on a big line)
+  let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches
   // A promise: on these lines, only steps that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));
   // The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or null.
-  const one = climb(offer, options, score(m, c, p, tie), QUOTES);
-  if (one || PROTECT.includes(offer.object)) return one;
-  // No single step helps: look two steps ahead (each step, then a shift or tilt by 1) and take the first
-  // step of the best pair, though it may lower your points for a moment. It weighs the 4 best pairs: a few more small reads.
-  // The first steps: the 6 best for your rule (options are tries with their scores, in the same order).
-  const firsts = tries.slice(0, options.length).map((t, i) => [t, options[i][1]]).filter(([[, m1]]) => Q.isQ(m1))
-    .sort((a, b) => (better(a[1], b[1]) ? -1 : better(b[1], a[1]) ? 1 : 0)).slice(0, 6).map(([t]) => t);
-  const pairs = [];
-  for (const [plan, m1, c1] of firsts) {
-    if (stepsLeft() < 0.45 * stepBudget()) break;   // a big line: weigh fewer pairs rather than fail
-    const first = Array.isArray(plan) ? plan : [plan];
-    for (const k of [-1, 1]) {
-      pairs.push([[...first, move("si.shift", { k })], score(m1, Q.add(c1, k), p, tie)]);
-      pairs.push([[...first, move("si.tilt", { k })], score(Q.add(m1, k), c1, p, tie)]);
-    }
-  }
-  const two = climb(offer, pairs, score(m, c, p, tie), 4);
-  return two ? two.slice(0, -1) : null;
+  return climb(offer, options, score(m, c, p, tie), QUOTES);
 }

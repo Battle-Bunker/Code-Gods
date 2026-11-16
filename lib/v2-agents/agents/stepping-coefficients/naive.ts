@@ -1,5 +1,5 @@
-// Smooth Hug · Naive (for learning)
-// Main part: the y-intercept right on a number made only of the dealt primes. Secondary preference: whichever you were dealt ().
+// Stepping Coefficients · Naive (for learning)
+// Main part: a, b, c going up in equal steps of d. Secondary preference: whichever you were dealt ().
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -32,14 +32,15 @@ function gcdB(a, b) { while (b !== 0n) [a, b] = [b, a % b]; return a; }
 
 // How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
-  const x = Math.abs(num(c));                      // the y-intercept's size
-  if (x >= LIMIT) return null;
-  const list = [], top = 2 * x + 64;               // the numbers made only of the dealt primes, up to top
-  const walk = (n, i) => { if (i === p.primes.length) { if (n > 1) list.push(n); return; } for (let t = n; t <= top; t *= p.primes[i]) walk(t, i + 1); };
-  walk(1, 0);
-  const s = list.reduce((b, t) => (Math.abs(t - x) < Math.abs(b - x) ? t : b));
-  const main = Math.sqrt(factorsN(s).length) - cube(x - s);
-  // main: the square root of the nearest smooth number's prime factors, less the distance to it cubed (bigger is better)
+  // ax + by + c = 0 in whole numbers sharing no factor, b > 0 (y = mx + c is -m·x + y - c = 0).
+  const ab = x => (x < 0n ? -x : x), L0 = m.d * c.d / gcdB(m.d, c.d);
+  let a = -m.n * (L0 / m.d), b = L0, cc = -c.n * (L0 / c.d);
+  const g = gcdB(gcdB(ab(a), b), ab(cc));
+  a /= g; b /= g; cc /= g;
+  const top = [a, b, cc].reduce((t, x) => (ab(x) > t ? ab(x) : t), 0n);
+  if (top >= BigInt(LIMIT)) return null;
+  const main = Math.log2(Number(top)) - 2 * (Math.abs(Number(b - a) - p.k) + Math.abs(Number(cc - b) - p.k));
+  // main: binary digits of the biggest of a, b, c, less twice how far each step is from d
   return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     return null;
   })];

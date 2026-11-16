@@ -1,5 +1,5 @@
-# Smooth Hug · Simple
-# Main part: the y-intercept right on a number made only of the dealt primes. Secondary preference: whichever you were dealt ().
+# Circle Kiss · Simple
+# Main part: the line just touching the circle of radius R round (0, 0). Secondary preference: whichever you were dealt ().
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -73,26 +73,13 @@ def factors_n(n):
 
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
-    x = abs(num(c))                                 # the y-intercept's size
-    if x >= LIMIT:
+    pp, qq = abs(m.numerator), m.denominator
+    h2 = float(pp * pp + qq * qq)                     # the gradient's top² + bottom²
+    if h2 >= LIMIT * LIMIT or abs(num(c)) >= LIMIT:
         return None
-    lst, top = [], 2 * x + 64                       # the numbers made only of the dealt primes, up to top
-    def walk(n, i):
-        if i == len(p["primes"]):
-            if n > 1:
-                lst.append(n)
-            return
-        t = n
-        while t <= top:
-            walk(t, i + 1)
-            t *= p["primes"][i]
-    walk(1, 0)
-    s = lst[0]
-    for t in lst:
-        if abs(t - x) < abs(s - x):
-            s = t
-    main = math.sqrt(len(factors_n(s))) - cube(x - s)
-    # main: the square root of the nearest smooth number's prime factors, less the distance to it cubed (bigger is better)
+    d2 = num(c) * num(c) / (1 + num(m) ** 2)          # the squared distance from (0, 0) to the line
+    main = 0.5 * math.log2(h2) - 4 * abs(d2 - p["k"] * p["k"])
+    # main: half the binary digits of top² + bottom² of the gradient, less four times how far the squared distance is from R²
     def tier(t):   # each secondary, in order (None: ranks last)
         return None   # none described (a family with no tie-breakers)
     return [main] + [tier(t) for t in (tie.split(">") if tie else [])]

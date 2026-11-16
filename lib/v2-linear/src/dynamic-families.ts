@@ -4,9 +4,11 @@
  * precision is the utility's job ("If utility were sqrt of size of nearest power of k minus distance to that power
  * cubed then it really pays to be closer to the target power").
  *
- * The pool pulls in different directions on shared anchors (CLAUDE.md, decision 30): on the y-intercept c, Power Hug,
- * Smooth Hug and Multiples (bigger) against Unit Fraction (smaller) and Fine Bottom (fractions); on the gradient m,
- * Prime Hug (bigger) against Prime Sliver (smaller) and Next-door Bottom (fractions).
+ * The pool pulls in different directions on shared anchors (CLAUDE.md, decision 30). On the y-intercept c: Power Hug and
+ * Multiples (bigger) against Unit Fraction (smaller) and Fine Bottom (fractions). On the gradient m: Prime Hug (bigger)
+ * against Prime Sliver (smaller) and Next-door Bottom (fractions). On the x-crossing −c/m: Crossing Sliver (towards 0)
+ * against Square Triangle (the area |c·X|/2 big). On a, b, c: Stepping Coefficients (big, in steps) against everything
+ * that wants a small or simple gradient or intercept. Circle Kiss ties c to m (c² = R²(1 + m²)) and wants fine tilts.
  *
  * Every utility is cheap (a few thousand steps at most) and treats numbers past 10^10 as beyond its reach (NaN, the
  * worst), a bound on the cost of a reading.
@@ -37,11 +39,12 @@ export interface DynamicLineSpec<P> {
   card(p: P): string;
   /** The main part's title, short. */
   readonly goal: string;
-  readonly reads: readonly ("m" | "c")[];
+  /** What the energy's starts match (energy.ts startLike): "m", "c", "X" (the x-crossing) or "gen" (a, b and c). */
+  readonly reads: readonly ("m" | "c" | "X" | "gen")[];
   /** The utility of y = mx + c; NaN is the worst. */
   u(m: Q, c: Q, p: P): number;
-  /** Where u is read, for the views' focus mark. */
-  readonly focus: "m" | "c";
+  /** Where u is read, for the views' focus mark: a representation and its element. */
+  readonly focus: readonly [rep: string, el: string];
   readonly space: ParamSpace<P>;
   readonly peers: readonly P[];
   readonly searches: readonly { readonly id: string; propose(m: Q, c: Q, uStar: number, p: P, r: Rng): readonly LineTarget[] }[];
@@ -65,12 +68,13 @@ export function dynamicLine<P>(s: DynamicLineSpec<P>): RuleFamily<LineState, P> 
     })),
   };
   return {
-    id: s.id, title: s.title, card: p => s.card(p), params: [], dealable: () => s.peers, depends: ["si"],
-    main: { id: "utility", title: s.goal, rep: "si", sense: "max", sentence: p => s.card(p) },
+    id: s.id, title: s.title, card: p => s.card(p), params: [], dealable: () => s.peers, depends: [...new Set(["si", s.focus[0]])],
+    main: { id: "utility", title: s.goal, rep: s.focus[0], sense: "max", sentence: p => s.card(p) },
     tieBreakers: [], keepsParams: true, space: s.space, dynamic,
     evaluate(ctx, p) {
       const mRef = ref("si", "m"), cRef = ref("si", "c"), mv = num(ctx.read(mRef)), cv = num(ctx.read(cRef));
-      const at = s.focus === "m" ? mRef : cRef;
+      const at = ref(s.focus[0], s.focus[1]);
+      if (s.focus[0] !== "si") ctx.read(at);
       const u = mv === null || cv === null ? NaN : s.u(mv, cv, p);
       ctx.term("utility", s.goal, Number.isFinite(u) ? q(BigInt(Math.round(u * 1e6)), 1000000n) : { undefined: mv === null ? "a vertical line has no gradient" : "too far from anything this rule can reach" }, [at]);
       ctx.mark({ kind: "focus", ref: at });
@@ -134,7 +138,7 @@ const powers = (k: number, top: number) => { const out: number[] = []; for (let 
 const nearestPower = (k: number, x: number) => powers(k, Math.max(k, 2 * x + k)).reduce((b, p) => (abs(p - x) < abs(b - x) ? p : b), k);
 const ph = intRange(2, 40, "k, a whole number from 2 to 40", [3, 5]);
 export const powerHug = dynamicLine<{ k: number }>({
-  id: "power-hug", title: "Power Hug", goal: "the y-intercept right on a power of k", reads: ["c"], focus: "c", ...ph,
+  id: "power-hug", title: "Power Hug", goal: "the y-intercept right on a power of k", reads: ["c"], focus: ["si", "c"], ...ph,
   card: ({ k }) => `The y-intercept (ignoring its sign) should sit exactly on a power of ${k}: ${k}, ${k ** 2}, ${k ** 3}, … A bigger power scores a little more (the square root of its number of binary digits), and every bit off costs a lot: the distance, cubed.`,
   u(_m, c, { k }) { const x = abs(toNum(c)); if (x >= LIMIT) return NaN; const P = nearestPower(k, x); return Math.sqrt(log2(P)) - cube(x - P); },
   searches: [{ id: "big-enough-powers", propose: (_m, c, uStar, { k }) => {
@@ -151,7 +155,7 @@ const primeHugU = (x: number, suffix: string) => {
   return p === null ? NaN : Math.sqrt(log2(p)) - cube(x - p);
 };
 export const primeHug = dynamicLine<{ suffix: string }>({
-  id: "prime-hug", title: "Prime Hug", goal: "the gradient right on a prime with the dealt last digits", reads: ["m"], focus: "m",
+  id: "prime-hug", title: "Prime Hug", goal: "the gradient right on a prime with the dealt last digits", reads: ["m"], focus: ["si", "m"],
   space: suffixSpace, peers: [{ suffix: "1" }, { suffix: "7" }],
   card: ({ suffix }) => `The gradient (ignoring its sign) should sit exactly on a prime number whose last digits are ${suffix}. A bigger prime scores a little more; every bit off costs a lot: the distance, cubed.`,
   u: (m, _c, { suffix }) => primeHugU(abs(toNum(m)), suffix),
@@ -161,42 +165,6 @@ export const primeHug = dynamicLine<{ suffix: string }>({
     for (let n = suffixFloor(suffix)(x) + step, i = 0; i < 2000; n += step, i++) if (ok(n)) { out.push({ m: signedQ(n, m) }); break; }
     for (let n = suffixFloor(suffix)(x), i = 0; n >= need && i < 2000; n -= step, i++) if (ok(n)) { out.push({ m: signedQ(n, m) }); break; }
     return out;
-  } }],
-});
-
-// ------------------------------------------------------------------ 3. Smooth Hug, on c
-
-const SMOOTH_SETS: readonly (readonly number[])[] = (() => {
-  const ps = [2, 3, 5, 7, 11, 13], out: number[][] = [];
-  for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) { out.push([ps[i]!, ps[j]!]); for (let k = j + 1; k < ps.length; k++) out.push([ps[i]!, ps[j]!, ps[k]!]); }
-  return out;
-})();
-/** The numbers > 1 made only of the primes, up to top. */
-function smooth(primes: readonly number[], top: number): number[] {
-  const out: number[] = [];
-  const walk = (n: number, i: number) => { if (i === primes.length) { if (n > 1) out.push(n); return; } for (let x = n; x <= top; x *= primes[i]!) walk(x, i + 1); };
-  walk(1, 0);
-  return out;
-}
-export const smoothHug = dynamicLine<{ primes: readonly number[] }>({
-  id: "smooth-hug", title: "Smooth Hug", goal: "the y-intercept right on a number made only of the dealt primes", reads: ["c"], focus: "c",
-  peers: [{ primes: [2, 3] }, { primes: [5, 7, 11] }],
-  space: {
-    size: SMOOTH_SETS.length, hint: "two or three of the primes 2, 3, 5, 7, 11, 13 (e.g. 3 7)",
-    draw: r => ({ primes: SMOOTH_SETS[r.below(SMOOTH_SETS.length)]! }),
-    parse(text) { const ps = text.trim().split(/[\s,]+/).map(Number).sort((a, b) => a - b), hit = SMOOTH_SETS.find(s => s.join() === ps.join()); return hit ? { primes: hit } : { invalid: "two or three of 2, 3, 5, 7, 11, 13" }; },
-    label: p => p.primes.join(" "),
-  },
-  card: ({ primes }) => `The y-intercept (ignoring its sign) should sit exactly on a number you get by multiplying only ${primes.join(", ")} together (like ${smooth(primes, 400).sort((a, b) => a - b).slice(0, 5).join(", ")}, …). More factors score more (the square root of how many); every bit off costs a lot: the distance, cubed.`,
-  u(_m, c, { primes }) {
-    const x = abs(toNum(c));
-    if (x >= LIMIT) return NaN;
-    const n = smooth(primes, 2 * x + 64).reduce((b, s) => (abs(s - x) < abs(b - x) ? s : b));
-    return Math.sqrt(factors(n).length) - cube(x - n);
-  },
-  searches: [{ id: "enough-factors", propose: (_m, c, uStar, { primes }) => {
-    const x = abs(toNum(c)), ok = smooth(primes, Math.min(LIMIT, Math.max(64, 8 * x))).filter(n => Math.sqrt(factors(n).length) >= uStar - 1e-9);
-    return ok.sort((a, b) => abs(a - x) - abs(b - x)).slice(0, 3).map(n => ({ c: signedQ(n, c) }));
   } }],
 });
 
@@ -212,7 +180,7 @@ const multiplesU = (x: number, k: number) => {
   return (log2(abs(n)) - Math.sqrt(abs(x - n))) * (kk - factors(rest).length);
 };
 export const multiples = dynamicLine<{ k: number }>({
-  id: "multiples", title: "Multiples", goal: "the y-intercept near a multiple of k made of many k's", reads: ["c"], focus: "c", ...mk,
+  id: "multiples", title: "Multiples", goal: "the y-intercept near a multiple of k made of many k's", reads: ["c"], focus: ["si", "c"], ...mk,
   card: ({ k }) => `Take the multiple of ${k} nearest the y-intercept. Count how many times ${k} divides it, take away how many prime factors are left over, and multiply by its size (in binary digits) less the square root of how far the y-intercept is from it. Bigger is better.`,
   u: (_m, c, { k }) => multiplesU(toNum(c), k),
   searches: [{ id: "powers-of-k-times-small", propose: (_m, c, uStar, { k }) => {
@@ -228,7 +196,7 @@ export const multiples = dynamicLine<{ k: number }>({
 const kPart = (n: bigint, k: bigint) => { let p = 1n; while (n % k === 0n) { n /= k; p *= k; } return p; };
 const fb = intRange(2, 9, "k, a whole number from 2 to 9", [2, 3]);
 export const fineBottom = dynamicLine<{ k: number }>({
-  id: "fine-bottom", title: "Fine Bottom", goal: "the y-intercept a fraction whose bottom is made of k's", reads: ["c"], focus: "c", ...fb,
+  id: "fine-bottom", title: "Fine Bottom", goal: "the y-intercept a fraction whose bottom is made of k's", reads: ["c"], focus: ["si", "c"], ...fb,
   card: ({ k }) => `Write the y-intercept as a fraction in lowest terms. Its bottom number should be made of ${k}'s: each binary digit of the ${k}'s part scores one, each binary digit of anything else in the bottom costs two.`,
   u(_m, c, { k }) { const d = c.d, kp = kPart(d, BigInt(k)); return log2(Number(kp)) - 2 * log2(Number(d / kp)); },
   searches: [{ id: "round-to-k-power", propose: (_m, c, uStar, { k }) => {
@@ -248,7 +216,7 @@ export const fineBottom = dynamicLine<{ k: number }>({
 
 const nd = intRange(1, 9, "t, a whole number from 1 to 9", [1, 2]);
 export const nextDoorBottom = dynamicLine<{ k: number }>({
-  id: "next-door-bottom", title: "Next-door Bottom", goal: "the gradient's bottom dividing its top plus t", reads: ["m"], focus: "m", ...nd,
+  id: "next-door-bottom", title: "Next-door Bottom", goal: "the gradient's bottom dividing its top plus t", reads: ["m"], focus: ["si", "m"], ...nd,
   card: ({ k }) => `Write the gradient as a fraction top/bottom in lowest terms (ignore its sign). The bottom should divide the top plus ${k}: each binary digit of the part of the bottom that does scores one, each binary digit of the part that does not costs one.`,
   u(m, _c, { k }) {
     const a = Qn.abs(m).n, d = m.d, g = gcd(a + BigInt(k), d);
@@ -280,7 +248,7 @@ const endSpace: ParamSpace<{ suffix: string }> = {
   label: p => p.suffix,
 };
 export const unitFraction = dynamicLine<{ suffix: string }>({
-  id: "unit-fraction", title: "Unit Fraction", goal: "the y-intercept one over a big whole number", reads: ["c"], focus: "c",
+  id: "unit-fraction", title: "Unit Fraction", goal: "the y-intercept one over a big whole number", reads: ["c"], focus: ["si", "c"],
   space: endSpace, peers: [{ suffix: "3" }, { suffix: "8" }],
   card: ({ suffix }) => `The y-intercept (ignoring its sign) should be exactly one over a whole number ending in ${suffix} (1/${suffix}, 1/${Number(suffix) + 10 ** suffix.length}, …). The smaller the fraction, the better (the binary digits of the whole number); being off costs four times how far n × y-intercept is from 1.`,
   u: (_m, c, { suffix }) => ufU(abs(toNum(c)), suffix),
@@ -299,7 +267,7 @@ const psU = (x: number, suffix: string) => {
   return p === null ? NaN : log2(p) - 4 * abs(p * x - 1);
 };
 export const primeSliver = dynamicLine<{ suffix: string }>({
-  id: "prime-sliver", title: "Prime Sliver", goal: "the gradient one over a big prime with the dealt last digits", reads: ["m"], focus: "m",
+  id: "prime-sliver", title: "Prime Sliver", goal: "the gradient one over a big prime with the dealt last digits", reads: ["m"], focus: ["si", "m"],
   space: suffixSpace, peers: [{ suffix: "3" }, { suffix: "9" }],
   card: ({ suffix }) => `The gradient (ignoring its sign) should be exactly one over a prime whose last digits are ${suffix}: a very gentle slope. The bigger the prime, the better (its binary digits); being off costs four times how far p × gradient is from 1.`,
   u: (m, _c, { suffix }) => psU(abs(toNum(m)), suffix),
@@ -310,5 +278,131 @@ export const primeSliver = dynamicLine<{ suffix: string }>({
   } }],
 });
 
-/** The families dealt with the dynamic measure. */
-export const dynamicFamilies = [powerHug, primeHug, smoothHug, multiples, fineBottom, nextDoorBottom, unitFraction, primeSliver] as const;
+// ------------------------------------------------------------------ 9. Crossing Sliver (against size), on the x-crossing
+
+/** The x-crossing −c/m of y = mx + c (null for a flat line). */
+const crossing = (m: Q, c: Q): Q | null => (Qn.isZero(m) ? null : Qn.div(Qn.neg(c), m));
+export const crossingSliver = dynamicLine<{ suffix: string }>({
+  id: "crossing-sliver", title: "Crossing Sliver", goal: "the line crossing the x-axis at one over a big whole number", reads: ["X"], focus: ["crossing", "x0"],
+  space: endSpace, peers: [{ suffix: "7" }, { suffix: "11" }],
+  card: ({ suffix }) => `The line should cross the x-axis (ignoring the sign) at exactly one over a whole number ending in ${suffix} (1/${suffix}, 1/${Number(suffix) + 10 ** suffix.length}, …): very close to (0, 0). The closer, the better (the binary digits of the whole number); being off costs four times how far n × crossing is from 1.`,
+  u: (m, c, { suffix }) => { const X = crossing(m, c); return X === null ? NaN : ufU(abs(toNum(X)), suffix); },
+  searches: [{ id: "small-enough-crossings", propose: (m, c, uStar, { suffix }) => {
+    const step = 10 ** suffix.length, e = Number(suffix) % step, need = Math.max(1, Math.ceil(2 ** uStar - 1e-9));
+    const first = need + ((e - need) % step + step) % step, out: LineTarget[] = [];
+    for (const n of [first, first + step]) {
+      if (n <= 0 || n >= LIMIT) continue;
+      const X = q(1n, BigInt(n));
+      if (!Qn.isZero(m)) out.push({ c: Qn.neg(Qn.mul(m, X)) }, { c: Qn.mul(m, X) });   // keep the gradient
+      if (!Qn.isZero(c)) out.push({ m: Qn.neg(Qn.div(c, X)) });                          // keep the y-intercept
+    }
+    return out;
+  } }],
+});
+
+// ------------------------------------------------------------------ 10. Stepping Coefficients, on a, b, c
+
+/** a, b, c of ax + by + c = 0 in lowest whole numbers, b > 0 (y = mx + c is −m·x + y − c = 0). */
+function abcOf(m: Q, c: Q): [bigint, bigint, bigint] {
+  const L = m.d * c.d / gcd(m.d, c.d), a = -m.n * (L / m.d), b = L, cc = -c.n * (L / c.d), g = gcd(gcd(a < 0n ? -a : a, b), cc < 0n ? -cc : cc);
+  return [a / g, b / g, cc / g];
+}
+const babs = (x: bigint) => (x < 0n ? -x : x);
+const stepU = (a: bigint, b: bigint, c: bigint, d: number) => {
+  const top = [a, b, c].reduce((t, x) => (babs(x) > t ? babs(x) : t), 0n);
+  if (top >= BigInt(LIMIT)) return NaN;
+  return log2(Number(top)) - 2 * (abs(Number(b - a) - d) + abs(Number(c - b) - d));
+};
+const stepSpace: ParamSpace<{ k: number }> = {
+  size: 60, hint: "d, a whole number from −30 to 30, not 0",
+  draw: r => { const k = 1 + r.below(30); return { k: r.bit() ? k : -k }; },
+  parse(text) { const k = Number(text.trim().replace(/^d\s*=\s*/, "")); return Number.isInteger(k) && k !== 0 && abs(k) <= 30 ? { k } : { invalid: "a whole number from −30 to 30, not 0" }; },
+  label: p => String(p.k),
+};
+export const steppingCoefficients = dynamicLine<{ k: number }>({
+  id: "stepping-coefficients", title: "Stepping Coefficients", goal: "a, b, c going up in equal steps of d", reads: ["gen"], focus: ["gen", "b"],
+  space: stepSpace, peers: [{ k: 3 }, { k: -5 }],
+  card: ({ k }) => `Write the line as a·x + b·y + c = 0 with whole numbers that share no factor (b positive). The three numbers should go up in steps of ${k}: b = a + ${k} and c = b + ${k}. Bigger numbers score more (the binary digits of the biggest of a, b, c); every unit a step is off costs 2.`,
+  u(m, c, { k }) { const [a, b, cc] = abcOf(m, c); return stepU(a, b, cc, k); },
+  searches: [{ id: "big-enough-steps", propose: (m, c, uStar, { k }) => {
+    // a, a + d, a + 2d with gcd(a, d) = 1 (so they share no factor) and b = a + d > 0, the biggest at least 2^u*.
+    const [a0] = abcOf(m, c), need = Math.ceil(2 ** Math.max(0, uStar) - 1e-9) + 2 * abs(k), out: LineTarget[] = [];
+    for (const base of [Number(babs(a0)), need]) for (const sign of [1, -1]) {
+      for (let a = sign * Math.max(1, base), i = 0; i < 40 && out.length < 4 && abs(a) < LIMIT; a += sign, i++) {
+        const b = a + k, cc = b + k;
+        if (b <= 0 || Number(gcd(BigInt(abs(a)), BigInt(abs(k)))) !== 1 || stepU(BigInt(a), BigInt(b), BigInt(cc), k) < uStar - 1e-9) continue;
+        out.push({ m: q(BigInt(-a), BigInt(b)), c: q(BigInt(-cc), BigInt(b)) });
+        break;
+      }
+    }
+    return out;
+  } }],
+});
+
+// ------------------------------------------------------------------ 11. Circle Kiss, on m and c
+
+const kissU = (m: Q, c: Q, R: number) => {
+  const p = Number(Qn.abs(m).n), qq = Number(m.d), h2 = p * p + qq * qq;
+  if (h2 >= LIMIT * LIMIT || abs(toNum(c)) >= LIMIT) return NaN;
+  const cn = toNum(c), dist2 = (cn * cn) / (1 + toNum(m) ** 2);
+  return 0.5 * log2(h2) - 4 * abs(dist2 - R * R);
+};
+const kr = intRange(1, 60, "R, a whole number from 1 to 60", [5, 12]);
+export const circleKiss = dynamicLine<{ k: number }>({
+  id: "circle-kiss", title: "Circle Kiss", goal: "the line just touching the circle of radius R round (0, 0)", reads: ["m", "c"], focus: ["norm", "dist2"], ...kr,
+  card: ({ k }) => `The line should just touch the circle of radius ${k} around (0, 0), at exactly one point. Write the gradient as top/bottom in lowest terms: the bigger top² + bottom², the better (half its binary digits); missing costs four times how far the squared distance from (0, 0) to the line is from ${k * k}.`,
+  u: (m, c, { k }) => kissU(m, c, k),
+  searches: [{ id: "pythagorean-tilts", propose: (m, c, uStar, { k }) => {
+    // Tilts p/q with p² + q² = h² and h ≥ 2^u*, nearest the start's gradient; c = ±k·h/q touches exactly.
+    const T = tilts(), need = 2 ** Math.max(0, uStar), x = abs(toNum(m)), out: LineTarget[] = [];
+    let lo = 0, hi = T.length;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (T[mid]![0] < x) lo = mid + 1; else hi = mid; }
+    const sm = Qn.sign(m) < 0 ? -1n : 1n, sc = Qn.sign(c) < 0 ? -1n : 1n;
+    for (let d = 0; d < 4000 && out.length < 3 && (lo - d >= 0 || lo + d < T.length); d++) for (const i of d === 0 ? [lo] : [lo - d, lo + d]) {
+      const t = T[i];
+      if (!t || t[3] < need || out.length >= 3) continue;
+      out.push({ m: q(sm * BigInt(t[1]), BigInt(t[2])), c: q(sc * BigInt(k * t[3]), BigInt(t[2])) });
+    }
+    return out;
+  } }],
+});
+/** The Pythagorean tilts p/q (both orders of each primitive triple with u < 400), by value: [p/q, p, q, h]. Built on first use. */
+let TILTS: [number, number, number, number][] | null = null;
+function tilts(): [number, number, number, number][] {
+  if (TILTS) return TILTS;
+  const out: [number, number, number, number][] = [];
+  for (let u = 2; u < 400; u++) for (let v = 1; v < u; v++) {
+    if ((u - v) % 2 === 0 || Number(gcd(BigInt(u), BigInt(v))) !== 1) continue;
+    const A = u * u - v * v, B = 2 * u * v, h = u * u + v * v;
+    out.push([A / B, A, B, h], [B / A, B, A, h]);
+  }
+  return (TILTS = out.sort((a, b) => a[0] - b[0]));
+}
+
+// ------------------------------------------------------------------ 12. Square Triangle, on the triangle's area
+
+const sqTriU = (m: Q, c: Q, k: number) => {
+  if (Qn.isZero(m) || Qn.isZero(c)) return NaN;
+  const area = toNum(Qn.mul(c, c)) / (2 * abs(toNum(m)));
+  if (area >= LIMIT) return NaN;
+  const n = Math.max(k, k * Math.round(Math.sqrt(area) / k));
+  return log2(n) - 2 * Math.sqrt(abs(area - n * n));
+};
+const st = intRange(2, 30, "k, a whole number from 2 to 30", [3, 7]);
+export const squareTriangle = dynamicLine<{ k: number }>({
+  id: "square-triangle", title: "Square Triangle", goal: "the triangle under the line with the area of a square of side a multiple of k", reads: ["m", "c"], focus: ["tri", "area"], ...st,
+  card: ({ k }) => `The line and the two axes make a triangle. Its area should be exactly a square number n × n, where n is a multiple of ${k} (${k * k}, ${4 * k * k}, ${9 * k * k}, …). A bigger n scores more (its binary digits); missing costs twice the square root of how far the area is from n × n.`,
+  u: (m, c, { k }) => sqTriU(m, c, k),
+  searches: [{ id: "square-areas", propose: (m, c, uStar, { k }) => {
+    // Keep the y-intercept and set the gradient to c²/(2n²) (its sign kept): the area is then exactly n².
+    if (Qn.isZero(c)) return [];
+    const need = Math.max(k, Math.ceil(2 ** Math.max(0, uStar) / k - 1e-9) * k);
+    const near = Math.max(k, k * Math.round(Math.sqrt(Qn.isZero(m) ? 0 : toNum(Qn.mul(c, c)) / (2 * abs(toNum(m)))) / k));
+    const sm = Qn.sign(m) < 0 ? -1n : 1n;
+    return [...new Set([need, Math.max(need, near), Math.max(need, near + k)])].filter(n => n * n < LIMIT)
+      .map(n => ({ m: Qn.mul(q(sm), Qn.div(Qn.mul(c, c), q(BigInt(2 * n * n)))) }));
+  } }],
+});
+
+/** The families dealt with the dynamic measure: four that want small or fine numbers against six that want big ones. */
+export const dynamicFamilies = [powerHug, primeHug, multiples, fineBottom, nextDoorBottom, unitFraction, primeSliver, crossingSliver, steppingCoefficients, circleKiss, squareTriangle] as const;

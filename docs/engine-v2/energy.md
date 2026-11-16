@@ -56,12 +56,24 @@ better), the readings it `reads`, and its own `searches` (heuristics that propos
 |---|---|---|---|---|
 | Power Hug | c | √(log2 P) − \|c − P\|³, P the nearest power of k (the owner's example) | up, precise | k 2–40 |
 | Prime Hug | m | √(log2 p) − \|m − p\|³, p the nearest prime ending in the suffix | up, precise | 444 suffixes |
-| Smooth Hug | c | √Ω(n) − \|c − n\|³, n the nearest number made of the dealt primes | up | 35 sets |
 | Multiples | c | (log2\|n\| − √\|c − n\|) × (k's in n − other factors): the owner's example | up | k 2–12 |
 | Fine Bottom | c | log2 (k-part of c's bottom) − 2 log2 (rest of the bottom) | fractions | k 2–9 |
 | Next-door Bottom | m | log2 gcd(\|top\| + t, bottom) − log2 (the rest of the bottom) | fractions | t 1–9 |
 | Unit Fraction | c | log2 n − 4 \|n·c − 1\|, n the whole number ending in the suffix nearest 1/\|c\| | down | 99 suffixes |
 | Prime Sliver | m | log2 p − 4 \|p·m − 1\|, p the prime ending in the suffix nearest 1/\|m\| | down | 444 suffixes |
+| Crossing Sliver | X | log2 n − 4 \|n·X − 1\|, X = −c/m, n the whole number ending in the suffix nearest 1/\|X\| | X towards 0 | 99 suffixes |
+| Stepping Coefficients | a, b, c | log2 max(\|a\|, \|b\|, \|c\|) − 2(\|b − a − d\| + \|c − b − d\|), ax + by + c = 0 in lowest whole numbers, b > 0 | up, in steps | d ±1–30 |
+| Circle Kiss | m, c | ½ log2(p² + q²) − 4 \|c²/(1 + m²) − R²\|, m = p/q: touch the circle of radius R (Pythagorean tilts) | finer tilts | R 1–60 |
+| Square Triangle | m, c (the area c²/2\|m\|) | log2 n − 2√\|area − n²\|, n the multiple of k with n² nearest | area up | k 2–30 |
+
+Changes of 16 Nov (step 2 of the cutover): Smooth Hug left (one of four y-intercept hugs); Crossing Sliver, Stepping
+Coefficients, Circle Kiss and Square Triangle joined. Eleven are dealt: four want small or fine numbers (Unit Fraction,
+Prime Sliver, Crossing Sliver, and Fine Bottom/Next-door Bottom's fine bottoms), six want big ones. Circle Kiss and
+Square Triangle are this pool's own formulations of the reserve ideas (A22, A28 in layered-line-rules.md), not their
+tuples: Square Triangle asks for a square area n² (n a multiple of k) rather than a square triangular number, whose
+ladder (36, 1225, 41616, …) has too few rungs. The floor also gained a route through a mirror and back (reflect, one
+solved move, reflect back): without it the x-crossing could only be moved by a dear sized amount, and Crossing Sliver's
+energies were about a thousand times its peers' on the same lines (seen narrowly: six sample lines, K = 12).
 
 The old families stay in the code; they are not dealt on Lines · beginner. The other line presets still use tables until
 those are deleted.
@@ -72,16 +84,16 @@ Labels as above. Several rows assumed tables or tie-breakers, and the adaptation
 
 | Row | Status |
 |---|---|
-| 1 Unbounded main part | Built: every utility rises without bound (powers, primes, factor counts, bottoms, 1/n). |
+| 1 Unbounded main part | Built: every utility rises without bound (powers, primes, factor counts, bottoms, 1/n, the biggest coefficient, the tilt's hypotenuse, the square's side). |
 | 2 Climbed all game | Not measured. Guess: the up-pulling hugs climb by power or prime steps, each far bigger than the last, so they are slowed by price, not by a top. |
 | 3, 3a Tie-breaker tied to the main part | Adapted: no tie-breakers. Precision is a term of the utility (cubed or ×4 distance to the anchor the main part chose), so a step to a new anchor restarts the precision climb. |
 | 4 Dealable instances | Built: large spaces (RuleFamily.space); two peers listed per family. |
 | 5 Perpendicular | Not measured: the PMI table is computed from value tables (exempt in v2-rule-check). |
-| 6 Opponents | By construction: on c, three families pull up and Unit Fraction pulls down (Fine Bottom wants fractions); on m, Prime Hug pulls up, Prime Sliver down, Next-door Bottom wants fractions. |
-| 7 Kinds | Powers, large primes, smooth numbers, k-multiples, denominators of a base, divisibility of top + t by bottom, unit fractions, prime reciprocals: no kind shared by more than two. |
+| 6 Opponents | By construction: on c, Power Hug and Multiples pull up and Unit Fraction pulls down (Fine Bottom wants fractions); on m, Prime Hug pulls up, Prime Sliver down, Next-door Bottom wants fractions; on the x-crossing, Crossing Sliver pulls towards 0 against Square Triangle's big area (area = \|c·X\|/2); Stepping Coefficients' big a, b, c oppose every rule that wants a simple gradient or intercept; Circle Kiss ties c to m (c² = R²(1 + m²)). |
+| 7 Kinds | Powers, large primes, k-multiples, denominators of a base, divisibility of top + t by bottom, unit fractions (on c and on X), prime reciprocals, arithmetic steps, Pythagorean tilts, square areas: no kind shared by more than two. |
 | 10 Small bump | Not measured. Guess: the cubed terms make every off-anchor bump expensive in utility, but energy, not utility, is paid, so the loss is the energy of a slightly worse state. |
 | 12 Writable from the card | Each card states the formula in words. Not tested with a reader. |
-| 13 Lives on the rationals | Fine Bottom, Next-door Bottom, Unit Fraction and Prime Sliver need fractions by construction. |
+| 13 Lives on the rationals | Fine Bottom, Next-door Bottom, Unit Fraction, Prime Sliver and Crossing Sliver need fractions by construction; Circle Kiss's tangent lines have fractional gradients (p/q from a triple) and intercepts (R·h/q); Stepping Coefficients' lines have gradient −a/(a + d). |
 
 How this could be wrong: K = 12 is noisy. A rule whose good states are cheap from most same-size starts scores near 0
 however good it is. The floor and heuristics are only what is coded, so a cheaper route nobody coded overvalues a state.
