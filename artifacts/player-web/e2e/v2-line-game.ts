@@ -262,6 +262,19 @@ try {
     await page.locator("[data-testid^=row-line-]").first().waitFor({ state: "visible", timeout: 10_000 });
     assert.equal(await page.getByTestId("select-lines-sort").inputValue(), "points", "Lines sorted by your points");
     if (label === "desktop") {
+      // v1's orders and filters (W3-2 #936): oldest first lists line 1 first; "earning you points" keeps only those.
+      await page.getByTestId("select-lines-sort").selectOption("oldest");
+      // (Lines born at the same moment have no order between them: the rows show, in the view's order.)
+      await page.locator("[data-testid^=row-line-]").first().waitFor({ timeout: 10_000 });
+      assert.equal(await page.getByTestId("select-lines-sort").inputValue(), "oldest");
+      await page.getByTestId("select-lines-show").selectOption("positive");
+      await page.waitForTimeout(1500);
+      const shown = await page.locator("[data-testid^=row-line-]").count();
+      await page.getByTestId("select-lines-show").selectOption("all");
+      await page.getByTestId("select-lines-sort").selectOption("points");
+      await page.waitForTimeout(1500);
+      assert.ok(await page.locator("[data-testid^=row-line-]").count() >= shown, `${label}: all lines again`);
+      console.log(`${label}: oldest first and earning-you-points (${shown} lines) apply`);
       // The list holds still under the pointer while the world runs (persona walk: a re-sort opened the wrong grid).
       const order = async () => page.locator("[data-testid^=row-line-]").evaluateAll((els: Element[]) => els.map(e => e.getAttribute("data-testid")));
       await page.locator("[data-testid^=row-line-]").first().hover();

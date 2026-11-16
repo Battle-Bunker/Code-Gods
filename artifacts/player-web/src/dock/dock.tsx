@@ -4,8 +4,8 @@
  * view state's arrangement (desktop.tsx, loaded only there). Phone: one column in reading order, no inner scroller
  * taller than the screen allows (ux-lessons 5.1), with a row of the panes' names that jumps to any of them.
  */
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { readingOrder, shownPanes, storedSlugOf, type GamePhase } from "@workspace/v2-client";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { fileIdOf, readingOrder, shownPanes, storedSlugOf, type GamePhase } from "@workspace/v2-client";
 import { useRuntime, useView } from "@/core/affordance-runtime";
 import { useWide } from "@/core/use-wide";
 import { onReveal } from "./open-pane";
@@ -101,7 +101,10 @@ function StackedDock({ panes: all, phase }: { panes: string[]; phase: GamePhase 
   );
 }
 
-export function Dock({ phase, panes: components, stored: Stored }: { phase: GamePhase; panes: PaneComponents; stored?: StoredPaneComponent }) {
+/** A file panel's pane (`file:<id>`: src/panels/<id>.tsx). */
+export type FilePaneComponent = (props: { id: string }) => ReactNode;
+
+export function Dock({ phase, panes: components, stored: Stored, file: File }: { phase: GamePhase; panes: PaneComponents; stored?: StoredPaneComponent; file?: FilePaneComponent }) {
   const stored = useView();
   const wide = useWide();
   // A room without AI shows no assistant, even one opened before AI was turned off.
@@ -113,10 +116,12 @@ export function Dock({ phase, panes: components, stored: Stored }: { phase: Game
     body: (pane: string) => {
       const slug = storedSlugOf(pane);
       if (slug && Stored) return <Stored slug={slug} />;
+      const fileId = fileIdOf(pane);
+      if (fileId && File) return <File id={fileId} />;
       const C = components[pane];
       return C ? <C /> : <p className="p-4 text-sm text-muted-foreground">This pane is not on this version of the game yet.</p>;
     },
-  }), [phase, view, open, components, Stored]);
+  }), [phase, view, open, components, Stored, File]);
   return (
     <DockScopeContext.Provider value={scope}>
       {wide

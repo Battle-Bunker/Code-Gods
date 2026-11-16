@@ -75,6 +75,8 @@ export function divisibility(n: number): RuleFamily<GridState, DivisibilityParam
     ctx.term("powers", "the powers of q dividing the numbers, added up, less the repeated rows and columns", Q(nums.reduce((t, x) => t + x.v, 0) - repeats(n, cells.v)), els);
     ctx.term("leftover-digits", "the digits of what is left after dividing out the powers, added up", Q(nums.reduce((t, x) => t + (x.x === 0 ? 0 : digitSum(x.x / p.q ** x.v)), 0)), els);
     nums.forEach((x, k) => { for (const text of divisibilityNotes(x.x, x.v, p.q)) ctx.mark({ kind: "note", ref: els[k]!, text }); });
+    // The secondary: what is left after dividing out the q's, and its digits added up.
+    nums.forEach((x, k) => { if (x.x !== 0) { const left = x.x / p.q ** x.v; ctx.mark({ kind: "note", ref: els[k]!, term: "leftover-digits", text: `left after dividing out the ${p.q}s: ${left}, digits adding up to ${digitSum(left)}` }); } });
     // Focus the readings (both readings of a difference) that carry the highest power.
     const best = Math.max(...nums.map(x => x.v));
     if (best > 0) nums.forEach((x, k) => {

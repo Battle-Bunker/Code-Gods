@@ -56,7 +56,7 @@ function agent(offer) {
   { const s = p.side ?? 1, x = Q.mul(s, m);
     for (let t = Q.add(near(x, prime, p.ends) ?? p.ends, 10), i = 0; i < 100; t = Q.add(t, 10), i++) if (prime(t)) { tries.push([move("si.tilt", { k: Q.sub(Q.mul(s, t), m) }), Q.mul(s, t), c]); break; } }
   tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
-  let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches
+  let options = scoreEach(tries, ([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches (fewer on a big line)
   // A promise: on these lines, only steps that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));
   // The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or null.

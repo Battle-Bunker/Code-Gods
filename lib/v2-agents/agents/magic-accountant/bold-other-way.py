@@ -60,7 +60,7 @@ def agent(offer):
                 tries.append(([move("cells.add", cell=NAME[i], k=k), move("cells.add", cell=NAME[i2], k=-k)], edit(b, [i, i2], lambda j: -k if j else k)))
         for i in range(8):   # add k to every cell of a row or column
             tries.append((move("tally.add", line=LINE[i], k=k), edit(b, LINES[i], lambda j: k)))
-    options = [(plan, score(b2, p)) for plan, b2 in tries]   # each step and the score it reaches
+    options = score_each(tries, lambda t: (t[0], score(t[1], p)))   # each step and the score it reaches (fewer on a big board)
     # A promise: on these boards, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:
         options = [(plan, s) for plan, s in options if fair(offer, plan)]

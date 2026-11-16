@@ -22,7 +22,7 @@ import { httpAction, type ActionCtx } from "../_generated/server";
 import { PLAYER_JWT_AUDIENCE, playerIssuer, siteOrigin, siteUrl } from "../auth/config";
 import { sha256Hex } from "../auth/crypto";
 import { jwks } from "../auth/jwt";
-import { NEEDS_CONTEXT, serverForV2, v2ContextFor, v2PermissionOf } from "./mcpV2";
+import { NEEDS_CONTEXT, mcpScopeOf, serverForV2, v2ContextFor, v2PermissionOf, type McpScope } from "./mcpV2";
 import type { AffordanceContext } from "@workspace/v2-affordances";
 import { bearerFrom, envList, grantHint, isAllowedOrigin } from "./rules";
 import type { Who } from "./store";
@@ -69,7 +69,7 @@ async function withGrantHint(response: Response, who: Who): Promise<Response> {
 }
 
 /** A fresh MCP server for one request, with the directory's tools this principal's grant may use. */
-const serverFor = (ctx: ActionCtx, who: Who, v2: AffordanceContext | null) => serverForV2(ctx, who, v2, SERVER);
+const serverFor = (ctx: ActionCtx, who: Who, v2: AffordanceContext | null, scope: McpScope) => serverForV2(ctx, who, v2, SERVER, scope);
 
 /**
  * The modern (2026-07-28) leg: one handler per isolate (it is built for concurrent requests; its factory
@@ -77,8 +77,8 @@ const serverFor = (ctx: ActionCtx, who: Who, v2: AffordanceContext | null) => se
  */
 let modernHandler: McpHttpHandler | undefined;
 const modern = () => modernHandler ??= createMcpHandler(({ authInfo }) => {
-  const { ctx, who, v2 } = (authInfo?.extra as { request: { ctx: ActionCtx; who: Who; v2: AffordanceContext | null } }).request;
-  return serverFor(ctx, who, v2);
+  const { ctx, who, v2, scope } = (authInfo?.extra as { request: { ctx: ActionCtx; who: Who; v2: AffordanceContext | null; scope: McpScope } }).request;
+  return serverFor(ctx, who, v2, scope);
 }, { responseMode: "json", legacy: "reject", maxRequestBodySize: MAX_MCP_BODY_BYTES });
 
 export const mcp = httpAction(async (ctx, request) => {
@@ -94,17 +94,18 @@ export const mcp = httpAction(async (ctx, request) => {
   // The principal's context, resolved by the server, decides the generated tool list. Only tools/list and
   // tools/call need it; a context that no longer resolves (the room or user gone) is an invalid token, not a crash.
   let v2: AffordanceContext | null = null;
+  const scope = mcpScopeOf(request.headers);
   if (NEEDS_CONTEXT.has(await methodOf(request))) {
-    try { v2 = await v2ContextFor(ctx, who); } catch { return unauthorized("invalid_token"); }
+    try { v2 = await v2ContextFor(ctx, who, scope); } catch { return unauthorized("invalid_token"); }
   }
   try {
     if (await isLegacyRequest(request, undefined, { maxRequestBodySize: MAX_MCP_BODY_BYTES })) {
-      const server = serverFor(ctx, who, v2);
+      const server = serverFor(ctx, who, v2, scope);
       const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
       await server.connect(transport);
       try { return await withGrantHint(await transport.handleRequest(request), who); } finally { await server.close(); }
     }
-    return await withGrantHint(await modern().fetch(request, { authInfo: { token: "", clientId: who.credentialId, scopes: [who.permission], extra: { request: { ctx, who, v2 } } } }), who);
+    return await withGrantHint(await modern().fetch(request, { authInfo: { token: "", clientId: who.credentialId, scopes: [who.permission], extra: { request: { ctx, who, v2, scope } } } }), who);
   } catch (error) {
     console.error("mcp failed", error instanceof Error ? error.message : "unknown");
     return json({ jsonrpc: "2.0", id: null, error: { code: -32603, message: "Internal error" } }, 500);

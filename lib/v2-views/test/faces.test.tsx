@@ -172,6 +172,8 @@ test("the climb: each move's points with the others' total and the change from n
   assert.match(html, /data-both=""/, "a candidate raising both is marked");
   assert.match(t, /The climb from here: “.+” takes your points from [\d.,]+ points? to [\d.,]+ points/);
   assert.doesNotMatch(html, /button-propose|button-hold/, "no destination: no propose, no hold");
+  // The hint proposes no state to settle on and hold (CLAUDE.md: settle-and-hold is the bug the game avoids).
+  assert.doesNotMatch(t, /reason to undo|nobody has/, "no settle-and-hold");
   // Another line already holds the best candidate's state: it is not available, with the reason, and drops to the end.
   const bestKey = [...others.entries()].sort((a, b) => b[1] - a[1])[0]![0];
   const taken = (x: LineState) => (lineType.encode(x) === bestKey ? 5 : null);
@@ -207,4 +209,11 @@ test("a rule that does not score a line says what would make it score, with the 
   assert.match(compact, /To score: \S/, "on by default");
   const expanded = text(renderToStaticMarkup(<ExpandedFace rule={ec} state={flat} />));
   assert.match(expanded, /does not score for your rule: .+\. To score: .+, for [\d,]+\.\d\d energy\./);
+});
+
+test("what the main part reads is always on the page, with its badge (W5: Ruler's distance² was drawn nowhere)", async () => {
+  const { ruler, lineQ: v } = await import("@workspace/v2-linear");
+  const r = { type: lineType, family: ruler as never, params: (ruler as never as { dealable: (x: unknown) => unknown[] }).dealable(v)[0], variant: v } as RuleRef<LineState, unknown>;
+  const html = renderToStaticMarkup(<ExpandedFace rule={r} state={mc(-4, 10)} improvement={false} />);
+  assert.match(html, /data-ref="norm\.dist2"[^>]*data-role="main"|data-role="main"[^>]*data-ref="norm\.dist2"/, "the distance² is listed, badged as the main part's");
 });

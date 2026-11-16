@@ -91,6 +91,8 @@ export function leadingDigits(n: number): RuleFamily<GridState, LeadingDigitsPar
     ctx.term("digits", "the leading digits each reading shares with a power, added up, less the repeated rows and columns", Q(ms.reduce((t, m) => t + m.digits, 0) - repeats(n, cells.v)), refs);
     ctx.term("exponent-digits", "the digits of each reading's smallest matching exponent, added up", Q(ms.reduce((t, m) => t + (m.k === null ? 0 : digitSum(m.k)), 0)), refs);
     xs.forEach((x, k) => ctx.mark({ kind: "note", ref: refs[k]!, text: leadingDigitsNote(x, p.b) }));
+    // The secondary: the smallest matching power's exponent, and its digits added up.
+    ms.forEach((m, k) => { if (m.k !== null) ctx.mark({ kind: "note", ref: refs[k]!, term: "exponent-digits", text: `starts like ${p.b}^${m.k}: exponent digits adding up to ${digitSum(m.k)}` }); });
     // Focus the readings that match the most digits.
     const best = Math.max(...ms.map(m => m.digits));
     if (best > 0) ms.forEach((m, k) => { if (m.digits === best) ctx.mark({ kind: "focus", ref: refs[k]! }); });

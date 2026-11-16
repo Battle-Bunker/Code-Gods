@@ -12,6 +12,7 @@ import { moreGridFamilies } from "./more-families.ts";
 import { paramGridFamilies } from "./param-families.ts";
 import { divisibility } from "./divisibility.ts";
 import { leadingDigits } from "./leading-digits.ts";
+import { withSecondaryMarks } from "./secondary-marks.ts";
 import { boxEdges, boxes, cols, corners, folds, gcd, leaps, pairs, rows, strangers, windows } from "./units.ts";
 
 export { isPrimeCell };
@@ -58,8 +59,11 @@ export function mirrormancer(n: number): RuleFamily<GridState, None> {
   return family<None>("mirrormancer", "Mirrormancer", ["mirror", "cells"], shape, [{}], ctx => {
     const gaps = readAll(ctx, "mirror", rows(n).map((_, r) => `gap${r}`));
     ctx.term("mirror", "how far the rows are from reading the same backwards, added up", q(sumOf(gaps.v)), gaps.refs);
-    noteEach(ctx, gaps, x => x === 0, x => `off by ${x}`);
     const cells = readCells(ctx, n);
+    // Each row's gap, with the mirror pairs that make it ("off by 4: 4 vs 8"), as v1 marked each pair ✓ or ✗.
+    const unequal = (r: number) => Array.from({ length: Math.floor(n / 2) }, (_, k) => [cells.v[at(n, r, k)]!, cells.v[at(n, r, n - 1 - k)]!]).filter(([a, b]) => a !== b);
+    gaps.refs.forEach((r, row) => ctx.mark(gaps.v[row] === 0 ? { kind: "focus", ref: r }
+      : { kind: "note", ref: r, text: `off by ${gaps.v[row]}: ${unequal(row).map(([a, b]) => `${a} vs ${b}`).join(", ")}` }));
     totalOf(ctx, "middle", "the middle columns' total", cells, middle);
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
     countCells(ctx, "zeros", "0s on the board", cells, x => x === 0, false);
@@ -373,7 +377,7 @@ export function primeCells(n: number): RuleFamily<GridState, None> {
 
 /** The beginner pool: the old beginner grid's eight rules, regraded. */
 export const beginnerGridFamilies = (n: number): readonly RuleFamily<GridState, any>[] =>
-  [mirrormancer(n), magicEighteen(n), oppositeNines(n), twoPair(n), spreadOfThree(n), strangersFamily(n), leapfrog(n), crosswiseThrees(n)];
+  [mirrormancer(n), magicEighteen(n), oppositeNines(n), twoPair(n), spreadOfThree(n), strangersFamily(n), leapfrog(n), crosswiseThrees(n)].map(f => withSecondaryMarks(f as RuleFamily<GridState, object>, n));
 
 /** Every grid family: the beginner pool, the second pool, the parameterised trials (param-families.ts, in no preset yet), then the coupled rules (more-families.ts). */
 export const gridFamilies = (n: number): readonly RuleFamily<GridState, any>[] =>

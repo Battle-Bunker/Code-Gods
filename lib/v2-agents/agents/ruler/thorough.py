@@ -89,7 +89,7 @@ def agent(offer):
             t += 10
         tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
     tries += shortcuts(m, c, rule.mutators)   # other views the game offers: mirrors, a slide, turns, one intercept moved
-    options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
+    options = score_each(tries, lambda t: (t[0], score(t[1], t[2], p, tie)))   # each step and the score it reaches (fewer on a big line)
     # A promise: on these lines, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:
         options = [(plan, s) for plan, s in options if fair(offer, plan)]
@@ -109,6 +109,8 @@ def agent(offer):
         firsts.append(cands.pop(best)[0])
     pairs = []
     for plan, m1, c1 in firsts:
+        if steps_left() < 0.45 * step_budget():   # a big line: weigh fewer pairs rather than fail
+            break
         first = list(plan) if isinstance(plan, (list, tuple)) else [plan]
         for k in (-1, 1):
             pairs.append((first + [move("si.shift", k=k)], score(m1, c1 + k, p, tie)))
