@@ -116,14 +116,14 @@ export const TUPLE_CATALOGUE: readonly FamilyEntry[] = [
   }),
   tuple("rulers-tuple", {
     ts: [
-      "if (Q.eq(m, p.meets)) return null;               // parallel to y = meets·x: they never meet",
-      "const x = Q.abs(Q.div(c, Q.sub(p.meets, m)));   // where the line meets y = meets·x, ignoring a minus sign",
+      "if (Q.eq(m, p.meets) && Q.isZero(c)) return null;   // y = meets·x itself scores nothing",
+      "const x = Q.abs(Q.eq(m, p.meets) ? c : Q.div(c, Q.sub(p.meets, m)));   // where it meets y = meets·x, ignoring a minus sign (parallel: its height)",
       "const n = nearestPalindrome(x, p.digits === \"odd\"), main = n;   // the palindrome nearest it: bigger is better",
     ],
     py: [
-      "if m == p[\"meets\"]:                              # parallel to y = meets·x: they never meet",
+      "if m == p[\"meets\"] and c == 0:                 # y = meets·x itself scores nothing",
       "    return None",
-      "x = abs(c / (p[\"meets\"] - m))                    # where the line meets y = meets·x, ignoring a minus sign",
+      "x = abs(c if m == p[\"meets\"] else c / (p[\"meets\"] - m))   # where it meets y = meets·x, ignoring a minus sign (parallel: its height)",
       "n = nearest_palindrome(x, p[\"digits\"] == \"odd\")         # the palindrome nearest it: bigger is better",
       "main = n",
     ],
