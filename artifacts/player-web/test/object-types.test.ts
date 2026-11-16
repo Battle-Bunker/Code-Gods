@@ -36,3 +36,14 @@ test("a dealt grid rule resolves against the grid type, and its moves are descri
   assert.ok(out.ok, out.ok ? "" : out.reason);
   if (out.ok) assert.equal(gridType.encode(out.after as never), "1120/3001/0000/9000");
 });
+
+test("a 4×4 grid's cell is picked from its words, not typed as r0c0 (16 cells is more than a typed list's limit)", async () => {
+  const { mutatorChoices } = await import("../src/panes/what-if-model.ts");
+  const cs = mutatorChoices(grid4);
+  for (const [id, name] of [["cells.add", "cell"], ["cells.swap", "a"], ["cells.swap", "b"]] as const) {
+    const arg = cs.find(c => c.id === id)!.args.find(a => a.name === name)!;
+    assert.equal(arg.kind, "choice", `${id} ${name}`);
+    assert.equal((arg as { choices: string[] }).choices.length, 16, `${id} ${name} offers every cell`);
+    assert.ok(arg.choiceWords && Object.keys(arg.choiceWords).length >= 16, `${id} ${name} says each cell in words`);
+  }
+});

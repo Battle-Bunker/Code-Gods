@@ -4,7 +4,10 @@ import { presetOf } from "../presets";
 import { touchActivity } from "../activity";
 import { OpFailure } from "@workspace/v2-affordances";
 import { endGame, pauseGame, resumeGame, startWorld } from "../loop.ts";
-import { defineOp, inGame, inRoom, seated } from "./define";
+import { makeFunctionReference } from "convex/server";
+import { foldBoard, type BoardRow } from "../boardFold";
+import { callerOf, defineOp, inGame, inRoom, seated } from "./define";
+import { ownAccountNow } from "../access";
 
 export const { op: get, as: getAs } = defineOp("game.get", "query", async env => {
   const { game, player } = inGame(env);
@@ -12,7 +15,8 @@ export const { op: get, as: getAs } = defineOp("game.get", "query", async env =>
   return {
     gameId: game._id, phase: game.phase, worldSeconds: clock?.worldSeconds ?? 0, endsAt: game.endsAt ?? null,
     preset: game.preset, variant: game.variant, roster: game.roster.map(r => ({ memberId: r.memberId, name: r.name })),
-    me: player ? { energy: player.energy, power: player.power, ready: player.ready, pauseUsed: player.pauseUsed } : null,
+    // The store settled to the world clock, as the app shows it (the stored row is only as of its last settlement).
+    me: player ? { energy: (await ownAccountNow(env.ctx, game, player)).balance, power: player.power, ready: player.ready, pauseUsed: player.pauseUsed } : null,
   };
 });
 
@@ -95,4 +99,28 @@ export const { op: auction, as: auctionAs } = defineOp("game.auction", "query", 
   const wins = (a?.wins ?? []).filter(w => disclosure !== "none" || w.memberId === member._id)
     .map(w => ({ memberId: w.memberId, name: name(w.memberId), family: disclosure === "all" || w.memberId === member._id ? w.family : null, handicap: w.handicap }));
   return { disclosure, wins, bids: disclosure === "all" && a ? a.bids.map(b => ({ memberId: b.memberId, family: b.family, percent: b.percent })) : null };
+});
+
+type Chunk = { refused: string } | { rows: (BoardRow & { worldSeconds: number })[]; cursor: string | null };
+const CHUNK = makeFunctionReference<"query", { userId: string; scope: unknown; cursor: string | null }, Chunk>("v2/boardAt:logChunk");
+/** At most this many log pages a board reads (about 20,000 moves and births: far past a 10-minute game). */
+const MAX_PAGES = 200;
+
+/** `game.boardAt` (v1's get_board_at; call 36): every object as it was at a world time, as the caller saw it (boardAt.ts). */
+export const { op: boardAt, as: boardAtAs } = defineOp("game.boardAt", "action", async (env, a) => {
+  const c = callerOf(env);
+  const board = new Map<string, BoardRow>();
+  let cursor: string | null = null;
+  for (let pages = 0; pages < MAX_PAGES; pages++) {
+    const chunk: Chunk = await env.ctx.runQuery(CHUNK, { userId: c.userId!, scope: c.scope, cursor });
+    if ("refused" in chunk) throw new OpFailure(chunk.refused);
+    foldBoard(chunk.rows, a.world, board);
+    if (chunk.cursor === null) { cursor = null; break; }
+    cursor = chunk.cursor;
+  }
+  // Read newest first: a log longer than the cap would leave the oldest objects out, so refuse rather than half-answer.
+  if (cursor !== null) throw new OpFailure("This game's log is too long to rebuild a board from; use log.list for its history.");
+  const all = [...board.values()].sort((x, y) => x.number - y.number).filter(o => a.after === undefined || o.number > a.after);
+  const objects = all.slice(0, a.limit);
+  return { world: a.world, objects, nextAfter: all.length > a.limit ? objects.at(-1)!.number : null };
 });

@@ -18,3 +18,4 @@ export { PMI_TABLES } from "./pmi.gen.ts";
 export { readLeave, setLeave } from "./leave.ts";
 export { watcherFor, type WatcherAgent, type WatcherType } from "./watcher.ts";
 export { agentPrimer, HELPERS } from "./primer.ts";
+export { fitRules, nnls, SIGMA_FLOOR_BITS, type FitCandidate, type FitHint, type FitInput, type FitResult, type FitHypothesis } from "./inference.ts";

@@ -33,6 +33,18 @@ differ, the owner's words win.
    length, so tertiary and higher preferences can be dealt later without rework; the beginner set deals none [14].
    On 15 November the redesign to ladders removed each family's untied tie-breakers and replaced them with a single
    tied one, so most families were left with a repertoire of one: this failed the owner's words and no row caught it.
+3b. **The nearest-target pattern, with tuples of any length.** The owner, 16 November: "I think we need to add back
+   more comfort about variable length utility tuples to make it easier to design rules that have smoother and more
+   resilient properties ... A common pattern should be primary preferences that use nearest desired value and then a
+   secondary preferences that scores proximity to it and then we can use a tertiary preference to integrate another
+   dimension of the line." Their examples: (primary) the size of the nearest prime ending in k to the y-intercept,
+   (secondary) proximity to that prime, (tertiary) proximity of the gradient to the inverse of that prime in log
+   space; and (primary) the square root of the nearest perfect power of k to the area, (secondary) proximity of the
+   area to that power, (tertiary) proximity of area ÷ x-intercept to a multiple of k. So: the primary is a property of
+   the NEAREST desired value to a reading (every line has one, so there is no cliff: a small bump keeps the primary
+   and loses only a little proximity); the secondary is how close the reading is to that value; a third layer brings in
+   another dimension of the line, defined by the same value. This supersedes "no tertiary in the beginner set"
+   (decision 14) and is the default shape for line families; rows 3, 3a, 10 and 13 are read with it.
 4. **Highly configurable families.** Every family has substantial dealt parameters and many qualifiers (endings,
    moduli, number and type of prime factors, digit properties, squares and powers, which reading of the line) [41].
    A family with one dealable instance fails.

@@ -105,7 +105,7 @@ try {
     await shot(page, `gallery-${label}-family`);
     // The link opens the same rule again.
     await page.reload();
-    await card.getByText(/to 8\. Tie-breaker: make the two legs/).waitFor();
+    await card.getByText(/to 8\. (Tie-breaker|Secondary): make the two legs/i).waitFor();
     await page.goto(`${SITE}/rule-gallery/no-such-rule`);
     await page.getByTestId("empty-rule-family").waitFor();
     console.log(`${label}: gallery ok`);
@@ -165,7 +165,7 @@ try {
     await page.locator("[data-testid^=row-line-]").first().click();
     await page.getByTestId("button-open-what-if").click();
     const whatIf = page.getByTestId("pane-what-if");
-    await whatIf.getByTestId("what-if-result").waitFor({ timeout: 15_000 });
+    await whatIf.getByTestId("what-if-result").waitFor({ timeout: 15_000 }).catch(async (e: Error) => { console.log("WHATIF", (await whatIf.innerText()).slice(0, 600)); throw e; });
     await assertNoSteps(page, `${label}: the game with What if`);
     // Owner decision 23: no steps; the rarity says its chance.
     assert.doesNotMatch(await whatIf.getByTestId("what-if-result").innerText(), /\bstep\b/i);

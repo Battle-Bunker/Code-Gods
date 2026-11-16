@@ -13,18 +13,20 @@
  * - decision 13: over law draws every dealt layer takes at least three distinct values (no on/off layer; a grid count
  *   over four boxes has at most five).
  *
- * Rows 1 and 3 on line families: lib/v2-linear test/design-principles.test.ts. The energy gate: v2-no-straight-hill.
+ * Row 10 (a cheap move keeps most of the bits) on line families: the second test below. Rows 1 and 3 on line families:
+ * lib/v2-linear test/design-principles.test.ts. The energy gate: v2-no-straight-hill.
  *
  * A failure that is known and reported is listed in EXEMPT with its date and owner. The test fails for any failure not
  * listed, for a listed entry that now passes (remove it), and for a listed entry about a family no preset deals.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { evaluateObject, type ObjectType } from "@workspace/v2-core";
+import { applyCall, evaluateObject, evaluateSite, isInvalid, type ObjectType } from "@workspace/v2-core";
 import { births, pairPmi, PMI_TABLES } from "@workspace/v2-agents/pure";
-import { findVariant } from "@workspace/v2-valuation";
+import { findVariant, valueLookup } from "@workspace/v2-valuation";
 import { dealablePool, familyOf } from "../../convex/v2/deal.ts";
 import { PRESETS, type Preset } from "../../convex/v2/presets.ts";
+import { valueRecord } from "../../convex/v2/values.ts";
 import { MAX_PER_FORM, MAX_PER_KIND, RULE_FORMS } from "./v2-rule-forms.ts";
 
 const MIN_SECONDARIES = 3, MIN_INSTANCES = 4, DRAWS = 2000, MIN_DISTINCT = 3;
@@ -41,7 +43,6 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "smooth-intercept 3a": "15 Nov, spec lead: repertoire in progress",
   "square-area 3a": "15 Nov, grids session: Square Area redesign",
   "whole-crossing 3a": "15 Nov, spec lead: repertoire in progress",
-  "divisibility-ladder 3a": "15 Nov, spec lead: repertoire in progress",
   "treasure 3a": "15 Nov, spec lead: repertoire in progress",
   "same-on-both-rulers 3a": "15 Nov, spec lead: repertoire in progress",
   "prime-gradient 3a": "15 Nov, spec lead: repertoire in progress",
@@ -57,10 +58,11 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "high-start 3a": "15 Nov, pairs session",
   "steep-ratio 3a": "15 Nov, pairs session",
   "divisibility 3a": "15 Nov, grids session",
+  "opposite-nines 3a": "16 Nov, grids session: big-on-top undealt for its cheap peak (#902)",
+  "strangers 3a": "16 Nov, grids session: ones and prime-strangers undealt for their cheap peaks (#902)",
   "leading-digits 3a": "15 Nov, grids session",
   // Row 4: one dealt parameter set.
   "square-area 4": "15 Nov, grids session: Square Area redesign",
-  "divisibility-ladder 4": "15 Nov, spec lead: Divisibility Ladder versions (residue r, shifted reading)",
   "mirrormancer 4": "15 Nov, grids session", "magic-eighteen 4": "15 Nov, grids session", "opposite-nines 4": "15 Nov, grids session",
   "two-pair 4": "15 Nov, grids session", "spread-of-three 4": "15 Nov, grids session", "strangers 4": "15 Nov, grids session",
   "leapfrog 4": "15 Nov, grids session", "crosswise-threes 4": "15 Nov, grids session",
@@ -78,7 +80,6 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "lines-pairs 7-kind:base-ladder": "15 Nov, pairs session: every pair family climbs a base's ladder",
   "lines-pairs 7-form:shares-factor": "15 Nov, pairs session",
   "grids-beginner 7-form:second-axis": "15 Nov, grids session",
-  "grids-beginner 7-form:placement": "15 Nov, grids session",
   // Row 5: no PMI table for the variant yet (lib/v2-agents scripts/pmi.ts).
   "lines-lenses 5-unmeasured": "15 Nov, spec lead: PMI table for line-q-lenses",
   "grids-beginner 5-unmeasured": "15 Nov, grids session: PMI table for grid-4-d10",
@@ -174,4 +175,66 @@ test("every preset's dealt pool passes rows 3a, 4, 5 and 7 and decision 13, or t
   const subject = (k: string) => k.split(" ")[0]!;
   assert.deepEqual(Object.keys(EXEMPT).filter(k => !families.has(subject(k)) && !presets.has(subject(k))), [], "exemptions about a family or preset nothing deals: remove them");
   assert.deepEqual(Object.keys(EXEMPT).filter(k => !failing.has(k)), [], "exemptions that now pass: remove them");
+});
+
+/**
+ * Row 10 (principle 11: "Rules should still keep some of their value when modest sized perturbations occur"), on the
+ * line presets: from each ladder family's good states (its witnesses for rungs 2 and 3: cheap lines on a rung), every
+ * cheap move (a unit shift or tilt, a nudge of a, b or c by 1, each reflection) keeps on the median at least half the
+ * rule's bits, and none leaves less than half the first rung's bits. Known failures are listed in ROW10_EXEMPT.
+ */
+const CHEAP: readonly { mutator: string; args: Record<string, string> }[] = [
+  ...["1", "-1"].flatMap(k => [{ mutator: "si.shift", args: { k } }, { mutator: "si.tilt", args: { k } }]),
+  ...["a", "b", "c"].flatMap(which => ["1", "-1"].map(k => ({ mutator: "gen.nudge", args: { which, k } }))),
+  ...["x", "y", "origin", "diagonal"].map(axis => ({ mutator: "cart.mirror", args: { axis } })),
+];
+const ROW10_EXEMPT: Readonly<Record<string, string>> = {
+  "prime-landing": "16 Nov, spec lead: the shoulder remedy (pool-plan.md)",
+  "smooth-intercept": "16 Nov, spec lead: the shoulder remedy (pool-plan.md)",
+  "whole-crossing": "16 Nov, spec lead: the shoulder remedy (pool-plan.md)",
+  "treasure": "16 Nov, spec lead: the shoulder remedy (pool-plan.md)",
+  "same-on-both-rulers": "16 Nov, spec lead: the shoulder remedy (pool-plan.md)",
+  "prime-staircase": "16 Nov, spec lead: the shoulder remedy (pool-plan.md)",
+  "ruler": "16 Nov, spec lead: the shoulder remedy (pool-plan.md)",
+  "pythagorean-area": "16 Nov, spec lead: the shoulder remedy (pool-plan.md)",
+};
+
+test("row 10: a cheap move from a rung keeps most of a line rule's bits, or the family is listed in ROW10_EXEMPT", () => {
+  const found = new Map<string, string>();
+  for (const { preset, rules } of pools()) {
+    const { type, variant } = findVariant(preset.variant);
+    if (type.id !== "line") continue;
+    const T = type as ObjectType<unknown>;
+    for (const r of rules) {
+      const fam = familyOf(r.family), rec = valueRecord(r.ruleKey);
+      if (!fam.witness || !rec) continue;
+      const look = valueLookup(rec);
+      const bits = (s: unknown) => { const e = evaluateSite(T, fam as never, r.params, s as never, variant, 0, r.tieBreaker); return e.score === null ? 0 : look(e.score).bits; };
+      const first = Math.max(0, ...fam.witness(r.params, 1).map(bits));
+      const kept: number[] = [];
+      let worst = Infinity;
+      for (const n of [2, 3]) for (const s of fam.witness(r.params, n)) {
+        const b0 = bits(s);
+        if (!(b0 > first)) continue;
+        for (const c of CHEAP) {
+          const a = applyCall(T, variant, s, { mutator: c.mutator, site: 0, args: c.args });
+          if (isInvalid(a)) continue;
+          const b1 = bits(a.result);
+          kept.push(b1 / b0);
+          worst = Math.min(worst, b1);
+        }
+      }
+      if (!kept.length) continue;
+      kept.sort((x, y) => x - y);
+      const median = kept[kept.length >> 1]!;
+      if (median < 0.5 || worst < first / 2) {
+        const why = `median ${(100 * median).toFixed(0)}% of the bits kept after a cheap move; the worst leaves ${worst.toFixed(1)} bits (first rung ${first.toFixed(1)})`;
+        const prev = found.get(r.family);
+        if (!prev) found.set(r.family, why);
+      }
+    }
+  }
+  console.log([...found].map(([k, v]) => `${k}: ${v}${k in ROW10_EXEMPT ? " (exempt)" : ""}`).join("\n"));
+  assert.deepEqual([...found.keys()].filter(k => !(k in ROW10_EXEMPT)), [], "new failures: fix them, or list them in ROW10_EXEMPT with a date and an owner");
+  assert.deepEqual(Object.keys(ROW10_EXEMPT).filter(k => !found.has(k)), [], "exemptions that now pass: remove them");
 });

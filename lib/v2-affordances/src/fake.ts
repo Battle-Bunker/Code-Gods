@@ -317,9 +317,25 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     const won = gameOf(e).auction?.wins[e.userId];
     return { family, params: {}, layers: ["main"], card: `Your rule, ${family}, wants the gradient close to its target.`, depends: ["si"], wonByBid: won ? { handicap: won.handicap } : null };
   },
+  "game.boardAt": (e, a) => {
+    const g = gameOf(e);
+    const all = Object.entries(g.objects).map(([objectId, o]) => ({ objectId, number: numberOf(g, objectId), state: null, own: bitsOf(g, e.userId, o), others: null, points: null }))
+      .sort((x, y) => x.number - y.number).filter(o => a.after === undefined || o.number > a.after);
+    const objects = all.slice(0, a.limit);
+    return { world: a.world, objects, nextAfter: all.length > a.limit ? objects.at(-1)!.number : null };
+  },
   "rule.candidates": e => ({
     rules: [...new Set(Object.values(gameOf(e).rules))].map(family => ({ family, params: {}, tieBreaker: null, card: `A rule of ${family}.` })),
   }),
+  "rule.fit": (e, a) => {
+    const families = [...new Set(Object.values(gameOf(e).rules))];
+    const p = families.length ? 1 / families.length : 0;
+    return {
+      observations: 0, sigma: 8, exact: false,
+      hypotheses: families.slice(0, a.top).map(family => ({ posterior: p, rms: 8, rules: [{ family, params: {}, tieBreaker: null, card: `A rule of ${family}.` }] })),
+      families: families.map(family => ({ family, probability: p })), spectrum: [],
+    };
+  },
   "rule.values": () => ({ points: knots() }),
   "rule.worth": (_e, a) => {
     const first = a.score?.[0];

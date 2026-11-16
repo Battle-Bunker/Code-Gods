@@ -115,7 +115,7 @@ function varied<F extends Found>(found: readonly F[], u0: Score, before: number 
     kinds.add(kindOf(f));
   };
   take(byPrice.find(f => improves(f, 0)), "the cheapest for the main part");
-  take(byPrice.find(f => !kinds.has(kindOf(f)) && keeps(f, 0) && improves(f, 1)), "the cheapest for the tie-breaker");
+  take(byPrice.find(f => !kinds.has(kindOf(f)) && keeps(f, 0) && improves(f, 1)), "the cheapest for the secondary preference");
   if (before !== null) {
     const perEnergy = (f: F) => ((f.bits ?? before) - before) / Math.max(f.price.total, 1e-9);
     // One move for this reason: the best value that is not already listed (or of a kind already listed).

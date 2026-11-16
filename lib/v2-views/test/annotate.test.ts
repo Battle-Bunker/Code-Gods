@@ -64,7 +64,7 @@ test("two parts: main part and tie-breaker, marks split by term (storyboard §3.
   const [main, tie] = a.sites[0]!.parts;
   assert.equal(main!.name, "main part");
   assert.equal(fmtQ(main!.value as Q), "⅓");
-  assert.equal(tie!.name, "tie-breaker");
+  assert.equal(tie!.name, "secondary preference");
   assert.ok(main!.marks.some(m => m.kind === "measure"));
   assert.ok(tie!.marks.length > 0 && tie!.marks.every(m => markTerm(m) === "pgap"));
   assert.ok(!main!.marks.some(m => markTerm(m) === "pgap"));
