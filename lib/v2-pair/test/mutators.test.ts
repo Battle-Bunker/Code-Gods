@@ -78,7 +78,8 @@ test("a far move costs exactly its path of unit moves (whole amounts; before the
 
 test("representation shortcuts are priced as choices: reflect and quarter cost which + the line", () => {
   const r = apply(school, "pair.reflect", { line: "2" });
-  assert.ok(Math.abs(r.price.which + r.price.arg - (Math.log2(16) + 1)) < 1e-9);
+  // which: a uniform choice of the menu's moves (19 since #1153 gave every representation its moves); arg: the line (1 bit).
+  assert.ok(Math.abs(r.price.which + r.price.arg - (Math.log2(pairQ.mutators.length) + 1)) < 1e-9);
   assert.equal(q(1).n, 1n);
 });
 
