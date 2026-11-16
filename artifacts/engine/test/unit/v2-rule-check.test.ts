@@ -108,6 +108,8 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "grids-more-rules 7-form:all-different": "16 Nov, grids session: grid baseline: ported as v1",
   "grids-more-rules 7-form:distance": "16 Nov, grids session: grid baseline: ported as v1",
   "grids-more-rules 7-form:big-values": "16 Nov, grids session: grid baseline: ported as v1",
+  "grids-more-rules 7-form:count": "16 Nov, grids session: grid baseline: ported as v1",
+  "grids-more-rules 7-form:reach": "16 Nov, grids session: grid baseline: ported as v1",
   // Row 5: no PMI table for the variant yet (lib/v2-agents scripts/pmi.ts).
   "lines-lenses 5-unmeasured": "15 Nov, spec lead: PMI table for line-q-lenses",
   "grids-beginner 5-unmeasured": "15 Nov, grids session: PMI table for grid-4-d10",

@@ -29,6 +29,8 @@ for (const id of ["full-house", "seesaw", "snap"]) MORE.add(id);
  * greedy climb tops 11.8–31.4 bits across them, so one is dealt.
  */
 for (const id of ["looking-glass", "pinwheel", "constellation"]) MORE.add(id);
+// v1's Bingo Caller (16 Nov). Ladder of Numbers and Sudoku Scholar are registered but undealt (see their files).
+MORE.add("bingo-caller");
 
 /**
  * The tie-breakers the beginner pool deals: only those tied to what the main part singles out (owner decision 29; the
