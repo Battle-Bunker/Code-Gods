@@ -122,3 +122,10 @@ test("the glossary stays closed once closed: closing it is stored in the view, n
   assert.equal(v.glossary, null);
   assert.equal(applyView(v, "view.showGlossary", {}, live).view.glossary, "");
 });
+
+test("opening an object from a move keeps the move's words, as v1's 'Opened from:'; opening it otherwise drops them", () => {
+  let v = applyView(EMPTY_VIEW, "view.openObject", { objectId: "o1", from: "Your agent Tally-1 added 4 to row 1, column 1" }, live).view;
+  assert.equal(v.focus?.from, "Your agent Tally-1 added 4 to row 1, column 1");
+  v = applyView(v, "view.openObject", { objectId: "o1" }, live).view;
+  assert.equal(v.focus?.from, undefined);
+});

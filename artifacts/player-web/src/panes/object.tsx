@@ -109,6 +109,7 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
               title={`Put this ${word.one} in a message to your assistant`} onClick={() => void requestComposer({ fill: `${word.One} ${o.number}: ` }, openPane)}>ask my assistant</button>
           )}
         </p>
+        {view.focus?.objectId === objectId && view.focus.from && <p className="text-xs text-muted-foreground" data-testid="text-object-from">Opened from: {view.focus.from}</p>}
         {v && <p className="text-xs text-muted-foreground" data-testid="text-line-formula">{whyLine({ rarity: v.rarityBits, want: v.want }, {}, word.one, blurred)}</p>}
         {/* v1's why?: how rare the object is for your rule, as a share of random ones (the bits' meaning in one line). */}
         {v && v.rarityBits > 0 && <p className="text-xs text-muted-foreground" data-testid="text-line-rarer">For your rule this {word.one} is {rarerThanText(v.rarityBits, word.many)} ({chanceText(v.rarityBits)} by chance).</p>}

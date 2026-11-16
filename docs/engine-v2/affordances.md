@@ -207,7 +207,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `view.pinRepresentation` | Show objects in a representation | rep, family | client · room | member | planning, live, paused, ended, replay | write |
 | `view.showRepresentation` | Switch an object's representation | objectId, rep | client · room | member | planning, live, paused, ended, replay | write |
 | `view.compareRepresentations` | Compare representations side by side | objectId, reps | client · room | member | planning, live, paused, ended, replay | write |
-| `view.openObject` | Open an object | objectId | client · room | member | planning, live, paused, ended, replay | write |
+| `view.openObject` | Open an object | objectId, from | client · room | member | planning, live, paused, ended, replay | write |
 | `view.sortObjects` | Sort objects | sort | client · room | member | planning, live, paused, ended, replay | write |
 | `view.filterObjects` | Filter objects | mine, minBits, show | client · room | member | planning, live, paused, ended, replay | write |
 | `view.showGlossary` | Explain a term | term | client · none | anyone | signedOut, home, room, planning, live, paused, ended, replay, admin | write |
