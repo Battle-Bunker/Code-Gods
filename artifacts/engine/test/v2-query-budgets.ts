@@ -43,6 +43,7 @@ export const V2_BUDGETS: readonly V2Budget[] = [
   { query: "v2/play:objectIds", args: f => ({ gameId: f.gameId, sort: "points", ...page }), reads: "v2ObjectValues by_game_member_<sort> page, or by_game_member_quadrant_<sort> with a filter (the index prefix); live lines only", cold: false },
   { query: "v2/play:banked", args: f => ({ gameId: f.gameId, ...page }), reads: "v2ObjectValues by_game_member_born page (retired lines)", cold: false },
   { query: "v2/play:object", args: f => ({ objectId: f.objectId }), reads: "v2Objects + v2ObjectStates + the caller's v2ObjectValues", cold: false },
+  { query: "v2/locks:ofObject", args: f => ({ gameId: f.gameId, objectId: f.objectId }), reads: "the game + ≤ 32 v2Locks by_object page (8 live, and any decayed since the sweep; docs/engine-v2/locks.md)", cold: false },
   { query: "v2/play:othersAt", args: f => ({ objectId: f.objectId, calls: [{ mutator: "si.shift", site: 0, args: { k: "1" } }, { mutator: "si.tilt", site: 0, args: { k: "1" } }] }), reads: "v2Objects + v2ObjectStates + the caller's seat + the seated players' v2Rules (≤ 16) + ≤ 4 v2ObjectStates by_game_state (+ their v2Objects)", cold: true, endedOnly: true },
   { query: "v2/play:objectMoves", args: f => ({ gameId: f.gameId, number: 1 }), reads: "1 v2Objects by_game + the caller's v2Moves by_game_member_object, ≤ 50", cold: false },
   { query: "v2/play:agents", args: f => ({ gameId: f.gameId, ...page }), reads: "the caller's live v2Agents by_game_member_live page (≤ 50 of ≤ 200; no program source on the row)", cold: true },

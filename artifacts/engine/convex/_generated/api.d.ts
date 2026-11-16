@@ -75,6 +75,8 @@ import type * as v2_games from "../v2/games.js";
 import type * as v2_knowledge from "../v2/knowledge.js";
 import type * as v2_layout from "../v2/layout.js";
 import type * as v2_lobby from "../v2/lobby.js";
+import type * as v2_lockWire from "../v2/lockWire.js";
+import type * as v2_locks from "../v2/locks.js";
 import type * as v2_loop from "../v2/loop.js";
 import type * as v2_oauth from "../v2/oauth.js";
 import type * as v2_objectOrder from "../v2/objectOrder.js";
@@ -209,6 +211,8 @@ declare const fullApi: ApiFromModules<{
   "v2/knowledge": typeof v2_knowledge;
   "v2/layout": typeof v2_layout;
   "v2/lobby": typeof v2_lobby;
+  "v2/lockWire": typeof v2_lockWire;
+  "v2/locks": typeof v2_locks;
   "v2/loop": typeof v2_loop;
   "v2/oauth": typeof v2_oauth;
   "v2/objectOrder": typeof v2_objectOrder;
