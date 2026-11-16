@@ -7,6 +7,7 @@
 import type { RuleFamily, Variant } from "@workspace/v2-core";
 import { boardParams, isCard, paletteOf, symbolCount, symbolGlyph, symbolValue, type BoardState } from "../board.ts";
 import { colourNames, family, more, readBoard, term, type Cells, type Ctx, type Shape } from "./kit.ts";
+import { sizeOf } from "./kit.ts";
 
 type None = Record<string, never>;
 const focus = (ctx: Ctx, cells: Cells, which: Iterable<number>) => { for (const i of new Set(which)) ctx.mark({ kind: "focus", ref: cells.refs[i]! }); };
@@ -17,7 +18,7 @@ const vmax = (v: Variant) => Math.max(...Array.from({ length: symbolCount(boardP
 
 export interface ParityParams { readonly even: string; readonly odd: string }
 /** Each cell wears the colour of its kind: even numbers one colour, odd the other; right +1, the other's colour −1. */
-export function parityPainter(n: number): RuleFamily<BoardState, ParityParams> {
+export function parityPainter(): RuleFamily<BoardState, ParityParams> {
   const shape: Shape<ParityParams> = {
     main: more<ParityParams>("dressed", "cells in the colour of their kind",
       p => `Even numbers should be ${p.even} and odd numbers ${p.odd}. A cell in its right colour scores 1; a cell in the other kind's colour loses 1.`),
@@ -25,6 +26,7 @@ export function parityPainter(n: number): RuleFamily<BoardState, ParityParams> {
   };
   const params = (v: Variant): ParityParams[] => { const c = colourNames(paletteOf(v)); return c.flatMap(even => c.filter(o => o !== even).map(odd => ({ even, odd }))); };
   return family<ParityParams>("parity-painter", "Parity Painter", shape, params, (ctx, p) => {
+    const n = sizeOf(ctx);
     const cells = readBoard(ctx, n);
     let points = 0;
     const right: number[] = [];
@@ -40,7 +42,7 @@ export function parityPainter(n: number): RuleFamily<BoardState, ParityParams> {
 // ---------------------------------------------------------------- Colour Mirror (strategy.ts)
 
 export interface MirrorParams { readonly axis: "rows" | "columns" }
-export function colourMirror(n: number): RuleFamily<BoardState, MirrorParams> {
+export function colourMirror(): RuleFamily<BoardState, MirrorParams> {
   const shape: Shape<MirrorParams> = {
     main: more<MirrorParams>("colour-mirrors", "mirror lines of colour",
       p => `Make ${p.axis} whose colours read the same forwards and backwards.`),
@@ -48,6 +50,7 @@ export function colourMirror(n: number): RuleFamily<BoardState, MirrorParams> {
       p => `As many matching pairs (first and last, second and second-last …) in any of the ${p.axis} as possible.`)],
   };
   return family<MirrorParams>("colour-mirror", "Colour Mirror", shape, () => [{ axis: "rows" }, { axis: "columns" }], (ctx, p) => {
+    const n = sizeOf(ctx);
     const cells = readBoard(ctx, n);
     let mirrors = 0, pairs = 0;
     const lit: number[] = [];
@@ -69,7 +72,7 @@ export function colourMirror(n: number): RuleFamily<BoardState, MirrorParams> {
 /** The old FRAME_POINTS: an edge cell with your colour or your symbol +1, with both +4; a middle cell −1 or −4. */
 export const FRAME_POINTS = { edge: { one: 1, both: 4 }, middle: { one: -1, both: -4 } } as const;
 export interface FrameParams { readonly colour: string; readonly symbol: string }
-export function pictureFrame(n: number): RuleFamily<BoardState, FrameParams> {
+export function pictureFrame(): RuleFamily<BoardState, FrameParams> {
   const shape: Shape<FrameParams> = {
     main: more<FrameParams>("frame", "your colour and your symbol on the edge, a clear middle",
       p => `Put ${p.colour} cells and ${p.symbol}s on the edge (the outside ring) and keep the middle clear. An edge cell that is ${p.colour} or shows ${p.symbol} scores 1, both 4; a middle cell that is either loses 1, both 4.`),
@@ -80,6 +83,7 @@ export function pictureFrame(n: number): RuleFamily<BoardState, FrameParams> {
     return colourNames(paletteOf(v)).flatMap(colour => Array.from({ length: symbolCount(set) }, (_, s) => ({ colour, symbol: symbolGlyph(set, s) })));
   };
   return family<FrameParams>("picture-frame", "Picture Frame", shape, params, (ctx, p) => {
+    const n = sizeOf(ctx);
     const cells = readBoard(ctx, n);
     const set = boardParams(ctx.variant).symbols, sym = ctx.state.sym;
     let score = 0;
@@ -99,13 +103,14 @@ export function pictureFrame(n: number): RuleFamily<BoardState, FrameParams> {
 
 // ---------------------------------------------------------------- Colour Bonds (arithmetic.ts)
 
-export function colourBonds(n: number): RuleFamily<BoardState, None> {
+export function colourBonds(): RuleFamily<BoardState, None> {
   const shape: Shape<None> = {
     main: more<None>("colour-bonds", "touching pairs of one colour that make the magic number",
       "Make touching cells of one colour whose numbers add up to the magic number (one more than the biggest a cell can hold: 10 on digits). Each such pair scores 1."),
     tieBreakers: [],
   };
   return family<None>("colour-bonds", "Colour Bonds", shape, () => [{}], ctx => {
+    const n = sizeOf(ctx);
     const cells = readBoard(ctx, n), target = vmax(ctx.variant) + 1;
     let bonds = 0;
     const lit: number[] = [];
@@ -120,13 +125,14 @@ export function colourBonds(n: number): RuleFamily<BoardState, None> {
 // ---------------------------------------------------------------- Honest Minesweeper (games.ts)
 
 export interface MineParams { readonly mine: string }
-export function honestMinesweeper(n: number): RuleFamily<BoardState, MineParams> {
+export function honestMinesweeper(): RuleFamily<BoardState, MineParams> {
   const shape: Shape<MineParams> = {
     main: more<MineParams>("honest", "points from honest cells",
       p => `${p.mine[0]!.toUpperCase()}${p.mine.slice(1)} cells are mines. Any other cell is honest when its number equals how many mines touch it (corners count). Each honest cell scores its number.`),
     tieBreakers: [],
   };
   return family<MineParams>("honest-minesweeper", "Honest Minesweeper", shape, v => colourNames(paletteOf(v)).map(mine => ({ mine })), (ctx, p) => {
+    const n = sizeOf(ctx);
     const cells = readBoard(ctx, n);
     let points = 0;
     const honest: number[] = [];
@@ -148,13 +154,14 @@ export function honestMinesweeper(n: number): RuleFamily<BoardState, MineParams>
 // ---------------------------------------------------------------- Kingdom (colour.ts)
 
 export interface KingdomParams { readonly colour: string }
-export function kingdom(n: number): RuleFamily<BoardState, KingdomParams> {
+export function kingdom(): RuleFamily<BoardState, KingdomParams> {
   const shape: Shape<KingdomParams> = {
     main: more<KingdomParams>("kingdom", "cells in your biggest patch",
       p => `Grow the biggest patch of ${p.colour}, your colour: a group of ${p.colour} cells joined side to side. Each cell in your biggest patch scores 1.`),
     tieBreakers: [],
   };
   return family<KingdomParams>("kingdom", "Kingdom", shape, v => colourNames(paletteOf(v)).map(colour => ({ colour })), (ctx, p) => {
+    const n = sizeOf(ctx);
     const cells = readBoard(ctx, n);
     const seen = new Set<number>();
     let best: number[] = [];
@@ -177,13 +184,14 @@ export function kingdom(n: number): RuleFamily<BoardState, KingdomParams> {
 
 // ---------------------------------------------------------------- Set Spotter (games.ts)
 
-export function setSpotter(n: number): RuleFamily<BoardState, None> {
+export function setSpotter(): RuleFamily<BoardState, None> {
   const shape: Shape<None> = {
     main: more<None>("sets", "SETs of three in a line",
       "Spot SETs: 3 cells in a line (across, down or diagonally) whose colours are all the same or all different, and whose numbers are all the same or evenly spaced (like 2, 5, 8). Each SET scores 1."),
     tieBreakers: [],
   };
   return family<None>("set-spotter", "Set Spotter", shape, v => (paletteOf(v).length >= 3 ? [{}] : []), ctx => {
+    const n = sizeOf(ctx);
     const cells = readBoard(ctx, n);
     let sets = 0;
     const lit: number[] = [];

@@ -1,7 +1,7 @@
 /** Building blocks of the board families: a family from its shape, and readers of a board's cells and colours. */
 import { cardText, q, ref, type ElementRef, type EvalContext, type Layer, type Q, type RuleFamily, type Variant } from "@workspace/v2-core";
 import type { BoardState } from "../board.ts";
-import { COLOURS } from "../board.ts";
+import { boardParams, COLOURS } from "../board.ts";
 import { cellName } from "../units.ts";
 
 export type Ctx = EvalContext<BoardState>;
@@ -32,3 +32,6 @@ export const term = (ctx: Ctx, id: string, label: string, x: number, refs: reado
 /** The names of a board's colours, in rainbow order. */
 export const colourNames = (palette: readonly number[]): string[] => palette.map(i => COLOURS[i]!.name);
 export const an = (w: string) => (/^[aeiou]/.test(w) ? `an ${w}` : `a ${w}`);
+
+/** The side of the board being evaluated (families are shared by every board size, so their ids are unique). */
+export const sizeOf = (ctx: Ctx): number => boardParams(ctx.variant).size;

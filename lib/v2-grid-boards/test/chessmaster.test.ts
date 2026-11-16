@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { evaluateSite } from "@workspace/v2-core";
 import { board4Type, board4rgb, chessmaster, decodeBoard } from "../src/index.ts";
 
-const f = chessmaster(4);
+const f = chessmaster();
 const score = (w: string, p = { a: "red", b: "blue" }, tb = "seams") => evaluateSite(board4Type, f, p, decodeBoard(w), board4rgb, 0, tb);
 
 test("Chessmaster deals one rule per pair of the board's colours", () => {

@@ -7,10 +7,11 @@
 import type { RuleFamily, Variant } from "@workspace/v2-core";
 import { paletteOf, type BoardState } from "../board.ts";
 import { an, colourNames, family, more, readBoard, term, type Shape } from "./kit.ts";
+import { sizeOf } from "./kit.ts";
 
 export interface ChessParams { readonly a: string; readonly b: string }
 
-export function chessmaster(n: number): RuleFamily<BoardState, ChessParams> {
+export function chessmaster(): RuleFamily<BoardState, ChessParams> {
   const shape: Shape<ChessParams> = {
     main: more<ChessParams>("chessboards", "little chessboards of your two colours",
       p => `Make little chessboards of ${p.a} and ${p.b}: each 2×2 block whose colours alternate ${p.a} and ${p.b}, like a chessboard, counts.`),
@@ -24,6 +25,7 @@ export function chessmaster(n: number): RuleFamily<BoardState, ChessParams> {
     return names.flatMap((a, i) => names.slice(i + 1).map(b => ({ a, b })));
   };
   return family<ChessParams>("chessmaster", "Chessmaster", shape, pairs, (ctx, p) => {
+    const n = sizeOf(ctx);
     const cells = readBoard(ctx, n);
     const opposite = (i: number, j: number) => (cells.c[i] === p.a && cells.c[j] === p.b) || (cells.c[i] === p.b && cells.c[j] === p.a);
     let boards = 0, seams = 0;
