@@ -5,21 +5,22 @@
  *   energy(s) = mean over K starts x of min(direct(x → s), floor(x), heuristics(x))
  *
  * - Start: a random line whose read numbers (the gradient m, the y-intercept c: what the rule `reads`) each have s's
- *   magnitude (log2 uniform in [log2|v|, log2|v| + ½)), the others from the law. Never below s.
+ *   information content: as many binary digits in the top and in the bottom (`sameSize`), the others from the law.
  * - direct (the ceiling): the cheapest solved move, or pair of moves, onto s itself.
  * - floor (shared by every rule): each single move with a solved amount putting one reading on s's (either sign):
  *   tilt, shift, cross.shift, area.shift, stretch by the exact ratio; the shortcuts (mirrors, stretch by 2, 3, ½, ⅓,
- *   −1); and each shortcut followed by one solved move. A route counts when it reaches u ≥ u(s).
+ *   1/10, −1, and the roundings); and each shortcut followed by one solved move (simplify first: round-then-solve,
+ *   divide-then-solve). A route counts when it reaches u ≥ u(s).
  * - heuristics: the rule's own target proposals, reached by solved moves onto the readings that differ (either order),
  *   from the start and from where each shortcut lands. Adding one can only lower the energy on the same starts.
  * - Price: the game's own act charge for each move as its own act (v2-economy changeCharge of the call's bits), so
  *   energy is in the units players pay. Moves the variant does not offer are never used.
  * Nothing is computed at import time.
  */
-import { Qn, q, rng as makeRng, whichBits, type DynamicRule, type Estimate, type EstimateOpts, type Q, type Rng, type Variant } from "@workspace/v2-core";
+import { gcd, Qn, q, rng as makeRng, whichBits, type DynamicRule, type Estimate, type EstimateOpts, type Q, type Rng, type Variant } from "@workspace/v2-core";
 import { changeCharge } from "@workspace/v2-economy";
 import { fromMC, isVertical, type Line, type LineState } from "./line.ts";
-import { allMutators } from "./mutators.ts";
+import { allMutators, roundTo } from "./mutators.ts";
 import { drawLine } from "./trial-rarity.ts";
 
 // ------------------------------------------------------------------ readings
@@ -97,17 +98,27 @@ class Mover {
     return best;
   }
 }
+/** The shortcuts, each also the first step of a floor route: mirrors, small stretches (divide-then-solve) and roundings (round-then-solve). */
 const SHORTCUTS: Mv[] = [
   ...["x", "y", "origin", "diagonal"].map(axis => ({ id: "cart.mirror", args: { axis } })),
-  ...[q(2), q(3), q(1, 2), q(1, 3), q(-1)].map(f => ({ id: "mach.stretch", args: { f } })),
+  ...[q(2), q(3), q(1, 2), q(1, 3), q(1, 10), q(-1)].map(f => ({ id: "mach.stretch", args: { f } })),
+  ...["m", "c"].flatMap(which => ["whole", "tens", "tenths"].map(to => ({ id: "si.round", args: { which, to } }))),
 ];
 const shortcutsFrom = (mv: Mover, x: Line): Priced[] => SHORTCUTS.flatMap(s => { const p = mv.apply(s, x); return p ? [p] : []; });
 
-/** The generic floor's routes: solved moves onto s's readings (either sign), its crossing and area, the shortcuts, and a shortcut then a solved move. */
+const ROUNDINGS = [q(1), q(10), q(1, 10)];
+/** The generic floor's routes: solved moves onto s's readings (either sign, and rounded), its crossing and area, the shortcuts, and a shortcut then a solved move. */
 function floorRoutes(mv: Mover, x: Line, s: Line): Priced[] {
   const out: Priced[] = [], m = mq(s), c = cq(s);
+  // Targets: s's readings, either sign, and their roundings (a padded reading's simpler neighbour may already be as good).
+  const targets = (v: Q): Q[] => {
+    const out: Q[] = [];
+    for (const t of [v, ...ROUNDINGS.map(u => roundTo(v, u))]) for (const x of [t, Qn.neg(t)]) if (!out.some(o => Qn.eq(o, x))) out.push(x);
+    return out;
+  };
+  const tm = targets(m), tc = targets(c);
   const onto = (from: Line, p0: number) => {
-    for (const on of ["m", "c"] as const) for (const v of on === "m" ? [m, Qn.neg(m)] : [c, Qn.neg(c)])
+    for (const on of ["m", "c"] as const) for (const v of on === "m" ? tm : tc)
       for (const [p, l] of mv.solved(from, on, v)) if (p > 0) out.push([p0 + p, l]);
   };
   onto(x, 0);
@@ -126,10 +137,22 @@ function floorRoutes(mv: Mover, x: Line, s: Line): Priced[] {
 
 // ------------------------------------------------------------------ starts of the same size
 
-/** A whole number of v's magnitude: log2 uniform in [log2|v|, log2|v| + band), either sign. */
-function sameSize(v: Q, band: number, r: Rng): Q {
-  const L = Math.log2(Math.max(1, Qn.toNumber(Qn.abs(v)))), n = Math.max(1, Math.round(2 ** (L + band * r.unit())));
-  return q(r.bit() ? n : -n);
+/** n ≥ 1 with log2 n uniform in [log2 v, log2 v + band) (v ≥ 1). */
+const sameBits = (v: bigint, band: number, r: Rng): bigint => {
+  const L = Math.log2(Math.max(1, Number(v)));
+  return BigInt(Math.max(1, Math.round(2 ** (L + band * r.unit()))));
+};
+/**
+ * A number of v's information content: its top and its bottom (in lowest terms) each drawn with as many binary digits
+ * as v's own (log2 uniform in [log2, log2 + band)), either sign, top and bottom sharing no factor where a few tries find
+ * such a pair. A whole number gives a whole number; padding a number with digits (867 → 8,670,001/10,000) makes its
+ * starts as long as the padded number, so rounding them first leads back to starts like the plain number's.
+ */
+export function sameSize(v: Q, band: number, r: Rng): Q {
+  const top = v.n < 0n ? -v.n : v.n;
+  let n = sameBits(top, band, r), d = sameBits(v.d, band, r);
+  for (let i = 0; i < 4 && d > 1n && gcd(n, d) !== 1n; i++) { n = sameBits(top, band, r); d = sameBits(v.d, band, r); }
+  return q(r.bit() ? n : -n, d);
 }
 /** A start for s: the read numbers of s's size, the others from the law. */
 export function startLike(s: Line, reads: readonly string[], band: number, r: Rng): Line {

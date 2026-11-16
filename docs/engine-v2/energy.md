@@ -12,12 +12,25 @@ better), the readings it `reads`, and its own `searches` (heuristics that propos
 
     energy(s) = mean over K starts x of min(direct(x → s), floor(x), heuristics(x))
 
-- **Starts** (lines, lib/v2-linear energy.ts): a random line whose read numbers (gradient m, y-intercept c) each have s's
-  magnitude (log2 uniform in [log2|v|, log2|v| + ½)), the other reading from the law. Fresh randomness each time.
+- **Starts** (lines, lib/v2-linear energy.ts `sameSize`): a random line whose read numbers (gradient m, y-intercept c)
+  each have s's information content: as many binary digits in the top and in the bottom (lowest terms; each log2 uniform
+  in [log2, log2 + ½)), either sign; the other reading from the law. Fresh randomness each time.
 - **direct**: the cheapest one or two solved moves onto s itself (the ceiling).
-- **floor**, shared by every rule: each single move with a solved amount onto one of s's readings (either sign), its
-  crossing and area, the shortcuts (mirrors, stretch by 2, 3, ½, ⅓, −1), and a shortcut followed by a solved move. A
-  route counts when it reaches u ≥ u(s).
+- **floor**, shared by every rule: each single move with a solved amount onto one of s's readings (either sign, or the
+  reading rounded to a whole number, ten or tenth), its crossing and area, the shortcuts (mirrors, stretch by 2, 3, ½,
+  ⅓, 1/10, −1, and `si.round`), and a shortcut followed by a solved move (simplify first: round-then-solve,
+  divide-then-solve). A route counts when it reaches u ≥ u(s).
+- **Descent** (built 16 Nov): `si.round` rounds the gradient or the y-intercept to the nearest whole number, ten or
+  tenth, priced as two choices. It has no inverse. The dynamic measure needs no exact potential (energy is re-estimated
+  from starts, not read from a stationary law), so a one-way move is allowed; the old tables' law π ∝ 2^−φ no longer
+  holds on a variant that offers it, and those tables are being deleted.
+- **Padding does not pay** (`test/energy.test.ts`, seen narrowly: one test rule u = −|c − 867|, K = 400, line-q
+  prices). E(867) = 549, E(8,670,001/10,000) = 573: the padded state scores the plain one plus about three roundings
+  (8.4 each), because its starts round to numbers within a binary digit of 867's starts. The cheapest padding found
+  (a shift by 1/10,000, a stretch by 8,670,001/8,670,000, or two stretches) costs about 7·10^8, so the ratio of energy
+  gained to energy spent padding is about 3·10^−8. How this could be wrong: a cheaper padding path than the three tried
+  (the ratio is an upper bound only over those), or a rule whose rounded neighbour is worse than the padded state (then
+  rounding gives no route and the padded starts are dearer).
 - **heuristics**: the family's targets, reached by solved moves onto the readings that differ, from the start and from
   where each shortcut lands. Adding a heuristic only lowers the estimate on the same starts (tested).
 - **Price**: the game's own act charge for each move as its own act (`changeCharge`), so energy is in the units players

@@ -42,16 +42,17 @@ test("the weighted which code is a complete prefix code; the walk draws each mut
   for (const m of ms) { const p = 2 ** -w[m.id]!; assert.ok(Math.abs(count.get(m.id)! / n - p) < 4 * Math.sqrt(p * (1 - p) / n), `${m.id}`); }
 });
 
-test("line-q offers the twelve and the turn (the beginner set); the lens variant adds the other four and is dealt only by its own preset", () => {
+test("line-q offers the thirteen and the turn (the beginner set); the lens variant adds the other four and is dealt only by its own preset", () => {
   // The zoom was taken out the same day (a straight hill on Prime Landing): it is a trial again. Since 16 Nov the twelve
   // include a move for the x-crossing, one for the area and a supplied mirror (the owner: a move for every representation).
-  assert.deepEqual(lineQ.mutators.slice(12), ["rot.turn"]);
-  assert.equal(lineQ.mutators.length, 13);
+  // Since 16 Nov the rounding (si.round) is the thirteenth.
+  assert.deepEqual(lineQ.mutators.slice(13), ["rot.turn"]);
+  assert.equal(lineQ.mutators.length, 14);
   assert.ok(isInvalid(applyCall(lineType, lineQ, mc(2, 5), { mutator: "basis.zoom", site: 0, args: { f: "2" } })));
-  // The turn at the price it was measured at (log2 20); the twelve share the rest (log2 (12 / 0.95)).
+  // The turn at the price it was measured at (log2 20); the thirteen share the rest (log2 (13 / 0.95)).
   near(Object.values(lineQ.which!).reduce((a, b) => a + 2 ** -b, 0), 1, "Kraft");
-  near(lineQ.which!["si.tilt"]!, Math.log2(12 / 0.95)); near(lineQ.which!["rot.turn"]!, Math.log2(20));
-  assert.equal(v.mutators.length, 17);
+  near(lineQ.which!["si.tilt"]!, Math.log2(13 / 0.95)); near(lineQ.which!["rot.turn"]!, Math.log2(20));
+  assert.equal(v.mutators.length, 18);
   assert.deepEqual(v.params, lineQ.params);
   assert.ok(isInvalid(applyCall(lineType, lineQ, mc(2, 5), { mutator: "coef.swap", site: 0, args: { pair: "m-c" } })));
   assert.equal(preset("lines-lenses").variant, "line-q-lenses");
