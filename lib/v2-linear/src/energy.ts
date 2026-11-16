@@ -10,7 +10,7 @@
  * - floor (shared by every rule): each single move with a solved amount putting one reading on s's (either sign):
  *   tilt, shift, cross.shift, area.shift, stretch by the exact ratio; the shortcuts (mirrors, stretch by 2, 3, ½, ⅓,
  *   1/10, −1, and the roundings); and each shortcut followed by one solved move (simplify first: round-then-solve,
- *   divide-then-solve). A route counts when it reaches u ≥ u(s).
+ *   divide-then-solve); and through a mirror and back (reflect, one solved move, reflect back). A route counts when it reaches u ≥ u(s).
  * - heuristics: the rule's own target proposals, reached by solved moves onto the readings that differ (either order),
  *   from the start and from where each shortcut lands. Adding one can only lower the energy on the same starts.
  * - Price: the game's own act charge for each move as its own act (v2-economy changeCharge of the call's bits), so
@@ -19,7 +19,7 @@
  */
 import { gcd, Qn, q, rng as makeRng, whichBits, type DynamicRule, type Estimate, type EstimateOpts, type Q, type Rng, type Variant } from "@workspace/v2-core";
 import { changeCharge } from "@workspace/v2-economy";
-import { fromMC, isVertical, type Line, type LineState } from "./line.ts";
+import { fromMC, isVertical, normalise, type Line, type LineState } from "./line.ts";
 import { allMutators, roundTo } from "./mutators.ts";
 import { drawLine } from "./trial-rarity.ts";
 
@@ -104,6 +104,7 @@ const SHORTCUTS: Mv[] = [
   ...[q(2), q(3), q(1, 2), q(1, 3), q(1, 10), q(-1)].map(f => ({ id: "mach.stretch", args: { f } })),
   ...["m", "c"].flatMap(which => ["whole", "tens", "tenths"].map(to => ({ id: "si.round", args: { which, to } }))),
 ];
+const MIRRORS = SHORTCUTS.filter(m => m.id === "cart.mirror");
 const shortcutsFrom = (mv: Mover, x: Line): Priced[] => SHORTCUTS.flatMap(s => { const p = mv.apply(s, x); return p ? [p] : []; });
 
 const ROUNDINGS = [q(1), q(10), q(1, 10)];
@@ -132,6 +133,17 @@ function floorRoutes(mv: Mover, x: Line, s: Line): Priced[] {
     }
   }
   for (const [p1, l1] of shortcutsFrom(mv, x)) { out.push([p1, l1]); onto(l1, p1); }
+  // Through a mirror and back (a lens): reflect, solve onto the reflected s's readings, reflect back. The diagonal
+  // mirror swaps the x-crossing and the y-intercept, so a crossing is set as cheaply as a y-intercept.
+  for (const mirror of MIRRORS) {
+    const s1 = mv.apply(mirror, s), first = mv.apply(mirror, x);
+    if (!s1 || !first) continue;
+    const m1 = mq(s1[1]), c1 = cq(s1[1]);
+    for (const on of ["m", "c"] as const) for (const [p, l] of mv.solved(first[1], on, on === "m" ? m1 : c1)) {
+      const back = p > 0 ? mv.apply(mirror, l) : null;
+      if (back) out.push([first[0] + p + back[0], back[1]]);
+    }
+  }
   return out;
 }
 
@@ -154,9 +166,26 @@ export function sameSize(v: Q, band: number, r: Rng): Q {
   for (let i = 0; i < 4 && d > 1n && gcd(n, d) !== 1n; i++) { n = sameBits(top, band, r); d = sameBits(v.d, band, r); }
   return q(r.bit() ? n : -n, d);
 }
-/** A start for s: the read numbers of s's size, the others from the law. */
+/**
+ * A start for s: the numbers the rule reads, each of s's information content, in the rule's own representation; the
+ * others from the law. Reads: "m" and "c" (y = mx + c), "X" (where it crosses the x-axis: the gradient from the law,
+ * the y-intercept −m·X), "gen" (a, b and c of ax + by + c = 0, each whole number of s's own digits, b > 0).
+ */
 export function startLike(s: Line, reads: readonly string[], band: number, r: Rng): Line {
   const d = drawLine(r), lawM = q(d.m.p, d.m.q), lawC = q(d.c.p, d.c.q);
+  if (reads.includes("gen")) {
+    const whole = (v: bigint, positive = false): bigint => { const x = sameSize(q(v), band, r).n; return positive && x < 0n ? -x : x; };
+    for (let i = 0; i < 8; i++) {
+      const l = normalise(whole(s.a), whole(s.b === 0n ? 1n : s.b, true), whole(s.c));
+      if (!("invalid" in l) && !isVertical(l)) return l;
+    }
+    return fromMC(lawM, lawC);
+  }
+  if (reads.includes("X")) {
+    const m = Qn.isZero(mq(s)) || !reads.includes("m") ? (Qn.isZero(lawM) ? q(1) : lawM) : sameSize(mq(s), band, r);
+    const X = Qn.isZero(mq(s)) ? q(1) : sameSize(Qn.div(Qn.neg(cq(s)), mq(s)), band, r);
+    return fromMC(m, Qn.neg(Qn.mul(m, X)));
+  }
   return fromMC(reads.includes("m") ? sameSize(mq(s), band, r) : lawM, reads.includes("c") ? sameSize(cq(s), band, r) : lawC);
 }
 

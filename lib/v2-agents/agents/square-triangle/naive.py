@@ -1,5 +1,5 @@
-# Smooth Hug · Naive (for learning)
-# Main part: the y-intercept right on a number made only of the dealt primes. Secondary preference: whichever you were dealt ().
+# Square Triangle · Naive (for learning)
+# Main part: the triangle under the line with the area of a square of side a multiple of k. Secondary preference: whichever you were dealt ().
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -70,26 +70,14 @@ def factors_n(n):
 
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
-    x = abs(num(c))                                 # the y-intercept's size
-    if x >= LIMIT:
+    if m == 0 or c == 0:
+        return None                                   # no triangle
+    area = num(c * c) / (2 * abs(num(m)))
+    if area >= LIMIT:
         return None
-    lst, top = [], 2 * x + 64                       # the numbers made only of the dealt primes, up to top
-    def walk(n, i):
-        if i == len(p["primes"]):
-            if n > 1:
-                lst.append(n)
-            return
-        t = n
-        while t <= top:
-            walk(t, i + 1)
-            t *= p["primes"][i]
-    walk(1, 0)
-    s = lst[0]
-    for t in lst:
-        if abs(t - x) < abs(s - x):
-            s = t
-    main = math.sqrt(len(factors_n(s))) - cube(x - s)
-    # main: the square root of the nearest smooth number's prime factors, less the distance to it cubed (bigger is better)
+    n = max(p["k"], p["k"] * math.floor(math.sqrt(area) / p["k"] + 0.5))   # the side n (a multiple of k) with n² nearest
+    main = math.log2(n) - 2 * math.sqrt(abs(area - n * n))
+    # main: binary digits of the multiple n of k with n² nearest the triangle's area, less twice the square root of the distance
     def tier(t):   # each secondary, in order (None: ranks last)
         return None   # none described (a family with no tie-breakers)
     return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
