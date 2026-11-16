@@ -10,7 +10,7 @@ import { StrictMode, useEffect, useMemo, useRef, useState, type ReactElement, ty
 import { createRoot } from "react-dom/client";
 import { q, ruleLayers, type Q, type Score } from "@workspace/v2-core";
 import { describeLine, encodeLine, fromMC, intercept, isVertical, lineQ, lineType, normalise, shift, slope, tilt, type Line, type LineState } from "@workspace/v2-linear";
-import { areaSquare, gradientPrime, height as trialHeight, interceptSmooth, isPrimeN, TRIAL, trialScore, type TrialRule } from "@workspace/v2-linear";
+import { areaSquare, gradientPrime, height as trialHeight, interceptSmooth, isPrimeN, TRIAL, TRIAL_LOG, trialScore, type TrialRule } from "@workspace/v2-linear";
 import { valueLookup, type Lookup, type ValueFunction } from "@workspace/v2-valuation";
 import { annotate, ExpandedFace, ObjectChip, partName, type RuleRef, type ValuePart } from "@workspace/v2-views";
 import { chanceText, exactOrDecimal, fmtBits, fmtQ, isApprox, rarerThanText } from "@workspace/v2-views/format";
@@ -293,7 +293,8 @@ function Rule({ f, line, onLine }: { f: MirrorFamily; line: Line; onLine: (l: Li
  * family chosen above has no trial form yet.
  */
 function TrialPanel({ line }: { line: Line }) {
-  const [suffix, setSuffix] = useState("1"), [primes, setPrimes] = useState("3, 17");
+  const [suffix, setSuffix] = useState("1"), [primes, setPrimes] = useState("3, 17"), [mode, setMode] = useState<"linear" | "log">("log");
+  const D = mode === "log" ? TRIAL_LOG : TRIAL;
   const rules = useMemo<TrialRule[]>(() => {
     const out: TrialRule[] = [];
     try { out.push(gradientPrime(suffix.trim())); } catch { /* not a drawable suffix */ }
@@ -302,12 +303,18 @@ function TrialPanel({ line }: { line: Line }) {
     out.push(areaSquare(100));
     return out;
   }, [suffix, primes]);
-  const H = trialHeight(line);
-  const rows = useMemo(() => rules.map(r => ({ r, s: trialScore(r, line) })), [rules, line]);
+  const H = trialHeight(line, D);
+  const rows = useMemo(() => rules.map(r => ({ r, s: trialScore(r, line, D) })), [rules, line, D]);
   return (
     <div className="rm-verdict" data-testid="trial">
-      <div className="rm-verdict-head"><span>Scoring trial</span> <span className="rm-muted">height {Number.isFinite(H) ? `${H.toFixed(2)} bits` : "off the trial board"}</span></div>
-      <p className="rm-muted">Worth of the best trophy less {TRIAL.k} × the cheapest price to reach it (g = {TRIAL.g}, α = {TRIAL.alpha.toFixed(4)}, {TRIAL.w}⚡ a bit).
+      <div className="rm-verdict-head"><span>Scoring trial</span> <span className="rm-muted">height {Number.isFinite(H) ? `${H.toFixed(2)}${mode === "log" ? `⚡ (${(H / D.g).toFixed(2)} doublings)` : " bits"}` : "off the trial board"}</span></div>
+      <div className="rm-buttons" data-testid="trial-mode">
+        <Pill on={mode === "log"} onClick={() => setMode("log")}>log height (g a doubling)</Pill>
+        <Pill on={mode === "linear"} onClick={() => setMode("linear")}>linear height (g a unit)</Pill>
+      </div>
+      <p className="rm-muted">Worth of the best trophy less {D.k} × the cheapest price to reach it ({mode === "log"
+        ? `g = ${D.g}⚡ a doubling; friction ${D.alphaS} along the size direction, ${D.alphaD} across it; prices are the game's fees`
+        : `g = ${D.g} a unit, α = ${D.alpha.toFixed(4)}, ${D.w}⚡ a bit`}).
         Suffix <input className="rm-num" value={suffix} onChange={e => setSuffix(e.target.value)} size={4} aria-label="trial gradient suffix" />{" "}
         primes <input className="rm-num" value={primes} onChange={e => setPrimes(e.target.value)} size={8} aria-label="trial intercept primes" /></p>
       <table className="rm-trial"><tbody>
