@@ -27,3 +27,14 @@ test("canonical JSON sorts keys; hashes are stable", () => {
   assert.equal(canonicalJson({ b: 1, a: [2n, { d: 1, c: 2 }] }), '{"a":["2",{"c":2,"d":1}],"b":1}');
   assert.equal(hashHex("abc"), "e71fa2190541574b");
 });
+
+// Bits summed in floating point differ in the last place between JavaScript engines (a read length of 9 is
+// 8.999999999999998 under Node and 9 under Convex's runtime): chance must draw the same way for both, or every walk
+// after it differs (the engine's starting lines differed from the table's for the same seed).
+test("chance draws the same for bits that differ only in the last floating-point place", () => {
+  for (const [x, y] of [[9, 8.999999999999998], [1.5, 1.5000000000000002], [0, 1e-16]] as const) {
+    const a = rng("chance-ulp"), b = rng("chance-ulp");
+    for (let i = 0; i < 64; i++) assert.equal(a.chance(x), b.chance(y), `${x} and ${y} at draw ${i}`);
+    assert.equal(a.uint32(), b.uint32(), `${x} and ${y} leave the stream in the same place`);
+  }
+});

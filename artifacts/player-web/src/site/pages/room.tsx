@@ -30,10 +30,8 @@ import { affordanceContext } from "@/core/affordance-context";
 import { toast } from "@/hooks/use-toast";
 import type { Room } from "@/sdk/types";
 
-function copyInvite(code: string) {
-  const url = `${window.location.origin}${roomPath(code)}`;
-  navigator.clipboard.writeText(url).then(() => toast({ title: "Invite link copied", description: url }), () => toast({ title: "Could not copy the invite link", description: url, variant: "destructive" }));
-}
+import { copyInvite } from "@/site/lib/invite";
+import { roomRotationLine, type RotationRound } from "@/panes/results-headline";
 
 /**
  * "Play a practice game": one press fills the empty seats with practice partners and starts (ux-lessons 1.1). Two
@@ -120,7 +118,7 @@ function PastGames({ room }: { room: Room }) {
           {history.results.map((g, i) => (
             <li key={g.gameId} className="px-4 py-2.5 text-sm flex flex-wrap gap-x-4">
               <Link href={gamePath(room.code, g.gameId)} className="underline underline-offset-4" data-testid={`link-past-game-${g.gameId}`}>Game {g.number}</Link>
-              <span className="text-muted-foreground">{g.winner ? `won by ${names.get(g.winner) ?? "a player who left"}` : "no winner"}{g.endedAt ? ` · ${new Date(g.endedAt).toLocaleString()}` : ""}</span>
+              <span className="text-muted-foreground" data-testid={`text-game-winners-${g.gameId}`}>{g.winner ? `won by ${names.get(g.winner) ?? "a player who left"}` : "no winner"}{g.endedAt ? ` · ${new Date(g.endedAt).toLocaleString()}` : ""}</span>
               {g.endedAt !== null && (
                 <AffordanceButton id="replay.open" args={{ gameId: g.gameId }} label="Watch the replay" busyLabel="Opening…" tone="link" testId={`button-replay-${g.gameId}`}
                   onDone={() => navigate(gamePath(room.code, g.gameId))} />
@@ -135,6 +133,13 @@ function PastGames({ room }: { room: Room }) {
       )}
     </Section>
   );
+}
+
+/** v1's rotation line on the room page: which game of the round this is, and whose rule playing again deals the viewer. */
+function RotationLine({ roomId }: { roomId: string }) {
+  const round = useLive(api.v2.rooms.round, { roomId: roomId as Id<"v2Rooms"> }).data;
+  const line = roomRotationLine(round as RotationRound | null | undefined);
+  return line ? <p className="text-sm text-muted-foreground" data-testid="text-rotation-line">{line}</p> : null;
 }
 
 function RoomBody({ room }: { room: Room }) {
@@ -154,6 +159,7 @@ function RoomBody({ room }: { room: Room }) {
         <NextStepBar status={step.status} primary={step.primary && <StepButton step={step.primary} room={room} primary />}
           secondary={step.secondary.map(s => <StepButton key={s} step={s} room={room} />)} />
       </header>
+      {!room.game && <RotationLine roomId={room.roomId} />}
       {room.bidding && !room.game && <Bidding roomId={room.roomId} owner={!!room.members.find(m => m.me)?.owner} />}
       <div className="grid gap-6 lg:grid-cols-2 items-start">
         <Members room={room} />

@@ -39,6 +39,8 @@ export interface RotationRound {
   round: number; of: number;
   games: readonly { gameId: string; number: number }[];
   totals: readonly { memberId: string; name: string; net: number }[];
+  /** Whose rule in the latest game the viewer gets next (v1's rotation line); null when the next deal is fresh. */
+  next?: { memberId: string; name: string } | null;
 }
 /**
  * The results' rotation part: which game of the round this was and the running totals, ties sharing a rank. Null
@@ -46,13 +48,24 @@ export interface RotationRound {
  */
 export function rotationSummary(r: RotationRound | null | undefined, me: string | null, gameId: string) {
   if (!r || !r.games.some(g => g.gameId === gameId)) return null;
+  // v1's rotation line: only the room's latest game says what playing again deals (an older one just says where it stood).
+  const latest = r.games[0]?.gameId === gameId;
+  const next = latest && r.next ? `Play again with the same players and you get ${r.next.name}'s rule, until everyone has held each rule once.` : null;
   // After the first game the running totals are this game's standings, shown just below: no second table.
-  if (r.round === 1 && r.of > 1) return { heading: `Game 1 of ${r.of}: you get a different rule each game, and your totals add up over the ${r.of} games.`, rows: [] };
+  if (r.round === 1 && r.of > 1) return { heading: `Game 1 of ${r.of}: you get a different rule each game, and your totals add up over the ${r.of} games.`, rows: [], next };
   const heading = r.round >= r.of
     ? `The ${r.of} games are over: everyone has played each rule once. Totals over the ${r.of} games:`
     : `Game ${r.round} of ${r.of}: you get a different rule each game, and your totals add up over the ${r.of} games. Totals so far:`;
   const rows = sharedRanks(r.totals.map(t => ({ ...t, rank: 0 }))).map(t => ({ ...t, mine: t.memberId === me }));
-  return { heading, rows };
+  return { heading, rows, next };
+}
+
+/** The room page's rotation line (v1's RotationNote): which game of the round this room is on, and whose rule playing again deals. */
+export function roomRotationLine(r: RotationRound | null | undefined): string | null {
+  if (!r || r.of < 2) return null;
+  if (r.round >= r.of) return `The ${r.of} games of this rotation are over: everyone has played each rule once. The next game deals afresh.`;
+  const next = r.next ? ` Play again with the same players and you get ${r.next.name}'s rule, until everyone has held each rule once.` : "";
+  return `Game ${r.round} of ${r.of} in this rotation.${next}`;
 }
 
 /**

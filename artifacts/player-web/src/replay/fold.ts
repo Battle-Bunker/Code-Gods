@@ -26,7 +26,11 @@ type Score = (string | null)[] | null;
 interface Snap { score: Score; rarityBits: number; want: number; points: number }
 interface ValueAt extends Snap { at: number }
 interface StateAt { at: number; state: string; changedAt: number }
-interface Timeline { objectId: string; number: number; bornAt: number; born: number; states: StateAt[]; values: Map<string, ValueAt[]> }
+interface Timeline {
+  objectId: string; number: number; bornAt: number; born: number; states: StateAt[]; values: Map<string, ValueAt[]>;
+  /** Turnover: the position of its `retired` event, and the world second (absent: never retired). */
+  retired?: number; retiredAt?: number;
+}
 interface Tick { at: number; standings: Standings; point: StandingsPoint }
 interface Command { at: number; kind: string; agentId: string; name?: string; language?: string; version?: number; share?: number; shares?: Record<string, number>; worldSeconds: number }
 type RawEvent = { seq: number; kind: string; data: Record<string, unknown> };
@@ -55,7 +59,12 @@ export interface ReplayIndex {
   histories: Map<number, StandingsPoint[]>;
   /** Each line's answers by (member, state, value), likewise. */
   answers: Map<string, PlayObject>;
+  /** Every agent program version, by `agentId@version` (the file's `programs`; none in files stored before it). */
+  programs: Map<string, ReplayProgram>;
 }
+
+export interface ReplayProgram { agentId: string; memberId: string; name: string; version: number; language: string; source: string; summonedAt: number }
+export const programKey = (agentId: string, version: number) => `${agentId}@${version}`;
 
 /** The last index in a sorted-by-`at` list whose position is applied, or -1. */
 function lastAt<T extends { at: number }>(list: readonly T[], applied: number): number {
@@ -99,7 +108,7 @@ function drifted(end: MyRuleRow, p: RawStart, card: string | null, drifts: numbe
 
 /** Reads a downloaded file and folds it once; throws a sentence when it is not a replay this page reads. */
 export function indexReplay(file: unknown): ReplayIndex {
-  const f = file as { version?: unknown; game?: Record<string, unknown>; rules?: RawRule[]; events?: RawEvent[] } | null;
+  const f = file as { version?: unknown; game?: Record<string, unknown>; rules?: RawRule[]; events?: RawEvent[]; programs?: ReplayProgram[] } | null;
   if (!f || typeof f !== "object") throw new Error("The download is not a stored replay.");
   if (f.version !== STORED_REPLAY_VERSION) throw new Error(`The stored replay is version ${String(f.version)}; this page reads version ${STORED_REPLAY_VERSION}.`);
   if (!Array.isArray(f.events) || !f.game) throw new Error("The download is not a stored replay.");
@@ -111,6 +120,7 @@ export function indexReplay(file: unknown): ReplayIndex {
   const ix: ReplayIndex = {
     gameId: game.gameId, end: f.events.length, endWorld: game.settings?.worldSeconds ?? 0, roster: game.roster,
     world: [], stops: [], objects: [], byId: new Map(), ticks: [], moves: new Map(), commands: new Map(), rules, ruleTimes: new Map(), histories: new Map(), answers: new Map(),
+    programs: new Map((Array.isArray(f.programs) ? f.programs : []).map(p => [programKey(p.agentId, p.version), p])),
   };
   const events = [...f.events].sort((a, b) => a.seq - b.seq);
   let world = 0, moveSeq = 0;
@@ -143,6 +153,12 @@ export function indexReplay(file: unknown): ReplayIndex {
         const t: Timeline = { objectId: String(d.objectId), number: Number(d.number), bornAt: world, born: at, states: [{ at, state: String(d.state), changedAt: world }], values: new Map() };
         ix.objects.push(t);
         ix.byId.set(t.objectId, t);
+        break;
+      }
+      case "retired": {
+        // Turnover (engine retirement-design.md): the line leaves the board; its values stay as banked.
+        const t = ix.byId.get(String(d.objectId));
+        if (t) { t.retired = at; t.retiredAt = world; }
         break;
       }
       case "act": {
@@ -237,6 +253,8 @@ export interface ReplayFrame {
   /** A line as it stood, with `member`'s value of it (none for null); null before its birth. */
   object(objectId: string, member: string | null): PlayObject | null;
   objectIds(member: string, sort: ObjectSort, show?: ObjectShow): { objectId: string; number: number }[];
+  /** The retired lines (turnover), the latest first, as `v2/play:banked` pages them. */
+  banked(member: string): { objectId: string; number: number }[];
   /** The moves that concerned `member`, newest first. */
   moves(member: string): Move[];
   digest(member: string): Digest | null;
@@ -248,6 +266,8 @@ export interface ReplayFrame {
 export function frameAt(ix: ReplayIndex, applied: number): ReplayFrame {
   const a = Math.max(0, Math.min(ix.end, applied));
   const born = ix.objects.filter(t => t.born <= a);
+  const isRetired = (t: Timeline) => t.retired !== undefined && t.retired <= a;
+  const live = born.filter(t => !isRetired(t));
   const valueOf = (t: Timeline, m: string) => {
     const list = t.values.get(m);
     const i = list ? lastAt(list, a) : -1;
@@ -269,11 +289,11 @@ export function frameAt(ix: ReplayIndex, applied: number): ReplayFrame {
       const v = member ? valueOf(t, member) : null;
       // One answer per (state, value) a line ever had: a line the playhead did not change keeps its identity, so its row
       // does not draw again.
-      const key = `${objectId}|${member ?? ""}|${i}|${v?.version ?? 0}`;
+      const key = `${objectId}|${member ?? ""}|${i}|${v?.version ?? 0}|${isRetired(t) ? "r" : ""}`;
       let out = ix.answers.get(key);
       if (!out) {
         out = {
-          objectId: t.objectId, number: t.number, bornAt: t.bornAt, state: s.state, version: i + 1, changedAt: s.changedAt,
+          objectId: t.objectId, number: t.number, bornAt: t.bornAt, ...(isRetired(t) ? { retiredAt: t.retiredAt } : {}), state: s.state, version: i + 1, changedAt: s.changedAt,
           value: v ? { score: v.score, rarityBits: v.rarityBits, want: v.want, points: v.points, version: v.version } : null,
         } as unknown as PlayObject;
         ix.answers.set(key, out);
@@ -293,8 +313,9 @@ export function frameAt(ix: ReplayIndex, applied: number): ReplayFrame {
       // The server pages its indexes in descending order, ties newest first.
       // v1's filters, as the server's: earning you points (and contested is the same here); chips need the server.
       const keep = (t: Timeline) => show === "all" || show === "chips" || (valueOf(t, member)?.points ?? 0) > 0;
-      return born.filter(keep).map(t => ({ t, k: key(t) })).sort((x, y) => y.k - x.k || y.t.number - x.t.number).map(({ t }) => ({ objectId: t.objectId, number: t.number }));
+      return live.filter(keep).map(t => ({ t, k: key(t) })).sort((x, y) => y.k - x.k || y.t.number - x.t.number).map(({ t }) => ({ objectId: t.objectId, number: t.number }));
     },
+    banked: () => born.filter(isRetired).sort((x, y) => y.number - x.number).map(t => ({ objectId: t.objectId, number: t.number })),
     moves(member) {
       const list = ix.moves.get(member) ?? [];
       return list.slice(0, lastAt(list, a) + 1).map(m => m.move).reverse();

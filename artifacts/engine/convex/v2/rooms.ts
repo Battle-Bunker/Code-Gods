@@ -10,6 +10,7 @@ import { query, type QueryCtx } from "../_generated/server";
 import { MAX_MEMBERS, memberOf, normaliseCode, requireMember, requireUser } from "./access";
 import { chatPageV, historyPageV, roomListV, roomV, roundV } from "./validators";
 import { pageOpts } from "./pages";
+import { membersOf, rotationFor } from "./lobby";
 
 /** The caller's rooms, newest joined first: a skeleton page; each row's component subscribes to `get`. */
 export const list = query({
@@ -96,7 +97,7 @@ export const round = query({
   args: { roomId: v.string() },
   returns: roundV,
   handler: async (ctx, { roomId }) => {
-    const { room } = await requireMember(ctx, roomId);
+    const { room, member } = await requireMember(ctx, roomId);
     const games = await ctx.db.query("v2Games").withIndex("by_room_phase", q => q.eq("roomId", room._id).eq("phase", "ended")).order("desc").take(MAX_MEMBERS);
     const inRound: Doc<"v2Games">[] = [];
     for (const g of games) {
@@ -118,6 +119,7 @@ export const round = query({
       round: inRound.length, of: inRound[0]!.roster.length,
       games: inRound.map(g => ({ gameId: g._id, number: g.number })),
       totals: [...totals.values()].sort((a, b) => b.net - a.net),
+      next: await nextFrom(ctx, room, member._id, inRound[0]!),
     };
   },
 });
@@ -131,3 +133,19 @@ export const aiQuotas = query({
     return await memberOf(ctx, roomId, user.userId) ? await quotasOf(ctx, roomId) : null;
   },
 });
+
+/**
+ * v1's rotation line ("Play again with the same players and you get X's rule"): whose rule in the room's latest game
+ * the caller is dealt next, when the next game would be rotated (lobby.ts `rotationFor`: the same seated players, the
+ * round not yet complete). Null when the next deal is fresh or the caller is not seated.
+ */
+async function nextFrom(ctx: QueryCtx, room: Doc<"v2Rooms">, me: Doc<"v2Members">["_id"], latest: Doc<"v2Games">) {
+  const seats = (await membersOf(ctx, room._id)).filter(m => !m.spectator);
+  const i = seats.findIndex(m => m._id === me);
+  if (i < 0) return null;
+  const { rotated } = await rotationFor(ctx, room, seats);
+  if (!rotated) return null;
+  const key = rotated.rules[i]!.ruleKey, from = latest.artefacts.find(a => a.ruleKey === key);
+  const seat = from && latest.roster.find(s => s.memberId === from.memberId);
+  return seat ? { memberId: seat.memberId, name: seat.name } : null;
+}

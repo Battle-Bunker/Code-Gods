@@ -233,8 +233,10 @@ class Offer:
     def locks(self):
         return [Record(dict(l)) for l in _ask({"op": "locks"})["locks"]]
 
-    def lock(self, predicate, amount):
-        return Record(_ask({"op": "lock", "predicate": str(predicate), "amount": float(amount)}))
+    def lock(self, predicate, amount, words=""):
+        # predicate: a program in Python, as text, defining predicate(offer) and returning True or False;
+        # words: your one-line description of what it checks.
+        return Record(_ask({"op": "lock", "predicate": str(predicate), "amount": float(amount), "words": str(words)}))
 
     def fund(self, lock, amount):
         return Record(_ask({"op": "fund", "lock": int(lock), "amount": float(amount)}))

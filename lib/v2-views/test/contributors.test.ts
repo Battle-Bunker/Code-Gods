@@ -41,6 +41,16 @@ test("Prime Landing (primes ending in 1) on y = −x + 33: lands at 33, off the 
   assert.equal(contributors(rule(primeLanding, "shared-factor", { ends: 1 }), mc(-1, 31)).parts[0]!.valueText, "lands at 31, which rounds to the prime 31: 2 digits; the next big step is 3 digits");
 });
 
+test("a tiny area is written as itself, never \"≈ 0.00\" (a played game's lines all read \"area ≈ 0.00 · ≈ 0.00 above 0\")", () => {
+  // y = −288x + 1: the triangle's area is 1²/(2·288) = 1/576, nearest square 0.
+  const exact = contributors(rule(squareArea, "spf"), mc(-288, 1)).parts[0]!;
+  assert.equal(exact.source[0]!.text, "¹⁄₅₇₆");
+  assert.equal(exact.distance, "¹⁄₅₇₆ above 0");
+  // y = −1152x + 1: 1/2304, past the exact limit, written to two significant figures.
+  const tiny = contributors(rule(squareArea, "spf"), mc(-1152, 1)).parts[0]!;
+  assert.equal(tiny.distance, "≈ 0.00043 above 0");
+});
+
 test("Square Area on y = −x + 7: the area 24½ against the square 25 = 5 × 5; Whole Crossing and Treasure name their references", () => {
   const sa = contributors(rule(squareArea, "spf"), mc(-1, 7)).parts[0]!;
   assert.equal(sa.source[0]!.text, "24½");
@@ -172,6 +182,8 @@ test("a ruler marks only the values the dealt rule asks for (playtest round 15: 
   // A sign-mirrored rule ("minus a prime ending in 7"): its marks are on its side of 0.
   assert.deepEqual(neighbours("prime", -50, 0, refFilter({ ends: 7 }, -17)), [-47, -37, -17, -7]);
   assert.deepEqual(neighbours("prime", 0, 20), [2, 3, 5, 7, 11, 13, 17, 19]);
+  // A dealt suffix of several digits (Prime Gradient, 16 Nov).
+  assert.deepEqual(neighbours("prime", 0, 700, refFilter({ suffix: "13" }, 113)), [13, 113, 313, 613]);
 });
 
 test("a ladder reading that counts as on its rung says so first (round 24: 10.51 read '≈ 0.49 below 11', which looked like a miss)", () => {
@@ -186,10 +198,12 @@ test("a ladder reading that counts as on its rung says so first (round 24: 10.51
 
 test("a ladder's main part off every rung says the reading and the nearest rung in words, never a bare negative score (round 29)", async () => {
   const { primeGradient } = await import("@workspace/v2-linear") as unknown as { primeGradient: RuleRef<LineState, unknown>["family"] };
-  const pg = { type: lineType, family: primeGradient, params: { ends: 1 }, variant: lineQ, tieBreaker: (primeGradient as { tieBreakers: { id: string }[] }).tieBreakers[0]!.id } as RuleRef<LineState, unknown>;
+  const pg = { type: lineType, family: primeGradient, params: { suffix: "1" }, variant: lineQ, tieBreaker: (primeGradient as { tieBreakers: { id: string }[] }).tieBreakers[0]!.id } as RuleRef<LineState, unknown>;
   assert.equal(partLine(contributors(pg, mc(10, 3)).parts[0]!), "● main part: gradient 10 · 1 below 11, a prime ending in 1");
-  // A reading below 0 on a rule whose rungs are above 0: measured to the nearest such prime, not a mirrored one.
-  assert.equal(partLine(contributors(pg, mc(-7, 2)).parts[0]!), "● main part: gradient −7 · 18 below 11, a prime ending in 1");
+  // The gradient's sign is free (owner, 16 Nov): a reading below 0 is measured on its own side.
+  assert.equal(partLine(contributors(pg, mc(-7, 2)).parts[0]!), "● main part: gradient −7 · 4 above −11, a prime ending in 1");
+  const pg13 = { ...pg, params: { suffix: "13" } } as RuleRef<LineState, unknown>;
+  assert.equal(partLine(contributors(pg13, mc(200, 2)).parts[0]!), "● main part: gradient 200 · 87 above 113, a prime ending in 13");
   // Every ladder family, on lines off its rungs: words, never "…: −½".
   for (const f of beginnerPool.filter(x => (x as { keepsParams?: boolean }).keepsParams)) {
     const r = { type: lineType, family: f as never, params: (f as { dealable(v: unknown): unknown[] }).dealable(lineQ)[0], variant: lineQ, tieBreaker: (f as { tieBreakers: { id: string }[] }).tieBreakers[0]!.id } as RuleRef<LineState, unknown>;

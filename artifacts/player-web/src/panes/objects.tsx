@@ -29,6 +29,7 @@ import { contestedLines, foldTugs } from "./tug-of-war";
 import { toast } from "@/hooks/use-toast";
 import { AffordanceButton } from "@/site/components/action";
 import { digestScale, listFooter, payoffRect, serverSort, SHOWS, SORTS, whyLine, widen, type PayoffScale } from "./lines";
+import { NewMark, RetiredLines, TurnoverNote } from "./retired";
 
 /** The rectangle's box: the side the largest value fills, and room for its two edge labels. */
 const SIDE = 44, LABEL_W = 42, LABEL_H = 13;
@@ -134,6 +135,7 @@ function LineRow({ objectId, number, rule, value, rep, scale, focused, contested
     <div className="min-w-0 flex-1 space-y-1.5 text-xs">
       <p className="flex flex-wrap items-baseline gap-x-2">
         <span className="font-semibold">{word.One} {number}</span>
+        <NewMark bornAt={o.bornAt} number={number} />
         {contested && <span className="border border-destructive/60 px-1 text-[10px] font-medium uppercase text-destructive" data-testid={`badge-contested-line-${number}`}
           title={`Your agent and another player's keep moving this ${word.one} back and forth: both of you burn energy. Talk to them.`}>tug-of-war</span>}
         {v && <span data-testid={`text-points-line-${number}`}>{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
@@ -153,7 +155,7 @@ function LineRow({ objectId, number, rule, value, rep, scale, focused, contested
  * Every game pays to look (owner decisions 33, 35): what you see is as you last saw it. One press pays to see every
  * loaded one as it is now; another summons a Watcher, an agent that only looks, so they stay fresh on their own.
  */
-function LookAll({ ids, many, variant }: { ids: readonly string[]; many: string; variant: string }) {
+function LookAll({ ids, many, one, variant }: { ids: readonly string[]; many: string; one: string; variant: string }) {
   const rows = useMyObjects(ids);   // the rows' own subscriptions (shared): each carries its look price
   const scale = useGame()?.priceScale ?? 1;
   const agents = useMyAgents();
@@ -167,9 +169,9 @@ function LookAll({ ids, many, variant }: { ids: readonly string[]; many: string;
   // Watcher are extras for a player who wants their view sooner, never a step of the first game.
   return (
     <details className="px-3 text-xs text-muted-foreground" data-testid="look-all">
-      <summary className="cursor-pointer" data-testid="details-look-more">Your agents tell you about every {many.replace(/s$/, "")} they touch. Want to see them sooner?</summary>
+      <summary className="cursor-pointer" data-testid="details-look-more">Your agents tell you about every {one} they touch. Want to see them sooner?</summary>
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-        {price !== null && <AffordanceButton id="object.look" args={{}} label={`Look at every ${many.replace(/s$/, "")} now (${price.toFixed(2)} energy)`} busyLabel="Looking…" tone="secondary" className="px-2 py-1 text-xs" testId="button-look-all" />}
+        {price !== null && <AffordanceButton id="object.look" args={{}} label={`Look at every ${one} now (${price.toFixed(2)} energy)`} busyLabel="Looking…" tone="secondary" className="px-2 py-1 text-xs" testId="button-look-all" />}
         {watching
           ? <span data-testid="text-watching">Your Watcher keeps them fresh.</span>
           : <AffordanceButton id="agent.summon" args={{ language: "typescript", source: watcher.source, name: "Watcher", share: KEEP_FRESH_SHARE }}
@@ -215,7 +217,7 @@ function SeatedLines() {
   if (!results.length) {
     return (
       <p className="p-4 text-sm text-muted-foreground" data-testid="lines-empty">
-        When the world starts, its lines appear here, best for you first: each drawn the way your rule reads it, with a rectangle whose width is
+        The game's lines appear here as soon as it starts, best for you first: each drawn the way your rule reads it, with a rectangle whose width is
         your bits for it and whose height is the others' bits added together, so its area is your points.
       </p>
     );
@@ -228,10 +230,12 @@ function SeatedLines() {
         <SortControl />
         <PointsKey />
       </div>
-      <LookAll ids={loadedIds} many={objectWord(header?.variant).many} variant={header?.variant ?? ""} />
+      <TurnoverNote />
+      <LookAll ids={loadedIds} many={objectWord(header?.variant).many} one={objectWord(header?.variant).one} variant={header?.variant ?? ""} />
       <VirtualRows rows={results} rowHeight={ROW_H} maxHeight={maxHeight} keyOf={r => r.objectId} onNearEnd={onNearEnd} testId="lines-list"
         render={r => <LineRow objectId={r.objectId} number={r.number} rule={rule} value={my?.bits ?? null} rep={rep} scale={scale} focused={view.focus?.objectId === r.objectId} contested={contested.has(r.objectId)} onOpen={onOpen} variant={header?.variant ?? ""} />} />
-      <ListFooter text={listFooter({ shown: results.length, packed: digest?.packed, show: view.objects.filter.show ?? "all", more: status !== "Exhausted", many: objectWord(header?.variant).many })} />
+      <ListFooter text={listFooter({ shown: results.length, packed: header?.turnover ? undefined : digest?.packed, show: view.objects.filter.show ?? "all", more: status !== "Exhausted", many: objectWord(header?.variant).many })} />
+      <RetiredLines />
     </div>
   );
 }

@@ -6,9 +6,11 @@
  *
  * Copied and cleaned in spirit from v1's engine/loop.ts (lease, commit pattern); nothing is imported from it.
  */
+import { isInvalid, type LockOpDone } from "@workspace/v2-core";
 import { agentIncome, chargeAct, energyCapacity, readCharge, settle, type Account } from "@workspace/v2-economy";
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
+import type { EndReason } from "./tables.ts";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { decode, distinctBirths, heldReason, penaltyWeightOf, scopeOf, valuesOf, type SeatRule, type Value as ExactValue } from "./world.ts";
@@ -21,6 +23,7 @@ import { paysToRead, tell } from "./knowledge.ts";
 import { driftEventsDue, driftSecondsOf, redrawParams } from "./drift.ts";
 import { ruleView } from "./deal.ts";
 import { capOf, liveLines } from "./turnover.ts";
+import { liveLockDocs, lockDocs, locksOn, lockWire, nextLockOf, recommit, retireLocks, sweepLocks, writeLocks } from "./locks.ts";
 
 /** Wall milliseconds between ticks; world time advances by the wall time that passed, at most MAX_DT a tick. */
 export const TICK_MS = 1500;
@@ -156,9 +159,15 @@ async function retireLine(ctx: MutationCtx, game: Doc<"v2Games">, number: number
   const object = await ctx.db.query("v2Objects").withIndex("by_game", q => q.eq("gameId", game._id).eq("number", number)).unique();
   if (!object || object.retiredAt !== undefined) return;
   await ctx.db.patch(object._id, { retiredAt: world });
+  if (locksOn(game)) await retireLocks(ctx, object._id, world, (k, d) => appendEvent(ctx, game._id, k, d));
   const st = await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", object._id)).unique();
   if (st && !turnover.retiredHolds) await ctx.db.patch(st._id, { released: true });
   const rows = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", object._id)).take(16);
+  // Nobody is told the line's final state for free (decision 35: content is paid): in a game that pays to read, a
+  // retired line shows each player as they last saw it, until the end opens everything.
+  // Its rows leave the live lists (the sort indexes key on `retired`) for the retired list (play.ts banked).
+  for (const r of rows) await ctx.db.patch(r._id, { retired: true });
+  for (const k of await ctx.db.query("v2Knowledge").withIndex("by_object_member", q => q.eq("objectId", object._id)).take(16)) await ctx.db.patch(k._id, { retired: true });
   if (turnover.retiredPoints === "dropped") for (const r of rows) {
     const d = drops.get(r.memberId) ?? { points: 0, shown: 0 };
     drops.set(r.memberId, { points: d.points + r.points, shown: d.shown + (r.shownPoints ?? r.points) });
@@ -312,7 +321,8 @@ async function reknow(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[],
   const scope = scopeOf(game).objects;
   const digest = await ctx.db.query("v2Digests").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", memberId)).unique();
   const packed = digest ? [...digest.packed] : [];
-  for await (const k of ctx.db.query("v2Knowledge").withIndex("by_game_member_born", q => q.eq("gameId", game._id).eq("memberId", memberId))) {
+  for await (const k of ctx.db.query("v2Knowledge").withIndex("by_game_member_born", q => q.eq("gameId", game._id).eq("memberId", memberId).eq("retired", undefined))) {
+    // (Retired lines keep what was banked: their rows are past this range.)
     const mine = valuesOf(decode(k.state, game.variant), game.variant, seats, scope, penaltyWeightOf(game)).find(x => x.memberId === memberId);
     if (!mine) continue;
     await ctx.db.patch(k._id, { score: mine.score, rarityBits: mine.rarityBits, points: mine.rarityBits * Math.max(0, k.want), quadrant: quadrantOf(mine.rarityBits, k.want) });
@@ -415,21 +425,21 @@ export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
 const withoutTranscript = ({ transcript: _, ...rest }: { transcript?: unknown; [k: string]: unknown }) => rest;
 
 /** The game ends: the lease goes, the final scoreboard and `gameEnded`, the room is free for the next game. */
-export async function endGame(ctx: MutationCtx, game: Doc<"v2Games">) {
+export async function endGame(ctx: MutationCtx, game: Doc<"v2Games">, reason: EndReason) {
   if (game.phase === "ended") return;
   const engine = await ctx.db.query("v2Engine").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
   const clock = await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
   if (engine && clock) {
     await ctx.db.patch(engine._id, { leaseId: "" });
     const rows = await scoreboard(ctx, game, clock.worldSeconds);
-    await ctx.db.patch(game._id, { phase: "ended", endedAt: Date.now(), summary: { winner: rows[0]?.memberId ?? null, objects: engine.objects, acts: engine.acts } });
+    await ctx.db.patch(game._id, { phase: "ended", endedAt: Date.now(), endReason: reason, summary: { winner: rows[0]?.memberId ?? null, objects: engine.objects, acts: engine.acts } });
     await appendEvent(ctx, game._id, "gameEnded", { worldSeconds: clock.worldSeconds, standings: rows.map(r => ({ memberId: r.memberId, total: r.total, net: r.net, rank: r.rank })) });
     await ctx.scheduler.runAfter(0, BUILD_REPLAY, { gameId: game._id });
     // An ended game is fully transparent: each player's values, sorts, scatter and (paid) knowledge become exact.
     for (const s of game.roster) await ctx.scheduler.runAfter(0, EXACT_VALUES, { gameId: game._id, memberId: s.memberId });
   } else {
     // A game with no engine or clock (a seeded fixture: v2/testing seedGame) has no world to score or record: it just ends.
-    await ctx.db.patch(game._id, { phase: "ended", endedAt: Date.now(), summary: { winner: null, objects: 0, acts: 0 } });
+    await ctx.db.patch(game._id, { phase: "ended", endedAt: Date.now(), endReason: reason, summary: { winner: null, objects: 0, acts: 0 } });
   }
   const room = (await ctx.db.get(game.roomId))!;
   if (room.gameId === game._id) await ctx.db.patch(room._id, { gameId: undefined, revision: room.revision + 1 });
@@ -500,7 +510,7 @@ export const watchdog = internalMutation({
       await ctx.db.patch(engine._id, { leaseId: lease, failures: engine.failures + 1 });
       await ctx.db.patch(clock._id, { lastTickAt: now });
       await ctx.scheduler.runAfter(0, TICK, { gameId, leaseId: lease });
-      if (engine.failures + 1 >= MAX_FAILURES) { await endGame(ctx, game); return; }
+      if (engine.failures + 1 >= MAX_FAILURES) { await endGame(ctx, game, "retired"); return; }
     }
     await ctx.scheduler.runAfter(WATCHDOG_MS, WATCHDOG, { gameId, leaseId: lease });
   },
@@ -606,14 +616,16 @@ export const HISTORY = 8;
 
 /** The states of the objects with these numbers. */
 export const statesOf = internalQuery({
-  args: { gameId: v.id("v2Games"), numbers: v.array(v.number()) },
-  handler: async (ctx, { gameId, numbers }) => {
+  args: { gameId: v.id("v2Games"), numbers: v.array(v.number()), locks: v.optional(v.boolean()) },
+  handler: async (ctx, { gameId, numbers, locks }) => {
     const out = [];
     for (const n of [...new Set(numbers)]) {
       const o = await ctx.db.query("v2Objects").withIndex("by_game", q => q.eq("gameId", gameId).eq("number", n)).unique();
       if (!o) continue;
       const st = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", o._id)).unique())!;
-      out.push({ number: n, objectId: o._id, state: st.state, version: st.version });
+      // With locks (the room setting): the object's live locks and the number its next lock takes.
+      const lk = locks ? { locks: (await lockDocs(ctx, o._id)).map(lockWire), nextLock: nextLockOf(o) } : {};
+      out.push({ number: n, objectId: o._id, state: st.state, version: st.version, ...lk });
     }
     return out;
   },
@@ -673,13 +685,14 @@ export const commit = internalMutation({
     }
 
     await applyDrops(ctx, game._id, drops);
+    if (locksOn(game)) await sweepLocks(ctx, game._id, world, (k, d) => appendEvent(ctx, game._id, k, d));
     const P = game.settings.economy;
     for (const act of a.acts) {
       const agent = await ctx.db.get(act.agentId);
       const energy = await ctx.db.query("v2AgentEnergy").withIndex("by_agent", q => q.eq("agentId", act.agentId)).unique();
       if (!agent || agent.destroyedAt !== undefined || !energy) continue;   // destroyed since the tick read it
       if (retiredNow.has(act.number)) continue;   // retired by this commit's births (the tick offers none such)
-      const record = act.record as { outcome: string; after: string; before: string; charge: number; readBits: number; calls: { mutator: string; site: number; args: Record<string, string>; rep: string }[]; reason?: string; notes?: string[] };
+      const record = act.record as { outcome: string; after: string; before: string; charge: number; readBits: number; calls: { mutator: string; site: number; args: Record<string, string>; rep: string }[]; reason?: string; notes?: string[]; locks?: unknown[]; lockChecked?: number[] };
       const st = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", act.objectId)).unique())!;
       const income = agentIncome(P.powerPerSecond, agent.share), capacity = energyCapacity(income, P.fullChargeSeconds);
       const account: Account = settle({ balance: energy.energy, settledWorldSeconds: energy.settledAt }, world, income, capacity);
@@ -689,10 +702,35 @@ export const commit = internalMutation({
       const current = verdict === "committed" && st.version === act.version;
       // Decision 24: a move onto a state another object holds is refused like an invalid call (it pays its reads).
       const holder = current ? await holderOf(ctx, game._id, record.after, act.objectId) : null;
-      const committed = current && !holder;
-      const outcome = holder ? "failed" : verdict === "committed" && !committed ? "stale" : verdict;
-      const charge = committed || outcome === "skipped" || (outcome === "failed" && !holder) ? record.charge : readCharge(record.readBits);
-      const charged = chargeAct(account, charge);
+      let committed = current && !holder;
+      let outcome = holder ? "failed" : verdict === "committed" && !committed ? "stale" : verdict;
+      let charge = committed || outcome === "skipped" || (outcome === "failed" && !holder) ? record.charge : readCharge(record.readBits);
+      // Locks (docs/engine-v2/locks.md §4): the act re-run against the object's state and live locks now; a lock this
+      // commit made or drained first counts. A refusal fails the act (it pays its reads); the lock changes cost on top.
+      let lockFail: string | null = null, lockSpend = 0, locked: Exclude<ReturnType<typeof recommit>, { invalid: string }> | null = null;
+      let lockObject: Doc<"v2Objects"> | null = null, lockDocsNow: Doc<"v2Locks">[] = [];
+      const lockOps = (record.locks ?? []) as LockOpDone[];
+      if (locksOn(game) && (committed || (outcome === "skipped" && lockOps.length))) {
+        // No program runs here: the tick checked the calls (`lockChecked`: against which locks) and measured any new
+        // lock on the state its calls reached. A new lock needs that state still to be the object's (the version);
+        // funds and drains read no state. A lock made or refilled since the act looked refuses its move.
+        lockObject = await ctx.db.get(act.objectId);
+        lockDocsNow = await liveLockDocs(ctx, act.objectId, world, (k, d) => appendEvent(ctx, game._id, k, d));
+        if (!lockObject) lockFail = "the object is gone";
+        else if (lockOps.some(d => d.op === "create") && st.version !== act.version) lockFail = "the object moved before the act's new lock could be made";
+        else if (lockOps.length || lockDocsNow.length) {
+          const r = recommit(lockObject, lockDocsNow, lockOps, committed ? record.lockChecked ?? [] : null, world);
+          if (isInvalid(r)) lockFail = r.invalid;
+          else if (account.balance - charge < r.spend - 1e-9) lockFail = "not enough energy for these lock changes";
+          else { locked = r; lockSpend = r.spend; }
+        }
+        if (lockFail !== null) { committed = false; outcome = "failed"; charge = readCharge(record.readBits); }
+      }
+      // What the commit applied, when it differs from what the tick ran (a lock renumbered, a drain clipped further, or
+      // none applied): the act event records the applied changes and is marked `charged`, like any act the commit overrode.
+      const applied = locked?.done ?? [];
+      const lockOverride = JSON.stringify(applied) !== JSON.stringify(lockOps) ? { locks: applied, lockSpend, charged: charge } : {};
+      const charged = chargeAct(account, charge + lockSpend);
       // v1's split of the spend: what the reads cost (paid whatever happened) and the rest, the change (committed acts only).
       const readPart = Math.min(charge, readCharge(record.readBits)), changePart = charge - readPart;
       const n = act.n;
@@ -700,9 +738,10 @@ export const commit = internalMutation({
       const kept = (energy.history ?? []).filter(h => h.at < world);
       const history = [...kept, { at: world, energy: charged.balance }].slice(-AGENT_HISTORY);
       await ctx.db.patch(energy._id, {
-        energy: charged.balance, settledAt: charged.settledWorldSeconds, acts: energy.acts + 1, spend: energy.spend + charge, lastActAt: world, history,
+        energy: charged.balance, settledAt: charged.settledWorldSeconds, acts: energy.acts + 1, spend: energy.spend + charge + lockSpend, lastActAt: world, history,
         spendRead: (energy.spendRead ?? 0) + readPart, spendChange: (energy.spendChange ?? 0) + changePart,
-        lastAct: { at: world, read: readPart, change: changePart, outcome },
+        ...(lockSpend > 0 ? { spendLocks: (energy.spendLocks ?? 0) + lockSpend } : {}),
+        lastAct: { at: world, read: readPart, change: changePart, outcome, ...(lockSpend > 0 ? { locks: lockSpend } : {}) },
         ...(outcome === "skipped" ? { skips: energy.skips + 1 } : outcome === "failed" ? { failures: energy.failures + 1 } : {}),
       });
       const actSeq = await appendEvent(ctx, game._id, "act", {
@@ -713,7 +752,11 @@ export const commit = internalMutation({
         // game's writes); an act that moved or failed keeps it. Any act can be re-run from its seed and inputs.
         ...(outcome === "skipped" ? withoutTranscript(record) : record), ...(outcome !== record.outcome ? { outcome, after: record.before, charged: charge } : {}),
         ...(holder ? { reason: heldReason(game.variant, holder.number) } : {}),
+        ...lockOverride, ...(lockFail !== null ? { reason: lockFail } : {}),
       });
+      if (locked && lockObject) {
+        await writeLocks(ctx, game, lockObject, lockDocsNow, locked.locks, locked.done, world, { memberId: act.memberId, agentId: act.agentId }, (k, d) => appendEvent(ctx, game._id, k, d));
+      }
       // Owner decision 36: "Players should still know everything their agents learn for free". Every act an agent runs
       // on an object tells its owner the object as the agent saw it, with the agent's own measurement of its value (a
       // change commits below and tells it as changed). A stale act saw an older version: nothing newer to tell.
@@ -767,7 +810,7 @@ export const commit = internalMutation({
     await ctx.db.patch(engine._id, { tick: engine.tick + 1, objects, acts, moves, ...(live !== null ? { live } : {}) });
     await ctx.db.patch(clock._id, { tick: clock.tick + 1, worldSeconds: world, lastTickAt: a.now, objects, commits: clock.commits + 1 });
     const fresh = (await ctx.db.get(game._id))!;
-    if (world >= endWorldOf(game)) { await endGame(ctx, fresh); return { committed: true, ended: true }; }
+    if (world >= endWorldOf(game)) { await endGame(ctx, fresh, "lifetime"); return { committed: true, ended: true }; }
     if (world - engine.scoreboardAt >= scoreIntervalOf(game)) await scoreboard(ctx, fresh, world);
     // Nobody has acted for 30 minutes (activity.ts, v1's idle parking): park, so ticks cost nothing until someone returns.
     if (await shouldPark(ctx, fresh)) { await parkGame(ctx, fresh); return { committed: true, ended: false }; }
@@ -787,7 +830,7 @@ export const tickFailed = internalMutation({
     // A game whose ticks keep failing is ended rather than left spinning (the failures are in the logs).
     if (engine.failures + 1 >= MAX_FAILURES) {
       const game = await ctx.db.get(gameId);
-      if (game) await endGame(ctx, game);
+      if (game) await endGame(ctx, game, "retired");
       return;
     }
     await ctx.scheduler.runAfter(TICK_MS, TICK, { gameId, leaseId });
@@ -819,7 +862,7 @@ export const exactValues = internalMutation({
       const told = { state: st.state, version: st.version, score: r.score, rarityBits: r.rarityBits, want: r.want, points: r.points, quadrant };
       const known = await ctx.db.query("v2Knowledge").withIndex("by_object_member", q => q.eq("objectId", r.objectId).eq("memberId", memberId)).unique();
       if (known) await ctx.db.patch(known._id, told);   // learnedAt kept: the "recent" sort stays the order of telling
-      else await ctx.db.insert("v2Knowledge", { gameId, memberId, objectId: r.objectId, number: r.number, learnedAt: world, ...told });
+      else await ctx.db.insert("v2Knowledge", { gameId, memberId, objectId: r.objectId, number: r.number, learnedAt: world, ...told, ...(r.retired ? { retired: true as const } : {}) });
     }
     if (digest) await ctx.db.patch(digest._id, { packed, version: digest.version + 1 });
   },

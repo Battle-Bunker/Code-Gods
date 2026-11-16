@@ -19,8 +19,8 @@ function fieldsOf(json: any): string[] {
 
 test("a player's object read carries their own value and the others' total, nothing per other player", () => {
   const json = (playObjectV as any).json;
-  assert.deepEqual(Object.keys(json.value).sort(), ["bornAt", "changedAt", "changesSince", "knownAt", "lookPrice", "number", "objectId", "state", "value", "version"].sort(),
-    "a new top-level field on the object read needs a look at what it discloses");
+  assert.deepEqual(Object.keys(json.value).sort(), ["bornAt", "changedAt", "changesSince", "knownAt", "lookPrice", "number", "objectId", "retiredAt", "state", "value", "version"].sort(),
+    "a new top-level field on the object read needs a look at what it discloses (retiredAt: when the line retired, public like its birth)");
   // `parts` is the caller's OWN bits split by their own rule's layers (a tree-valued rule's points tree): still nothing per
   // other player.
   assert.deepEqual(fieldsOf(json.value.value.fieldType).sort(), ["parts", "points", "rarityBits", "score", "version", "want"].sort(),
@@ -31,4 +31,9 @@ test("the beginner presets: 3 objects, a 600-second game, exact readings", () =>
   const beginner = PRESETS.filter(p => p.id.includes("beginner"));
   assert.ok(beginner.length >= 2, "lines and grids beginner presets exist");
   for (const p of beginner) assert.deepEqual([p.id, p.startingObjects, p.worldSeconds, p.peerNoiseVariance], [p.id, 3, 600, 0]);
+});
+
+test("the default setup is the beginner lines on line-q, rational coefficients (owner decision 2; v1-audit §1.4)", async () => {
+  const { DEFAULT_PRESET, presetOf } = await import("../../convex/v2/presets.ts");
+  assert.deepEqual([DEFAULT_PRESET, presetOf(DEFAULT_PRESET).variant], ["lines-beginner", "line-q"]);
 });

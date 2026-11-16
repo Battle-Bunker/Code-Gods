@@ -7,6 +7,7 @@
  * Player words only: points, rarity in bits (each bit = twice as rare) with "1 in N by chance", energy, "main part",
  * "tie-breaker", and the game's own noun ("line", "grid"), never "object". No steps and no thresholds.
  */
+import { rovingIndex } from "./roving-keys.ts";
 import { partGlyph, type Contributor } from "./contributors.ts";
 import { useMemo, useState, type ReactElement, type ReactNode } from "react";
 import { representation, type ElementRef, type Mark, type ObjectType, type Score } from "@workspace/v2-core";
@@ -149,7 +150,15 @@ export function PartsList({ parts, active, onActive, onSelect, selected }: Parts
           tabIndex={0} aria-pressed={selected === i} role="button"
           onMouseEnter={() => onActive?.(i)} onMouseLeave={() => onActive?.(null)} onFocus={() => onActive?.(i)} onBlur={() => onActive?.(null)}
           onClick={() => onSelect?.(selected === i ? null : i)}
-          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect?.(selected === i ? null : i); } else if (e.key === "Escape") onSelect?.(null); }}>
+          onKeyDown={e => {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect?.(selected === i ? null : i); return; }
+            if (e.key === "Escape") { onSelect?.(null); return; }
+            // v1's GoalBoard: arrows, Home and End move between the scoring parts (focus lights each one's marks).
+            const next = rovingIndex(e.key, i, parts.length);
+            if (next === null || next === i) return;
+            e.preventDefault();
+            (e.currentTarget.parentElement?.children[next] as HTMLElement | undefined)?.focus();
+          }}>
           <div className="v2v-part-head">
             <span className="v2v-part-name">{partGlyph(p.depth)} {p.name[0]!.toUpperCase() + p.name.slice(1)}: {p.title}</span>
             <span className="v2v-part-aim">{p.aim}</span>
@@ -283,7 +292,16 @@ export function RepSwitcher<S>(p: RepSwitcherProps<S>): ReactElement {
           const r = representation(p.type, id);
           return (
             <button key={id} type="button" role="tab" aria-selected={p.active === id} className="v2v-tab" data-depends="" data-primary={p.primary === id ? "" : undefined}
-              title={`${r.title} (your rule reads this)`} onClick={() => p.onActive(id)}>{shortTitle(r.title)}{p.primary === id && <span className="v2v-tab-main"> · main view</span>}</button>
+              tabIndex={p.active === id || (!reads.includes(p.active) && id === reads[0]) ? 0 : -1}
+              title={`${r.title} (your rule reads this)`} onClick={() => p.onActive(id)}
+              onKeyDown={e => {
+                // v1's explain modes: arrows, Home and End move to the next view and show it (a tab list's keys).
+                const next = rovingIndex(e.key, reads.indexOf(id), reads.length);
+                if (next === null || reads[next] === id) return;
+                e.preventDefault();
+                p.onActive(reads[next]!);
+                (e.currentTarget.parentElement?.querySelectorAll<HTMLElement>("[data-depends]")[next])?.focus();
+              }}>{shortTitle(r.title)}{p.primary === id && <span className="v2v-tab-main"> · main view</span>}</button>
           );
         })}
         {others.some(r => r.id === p.active) && (
@@ -345,6 +363,24 @@ export interface ExpandedFaceProps<S, P> {
    * "uniqueness" and "defence" corrections; they sum to the bits. Null or absent: the rule is not tree-valued.
    */
   readonly parts?: readonly ValuePart[] | null;
+  /**
+   * The locks on the object (docs/engine-v2/locks.md): each drawn as marks on the elements its predicate reads (a site-less
+   * ref is this face's line) and listed under the parts. Not part of the rule's score. Absent: nothing changes.
+   */
+  readonly locks?: readonly FaceLock[];
+}
+
+/** A lock as the face draws it: its plain words, the elements its predicate reads and, when known, the energy it holds. */
+export interface FaceLock { readonly id: string; readonly words: string; readonly refs: readonly ElementRef[]; readonly energy?: number }
+
+/** A lock's marks on one site: a focus on each element it reads there and its words as a note on the first. */
+export function lockMarks(locks: readonly FaceLock[], site: number): Mark[] {
+  return locks.flatMap(l => {
+    const refs = l.refs.filter(r => (r.site ?? site) === site).map(({ site: _site, ...r }) => r);
+    if (!refs.length) return [];
+    const term = `lock:${l.id}`;
+    return [...refs.map(ref => ({ kind: "focus" as const, ref, term })), { kind: "note" as const, ref: refs[0]!, text: `Lock: ${l.words}`, term }];
+  });
 }
 
 /** A layer's share of the viewer's own bits, or a correction on them (v2/play:object value.parts). */
@@ -415,7 +451,9 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
   const part = (i: number | null) => (i !== null && i < sa.parts.length ? i : null);
   const sel = part(selected);
   const lit = sel ?? part(hoverPart);
-  const marks: readonly Mark[] = sel === null ? sa.marks : sa.parts[sel]!.marks;
+  const locked = useMemo(() => lockMarks(props.locks ?? [], site), [props.locks, site]);
+  // A part selected draws only its own marks; otherwise the locks' marks join the rule's.
+  const marks: readonly Mark[] = sel === null ? (locked.length ? [...sa.marks, ...locked] : sa.marks) : sa.parts[sel]!.marks;
 
   // The rule's own views side by side (the primary first), the active one and the compared one.
   const panels = [...new Set([rule.family.main.rep, ...depends, active, ...(compare ? [compare] : [])])];
@@ -441,12 +479,6 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
           {toScore && <span data-testid="text-to-score"> To score: {toScore.words}{!toScore.words.includes(toScore.text) && toScore.text.length <= 40 ? ` (it becomes ${toScore.text})` : ""}, for {fmtEnergy(toScore.price.total)}.</span>}
         </p>
       )}
-      {sel !== null && (
-        <p className="v2v-selchip" data-role={sa.parts[sel]!.role}>
-          {partGlyph(sa.parts[sel]!.depth)} {sa.parts[sel]!.name} selected: only its marks are drawn{" "}
-          <button type="button" aria-label="Clear the selection" onClick={() => setSelected(null)}>Clear</button>
-        </p>
-      )}
 
       <RepSwitcher type={rule.type} depends={depends} primary={rule.family.main.rep} active={active} compare={compare} onActive={setActive} onCompare={setCompare} />
       <div className="v2v-panels" data-compare={compare ? "" : undefined}>
@@ -466,7 +498,20 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
       </div>
 
       <div className="v2v-exp-body">
+        {/* Said beside the parts list, where the tap happened (playtest baseline-3: above the views, on a phone it was
+            off-screen and the tester could not find it). */}
+        {sel !== null && (
+          <p className="v2v-selchip" role="status" data-role={sa.parts[sel]!.role}>
+            {partGlyph(sa.parts[sel]!.depth)} {sa.parts[sel]!.name} selected: only its marks are drawn in the views{" "}
+            <button type="button" aria-label="Clear the selection" onClick={() => setSelected(null)}>Clear</button>
+          </p>
+        )}
         <PartsList parts={sa.parts} active={lit} onActive={setHoverPart} selected={sel} onSelect={setSelected} />
+        {props.locks && props.locks.length > 0 && (
+          <ul className="v2v-locks" aria-label="The locks on it">
+            {props.locks.map(l => <li key={l.id} data-lock={l.id}>Lock: {l.words}{l.energy !== undefined ? ` (held by ${fmtEnergy(l.energy)})` : ""}</li>)}
+          </ul>
+        )}
         {/* Lines' points become the sum of each layer's rarity (the owner's choice, 16 Nov): "counts first" would be false,
             so lines say nothing about how layers combine until the per-layer bits draw the points tree. */}
         {props.parts && props.parts.length > 0 && <PointsTree parts={props.parts} of={sa.parts} />}

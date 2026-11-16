@@ -5,7 +5,7 @@
  */
 import { paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
-import { bidV, callV, languageV, memberKindV, offerV, overridesV, phaseV, scoreWireV, valueSnapV } from "./tables.ts";
+import { bidV, callV, endReasonV, languageV, memberKindV, offerV, overridesV, phaseV, scoreWireV, valueSnapV } from "./tables.ts";
 
 export const roomPhaseV = v.union(v.literal("lobby"), phaseV);
 
@@ -35,6 +35,8 @@ export const chatPageV = paginationResultValidator(v.object({ id: v.id("v2Chat")
 export const roundV = v.union(v.object({
   round: v.number(), of: v.number(), games: v.array(v.object({ gameId: v.id("v2Games"), number: v.number() })),
   totals: v.array(v.object({ memberId: v.id("v2Members"), name: v.string(), net: v.number() })),
+  /** Whose rule in the latest game the caller gets next (v1's rotation line); null when the next deal is fresh. */
+  next: v.union(v.object({ memberId: v.id("v2Members"), name: v.string() }), v.null()),
 }), v.null());
 export const historyPageV = paginationResultValidator(v.object({
   gameId: v.id("v2Games"), number: v.number(), endedAt: v.union(v.number(), v.null()), winner: v.union(v.id("v2Members"), v.null()),
@@ -70,10 +72,12 @@ export const headerV = v.object({
   readPriceWeight: v.number(),
   /** The factor on summon and edit prices: the game's power ÷ 64 (v2-economy summonPriceScale). */
   priceScale: v.number(),
+  /** Locks (docs/engine-v2/locks.md): null when the room setting is off; else the prices (energy per bit to create, per bit per world second to sustain). */
+  locks: v.union(v.null(), v.object({ createPerBit: v.number(), upkeepPerBit: v.number() })),
   /** Parameter drift's interval in world seconds (drift.ts; 0: off): drift k happens at world second k × it. */
   driftSeconds: v.number(),
-  /** Line turnover (retirement-design.md): at most this many live lines, the oldest retiring; null: every line stays. */
-  liveCap: v.union(v.number(), v.null()),
+  /** Line turnover (retirement-design.md): at most `liveCap` live lines, a birth every `birthSeconds` (null: at random), the oldest retiring with its points kept in the totals (`banked`) or not; null: every line stays live. */
+  turnover: v.union(v.object({ liveCap: v.number(), banked: v.boolean(), birthSeconds: v.union(v.number(), v.null()) }), v.null()),
   /** The game's time dilation (decision 37): 1 unless a simulation or local playtest sped it up. */
   timeScale: v.number(),
   /** Paused because nobody acted for 30 minutes: any human activity (`account.touch`) resumes it. */
@@ -126,6 +130,8 @@ export const objectIdsV = paginationResultValidator(v.object({ objectId: v.id("v
 /** `v2/play:object`: one object's shared state and the caller's value of it. */
 export const playObjectV = v.object({
   objectId: v.id("v2Objects"), number: v.number(), bornAt: v.number(),
+  /** Line turnover: the world second it retired (its points banked as the game's settings say); absent: live. */
+  retiredAt: v.optional(v.number()),
   state: v.string(), version: v.number(), changedAt: v.number(),
   value: v.union(v.object({
     score: scoreWireV, rarityBits: v.number(), want: v.number(), points: v.number(), version: v.number(),
@@ -151,6 +157,8 @@ export const agentEnergyV = v.object({
   /** `spend` split as v1's My agents showed it: reading and changing; and the last act's two parts and outcome. */
   spendRead: v.number(), spendChange: v.number(),
   lastAct: v.union(v.object({ at: v.number(), read: v.number(), change: v.number(), outcome: v.string() }), v.null()),
+  /** v1's estimate for the current program: its check's average spend a turn, reading and changing (null until measured). */
+  estimate: v.union(v.object({ perAct: v.number(), read: v.number(), change: v.number() }), v.null()),
   pointsGained: v.number(), lastActAt: v.union(v.number(), v.null()),
   /** As the own store's: the agent's income and capacity, and `energy` settled to the world second `settledAt`. */
   perSecond: v.number(), capacity: v.number(), settledAt: v.number(),
@@ -229,6 +237,8 @@ export const gameDetailsV = v.object({
   endsAt: v.union(v.number(), v.null()), endedAt: v.union(v.number(), v.null()),
   /** The world second the game ended at (after the end only: a halfLife game's end is hidden while live). */
   endWorld: v.union(v.number(), v.null()),
+  /** Why it ended (v1's end reason); null while it runs, or for a game ended before reasons were kept. */
+  endReason: v.union(endReasonV, v.null()),
   rules: v.union(v.null(), v.array(v.object({
     memberId: v.id("v2Members"), name: v.string(), kind: v.string(),
     family: v.string(), params: v.any(), tieBreaker: v.union(v.string(), v.null()), title: v.string(), card: v.string(),

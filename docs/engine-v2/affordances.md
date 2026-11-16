@@ -159,7 +159,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `seats.fillPracticePartners` | Fill empty seats with practice partners | — | server · room | owner | room | write |
 | `seats.addAi` | Add an AI player | template | server · room | owner | room | write; spends aiBudget; confirm summary |
 | `seats.removeAi` | Remove an AI player | memberId | server · room | owner | room | destructive; confirm inline |
-| `game.start` | Start the game | — | server · room | owner | room | write; confirm summary |
+| `game.start` | Start the game | — | server · room | owner | room | write |
 | `game.rematch` | Rematch: the same deal | — | server · room | owner | room | write; confirm summary |
 | `game.startWorldNow` | End planning now | — | server · game | owner | planning | write |
 | `game.resume` | Resume the game | — | server · game | owner | paused | write |
@@ -196,6 +196,12 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `log.list` | Read the public log | cursor, limit | server · game | member | planning, live, paused, ended, replay | read |
 | `game.boardAt` | Show the board at a moment | world, after, limit | server (action) · game | member | planning, live, paused, ended, replay | read |
 | `pitch.draft` | Draft a cooperation pitch | to, aim | server (action) · game | seated | planning, live, paused | write; spends aiBudget; confirm summary |
+| `lock.list` | Show an object's locks | objectId | server · game | member | planning, live, paused, ended, replay | read |
+| `lock.create` | Lock an object | objectId, amount, ready, args, language, source, words | server (action) · game | seated | planning, live, paused | write; spends energy; confirm summary |
+| `lock.check` | Check a lock before making it | objectId, ready, args, language, source, words | server (action) · game | seated | planning, live, paused | read |
+| `lock.fund` | Add energy to a lock | objectId, lock, amount | server (action) · game | seated | planning, live, paused | write; spends energy; confirm summary |
+| `lock.drain` | Take energy out of a lock | objectId, lock, amount | server (action) · game | seated | planning, live, paused | write; spends energy; confirm summary |
+| `lock.test` | Check a change against the locks | objectId, calls | server (action) · game | seated | planning, live, paused | read |
 | `agents.list` | List my agents | cursor, limit | server · game | seated | planning, live, paused, ended | read |
 | `agent.programs` | List an agent's versions | agentId | server · game | seated | planning, live, paused, ended | read |
 | `agent.check` | Check an agent's code | language, source, agentId | server (action) · game | seated | planning, live, paused | read |
@@ -209,13 +215,17 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `view.closePane` | Close a pane | pane | client · room | member | room, planning, live, paused, ended, replay | write |
 | `view.movePane` | Move a pane | pane, place | client · room | member | room, planning, live, paused, ended, replay | write |
 | `view.arrangeDock` | Arrange the dock | dock, phase | client · room | member | planning, live, paused, ended, replay | write |
+| `view.twoPanels` | Layout: Two panels | — | client · room | member | planning, live, paused, ended, replay | write |
+| `view.resetLayout` | Reset layout | — | client · room | member | planning, live, paused, ended, replay | write |
+| `view.maximisePane` | Maximise or restore a pane | pane | client · room | member | planning, live, paused, ended, replay | write |
 | `view.pinRepresentation` | Show objects in a representation | rep, family | client · room | member | planning, live, paused, ended, replay | write |
 | `view.showRepresentation` | Switch an object's representation | objectId, rep | client · room | member | planning, live, paused, ended, replay | write |
 | `view.compareRepresentations` | Compare representations side by side | objectId, reps | client · room | member | planning, live, paused, ended, replay | write |
-| `view.openObject` | Open an object | objectId | client · room | member | planning, live, paused, ended, replay | write |
+| `view.openObject` | Open an object | objectId, from | client · room | member | planning, live, paused, ended, replay | write |
 | `view.sortObjects` | Sort objects | sort | client · room | member | planning, live, paused, ended, replay | write |
 | `view.filterObjects` | Filter objects | mine, minBits, show | client · room | member | planning, live, paused, ended, replay | write |
 | `view.showGlossary` | Explain a term | term | client · none | anyone | signedOut, home, room, planning, live, paused, ended, replay, admin | write |
+| `view.showScoring` | How scoring works | — | client · none | anyone | signedOut, home, room, planning, live, paused, ended, replay, admin | write |
 | `view.closeGlossary` | Close the glossary | — | client · none | anyone | signedOut, home, room, planning, live, paused, ended, replay, admin | write |
 | `replay.open` | Watch a replay | gameId | client · room | member | room, ended, replay | write |
 | `replay.play` | Play the replay | — | client · game | member | replay | write |
@@ -224,6 +234,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `replay.step` | Step the replay | by | client · game | member | replay | write |
 | `replay.watchAs` | Watch the replay as a player | memberId | client · game | member | replay | write |
 | `replay.speed` | Set the replay speed | speed | client · game | member | replay | write |
+| `server.info` | Show server info | — | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
 | `receipt.get` | Check a command's status | id | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
 | `account.whoami` | Show who I am | — | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
 | `account.connections` | List connected assistants | — | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
@@ -244,4 +255,10 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `panel.rollback` | Roll a panel back | slug, version | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write; confirm inline |
 | `panel.setEnabled` | Show or hide a panel | slug, enabled | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write |
 | `panel.remove` | Delete a panel | slug | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | destructive; confirm modal |
+| `code.run` | Run code over the game's data | language, source, script, saveAs, load, dataset, params, title | server (action) · game | member | planning, live, paused, ended, replay | write |
+| `code.get` | Show a code run | runId | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
+| `code.list` | List my code runs | cursor, limit | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
+| `code.scripts` | List my saved scripts | — | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
+| `code.deleteScript` | Delete a saved script | name | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | destructive; confirm modal |
+| `code.objects` | List my stored objects | prefix | server · game | member | planning, live, paused, ended, replay | read |
 <!-- directory:end -->

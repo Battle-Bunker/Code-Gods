@@ -5,11 +5,18 @@
  * taller than the screen allows (ux-lessons 5.1), with a row of the panes' names that jumps to any of them.
  */
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { fileIdOf, readingOrder, shownPanes, storedSlugOf, type GamePhase } from "@workspace/v2-client";
+import { fileIdOf, readingOrder, shownPanes, storedSlugOf, viewerView, type GamePhase } from "@workspace/v2-client";
+import { useIsSeated } from "@/sdk";
 import { useRuntime, useView } from "@/core/affordance-runtime";
 import { useWide } from "@/core/use-wide";
 import { onReveal } from "./open-pane";
-import { DockScopeContext, PaneBody, PaneHeader, PaneMenu, usePaneName, type PaneComponents, type StoredPaneComponent } from "./pane-parts";
+import { DockScopeContext, PaneBackContext, PaneBody, PaneHeader, PaneMenu, usePaneName, type PaneBack, type PaneComponents, type StoredPaneComponent } from "./pane-parts";
+import { useAffordance } from "@workspace/v2-affordances/react";
+import { EMPTY_VIEW, type ViewState } from "@workspace/v2-affordances";
+import { back as backOf, canBack, emptyHistory, isViewPane, observe, opsFor, restored, restoring, type History, type ViewOp } from "./history";
+import { toast } from "@/hooks/use-toast";
+import { isLoadingView } from "@/core/stored-view";
+import { sheetStep } from "./sheet";
 
 export type { PaneComponents, StoredPaneComponent } from "./pane-parts";
 
@@ -50,8 +57,13 @@ function StackedDock({ panes: all, phase }: { panes: string[]; phase: GamePhase 
   // Opened now (by the menu, the palette or a model) the sheet rises; open from before (the view is kept for the room) it
   // waits lowered, so a game never starts under it. After that it stays as the player leaves it.
   const [sheetOpen, setSheetOpen] = useState(false);
-  const hadSheet = useRef(sheet);
-  useEffect(() => { if (sheet && !hadSheet.current) setSheetOpen(true); hadSheet.current = sheet; }, [sheet]);
+  const loading = isLoadingView(useView());
+  const hadSheet = useRef<boolean | null>(null);
+  useEffect(() => {
+    const step = sheetStep(hadSheet.current, { sheet, loading });
+    if (step.rise) setSheetOpen(true);
+    hadSheet.current = step.had;
+  }, [sheet, loading]);
   const scroller = useRef<HTMLDivElement>(null);
   // A new phase opens at its first pane (round 26: at the buzzer the page stayed scrolled to the bottom, on Where am I,
   // with "How the game went" above the fold).
@@ -109,7 +121,9 @@ export function Dock({ phase, panes: components, stored: Stored, file: File }: {
   const wide = useWide();
   // A room without AI shows no assistant, even one opened before AI was turned off.
   const aiOff = !!useRuntime().context.room?.aiOff;
-  const view = useMemo(() => (aiOff ? { ...stored, panes: stored.panes.filter(p => p.pane !== "assistant") } : stored), [stored, aiOff]);
+  const seated = useIsSeated();
+  // A spectator who has arranged nothing sees v1's spectator panes (viewerView), and plans their changes from the same.
+  const view = useMemo(() => viewerView(aiOff ? { ...stored, panes: stored.panes.filter(p => p.pane !== "assistant") } : stored, phase, seated), [stored, aiOff, phase, seated]);
   const open = useMemo(() => shownPanes(view, phase), [view, phase]);
   const scope = useMemo(() => ({
     phase, view, open,
@@ -122,11 +136,54 @@ export function Dock({ phase, panes: components, stored: Stored, file: File }: {
       return C ? <C /> : <p className="p-4 text-sm text-muted-foreground">This pane is not on this version of the game yet.</p>;
     },
   }), [phase, view, open, components, Stored, File]);
+  const paneBack = usePaneBack(view);
   return (
+    <PaneBackContext.Provider value={paneBack}>
     <DockScopeContext.Provider value={scope}>
       {wide
         ? <Suspense fallback={<div className="h-full" data-testid="dock-loading" />}><DesktopDock phase={phase} /></Suspense>
         : <StackedDock panes={readingOrder(open)} phase={phase} />}
     </DockScopeContext.Provider>
+    </PaneBackContext.Provider>
   );
+}
+
+/**
+ * "Back to the previous view" (v1's pane history; history.ts): watches this screen's view for changes to a pane's own
+ * view (an assistant's, another screen's or the human's) and keeps the view before each, in this client only; going
+ * back runs the view operations that set it again.
+ */
+function usePaneBack(view: ViewState): PaneBack {
+  const [history, setHistory] = useState<History>(emptyHistory);
+  const before = useRef<ViewState | null>(null);
+  useEffect(() => {
+    const was = before.current;
+    before.current = view;
+    // The empty view a screen draws before its stored one arrives is not a view to go back to.
+    if (was && !isLoadingView(was) && (was.objects !== view.objects || was.focus !== view.focus)) setHistory(h => observe(h, was, view));
+  }, [view]);
+  const handles: Record<ViewOp["id"], ReturnType<typeof useAffordance>> = {
+    "view.sortObjects": useAffordance("view.sortObjects"),
+    "view.filterObjects": useAffordance("view.filterObjects"),
+    "view.openObject": useAffordance("view.openObject"),
+    "view.compareRepresentations": useAffordance("view.compareRepresentations"),
+  } as never;
+  const runAll = (ops: ViewOp[]) => (async () => { for (const op of ops) await (handles[op.id] as { run(a: unknown): Promise<unknown> }).run(op.args); })();
+  const defaults = { objects: EMPTY_VIEW.objects };
+  return useMemo(() => ({
+    can: (pane: string) => canBack(history, pane),
+    back: (pane: string) => {
+      const b = backOf(history, pane);
+      if (!b || !isViewPane(pane)) return;
+      setHistory(restoring(b.history, pane, b.params));
+      void runAll(opsFor(pane, b.params))
+        .catch(() => { setHistory(h => restored(h, pane)); toast({ title: "Could not go back to the previous view", variant: "destructive" }); });
+    },
+    // Resetting is a change like any other: it can be taken back.
+    canReset: (pane: string) => pane === "objects" && JSON.stringify(view.objects) !== JSON.stringify(EMPTY_VIEW.objects),
+    reset: (pane: string) => {
+      if (pane !== "objects") return;
+      void runAll(opsFor("objects", defaults)).catch(() => toast({ title: "Could not reset the pane", variant: "destructive" }));
+    },
+  }), [history, handles, view.objects]);   // eslint-disable-line react-hooks/exhaustive-deps
 }

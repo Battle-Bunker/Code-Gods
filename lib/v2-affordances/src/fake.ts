@@ -427,6 +427,13 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     const total = bits.reduce((s, b) => s + b, 0), g = gameOf(e), d = distanceOf(g, e.userId, o);
     return { valid: true, bits, total, charge: total + 0.05 * total * total, after: { score: [String(-d)], terms: [] } };
   },
+  // The fake game has no locks (the room setting is off).
+  "lock.list": () => ({ locks: [] }),
+  "lock.create": () => { throw new OpFailure("This game has no locks (the room setting is off)."); },
+  "lock.check": () => { throw new OpFailure("This game has no locks (the room setting is off)."); },
+  "lock.fund": () => { throw new OpFailure("This game has no locks (the room setting is off)."); },
+  "lock.drain": () => { throw new OpFailure("This game has no locks (the room setting is off)."); },
+  "lock.test": () => ({ allowed: true, breaks: [] }),
   "object.look": () => { throw new OpFailure("This game shows every object as it is; there is nothing to pay for."); },
   "object.whatIf": (_e, a) => ({ state: "", price: 0, after: a.calls.map(() => null) }),
   "object.score": (e, a) => {
@@ -525,6 +532,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     const seen = key ? e.state.receipts[key] : undefined;
     return seen?.ok ? { applied: true, operation: key!.split("|").at(-2)!, result: seen.result ?? null } : { applied: false, operation: null, result: null };
   },
+  "server.info": () => ({ builds: { app: null, functions: null }, sandboxes: [{ language: "typescript", runtime: "fake", state: "ready", reason: null }], engine: { tickMs: 1500, maxSecondsPerTick: 3 } }),
   "account.whoami": e => ({ userId: e.userId, name: nameOf(e.state, e.userId), roomId: e.roomId, grant: e.grant ?? null }),
   "account.connections": e => ({ connections: Object.entries(e.state.connections).filter(([, c]) => c.userId === e.userId).map(([connectionId, c]) => ({ connectionId, client: c.client, roomId: c.roomId, grant: c.grant, lastUsedAt: null })) }),
   "account.revokeConnection": (e, a) => {
@@ -543,6 +551,13 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     e.state.connections[a.request] = { userId: e.userId, client: "remote assistant", roomId: a.room ?? e.roomId, grant: a.grant };
     return ok;
   },
+  // The fake server has no script sandbox: a run is refused, and there are no runs to read.
+  "code.run": () => { throw new OpFailure("The offline server does not run code."); },
+  "code.get": () => { throw new OpFailure("No such run of yours."); },
+  "code.list": () => ({ page: [], nextCursor: null }),
+  "code.scripts": () => ({ scripts: [] }),
+  "code.objects": () => ({ objects: [] }),
+  "code.deleteScript": () => ({ deleted: false }),
   "panel.list": e => ({
     panels: Object.values(e.state.panels ?? {}).filter(p => p.userId === e.userId).map(p => ({
       panelId: p.panelId, slug: p.slug, title: p.title, placement: p.placement, size: p.size, currentVersion: p.versions.at(-1)!.version,

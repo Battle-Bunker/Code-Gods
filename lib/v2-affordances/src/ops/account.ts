@@ -11,6 +11,18 @@ const CONSENT = { except: ["assistant", "mcp", "cli"], because: "consent" } as c
 
 export const accountOps = [
   affordance({
+    id: "server.info", title: "Show server info", group: "help", scope: "none",
+    description: "What this server runs (v1's Server info): the deployed app and functions builds and when each was deployed, each agent language's sandbox (warming, ready or failed, with why), and the world's tick cadence.",
+    tooltip: "Builds, sandboxes and the tick.", keywords: ["server", "info", "version", "build", "sandbox", "status", "manifest"],
+    params: none,
+    result: z.object({
+      builds: z.object({ app: z.object({ build: z.string(), deployedAt: z.number() }).nullable(), functions: z.object({ build: z.string(), deployedAt: z.number() }).nullable() }),
+      sandboxes: z.array(z.object({ language: z.string(), runtime: z.string(), state: z.enum(["warming", "ready", "failed", "cold"]), reason: z.string().nullable() })),
+      engine: z.object({ tickMs: z.number(), maxSecondsPerTick: z.number() }),
+    }),
+    contexts: SIGNED_IN, caller: "signedIn", effect: "read", confirm: "none", runs: "server",
+  }),
+  affordance({
     id: "receipt.get", title: "Check a command's status", group: "account", scope: "none",
     description: "Whether a command the caller sent with a requestId applied, and its result (v1's receipts). A command whose outcome is unknown (the connection dropped) can also simply be sent again with the same requestId: it applies at most once.",
     tooltip: "Did my command go through?", keywords: ["receipt", "status", "did it apply", "retry", "command"],

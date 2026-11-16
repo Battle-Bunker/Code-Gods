@@ -97,7 +97,7 @@ test("margins: a value beside each row and under each column, the margin's word 
   assert.match(html, /class="note"[^>]*>4 short</);
   assert.match(html, /data-ref="t\.row1"[^>]*data-focus=""/);
   // A note with no room beside its element is listed under the picture, with the element's words.
-  assert.match(html, /<li data-ref="t\.col1"[^>]*>label of col1: 5 short<\/li>/);
+  assert.match(html, /<li data-ref="t\.col1"[^>]*>(<span class="v2v-tiles"[^]*?<\/span><\/span>)?label of col1: 5 short<\/li>/);
 });
 
 test("groups: two cells apart are linked, two neighbours get a step label on their shared edge, larger groups are outlined", () => {

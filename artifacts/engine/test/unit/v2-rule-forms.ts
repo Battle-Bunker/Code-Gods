@@ -29,9 +29,13 @@ export const KINDS = {
   "monotone-steps": "steps rising by one",
   "power-count": "how often a power divides the board's number",
   "leading-digits": "the board's number's leading digits",
+  "written-sum": "rows making a written sum (column addition with carries)",
   "colour-pattern": "a pattern of colours over neighbouring cells (a chessboard, three in a line)",
   "colour-match": "cells wearing the colour their number (or place) asks for",
   "colour-count": "a number counting the colours around it",
+  repeats: "equal numbers sharing a row, a column or a side (v1's Full House and Snap!)",
+  balance: "two halves of a row or column adding up to the same (v1's Seesaw)",
+  "called-numbers": "cells showing dealt numbers, and complete rows, columns or diagonals of them",
 } as const;
 export type Kind = keyof typeof KINDS;
 
@@ -87,8 +91,8 @@ export const RULE_FORMS: Readonly<Record<string, FamilyForms>> = {
   "high-start": { kind: "base-ladder", forms: { "start-echo": "near-multiple", "start-crossing": "near-multiple", "start-prime": "factor-size", "start-steep": "shares-factor" } },
   "steep-ratio": { kind: "base-ladder", forms: { "ratio-gap": "near-multiple", "ratio-prime": "factor-size", "ratio-smooth": "factor-count" } },
   // Grids (lib/v2-grid): tags proposed by the spec lead, 15 Nov, for the grids session to check.
-  mirrormancer: { kind: "symmetry", forms: { "mirror-columns": "second-axis", "one-apart": "adjacent-step", "small-middle": "small-values" } },
-  "magic-eighteen": { kind: "line-sums", forms: { columns: "second-axis", diagonals: "diagonals", "different-numbers": "all-different" } },
+  mirrormancer: { kind: "symmetry", forms: { "mirror-other-way": "second-axis", "one-apart": "adjacent-step", "small-middle": "small-values" } },
+  "magic-eighteen": { kind: "line-sums", forms: { "other-way": "second-axis", diagonals: "diagonals", "different-numbers": "all-different" } },
   "opposite-nines": { kind: "pair-sums", forms: { "mirror-nines": "second-axis", "different-splits": "all-different", "big-on-top": "placement" } },
   "two-pair": { kind: "box-pattern", forms: { apart: "distance", "diagonal-pairs": "diagonals", "small-pairs": "small-values" } },
   "spread-of-three": { kind: "spread", forms: { "spread-diagonal": "diagonals", "spread-small": "small-values", "square-different": "all-different" } },
@@ -102,8 +106,16 @@ export const RULE_FORMS: Readonly<Record<string, FamilyForms>> = {
   staircase: { kind: "monotone-steps", forms: { "long-flight": "run-length", "double-stairs": "second-axis", "low-stairs": "small-values" } },
   "magic-accountant": { kind: "line-sums", forms: { "other-way": "second-axis", diagonals: "diagonals", "all-different": "all-different" } },
   fillomino: { kind: "region", forms: { "patch-kinds": "all-different", "patch-count": "count", "near-misses": "distance" } },
+  // v1's grid families ported as v1 (16 Nov, grids session): one tie-breaker each, v1's secondary or one tied to the main part.
+  "looking-glass": { kind: "symmetry", forms: { "twin-total": "big-values" } },
+  pinwheel: { kind: "symmetry", forms: { commonest: "count" } },
+  constellation: { kind: "region", forms: { "cluster-reach": "reach" } },
   divisibility: { kind: "power-count", forms: { "leftover-digits": "digit-sum" } },
   "leading-digits": { kind: "leading-digits", forms: { "exponent-digits": "digit-sum" } },
+  // v1 grid baseline ports (16 Nov, grids session: ported as v1).
+  "round-numbers": { kind: "line-sums", forms: { "exact-rounds": "count", "big-rounds": "big-values", "round-steps": "adjacent-step" } },
+  "number-bonds": { kind: "pair-sums", forms: { "far-split": "distance", "bond-run": "run-length", "prime-bonds": "primes" } },
+  "column-addition": { kind: "written-sum", forms: { "right-columns": "count", "near-digits": "distance", "big-answer": "big-values" } },
   // The coloured boards' original-rules baseline (lib/v2-grid-boards; call 37): v1's families as v1 had them.
   chessmaster: { kind: "colour-pattern", forms: { seams: "count" } },
   "parity-painter": { kind: "colour-match", forms: {} },
@@ -113,4 +125,10 @@ export const RULE_FORMS: Readonly<Record<string, FamilyForms>> = {
   "honest-minesweeper": { kind: "colour-count", forms: {} },
   kingdom: { kind: "region", forms: {} },
   "set-spotter": { kind: "colour-pattern", forms: {} },
+  // v1 ports, 16 Nov (grid baseline): Full House, Twenty-One, Seesaw, Snap!.
+  "full-house": { kind: "repeats", forms: { "pair-values": "big-values", "pair-kinds": "all-different", "pairs-apart": "distance" } },
+  "twenty-one": { kind: "line-sums", forms: { "bust-by-little": "distance", "crossing-blackjacks": "second-axis", "low-cards": "small-values" } },
+  seesaw: { kind: "balance", forms: { "other-way": "second-axis", "heavy-seesaws": "big-values", "ends-and-middle": "distance" } },
+  snap: { kind: "repeats", forms: { "snap-values": "big-values", "snap-kinds": "all-different", "snap-reach": "reach" } },
+  "bingo-caller": { kind: "called-numbers", forms: { "near-bingo": "count", "big-dabs": "big-values", "diagonal-dabs": "diagonals" } },
 };

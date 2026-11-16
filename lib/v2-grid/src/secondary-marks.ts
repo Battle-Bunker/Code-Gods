@@ -11,7 +11,7 @@ import { at, cellLabel, cellName, type GridState } from "./grid.ts";
 import { boxes, boxEdges, cols, folds, gcd, leaps, pairs, rows, strangers, windows } from "./units.ts";
 
 type Ctx = EvalContext<GridState>;
-type Marker = (ctx: Ctx, v: readonly number[], n: number, p: { T?: number }) => void;
+type Marker = (ctx: Ctx, v: readonly number[], n: number, p: { T?: number; axis?: string }) => void;
 
 const cell = (n: number, i: number): ElementRef => ref("cells", cellName(n, i));
 // A mark cites only what the rule read, so each mark reads its element first (the family has read most already).
@@ -31,27 +31,33 @@ function apartPairs(ctx: Ctx, term: string, v: readonly number[], n: number, ps:
 }
 
 const MARKERS: Readonly<Record<string, Marker>> = {
-  // ---- Mirrormancer
-  "mirrormancer": (ctx, v, n) => {
-    const half = Math.floor(n / 2);
-    // Every column read the same backwards: each top cell against the cell it mirrors in its column.
-    for (const l of cols(n)) for (let k = 0; k < half; k++) {
-      const a = l[k]!, b = l[n - 1 - k]!;
-      if (v[a] === v[b]) { focus(ctx, "mirror-columns", cell(n, a)); focus(ctx, "mirror-columns", cell(n, b)); }
-      else note(ctx, "mirror-columns", cell(n, a), `${Math.abs(v[a]! - v[b]!)} from its mirror in the column (${cellLabel(n, b)})`);
+  // ---- Mirrormancer (dealt axis rows or columns: its secondaries read along the dealt lines, or across them)
+  "mirrormancer": (ctx, v, n, p) => {
+    const half = Math.floor(n / 2), byRows = p.axis !== "columns";
+    const along = byRows ? rows(n) : cols(n), across = byRows ? cols(n) : rows(n);
+    const other = byRows ? "column" : "row", mine = byRows ? "row" : "column";
+    // The other way read the same backwards with two different numbers: each cell against the cell it mirrors; a line
+    // of one number is noted, not focused (v1's "different" guard).
+    for (const l of across) {
+      if (l.every(i => v[i] === v[l[0]!])) { note(ctx, "mirror-other-way", cell(n, l[0]!), `this ${other} holds only ${v[l[0]!]}s: a mirror needs two different numbers`); continue; }
+      for (let k = 0; k < half; k++) {
+        const a = l[k]!, b = l[n - 1 - k]!;
+        if (v[a] === v[b]) { focus(ctx, "mirror-other-way", cell(n, a)); focus(ctx, "mirror-other-way", cell(n, b)); }
+        else note(ctx, "mirror-other-way", cell(n, a), `${Math.abs(v[a]! - v[b]!)} from its mirror in the ${other} (${cellLabel(n, b)})`);
+      }
     }
-    // Each end number one apart from the number beside it.
-    const ends = rows(n).flatMap(l => [[l[0]!, l[1]!], [l[n - 1]!, l[n - 2]!]] as [number, number][]);
-    apartPairs(ctx, "one-apart", v, n, ends, 1, b => `the number beside it (${v[b]})`);
-    // The rows' middle numbers: what is added up.
-    for (const l of rows(n)) for (const i of l.slice(1, -1)) focus(ctx, "small-middle", cell(n, i));
+    // Each end number one apart from the number beside it, in each dealt line.
+    const ends = along.flatMap(l => [[l[0]!, l[1]!], [l[n - 1]!, l[n - 2]!]] as [number, number][]);
+    apartPairs(ctx, "one-apart", v, n, ends, 1, b => `the number beside it in the ${mine} (${v[b]})`);
+    // The dealt lines' middle numbers: what is added up.
+    for (const l of along) for (const i of l.slice(1, -1)) focus(ctx, "small-middle", cell(n, i));
   },
-  // ---- Magic Eighteen
+  // ---- Magic Eighteen (dealt axis rows or columns)
   "magic-eighteen": (ctx, v, n, p) => {
-    const T = p.T!;
-    cols(n).forEach((l, c) => {
-      const r = ref("tally", `col${c}`), x = sum(l.map(i => v[i]!));
-      if (x === T) focus(ctx, "columns", r); else note(ctx, "columns", r, shortOver(x, T));
+    const T = p.T!, byRows = p.axis !== "columns";
+    (byRows ? cols(n) : rows(n)).forEach((l, k) => {
+      const r = ref("tally", `${byRows ? "col" : "row"}${k}`), x = sum(l.map(i => v[i]!));
+      if (x === T) focus(ctx, "other-way", r); else note(ctx, "other-way", r, shortOver(x, T));
     });
     const diags = [rows(n).map((_, k) => at(n, k, k)), rows(n).map((_, k) => at(n, k, n - 1 - k))];
     diags.forEach((d, k) => {
@@ -59,12 +65,12 @@ const MARKERS: Readonly<Record<string, Marker>> = {
       const x = sum(d.map(i => v[i]!));
       note(ctx, "diagonals", cell(n, d[0]!), `${k === 0 ? "the diagonal from the top-left" : "the diagonal from the top-right"} adds up to ${x}${x === T ? "" : `: ${shortOver(x, T)}`}`);
     });
-    rows(n).forEach((l, r) => {
+    (byRows ? rows(n) : cols(n)).forEach((l, k) => {
       const seen = new Map<number, number>();
       for (const i of l) seen.set(v[i]!, (seen.get(v[i]!) ?? 0) + 1);
       const twice = [...seen].filter(([, c]) => c > 1).map(([x]) => x);
       if (!twice.length) for (const i of l) focus(ctx, "different-numbers", cell(n, i));
-      else note(ctx, "different-numbers", cell(n, l[0]!), `row ${r + 1} repeats ${twice.join(" and ")}`);
+      else note(ctx, "different-numbers", cell(n, l[0]!), `${byRows ? "row" : "column"} ${k + 1} repeats ${twice.join(" and ")}`);
     });
   },
   // ---- Opposite Nines
@@ -88,7 +94,8 @@ const MARKERS: Readonly<Record<string, Marker>> = {
     boxes(n).forEach((cs, k) => {
       const box = ref("boxes", `box${k}`), xs = cs.map(i => v[i]!);
       const hi = Math.max(...xs), lo = Math.min(...xs);
-      note(ctx, "apart", box, `biggest ${hi} minus smallest ${lo}: ${hi - lo}`);
+      // On the box's own line (the main part's note on how it pairs up), so each box is said once.
+      note(ctx, "apart", ref("boxes", `pairs${k}`), `${hi} − ${lo} = ${hi - lo} apart`);
       const [a, b, c, d] = xs;
       if (a === d && b === c && a !== b) focus(ctx, "diagonal-pairs", box);
       cs.filter(i => v[i] === lo).forEach(i => focus(ctx, "small-pairs", cell(n, i)));
@@ -147,5 +154,5 @@ const MARKERS: Readonly<Record<string, Marker>> = {
 export function withSecondaryMarks<P extends object>(f: RuleFamily<GridState, P>, n: number): RuleFamily<GridState, P> {
   const marker = MARKERS[f.id];
   if (!marker) return f;
-  return { ...f, evaluate: (ctx, p) => { f.evaluate(ctx, p); marker(ctx, ctx.state.cells, n, p as { T?: number }); } };
+  return { ...f, evaluate: (ctx, p) => { f.evaluate(ctx, p); marker(ctx, ctx.state.cells, n, p as { T?: number; axis?: string }); } };
 }

@@ -33,6 +33,6 @@ export function affordanceContext(i: ContextInput): AffordanceContext {
     },
   };
   if (room) ctx.room = { players: room.members.filter(m => !m.spectator).length, minPlayers: presetOf(room.preset).minPlayers, bidOpen: !!room.bidding, ...(i.aiOff ? { aiOff: i.aiOff } : {}) };
-  if (header) ctx.game = { phase: header.phase, ...(i.me ? { energy: i.me.energy, pauseUsed: i.me.pauseUsed, agents: i.me.agents } : {}) };
+  if (header) ctx.game = { phase: header.phase, locks: header.locks !== null, ...(i.me ? { energy: i.me.energy, pauseUsed: i.me.pauseUsed, agents: i.me.agents } : {}) };
   return ctx;
 }

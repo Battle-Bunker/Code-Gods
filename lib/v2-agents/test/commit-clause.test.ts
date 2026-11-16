@@ -15,7 +15,7 @@ import { EngineHost, OTHERS_AFTER_BITS, runAct, sandboxes, SPEC_ECONOMY } from "
 const boxes = sandboxes();
 after(() => boxes.close());
 const q = (n: number) => Qn.q(n);
-const rule = { family: "prime-gradient", params: { ends: 1 }, tieBreaker: "shared-factor" };
+const rule = { family: "prime-gradient", params: { suffix: "1" }, tieBreaker: "shared-factor" };
 const otherRule = { family: "treasure", params: { k: 3 }, tieBreaker: "shared-factor" };
 const values = findValues("line-q", rule)!, others = [{ rule: otherRule, values: findValues("line-q", otherRule)! }];
 const state = { lines: [fromMC(q(11), q(0))] };

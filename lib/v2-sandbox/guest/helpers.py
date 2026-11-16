@@ -115,6 +115,7 @@
 from fractions import Fraction
 import functools as _functools
 from math import isqrt as _isqrt
+import math as _math
 
 
 def _as_plan(plan):
@@ -502,6 +503,66 @@ def shortcuts(m, c, menu=None):
     return [t for t in out if not (t[1] == m and t[2] == c) and (menu is None or t[0]["mutator"] in menu)]
 
 
+def to_multiple(x, n):
+    # How far x is from the nearest multiple of n (n above 0).
+    x, n = Fraction(x), Fraction(n)
+    lo = x - n * (x / n).__floor__()
+    return min(lo, n - lo)
+
+
+def doublings(m, n):
+    # How many doublings |m| times the whole number n is from 1, to a millionth.
+    def log2b(b):
+        L = b.bit_length()
+        return _math.log2(float(b)) if L <= 1000 else (L - 53) + _math.log2(float(b >> (L - 53)))
+    m = Fraction(m)
+    return Fraction(_math.floor(abs(log2b(abs(m.numerator)) - log2b(m.denominator) + log2b(int(n))) * 1e6 + 0.5), 1000000)
+
+
+def nearest_palindrome(x, odd):
+    # The palindrome with an odd (or an even) number of digits nearest x; on a tie the bigger.
+    x = Fraction(x)
+    w = 0 if x <= 0 else x.__floor__()
+    s = str(w)
+    L, out = len(s), []
+    for n in range(max(1, L - 2), L + 3):
+        if n % 2 != (1 if odd else 0):
+            continue
+        k = (n + 1) // 2
+        lo, hi = 10 ** (k - 1), 10 ** k - 1
+        h0 = int(s[:k]) if n == L else lo
+        for h in (lo, hi, h0 - 1, h0, h0 + 1):
+            if lo <= h <= hi:
+                t = str(h)
+                out.append(int(t + t[:n // 2][::-1]))
+    best = out[0]
+    for t in out[1:]:
+        if abs(x - t) < abs(x - best) or (abs(x - t) == abs(x - best) and t > best):
+            best = t
+    return best
+
+
+def ladder_near(x, q, r):
+    # The ladder number nearest x (q^j times a number leaving r): (j, the number's size); the nearer, then more q's.
+    x = Fraction(x)
+    def residue(y):
+        lo = r + q * ((y - r) / q).__floor__()
+        hi = lo + q
+        if y - lo != hi - y:
+            return lo if y - lo < hi - y else hi
+        return lo if abs(lo) <= abs(hi) else hi
+    best, j, s = None, 0, 1
+    while True:
+        at = s * residue(x / s)
+        d = abs(x - at)
+        if best is None or d < best[2] or (d == best[2] and j > best[0]):
+            best = (j, abs(at), d)
+        if s > abs(x) + 1:
+            break
+        j, s = j + 1, s * q
+    return best[0], best[1]
+
+
 def fractions(m, c):
     out = []
     if not isinstance(m, Fraction) or not isinstance(c, Fraction):
@@ -751,10 +812,28 @@ def allowance(offer):
     return min(max(0, b.energy) + _CREDIT_SECONDS * income, _ALLOWANCE_SECONDS * income)
 
 
+def _best(options, most=None):
+    """The `most` best options, best first, ties in their given order (a stable sort's first `most`); all when no `most`.
+    A sort of every option compares each about log2 n times; keeping only the best `most` compares most options once."""
+    if most is None:
+        return sorted(options, key=_functools.cmp_to_key(lambda a, b: -1 if better(a[1], b[1]) else 1 if better(b[1], a[1]) else 0))
+    top = []
+    if most <= 0:
+        return top
+    for o in options:
+        if len(top) >= most and not better(o[1], top[-1][1]):
+            continue
+        i = len(top)
+        while i > 0 and better(o[1], top[i - 1][1]):
+            i -= 1
+        top.insert(i, o)
+        if len(top) > most:
+            top.pop()
+    return top
+
+
 def climb(offer, options, now, most=None):
-    options = sorted(options, key=_functools.cmp_to_key(lambda a, b: -1 if better(a[1], b[1]) else 1 if better(b[1], a[1]) else 0))
-    if most is not None:
-        options = options[:most]
+    options = _best(options, most)
     # Host calls are capped (64 an act): with too few left to look and price, skip rather than fail.
     calls = getattr(offer.budget(), "host_calls_left", None)
     calls = 64 if calls is None else calls

@@ -23,6 +23,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { chooseSetup } from "./setup-choice.ts";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
@@ -254,6 +255,45 @@ try {
       assert.equal(await timer.getByText(/nobody was here/).count(), 0, "resumed");
     });
 
+    if (label === "desktop") await check(`${label}: line turnover: lines arrive, the oldest retires with its points banked, and the end page and replay show it`, async () => {
+      // A practice game with turnover on (room settings liveCap 2, a birth every 5 s), 40 world seconds, dilated 2×.
+      await page.goto(`${SITE}/`);
+      await page.getByTestId("button-create-room").first().click();
+      await page.waitForURL(/\/rooms\/[A-Z0-9]+$/);
+      const roomCode = page.url().split("/").at(-1)!;
+      convexRun("v2/testing:setRoomOverrides", { code: roomCode, overrides: { planningSeconds: 5, worldSeconds: 40, liveCap: 2, birthSeconds: 5 }, timeScale: 2 });
+      await page.getByTestId("button-practice-game").click();
+      await page.waitForURL(/\/games\//, { timeout: 30_000 });
+      await page.getByTestId("button-start-world").click({ timeout: 30_000 });
+      await page.getByTestId("text-phase").getByText("Running").waitFor({ timeout: 60_000 });
+      const lines = page.getByTestId("pane-objects");
+      assert.match(await lines.getByTestId("text-turnover-note").innerText(), /At most 2 lines are live\. A new line arrives every 5 s\. Once 2 are live, each new line retires the oldest: its points stay in your total\./);
+      await lines.locator("[data-testid^=badge-new-line-]").first().waitFor({ timeout: 30_000 });   // a line arrived
+      const retired = lines.getByTestId("retired-lines");
+      await retired.locator("[data-testid^=text-retired-line-]").first().waitFor({ timeout: 30_000 });
+      assert.match(await retired.innerText(), /retired at \d+:\d\d · about [\d.,−-]+ points? as you last saw it/);
+      assert.ok(await lines.locator("[data-testid^=row-line-]").count() <= 2, "at most 2 live lines listed");
+      await shot(page, `v2-turnover-${label}`);
+      // The end page: the retired lines with what each banked.
+      await page.getByTestId("button-watch-replay").waitFor({ timeout: 90_000 });   // the game has ended
+      const end = page.getByTestId("results").getByTestId("retired-lines");
+      await end.locator("[data-testid^=text-retired-line-]").first().waitFor({ timeout: 30_000 })
+        .catch(async (e: unknown) => { await shot(page, `v2-turnover-end-failed-${label}`); throw e; });
+      // Ended: the exact figure, called banked.
+      assert.match(await end.innerText(), /retired at \d+:\d\d · banked [\d.,−-]+ points?/);
+      const banked = await end.locator("[data-testid^=row-retired-]").count();
+      assert.ok(banked >= 3, `${banked} retired lines on the end page`);
+      await shot(page, `v2-turnover-end-${label}`);
+      // The replay: at its end the same retired lines.
+      await page.getByTestId("button-watch-replay").click();
+      // The replay opens at the start, before anything retired; at its end, the same retired lines.
+      await page.getByTestId("replay-bar").waitFor({ timeout: 60_000 });
+      await page.getByTestId("button-replay-end").click();
+      const replayRetired = page.getByTestId("pane-objects").getByTestId("retired-lines");
+      await replayRetired.locator("[data-testid^=row-retired-]").first().waitFor({ timeout: 60_000 });
+      assert.equal(await replayRetired.locator("[data-testid^=row-retired-]").count(), banked, "the replay's end shows the same retired lines");
+    });
+
     await check(`${label}: the goal card's view controls stay inside the card (round 11: Grids · more rules, Uphill, at 390)`, async () => {
       const width = page.viewportSize()!.width;
       for (let i = 0; i < 2; i++) {   // two deals: the rules vary
@@ -261,8 +301,7 @@ try {
         await page.goto(`${SITE}/`);
         await page.getByTestId("button-create-room").first().click();
         await page.waitForURL(/\/rooms\/[A-Z0-9]+$/);
-        await page.getByTestId("setup-grids-more-rules").click();
-        await page.waitForFunction(() => (document.querySelector("[data-testid=radio-setup-grids-more-rules]") as HTMLInputElement | null)?.checked === true);
+        await chooseSetup(page, "grids-more-rules", "Grids · more rules");
         await page.getByTestId("button-practice-game").click();
         await page.waitForURL(/\/games\//, { timeout: 30_000 });
         if (!await page.getByTestId("pane-my-card").count() && await page.getByTestId("button-jump-my-card").count()) await page.getByTestId("button-jump-my-card").click();
@@ -297,6 +336,22 @@ try {
       await glossary.waitFor({ state: "detached", timeout: 5000 });
     });
 
+    await check(`${label}: "How scoring works" (v1's sheet) opens from the palette and closes`, async () => {
+      await page.goto(`${SITE}/`);
+      await page.getByTestId("button-avatar").waitFor();
+      await page.locator("body").click({ position: { x: 5, y: 300 } });
+      await page.keyboard.press("Control+K");
+      await page.getByTestId("input-palette").fill("How scoring works");
+      await page.keyboard.press("Enter");
+      const sheet = page.getByTestId("how-scoring-works");
+      await sheet.waitFor({ timeout: 10_000 });
+      assert.match(await sheet.innerText(), /your 3 bits × others' 2 bits = 6 points/);
+      await page.waitForTimeout(400);   // the dialog's opening animation
+      await shot(page, `v2-how-scoring-works-${label}`);
+      await page.keyboard.press("Escape");
+      await sheet.waitFor({ state: "detached", timeout: 5000 });
+    });
+
     await check(`${label}: planning shows one countdown and the owner's "Start the world now"`, async () => {
       const room = code();
       const g = convexRun("v2/testing:seedGame", { owner: me.subject, practice: 2, code: room, phase: "planning" });
@@ -307,6 +362,14 @@ try {
       await page.getByTestId("button-start-world").waitFor();
       assert.equal(await page.getByTestId("game-timer").count(), 0, "one countdown in planning");
       await shot(page, `v2-planning-${label}`);
+      // How to play links v1's scoring sheet (its rules panel held it).
+      await page.keyboard.press("Control+K");
+      await page.getByTestId("input-palette").fill("Open a pane");
+      await page.getByTestId("row-palette-view.openPane").click();
+      await page.getByTestId("row-palette-option-rules").click();
+      await page.getByTestId("button-rules-scoring").click();
+      await page.getByTestId("how-scoring-works").waitFor({ timeout: 10_000 });
+      await page.keyboard.press("Escape");
     });
 
     assert.deepEqual(me.errors, [], `${label}: no page errors`);

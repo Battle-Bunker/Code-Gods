@@ -59,10 +59,18 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
 
   const half = Math.floor(n / 2);
   const gap = (s: GridState, r: number) => { let g = 0; for (let c = 0; c < half; c++) g += Math.abs(s.cells[at(n, r, c)]! - s.cells[at(n, r, n - 1 - c)]!); return g; };
+  const colGap = (s: GridState, c: number) => { let g = 0; for (let r = 0; r < half; r++) g += Math.abs(s.cells[at(n, r, c)]! - s.cells[at(n, n - 1 - r, c)]!); return g; };
   const mirror: Representation<GridState> = {
-    id: "mirror", title: "each row beside itself read backwards", scene: "grid", perSite: false,
-    elements: rows(n).map((_, r) => derived(`gap${r}`, `how far row ${r + 1} is from reading the same backwards`, s => gap(s, r), `mirrorGap:${r}`)),
-    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), right: rows(n).map((_, r) => ref("mirror", `gap${r}`)), rightTitle: "gap" }),
+    id: "mirror", title: "each row and column beside itself read backwards", scene: "grid", perSite: false,
+    elements: [
+      ...rows(n).map((_, r) => derived(`gap${r}`, `how far row ${r + 1} is from reading the same backwards`, s => gap(s, r), `mirrorGap:${r}`)),
+      ...cols(n).map((_, c) => derived(`cgap${c}`, `how far column ${c + 1} is from reading the same from the bottom up`, s => colGap(s, c), `mirrorColGap:${c}`)),
+    ],
+    layout: () => ({
+      kind: "grid", rows: n, cols: n, cells: cellRefs(n),
+      right: rows(n).map((_, r) => ref("mirror", `gap${r}`)), bottom: cols(n).map((_, c) => ref("mirror", `cgap${c}`)),
+      rightTitle: "gap", bottomTitle: "gap",
+    }),
   };
 
   const stepOf = (s: GridState, r: number, j: number) => s.cells[at(n, r, j + 1)]! - s.cells[at(n, r, j)]!;
@@ -91,7 +99,10 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
       ...bx.map((cs, k) => derived(`pairs${k}`, `how far the ${BOX_NAMES[k]} box is from two different pairs`, s => (cs.length < 4 ? 0 : twoPairGap(s.cells[cs[0]!]!, s.cells[cs[1]!]!, s.cells[cs[2]!]!, s.cells[cs[3]!]!)))),
       ...bx.map((cs, k) => derived(`strangers${k}`, `touching strangers in the ${BOX_NAMES[k]} box`, s => (cs.length < 4 ? [] : boxEdges(cs)).filter(([a, b]) => strangers(s.cells[a]!, s.cells[b]!)).length)),
     ],
-    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: bx.map((cs, k) => ({ cells: cs, el: ref("boxes", `box${k}`) })), groupTitle: "box totals" }),
+    layout: () => ({
+      kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: bx.map((cs, k) => ({ cells: cs, el: ref("boxes", `box${k}`) })), groupTitle: "box totals",
+      unitCells: bx.flatMap((cs, k) => [{ el: ref("boxes", `pairs${k}`), cells: cs }, { el: ref("boxes", `strangers${k}`), cells: cs }]),
+    }),
   };
 
   const ws = windows(n);
@@ -106,7 +117,8 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
   const leapRep: Representation<GridState> = {
     id: "leaps", title: "each number and the number two cells along its row", scene: "grid", perSite: false,
     elements: lp.map(([a, b], k) => derived(`leap${k}`, `${cellLabel(n, b)} minus ${cellLabel(n, a)}`, s => s.cells[b]! - s.cells[a]!)),
-    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: lp.map(([a, b], k) => ({ cells: [a, b], el: ref("leaps", `leap${k}`) })) }),
+    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: lp.map(([a, b], k) => ({ cells: [a, b], el: ref("leaps", `leap${k}`) })),
+      groupTitle: "the number two cells along minus this one (− when it is smaller)" }),
   };
 
   const fp = folds(n);
@@ -116,7 +128,8 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
       ...fp.map(([a, b], k) => derived(`fold${k}`, `${cellLabel(n, a)} minus the cell it folds onto (${cellLabel(n, b)})`, s => s.cells[a]! - s.cells[b]!)),
       derived("line", "the fold line's total", s => sum(s, foldLine(n))),
     ],
-    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: [...fp.map(([a, b], k) => ({ cells: [a, b], el: ref("fold", `fold${k}`) })), { cells: foldLine(n), el: ref("fold", "line") }] }),
+    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: [...fp.map(([a, b], k) => ({ cells: [a, b], el: ref("fold", `fold${k}`) })), { cells: foldLine(n), el: ref("fold", "line") }],
+      groupTitle: "each cell minus the cell it folds onto (− when it is smaller), and the fold line's total" }),
   };
 
   // The board's halves (or odd and even rows and columns) read as numbers: Divisibility's and Leading Digits' readings, and their differences.

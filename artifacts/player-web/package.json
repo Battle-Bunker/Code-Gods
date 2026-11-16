@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
     "build": "vite build --config vite.config.ts && vite build --config vite.frame.config.ts",
+    "build:rules-mirror": "vite build --config vite.rules-mirror.config.ts && node scripts/rules-mirror-html.mjs",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/*.test.ts",
@@ -18,6 +19,7 @@
     "e2e:assistant": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-assistant.ts",
     "e2e:replay": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-replay.ts",
     "e2e:ended": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-ended.ts",
+    "e2e:locks": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/locks.ts",
     "e2e:paid": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-paid.ts",
     "e2e:gallery": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-gallery.ts",
     "e2e:annotations-lines": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/annotations-lines.ts ../../docs/screenshots/annotations-lines",
@@ -36,7 +38,9 @@
     "e2e:v1-dock": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v1-dock.ts",
     "e2e:v1-replay": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v1-replay.ts",
     "e2e:v1-assistant-games": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v1-assistant-games.ts",
-    "e2e:v1-auto-update": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v1-auto-update.ts"
+    "e2e:v1-auto-update": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v1-auto-update.ts",
+    "e2e:v1-account-mode": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v1-account-mode.ts",
+    "e2e:v1-agents": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v1-agents.ts"
   },
   "devDependencies": {
     "@convex-dev/better-auth": "0.12.6",

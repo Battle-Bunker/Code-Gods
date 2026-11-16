@@ -20,6 +20,7 @@
  */
 import assert from "node:assert/strict";
 import { DESKTOP, PHONE, SITE, chromium, check, deploy, missing, noHorizontalScroll, report, roomOp, roomSettings, shot, signIn, watch, type Page, type Player } from "./v1-harness.ts";
+import { chooseSetup } from "./setup-choice.ts";
 
 deploy();
 
@@ -29,6 +30,9 @@ async function escapeAll(page: Page) { for (let i = 0; i < 3; i++) await page.ke
 
 /** Shows a dock pane: on a phone its tab, on a desktop the pane if it is open, else through a pane's menu. */
 async function openPane(page: Page, id: string) {
+  // A phone's stacked dock: the jump row scrolls to a pane that is in the stack.
+  const jump = page.getByTestId(`button-jump-${id}`);
+  if (await jump.count()) { await jump.first().click(); return page.getByTestId(`pane-${id}`); }
   const tab = page.getByTestId(`tab-${id}`);
   if (await tab.count()) { await tab.first().click({ position: { x: 6, y: 10 } }); return page.getByTestId(`pane-${id}`); }
   const pane = page.getByTestId(`pane-${id}`);
@@ -81,11 +85,11 @@ try {
     await check("three humans: alice starts; every viewer of the room is taken to the game's page, in planning", async () => {
       // Marks each document: the room page must take everyone to the game without a reload.
       for (const p of players) await p.page.evaluate(() => { (window as unknown as { sameDoc: boolean }).sameDoc = true; });
-      await missing(["e2e-site-smoke-8", "e2e-three-humans-walk-3"], "three humans: Start game starts in one click (v2 asks \"Start the game?\" first)", async () => {
+      await check("three humans: Start game starts in one click (v1: no \"Start the game?\" first)", async () => {
         await a.getByTestId("button-start-game").click();
         await a.getByTestId("button-start-game-confirm").waitFor({ state: "detached", timeout: 1_500 });
         if (await a.getByTestId("button-start-game-confirm").count()) throw new Error("a confirmation dialog opened");
-      }, async () => { if (await a.getByTestId("button-start-game-confirm-ok").count()) await a.getByTestId("button-start-game-confirm-ok").click(); });
+      });
       for (const p of players) await p.page.waitForURL(GAME_URL, { timeout: 120_000 });
       gameUrl = a.url();
       for (const p of players) {
@@ -180,12 +184,14 @@ try {
       }
     });
 
-    await missing(["e2e-rotation-shot"], "three humans: the room page's rotation line says whose rule each player gets if they play again (\"Game 1 of 3 in this rotation. Play again with the same players and you get X's rule\")", async () => {
+    await check("three humans: the room page's rotation line says whose rule each player gets if they play again (\"Game 1 of 3 in this rotation. Play again with the same players and you get X's rule\")", async () => {
       await b.goto(`${SITE}/rooms/${code}`);
       const line = b.getByTestId("text-rotation-line");
       await line.waitFor({ timeout: 5_000 });
       assert.match(await line.innerText(), /^Game 1 of 3 in this rotation\. Play again with the same players and you get .+'s rule/);
-    }, async () => { await b.goto(gameUrl); await b.locator('[data-testid="replay-bar"], [data-testid="results"]').first().waitFor({ timeout: 30_000 }).catch(() => {}); });
+      await b.goto(gameUrl);
+      await b.locator('[data-testid="replay-bar"], [data-testid="results"]').first().waitFor({ timeout: 30_000 }).catch(() => {});
+    });
 
     await check("three humans: the replay's header leads back to the room page without a reload; its past games list the game", async () => {
       for (const p of players) {
@@ -216,6 +222,19 @@ try {
       await a.getByTestId("text-not-found").waitFor({ timeout: 5_000 });
     });
 
+    await check("three humans: the room's past games say the ended game's winner; the Setup combobox applies a setup at once, with Undo (site-smoke 12)", async () => {
+      const gameId = gameUrl.split("/").at(-1)!;
+      await a.goto(`${SITE}/rooms/${code}`);
+      assert.match(await a.getByTestId(`text-game-winners-${gameId}`).innerText({ timeout: 30_000 }), /won by \w|no winner/);
+      const current = a.getByTestId("text-current-setup"), before = (await current.innerText()).trim();
+      await a.getByTestId("select-setup").click();
+      await a.getByTestId("input-setup-search").fill("grids");
+      await a.getByTestId("row-setup-preset-grids-beginner").click();
+      await current.filter({ hasText: /^Grids · beginner$/ }).waitFor({ timeout: 30_000 });
+      await a.getByTestId("button-undo-setup").click();
+      await current.filter({ hasText: before }).waitFor({ timeout: 30_000 });
+    });
+
     await check("signed out: a visit to the game's page shows the sign-in screen there, which reaches the provider; no CSP reports", async () => {
       const fresh = await browser.newContext();
       await fresh.route(/^https:\/\/accounts\.google\.com\//, (route: any) => route.fulfill({ status: 200, contentType: "text/html", body: "google" }));
@@ -237,8 +256,13 @@ try {
       await a.goto(`${SITE}/rooms/${code}`);
       for (const p of [b, c]) { await p.goto(`${SITE}/rooms/${code}`); await p.getByTestId("text-room-code").waitFor(); }
       await a.getByTestId("button-rematch").click({ timeout: 30_000 });
+      // Its confirmation, when it asks (the dialog can take a moment under load; the new game's URL ends the wait too).
       const ok = a.getByTestId("button-rematch-confirm-ok");
-      if (await ok.waitFor({ timeout: 3_000 }).then(() => true, () => false)) await ok.click();
+      const asked = await Promise.race([
+        ok.waitFor({ timeout: 15_000 }).then(() => true, () => false),
+        a.waitForURL((u: URL) => GAME_URL.test(u.pathname) && u.toString().replace(/[?#].*$/, "") !== gameUrl, { timeout: 15_000 }).then(() => false, () => false),
+      ]);
+      if (asked) await ok.click();
       for (const p of players) {
         await p.page.waitForURL((u: URL) => GAME_URL.test(u.pathname) && u.toString().replace(/[?#].*$/, "") !== gameUrl, { timeout: 60_000 });
         await p.page.getByTestId("text-phase").filter({ hasText: /plan|run/i }).waitFor({ timeout: 60_000 });
@@ -264,8 +288,7 @@ try {
       await a.getByTestId("button-create-room").first().click();
       await a.waitForURL(/\/rooms\/[0-9A-Z]+$/);
       code = (await a.getByTestId("text-room-code").innerText()).trim();
-      await a.locator('label[data-testid^="setup-"]', { hasText: /with bidding/ }).first().locator('input[type="radio"]').click();
-      await a.locator('label[data-testid^="setup-"]:has(input:checked)', { hasText: /with bidding/ }).waitFor({ timeout: 15_000 });
+      await chooseSetup(a, "lines-beginner-bidding", "Lines · beginner with bidding");
       await roomSettings(a, code, { planningSeconds: 120, worldSeconds: 600 });
       for (const p of [b, c]) {
         await p.goto(`${SITE}/rooms/${code}`);
@@ -284,14 +307,12 @@ try {
 
     await check("bidding: alice starts the game; the Start button reads \"Starting…\" in the same frame and refuses a second click", async () => {
       await a.getByTestId("button-start-game").waitFor({ timeout: 15_000 });
-      // v2 asks first: the frame is read after the confirmation's click.
-      await a.getByTestId("button-start-game").click();
-      await a.getByTestId("button-start-game-confirm-ok").waitFor();
-      await a.evaluate(() => document.querySelector('[data-testid="button-start-game-confirm-ok"]')!.addEventListener("click", () => requestAnimationFrame(() => {
+      // One click (v1): the frame after it is read.
+      await a.evaluate(() => document.querySelector('[data-testid="button-start-game"]')!.addEventListener("click", () => requestAnimationFrame(() => {
         const btn = document.querySelector('[data-testid="button-start-game"]');
         (window as unknown as { startFrame: unknown }).startFrame = { text: btn?.textContent, disabled: btn?.getAttribute("aria-disabled") ?? (btn as HTMLButtonElement | null)?.disabled?.toString() };
       }), { once: true }));
-      await a.getByTestId("button-start-game-confirm-ok").click();
+      await a.getByTestId("button-start-game").click();
       await a.waitForFunction(() => (window as unknown as { startFrame?: unknown }).startFrame);
       assert.deepEqual(await a.evaluate(() => (window as unknown as { startFrame: unknown }).startFrame), { text: "Starting…", disabled: "true" });
     });
@@ -324,19 +345,37 @@ try {
         await b.getByText("You passed. Waiting for 1 more player…").waitFor({ timeout: 3_000 });
         await b.getByTestId("button-bidding-change").waitFor({ timeout: 2_000 });
       }
+      // Carol keeps a bid (bidding-shots: the outcome shows on the winner's card), then is done.
+      const carolFamily = (await c.locator('[data-testid^="bid-family-"]').first().getAttribute("data-testid"))!.replace("bid-family-", "");
+      // v1's bidding.tsx:110: Enter in the amount box commits the bid.
+      await c.getByTestId(`input-bid-${carolFamily}`).fill("10");
+      await c.getByTestId(`input-bid-${carolFamily}`).press("Enter");
+      await c.getByTestId(`text-my-bid-${carolFamily}`).filter({ hasText: "10%" }).waitFor();
       await c.getByTestId("button-bidding-done").click();
       for (const p of [b, c]) await p.waitForURL(GAME_URL, { timeout: 120_000 });
     });
 
+    await check("bidding: the bid's outcome is on the winner's card: carol won her rule for 10% off her final total", async () => {
+      // "Where am I" is in the phone's default stack.
+      const note = c.getByTestId("text-overview-bid");
+      await note.waitFor({ timeout: 30_000 });
+      assert.match(await note.innerText(), /^You won .+ in the bid: 10% comes off your total/);
+      await shot(c, "game2-bid-outcome-carol");
+    });
+
     await check("bidding: the spectating owner watches the clock and is taken to the game, with the spectator view", async () => {
       await a.waitForURL(GAME_URL, { timeout: 120_000 });
-      await a.getByTestId("text-watching").waitFor({ timeout: 60_000 });
+      await a.getByTestId("game-bar").getByTestId("text-watching").waitFor({ timeout: 60_000 });
       assert.equal(await a.getByTestId("button-summon-first").count(), 0, "a spectator has nothing to summon");
+      // v1's spectator page: the lines, the leaderboard (How to play before the world) and public chat; no goal card.
+      await a.getByTestId("button-jump-public-chat").waitFor({ timeout: 10_000 });
+      const panes = (await a.locator("[data-testid^=button-jump-]").evaluateAll((els: Element[]) => els.map(e => e.getAttribute("data-testid")!.slice("button-jump-".length)))).sort();
+      assert.ok(["objects,public-chat,rules", "objects,public-chat,race"].includes(panes.join()), `the spectator's panes: ${panes.join()}`);
       await shot(a, "game2-spectator-alice");
       await noHorizontalScroll(a, "phone spectator");
     });
 
-    await missing(["e2e-site-smoke-10"], "spectator: live Game details shows the settings and timings, with the world clock moving (v2 shows who held which rule only after the end)", async () => {
+    await check("spectator: live Game details shows the settings and timings, with the world clock moving (v2 shows who held which rule only after the end)", async () => {
       await a.getByTestId("text-world-t").waitFor({ timeout: 3_000 });
     });
 

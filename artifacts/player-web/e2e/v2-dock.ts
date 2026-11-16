@@ -172,6 +172,13 @@ try {
     await page.keyboard.press("Escape");
     await page.locator("[data-testid=dock-desktop]:not([data-maximised])").waitFor({ timeout: 5_000 });
     assert.ok(await page.getByTestId("pane-objects").isVisible(), `${label}: Escape restores the others`);
+    // The palette's row (v1's "Maximise or restore this pane"): the largest pane, then the others back.
+    for (const want of ["[data-maximised]", ":not([data-maximised])"]) {
+      await page.keyboard.press("Control+K");
+      await page.getByTestId("input-palette").fill("Maximise");
+      await page.getByTestId("row-palette-view.maximisePane").click();
+      await page.locator(`[data-testid=dock-desktop]${want}`).waitFor({ timeout: 5_000 });
+    }
 
     await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
     await page.getByTestId("pane-results").getByText(/You finished/).waitFor({ timeout: 20_000 });
@@ -225,7 +232,9 @@ try {
       }
       await page.waitForTimeout(800);   // the smooth scroll
       const box = await page.getByTestId("pane-agents").boundingBox() as Box;
-      assert.ok(box.y >= 0 && box.y < 844 / 2, `the phone scrolled to My agents (top at ${box.y})`);
+      // Its top in the upper half, or (the last pane, shorter than the screen) the page scrolled to its end with it on screen.
+      const atEnd = await page.getByTestId("dock-stacked").evaluate((el: Element) => el.scrollTop + el.clientHeight >= el.scrollHeight - 2);
+      assert.ok(box.y >= 0 && (box.y < 844 / 2 || atEnd && box.y + Math.min(box.height, 200) <= 844), `the phone scrolled to My agents (top at ${box.y}, at the end: ${atEnd})`);
       console.log(`phone: Open My agents kept ${now.join(", ")} and scrolled to it`);
     } else console.log("phone: SKIPPED Open My agents (the forge status offered no link)");
     await page.screenshot({ path: path.join(shots, "dock-phone.png") });

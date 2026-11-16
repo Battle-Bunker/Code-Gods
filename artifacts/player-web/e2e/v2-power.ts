@@ -90,6 +90,24 @@ try {
     await shorten(page, code, 180, setup);
     await page.getByTestId("button-practice-game").click();
     await page.waitForURL(/\/games\//, { timeout: 30_000 });
+    // v1's "Replace it / Keep my code": a starting point asks before it replaces code the player typed.
+    if (label === "desktop") {
+      await page.getByTestId("button-forge-show-code").click().catch(() => {});
+      const code = page.getByTestId("input-forge-code");
+      await code.waitFor();
+      const mine = `${await code.inputValue()}\n# mine`;
+      await code.fill(mine);
+      await page.getByTestId("other-starting-points").locator("summary").click();
+      const open = page.getByTestId("other-starting-points").locator('[data-testid^="button-open-"]').first();
+      const kind = (await open.getAttribute("data-testid"))!.replace("button-open-", "");
+      await open.click();
+      assert.match(await page.getByTestId("text-forge-replace-question").innerText(), /^Replace the code in the editor with .+\? Your summoned agents are not affected\.$/);
+      await page.getByTestId(`button-keep-code-${kind}`).click();
+      assert.equal(await code.inputValue(), mine, "Keep my code keeps it");
+      await open.click();
+      await page.getByTestId(`button-replace-it-${kind}`).click();
+      assert.notEqual(await code.inputValue(), mine, "Replace it replaces it");
+    }
     await page.getByTestId("button-summon-first").click();
     await page.getByTestId("text-forge-status").getByText(/is summoned/).waitFor({ timeout: 60_000 });
     // Force a lasting shortfall while still planning: the first agent takes 99% of the power (its energy goes with it),

@@ -5,13 +5,15 @@
  * them and every client of theirs follows. How they are laid out on a desktop is the view state's `dock` (`dockFor`).
  * Player words only: points, rarity in bits, energy, power, "line".
  */
-import { defaultDock, dockGroups, dockInsert, dockKindOf, dockWithout, type DockNode, type Place, type ViewState } from "@workspace/v2-affordances";
+import { defaultDock, dockGroups, dockInsert, dockKindOf, dockWithout, formatDock, parseDock, type DockNode, type Place, type ViewState } from "@workspace/v2-affordances";
 
 /** A game's phase, or "replay": an ended game watched at a playhead (the replay's own arrangement). */
 export type GamePhase = "planning" | "live" | "paused" | "ended" | "replay";
 const PLAY: readonly GamePhase[] = ["planning", "live", "paused", "ended"];
 const ALL: readonly GamePhase[] = [...PLAY, "replay"];
 const WORLD: readonly GamePhase[] = ["live", "paused", "ended", "replay"];
+/** The board: born, valued and scored at game start (W3 #931), so it shows in planning too. */
+const BOARD: readonly GamePhase[] = ["planning", ...WORLD];
 /**
  * The entry `replay.open` adds to the open panes. It marks the replay as open and is drawn as the game screen's replay
  * bar, never in the dock; closing it (`view.closePane`) ends the replay, so no arrangement of the dock ever closes it.
@@ -19,7 +21,7 @@ const WORLD: readonly GamePhase[] = ["live", "paused", "ended", "replay"];
 export const REPLAY_PANE = "replay";
 const docked = (p: { pane: string }) => p.pane !== REPLAY_PANE;
 
-export const PANE_IDS = ["overview", "my-card", "objects", "object", "what-if", "feed", "agents", "forge", "race", "public-chat", "results", "others-care", "points-over-time", "rules", "assistant", "my-panels"] as const;
+export const PANE_IDS = ["overview", "my-card", "objects", "object", "what-if", "feed", "agents", "forge", "race", "public-chat", "results", "others-care", "points-over-time", "rules", "assistant", "my-panels", "code-output"] as const;
 export type PaneId = (typeof PANE_IDS)[number];
 
 export interface PaneDefinition {
@@ -39,9 +41,9 @@ const def = (d: PaneDefinition) => d;
 export const PANES: Readonly<Record<PaneId, PaneDefinition>> = {
   overview: def({ id: "overview", title: "Where am I", blurb: "What's happening, how you're doing, and the one thing to do next.", phases: PLAY, keywords: ["next step", "status", "help"], home: "left" }),
   "my-card": def({ id: "my-card", title: "Your secret goal", blurb: "Your rule in plain words, a worked example and the steps to the top.", phases: ALL, keywords: ["rule", "goal", "card", "ladder"], home: "left" }),
-  objects: def({ id: "objects", title: "Lines", blurb: "Which lines earn you points, and why.", phases: WORLD, keywords: ["objects", "lines", "points", "rarity"], home: "main" }),
-  object: def({ id: "object", title: "One line", blurb: "One line in every representation your rule reads, with why it scores.", phases: WORLD, keywords: ["expanded", "representations", "compare"], home: "main" }),
-  "what-if": def({ id: "what-if", title: "What if", blurb: "Try a change and see what it does to your rarity in bits and your points, without making it.", phases: WORLD, keywords: ["what if", "try", "preview", "price", "change", "quote"], home: "main" }),
+  objects: def({ id: "objects", title: "Lines", blurb: "Which lines earn you points, and why.", phases: BOARD, keywords: ["objects", "lines", "points", "rarity"], home: "main" }),
+  object: def({ id: "object", title: "One line", blurb: "One line in every representation your rule reads, with why it scores.", phases: BOARD, keywords: ["expanded", "representations", "compare"], home: "main" }),
+  "what-if": def({ id: "what-if", title: "What if", blurb: "Try a change and see what it does to your rarity in bits and your points, without making it.", phases: BOARD, keywords: ["what if", "try", "preview", "price", "change", "quote"], home: "main" }),
   feed: def({ id: "feed", title: "What just changed", blurb: "Every move that changed your points, and why.", phases: WORLD, keywords: ["act log", "moves", "why", "feed"], home: "right" }),
   agents: def({ id: "agents", title: "My agents", blurb: "Your agents, their energy, and what they spent it on.", phases: PLAY, keywords: ["energy", "power", "share"], home: "left" }),
   forge: def({ id: "forge", title: "Agent code", blurb: "Write, check, summon and replace your agents.", phases: ["planning", "live", "paused"], keywords: ["code", "summon", "replace", "editor"], home: "main" }),
@@ -52,6 +54,7 @@ export const PANES: Readonly<Record<PaneId, PaneDefinition>> = {
   rules: def({ id: "rules", title: "How to play", blurb: "The game in 90 seconds, with this game's settings.", phases: ALL, keywords: ["rules", "help", "how", "settings", "energy", "power"], home: "main" }),
   assistant: def({ id: "assistant", title: "Your assistant", blurb: "Ask your assistant for help, or let it play for you.", phases: ALL, keywords: ["assistant", "ask", "help", "autopilot", "ai"], home: "right" }),
   "my-panels": def({ id: "my-panels", title: "Your panels", blurb: "Panels you or your assistant wrote: open, edit, roll back or turn them off.", phases: ALL, keywords: ["panels", "custom", "widgets", "code"], home: "right" }),
+  "code-output": def({ id: "code-output", title: "Code results", blurb: "Your scripts' runs over the game's data: the table or JSON each returned, what it printed, and its code.", phases: ALL, keywords: ["code", "script", "run", "analysis", "results", "table"], home: "main" }),
   results: def({ id: "results", title: "How the game went", blurb: "Final standings and why you finished where you did.", phases: ["ended"], keywords: ["end", "winner", "final"], home: "main" }),
 };
 
@@ -77,7 +80,7 @@ export type OpenPane = { pane: string; place: Place };
 /** The arrangement a new player sees in each phase (before they change anything). */
 export function defaultPanes(phase: GamePhase): OpenPane[] {
   switch (phase) {
-    case "planning": return [{ pane: "my-card", place: "main" }, { pane: "forge", place: "right" }, { pane: "overview", place: "left" }];
+    case "planning": return [{ pane: "objects", place: "main" }, { pane: "my-card", place: "left" }, { pane: "overview", place: "left" }, { pane: "forge", place: "right" }];
     case "ended": return [{ pane: "results", place: "main" }, { pane: "my-card", place: "left" }, { pane: "race", place: "right" }];
     case "replay": return [{ pane: "objects", place: "main" }, { pane: "my-card", place: "left" }, { pane: "feed", place: "right" }, { pane: "race", place: "right" }];
     default: return [
@@ -85,6 +88,52 @@ export function defaultPanes(phase: GamePhase): OpenPane[] {
       { pane: "agents", place: "bottom" }, { pane: "race", place: "bottom" },
     ];
   }
+}
+
+/**
+ * A spectator's arrangement before they change anything (v1's spectator page: Leaderboard with roster, Objects, Public
+ * chat): the goal card, the act log and the agents are a seated player's, empty for someone watching. Before the world
+ * the leaderboard has nothing, so How to play stands in; after the end the results lead.
+ */
+export function spectatorPanes(phase: GamePhase): OpenPane[] {
+  switch (phase) {
+    case "planning": return [{ pane: "objects", place: "main" }, { pane: "rules", place: "left" }, { pane: "public-chat", place: "right" }];
+    case "ended": return [{ pane: "results", place: "main" }, { pane: "race", place: "left" }, { pane: "public-chat", place: "right" }];
+    case "replay": return defaultPanes(phase);
+    default: return [{ pane: "objects", place: "main" }, { pane: "race", place: "left" }, { pane: "public-chat", place: "right" }];
+  }
+}
+
+/**
+ * The view the dock shows and plans from: a spectator who has arranged nothing sees `spectatorPanes`, so the panes on
+ * screen and the operations that keep them (openPlan, closePlan) agree; a seated player's, or anyone's own arrangement,
+ * is the view itself.
+ */
+export function viewerView<V extends Pick<ViewState, "panes" | "dock">>(view: V, phase: GamePhase, seated: boolean): V {
+  if (seated || phase === "replay" || view.panes.some(docked)) return view;
+  const kind = dockKindOf(phase) ?? "live";
+  return { ...view, panes: spectatorPanes(phase), dock: { ...view.dock, [kind]: view.dock?.[kind] ?? SPECTATOR_TREES[kind] } };
+}
+
+/** The spectator's screens side by side (each a third or so: no pane behind a tab), as `spectatorPanes` places them. */
+const SPECTATOR_DOCKS: Readonly<Record<"planning" | "live" | "ended", string>> = {
+  planning: "row(rules 28, objects 44, public-chat 28)",
+  live: "row(race 28, objects 44, public-chat 28)",
+  ended: "row(race 28, results 44, public-chat 28)",
+};
+const SPECTATOR_TREES = Object.fromEntries(Object.entries(SPECTATOR_DOCKS).map(([k, t]) => [k, parseDock(t)])) as Record<string, DockNode>;
+
+/**
+ * The view operations that store a spectator's default screen and panes before their first change (the server would
+ * otherwise start it from the player's): none for a seated player, an own arrangement, or a screen already stored.
+ */
+export function spectatorArrange(view: Pick<ViewState, "panes" | "dock">, phase: GamePhase, seated: boolean): ViewOp[] {
+  const kind = dockKindOf(phase) ?? "live";
+  if (seated || phase === "replay" || view.panes.some(docked) || view.dock?.[kind] || !SPECTATOR_TREES[kind]) return [];
+  return [
+    { id: "view.arrangeDock", args: { dock: formatDock(SPECTATOR_TREES[kind]!), phase } },
+    ...spectatorPanes(phase).map((p): ViewOp => ({ id: "view.openPane", args: { pane: p.pane, place: p.place } })),
+  ];
 }
 
 const inPhase = (id: string, phase: GamePhase) => (isPaneId(id) ? PANES[id].phases.includes(phase) : storedSlugOf(id) !== null || fileIdOf(id) !== null);
@@ -172,6 +221,28 @@ export function dockFor(view: Pick<ViewState, "panes" | "dock">, phase: GamePhas
   const frontElsewhere = (pane: string) => Object.values(view.dock ?? {}).some(t => t && dockGroups(t).some(l => l.group.active === pane));
   for (const p of shown) tree = dockInsert(tree, p.pane, p.place, p.pane === "assistant" && frontElsewhere(p.pane));
   return tree;
+}
+
+/**
+ * The panes a drop replaced (v1: a pane dragged onto the centre of another replaces it, never stacks as a tab): the
+ * other members of each group that a pane joined from another group. A move to an edge, a tab click and a gutter
+ * dragged replace nothing; tabs a screen already had stay.
+ */
+export function droppedOnto(before: DockNode | null, now: DockNode | null): string[] {
+  if (!before || !now) return [];
+  const groupOf = new Map<string, number>();
+  dockGroups(before).forEach((l, i) => { for (const t of l.group.tabs) groupOf.set(t, i); });
+  const out: string[] = [];
+  for (const { group } of dockGroups(now)) {
+    const homes = new Set(group.tabs.map(t => groupOf.get(t)));
+    if (homes.size < 2) continue;
+    // The joiner is the pane whose old group the others did not share; the others are what it was dropped onto.
+    const counts = new Map<number | undefined, number>();
+    for (const t of group.tabs) counts.set(groupOf.get(t), (counts.get(groupOf.get(t)) ?? 0) + 1);
+    const joiner = group.tabs.find(t => counts.get(groupOf.get(t)) === 1 && t === group.active) ?? group.tabs.find(t => counts.get(groupOf.get(t)) === 1);
+    if (joiner) out.push(...group.tabs.filter(t => t !== joiner));
+  }
+  return out;
 }
 
 /** The phone's arrangement: columns left, main, right, then a bottom row; an empty column takes no room. */

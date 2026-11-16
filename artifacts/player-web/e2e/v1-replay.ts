@@ -78,7 +78,7 @@ try {
     assert.ok(await page.locator('[data-testid^="replay-mark-"]').count() > 0, "key moments are marked");
   });
 
-  await missing(["e2e-replay-shot"], "an ended game's replay opens at its end", async () => {
+  await check("an ended game's replay opens at its end", async () => {
     await openReplay(page, gameUrl);
     assert.equal(await applied(page), await endOf(page), "it opens at the end");
   });
@@ -195,9 +195,15 @@ try {
     assert.ok(animated, "a step onto a change animates its line");
   });
 
-  await missing(["e2e-replay-shot"], "an agent's code opens from the replay's timeline", async () => {
-    await page.locator('[data-testid^="button-replay-agent-"]').first().click({ timeout: 3_000 });
-    await page.getByTestId("text-replay-agent-source").waitFor({ timeout: 3_000 });
+  await check("an agent's code opens from the replay's timeline, and Escape closes it", async () => {
+    const list = page.getByTestId("replay-events");
+    if (!(await list.evaluate((d: HTMLDetailsElement) => d.open))) await list.locator("summary").click();
+    await page.locator('[data-testid^="button-replay-agent-"]').first().click({ timeout: 10_000 });
+    const src = page.getByTestId("text-replay-agent-source");
+    await src.waitFor({ timeout: 5_000 });
+    assert.ok(((await src.textContent()) ?? "").trim().length > 0, "the program's source is shown");
+    await page.keyboard.press("Escape");
+    await src.waitFor({ state: "detached", timeout: 5_000 });
   });
 
   await check("another player's point of view: Watch as switches the replay to theirs", async () => {

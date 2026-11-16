@@ -34,7 +34,7 @@ export function gridJointLaw<P>(type: ObjectType<GridState>, family: RuleFamily<
   // The main layer and the tie-breakers the units cover (the others may read across units: they are not computed here).
   const allLayers = [family.main, ...family.tieBreakers].map(l => l.id).filter(id => id === family.main.id || exactlySummed(family.id, id));
   const pick = layers.map(id => allLayers.indexOf(id));
-  const units = plan.units(variant);
+  const units = plan.units(variant, params);
   const seen = new Set<number>();
   for (const u of units) for (const i of u) { if (seen.has(i)) throw new Error(`${family.id}: units overlap at cell ${i}`); seen.add(i); }
   const p = Array.from({ length: cap + 1 }, (_, x) => cellProbability(x, variant));

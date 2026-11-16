@@ -7,7 +7,7 @@
  */
 import { Qn, q, type Q } from "@workspace/v2-core";
 import { fromMC, type LineState } from "./line.ts";
-import { isPrime } from "./numbers.ts";
+import { firstPrimeWithSuffix, isPrime } from "./numbers.ts";
 
 const line = (m: Q | number, c: Q | number | bigint): LineState => ({
   lines: [fromMC(typeof m === "number" ? q(m) : m, typeof c === "bigint" ? q(c) : typeof c === "number" ? q(c) : c)],
@@ -35,12 +35,10 @@ export const landingWitness = (p: { ends: number; side?: number }, n: number): L
   const pr = firstPrime(n, p.ends);
   return pr === null ? [] : crossingAt((p.side ?? 1) === -1 ? -pr : pr);
 };
-/** Prime Gradient: the gradient on the smallest n-digit prime ending in k (minus it on the mirror). */
-export const gradientWitness = (p: { ends: number; side?: number }, n: number): LineState[] => {
-  const pr = firstPrime(n, p.ends);
-  if (pr === null) return [];
-  const m = q((p.side ?? 1) === -1 ? -pr : pr);
-  return [line(m, 0), line(m, 1)];
+/** Prime Gradient: the gradient on the smallest n-digit prime ending in the suffix, either sign (none shorter than it). */
+export const gradientWitness = (p: { suffix: string }, n: number): LineState[] => {
+  const pr = firstPrimeWithSuffix(p.suffix, n);
+  return pr === null ? [] : [line(q(pr), 0), line(q(pr), 1), line(q(-pr), 0)];
 };
 /** Divisibility Ladder: a run of n needs lcm(1, …, n) to divide c. */
 export const divisibilityWitness = (_p: object, n: number): LineState[] => {

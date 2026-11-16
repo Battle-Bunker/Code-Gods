@@ -22,7 +22,7 @@ import { presetOf } from "./presets";
 import { RUNTIME_VERSION } from "./readiness";
 import { valueRecord as valueRecordOf } from "./values";
 import { seatRules as seatRulesOf } from "./loop";
-import { decode as decodeState, scopeOf as scopeOfGame, valuesOf as valuesOfState } from "./world";
+import { birthDraws as birthDrawsOf, decode as decodeState, scopeOf as scopeOfGame, valuesOf as valuesOfState } from "./world";
 import { fullReadBits as fullReadBitsOf } from "./knowledge";
 import { newNoiseKey, objectReading, quadrantOf, readingNoise, shownAt } from "./disclose";
 
@@ -384,6 +384,12 @@ export const header = internalQuery({
   handler: async (ctx, { gameId }) => { fixtures(); return await ctx.db.get(gameId); },
 });
 
+/** The birth walk as this runtime draws it (v2-birth-fidelity.test.ts compares it with Node's, where the table runs). */
+export const birthWalk = internalQuery({
+  args: { variant: v.string(), seed: v.string(), draws: v.number() },
+  handler: async (_ctx, a) => { fixtures(); return birthDrawsOf(a.variant, a.seed, a.draws); },
+});
+
 /** An account-scope credential: the human everywhere, as an OAuth account grant is. */
 export const seedAccountCredential = internalMutation({
   args: { userId: v.string() },
@@ -678,5 +684,16 @@ export const turnoverOf = internalQuery({
       lines.push({ number: o.number, retiredAt: o.retiredAt, released: !!st?.released, points });
     }
     return { lines, retired: lines.filter(l => l.retiredAt !== undefined), live: engine.live ?? null, totals: engine.totals };
+  },
+});
+
+/** Sets a room's overrides by its code (the site e2e's turnover game: a short game, its births fast, at most 2 live). */
+export const setRoomOverrides = internalMutation({
+  args: { code: v.string(), overrides: v.any(), timeScale: v.optional(v.number()) },
+  handler: async (ctx, { code, overrides, timeScale }) => {
+    fixtures();
+    const room = (await ctx.db.query("v2Rooms").withIndex("by_code", q => q.eq("code", code)).unique())!;
+    await ctx.db.patch(room._id, { overrides: { ...room.overrides, ...overrides, ...(timeScale ? { timeScale } : {}) }, revision: room.revision + 1 });
+    return { roomId: room._id };
   },
 });

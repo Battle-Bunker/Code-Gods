@@ -35,6 +35,17 @@ export const TICK_SECONDS = 1.5, AI_TURN_SECONDS = 20;
 /** The server's cap (convex/v2/play.ts MAX_AGENTS: v1's 200 a player, call 35). */
 const MAX_AGENTS = 200;
 
+/** What a scripted player sees and does on its turn (TableInput.playerTurns). */
+export interface PlayerApi {
+  readonly at: number;
+  /** Every seat's total points now, in seat order (the public standings). */
+  readonly standings: readonly number[];
+  /** The seat's own agents and their programs. */
+  readonly agents: readonly { readonly id: string; readonly source: string }[];
+  /** Replace an agent's program, paying the edit price from the player's store; the price, or null when it cannot pay. */
+  replace(agentId: string, source: string): number | null;
+}
+
 export type SeatKind = "naive" | "starter" | "model";
 export interface TableSeat {
   readonly name: string;
@@ -85,6 +96,9 @@ export interface TableInput<S> {
   /** Owner decision 24: no two objects in the same state. A move whose result another object already holds is refused
    *  (the act pays its reads only). */
   readonly unique?: boolean;
+  /** Value every line with the uniqueness correction at this many objects, as the engine values a game (its value
+   *  scope, convex/v2/world.ts valueObjects); absent: no correction. */
+  readonly valueObjects?: number;
   /** Disclosure noise on the others' sum, σ in bits (v1's 8; 0 or absent: exact). As the server draws it (owner decision
    *  32, W3 #673): every read an agent makes (othersAfter) is an independent draw, keyed by the act and the read's count,
    *  and the act's own value (worth) is drawn once per act. The scores here stay exact. */
@@ -94,6 +108,12 @@ export interface TableInput<S> {
   /** Experiments only (scripts/power-check.ts): summon and edit prices times this, as if SUMMON_ENERGY_PER_BIT scaled. */
   readonly summonScale?: number;
   readonly model?: TableModel;
+  /**
+   * Scripted players (measurement only, scripts/competitive.ts): every `every` world seconds, `turn` is called for each
+   * seat it names, with what a real player sees between acts (the public standings, exact as the beginner presets
+   * publish them every interval) and one action, replacing an agent's program at the edit price from its own store.
+   */
+  readonly playerTurns?: { readonly every: number; readonly seats: readonly number[]; readonly turn: (seat: number, api: PlayerApi) => void };
   /** Called after each model turn (for logs). */
   readonly onTurn?: (seat: string, at: number, run: RunResult) => void;
   /** The act's price constants (κ, β), for experiments; default v2-economy's (host.ts SPEC_ECONOMY). */
@@ -201,7 +221,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   const r = rng("table", input.seed);
   const checks = rng("table-checks", input.seed);   // apart from r, so a model's checks never change what agents are offered
   let lines = births(type, variant, input.seed, input.lines);
-  let vals = seats.map(s => valuer(type, variant, s.rule));
+  let vals = seats.map(s => valuer(type, variant, s.rule, input.valueObjects));
   const bitsAll = (s: S) => vals.map(v => v.bits(s));
   const pointsOf = (s: S) => { const n = bitsAll(s); const t = n.reduce((a, b) => a + b, 0); return n.map(x => x * (t - x)); };
   let points = lines.map(pointsOf);
@@ -494,8 +514,21 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   // ------------------------------------------------------------ the game
 
   const turns = Math.ceil(input.seconds / AI_TURN_SECONDS);
-  let nextTurn = 0, k = 0;
+  let nextTurn = 0, k = 0, nextPlayerTurn = input.playerTurns?.every ?? Infinity;
   while (world < input.seconds - 1e-9) {
+    if (input.playerTurns && world >= nextPlayerTurn) {
+      nextPlayerTurn += input.playerTurns.every;
+      for (const i of input.playerTurns.seats) input.playerTurns.turn(i, {
+        at: world, standings: seats.map((_, j) => totalOf(j)), agents: mine(i).map(a => ({ id: a.id, source: a.program.source })),
+        replace: (agentId, source) => {
+          const x = mine(i).find(a => a.id === agentId)!;
+          const price = scale * editBits(x.program.language, x.program.source, source).energy;
+          try { pay(i, price, "edits"); } catch { return null; }
+          x.program = { ...x.program, source }; x.programs.push(x.program); stats[i]!.replaced++;
+          return price;
+        },
+      });
+    }
     if (input.model && world >= nextTurn) {
       for (const [i, s] of seats.entries()) if (s.kind === "model") await modelTurn(i, k, turns);
       k++; nextTurn += AI_TURN_SECONDS;
@@ -519,7 +552,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
         if (JSON.stringify(next) === JSON.stringify(s.rule.params)) continue;
         input.onDrift?.({ at: world, seat: i, params: next });
         s.rule = { ...s.rule, params: next };
-        vals[i] = valuer(type, variant, s.rule);
+        vals[i] = valuer(type, variant, s.rule, input.valueObjects);
         redrawn = true;
       }
     }

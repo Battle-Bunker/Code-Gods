@@ -9,7 +9,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { filledDraft, onComposerRequest, takeComposerRequest } from "./assistant-request";
 import { useAffordance } from "@workspace/v2-affordances/react";
-import { objectWord, useAgentCount, useAssistantStatus, useAssistantThreads, useAssistantTranscript, useAssistantTurn, useGame, useGameScope } from "@/sdk";
+import { objectWord, useAgentCount, useAssistantStatus, useAssistantThreads, useAssistantTranscript, useAssistantTurn, useAssistantCall, useGame, useGameScope } from "@/sdk";
 import { suggestionsFor } from "./assistant-chips";
 import { useRuntime } from "@/core/affordance-runtime";
 import { AffordanceButton, failureText, TONES } from "@/site/components/action";
@@ -19,6 +19,7 @@ type Status = NonNullable<ReturnType<typeof useAssistantStatus>>;
 
 function Chips({ turnId }: { turnId: string }) {
   const turn = useAssistantTurn(turnId);
+  const [open, setOpen] = useState<number | null>(null);
   if (!turn) return null;
   const words = turnWords(turn);
   return (
@@ -27,16 +28,38 @@ function Chips({ turnId }: { turnId: string }) {
         <ul className="flex flex-wrap gap-1" aria-label="What the assistant did">
           {turn.calls.map((c, i) => {
             const v = chipView(c);
+            // v1's ToolDetail: a chip opens what the assistant sent and what came back.
             return (
-              <li key={i} data-testid="chip-assistant" data-tool={c.tool} data-ok={c.ok || undefined} title={v.detail ?? undefined}
-                className={`border px-2 py-0.5 text-xs ${v.tone === "error" ? "border-destructive/50 text-destructive" : "text-muted-foreground"}`}>
-                {v.tone === "ok" ? "✓ " : "✗ "}{v.label}{v.detail ? `: ${v.detail}` : ""}
+              <li key={i}>
+                <button type="button" data-testid="chip-assistant" data-tool={c.tool} data-ok={c.ok || undefined} title={v.detail ?? undefined} aria-expanded={open === i}
+                  onClick={() => setOpen(open === i ? null : i)}
+                  className={`border px-2 py-0.5 text-left text-xs hover:bg-muted ${v.tone === "error" ? "border-destructive/50 text-destructive" : "text-muted-foreground"}`}>
+                  {v.tone === "ok" ? "✓ " : "✗ "}{v.label}{v.detail ? `: ${v.detail}` : ""}
+                </button>
               </li>
             );
           })}
         </ul>
       )}
+      {open !== null && <ToolDetail turnId={turnId} index={open} />}
       {words && <p className={`text-xs ${turn.status === "failed" ? "text-destructive" : "text-muted-foreground"}`} data-testid="text-assistant-turn">{words}</p>}
+    </div>
+  );
+}
+
+/** One call in full: what the assistant sent (the operation's arguments) and what came back. */
+function ToolDetail({ turnId, index }: { turnId: string; index: number }) {
+  const call = useAssistantCall(turnId, index);
+  if (call === undefined) return <p className="text-xs text-muted-foreground">Loading…</p>;
+  if (call === null) return <p className="text-xs text-muted-foreground">This call is not kept any more.</p>;
+  const box = "max-h-48 overflow-auto whitespace-pre-wrap break-words border bg-muted/40 p-2 font-mono text-[11px] leading-snug";
+  return (
+    <div className="space-y-1.5 text-xs" data-testid="assistant-tool-detail">
+      <p className={call.ok ? "text-muted-foreground" : "text-destructive"}>{call.ok ? "Done" : "Refused"}: {call.summary}</p>
+      <div><p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">What it sent ({call.tool})</p>
+        <pre className={box} data-testid="text-tool-args">{call.argsText ?? JSON.stringify(call.args, null, 2)}</pre></div>
+      <div><p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">What came back</p>
+        <pre className={box} data-testid="text-tool-result">{call.resultText ?? (call.result === null || call.result === undefined ? "Not kept for calls made before results were stored." : JSON.stringify(call.result, null, 2))}</pre></div>
     </div>
   );
 }
@@ -200,7 +223,12 @@ function Queued({ status }: { status: Status }) {
             {editing?.queueId === q.queueId ? (
               <>
                 <textarea className="w-full resize-none border bg-background px-2 py-1 text-sm" rows={2} value={editing.text} aria-label="Edit the waiting message"
-                  onChange={e => setEditing({ queueId: q.queueId, text: e.target.value })} data-testid="input-assistant-queued" />
+                  onChange={e => setEditing({ queueId: q.queueId, text: e.target.value })} data-testid="input-assistant-queued" autoFocus
+                  onKeyDown={e => {
+                    // v1: Enter saves, Shift+Enter is a new line, Escape cancels.
+                    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void save(); }
+                    else if (e.key === "Escape") { e.preventDefault(); setEditing(null); }
+                  }} />
                 <div className="flex gap-2">
                   <button type="button" className={TONES.secondary + " px-2 py-1 text-xs"} onClick={() => void save()} data-testid="button-assistant-queued-save">Save</button>
                   <button type="button" className={TONES.quiet + " text-xs"} onClick={() => setEditing(null)}>Cancel</button>
@@ -223,7 +251,7 @@ function Queued({ status }: { status: Status }) {
   );
 }
 
-function Composer({ status, threadId, fresh, onSent }: { status: Status; threadId: string | null; fresh: boolean; onSent: (threadId: string) => void }) {
+function Composer({ status, threadId, fresh, onSent, onThread }: { status: Status; threadId: string | null; fresh: boolean; onSent: (threadId: string) => void; onThread: (t: "new" | "pick") => void }) {
   const send = useAffordance("assistant.send");
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -233,6 +261,8 @@ function Composer({ status, threadId, fresh, onSent }: { status: Status; threadI
     const take = () => {
       const r = takeComposerRequest();
       if (!r) return;
+      if (r.thread) onThread(r.thread);
+      if (r.thread === "pick") return;
       setText(t => filledDraft(t, r.fill));
       requestAnimationFrame(() => { const el = input.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } });
     };
@@ -298,6 +328,7 @@ export function AssistantPane() {
   // The conversation in view: the one picked, "new" for a new one, else the latest of this game.
   const [picked, setPicked] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const picker = useRef<HTMLSelectElement>(null);
   const known = picked === "new" || (!!picked && !!threads?.some(t => t.threadId === picked));
   const threadId = picked === "new" ? null : known ? picked : threads?.[0]?.threadId ?? null;
   if (status === undefined || threads === undefined) return null;
@@ -308,7 +339,7 @@ export function AssistantPane() {
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="assistant">
       <div className="flex flex-wrap items-center gap-2 border-b px-3 py-1.5">
-        <select className="min-w-0 flex-1 truncate border bg-background px-1 py-1 text-xs" aria-label="Conversation" value={threadId ?? "new"}
+        <select ref={picker} className="min-w-0 flex-1 truncate border bg-background px-1 py-1 text-xs" aria-label="Conversation" value={threadId ?? "new"}
           onChange={e => setPicked(e.target.value)} data-testid="select-assistant-thread">
           {threadId === null && <option value="new">{past ? "No conversations in this game" : "New conversation"}</option>}
           {threads.map(t => <option key={t.threadId} value={t.threadId}>{t.title}</option>)}
@@ -325,7 +356,8 @@ export function AssistantPane() {
       ) : (
         <>
           <Queued status={status} />
-          <Composer status={status} threadId={threadId} fresh={picked === "new"} onSent={id => setPicked(id)} />
+          <Composer status={status} threadId={threadId} fresh={picked === "new"} onSent={id => setPicked(id)}
+            onThread={t => { if (t === "new") setPicked("new"); else requestAnimationFrame(() => picker.current?.focus()); }} />
         </>
       )}
     </div>

@@ -15,7 +15,7 @@ import type { Sandbox } from "@workspace/v2-sandbox";
 import { runAct, type Program } from "./act.ts";
 import { births } from "./births.ts";
 import { SPEC_ECONOMY, type RuleRef } from "./host.ts";
-import { findVariant, valueLookup, valuesVariant, type ValueFunction } from "@workspace/v2-valuation";
+import { findVariant, valueLookup, valuesVariant, withUniqueness, type ValueFunction } from "@workspace/v2-valuation";
 import type { Sandboxes } from "./sandboxes.ts";
 
 export interface HarnessPlayer {
@@ -112,15 +112,25 @@ export function findValues(variant: string, rule: HarnessPlayer["rule"]): ValueF
   return null;
 }
 
+const UNIQUENESS = join(import.meta.dirname, "..", "..", "v2-valuation", "uniqueness");
+/** A variant's uniqueness table (lib/v2-valuation/uniqueness), under the variant whose values it reads; null if none. */
+function uniquenessFile(variant: string): { ns: number[]; heldMass: number[] } | null {
+  try { const f = findVariant(variant); variant = valuesVariant(f.type as ObjectType<unknown>, f.variant).id; } catch (e) { if (!/^Unknown variant/.test((e as Error).message)) throw e; }
+  const file = join(UNIQUENESS, `${variant}.json`);
+  return existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : null;
+}
+
 /**
  * A player's value of a line: `bits(s)` is n_i, their rarity, looked up at the line's score in the rule's value function
  * (0 for every line without one); `values` is what `runAct` takes; `measuredTo` is the furthest measured knot's bits.
  */
-export function valuer<S>(type: ObjectType<S>, variant: Variant, rule: HarnessPlayer["rule"]) {
+export function valuer<S>(type: ObjectType<S>, variant: Variant, rule: HarnessPlayer["rule"], objects?: number) {
   const family = familyById(type, rule.family)!;
   const scoreOf = (s: S): Score => evaluateSite(type, family, rule.params, s, variant, 0, rule.tieBreaker).score;
   const vf = findValues(variant.id, rule);
-  const look = vf ? valueLookup(vf) : null;
+  // With `objects`, the uniqueness correction at that many objects, as the engine values a game (convex/v2/values.ts).
+  const u = vf && objects !== undefined ? uniquenessFile(variant.id) : null;
+  const look = vf ? (u ? withUniqueness(valueLookup(vf), u, objects!) : valueLookup(vf)) : null;
   return {
     scoreOf,
     layers: ruleLayers(family, rule.tieBreaker).length,
@@ -128,7 +138,7 @@ export function valuer<S>(type: ObjectType<S>, variant: Variant, rule: HarnessPl
     bits: (s: S) => (look ? look(scoreOf(s)).bits : 0),
     worth: (u: Score) => { const w = look ? look(u) : { bits: 0, lo: 0, hi: 0 }; return { bits: w.bits, lo: w.lo, hi: w.hi }; },
     measuredTo: vf ? vf.knots.at(-1)!.bits : null,
-    values: vf ? { knots: vf.knots, tail: vf.tail } as Pick<ValueFunction, "knots" | "tail"> : undefined,
+    values: vf ? { knots: vf.knots, tail: vf.tail, ...(u ? { uniqueness: { ns: u.ns, heldMass: u.heldMass, objects: objects! } } : {}) } as Pick<ValueFunction, "knots" | "tail"> : undefined,
   };
 }
 

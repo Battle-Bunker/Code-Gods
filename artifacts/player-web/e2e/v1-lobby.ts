@@ -131,11 +131,11 @@ try {
       assert.match(await row.innerText(), /Created: .*\d{4}/);
     }, async () => { await a.goto(`${SITE}/rooms/${code}`); await a.getByTestId("text-room-code").waitFor(); });
 
-    await missing(["e2e-site-smoke-2", "cmd-site-dyn-room-open"], `${name}: bob opens the room by typing its code in the palette ("Open room CODE" is the first row)`, async () => {
+    await check(`${name}: bob opens the room by typing its code in the palette ("Open room CODE" is the first row)`, async () => {
       await b.goto(`${SITE}/`);
       await palette(b, code);
       await b.waitForURL(new RegExp(`/rooms/${code}$`), { timeout: 5_000 });
-    }, () => escapeAll(b));
+    });
 
     await check(`${name}: bob and carol open the room by its link and join; alice's player list updates live; Start is her one primary`, async () => {
       for (const p of [b, c]) {
@@ -155,14 +155,26 @@ try {
       await memberRow(a, /Bob Okafor/).getByText("ready").waitFor();
     });
 
-    await missing(["e2e-site-smoke-3", "comp-setup-picker", "set-savedSetups"], `${name}: the Setup combobox searches every setup; a system setup's Edit is unavailable; Duplicate opens the copy`, async () => {
-      await a.getByTestId("select-setup").click({ timeout: 3_000 });
-      await a.getByTestId("input-setup-search").fill("first steps");
-      await a.locator('[data-testid^="row-setup-"]').first().click();
-      await a.getByTestId("popover-setups").waitFor();
-      await a.getByTestId("button-duplicate-setup").click();
+    await check(`${name}: the Setup combobox searches every setup; a system setup's Edit is unavailable; Duplicate opens the copy (v1, restored)`, async () => {
+      // A saved setup of alice's to find (setups are shared, as in v1).
+      const saved = `Combo ${name}`;
+      await a.goto(`${SITE}/rooms/${code}/configure`);
+      await a.getByTestId("input-setup-name").fill(saved);
+      await a.getByTestId("button-save-setup").click();
+      await a.getByTestId(`row-setup-${saved}`).waitFor({ timeout: 15_000 });
+      await a.goto(`${SITE}/rooms/${code}`);
+      await a.getByTestId("select-setup").click({ timeout: 5_000 });
+      await a.getByTestId("input-setup-search").fill("bidding");
+      await a.getByTestId("row-setup-preset-lines-beginner-bidding").waitFor();
+      assert.equal(await a.getByTestId("button-edit-setup-preset-lines-beginner-bidding").getAttribute("aria-disabled"), "true", "a system setup cannot be edited");
+      await a.getByTestId("input-setup-search").fill(saved);
+      await a.getByTestId(`row-setup-${saved}`).waitFor({ timeout: 15_000 });
+      await a.getByTestId(`button-duplicate-setup-${saved}`).click();
       await a.waitForURL(new RegExp(`/rooms/${code}/configure\\?setup=`));
-    }, () => escapeAll(a));
+      await a.getByTestId(`row-setup-${saved}'s copy`).waitFor({ timeout: 15_000 });
+      await a.goto(`${SITE}/rooms/${code}`);
+      await a.getByTestId("text-room-code").waitFor();
+    });
 
     await missing(["e2e-site-smoke-4", "page-configure", "set-setupName", "cmd-site-ui-nav-configure"], `${name}: alice edits her copy on /rooms/:code/configure (name first, every engine choice, saved for the next game); bob reads it as a read-only page offering "Duplicate and edit"`, async () => {
       await a.goto(`${SITE}/rooms/${code}/configure`);

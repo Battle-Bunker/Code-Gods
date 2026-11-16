@@ -34,12 +34,12 @@ async function both(agent: string, rule: RuleRef, at: ReturnType<typeof line>) {
 }
 
 test("Prime Gradient with look and near: one read of si, then a tilt to the nearest prime", async () => {
-  const r = await both("prime-gradient", { family: "prime-gradient", params: { ends: 1 } }, line(9, 1));
+  const r = await both("prime-gradient", { family: "prime-gradient", params: { suffix: "1" } }, line(9, 1));
   assert.deepEqual(r.transcript.map(t => t.request), [{ op: "view", rep: "si" }]);
   assert.equal(r.outcome, "committed");
   assert.deepEqual(r.calls.map(c => [c.mutator, c.args]), [["si.tilt", { k: "-2" }]], "9 → 7: on a tie the smaller prime");
   assert.equal(r.after, lineType.encode({ lines: [fromMC(q(7), q(1))] }));
-  const skip = await both("prime-gradient", { family: "prime-gradient", params: { ends: 1 } }, line(5, 3));
+  const skip = await both("prime-gradient", { family: "prime-gradient", params: { suffix: "1" } }, line(5, 3));
   assert.equal(skip.outcome, "skipped");
 });
 
@@ -142,7 +142,7 @@ test("price() of the plan cheapest() just returned is answered without a second 
 });
 
 test("fair: true when a plan keeps the others' rarity, added up; the same in both languages; a small read each time", async () => {
-  const other = { family: "prime-gradient", params: { ends: 1 }, tieBreaker: "shared-factor" };
+  const other = { family: "prime-gradient", params: { suffix: "1" }, tieBreaker: "shared-factor" };
   const vf = findValues("line-q", other)!   /* the dealt ending is valued on line-q only */;
   const gradientOff = { lines: [fromMC(q(11), q(3))] };   // m = 11 is a prime ending in 1: the other player's rule likes it
   const ts = `function agent(offer) { return [move("probe", { r: [fair(offer, [move("si.shift", { k: 1 })]), fair(offer, [move("si.tilt", { k: 1 })]), fair(offer, [move("nope", {})])].join("|") })]; }`;
@@ -165,7 +165,7 @@ test("fair: true when a plan keeps the others' rarity, added up; the same in bot
 });
 
 test("climb: the step that raises my points most (rarity × the others' total), best for my rule first; null when none does; without values, my rule's best; the same in both languages", async () => {
-  const other = { family: "prime-gradient", params: { ends: 1 }, tieBreaker: "shared-factor" };
+  const other = { family: "prime-gradient", params: { suffix: "1" }, tieBreaker: "shared-factor" };
   const others = [{ rule: other, values: findValues("line-q", other)!   /* the dealt ending is valued on line-q only */ }];
   const at = { lines: [fromMC(q(11), q(3))] };   // m = 11 is a prime ending in 1: the other player's rule likes it, so tilting lowers the others
   const values = { knots: [[null, 0], [["1"], 3], [["2"], 7]].map(([u, bits]) => ({ u: u as string[] | null, bits: bits as number, lo: bits as number, hi: bits as number, source: "exact" as const })), tail: { secondary: { form: "linear" as const, slope: 1 }, primary: { form: "linear" as const, slope: 1 } } };
@@ -258,7 +258,7 @@ test("fractions and tips: steps into halves and thirds; on a vertical line, the 
 });
 
 test("climb: a step dearer than the allowance (15 s of income) is paid from energy saved in hand, never on credit; the same in both languages", async () => {
-  const other = { family: "prime-gradient", params: { ends: 1 }, tieBreaker: "shared-factor" };
+  const other = { family: "prime-gradient", params: { suffix: "1" }, tieBreaker: "shared-factor" };
   const others = [{ rule: other, values: findValues("line-q", other)! }];
   const at = { lines: [fromMC(q(11), q(3))] };   // shifting keeps m = 11, which the other rule likes
   const values = { knots: [[null, 0], [["1"], 3], [["2"], 7]].map(([u, bits]) => ({ u: u as string[] | null, bits: bits as number, lo: bits as number, hi: bits as number, source: "exact" as const })), tail: { secondary: { form: "linear" as const, slope: 1 }, primary: { form: "linear" as const, slope: 1 } } };
@@ -381,7 +381,7 @@ test("simplest equals the brute-force definition (smallest denominator, then num
 
 test("climb skips instead of failing when the act has few host calls left (64 an act), in both languages", async () => {
   // Spend 56 of the 64 calls on budget reads, then climb over steps that each need a look at the others (worth is told).
-  const rule = { family: "prime-gradient", params: { ends: 1 }, tieBreaker: "shared-factor" }, other = { family: "treasure", params: { k: 3 }, tieBreaker: "shared-factor" };
+  const rule = { family: "prime-gradient", params: { suffix: "1" }, tieBreaker: "shared-factor" }, other = { family: "treasure", params: { k: 3 }, tieBreaker: "shared-factor" };
   const ts = `function agent(offer) { for (let i = 0; i < 56; i++) offer.budget(); const opts = [11, 31, 41, 61, 71, 101].map(k => [move("si.tilt", { k }), [Q.of(k), Q.of(1)]]); return climb(offer, opts, [Q.of(-5), Q.of(0)], 6) ?? []; }`;
   const py = `def agent(offer):\n    for _ in range(56):\n        offer.budget()\n    opts = [(move("si.tilt", k=k), [Fraction(k), Fraction(1)]) for k in (11, 31, 41, 61, 71, 101)]\n    return climb(offer, opts, [Fraction(-5), Fraction(0)], 6) or []\n`;
   for (const [language, src] of [["typescript", ts], ["python", py]] as const) {

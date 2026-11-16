@@ -18,9 +18,10 @@ import { energyText } from "@/core/words";
 import { checkReport } from "./forge-check";
 import { PullBack } from "./pull-back-ui";
 import { LeaveAlone } from "./leave-alone-ui";
+import { CodeBox, LanguageSelect } from "@/components/code-editor";
 import { shortfallOf, shortText } from "./pull-back";
 import {
-  affordLine, comparisonText, editLine, editPrice, FIRST_SHARE, openingProgram, otherStartingPoints, primaryAction, replacedText, summonedText, summonPrice, type Language,
+  affordLine, comparisonText, editLine, editPrice, FIRST_SHARE, openingProgram, openNeedsAsk, otherStartingPoints, primaryAction, replacedText, replaceQuestion, summonedText, summonPrice, type Language,
 } from "./forge-model";
 
 /** An agent's name from its program's title: "Example: legs nearly whole" → "Legs nearly whole". */
@@ -52,6 +53,8 @@ export function ForgePane() {
   const [chosenLanguage, setLanguage] = useState<Language>("typescript");
   const [selected, setSelected] = useState<string | null>(null);   // the agent in the editor
   const [draft, setDraft] = useState<string | null>(null);
+  /** The starting point waiting on "Replace it / Keep my code" (v1), when the editor holds code of the player's own. */
+  const [ask, setAsk] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>(null);
   const [ran, setRan] = useState<string | null>(null);             // the source just summoned or replaced (no stale price: ux 3.6)
   const [report, setReport] = useState<string | null>(null);
@@ -167,10 +170,7 @@ export function ForgePane() {
             {agents.map(a => <option key={a.agentId} value={a.agentId}>{a.name}</option>)}
           </select>
         )}
-        <select value={language} disabled={!!agent} onChange={e => { setLanguage(e.target.value as Language); setDraft(null); }} className="h-8 border bg-background px-2" aria-label="Language" data-testid="select-forge-language">
-          <option value="typescript">TypeScript</option>
-          <option value="python">Python</option>
-        </select>
+        <LanguageSelect value={language} disabled={!!agent} onChange={l => { setLanguage(l); setDraft(null); }} testId="select-forge-language" />
         <span className="text-xs text-muted-foreground">{agent ? `${agent.name}, version ${agent.version}` : opening ? `${opening.title}: ${opening.summary}` : ""}</span>
       </div>
       {count === 0 && (
@@ -183,8 +183,7 @@ export function ForgePane() {
           Show the code (you don't need to read it to play)
         </button>
       ) : (
-        <textarea value={source} onChange={e => { setDraft(e.target.value); setRan(null); }} spellCheck={false} wrap="off" aria-label="Agent code"
-          className="min-h-[160px] h-[40dvh] md:h-auto md:flex-1 w-full resize-y border bg-[hsl(var(--muted))]/40 p-2 font-mono text-xs leading-relaxed" data-testid="input-forge-code" />
+        <CodeBox value={source} onChange={s => { setDraft(s); setRan(null); }} label="Agent code" className="min-h-[160px] h-[40dvh] md:h-auto md:flex-1" testId="input-forge-code" />
       )}
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         {primary === "summonFirst" && (
@@ -213,7 +212,11 @@ export function ForgePane() {
                 <li key={o.title} className="space-y-1 p-2">
                   <p><span className="font-medium">{o.title}</span>: {o.summary} <span className="text-muted-foreground">({energyText(summonPrice(language, o.source, scale))})</span></p>
                   {agent ? <button type="button" className="underline underline-offset-4" aria-disabled={!replace.available || !!runner.busy || undefined} onClick={() => replace.available && !runner.busy && void doReplace(o.source)} data-testid={`button-replace-with-${o.kind}`}>Replace {agent.name} with {o.title}</button>
-                    : <button type="button" className="underline underline-offset-4" onClick={() => setDraft(o.source)} data-testid={`button-open-${o.kind}`}>Open in the editor</button>}
+                    : ask === o.kind
+                      ? <span className="block space-x-2"><span role="alert" className="font-medium" data-testid="text-forge-replace-question">{replaceQuestion(o.title)}</span>
+                        <button type="button" className="border px-2 py-0.5" onClick={() => { setAsk(null); setDraft(o.source); }} data-testid={`button-replace-it-${o.kind}`}>Replace it</button>
+                        <button type="button" className="underline underline-offset-4" onClick={() => setAsk(null)} data-testid={`button-keep-code-${o.kind}`}>Keep my code</button></span>
+                      : <button type="button" className="underline underline-offset-4" onClick={() => { if (openNeedsAsk(source, [opening?.source ?? "", ...others.map(x => x.source)])) setAsk(o.kind); else setDraft(o.source); }} data-testid={`button-open-${o.kind}`}>Open in the editor</button>}
                 </li>
               ))}
             </ul>

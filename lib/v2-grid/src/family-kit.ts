@@ -53,6 +53,8 @@ export const upTo = <P,>(layer: L<P>, most: number | ((p: P) => number)): L<P> =
 export const primesTie = <P,>(): L<P> => more("primes", "prime numbers on the board", "As many cells as possible should hold a prime number (2, 3, 5 or 7).", "cells");
 export const zerosTie = <P,>(): L<P> => more("zeros", "0s on the board", "As many cells as possible should hold 0.", "cells");
 
+/** Focus marks for one layer, labelled with its id: the elements its term reads (docs/engine-v2/v1-audit.md §6, G2). */
+export const markFor = (ctx: Ctx, id: string, refs: Iterable<ElementRef>): void => { for (const r of new Set(refs)) ctx.mark({ kind: "focus", ref: r, term: id }); };
 /** A count or a distance as one layer's term. */
 export const term = (ctx: Ctx, id: string, label: string, x: number, refs: readonly ElementRef[]) => ctx.term(id, label, q(x), [...refs]);
 export const sumOf = (xs: readonly number[]) => xs.reduce((t, x) => t + x, 0);

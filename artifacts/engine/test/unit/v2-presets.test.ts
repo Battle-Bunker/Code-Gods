@@ -32,8 +32,10 @@ test("5 looks a second at a typical object take a tenth of the preset's power, 1
 test("the beginner start buys three of the starter a newcomer summons (Simple) at the scaled summon price, and v2-economy says the same (call 17)", () => {
   for (const id of ["lines-beginner", "grids-beginner"]) {
     // The Simple starters only: the one a newcomer summons. Thorough and Bold are dearer, and say so on their cards.
+    // Each family once: a family with a large parameter space lists only a few of its sets (RuleFamily.space), so a
+    // count per listed set would weigh families by how many sets they happen to list.
     const p = presetOf(id), bits: number[] = [];
-    for (const r of p.pool) for (const lang of ["typescript", "python"] as const) for (const s of startersFor(r.family, lang).filter(x => x.kind === "simple")) bits.push(summonBits(lang, s.source).energy);
+    for (const family of new Set(p.pool.map(r => r.family))) for (const lang of ["typescript", "python"] as const) for (const s of startersFor(family, lang).filter(x => x.kind === "simple")) bits.push(summonBits(lang, s.source).energy);
     bits.sort((a, b) => a - b);
     const median = bits[bits.length >> 1]!, table = MEDIAN_STARTER_BITS[p.variant]!;
     assert.ok(Math.abs(table - median) / median < 0.05, `${id}: table ${table}, starters' median ${median}`);

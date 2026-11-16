@@ -14,7 +14,7 @@ const main = (id: string, s: GridState, params: unknown = {}) => terms(id, s, pa
 test("the seven families are in the pool, in order, each with one term per layer and three tie-breakers", () => {
   const ids = moreGridFamilies(4).map(f => f.id);
   assert.deepEqual(ids, ["kings-and-subjects", "stepping-stones", "mountain-climb", "uphill", "staircase", "magic-accountant", "fillomino"]);
-  assert.deepEqual(gridType.families.slice(-7).map(f => f.id), ids);
+  assert.deepEqual(gridType.families.map(f => f.id).filter(id => ids.includes(id)), ids);
   assert.equal(new Set(gridType.families.map(f => f.id)).size, gridType.families.length);
   const s = board("9155", "1100", "0073", "0021");
   const TIES: Record<string, string[]> = {

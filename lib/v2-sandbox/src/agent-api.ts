@@ -44,7 +44,7 @@ export type HostRequest =
   | { op: "note"; text: string }
   | { op: "othersAfter"; calls: Call[] }
   | { op: "locks" }
-  | { op: "lock"; predicate: string; amount: number }
+  | { op: "lock"; predicate: string; amount: number; words?: string }
   | { op: "fund"; lock: number; amount: number }
   | { op: "drain"; lock: number; amount: number };
 
@@ -99,10 +99,16 @@ export interface RarityReply { bits: number }
 /** The latest moves on the offered line the player may see (newest last): theirs, and others' that changed their points. */
 export interface RecentReply { moves: { mine: boolean; pointsBefore: number; pointsAfter: number }[] }
 export interface NoteReply { kept: boolean }
-/** An object's live locks (docs/engine-v2/locks.md): predicate, plain words, energy now, upkeep a second, information content. */
-export interface LocksReply { locks: { lock: number; predicate: string; words: string; energy: number; rate: number; info: number }[] }
-/** A new lock queued for the act's commit: its canonical predicate, words, I and fee, and whether the offered state meets it. */
-export interface LockReply { queued: true; predicate: string; words: string; info: number; fee: number; holdsNow: boolean }
+/**
+ * An object's live locks (docs/engine-v2/locks.md): each one's program (its predicate), the author's description of it,
+ * energy now, upkeep a second and complexity in bits (the program's description length plus what it read).
+ */
+export interface LocksReply { locks: { lock: number; words: string; language: string; source: string; energy: number; rate: number; bits: number }[] }
+/**
+ * A new lock queued for the act's commit: its complexity, fee and upkeep as measured on the offered state, and whether
+ * the offered state meets it (`error`: its program failed there). It is made on the state the act's calls reach.
+ */
+export interface LockReply { queued: true; bits: number; fee: number; rate: number; holdsNow: boolean; error?: string }
 /** A fund or drain queued for the act's commit: the lock's energy after it. */
 export interface LockChangeReply { queued: true; lock: number; energy: number }
 

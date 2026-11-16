@@ -1,4 +1,5 @@
 /** Rooms, seats and the start: creating and joining a room, seats and settings, the deal (integration plan §4.3). */
+import { defaultLockRates } from "./lockWire";
 import { v } from "convex/values";
 import { restartAutopilots } from "./assistantCore";
 import { OpFailure } from "@workspace/v2-affordances";
@@ -333,7 +334,7 @@ export const endAbandoned = internalMutation({
   args: { gameId: v.id("v2Games") },
   handler: async (ctx, { gameId }) => {
     const game = await ctx.db.get(gameId);
-    if (game && game.phase !== "ended") await endGame(ctx, game);
+    if (game && game.phase !== "ended") await endGame(ctx, game, "abandoned");
   },
 });
 
@@ -389,6 +390,9 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     pauseSeconds: room.overrides.pauseSeconds ?? DEFAULT_PAUSE_SECONDS,
     // The commit clause (v1's option, off by default).
     ...(room.overrides.commitClause ? { commitClause: true } : {}),
+    // Locks (docs/engine-v2/locks.md; off by default until played).
+    // Prices (§3): create at power ÷ 64 a bit (the summon price's scale), upkeep re-paying that once per full charge.
+    ...(room.overrides.locks ? { locks: true, lockRates: defaultLockRates({ powerPerSecond: o.powerPerSecond ?? preset.economy.powerPerSecond, fullChargeSeconds: o.fullChargeSeconds ?? preset.economy.fullChargeSeconds }, o) } : {}),
     // The bid phase's pricing and disclosure (v1's bidDisclosure): the standings hide others' handicaps at "none".
     ...(auction ? { bid: { pricing: auction.pricing, disclosure: bidOf(room)?.disclosure ?? "none" } } : {}),
     // Defence goals (v1, restored; owner-decisions call 1): grids only, off unless the room turns them on.
@@ -491,3 +495,4 @@ export function turnoverOf(preset: Preset, o: Doc<"v2Rooms">["overrides"]): { tu
     retiredHolds: o.retiredHolds ?? preset.turnover?.retiredHolds ?? TURNOVER_DEFAULTS.retiredHolds,
   } };
 }
+
