@@ -134,9 +134,10 @@ test("log height: every doubling of a number costs g, wherever it is; a fraction
 });
 
 test("log mode keeps the bounds: no call moves a score by more than k × its price or its undo's; none above height", () => {
-  const rules = [gradientPrime("1"), gradientPrime("13"), interceptSmooth([3, 17]), interceptSmooth([2, 5], true)];
-  const { calls } = checkBounds(rules, 250, 13, 1e-6, [5, 30, 200, 3000], TRIAL_LOG);
-  assert.ok(calls > 5_000, `only ${calls} calls`);
+  const { calls } = checkBounds([gradientPrime("1"), gradientPrime("13"), interceptSmooth([3, 17])], 250, 13, 1e-6, [5, 30, 200, 3000], TRIAL_LOG);
+  // A layered rule lists many trophies on a high line (every divisor of every smooth number up to twice the height): small lines here.
+  const layered = checkBounds([interceptSmooth([2, 5], true)], 120, 19, 1e-6, [3, 12, 40], TRIAL_LOG);
+  assert.ok(calls + layered.calls > 5_000, `only ${calls} calls`);
 });
 
 test("log mode: the area rule keeps the bounds to the minimiser's tolerance", () => {
