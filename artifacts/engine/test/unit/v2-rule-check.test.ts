@@ -42,6 +42,8 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "prime-landing 3a": "15 Nov, spec lead: repertoire in progress",
   "smooth-intercept 3a": "15 Nov, spec lead: repertoire in progress",
   "square-area 3a": "15 Nov, grids session: Square Area redesign",
+  "opposite-nines 3a": "15 Nov, grids session: big-on-top undealt for a cheap peak (#902); grid repertoires after the deadline",
+  "strangers 3a": "15 Nov, grids session: ones and prime-strangers undealt for cheap peaks (#902); grid repertoires after the deadline",
   "whole-crossing 3a": "15 Nov, spec lead: repertoire in progress",
   "treasure 3a": "15 Nov, spec lead: repertoire in progress",
   "same-on-both-rulers 3a": "15 Nov, spec lead: repertoire in progress",
