@@ -14,6 +14,61 @@ Measurements come from two scripts:
 
 Bits below are tree bits, written level + closeness + third.
 
+## The two cards, in the owner's format
+
+### Fraction Gradient (versions: halves, thirds, fifths, sevenths; 4)
+
+*Card:* Look at the gradient. The targets are the sevenths that are not whole numbers: fractions with bottom number 7
+in lowest terms (1/7, 2/7, 8/7, 15/7, …, and the same with a minus sign). Find the one nearest the gradient (halfway
+between two goes to the bigger top number, or between −1/2 and 1/2 to 1/2).
+- **Primary:** its top number, ignoring the sign: bigger is better.
+- **Secondary:** how far the gradient is from it: closer is better.
+- **Third:** how far the y-intercept is from that same seventh: closer is better.
+
+| line | tuple | why | a shift of 1 | a tilt of 1 |
+|---|---|---|---|---|
+| y = (17/7)x + 17/7 | (17, 0, 0) | on 17/7, and the y-intercept is 17/7 too | (17, 0, 1) | (24, 0, 1) |
+| y = (17/7)x + 5/14 | (17, 0, 2 1/14) | on 17/7; the y-intercept is 2 1/14 from it | (17, 0, 1 1/14) | (24, 0, 3 1/14) |
+| y = 3x + 4 | (22, 1/7, 6/7) | 3 is not a seventh: 20/7 and 22/7 are each 1/7 away, so 22 (bigger) | (22, 1/7, 1 6/7) | (29, 1/7, 1/7) |
+
+Repertoire of thirds:
+- the y-intercept near the same seventh (above);
+- the y-intercept's bottom number near 7;
+- the y-intercept's top number near a multiple of the target's top number.
+
+### Mixed Intercept (versions: and a half, a third, two fifths, three sevenths; 4)
+
+*Card:* Look at the y-intercept, ignoring a minus sign. The targets are the numbers "something and a third": 1/3, 1 1/3,
+2 1/3, 3 1/3, … Find the one nearest the y-intercept (halfway between two goes to the bigger).
+- **Primary:** its whole number (for 3 1/3, 3): bigger is better.
+- **Secondary:** how far the y-intercept is from it: closer is better.
+- **Third:** take the gradient, ignoring a minus sign, and its fraction part (what is left after the whole number:
+  17/6 = 2 + 5/6, so 5/6). How far is that from 1/3? Closer is better.
+
+| line | tuple | why | a shift of 1 | a tilt of 1 |
+|---|---|---|---|---|
+| y = (4/3)x + 7/3 | (2, 0, 0) | 7/3 = 2 1/3; the gradient 4/3 = 1 1/3 | (3, 0, 0) | (2, 0, 0) |
+| y = (5/2)x + 1/2 | (0, 1/6, 1/6) | 1/2 is 1/6 from 1/3; the gradient's part 1/2 is 1/6 from 1/3 | (1, 1/6, 1/6) | (0, 1/6, 1/6) |
+| y = 2x + 5 | (5, 1/3, 1/3) | whole numbers are a third away from every target | (6, 1/3, 1/3) | (5, 1/3, 1/3) |
+
+A shift of 1 lands exactly on the next target, and a tilt of 1 keeps the gradient's fraction part.
+
+Repertoire of thirds:
+- the gradient's fraction part near 1/3 (above);
+- the gradient's whole number near the target's whole number;
+- the gradient's size against the target (the bigger divided by the smaller).
+
+**Open, for both (pool-wide, with the integrator):** points under the tree valuation are not monotone in the level. On Mixed Intercept, exact hits are worth:
+
+| target | bits |
+|---|---|
+| 2 1/3 | 7.3 |
+| 5 1/3 | 13.8 |
+| 8 1/3 | 7.3 |
+| 10 1/3 | 22.7 (31 is prime) |
+
+Closeness at a target is priced by that target's own arithmetic, and the level itself is worth 1–2 bits. So a greedy climb stops at the first cheap exact hit.
+
 ## 1. Fraction Gradient
 
 **Card** (sevenths, third "echo"):
