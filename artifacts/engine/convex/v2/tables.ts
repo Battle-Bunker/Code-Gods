@@ -176,7 +176,11 @@ export const v2Tables = {
     /** When a player's pause ends by itself (v1: pauseSeconds after it began); absent unless a player paused. */
     pauseEndsAt: v.optional(v.number()),
     /** Each dealt rule's artefact content hash, by member (the header of spec §9.1). */
-    artefacts: v.array(v.object({ memberId: v.id("v2Members"), ruleKey: v.string(), contentHash: v.string() })),
+    artefacts: v.array(v.object({
+      memberId: v.id("v2Members"), ruleKey: v.string(), contentHash: v.string(),
+      /** The seat's defence goal's value function (v1, restored; call 1), when one was dealt. */
+      defence: v.optional(v.object({ ruleKey: v.string(), contentHash: v.string() })),
+    })),
     /** Whether this game's deal continues the room's rotation (plan §5.9: not after a won bid). */
     rotates: v.boolean(),
     /** What a fresh deal depends on (variant and dealable pool): a rotation continues only under the same key. */

@@ -17,7 +17,8 @@ import { regularBirths, timeScaleOf } from "./duration";
 import { sandboxFor } from "./runtime";
 import { birthDraws, decode, scopeOf, typeOf, variantOf } from "./world";
 import { actReadings } from "./disclose";
-import { valueFnIn } from "./values";
+import { penaltyMean, valueFnIn, valueRecord } from "./values";
+import { DEFAULT_PENALTY_WEIGHT } from "./world";
 
 type Snapshot = {
   phase: string; seed: string; variant: string; leaseId: string; tick: number; acts: number; objects: number; endsAt: number | null;
@@ -25,8 +26,8 @@ type Snapshot = {
   /** The world second the game ends at (private in halfLife mode; the tick only follows it). */
   endWorld: number;
   held: { objectId: string; state: string }[]; noiseKey: string | null;
-  settings: { worldSeconds: number; startingObjects: number; peerNoiseVariance?: number; timeScale?: number; regularBirths?: boolean; commitClause?: boolean; stepBudget?: number; interactionComputeMs?: number; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
-  seats: { memberId: string; rule: { family: string; params: unknown; tieBreaker: string | null; ruleKey: string } }[];
+  settings: { worldSeconds: number; startingObjects: number; peerNoiseVariance?: number; timeScale?: number; regularBirths?: boolean; commitClause?: boolean; penaltyWeight?: number; stepBudget?: number; interactionComputeMs?: number; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
+  seats: { memberId: string; rule: { family: string; params: unknown; tieBreaker: string | null; ruleKey: string }; defence?: { family: string; params: unknown; ruleKey: string } }[];
   ready: ("typescript" | "python")[];
   agents: TickAgent[];
   /** Where the next page of live agents starts (`tickAgents`); null when the snapshot holds them all. */
@@ -100,9 +101,15 @@ export const tick = internalAction({
       // Values in this game (decision 24): the uniqueness correction at the game's object count, as the commit values.
       const scope = scopeOf(snap);
       const ruleOf = (r: Snapshot["seats"][number]["rule"]) => ({ family: r.family, params: r.params as Record<string, unknown>, tieBreaker: r.tieBreaker });
+      // A seat's defence goal (v1, restored; call 1), as the host values it beside the rule: the commit's signed bits.
+      const weight = snap.settings.penaltyWeight ?? DEFAULT_PENALTY_WEIGHT;
+      const defenceOf = (d: Snapshot["seats"][number]["defence"]) => {
+        const r = d ? valueRecord(d.ruleKey) : null;
+        return d && r ? { defence: { family: d.family, params: d.params, values: { knots: r.knots, tail: r.tail }, mean: penaltyMean(d.ruleKey), weight } } : {};
+      };
       const othersOf = new Map(snap.seats.map(seat => [seat.memberId, snap.seats.flatMap(o => {
         const vf = o.memberId === seat.memberId ? null : valueFnIn(o.rule.ruleKey, scope);
-        return vf ? [{ rule: ruleOf(o.rule), values: vf }] : [];
+        return vf ? [{ rule: ruleOf(o.rule), values: vf, ...defenceOf(o.defence) }] : [];
       })]));
       const told = new Map<string, ActInput>();
       for (const rows of await Promise.all(batches)) for (const { memberId, objectId, ...input } of rows) told.set(`${memberId}:${objectId}`, input);
@@ -132,7 +139,7 @@ export const tick = internalAction({
           type: typeOf(snap.variant), variant, state: decode(local.get(number) ?? s.state, snap.variant),
           rule: ruleOf(seat.rule),
           program: { language: agent.language, source: agent.source }, seed, energy, object: number, liveObjects: snap.objects,
-          ...input, ...(vf ? { values: vf } : {}), others: othersOf.get(seat.memberId)!,
+          ...input, ...(vf ? { values: vf, ...defenceOf(seat.defence) } : {}), others: othersOf.get(seat.memberId)!,
           // Any held state, the object's own included: v1's uniqueness, "a transformation onto any existing value
           // (including the object's own) fails entirely".
           occupied: e => holder.has(e), disclosed: reads.disclosed,

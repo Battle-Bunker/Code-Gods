@@ -237,3 +237,36 @@ test("row 10: a cheap move from a rung keeps most of a line rule's bits, or the 
   assert.deepEqual([...found.keys()].filter(k => !(k in ROW10_EXEMPT)), [], "new failures: fix them, or list them in ROW10_EXEMPT with a date and an owner");
   assert.deepEqual(Object.keys(ROW10_EXEMPT).filter(k => !found.has(k)), [], "exemptions that now pass: remove them");
 });
+
+/**
+ * Defence goals (v1, restored; owner-decisions call 1): the penalties a grid preset could deal beside the rules, on the
+ * rows a penalty can be held to: 1 (an unbounded main part: a badness that keeps growing), 3a (dealt secondaries) and 4
+ * (dealt parameter sets). v1's penalties are counts of cells on a fixed board, with no tie-breaker: they fail as v1's
+ * did, and are ported as v1 had them (off by default, as in v1), listed here with the date.
+ */
+const DEFENCE_EXEMPT: Readonly<Record<string, string>> = {
+  "hated-number 1": "16 Nov, rules worker: ported as v1 (a count of cells, at most the board's 16)",
+  "hated-number 3a": "16 Nov, rules worker: ported as v1 (no tie-breaker)",
+  "number-crowd 1": "16 Nov, rules worker: ported as v1 (a count of cells, at most the board's 16)",
+  "number-crowd 3a": "16 Nov, rules worker: ported as v1 (no tie-breaker)",
+  "number-crowd 4": "16 Nov, rules worker: ported as v1 (one parameter set)",
+};
+
+test("defence goals pass rows 1, 3a and 4, or are listed in DEFENCE_EXEMPT as ported from v1", () => {
+  const found = new Set<string>();
+  for (const preset of PRESETS) {
+    const { type, variant } = findVariant(preset.variant);
+    for (const pf of type.penalties ?? []) {
+      const sets = pf.dealable(variant) as unknown[];
+      if (!sets.length) continue;
+      if (pf.tieBreakers.length < MIN_SECONDARIES) found.add(`${pf.id} 3a`);
+      if (sets.length < MIN_INSTANCES) found.add(`${pf.id} 4`);
+      // Row 1: the badness over many births never passes what the board can hold (a bounded count).
+      const T = type as ObjectType<unknown>, cells = births(T, variant, `rule-check-${pf.id}`, 1)
+        .map(s => (s as { cells?: unknown[] }).cells?.length ?? Infinity)[0]!;
+      if (Number.isFinite(cells)) found.add(`${pf.id} 1`);
+    }
+  }
+  assert.deepEqual([...found].filter(k => !(k in DEFENCE_EXEMPT)).sort(), [], "new failures: fix them, or list them");
+  assert.deepEqual(Object.keys(DEFENCE_EXEMPT).filter(k => !found.has(k)), [], "exemptions that now pass: remove them");
+});

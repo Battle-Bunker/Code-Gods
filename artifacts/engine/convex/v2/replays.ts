@@ -4,7 +4,7 @@
  * paging the log. Served by GET /api/v2/replay/<gameId> (convex/http.ts), which checks the caller's Convex JWT on every
  * request: never a storage URL, since sign-in is required everywhere (owner decision 2026-11-02).
  */
-import { slimKnots, valueFnIn, type ValueScope } from "./values";
+import { penaltyMean, slimKnots, valueFnIn, valueHead, valueRecord, type ValueScope } from "./values";
 import { scopeOf } from "./world";
 import { PAGE, PAGE_BYTES } from "./replayFormat";
 import { v } from "convex/values";
@@ -14,6 +14,11 @@ import { requireGameMember } from "./access";
 import { replayV } from "./validators";
 
 /** A rule's value function for the replay file (what valueLookup takes, with the game's uniqueness correction). */
+/** A penalty's value function as the replay embeds it: knots, tail and E_π η(h) (no uniqueness correction). */
+const penaltyValueOf = (ruleKey: string) => {
+  const r = valueRecord(ruleKey);
+  return r ? { knots: slimKnots(r.knots), tail: r.tail, mean: penaltyMean(ruleKey) } : null;
+};
 const valueFnOf = (ruleKey: string, scope: ValueScope) => {
   const f = valueFnIn(ruleKey, scope);
   return f ? { ...f, knots: slimKnots(f.knots), tail: f.tail ?? null } : null;
@@ -48,7 +53,10 @@ export const header = internalQuery({
     const rules = [];
     for (const s of game.roster) {
       const r = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", s.memberId)).unique();
-      if (r) rules.push({ memberId: r.memberId, family: r.family, params: r.params, tieBreaker: r.tieBreaker, ruleKey: r.ruleKey, card: r.card, layers: r.layers, contentHash: r.contentHash, value: valueFnOf(r.ruleKey, scopeOf(game)), handicap: r.handicap ?? null });
+      if (r) rules.push({ memberId: r.memberId, family: r.family, params: r.params, tieBreaker: r.tieBreaker, ruleKey: r.ruleKey, card: r.card, layers: r.layers, contentHash: r.contentHash, value: valueFnOf(r.ruleKey, scopeOf(game)), handicap: r.handicap ?? null,
+        // The defence goal (v1, restored; call 1) and its value function, so a replay values boards as the commit did
+        // (the weight w is the game's settings.penaltyWeight, in the header).
+        defence: r.defence ? { ...r.defence, contentHash: valueHead(r.defence.ruleKey)?.contentHash ?? null, value: penaltyValueOf(r.defence.ruleKey) } : null });
     }
     const { _id, _creationTime, replayFile: _, noiseKey: _key, ...rest } = game;
     return { game: { gameId: _id, ...rest }, rules };

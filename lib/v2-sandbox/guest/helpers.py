@@ -742,7 +742,9 @@ def climb(offer, options, now, most=None):
             continue
         if o.after is None:   # not allowed (e.g. another object is in that state)
             continue
-        v = r * o.after
+        # With a defence goal the host says your own bits after the plan (your rarity less the penalty's hinge).
+        mine = o["mine"]["after"] if "mine" in o and o["mine"]["after"] is not None else r
+        v = mine * o.after
         if v > value + 1e-9:
             ranked.append((v, plan))
     # The best step it can pay for within its allowance (its energy, and a few seconds of its income).
