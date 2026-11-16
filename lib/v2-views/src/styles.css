@@ -327,7 +327,8 @@
 .v2v-face-why { font-size: 11px; color: var(--v2v-muted); line-height: 1.25; padding: 0 2px;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .v2v-face-parts { display: flex; flex-direction: column; gap: 2px; padding: 0 2px; }
-.v2v-face-part { display: grid; grid-template-columns: 50px 1fr auto; white-space: nowrap; align-items: center; gap: 5px; font-size: 10px; color: var(--v2v-muted); }
+/* A part is one line of words (its title the full sentence): a block, never a grid (a 50 px first column held it all). */
+.v2v-face-part { display: block; font-size: 10px; color: var(--v2v-muted); }
 .v2v-face-part-n { font-weight: 600; }
 .v2v-face-next { font-size: 11px; color: var(--v2v-cand); padding: 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
