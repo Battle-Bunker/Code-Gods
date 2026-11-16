@@ -179,18 +179,20 @@ try {
     await page.waitForFunction(() => (document.querySelector("[data-testid=select-lines-sort]") as HTMLSelectElement | null)?.value === "points", undefined, { timeout: 10_000 });
   });
 
-  await missing(["e2e-stored-panels-4"], "dragging a pane onto the centre of another replaces it: no tabs, no ghost header left behind", async () => {
+  await check("dragging a pane onto the centre of another replaces it: no tabs, no ghost header left behind", async () => {
     const panes = (await openPanes(page)).filter(id => id !== "assistant");
     assert.ok(panes.length >= 2, "two panes to drag");
     const [from, onto] = panes as [string, string];
+    const headers = async () => (await page.locator('[data-testid^="tab-"]').evaluateAll((els: Element[]) => els.map(e => e.getAttribute("data-testid")!.slice("tab-".length)))).sort();
+    const before = await headers();
     const tab = page.getByTestId(`tab-${from}`);
     const target = await page.getByTestId(`pane-${onto}`).boundingBox();
     await tab.dragTo(page.getByTestId(`pane-${onto}`), { targetPosition: { x: target!.width / 2, y: target!.height / 2 } });
-    await page.waitForTimeout(800);
-    // Replaced, not stacked as tabs: the dragged pane's header is the only one where the target was, and every
-    // header belongs to a pane on screen.
-    assert.equal(await page.locator(`[data-testid="tab-${onto}"]`).count(), 0, `${onto} is still there (as a tab)`);
-    assert.equal(await page.locator('[data-testid^="tab-"]').count(), (await openPanes(page)).length, "a header without its pane (a tab group or a ghost)");
+    // Replaced, not stacked as a tab: the headers are the ones before less the pane dropped onto (no new tab, no ghost),
+    // and the stored arrangement no longer names it.
+    await page.waitForFunction((t: string) => !document.querySelector('[data-testid="dock-desktop"]')?.getAttribute("data-dock")?.match(new RegExp(`\\b${t}\\b`)), onto, { timeout: 10_000 });
+    assert.deepEqual(await headers(), before.filter(p => p !== onto), await page.getByTestId("dock-desktop").getAttribute("data-dock") ?? "");
+    await page.getByTestId(`pane-${from}`).waitFor({ timeout: 3_000 });
   });
 
   await check("?panels=off loads only the built-in panes and the assistant (safe mode)", async () => {
