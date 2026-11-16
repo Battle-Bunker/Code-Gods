@@ -471,11 +471,15 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;op
 }
 .dockview-theme-cg .dv-tabs-and-actions-container { border-bottom: 1px solid hsl(var(--card-border)); }
 .dockview-theme-cg .dv-tab { padding: 0; }
+/* Tabs of a group keep their whole titles; the strip scrolls when they overflow (a grid game's ended screen showed
+   "Gri…", "One g…", "Wha…"). A lone tab is the pane header: the rule below lets it shrink and truncate. */
+.dockview-theme-cg .dv-tabs-container > .dv-tab { flex-shrink: 0; }
 /* The header tab is the pane header: it takes the header's width, and its caption truncates instead of overflowing. */
-.dockview-theme-cg .dv-full-width-single-tab .dv-scrollable,
-.dockview-theme-cg .dv-full-width-single-tab .dv-tabs-container,
-.dockview-theme-cg .dv-full-width-single-tab .dv-tab { min-width: 0; flex-shrink: 1; overflow: hidden; }
-.dockview-theme-cg .dv-full-width-single-tab .dv-tab > * { width: 100%; }
+/* dockview keeps the dv-full-width-single-tab class on a group of several tabs, so this rule asks for one tab. */
+.dockview-theme-cg .dv-full-width-single-tab:has(.dv-tab:only-child) .dv-scrollable,
+.dockview-theme-cg .dv-full-width-single-tab:has(.dv-tab:only-child) .dv-tabs-container,
+.dockview-theme-cg .dv-full-width-single-tab:has(.dv-tab:only-child) .dv-tab { min-width: 0; flex-shrink: 1; overflow: hidden; }
+.dockview-theme-cg .dv-full-width-single-tab:has(.dv-tab:only-child) .dv-tab > * { width: 100%; }
 .dockview-theme-cg .dv-tab:focus-visible::after, .dockview-theme-cg .dv-tab:has(:focus-visible)::after { outline-color: hsl(var(--ring)) !important; }
 /* An 8 px hit area for the 1 px gutter line. */
 .dockview-theme-cg .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash { width: 8px; margin-left: -2px; }
