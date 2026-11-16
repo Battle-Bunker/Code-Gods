@@ -73,6 +73,7 @@ import type * as v2_layout from "../v2/layout.js";
 import type * as v2_lobby from "../v2/lobby.js";
 import type * as v2_loop from "../v2/loop.js";
 import type * as v2_oauth from "../v2/oauth.js";
+import type * as v2_objectOrder from "../v2/objectOrder.js";
 import type * as v2_ops_account from "../v2/ops/account.js";
 import type * as v2_ops_agent from "../v2/ops/agent.js";
 import type * as v2_ops_agents from "../v2/ops/agents.js";
@@ -197,6 +198,7 @@ declare const fullApi: ApiFromModules<{
   "v2/lobby": typeof v2_lobby;
   "v2/loop": typeof v2_loop;
   "v2/oauth": typeof v2_oauth;
+  "v2/objectOrder": typeof v2_objectOrder;
   "v2/ops/account": typeof v2_ops_account;
   "v2/ops/agent": typeof v2_ops_agent;
   "v2/ops/agents": typeof v2_ops_agents;

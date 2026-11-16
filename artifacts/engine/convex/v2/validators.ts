@@ -110,7 +110,9 @@ export const meV = v.object({
    */
   ownPerSecond: v.number(), capacity: v.number(), settledAt: v.number(),
 });
-export const objectSortV = v.union(v.literal("points"), v.literal("rarity"), v.literal("want"), v.literal("born"), v.literal("recent"));
+/** v1's sorts and filters (objectOrder.ts). */
+export const objectSortV = v.union(v.literal("points"), v.literal("rarity"), v.literal("want"), v.literal("mutations"), v.literal("born"), v.literal("oldest"), v.literal("recent"));
+export const objectFilterV = v.union(v.literal("all"), v.literal("positive"), v.literal("contested"), v.literal("chips"));
 export const objectIdsV = paginationResultValidator(v.object({ objectId: v.id("v2Objects"), number: v.number() }));
 /** `v2/play:object`: one object's shared state and the caller's value of it. */
 export const playObjectV = v.object({
