@@ -302,35 +302,32 @@ export interface RuleFamily<S, P> {
   witness?(params: P, n: number): readonly S[];
   /**
    * A large parameter space (design-principles.md principle 14; the owner, 16 Nov: "large sets as parameters not a
-   * finite number of discrete options"). `dealable` then returns a short showcase drawn from it, so every consumer of
-   * concrete instances works unchanged; a dealer, a page or a server that takes typed or stored parameters uses this.
+   * finite number of discrete options"). `dealable` then returns a short list from it (the dealt peers, or a showcase),
+   * so every consumer of concrete instances works unchanged; a dealer, a page or a server that draws, takes typed or
+   * checks stored parameters uses this (spaceHas, space.ts).
    */
   readonly space?: ParamSpace<P>;
+  /**
+   * The layer chains a rule of this family can be dealt with ("closeness>third", TieBreaker), when its tie-breakers are
+   * alternatives rather than one fixed order (principle 3a: a repertoire of thirds). Absent: each prefix of
+   * `tieBreakers` in order (a tree family) or each tie-breaker alone.
+   */
+  readonly chains?: readonly string[];
 }
 
-/** A family's parameter space: drawable, checkable and typeable (RuleFamily.space). */
+/** A family's parameter space: drawable and typeable (RuleFamily.space). */
 export interface ParamSpace<P> {
-  /** How many parameter sets it holds (Infinity when unbounded). */
+  /** How many parameter sets `draw` can return (parse may accept more members of the space). */
   readonly size: number;
+  /** In words: what is drawn and what may be typed, with an example ("1 to 3 digits ending in 1, 3, 7 or 9, e.g. 13"). */
+  readonly hint: string;
   /** One parameter set, drawn by the family's own law over the space. */
   draw(rng: Rng): P;
-  /** Whether a value (stored, sent or typed) is a parameter set of the space. */
-  has(params: unknown): params is P;
-  /** From the text a person types (label's inverse), or why not. */
-  parse(text: string): P | { invalid: string };
-  /** The parameter set as a person types it. */
+  /** From the text a person types (label's output, or the values alone in order), or why it is not in the space. */
+  parse(text: string): P | Invalid;
+  /** The parameter set as a person types it; parse(label(p)) gives p back. */
   label(params: P): string;
-  /** What to type, with an example ("a suffix of 1 to 3 digits ending in 1, 3, 7 or 9, e.g. 13"). */
-  readonly hint: string;
 }
-
-/**
- * Which tie-breakers a dealt rule uses, in order (owner decision 14 and principle 3a: a repertoire of secondary
- * preferences, and room for tertiary and deeper ones): one id of the family's, several joined by ">" ("a>b" ranks by the
- * main layer, then a, then b), or null for the main layer alone. A string, so every key, value file and wire field that
- * carries it is unchanged at any depth; read it with tieBreakerIds (evaluate.ts).
- */
-export type TieBreaker = string | null;
 
 // ---------------------------------------------------------------- mutators (§5)
 

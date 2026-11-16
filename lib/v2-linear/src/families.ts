@@ -71,11 +71,10 @@ export const primeGradient: RuleFamily<LineState, Suffix> = {
   params: [], dealable: () => SHOWCASE.map(suffix => ({ suffix })), depends: ["si", "cart"], ...pg,
   space: {
     size: 4 + 40 + 400,
-    draw: r => ({ suffix: drawSuffix(r) }),
-    has: (x): x is Suffix => typeof x === "object" && x !== null && Object.keys(x).length === 1 && isSuffix((x as Suffix).suffix),
-    parse(text) { const s = text.trim(); return isSuffix(s) ? { suffix: s } : { invalid: "1 to 3 digits, the last one 1, 3, 7 or 9" }; },
-    label: p => p.suffix,
     hint: "the prime's last digits: 1 to 3 digits ending in 1, 3, 7 or 9 (e.g. 13 or 007)",
+    draw: r => ({ suffix: drawSuffix(r) }),
+    parse(text) { const s = text.trim().replace(/^suffix\s*=\s*/, ""); return isSuffix(s) ? { suffix: s } : { invalid: "1 to 3 digits, the last one 1, 3, 7 or 9" }; },
+    label: p => p.suffix,
   },
   evaluate(ctx, pr) {
     const mRef = ref("si", "m"), cRef = ref("si", "c");

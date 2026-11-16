@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { evaluateSite, Qn, q, rng, walkStep, type Evaluation, type Q, type RuleFamily } from "@workspace/v2-core";
+import { evaluateSite, Qn, q, rng, spaceHas, walkStep, type Evaluation, type Q, type RuleFamily } from "@workspace/v2-core";
 import { nearestPalindrome } from "../src/beginner-rulers.ts";
 import { digitLevel } from "../src/numbers.ts";
 import { LINE_Q_CODES, primeGradient, beginnerFamilies, beginnerPool, presets, divisibilityLadder, exactChange, lineQ, lineType, lineZ, primeLanding, primeStaircase, ruler, sameOnBothRulers, squareArea, treasure, wholeCrossing, type LineState } from "../src/index.ts";
@@ -218,13 +218,14 @@ test("Prime Gradient reads a drawn suffix and ignores the gradient's sign (owner
   assert.deepEqual(primeGradient.dealable(lineQ), [{ suffix: "1" }, { suffix: "9" }]);
   const sp = primeGradient.space!;
   assert.equal(sp.size, 444);
-  for (const x of primeGradient.dealable(lineQ)) assert.ok(sp.has(x), JSON.stringify(x));
+  for (const x of primeGradient.dealable(lineQ)) assert.ok(spaceHas(sp, x), JSON.stringify(x));
   assert.deepEqual(sp.parse(" 013 "), { suffix: "013" });
   assert.ok("invalid" in (sp.parse("12") as object));
-  assert.equal(sp.has({ suffix: "5" }), false);
-  assert.equal(sp.has({ ends: 1 }), false);
+  assert.equal(spaceHas(sp, { suffix: "5" }), false);
+  assert.equal(spaceHas(sp, { ends: 1 }), false);
+  assert.equal(spaceHas(sp, { suffix: "13", extra: 1 }), false);
   assert.equal(sp.label({ suffix: "07" }), "07");
-  assert.ok(sp.has(sp.draw(rng("pg"))));
+  assert.ok(spaceHas(sp, sp.draw(rng("pg"))));
   assert.deepEqual(primeGradient.dealable(lineZ), primeGradient.dealable(lineQ));
 });
 
