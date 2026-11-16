@@ -20,8 +20,8 @@ Labels: **built** (in the code and tested), **seen narrowly** (measured under th
 - **Step 8 (seen narrowly).**
   - *Noise of a standing at K = 8* (three random tables of four seats, three newborn objects each, twelve estimates):
     lines: sd of a seat's total 1–5 energy, gaps between neighbouring seats 0–11; grids: sd 1–25, gaps 0–129. So close
-    seats swap places on noise; clear leads hold. Raising K to 16 halves the variance but doubles a commit (about
-    460 ms median on grids against the 600 ms gate): K stays 8. Guess: the standing is a sum over many commits per
+    seats swap places on noise; clear leads hold. Raising K to 16 halves the variance but (guess) about doubles a
+    commit (some 460 ms median on grids against the 600 ms gate): K stays 8. Guess: the standing is a sum over many commits per
     object over a game, which averages some of it.
   - *Fraction-native rules and fees:* stating a fraction is priced like its denominator's size (si.shift by 1/97 costs
     about 11,650 energy against 6 for 1; 1/7 costs 92), so Unit Fraction, Prime Sliver, Crossing Sliver, Fine Bottom and
