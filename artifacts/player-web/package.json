@@ -38,7 +38,8 @@
     "e2e:v1-assistant-games": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v1-assistant-games.ts",
     "e2e:v1-auto-update": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v1-auto-update.ts",
     "e2e:v1-account-mode": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v1-account-mode.ts",
-    "e2e:v1-agents": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v1-agents.ts"
+    "e2e:v1-agents": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v1-agents.ts",
+    "e2e:locks": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/locks.ts"
   },
   "devDependencies": {
     "@convex-dev/better-auth": "0.12.6",
