@@ -4,6 +4,7 @@ import { internalQuery } from "../_generated/server";
 import { resolveContext, userById } from "./access";
 import { knownOf, readsKnowledge } from "./knowledge";
 import { priceScaleOf } from "./pricing";
+import { programOf } from "./loop";
 
 export const context = internalQuery({
   args: { userId: v.string(), scope: v.any(), agentId: v.optional(v.string()) },
@@ -25,7 +26,7 @@ export const context = internalQuery({
     if (agentId && (!agent || agent.memberId !== r.member._id || agent.gameId !== r.game._id || agent.destroyedAt !== undefined)) return { refused: "That agent is not yours." };
     return {
       variant: r.game.variant, seed: r.game.seed, energy: r.player.energy, priceScale: priceScaleOf(r.game), rule: { family: rule.family, params: rule.params, tieBreaker: rule.tieBreaker }, samples,
-      current: agent ? { language: agent.language, source: agent.source } : null,
+      current: agent ? { language: agent.language, source: (await programOf(ctx, agent)).source } : null,
     };
   },
 });

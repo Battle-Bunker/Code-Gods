@@ -1,5 +1,5 @@
 # Box Totals · Naive (for learning)
-# Main part: every corner box adds up to the target. Tie-breaker: the board's four corners.
+# Main part: every corner box adds up to the target. Secondary preference: the board's four corners.
 # What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 # board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 # board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
@@ -8,11 +8,11 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     main = 0
     for x in BOXES:   # each box: how far its total is from T
         main -= abs(sum(b[i] for i in x) - p["T"])
-    return [main, b[0] + b[3] + b[12] + b[15]]   # main: how far the corner boxes' totals are from T, added up (closer is better); tie-breaker: bigger corners of the board are better
+    return [main, b[0] + b[3] + b[12] + b[15]]   # main: how far the corner boxes' totals are from T, added up (closer is better); secondary: bigger corners of the board are better
 
 
 FAR = 1      # how far one change may go

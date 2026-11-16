@@ -7,12 +7,13 @@ import { abc, mc } from "./helpers.ts";
 const score = (e: Evaluation) => (e.score === null ? "WORST" : e.score.map(x => (x === null ? "_" : Qn.toWire(x))).join(","));
 const ev = <P,>(f: RuleFamily<LineState, P>, p: P, s: LineState, v = lineZ, tb?: TieBreaker) => evaluateSite(lineType, f, p, s, v, 0, tb);
 
-test("every owner family: a textbook main layer and at least two alternative tie-breakers (one, read from the rung, for a ladder family), all graded", () => {
+// Row 3a (at least three secondaries per dealt family) is checked on the dealt pools: artifacts/engine test/unit/v2-rule-check.test.ts.
+test("every owner family: a textbook main layer and its secondaries on the card", () => {
   for (const f of ownerFamilies) {
-    assert.ok(f.tieBreakers.length >= (f.keepsParams ? 1 : 2), f.id);
+    assert.ok(f.tieBreakers.length >= 1, f.id);
     assert.ok(f.depends.includes(f.main.rep), f.id);
     const p = f.dealable(lineQ)[0]!;
-    for (const tb of f.tieBreakers) assert.match(f.card(p as never, tb.id), /Tie-breaker/);
+    for (const tb of f.tieBreakers) assert.match(f.card(p as never, tb.id), /Secondary: /);
   }
 });
 

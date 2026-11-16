@@ -1,5 +1,5 @@
 // Spread of Three · Example: squares with their biggest and smallest on a diagonal
-// Main part: every 2×2 square spreads by 3. Tie-breaker: squares with their biggest and smallest on a diagonal.
+// Main part: every 2×2 square spreads by 3. Secondary preference: squares with their biggest and smallest on a diagonal.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 // (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -7,7 +7,7 @@
 // raises your points most (your rarity times the other players').
 // Try this: remove the "swap" line: can single steps turn a square's spread onto its diagonal?
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const i of [0, 1, 2, 4, 5, 6, 8, 9, 10]) {    // each 2×2 square, by its top-left cell (they overlap)
@@ -19,7 +19,7 @@ function score(b, p) {
     const v = [b[i], b[i + 1], b[i + 4], b[i + 5]], hi = Math.max(...v), lo = Math.min(...v);
     if (v.filter(x => x === hi).length === 1 && v.filter(x => x === lo).length === 1 && v.indexOf(hi) + v.indexOf(lo) === 3) diag++;
   }
-  return [main, diag];   // main: how far each 2×2 square's spread is from 3, added up (closer is better); tie-breaker: more squares with their biggest and smallest on a diagonal is better
+  return [main, diag];   // main: how far each 2×2 square's spread is from 3, added up (closer is better); secondary: more squares with their biggest and smallest on a diagonal is better
 }
 
 const FAR = 2;      // how far one change may go

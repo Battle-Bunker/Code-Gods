@@ -1,17 +1,19 @@
 // Sunken Intercept · Naive (for learning)
-// Main part: the y-intercept far below zero. Tie-breaker: whichever you were dealt (prime factors shared by the y-intercept's nearest whole number and the gradient's top).
+// Main part: the y-intercept far below zero. Secondary preference: whichever you were dealt (prime factors shared by the y-intercept's nearest whole number and the gradient's top).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
 // It is here to learn from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same lines and watch your points: then switch to Simple.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   const main = Q.neg(c);
   // main: minus the y-intercept (lower is better)
-  if (tie === "shared") return [main, shared(whole(c), Q.from(m).n)];   // the whole number nearest the y-intercept sharing many prime factors with the gradient's top (in lowest terms) is better
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
+    if (t === "shared") return shared(whole(c), Q.from(m).n);   // the whole number nearest the y-intercept sharing many prime factors with the gradient's top (in lowest terms) is better
+    return null;
+  })];
 }
 
 const FAR = 3;      // how far one change may go

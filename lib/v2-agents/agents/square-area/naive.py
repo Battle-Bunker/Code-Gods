@@ -1,5 +1,5 @@
 # Square Area · Naive (for learning)
-# Main part: the triangle's area on as big a square ending in d as possible. Tie-breaker: whichever you were dealt (the factor that square's root plus 1 shares with the x-crossing's whole part).
+# Main part: the triangle's area on as big a square ending in d as possible. Secondary preference: whichever you were dealt (the factor that square's root plus 1 shares with the x-crossing's whole part).
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -8,7 +8,7 @@
 
 
 def score(m, c, p, tie):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m == 0 or c == 0:                            # no triangle: the worst score
         return None
     legX = abs(c / m)                               # the triangle's base
@@ -21,10 +21,11 @@ def score(m, c, p, tie):
     w = r * r + a                                   # its window [w, w + 1)
     main = level(fl) if r == s and s * s == fl else -(w - area if area < w else area - w - 1)
     # main: the square above 1 ending in the rule's digit that the triangle's area rounds down (or off) to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far the area is from the window of the nearest such square's root
-    if tie == "shared-factor":   # that square's root plus 1 and the x-crossing's whole part: a bigger factor shared is better
-        wx = whole((2 * legX - 1) / 2)               # the x-crossing's whole part, ignoring its sign
-        return [main, common(r + 1, wx)]
-    return [main]
+    def tier(t):   # each secondary, in order (None: ranks last)
+        if t == "shared-factor":   # that square's root plus 1 and the x-crossing's whole part: a bigger factor shared is better
+            wx = whole((2 * legX - 1) / 2)               # the x-crossing's whole part, ignoring its sign
+            return common(r + 1, wx)
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 3      # how far one change may go

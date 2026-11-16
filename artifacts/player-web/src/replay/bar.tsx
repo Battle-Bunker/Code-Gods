@@ -5,16 +5,17 @@
  * replay), so an assistant can drive the same replay and every client of the human follows.
  */
 import { useEffect, useRef, useState } from "react";
-import { Pause, Play, SkipBack, SkipForward, StepBack, StepForward, X } from "lucide-react";
+import { Download, Link2, Pause, Play, SkipBack, SkipForward, StepBack, StepForward, X } from "lucide-react";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { REPLAY_PANE } from "@workspace/v2-client";
 import { clock } from "@/core/words";
 import { toast } from "@/hooks/use-toast";
-import { useReplayControls } from "./controller";
+import { downloadReplayFile, useReplayControls } from "./controller";
+import { momentLink, replayKey } from "./moment-link";
 import { nextStop, prevStop } from "./fold";
 import { stepOp } from "./playhead";
 
-const SPEEDS = [0.5, 1, 2, 4, 8] as const;
+const SPEEDS = [0.25, 0.5, 1, 2, 4, 8, 16, 32, 64] as const;
 type Speed = (typeof SPEEDS)[number];
 
 const failed = (e: unknown) => toast({ title: "The replay did not move", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
@@ -42,6 +43,19 @@ export function ReplayBar() {
     el.addEventListener("change", onChange);
     return () => el.removeEventListener("change", onChange);
   }, [c?.index]);
+  // v1's keys: space plays and pauses, the arrows step a move, Home and End jump (never while typing).
+  const keys = useRef<(k: NonNullable<ReturnType<typeof replayKey>>) => void>(() => {});
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      const k = replayKey({ key: e.key, target: el?.isContentEditable ? "INPUT" : el?.tagName, ctrl: e.ctrlKey, meta: e.metaKey, alt: e.altKey });
+      if (!k) return;
+      e.preventDefault();
+      keys.current(k);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   if (!c) return null;
   const closeButton = (
     <button type="button" className={btn} onClick={() => void close.run({ pane: REPLAY_PANE }).catch(failed)} disabled={!close.available} data-testid="button-replay-close">
@@ -78,6 +92,19 @@ export function ReplayBar() {
     } else void play.run({}).catch(failed);
   };
   const atStart = c.applied <= 0, atEnd = c.applied >= ix.end;
+  keys.current = k => {
+    if (k === "toggle") toggle();
+    else if (k === "back") { if (!atStart) go(-1); }
+    else if (k === "forward") { if (!atEnd) go(1); }
+    else if (k === "start") void seek.run({ seq: 0 }).catch(failed);
+    else void seek.run({ seq: ix.end }).catch(failed);
+  };
+  const copyLink = () => {
+    const url = momentLink(location.href, { worldSeconds: c.world, as: c.member });
+    void navigator.clipboard.writeText(url).then(
+      () => toast({ title: "Link copied", description: `It opens the replay at ${clock(c.world)}, as ${roster.find(m => m.memberId === c.member)?.name ?? "this player"}.` }),
+      () => toast({ title: "Copy this link", description: url }));
+  };
   const roster = ix.roster;
   return (
     <div className="space-y-2 border-b bg-[hsl(var(--muted))]/40 px-3 py-2 text-sm" data-testid="replay-bar" data-status="ready"
@@ -111,7 +138,7 @@ export function ReplayBar() {
           <select value={c.speed} disabled={!speed.available} data-testid="select-replay-speed"
             className="border border-[hsl(var(--card-border))] bg-background px-1.5 py-1"
             onChange={e => void speed.run({ speed: Number(e.target.value) as Speed }).catch(failed)}>
-            {SPEEDS.map(s => <option key={s} value={s}>{s}× </option>)}
+            {SPEEDS.map(s => <option key={s} value={s}>{s === 0.25 ? "¼" : s === 0.5 ? "½" : s}× </option>)}
           </select>
         </label>
         <label className="flex min-w-0 items-center gap-1.5 text-xs" title="After the game every rule is open: see the game as any player saw it.">
@@ -122,6 +149,12 @@ export function ReplayBar() {
             {roster.map(m => <option key={m.memberId} value={m.memberId}>{m.name}{m.memberId === c.seat ? " (you)" : ""}</option>)}
           </select>
         </label>
+        <button type="button" className={btn} onClick={copyLink} data-testid="button-replay-link" title="A link that opens the replay at this moment, as this player">
+          <Link2 className="h-4 w-4" aria-hidden />Copy a link to this moment
+        </button>
+        <button type="button" className={btn} onClick={() => void downloadReplayFile(ix.gameId).catch(failed)} data-testid="button-replay-download" title="The game's whole record, as a JSON file">
+          <Download className="h-4 w-4" aria-hidden />Download
+        </button>
         <span className="flex-1" />
         {closeButton}
       </div>

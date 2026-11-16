@@ -25,12 +25,16 @@ type Snapshot = {
   /** The world second the game ends at (private in halfLife mode; the tick only follows it). */
   endWorld: number;
   held: { objectId: string; state: string }[]; noiseKey: string | null;
-  settings: { worldSeconds: number; startingObjects: number; peerNoiseVariance?: number; timeScale?: number; regularBirths?: boolean; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
+  settings: { worldSeconds: number; startingObjects: number; peerNoiseVariance?: number; timeScale?: number; regularBirths?: boolean; commitClause?: boolean; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
   seats: { memberId: string; rule: { family: string; params: unknown; tieBreaker: string | null; ruleKey: string } }[];
   ready: ("typescript" | "python")[];
-  agents: { agentId: string; memberId: string; language: "typescript" | "python"; source: string; version: number; share: number; energy: number; settledAt: number }[];
+  agents: TickAgent[];
+  /** Where the next page of live agents starts (`tickAgents`); null when the snapshot holds them all. */
+  agentsCursor: string | null;
 };
+type TickAgent = { agentId: string; memberId: string; language: "typescript" | "python"; source: string; version: number; share: number; energy: number; settledAt: number };
 const SNAPSHOT = makeFunctionReference<"query", { gameId: Id<"v2Games"> }, Snapshot | null>("v2/loop:snapshot");
+const TICK_AGENTS = makeFunctionReference<"query", { gameId: Id<"v2Games">; cursor: string | null }, { agents: TickAgent[]; cursor: string | null }>("v2/loop:tickAgents");
 const STATES = makeFunctionReference<"query", { gameId: Id<"v2Games">; numbers: number[] }, { number: number; objectId: string; state: string; version: number }[]>("v2/loop:statesOf");
 const COMMIT = makeFunctionReference<"mutation">("v2/loop:commit");
 type ActInput = { value?: { mine: number; others: number; points: number }; history: { mine: boolean; pointsBefore: number; pointsAfter: number }[] };
@@ -45,6 +49,14 @@ export const tick = internalAction({
     try {
       const snap = await ctx.runQuery(SNAPSHOT, { gameId });
       if (!snap || snap.phase !== "live" || snap.leaseId !== leaseId) return;
+      // Up to 200 agents a player (call 35): the rest of the live agents, a page at a time (loop.ts TICK_AGENT_PAGE).
+      // Each page is its own read; the commit re-checks every act's agent (destroyed since: skipped; energy re-settled).
+      const seen = new Set(snap.agents.map(a => a.agentId));
+      for (let cursor = snap.agentsCursor; cursor !== null;) {
+        const next = await ctx.runQuery(TICK_AGENTS, { gameId, cursor });
+        for (const a of next.agents) if (!seen.has(a.agentId)) { seen.add(a.agentId); snap.agents.push(a); }
+        cursor = next.cursor;
+      }
       const now = Date.now();
       // World time follows the wall clock to the announced end (endsAt), so a game ends when its clock says 0:00
       // however slow the ticks run; one tick does at most MAX_DT seconds of births and opportunities. A dilated game
@@ -124,6 +136,9 @@ export const tick = internalAction({
           // Any held state, the object's own included: v1's uniqueness, "a transformation onto any existing value
           // (including the object's own) fails entirely".
           occupied: e => holder.has(e), disclosed: reads.disclosed,
+          // The commit clause (v1's option, off by default; call 34): an onlyIfBetter plan commits only if it raises the
+          // owner's points as othersAfter discloses them (runAct decides it).
+          ...(snap.settings.commitClause ? { commitClause: true } : {}),
         });
         // The credit rule (docs/energy-model.md §7.2): a change that would leave the agent owing more than its capacity
         // does not commit and pays only its reads; a change that does not change the state is not a change.

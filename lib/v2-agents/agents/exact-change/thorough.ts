@@ -1,5 +1,5 @@
 // Exact Change · Thorough
-// Main part: ways to pay close to the target. Tie-breaker: whichever you were dealt (the smaller pile in every way; the bill; both coins close to primes).
+// Main part: ways to pay close to the target. Secondary preference: whichever you were dealt (the smaller pile in every way; the bill; both coins close to primes).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,7 +9,7 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: change QUOTES = 20 to 6: fewer prices asked, but it may miss a cheaper plan.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (Q.cmp(m, 0) >= 0) return null;              // a coin worth -m·b: the line must go downhill
   const X = Q.neg(Q.div(c, m));                   // where the line meets y = 0: x goes no further
@@ -19,17 +19,19 @@ function score(m, c, p, tie) {
   for (let x = 0; Q.cmp(x, X) <= 0; x++) if (Q.isInteger(Q.add(Q.mul(m, x), c))) ways.push(x);
   const main = Q.neg(Q.abs(ways.length - p.ways));
   // main: how far the number of ways to pay is from the target (closer is better)
-  if (tie === "big-piles") {   // a bigger smaller pile, in every way to pay, is better
-    if (!ways.length) return [main, null];      // no way to pay: no piles
-    const y = Q.add(Q.mul(m, ways.at(-1)), c);  // the fewest coins of b
-    return [main, Q.cmp(ways[0], y) < 0 ? ways[0] : y];
-  }
-  if (tie === "big-bill") return [main, Q.mul(c, b)];   // a bigger bill N = b·c is better
-  if (tie === "prime-coins") {   // both coins (a = -b·m and b) close to primes is better
-    const off = x => Q.abs(Q.sub(x, near(x, prime)));   // how far x is from the nearest prime
-    return [main, Q.neg(Q.add(off(Q.mul(m, -b)), off(b)))];
-  }
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
+    if (t === "big-piles") {   // a bigger smaller pile, in every way to pay, is better
+      if (!ways.length) return null;      // no way to pay: no piles
+      const y = Q.add(Q.mul(m, ways.at(-1)), c);  // the fewest coins of b
+      return Q.cmp(ways[0], y) < 0 ? ways[0] : y;
+    }
+    if (t === "big-bill") return Q.mul(c, b);   // a bigger bill N = b·c is better
+    if (t === "prime-coins") {   // both coins (a = -b·m and b) close to primes is better
+      const off = x => Q.abs(Q.sub(x, near(x, prime)));   // how far x is from the nearest prime
+      return Q.neg(Q.add(off(Q.mul(m, -b)), off(b)));
+    }
+    return null;
+  })];
 }
 
 const FAR = 3;      // how far one change may go

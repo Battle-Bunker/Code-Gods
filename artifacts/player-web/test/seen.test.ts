@@ -57,3 +57,10 @@ test("decision 36: agents tell you what they touch, so a view a few seconds old 
   assert.equal(seenShort({ knownAt: 70, changesSince: 2 }, 100), "seen 30 s ago · changed 2×");
   assert.equal(seenShort({ knownAt: 0, changesSince: 0 }, 130), "seen 2 min ago · up to date");
 });
+
+test("a what-if quote costs one look per candidate, said before the press", async () => {
+  const { quotePrice } = await import("../src/panes/seen.ts");
+  assert.equal(quotePrice(0.5, 3), "1.50 energy");
+  assert.equal(quotePrice(0, 3), "free");
+  assert.equal(quotePrice(undefined, 2), "free");
+});

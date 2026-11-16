@@ -159,6 +159,11 @@ def move(mutator, site=0, **args):
     return call(mutator, site=site, **args)
 
 
+def only_if_better(plan):
+    """The plan, made only if it raises your points on this line as you see them; otherwise nothing changes."""
+    return None if plan is None else {"onlyIfBetter": _as_plan(plan)}   # nothing to make: a skip
+
+
 _last_cheapest = [None, None, None]   # the offer, the plan cheapest() returned, and its price
 
 
@@ -704,6 +709,11 @@ def climb(offer, options, now, most=None):
     options = sorted(options, key=_functools.cmp_to_key(lambda a, b: -1 if better(a[1], b[1]) else 1 if better(b[1], a[1]) else 0))
     if most is not None:
         options = options[:most]
+    # Host calls are capped (64 an act): with too few left to look and price, skip rather than fail.
+    calls = getattr(offer.budget(), "host_calls_left", None)
+    calls = 64 if calls is None else calls
+    if calls < 12:
+        return None
     w = worth(offer)
     if w is None:   # the best step for your rule that beats now and is allowed
         cap = allowance(offer)
@@ -714,7 +724,7 @@ def climb(offer, options, now, most=None):
             if p is not None and p <= cap:
                 return _as_plan(plan)
         return None
-    value, spare, ranked = w.mine * w.others, 2, []
+    value, spare, ranked, left = w.mine * w.others, 2, [], calls - 12
     for plan, s in options:
         r = rarity(offer, s)   # free
         if r <= 0:   # sorted best first: the rest score no points for you either
@@ -723,6 +733,9 @@ def climb(offer, options, now, most=None):
             if spare == 0:
                 break
             spare -= 1
+        left -= 1   # each look at the others is a host call: keep room for the prices
+        if left < 0:
+            break
         try:
             o = offer.others_after(_as_plan(plan))
         except HostError:

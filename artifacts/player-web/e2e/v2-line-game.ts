@@ -166,6 +166,16 @@ try {
     console.log(`${label}: public log: ${(await logRow.innerText()).slice(0, 140)}`);
     await feed.getByTestId("button-feed-mode-mine").click();
     await feed.getByTestId("text-move-line").first().waitFor();
+    // v1's feed filters and "cost against yield": a filter nothing passes says so, clearing it brings the moves back.
+    await feed.getByTestId("details-feed-tools").locator("summary").click();
+    await feed.getByTestId("input-feed-min").fill("1e12");
+    await feed.getByTestId("feed-filtered-empty").waitFor();
+    await feed.getByTestId("input-feed-min").fill("");
+    await feed.getByTestId("select-feed-who").selectOption("mine");
+    await feed.getByTestId("text-move-line").first().waitFor();
+    const yieldRow = await feed.getByTestId("row-feed-yield").first().innerText();
+    assert.match(yieldRow, /\d/, `${label}: cost against yield lists your agents' moves: ${yieldRow}`);
+    await feed.getByTestId("select-feed-who").selectOption("all");
     if (label === "desktop") {
       // The palette's "Leave lines alone" opens Agent code at the control, focused (round 10: it closed and did nothing).
       await page.keyboard.press("Control+K");
@@ -174,6 +184,21 @@ try {
       // No confirmation page: the row only opens the control (its Save prices the edit).
       await page.getByTestId("input-leave-alone").waitFor({ state: "visible", timeout: 10_000 });
       await page.waitForFunction(() => document.activeElement?.getAttribute("data-testid") === "input-leave-alone", null, { timeout: 5_000 });
+      // My agents: the code, and "Edit … in Agent code" puts that agent in the editor (v1's edit from the agent's row).
+      await page.keyboard.press("Escape");
+      const agentsPane = page.getByTestId("pane-agents");
+      if (await page.getByTestId("tab-agents").count()) await page.getByTestId("tab-agents").click({ position: { x: 6, y: 10 } });
+      else if (!await agentsPane.count()) {
+        await page.locator("[data-testid^=button-pane-menu-]").first().click();
+        await page.getByTestId("button-open-pane-agents").click();
+      }
+      const row = agentsPane.locator("[data-testid^=row-agent-]").first();
+      await row.locator("[data-testid^=details-agent-code-] summary").click();
+      const edit = row.locator("[data-testid^=button-agent-edit-]");
+      await edit.waitFor({ timeout: 15_000 });
+      const name = (await edit.innerText()).replace(/^Edit (.*) in Agent code$/, "$1");
+      await edit.click();
+      await page.getByTestId("pane-forge").getByText(new RegExp(`${name}, version \\d+`)).first().waitFor({ timeout: 10_000 });
     }
     assert.match(sentence, /Your rarity ([\d.,]+ → [\d.,]+ bits?|stayed [\d.,]+ bits?)/, `the move says your rarity in bits: ${sentence}`);
     assert.match(sentence, /Points on this line [−\d.,]+ → [−\d.,]+|Points on this line stayed|No points on this line/, `the move says the points before → after: ${sentence}`);
@@ -195,6 +220,20 @@ try {
     await goal.getByTestId("text-goal-main").waitFor();
     if (!await goal.locator(".v2v-part").first().isVisible()) await goal.getByText(/A worked example/).first().click();
     await goal.locator(".v2v-part").first().waitFor();
+    // v1's "How rare is each rule score?" (the owner: a card tells a player their precise incentives) and its example
+    // to randomise or edit.
+    await goal.getByTestId("details-rarity-scale").locator("summary").click();
+    const rows = await goal.getByTestId("list-rarity-scale").locator("li").allInnerTexts();
+    assert.ok(rows.length >= 2 && rows.every(r => /: 1 in [\d.,]+.* by chance \([\d.]+ bits?\)$/.test(r)), `${label}: the rarity table: ${rows.join(" | ")}`);
+    if (label === "desktop") {
+      await goal.getByTestId("button-edit-example").click();
+      await goal.getByTestId("input-example-m").fill("-3");
+      await goal.getByTestId("input-example-c").fill("12");
+      await goal.getByTestId("button-apply-example").click();
+      await goal.getByText(/y = −3x \+ 12/).first().waitFor({ timeout: 5_000 });
+      await goal.getByTestId("button-randomise-example").click();
+      await goal.getByTestId("button-reset-example").waitFor();
+    }
     assert.equal(await goal.getByText(/Steps to the top|step \d+ of \d+/).count(), 0, "no steps on the goal card");
     if (label === "phone") await goal.screenshot({ path: path.join(shots, "score-words-phone-goal-card.png") });
     await page.locator("[data-testid^=marks-line-]").first().waitFor({ timeout: 30_000 });
@@ -274,18 +313,31 @@ try {
     // line-q) has no element for the main part to read; one that scores shows it, badged.
     const scoring = !/not scoring/.test(await line.innerText());
     if (scoring) assert.ok(await line.locator('[data-ref][data-role="main"]').count() > 0, "the element the main part reads carries its badge");
-    assert.doesNotMatch(main, /\b[a-z]\b(?= (close|is|=))|\bstep \d/, `no parameter letters and no steps: ${main}`);
+    // A line named by its equation ("meets y = x") is words, not a parameter letter.
+    assert.doesNotMatch(main.replace(/\by = −?x\b/g, "the line"), /\b[a-z]\b(?= (close|is|=))|\bstep \d/, `no parameter letters and no steps: ${main}`);
     // 2. where it is: a distance with its direction or a size, on a ruler;
     // Where the number is, or (a line that does not score, e.g. a flat line for a crossing rule) why not.
-    assert.match(main, /(\d+(\.\d+)?|[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]|[⁰¹²³⁴⁵⁶⁷⁸⁹]+⁄[₀₁₂₃₄₅₆₇₈₉]+) (above|below) |\bon [−\d]|on the whole number|off by |exactly|: [−\d≈]|never|not |\bno\b|undefined|cannot/i, `the main part says where the number is: ${main}`);
+    assert.match(main, /(\d+(\.\d+)?|[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]|[⁰¹²³⁴⁵⁶⁷⁸⁹]+⁄[₀₁₂₃₄₅₆₇₈₉]+) (above|below) |\bon [−\d]|on the whole number|off by |exactly|: [−\d≈]| = [−\d][^ ]* rounds to|never|not |\bno\b|undefined|cannot/i, `the main part says where the number is: ${main}`);
     // 3. what would make it rarer and what that costs: priced moves with their new bits (W5 passes the rule's value);
     const options = line.locator(".v2v-move-option");
     if (await options.count()) {
       // The price and new bits arrive after the move's words (read at once, the text was only "−1 in every cell of row 4").
-      // Once the others' totals arrive (v2/play:othersAt), a move's new bits come with its points: yours × others'.
+      // While the game runs the others' sums are paid and blurred (W3 #882, call 33): nothing until the player asks for a
+      // quote, priced before the press; then a move's new bits come with its points as an estimate (≈, "about").
+      assert.equal(await options.filter({ hasText: /× others'/ }).count(), 0, `${label}: no free sums for the others while live`);
+      const quote = line.getByTestId("button-quote-what-if");
+      assert.match(await quote.innerText(), /\((free|[\d.]+ energy)\)/, `${label}: the quote's price before the press`);
+      // Agents keep moving the line: a quote holds for the state it was asked from, so quote and read it as one, again
+      // until one is read before the line moves on.
       // Waited for and read as one option: a live update can redraw the first option between a wait and a read.
-      const priced = options.filter({ hasText: /→ your [\d,]+\.\d\d bits? × others' (about )?[\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/ }).first();
-      await priced.waitFor({ timeout: 15_000 });
+      const priced = options.filter({ hasText: /→ your [\d,]+\.\d\d bits? × others' about [\d,]+\.\d\d bits? ≈ [\d,]+\.\d\d points?/ }).first();
+      let quoted = false;
+      for (let i = 0; i < 10 && !quoted; i++) {
+        await quote.click();
+        await line.getByTestId("button-quote-what-if").getByText(/^Quote again/).waitFor({ timeout: 15_000 });
+        quoted = await priced.waitFor({ timeout: 3_000 }).then(() => true, () => false);
+      }
+      assert.ok(quoted, `${label}: a quote priced the moves for the others`);
       const first = await priced.innerText();
       assert.match(first, /[\d,]+\.\d\d energy/, `a move has its price: ${first}`);
       assert.match(first, /→ your [\d,]+\.\d\d bits? × others' (about )?[\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/, `a move has its new bits and points: ${first}`);

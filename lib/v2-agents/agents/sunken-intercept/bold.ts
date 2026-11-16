@@ -1,5 +1,5 @@
 // Sunken Intercept · Bold
-// Main part: the y-intercept far below zero. Tie-breaker: whichever you were dealt (prime factors shared by the y-intercept's nearest whole number and the gradient's top).
+// Main part: the y-intercept far below zero. Secondary preference: whichever you were dealt (prime factors shared by the y-intercept's nearest whole number and the gradient's top).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,12 +9,14 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: change FAR = 4 to 2: shorter steps, cheaper moves.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   const main = Q.neg(c);
   // main: minus the y-intercept (lower is better)
-  if (tie === "shared") return [main, shared(whole(c), Q.from(m).n)];   // the whole number nearest the y-intercept sharing many prime factors with the gradient's top (in lowest terms) is better
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
+    if (t === "shared") return shared(whole(c), Q.from(m).n);   // the whole number nearest the y-intercept sharing many prime factors with the gradient's top (in lowest terms) is better
+    return null;
+  })];
 }
 
 const FAR = 4;      // how far one change may go

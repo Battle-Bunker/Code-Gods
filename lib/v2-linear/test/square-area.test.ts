@@ -107,7 +107,7 @@ test("dealt: the four instances, each card plain sentences a beginner can act on
     assert.doesNotMatch(card, /level/i);
     assert.match(main, /^The area of the triangle the line cuts off the axes, rounded (down|off), should be a square above 1 ending in [19]\./);
     assert.match(main, /Bigger is better; extra digits count less/);
-    assert.match(card, /Tie-breaker: That square's root plus 1 and the x-crossing's whole part should share as big a factor as possible\./);
+    assert.match(card, /Secondary: That square's root plus 1 and the x-crossing's whole part should share as big a factor as possible\./);
   }
   assert.equal(squareArea.keepsParams, true);
 });

@@ -1,5 +1,5 @@
 # Exact Change · Example: the bill
-# Main part: ways to pay close to the target. Tie-breaker: the bill.
+# Main part: ways to pay close to the target. Secondary preference: the bill.
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,7 +11,7 @@
 
 
 def score(m, c, p):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m >= 0:                                      # a coin worth -m*b: the line must go downhill
         return None
     X = -c / m                                      # where the line meets y = 0: x goes no further
@@ -20,7 +20,7 @@ def score(m, c, p):
     b = m.denominator * Fraction(m.denominator, c.denominator).denominator   # the coin b: b*m and b*c whole
     ways = [x for x in range(X // 1 + 1) if (m * x + c).denominator == 1]   # the line's whole points with x, y >= 0
     main = -abs(len(ways) - p["ways"])
-    return [main, c * b]   # main: how far the number of ways to pay is from the target (closer is better); tie-breaker: a bigger bill N = b·c is better
+    return [main, c * b]   # main: how far the number of ways to pay is from the target (closer is better); secondary: a bigger bill N = b·c is better
 
 
 FAR = 4      # how far one change may go

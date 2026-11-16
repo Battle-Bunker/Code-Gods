@@ -22,6 +22,8 @@ export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
   // The auction's result and the handicap show in Where am I; a line's views, quotes and score in One line and What if.
   "game.auction": "overview", "object.read": "object", "object.element": "object",
   "object.quote": "what-if", "object.score": "what-if",
+  // The rules anyone could hold (v1's list_utility_candidates): beside what the others care about (W5's "Possible gods").
+  "rule.candidates": "others-care",
 };
 /** Reads the room page shows (its members, past games, the rotation, the bid phase). */
 export const ROOM_READS: ReadonlySet<string> = new Set(["room.get", "room.history", "game.rotation", "bid.state"]);

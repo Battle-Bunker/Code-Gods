@@ -1,5 +1,5 @@
 # m Meets c · Naive (for learning)
-# Main part: gradient close to the y-intercept. Tie-breaker: whichever you were dealt (they meet at a big number; they meet at a prime).
+# Main part: gradient close to the y-intercept. Secondary preference: whichever you were dealt (they meet at a big number; they meet at a prime).
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -8,17 +8,18 @@
 
 
 def score(m, c, p, tie):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     main = -abs(m - c)
     # main: how far apart the gradient and the y-intercept are (closer is better)
-    if tie == "size":   # a bigger y-intercept is better
-        return [main, abs(c)]
-    if tie == "meetPrime":   # meeting at a prime is best
-        cp = near(c, prime)
-        if cp is None:
-            return None
-        return [main, -abs(c - cp)]
-    return [main]
+    def tier(t):   # each secondary, in order (None: ranks last)
+        if t == "size":   # a bigger y-intercept is better
+            return abs(c)
+        if t == "meetPrime":   # meeting at a prime is best
+            cp = near(c, prime)
+            if cp is None:
+                return None
+            return -abs(c - cp)
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 3      # how far one change may go

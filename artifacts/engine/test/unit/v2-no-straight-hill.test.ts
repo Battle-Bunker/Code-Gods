@@ -1,6 +1,7 @@
 /**
  * The energy gate (the coordinator's ruling, 15 Nov; replaces the slope rules and the "30 bits in 30 steps" cap): can a
- * greedy climber, with one seat's whole-game income spent on one object, take a dealt line rule past 35 bits?
+ * greedy climber, with one seat's whole-game income spent on one object, take a dealt line, pair or grid rule past 35
+ * bits? (Grids start from births, with the grid menu below.)
  *
  * For every dealt line rule of every line preset, from law draws and (for a ladder family) from rung starts (a law draw
  * moved by the cheapest shift or tilt onto its first rung), the climber repeatedly takes the move that raises the rule
@@ -18,6 +19,7 @@ import { applyCall, evaluateSite, isInvalid, rng, variantMutators, type ObjectTy
 import { lineLaw, type LineState } from "@workspace/v2-linear";
 import { pairLaw, type PairState } from "@workspace/v2-pair";
 import { findVariant, valueLookup } from "@workspace/v2-valuation";
+import { births } from "@workspace/v2-agents/pure";
 import { dealablePool, familyOf } from "../../convex/v2/deal.ts";
 import { PRESETS } from "../../convex/v2/presets.ts";
 import { valueRecord } from "../../convex/v2/values.ts";
@@ -27,7 +29,12 @@ const LIMIT = 35, STARTS = 3, MAX_STEPS = 80;
  * Known open fails, each reported to its owner. An entry that no longer fails fails the test below: remove it then.
  * (Square Area's prime-factor tie-breakers left with its redesign as a window ladder, 15 Nov.)
  */
-const OPEN: Record<string, string> = {};
+const OPEN: Record<string, string> = {
+  // Found when grids joined the gate (15 Nov): cheap peaks on grids-beginner, reached for 100–210⚡ from law draws.
+  "opposite-nines/big-on-top": "grids session, reported 15 Nov: 45.0 bits for 120–211⚡",
+  "strangers/ones": "grids session, reported 15 Nov: 37.3 bits for 99⚡",
+  "strangers/prime-strangers": "grids session, reported 15 Nov: 40.0 bits for 117–126⚡",
+};
 const FACTORS = ["2", "3", "5", "7", "11", "13", "17", "10", "1/2", "1/3", "1/5", "1/10"];
 const AMOUNTS = ["1", "-1", "2", "-2", "10", "-10", "100", "-100", "1000", "-1000", "1/2", "-1/2"];
 const CALLS: Record<string, readonly Record<string, string>[]> = {
@@ -54,23 +61,36 @@ const PAIR_CALLS: Record<string, readonly Record<string, string>[]> = {
   "pair.quarter": [{ line: "1" }, { line: "2" }],
 };
 
-test(`no dealt line or pair rule passes ${LIMIT} bits on one seat's whole-game income spent on one object`, () => {
+/**
+ * Grids (the grids session's menu, 15 Nov): every call of the grid's mutators whose amount, if it has one, is ±1, ±2 or
+ * ±5 (cells.add, cells.swap, tally.add, tally.rotate, turn.spin, turn.balance, mirror.reverse, steps.tilt, boxes.add).
+ */
+const GRID_AMOUNTS = new Set(["1", "-1", "2", "-2", "5", "-5"]);
+function gridCalls(type: ObjectType<unknown>, variant: ReturnType<typeof findVariant>["variant"]) {
+  return variantMutators(type, variant).flatMap(m => {
+    const code = m.args(variant);
+    return [...(code.enumerate?.(24) ?? [])].map(a => ({ mutator: m.id, args: code.encode(a) as Record<string, string> }))
+      .filter(c => c.args.k === undefined || GRID_AMOUNTS.has(c.args.k));
+  });
+}
+
+test(`no dealt line, pair or grid rule passes ${LIMIT} bits on one seat's whole-game income spent on one object`, () => {
   const failures: string[] = [], report: string[] = [];
   const seen = new Set<string>(), openWorst = new Map<string, number>();
   let chains = 0;
   for (const preset of PRESETS) {
     const { type, variant } = findVariant(preset.variant);
-    if (type.id !== "line" && type.id !== "pair") continue;
-    type S = LineState | PairState;
-    const T = type as ObjectType<S>, pair = type.id === "pair";
+    type S = LineState | PairState | unknown;
+    const T = type as ObjectType<S>, pair = type.id === "pair", grid = type.id === "grid";
     const income = preset.economy.powerPerSecond * preset.worldSeconds + preset.startingEnergy;
     const offered = new Set(variantMutators(type, variant).map(m => m.id));
-    const calls = Object.entries(pair ? PAIR_CALLS : CALLS).filter(([m]) => offered.has(m)).flatMap(([mutator, list]) => list.map(args => ({ mutator, args })));
+    const calls = grid ? gridCalls(T, variant)
+      : Object.entries(pair ? PAIR_CALLS : CALLS).filter(([m]) => offered.has(m)).flatMap(([mutator, list]) => list.map(args => ({ mutator, args })));
     const step = (s: S, c: { mutator: string; args: Record<string, string> }) => {
       const a = applyCall(T, variant, s, { mutator: c.mutator, site: 0, args: c.args });
       return isInvalid(a) ? null : { s: a.result, fee: a.price.total };
     };
-    const law = pair ? pairLaw(variant) : lineLaw(variant);
+    const law = grid ? null : pair ? pairLaw(variant) : lineLaw(variant);
     for (const rule of dealablePool(preset)) {
       // One run per variant, rule and income (the bidding preset shares the beginner's).
       const key = `${variant.id}|${rule.ruleKey}|${income}|${[...offered].sort().join()}`;
@@ -84,10 +104,11 @@ test(`no dealt line or pair rule passes ${LIMIT} bits on one seat's whole-game i
       const main = (s: S) => { const v = ev(s).terms[0]?.value; return v && typeof v === "object" && "n" in v ? Number(v.n) / Number(v.d) : -Infinity; };
       const r = rng("energy-gate", preset.id, rule.ruleKey);
       const starts: S[] = [];
-      for (let k = 0; starts.length < STARTS && k < 50; k++) { const d = law.draw(r, 1); if (d.state) starts.push(d.state as S); }
+      if (!law) starts.push(...births(T, variant, `energy-gate-${rule.ruleKey}`, STARTS));
+      else for (let k = 0; starts.length < STARTS && k < 50; k++) { const d = law.draw(r, 1); if (d.state) starts.push(d.state as S); }
       // On a rung: a line ladder's main part is its level (≥ 1); a pair ladder's is base^level × (1, 2] (level ≥ 1: ≥ q or k).
       const p = rule.params as { q?: number; k?: number }, rung = pair ? (p.q ?? p.k ?? 2) : 1;
-      if (fam.keepsParams) {
+      if (fam.keepsParams && law) {
         for (let k = 0, found = 0; found < STARTS && k < 30; k++) {
           const d = law.draw(r, 1);
           if (!d.state) continue;

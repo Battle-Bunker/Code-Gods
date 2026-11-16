@@ -63,14 +63,15 @@ const LADDER_COST: Readonly<Record<string, (u: string, params: Record<string, un
     return !u.startsWith("-") && level >= 1n ? [String(level), 0] : null;
   },
   // Same on Both Rulers: the rung is the level of digits of the palindrome the unchanged number rounds to (the whole
-  // part of u, u ≥ 1), costed as its cheapest line, y = P with P the smallest palindrome in d of the level's digits:
-  // d = 2's palindromes are bigger numbers than d = 1's, so dearer to write and rarer by as much.
+  // part of u, u ≥ 1), costed as its cheapest line, y = P with P the smallest palindrome of the parity with at least
+  // the level's digits (1, 11, 101, 1001, …): an even number of digits is one more than an odd count, so dearer to write.
   "same-on-both-rulers": (u, p) => {
     const [n, dd = "1"] = u.split("/");
     const level = BigInt(n!) / BigInt(dd);
     if (u.startsWith("-") || level < 1n) return null;
-    const D = Number((level * (level + 1n)) / 2n), d = BigInt((p as { d: number }).d);
-    const P = D === 1 ? d : d * 10n ** BigInt(D - 1) + d;
+    let D = Number((level * (level + 1n)) / 2n);
+    if (D % 2 !== ((p as { digits: string }).digits === "odd" ? 1 : 0)) D++;
+    const P = D === 1 ? 1n : 10n ** BigInt(D - 1) + 1n;
     return [String(level), LINE_Q_CODES.c.bits(P) + LINE_Q_CODES.a.bits(0n)];
   },
   "whole-crossing": u => (/^\d+$/.test(u) ? [u, 0] : null),

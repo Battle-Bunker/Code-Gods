@@ -1,5 +1,5 @@
 // Square Area · Bold
-// Main part: the triangle's area on as big a square ending in d as possible. Tie-breaker: whichever you were dealt (the factor that square's root plus 1 shares with the x-crossing's whole part).
+// Main part: the triangle's area on as big a square ending in d as possible. Secondary preference: whichever you were dealt (the factor that square's root plus 1 shares with the x-crossing's whole part).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,7 +9,7 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: change FAR = 4 to 2: shorter steps, cheaper moves.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (Q.isZero(m) || Q.isZero(c)) return null;    // no triangle: the worst score
   const legX = Q.abs(Q.div(c, m)), area = Q.div(Q.mul(legX, Q.abs(c)), 2);   // the triangle's base, and its area
@@ -21,11 +21,13 @@ function score(m, c, p, tie) {
   const w = Q.add(Q.of(r * r), a);                 // its window [w, w + 1)
   const main = r === s && s * s === fl ? level(Q.of(fl)) : Q.neg(Q.cmp(area, w) < 0 ? Q.sub(w, area) : Q.sub(area, Q.add(w, 1)));
   // main: the square above 1 ending in the rule's digit that the triangle's area rounds down (or off) to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far the area is from the window of the nearest such square's root
-  if (tie === "shared-factor") {   // that square's root plus 1 and the x-crossing's whole part: a bigger factor shared is better
-    const wx = whole(Q.div(Q.sub(Q.mul(2, legX), 1), 2));   // the x-crossing's whole part, ignoring its sign
-    return [main, common(Q.of(r + 1n), wx)];
-  }
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
+    if (t === "shared-factor") {   // that square's root plus 1 and the x-crossing's whole part: a bigger factor shared is better
+      const wx = whole(Q.div(Q.sub(Q.mul(2, legX), 1), 2));   // the x-crossing's whole part, ignoring its sign
+      return common(Q.of(r + 1n), wx);
+    }
+    return null;
+  })];
 }
 
 const FAR = 4;      // how far one change may go

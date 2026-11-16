@@ -1,16 +1,16 @@
 // Magic Eighteen · Bold
-// Main part: every row adds up to the target. Tie-breaker: rows of all different numbers.
+// Main part: every row adds up to the target. Secondary preference: rows of all different numbers.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: change FAR = 2 to 1: single steps, the same price per step, but more turns to get there.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] + b[r + 1] + b[r + 2] + b[r + 3] - p.T);   // each row: how far its total is from T
-  return [main, [0, 4, 8, 12].filter(r => new Set(b.slice(r, r + 4)).size === 4).length];   // main: how far the rows' totals are from T, added up (closer is better); tie-breaker: more rows of four different numbers is better
+  return [main, [0, 4, 8, 12].filter(r => new Set(b.slice(r, r + 4)).size === 4).length];   // main: how far the rows' totals are from T, added up (closer is better); secondary: more rows of four different numbers is better
 }
 
 const FAR = 2;      // how far one change may go

@@ -11,8 +11,8 @@
  */
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
-import { assistantTables } from "./assistantTables";
-import { authorV, diagnosticV, manifestV, placementV, sizeV } from "./panelShapes";
+import { assistantTables } from "./assistantTables.ts";
+import { authorV, diagnosticV, manifestV, placementV, sizeV } from "./panelShapes.ts";
 
 // ---------------------------------------------------------------- shared shapes
 
@@ -36,6 +36,10 @@ export const overridesV = v.object({
   readPriceWeight: v.optional(v.number()),
   /** Parameter drift's interval in world seconds (drift.ts; 0: off). */
   driftSeconds: v.optional(v.number()),
+  /** How long a player's pause lasts, wall seconds (v1's pauseSeconds; absent: 180). */
+  pauseSeconds: v.optional(v.number()),
+  /** Offer the commit clause (v1, off by default): agents may mark acts only-if-better. */
+  commitClause: v.optional(v.boolean()),
   /**
    * Time dilation (owner decision 37): every rate × this, every duration ÷ it (v2-economy dilate), so the room's games
    * run this many times faster with the same per-act quantities. For simulations and local playtests only: set by the
@@ -123,6 +127,10 @@ export const v2Tables = {
       scoreIntervalSeconds: v.optional(v.number()),
       /** Parameter drift's interval in world seconds (drift.ts; 0 or absent: off). */
       driftSeconds: v.optional(v.number()),
+      /** How long a player's pause lasts, wall seconds (v1's pauseSeconds; absent: 180). */
+      pauseSeconds: v.optional(v.number()),
+      /** The commit clause is offered (v1, off by default): an only-if-better act commits only if its owner gains. */
+      commitClause: v.optional(v.boolean()),
       /** Births on a regular schedule, birth j at j / rate (decision 31; duration.ts regularBirths); absent: stochastic. */
       regularBirths: v.optional(v.boolean()),
       /** The game's time dilation (decision 37): its settings are already dilated by it; wall-clock pacing divides by it. */
@@ -155,6 +163,8 @@ export const v2Tables = {
     /** Wall-clock deadlines: planning's end, and the world's end (null while paused; recomputed on resume). */
     planningEndsAt: v.optional(v.number()), endsAt: v.optional(v.number()),
     startedAt: v.optional(v.number()), endedAt: v.optional(v.number()), pausedBy: v.optional(v.id("v2Members")),
+    /** When a player's pause ends by itself (v1: pauseSeconds after it began); absent unless a player paused. */
+    pauseEndsAt: v.optional(v.number()),
     /** Each dealt rule's artefact content hash, by member (the header of spec §9.1). */
     artefacts: v.array(v.object({ memberId: v.id("v2Members"), ruleKey: v.string(), contentHash: v.string() })),
     /** Whether this game's deal continues the room's rotation (plan §5.9: not after a won bid). */
@@ -270,9 +280,14 @@ export const v2Tables = {
   v2Agents: defineTable({
     gameId: v.id("v2Games"), memberId: v.id("v2Members"), name: v.string(), language: languageV,
     sourceHash: v.string(), version: v.number(), share: v.number(), createdAt: v.number(), destroyedAt: v.optional(v.number()),
-    /** The current program (also in v2AgentPrograms), read by the tick without another lookup. */
-    source: v.string(),
-  }).index("by_game_member", ["gameId", "memberId"]).index("by_game", ["gameId"]),
+    /**
+     * No longer written: the current program is v2AgentPrograms at (agentId, version) (`programOf`), so a page of a
+     * player's agents (up to 200, call 35) stays a few KiB however long their programs are. Rows stored before keep it.
+     */
+    source: v.optional(v.string()),
+  })
+    // Live agents (destroyedAt unset) by player and by game: the paginated lists and the tick read only these.
+    .index("by_game_member_live", ["gameId", "memberId", "destroyedAt"]).index("by_game_live", ["gameId", "destroyedAt"]),
   /** An agent's hot part. */
   v2AgentEnergy: defineTable({
     agentId: v.id("v2Agents"), gameId: v.id("v2Games"), energy: v.number(), acts: v.number(), skips: v.number(),

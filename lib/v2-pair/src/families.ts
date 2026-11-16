@@ -6,7 +6,7 @@
  * big common factor with another aspect). Senses are balanced so that one basic strategy (a smooth scale-up of the
  * picture, a big prime on an axis) does not climb most of a table at once (decision 30); §4 of the doc measures it.
  */
-import { Qn, q, ref, type ElementRef, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
+import { cardText, Qn, q, ref, type ElementRef, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
 import { distanceToWhole, fromMC, nearestInteger, normalise, primeFactorCount, smallestPrimeFactor, type Line } from "@workspace/v2-linear";
 import type { PairState } from "./pair.ts";
 
@@ -203,7 +203,7 @@ function family(s: Spec): RuleFamily<PairState, P> {
   const decls = [...new Set((s.params ?? []).flatMap(p => Object.keys(p)))].map(name => ({ name, domain: "Z" as const }));
   return {
     id: s.id, title: s.title, params: decls, dealable: () => s.params ?? [{}], depends: [...s.depends], main: s.main, tieBreakers: s.tieBreakers,
-    card: (p, t: TieBreaker) => { const x = t === null ? undefined : s.tieBreakers.find(l => l.id === t); return x ? `${s.main.sentence(p)} Tie-breaker: ${x.sentence(p)}` : s.main.sentence(p); },
+    card: (p, t: TieBreaker) => cardText(s.main, s.tieBreakers, p, t),
     evaluate: (ctx, p) => s.evaluate(ctx, p),
     // Every dealt two-line family is a ladder (§9.1): its numbers are never redrawn (a redraw reset the climb, the
     // coordinator's amendment of call 18) and its value tail runs along the level, capped by its witnesses (trial 28).

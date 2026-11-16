@@ -12,18 +12,29 @@ import { seatRules } from "./loop";
 import { keepsParams } from "./deal";
 import { decode, encode, scopeOf, typeOf, valuesOf, variantOf } from "./world";
 import { callV } from "./tables";
+import type { Infer } from "convex/values";
+type Call = Infer<typeof callV>;
 import { applyCall, isInvalid } from "@workspace/v2-core";
 import { agentIncome, energyCapacity, ownIncome, settle } from "@workspace/v2-economy";
 import { fail, ownAccountNow, playerOf, requireGameMember, requireSeat, requireUser, worldNow } from "./access";
 import {
-  agentEnergyV, agentProgramsV, agentRowV, digestV, logPageV, tugsV, meV, movesPageV, myRuleV, objectIdsV, objectSortV, playObjectV,
+  agentEnergyV, agentProgramsV, agentsPageV, digestV, logPageV, tugsV, meV, movesPageV, myRuleV, objectIdsV, objectSortV, playObjectV,
 } from "./validators";
 import { pageOpts } from "./pages";
 import { attributed, disclosed, disclosesNoise, objectReading, readingNoise } from "./disclose";
 import { KNOWLEDGE_SORT, knownOf, listsKnowledge, lookPrice, readPriceWeightOf, readsKnowledge } from "./knowledge";
 
-/** ≤ 20 agents per player (R3). */
-export const MAX_AGENTS = 20;
+/**
+ * At most 200 live agents per player per game (v1's MAX_AGENTS_PER_GOD, restored by the coordinator's call 35). Every
+ * public list of them is a page (`agents`, R1); internal reads that need them all take at most this many a player.
+ */
+export const MAX_AGENTS = 200;
+/** An agent's programs a list shows, newest first (one agent's versions; not bounded by the agent cap). */
+export const MAX_PROGRAMS = 20;
+
+/** A player's live agents, by the live index (a destroyed agent is never read). */
+export const liveAgentsOf = (ctx: QueryCtx, gameId: Id<"v2Games">, memberId: Id<"v2Members">) =>
+  ctx.db.query("v2Agents").withIndex("by_game_member_live", q => q.eq("gameId", gameId).eq("memberId", memberId).eq("destroyedAt", undefined));
 
 /** The rule's value function, as valueLookup takes it (knots and tail), with the game's uniqueness correction. */
 function valueFn(ruleKey: string, scope: ValueScope) {
@@ -130,14 +141,14 @@ export const object = query({
   },
 });
 
+/** The agents skeleton: a page (≤ 50) of the caller's live agents, oldest first; each row subscribes to `agentEnergy`. */
 export const agents = query({
-  args: { gameId: v.string() },
-  returns: v.array(agentRowV),
-  handler: async (ctx, { gameId }) => {
+  args: { gameId: v.string(), paginationOpts: paginationOptsValidator },
+  returns: agentsPageV,
+  handler: async (ctx, { gameId, paginationOpts }) => {
     const { game, member } = await requireSeat(ctx, gameId);
-    const rows = await ctx.db.query("v2Agents").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", member._id)).take(MAX_AGENTS);
-    return rows.filter(a => a.destroyedAt === undefined)
-      .map(a => ({ agentId: a._id, name: a.name, language: a.language, version: a.version, share: a.share, createdAt: a.createdAt }));
+    const page = await liveAgentsOf(ctx, game._id, member._id).paginate(pageOpts(paginationOpts));
+    return { ...page, page: page.page.map(a => ({ agentId: a._id, name: a.name, language: a.language, version: a.version, share: a.share, createdAt: a.createdAt })) };
   },
 });
 
@@ -169,13 +180,13 @@ export const agentEnergy = query({
   },
 });
 
-/** An agent's programs, newest first (≤ 20). */
+/** An agent's programs, newest first (≤ MAX_PROGRAMS: one agent's versions, a per-item read). */
 export const agentPrograms = query({
   args: { agentId: v.string() },
   returns: agentProgramsV,
   handler: async (ctx, { agentId }) => {
     const agent = await ownAgent(ctx, agentId);
-    const rows = await ctx.db.query("v2AgentPrograms").withIndex("by_agent", q => q.eq("agentId", agent._id)).order("desc").take(MAX_AGENTS);
+    const rows = await ctx.db.query("v2AgentPrograms").withIndex("by_agent", q => q.eq("agentId", agent._id)).order("desc").take(MAX_PROGRAMS);
     return rows.map(p => ({ version: p.version, language: p.language, source: p.source, price: p.price, summonedAt: p.summonedAt, acts: p.acts, pointsGained: p.pointsGained }));
   },
 });
@@ -302,6 +313,35 @@ export const MAX_CANDIDATES = 4;
  * whether another object holds its state (objects are unique; ≤ 4 index reads of ≤ 2 rows): it re-runs when this object moves or
  * another object moves onto or off a candidate's state. An invalid call answers null.
  */
+/**
+ * What the others' sum on an object would read after each candidate call, from the state the player knows (knowledge.ts)
+ * (coordinator's call 33: a What if quote while the game runs is paid, `object.whatIf`, and blurred like every live
+ * disclosure, a fresh draw per quote (`salt`); after the end, exact and free here). A candidate onto a state another
+ * object holds says which object holds it (decision 24).
+ */
+export async function quoteOthers(ctx: QueryCtx, game: Doc<"v2Games">, memberId: Id<"v2Members">, object: Doc<"v2Objects">, state: Doc<"v2ObjectStates">, calls: Call[], salt: string | null) {
+  const seats = await seatRules(ctx, game);
+  const from = readsKnowledge(game, memberId) ? (await knownOf(ctx, object._id, memberId))?.state ?? state.state : state.state;
+  const now = decode(from, game.variant), type = typeOf(game.variant), variant = variantOf(game.variant);
+  const after = [];
+  for (const call of calls) {
+    const r = applyCall(type, variant, now, call);
+    if (isInvalid(r)) { after.push(null); continue; }
+    const wire = encode(r.result, game.variant);
+    const exact = valuesOf(r.result, game.variant, seats, scopeOf(game).objects).find(x => x.memberId === memberId)?.want ?? 0;
+    const want = exact + (salt !== null && disclosesNoise(game) ? readingNoise(game, memberId, `quote:${object._id}:${state.version}:${wire}:${salt}`) : 0);
+    const holders = await ctx.db.query("v2ObjectStates").withIndex("by_game_state", q => q.eq("gameId", game._id).eq("state", wire)).take(2);
+    const holder = holders.find(h => h.objectId !== object._id);
+    const taken = holder ? (await ctx.db.get(holder.objectId))?.number ?? null : null;
+    after.push({ state: wire, want, taken });
+  }
+  return { state: from, after };
+}
+
+/**
+ * What if, free and exact: the app's live What if until it moves to `object.whatIf` (coordinator's call 33: while the
+ * game runs a quote is paid and blurred); then this query goes, or serves only ended games.
+ */
 export const othersAt = query({
   args: { objectId: v.string(), calls: v.array(callV) },
   returns: v.object({ state: v.string(), after: v.array(v.union(v.object({ state: v.string(), want: v.number(), taken: v.union(v.number(), v.null()) }), v.null())) }),
@@ -309,28 +349,7 @@ export const othersAt = query({
     const { object, state } = await objectAndState(ctx, objectId);
     if (calls.length > MAX_CANDIDATES) fail("BAD_REQUEST", `Ask for at most ${MAX_CANDIDATES} moves`);
     const { game, member } = await requireSeat(ctx, object.gameId);
-    const seats = await seatRules(ctx, game);
-    // Paid observation: candidates from the state the player was told, not the live one (knowledge.ts).
-    const from = readsKnowledge(game, member._id) ? (await knownOf(ctx, object._id, member._id))?.state ?? state.state : state.state;
-    const now = decode(from, game.variant), type = typeOf(game.variant), variant = variantOf(game.variant);
-    const after = [];
-    for (const call of calls) {
-      const r = applyCall(type, variant, now, call);
-      if (isInvalid(r)) { after.push(null); continue; }
-      const wire = encode(r.result, game.variant);
-      const exact = valuesOf(r.result, game.variant, seats, scopeOf(game).objects).find(x => x.memberId === member._id)?.want ?? 0;
-      // The others' sum at the candidate as this player reads it while live (decision 32: their own reading of that
-      // candidate from this version of the object, independent of everyone else's).
-      // A candidate that changes nothing reads what the object shows (not a second measurement of it).
-      const what = wire === state.state ? objectReading(object._id, state.version) : `quote:${object._id}:${state.version}:${wire}`;
-      const want = exact + (disclosesNoise(game) ? readingNoise(game, member._id, what) : 0);
-      // Objects are unique: a candidate onto a state another object holds is not available (its number says which).
-      const holders = await ctx.db.query("v2ObjectStates").withIndex("by_game_state", q => q.eq("gameId", game._id).eq("state", wire)).take(2);
-      const holder = holders.find(h => h.objectId !== object._id);
-      const taken = holder ? (await ctx.db.get(holder.objectId))?.number ?? null : null;
-      after.push({ state: wire, want, taken });
-    }
-    return { state: from, after };
+    return await quoteOthers(ctx, game, member._id, object, state, calls, null);
   },
 });
 

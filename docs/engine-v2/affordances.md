@@ -168,6 +168,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `bid.place` | Bid on a rule family | family, percent | server · room | seated | room | write; confirm inline |
 | `bid.withdraw` | Withdraw a bid | family | server · room | seated | room | write |
 | `bid.done` | Finish bidding | — | server · room | seated | room | write |
+| `bid.cancel` | Cancel the bid phase | — | server · room | owner | room | write; confirm summary |
 | `game.auction` | Show the auction's result | — | server · game | member | planning, live, paused, ended, replay | read |
 | `game.get` | Show the game | — | server · game | member | planning, live, paused, ended, replay | read |
 | `game.standings` | Show the standings | — | server · game | member | planning, live, paused, ended, replay | read |
@@ -175,6 +176,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `game.pause` | Pause the game | — | server · game | seated | live | write; confirm inline |
 | `rule.explain` | Explain my rule | — | server · game | seated | planning, live, paused, ended, replay | read |
 | `rule.values` | Show my rule's value curve | — | server · game | seated | planning, live, paused, ended, replay | read |
+| `rule.candidates` | List the rules that could be dealt | — | server · game | member | planning, live, paused, ended, replay | read |
 | `rule.worth` | Look up what a score is worth | score | server · game | seated | planning, live, paused, ended, replay | read |
 | `objects.list` | List objects | sort, cursor, limit | server · game | member | planning, live, paused, ended, replay | read |
 | `object.read` | Read an object in one representation | objectId, rep, site | server · game | member | planning, live, paused, ended, replay | read |
@@ -183,10 +185,11 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `object.quote` | Price a change to an object | objectId, calls | server · game | seated | planning, live, paused, ended, replay | read |
 | `object.score` | Score an object under my rule | objectId | server · game | seated | planning, live, paused, ended, replay | read |
 | `object.look` | Look at objects | objectId | server · game | seated | live, paused | write; confirm inline |
+| `object.whatIf` | What if, for the others | objectId, calls | server · game | seated | live, paused | write; confirm inline |
 | `moves.list` | List moves that concern me | cursor, limit | server · game | seated | planning, live, paused, ended, replay | read |
 | `log.list` | Read the public log | cursor, limit | server · game | member | planning, live, paused, ended, replay | read |
 | `pitch.draft` | Draft a cooperation pitch | to, aim | server (action) · game | seated | planning, live, paused | write; spends aiBudget; confirm summary |
-| `agents.list` | List my agents | — | server · game | seated | planning, live, paused, ended | read |
+| `agents.list` | List my agents | cursor, limit | server · game | seated | planning, live, paused, ended | read |
 | `agent.programs` | List an agent's versions | agentId | server · game | seated | planning, live, paused, ended | read |
 | `agent.check` | Check an agent's code | language, source, agentId | server (action) · game | seated | planning, live, paused | read |
 | `agent.summon` | Summon an agent | language, source, name, share | server (action) · game | seated | planning, live, paused | write; spends energy; confirm summary |

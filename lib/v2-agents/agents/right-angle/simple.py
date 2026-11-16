@@ -1,5 +1,5 @@
 # Right Angle · Simple
-# Main part: a right angle at whole x and y, y on your pattern. Tie-breaker: whichever you were dealt (the corner's |x| + |y| has a big smallest prime factor; the corner's |x| + |y| shares a factor with the steeper gradient).
+# Main part: a right angle at whole x and y, y on your pattern. Secondary preference: whichever you were dealt (the corner's |x| + |y| has a big smallest prime factor; the corner's |x| + |y| shares a factor with the steeper gradient).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -8,7 +8,7 @@
 
 
 def score(L, p, tie):
-    # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good are the two lines L for your rule? [main part, secondary]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
     floor = lambda v: v // 1   # rounded down

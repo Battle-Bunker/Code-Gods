@@ -1,5 +1,5 @@
 // Box Totals · Example: 0s on the board
-// Main part: every corner box adds up to the target. Tie-breaker: 0s on the board.
+// Main part: every corner box adds up to the target. Secondary preference: 0s on the board.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 // (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -7,11 +7,11 @@
 // raises your points most (your rarity times the other players').
 // Try this: remove the "box" line: is fixing one cell at a time as cheap?
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const x of BOXES) main -= Math.abs(x.reduce((t, i) => t + b[i], 0) - p.T);   // each box: how far its total is from T
-  return [main, b.filter(x => x === 0).length];   // main: how far the corner boxes' totals are from T, added up (closer is better); tie-breaker: more 0s is better
+  return [main, b.filter(x => x === 0).length];   // main: how far the corner boxes' totals are from T, added up (closer is better); secondary: more 0s is better
 }
 
 const FAR = 2;      // how far one change may go

@@ -1,5 +1,5 @@
 # Strangers · Naive (for learning)
-# Main part: touching strangers in the corner boxes. Tie-breaker: the board's four corners.
+# Main part: touching strangers in the corner boxes. Secondary preference: the board's four corners.
 # What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 # board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 # board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
@@ -8,7 +8,7 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     def gcd(x, y):   # the greatest common divisor
         return gcd(y, x % y) if y else x
     main, ones = 0, 0
@@ -19,7 +19,7 @@ def score(b, p):
                 main += 1
             if (u == 1 and w > 1) or (w == 1 and u > 1):   # a 1 touching a bigger number
                 ones += 1
-    return [main, b[0] + b[3] + b[12] + b[15]]   # main: how many touching pairs in the corner boxes are strangers (more is better); tie-breaker: bigger corners of the board are better
+    return [main, b[0] + b[3] + b[12] + b[15]]   # main: how many touching pairs in the corner boxes are strangers (more is better); secondary: bigger corners of the board are better
 
 
 FAR = 1      # how far one change may go

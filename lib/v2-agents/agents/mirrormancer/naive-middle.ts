@@ -1,16 +1,16 @@
 // Mirrormancer · Naive (for learning)
-// Main part: every row reads the same backwards. Tie-breaker: the middle columns' total.
+// Main part: every row reads the same backwards. Secondary preference: the middle columns' total.
 // What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 // board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 // board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
 // from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] - b[r + 3]) + Math.abs(b[r + 1] - b[r + 2]);   // each row: its ends' gap and its middle's gap
-  return [main, b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]];   // main: how far each row is from reading the same backwards, added up (closer is better); tie-breaker: bigger middle columns are better
+  return [main, b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]];   // main: how far each row is from reading the same backwards, added up (closer is better); secondary: bigger middle columns are better
 }
 
 const FAR = 1;      // how far one change may go

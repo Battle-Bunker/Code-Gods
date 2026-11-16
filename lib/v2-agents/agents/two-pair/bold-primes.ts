@@ -1,19 +1,19 @@
 // Two Pair · Bold
-// Main part: every corner box holds two different pairs. Tie-breaker: prime numbers on the board.
+// Main part: every corner box holds two different pairs. Secondary preference: prime numbers on the board.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: change FAR = 2 to 1: single steps, the same price per step, but more turns to get there.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const x of BOXES) {
     const [w, y, z, u] = x.map(i => b[i]).sort((s, t) => s - t);   // the box's four numbers, smallest first
     main -= y - w + u - z + (w === u ? 2 : 0);   // pair the two smallest and the two biggest; four of a kind: two cells must move by 1
   }
-  return [main, b.filter(x => [2, 3, 5, 7].includes(x)).length];   // main: how far each corner box is from holding two different pairs, added up (closer is better); tie-breaker: more cells holding 2, 3, 5 or 7 is better
+  return [main, b.filter(x => [2, 3, 5, 7].includes(x)).length];   // main: how far each corner box is from holding two different pairs, added up (closer is better); secondary: more cells holding 2, 3, 5 or 7 is better
 }
 
 const FAR = 2;      // how far one change may go

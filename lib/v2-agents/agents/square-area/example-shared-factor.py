@@ -1,5 +1,5 @@
 # Square Area · Example: the factor that square's root plus 1 shares with the x-crossing's whole part
-# Main part: the triangle's area on as big a square ending in d as possible. Tie-breaker: the factor that square's root plus 1 shares with the x-crossing's whole part.
+# Main part: the triangle's area on as big a square ending in d as possible. Secondary preference: the factor that square's root plus 1 shares with the x-crossing's whole part.
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,7 +11,7 @@
 
 
 def score(m, c, p):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m == 0 or c == 0:                            # no triangle: the worst score
         return None
     legX = abs(c / m)                               # the triangle's base
@@ -24,7 +24,7 @@ def score(m, c, p):
     w = r * r + a                                   # its window [w, w + 1)
     main = level(fl) if r == s and s * s == fl else -(w - area if area < w else area - w - 1)
     wx = whole((2 * legX - 1) / 2)               # the x-crossing's whole part, ignoring its sign
-    return [main, common(r + 1, wx)]   # main: the square above 1 ending in the rule's digit that the triangle's area rounds down (or off) to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far the area is from the window of the nearest such square's root; tie-breaker: that square's root plus 1 and the x-crossing's whole part: a bigger factor shared is better
+    return [main, common(r + 1, wx)]   # main: the square above 1 ending in the rule's digit that the triangle's area rounds down (or off) to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far the area is from the window of the nearest such square's root; secondary: that square's root plus 1 and the x-crossing's whole part: a bigger factor shared is better
 
 
 FAR = 3      # how far one change may go

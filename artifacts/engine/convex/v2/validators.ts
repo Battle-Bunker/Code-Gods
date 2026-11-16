@@ -5,7 +5,7 @@
  */
 import { paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
-import { bidV, callV, languageV, memberKindV, offerV, overridesV, phaseV, scoreWireV, valueSnapV } from "./tables";
+import { bidV, callV, languageV, memberKindV, offerV, overridesV, phaseV, scoreWireV, valueSnapV } from "./tables.ts";
 
 export const roomPhaseV = v.union(v.literal("lobby"), phaseV);
 
@@ -44,6 +44,8 @@ export const headerV = v.object({
   startedAt: v.union(v.number(), v.null()), endedAt: v.union(v.number(), v.null()),
   roster: v.array(v.object({ memberId: v.id("v2Members"), name: v.string(), kind: memberKindV })),
   pausedBy: v.union(v.id("v2Members"), v.null()),
+  /** When a player's pause ends by itself (v1's pauseSeconds), or null when not paused by a player. */
+  pauseEndsAt: v.union(v.number(), v.null()),
   /** The caller's seat in this game, or null for a spectator. */
   me: v.union(v.id("v2Members"), v.null()),
   summary: v.union(v.object({ winner: v.union(v.id("v2Members"), v.null()), objects: v.number(), acts: v.number() }), v.null()),
@@ -123,6 +125,8 @@ export const playObjectV = v.object({
 export const agentRowV = v.object({
   agentId: v.id("v2Agents"), name: v.string(), language: languageV, version: v.number(), share: v.number(), createdAt: v.number(),
 });
+/** The caller's live agents, a page at a time (≤ 200 a player, call 35; pages ≤ 50, R1); each row's energy is `agentEnergy`. */
+export const agentsPageV = paginationResultValidator(agentRowV);
 export const agentEnergyV = v.object({
   agentId: v.id("v2Agents"), energy: v.number(), acts: v.number(), skips: v.number(), failures: v.number(), spend: v.number(),
   pointsGained: v.number(), lastActAt: v.union(v.number(), v.null()),

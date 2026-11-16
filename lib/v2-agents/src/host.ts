@@ -17,7 +17,7 @@
  */
 import {
   applyCalls, elementDecl, refKey, elementValue, evaluateObject, isInvalid, Qn, ratBits,
-  representation, ruleLayers, type Call, type TieBreaker, type ElementRef, type ElementValue, type ObjectType, type Price, type RuleFamily, type Variant,
+  joinTieBreakers, representation, ruleLayers, type Call, type TieBreaker, type ElementRef, type ElementValue, type ObjectType, type Price, type RuleFamily, type Variant,
 } from "@workspace/v2-core";
 import { BETA, KAPPA } from "@workspace/v2-economy";
 import { valueLookup, withUniqueness, type ValueFunction } from "@workspace/v2-valuation";
@@ -40,7 +40,7 @@ import type { AgentHost, ElementValueWire, HostContext, HostReply, HostRequest }
 export interface RuleRef {
   readonly family: string;
   readonly params: Readonly<Record<string, unknown>>;
-  /** The dealt tie-breaker's id, null for the main layer alone; absent: the family's first (v2-core `ruleLayers`). */
+  /** The dealt tie-breakers, in order (one id, or several joined by ">"); null for the main layer alone; absent: the family's first (v2-core `ruleLayers`). */
   readonly tieBreaker?: TieBreaker;
 }
 
@@ -159,7 +159,7 @@ export class EngineHost<S> implements AgentHost {
     this.family = family as RuleFamily<S, unknown>;
     this.params = input.rule.params;
     const layers = ruleLayers(this.family, input.rule.tieBreaker);
-    this.tieBreaker = layers[1]?.id ?? null;
+    this.tieBreaker = joinTieBreakers(layers.slice(1).map(l => l.id));   // the whole ordered list (any depth)
     this.energy = input.energy;
     this.economy = input.economy ?? SPEC_ECONOMY;
     this.input = input;
@@ -167,10 +167,44 @@ export class EngineHost<S> implements AgentHost {
     this.others = input.others?.map(o => {
       const family = input.type.families.find(f => f.id === o.rule.family);
       if (!family) throw new Error(`${input.type.id} has no rule family ${o.rule.family}`);
-      return { family: family as RuleFamily<S, unknown>, params: o.rule.params, tieBreaker: ruleLayers(family as RuleFamily<S, unknown>, o.rule.tieBreaker)[1]?.id ?? null, look: gameLookup(o.values) };
+      return { family: family as RuleFamily<S, unknown>, params: o.rule.params, tieBreaker: joinTieBreakers(ruleLayers(family as RuleFamily<S, unknown>, o.rule.tieBreaker).slice(1).map(l => l.id)), look: gameLookup(o.values) };
     });
     this.sites = input.type.sites(input.state, input.variant);
     this.phi = input.type.readLength(input.state, input.variant);
+  }
+
+  /**
+   * The player's points at a state as the player sees them (the commit clause decides on these; v1's commitRaises):
+   * own bits exact, the others' sum as `othersAfter` discloses it (noise included, unclamped), and points own ×
+   * max(0, others). Null when the game does not say what lines are worth (no value function or no others).
+   */
+  payoffAt(state: S): { mine: number; others: number; points: number } | null {
+    if (!this.lookup || !this.others?.length) return null;
+    const mine = this.lookup(evaluateObject(this.type, this.family, this.params, state, this.variant, this.tieBreaker).score).bits;
+    const others = this.othersDisclosed(state);
+    return { mine, others, points: mine * Math.max(0, others) };
+  }
+  /**
+   * The others' sum at a state as the player is shown it: exact + noise, unclamped (v1's public-log design §2). The one
+   * place it is computed: `othersAfter` and the commit clause must show and decide on the same number.
+   */
+  private othersDisclosed(state: S): number {
+    return this.others!.reduce((t, o) => t + o.look(evaluateObject(this.type, o.family, o.params, state, this.variant, o.tieBreaker).score).bits, 0)
+      + (this.input.disclosed?.(this.type.encode(state)) ?? 0);
+  }
+  /** Plans already asked `othersAfter` this act, as parsed calls (the commit clause does not charge twice for one). */
+  private readonly othersAsked = new Set<string>();
+  /**
+   * The commit clause's read: what `othersAfter` on the plan charges, through the host's accounting, unless the agent
+   * already asked `othersAfter` on this very plan this act (then it knows the answer and pays nothing more).
+   */
+  clauseRead(calls: readonly Call[]): number {
+    const key = JSON.stringify(calls);
+    if (this.othersAsked.has(key)) return 0;
+    this.othersAsked.add(key);
+    const bits = this.attribute("othersAfter", OTHERS_AFTER_BITS);
+    this.readBits += bits;
+    return bits;
   }
 
   handle(request: HostRequest, context: HostContext): HostReply {
@@ -200,9 +234,9 @@ export class EngineHost<S> implements AgentHost {
       case "othersAfter": {
         if (!this.others?.length) return err("this game does not say what lines are worth to the others");
         const priced = this.price(request.calls);
-        const exact = (s: S) => this.others!.reduce((t, o) => t + o.look(evaluateObject(this.type, o.family, o.params, s, this.variant, o.tieBreaker).score).bits, 0);
+        { const parsed = parseCalls(request.calls); if (typeof parsed !== "string") this.othersAsked.add(JSON.stringify(parsed)); }
         // As v1 disclosed it (public-log-design §2): others = exact + noise, unclamped; only points clamp at 0.
-        const total = (s: S) => exact(s) + (this.input.disclosed?.(this.type.encode(s)) ?? 0);
+        const total = (s: S) => this.othersDisclosed(s);
         // The others' totals and nothing else: a failure scoring another player's rule must not name it in its message.
         let before: number, after: number | null;
         try { before = total(this.state); after = priced.valid ? total(priced.result) : null; }

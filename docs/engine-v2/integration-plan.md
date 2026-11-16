@@ -273,7 +273,7 @@ sandbox before answering.
 | `v2/play.me {gameId}` | the viewer's `v2Players` row (energy, power, ready, pauseUsed) | hot, 1 doc | header, agents |
 | `v2/play.objectIds {gameId, sort, paginationOpts}` | `v2ObjectValues by_game_player_<sort>` page | page changes | objects skeleton |
 | `v2/play.object {objectId}` | `v2ObjectStates` (shared state) + viewer's `v2ObjectValues` | that object changes | one row / face |
-| `v2/play.agents {gameId}` | viewer's `v2Agents` (≤ 20, bounded) | cold | agents, forge |
+| `v2/play.agents {gameId, paginationOpts}` | viewer's live `v2Agents` by_game_member_live, a page of ≤ 50 (≤ 200 a player, call 35) | cold | agents, forge |
 | `v2/play.agentEnergy {agentId}` | 1 `v2AgentEnergy` | hot | one agent row |
 | `v2/play.agentPrograms {agentId}` | `v2AgentPrograms by_agent` (≤ 20) | per act of that agent | put back comparison |
 | `v2/play.moves {gameId, paginationOpts}` | `v2Moves by_game_player_seq` page | on a move that concerns the viewer | act log |

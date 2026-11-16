@@ -1,5 +1,5 @@
 // Leapfrog · Example: down the columns: each number one apart from the number two cells below
-// Main part: each number one apart from the number two cells along. Tie-breaker: down the columns: each number one apart from the number two cells below.
+// Main part: each number one apart from the number two cells along. Secondary preference: down the columns: each number one apart from the number two cells below.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 // (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -7,11 +7,11 @@
 // raises your points most (your rarity times the other players').
 // Try this: remove the "line" line: a whole row moves without spoiling its leaps; can single cells do as well?
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const i of [0, 1, 4, 5, 8, 9, 12, 13]) main -= Math.abs(Math.abs(b[i] - b[i + 2]) - 1);   // cell i and the cell two along
-  return [main, -[0, 1, 2, 3, 4, 5, 6, 7].reduce((t, i) => t + Math.abs(Math.abs(b[i] - b[i + 8]) - 1), 0)];   // main: how far each number and the number two cells along its row are from one apart, added up (closer is better); tie-breaker: each number closer to one apart from the number two cells down is better
+  return [main, -[0, 1, 2, 3, 4, 5, 6, 7].reduce((t, i) => t + Math.abs(Math.abs(b[i] - b[i + 8]) - 1), 0)];   // main: how far each number and the number two cells along its row are from one apart, added up (closer is better); secondary: each number closer to one apart from the number two cells down is better
 }
 
 const FAR = 2;      // how far one change may go

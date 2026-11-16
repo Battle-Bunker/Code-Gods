@@ -36,7 +36,8 @@ A page query answers at most 50 rows, whatever `numItems` asks (`convex/v2/pages
 | `v2/rooms:chat`, `v2/rooms:history` | `roomId, paginationOpts` | member |
 | `v2/games:header`, `standings` | `gameId` | member; `header.me` is the caller's seat or null |
 | `v2/games:standingsHistory` | `gameId, after` | member; ≤ 100 rows after `after` |
-| `v2/play:myRule`, `me`, `agents`, `digest` | `gameId` | seated; `myRule.value` is the rule's value function (`{knots, tail}`, what `valueLookup` takes); `me` adds `ownPerSecond`, `capacity` (the store stops at it) and `settledAt` (world s) |
+| `v2/play:agents` | `gameId, paginationOpts` | seated; the caller's live agents, oldest first, a page of ≤ 50 (a player holds ≤ 200, call 35); each row's energy is `agentEnergy` |
+| `v2/play:myRule`, `me`, `digest` | `gameId` | seated; `myRule.value` is the rule's value function (`{knots, tail}`, what `valueLookup` takes); `me` adds `ownPerSecond`, `capacity` (the store stops at it) and `settledAt` (world s) |
 | `v2/play:objectIds` | `gameId, sort (points, rarity, want, born, recent), paginationOpts` | seated |
 | `v2/play:object` | `objectId` | member; `value` is the caller's own, null for a spectator |
 | `v2/play:agentEnergy`, `agentPrograms` | `agentId` | the agent's owner |

@@ -301,6 +301,9 @@
 .v2v-goal-title { margin: 0; font-size: 18px; }
 .v2v-goal-card { margin: 2px 0 0; font-size: 14px; max-width: 62ch; }
 .v2v-goal-hint { margin: 2px 0 0; font-size: 12px; color: var(--v2v-muted); }
+.v2v-goal-scale { margin-top: 8px; }
+.v2v-goal-scale-rows { margin: 4px 0 0; padding-left: 1.1em; font-size: 12px; font-variant-numeric: tabular-nums; }
+.v2v-goal-scale-rows li { margin: 1px 0; }
 .v2v-move { margin: 0; font-size: 13px; line-height: 1.45; padding: 6px 10px; border-left: 3px solid var(--v2v-rule); background: var(--v2v-card); border-radius: 0 6px 6px 0; }
 .v2v-move[data-dir="up"] { border-left-color: var(--v2v-cand); }
 .v2v-move[data-dir="down"] { border-left-color: var(--v2v-focus); }

@@ -82,6 +82,9 @@ export function withParams(text: string, params: unknown): string {
   let t = text;
   for (const [k, v] of Object.entries((params ?? {}) as Record<string, unknown>)) {
     if (typeof v !== "number" && typeof v !== "string") continue;
+    // Only symbols ("k", "t", "q2") stand for a value in a title; a worded key ("meets", "digits", "side") is also an
+    // English word there ("where the line meets y = x" read "where the line -1 y = x").
+    if (k.length > 2) continue;
     t = t.replace(new RegExp(`(^|[^A-Za-z])${k}(?![A-Za-z])`, "g"), (_, pre: string) => `${pre}${v}`);
   }
   return t;

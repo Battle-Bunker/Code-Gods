@@ -40,7 +40,9 @@ test("a paid game shows each object as last told; a look pays to see it now; the
       stale = objectId;
       assert.notEqual(mine.state, live.state, "a changed object shows as last told, not as it is");
       assert.equal((await ada!.query("v2/spectate:object", { objectId })).state, mine.state, "the spectator's read gives a seated player no more");
-      assert.equal((await ada!.query("v2/play:othersAt", { objectId, calls: [] })).state, mine.state, "candidates from the told state");
+      const quoted = await perform(ada!, "object.whatIf", { objectId, calls: [{ mutator: "si.shift", site: 0, args: { k: "0" } }] }, { gameId });
+      assert.equal(quoted.ok, true, JSON.stringify(quoted));
+      assert.equal(quoted.result.state, mine.state, "candidates from the told state");
     }
   }
   assert.ok(stale, "the partner's agent changed a line Ada was not told");

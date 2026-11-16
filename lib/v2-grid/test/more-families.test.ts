@@ -44,12 +44,12 @@ test("dealable params", () => {
 });
 
 test("tie-breaker sentences name the dealt corner, direction, axis and T; no grid sentence says 'line'", () => {
-  assert.match(fam("uphill").card({ corner: "BL" }, "corner-peak"), /Tie-breaker: The number in the bottom-left corner should be bigger than as many other numbers as possible\.$/);
-  assert.match(fam("uphill").card({ corner: "BL" }, "start-low"), /Tie-breaker: The number in the top-right corner should be smaller/);
+  assert.match(fam("uphill").card({ corner: "BL" }, "corner-peak"), /Secondary: The number in the bottom-left corner should be bigger than as many other numbers as possible\.$/);
+  assert.match(fam("uphill").card({ corner: "BL" }, "start-low"), /Secondary: The number in the top-right corner should be smaller/);
   assert.match(fam("staircase").card({ direction: "right" }, "double-stairs"), /1 more than the number above them\.$/);
   assert.match(fam("staircase").card({ direction: "down" }, "double-stairs"), /1 more than the number to their left\.$/);
-  assert.match(fam("magic-accountant").card({ axis: "rows", T: 17 }, "other-way"), /Tie-breaker: The columns should add up to 17 too\.$/);
-  assert.match(fam("magic-accountant").card({ axis: "columns", T: 15 }, "all-different"), /Tie-breaker: Each column should hold four different numbers\.$/);
+  assert.match(fam("magic-accountant").card({ axis: "rows", T: 17 }, "other-way"), /Secondary: The columns should add up to 17 too\.$/);
+  assert.match(fam("magic-accountant").card({ axis: "columns", T: 15 }, "all-different"), /Secondary: Each column should hold four different numbers\.$/);
   for (const f of moreGridFamilies(4)) for (const p of f.dealable(grid4)) for (const t of [f.main, ...f.tieBreakers]) {
     assert.doesNotMatch(`${t.title} ${f.card(p, t.id)}`, /\bline\b/i, `${f.id}/${t.id}`);
   }

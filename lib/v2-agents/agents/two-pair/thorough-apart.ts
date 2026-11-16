@@ -1,12 +1,12 @@
 // Two Pair · Thorough
-// Main part: every corner box holds two different pairs. Tie-breaker: how far apart each box's pairs are.
+// Main part: every corner box holds two different pairs. Secondary preference: how far apart each box's pairs are.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: change QUOTES = 6 to 2: fewer prices asked, but it may miss a cheaper plan.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const x of BOXES) {
@@ -15,7 +15,7 @@ function score(b, p) {
   }
   let apart = 0;
   for (const x of BOXES) { const v = x.map(i => b[i]); apart += Math.max(...v) - Math.min(...v); }   // each box: biggest minus smallest
-  return [main, apart];   // main: how far each corner box is from holding two different pairs, added up (closer is better); tie-breaker: pairs further apart in each box are better
+  return [main, apart];   // main: how far each corner box is from holding two different pairs, added up (closer is better); secondary: pairs further apart in each box are better
 }
 
 const FAR = 1;      // how far one change may go

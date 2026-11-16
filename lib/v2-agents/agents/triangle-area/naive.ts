@@ -1,21 +1,23 @@
 // Triangle Area · Naive (for learning)
-// Main part: triangle area close to A. Tie-breaker: whichever you were dealt (legs nearly whole; legs nearly equal).
+// Main part: triangle area close to A. Secondary preference: whichever you were dealt (legs nearly whole; legs nearly equal).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
 // It is here to learn from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same lines and watch your points: then switch to Simple.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (Q.isZero(m) || Q.isZero(c)) return null;    // no triangle: the worst score
   const legX = Q.abs(Q.div(c, m)), legY = Q.abs(c); // the triangle's base and height
   const area = Q.div(Q.mul(legX, legY), 2);
   const main = Q.neg(Q.abs(Q.sub(area, p.A)));
   // main: how far the triangle's area is from A (closer is better)
-  if (tie === "legs") return [main, -(legX.d + legY.d - 2n)];   // legs that are whole numbers are best
-  if (tie === "even") return [main, Q.neg(Q.abs(Q.sub(legX, legY)))];   // legs of equal length are best
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
+    if (t === "legs") return -(legX.d + legY.d - 2n);   // legs that are whole numbers are best
+    if (t === "even") return Q.neg(Q.abs(Q.sub(legX, legY)));   // legs of equal length are best
+    return null;
+  })];
 }
 
 const FAR = 3;      // how far one change may go

@@ -49,6 +49,15 @@ export async function engineOf(ctx: QueryCtx, gameId: Id<"v2Games">) {
 export async function clockOf(ctx: QueryCtx, gameId: Id<"v2Games">) {
   return (await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", gameId)).unique())!;
 }
+/** An agent's current program (v2AgentPrograms at its version; the agent row no longer carries the source). */
+export async function programOf(ctx: QueryCtx, agent: Pick<Doc<"v2Agents">, "_id" | "version" | "source" | "language">): Promise<Pick<Doc<"v2AgentPrograms">, "source" | "language">> {
+  const p = await ctx.db.query("v2AgentPrograms").withIndex("by_agent", q => q.eq("agentId", agent._id).eq("version", agent.version)).unique();
+  if (p) return p;
+  // A row stored before the source moved off v2Agents still carries it: never stall a tick over a missing program row.
+  if (agent.source !== undefined) return { source: agent.source, language: agent.language };
+  throw new Error(`Agent ${agent._id} has no program at version ${agent.version}`);
+}
+
 export async function seatRules(ctx: QueryCtx, game: Doc<"v2Games">): Promise<SeatRule[]> {
   const out: SeatRule[] = [];
   for (const s of game.roster) {
@@ -360,20 +369,36 @@ export async function parkGame(ctx: MutationCtx, game: Doc<"v2Games">) {
   await appendEvent(ctx, game._id, "phase", { phase: "paused", parked: true });
 }
 
+/** v1's pause length when the room sets none, wall seconds (archive settings.ts pauseSeconds). */
+export const DEFAULT_PAUSE_SECONDS = 180;
+const PAUSE_ENDS = makeFunctionReference<"mutation", { gameId: Id<"v2Games">; pauseEndsAt: number }>("v2/loop:pauseEnds");
+
+/** A player's pause (one each): it ends by itself after the game's pauseSeconds (v1), or earlier when the owner resumes. */
 export async function pauseGame(ctx: MutationCtx, game: Doc<"v2Games">, by: Id<"v2Members">) {
   const engine = await engineOf(ctx, game._id);
   await ctx.db.patch(engine._id, { leaseId: "" });
-  // No countdown while paused: the end is set again on resume from the world time left.
-  await ctx.db.patch(game._id, { phase: "paused", pausedBy: by, endsAt: undefined });
-  await appendEvent(ctx, game._id, "phase", { phase: "paused", by });
+  const pauseEndsAt = Date.now() + (game.settings.pauseSeconds ?? DEFAULT_PAUSE_SECONDS) * 1000;
+  // No countdown to the world's end while paused: it is set again on resume from the world time left.
+  await ctx.db.patch(game._id, { phase: "paused", pausedBy: by, pauseEndsAt, endsAt: undefined });
+  await appendEvent(ctx, game._id, "phase", { phase: "paused", by, pauseEndsAt });
+  await ctx.scheduler.runAt(pauseEndsAt, PAUSE_ENDS, { gameId: game._id, pauseEndsAt });
 }
+
+/** A player's pause runs out (v1): the game resumes, unless it was resumed, re-paused or ended meanwhile. */
+export const pauseEnds = internalMutation({
+  args: { gameId: v.id("v2Games"), pauseEndsAt: v.number() },
+  handler: async (ctx, { gameId, pauseEndsAt }) => {
+    const game = await ctx.db.get(gameId);
+    if (game?.phase === "paused" && !game.parked && game.pauseEndsAt === pauseEndsAt) await resumeGame(ctx, game);
+  },
+});
 
 export async function resumeGame(ctx: MutationCtx, game: Doc<"v2Games">) {
   const leaseId = crypto.randomUUID(), now = Date.now();
   const engine = await engineOf(ctx, game._id), clock = await clockOf(ctx, game._id);
   await ctx.db.patch(engine._id, { leaseId });
   await ctx.db.patch(clock._id, { lastTickAt: now });
-  await ctx.db.patch(game._id, { phase: "live", pausedBy: undefined, endsAt: now + Math.max(0, endWorldOf(game) - clock.worldSeconds) * 1000 / timeScaleOf(game.settings) });
+  await ctx.db.patch(game._id, { phase: "live", pausedBy: undefined, pauseEndsAt: undefined, endsAt: now + Math.max(0, endWorldOf(game) - clock.worldSeconds) * 1000 / timeScaleOf(game.settings) });
   await appendEvent(ctx, game._id, "phase", { phase: "live", worldSeconds: clock.worldSeconds });
   await ctx.scheduler.runAfter(0, TICK, { gameId: game._id, leaseId });
   await ctx.scheduler.runAfter(WATCHDOG_MS, WATCHDOG, { gameId: game._id, leaseId });
@@ -415,9 +440,36 @@ export const planningEnds = internalMutation({
 
 // ---------------------------------------------------------------- the tick's reads and its commit
 
-/** What a tick needs: the clock, the economy, every live agent with its program and energy, the rules. */
 /** At most this many objects' states a tick reads for its `occupied` view (games stay far below it). */
 const MAX_HELD = 8000;
+/**
+ * Live agents a tick reads a page at a time. A game holds at most 8 players × 200 agents (MAX_PLAYERS × MAX_AGENTS,
+ * call 35) = 1,600; a page reads 3 documents an agent (the agent, its energy, its current program of ≤ 16 KiB), so at
+ * worst 300 documents and about 1.7 MiB, inside a query's limits (16,384 documents, 8 MiB) beside the snapshot's
+ * ≤ 8,000 held states; a full game is the snapshot and 15 more pages.
+ */
+export const TICK_AGENT_PAGE = 100;
+
+/** One page of a game's live agents with their programs and energy, as the tick runs them. */
+async function tickAgentsPage(ctx: QueryCtx, gameId: Id<"v2Games">, cursor: string | null) {
+  const page = await ctx.db.query("v2Agents").withIndex("by_game_live", q => q.eq("gameId", gameId).eq("destroyedAt", undefined))
+    .paginate({ cursor, numItems: TICK_AGENT_PAGE });
+  const agents = [];
+  for (const a of page.page) {
+    const e = (await ctx.db.query("v2AgentEnergy").withIndex("by_agent", q => q.eq("agentId", a._id)).unique())!;
+    const program = await programOf(ctx, a);
+    agents.push({ agentId: a._id, memberId: a.memberId, language: a.language, source: program.source, version: a.version, share: a.share, energy: e.energy, settledAt: e.settledAt });
+  }
+  return { agents, cursor: page.isDone ? null : page.continueCursor };
+}
+
+/** The live agents after `cursor` (the snapshot's `agentsCursor`; null for the first page), a page at a time. */
+export const tickAgents = internalQuery({
+  args: { gameId: v.id("v2Games"), cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, { gameId, cursor }) => await tickAgentsPage(ctx, gameId, cursor),
+});
+
+/** What a tick needs: the clock, the economy, the first page of live agents with their programs and energy, the rules. */
 
 export const snapshot = internalQuery({
   args: { gameId: v.id("v2Games") },
@@ -425,18 +477,12 @@ export const snapshot = internalQuery({
     const game = await ctx.db.get(gameId);
     if (!game) return null;
     const engine = await engineOf(ctx, gameId), clock = await clockOf(ctx, gameId);
-    const players = await ctx.db.query("v2Players").withIndex("by_game", q => q.eq("gameId", gameId)).take(16);
-    const agents = await ctx.db.query("v2Agents").withIndex("by_game", q => q.eq("gameId", gameId)).filter(q => q.eq(q.field("destroyedAt"), undefined)).take(16 * 20);
-    const withEnergy = [];
-    for (const a of agents) {
-      const e = (await ctx.db.query("v2AgentEnergy").withIndex("by_agent", q => q.eq("agentId", a._id)).unique())!;
-      const p = players.find(x => x.memberId === a.memberId)!;
-      withEnergy.push({ agentId: a._id, memberId: a.memberId, language: a.language, source: a.source, version: a.version, share: a.share, power: p.power, energy: e.energy, settledAt: e.settledAt });
-    }
+    const first = await tickAgentsPage(ctx, gameId, null);
     return {
       phase: game.phase, seed: game.seed, variant: game.variant, settings: game.settings, endsAt: game.endsAt ?? null, endWorld: endWorldOf(game), leaseId: engine.leaseId, tick: engine.tick,
       acts: engine.acts, objects: engine.objects, worldSeconds: clock.worldSeconds, lastTickAt: clock.lastTickAt,
-      seats: await seatRules(ctx, game), agents: withEnergy,
+      // The first page of live agents; the tick reads the rest with `tickAgents` from `agentsCursor` (null: none left).
+      seats: await seatRules(ctx, game), agents: first.agents, agentsCursor: first.cursor,
       // Languages whose sandbox has booted: the tick skips the others' agents rather than wait (readiness.ts).
       ready: (await Promise.all(LANGUAGES.map(async l => (await isReady(ctx, l) ? l : null)))).filter(l => l !== null),
       // Decision 24: every object's state (the tick's `occupied`), and the disclosure noise's key (the tick's `disclosed`).

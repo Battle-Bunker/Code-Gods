@@ -1,19 +1,19 @@
 // Two Pair · Simple
-// Main part: every corner box holds two different pairs. Tie-breaker: boxes with each pair on a diagonal.
+// Main part: every corner box holds two different pairs. Secondary preference: boxes with each pair on a diagonal.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: add the "trade" line from the Thorough starter: moving an amount from one cell to another keeps their total.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (const x of BOXES) {
     const [w, y, z, u] = x.map(i => b[i]).sort((s, t) => s - t);   // the box's four numbers, smallest first
     main -= y - w + u - z + (w === u ? 2 : 0);   // pair the two smallest and the two biggest; four of a kind: two cells must move by 1
   }
-  return [main, BOXES.filter(([s, t, u, w]) => b[s] === b[w] && b[t] === b[u] && b[s] !== b[t]).length];   // main: how far each corner box is from holding two different pairs, added up (closer is better); tie-breaker: more boxes with each pair on a diagonal of the box is better
+  return [main, BOXES.filter(([s, t, u, w]) => b[s] === b[w] && b[t] === b[u] && b[s] !== b[t]).length];   // main: how far each corner box is from holding two different pairs, added up (closer is better); secondary: more boxes with each pair on a diagonal of the box is better
 }
 
 const FAR = 1;      // how far one change may go

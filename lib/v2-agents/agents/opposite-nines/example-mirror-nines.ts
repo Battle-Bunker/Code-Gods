@@ -1,5 +1,5 @@
 // Opposite Nines · Example: each number and its mirror in the row add up to the target
-// Main part: every cell and its opposite add up to the target. Tie-breaker: each number and its mirror in the row add up to the target.
+// Main part: every cell and its opposite add up to the target. Secondary preference: each number and its mirror in the row add up to the target.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 // (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -7,11 +7,11 @@
 // raises your points most (your rarity times the other players').
 // Try this: remove the "balance" line: can single cells fix the mirrors without breaking a pair?
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (let i = 0; i < 8; i++) main -= Math.abs(b[i] + b[15 - i] - p.T);   // cell i and its opposite, 15 - i
-  return [main, -[0, 4, 8, 12].reduce((t, r) => t + Math.abs(b[r] + b[r + 3] - p.T) + Math.abs(b[r + 1] + b[r + 2] - p.T), 0)];   // main: how far each cell and its opposite are from adding up to T, added up (closer is better); tie-breaker: each number and its mirror in the row adding up closer to T is better
+  return [main, -[0, 4, 8, 12].reduce((t, r) => t + Math.abs(b[r] + b[r + 3] - p.T) + Math.abs(b[r + 1] + b[r + 2] - p.T), 0)];   // main: how far each cell and its opposite are from adding up to T, added up (closer is better); secondary: each number and its mirror in the row adding up closer to T is better
 }
 
 const FAR = 2;      // how far one change may go

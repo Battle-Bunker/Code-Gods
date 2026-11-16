@@ -63,3 +63,9 @@ export function lookAllPrice(rows: readonly ({ lookPrice?: number } | undefined)
 export const watcherTypeOf = (variant: string): "lines" | "grids" => (variant.startsWith("grid") ? "grids" : "lines");
 /** Its share of power: lines about 15 s fresh, most turns left to the climber (W2, #674). */
 export const KEEP_FRESH_SHARE = 0.2;
+
+/** A What-if quote's price, shown before the press: one look's price per candidate (W3 #882); free where looks are free. */
+export function quotePrice(lookPrice: number | undefined, candidates: number): string {
+  const p = (lookPrice ?? 0) * candidates;
+  return p > 0 ? `${(Math.round(p * 100) / 100).toFixed(2)} energy` : "free";
+}

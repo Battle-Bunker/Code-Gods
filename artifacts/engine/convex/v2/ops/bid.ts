@@ -71,3 +71,12 @@ export const { op: done, as: doneAs } = defineOp("bid.done", "mutation", async e
   await save(env.ctx, room, member, r => ({ ...r, done: true }));
   return { ok: true as const };
 });
+
+/** The owner ends an open bid phase (v1's cancelBidding): the bids are forgotten and nothing is dealt. */
+export const { op: cancel, as: cancelAs } = defineOp("bid.cancel", "mutation", async env => {
+  const { room } = inRoom(env);
+  openPhase(room);
+  for (const row of await env.ctx.db.query("v2RoomBids").withIndex("by_room_member", q => q.eq("roomId", room._id)).take(MAX_MEMBERS)) await env.ctx.db.delete(row._id);
+  await env.ctx.db.patch(room._id, { bidding: undefined, revision: room.revision + 1 });
+  return { ok: true as const };
+});

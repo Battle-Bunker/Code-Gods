@@ -55,7 +55,7 @@ test("a family page offers the family's dealable parameters and tie-breakers, an
   assert.deepEqual(p.rule.params, { A: 8 });
   assert.equal(p.rule.tieBreaker, "even");
   assert.deepEqual(p.tieBreakers.map(t => t.id), ["legs", "even"]);
-  assert.match(p.card, /area as close as possible to 8\. Tie-breaker: make the two legs as close to equal/);
+  assert.match(p.card, /area as close as possible to 8\. Secondary: Make the two legs as close to equal/);
   assert.deepEqual(p.reads, ["the triangle with the axes", "the line on the plane", "slope-intercept"]);
 });
 

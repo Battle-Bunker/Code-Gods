@@ -1,12 +1,12 @@
 // Strangers · Bold
-// Main part: touching strangers in the corner boxes. Tie-breaker: strangers that are both prime.
+// Main part: touching strangers in the corner boxes. Secondary preference: strangers that are both prime.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: change FAR = 2 to 1: single steps, the same price per step, but more turns to get there.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   const gcd = (x, y) => (y ? gcd(y, x % y) : x);   // the greatest common divisor
   let main = 0, ones = 0;
@@ -20,7 +20,7 @@ function score(b, p) {
     const u = b[x[i]], w = b[x[j]];
     if ([2, 3, 5, 7].includes(u) && [2, 3, 5, 7].includes(w) && gcd(u, w) === 1 && Math.abs(u - w) >= 2) primeSt++;
   }
-  return [main, primeSt];   // main: how many touching pairs in the corner boxes are strangers (more is better); tie-breaker: more strangers that are both prime is better
+  return [main, primeSt];   // main: how many touching pairs in the corner boxes are strangers (more is better); secondary: more strangers that are both prime is better
 }
 
 const FAR = 2;      // how far one change may go
