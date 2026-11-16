@@ -1,17 +1,19 @@
 # Redesign, role "minimal": one height, one price list, one sentence for score
 
-Analyst document, 16 November 2026. Nothing here is built. Numbers in the example are hand-computed from the stated
-dials, not simulated.
+Analyst document, 16 November 2026. Nothing here is built or simulated. Every claim carries a label: **[C]** true by
+construction (follows from the definitions), **[O]** observed in a narrow simulation (a dozen ten-minute games a row,
+six hand-written strategies, one preset: an existence proof, not a property of the game), **[J]** my conjecture.
 
 ## The finding
 
 Seven of the twelve wanted properties are one statement: **no move may change anyone's score by more than a fixed
 multiple of what that move (or its undo) costs.** "Bigger costs more and scores more", "score is the energy it takes to
 get there", "no rule above par", "an exact hit is only modestly above a near miss", "a modest bump keeps most of the
-value" and "damage is measured by the cost of repair" are all that sentence. The present machine cannot promise it,
-because score and price are two different functions: score is rarity under a random walk, price is fee plus rise.
-Every patch on the list (the 35-bit gate, the 2-bit cap, tiers, floors, the weight of 100) is a clamp where the two
-disagree. The proposal makes score a function *of prices*, so they cannot disagree.
+value" and "damage is measured by the cost of repair" are all that sentence [J: this is my reading of the owner's
+words]. The present machine cannot promise it, because score and price are two different functions: score is rarity
+under a random walk, price is fee plus rise [C]. I read the patches (the 35-bit gate, the 2-bit cap, tiers, floors,
+the weight of 100) as clamps where the two disagree [J]. The proposal makes score a function *of prices*, so the
+sentence holds by arithmetic [C].
 
 ## The machine, for a 12-year-old
 
@@ -41,7 +43,7 @@ disagree. The proposal makes score a function *of prices*, so they cannot disagr
   least 1. An over-estimate of the price only lowers the score, so a bounded search is safe.
 - **Lock**: a wall of energy around the states a predicate names. It is the one thing that is not a function of state.
 
-Three facts follow by arithmetic, for every rule, with no per-rule check: a score never exceeds the object's own
+Three facts follow by arithmetic, for every rule, with no per-rule check [C]: a score never exceeds the object's own
 height; a move changes a score by at most pickiness times its price or its undo's price; one player's score on the board
 never exceeds the height objects started with plus the net lift players have paid.
 
@@ -64,7 +66,7 @@ never exceeds the height objects started with plus the net lift players have pai
 
 ## Worked example
 
-Dials: a quarter of a bit per unit of height; friction 0.02 per unit; a mirror costs 0.5; pickiness 2. Line
+All [C], hand-computed. Dials: a quarter of a bit per unit of height; friction 0.02 per unit; a mirror costs 0.5; pickiness 2. Line
 y = 8x + 90. Ann wants the y-intercept on a prime ending in 7 (67, 97, 107 are worth 16.75, 24.25, 26.75). Ben wants
 the gradient on a power of two (8 is worth 2, 16 is worth 4).
 
@@ -77,10 +79,12 @@ the gradient on a power of two (8 is worth 2, 16 is worth 4).
   That is the "temporary loss".
 - A rival shifts the intercept down ten, to 87, for 0.2 energy: Ann loses 5.4 bits and repair costs 2.7, thirteen times
   the knock.
-- A rival mirrors the line (intercept −97) for 0.5: Ann's trophy is one mirror away, so she keeps 23.25. Today that
-  move takes nearly everything.
+- A rival mirrors the line (intercept −97) for 0.5: Ann's trophy is one mirror away, so she keeps 23.25. (In the one
+  simulation of today's machine, such sideways knocks took a median 5 to 8 bits [O].)
 
 ## Table 2: what would go
+
+The left column is [C] (the machine does not use these). The right column is [J].
 
 | Present mechanism | What it was compensating for |
 |---|---|
@@ -96,35 +100,44 @@ the gradient on a power of two (8 is worth 2, 16 is worth 4).
 
 ## Not achieved; needs something real
 
-- **Property 1.** This machine makes the landscape *easier* to search: scores are smooth and transparent. Difficulty
-  has to come from secret rules, readings that share numbers and pull against each other, and other minds knocking and
-  locking. No pricing rule supplies it.
-- **Rearrangements.** No height that depends on the state alone can make a mirror or swap dearer to undo than to do:
-  same numbers, same height, same price both ways. What the machine gives instead is that a cheap rearrangement can only
-  do cheap damage. Real defence needs the lock.
-- **Locks are not optional.** Downward knocks get *more* leverage than today (thirteen to one above). That is what the
-  owner described, but without locks I expect tall objects not to survive.
-- **Primes.** If lift is by size, a prime costs only a step or two more than the round number beside it. "Primes are
-  hard because multiplying cannot reach them" at tens of bits contradicts property 6. They are two ends of the
-  friction-to-lift dial.
-- **Flip-flop and standstill.** Not addressed; turnover stays.
-- **Piling on.** Points are a product and score now tracks energy one for one, so pouring everything into one object
-  pays best. Only rival readings and knocks oppose it. This may be the "one state is enough" bug.
+- **Property 1** [C]. Scores become smooth and transparent, which makes the landscape easier to search, not harder.
+  Whatever makes the game hard must come from elsewhere: secret rules, readings that share numbers, other minds.
+- **Rearrangements** [C]. No height that depends on the state alone can make a mirror or swap dearer to undo than to
+  do: same numbers, same height, same price both ways. The machine gives only: a cheap rearrangement does cheap damage.
+- **Knock leverage** [C]. A downward knock costs friction; its repair costs friction plus lift (thirteen to one above).
+  The lock is the only defence the machine offers. Whether tall objects survive without it, I do not know.
+- **Primes** [C]. If lift is by size, a prime costs a step or two more than its round neighbour. "Primes are hard
+  because multiplying cannot reach them", at tens of bits, contradicts property 6: two ends of one dial.
+- **Increasing returns** [C]. Points are a product and score tracks energy one for one, so energy put into one object
+  earns more than the same energy spread over several. Whether play then piles onto one object is unknown [J: a risk].
+- **Flip-flop and standstill.** Seen once under today's machine [O]; nothing here bears on them either way.
 
-## The one cheap experiment
+## How this could be wrong
 
-In the existing competitive table (`competitive.ts`, `knock-phi.ts`), swap the score for the formula above on two line
-families whose reading is a coefficient (closed form, no search), and replay "one mixed player and two naive" at
-friction-to-lift 1:1 and 1:12, no locks. **Falsified if** sideways knocks still destroy more than a tenth of the bits
-lost, or if no friction setting gives both late climbing and a knocker's win share under 50%, or if more than half the
-board's height ends on one object.
+- **Assumptions.** That the owner wants cost itself as value. Rarity also counts *how many ways* lead to a state;
+  deleting it may delete a force for diversity. That "cheapest price found" is computable for readings like area. That
+  one pickiness suits every rule.
+- **Strongest alternative.** The patches may come not from score and price being two functions, but from rules that
+  reward patterns height cannot see, and from an exchange rate that was never set. Then keeping rarity and fixing those
+  two is the smaller change, and this proposal throws away a working measure.
+- **What a cleverer player might do.** Read rivals' secret rules off the smooth response of their total to small
+  probes, which cliffs used to hide. Park just above many trophies, where overshoot is nearly free. Build trophies'
+  cheapest holders out of fractions the height undercharges. Use a lock as a weapon: rearrange cheaply, then wall the
+  object in the bad state. Form a coalition that lifts one shared number. I have not thought of the sixth.
+- **What would change my mind.** A reading where the price search is slow or gameable; a person inferring a rule in a
+  minute; any hand-built state whose score exceeds what the arithmetic above allows.
 
-## Unsure, and where the brief's summary is off
+## The one cheap check
 
-- Unsure the "cheapest price found" is cheap enough to compute for readings such as area or crossing.
-- Unsure pickiness is one number for all rules.
-- Grids fit formally (height is the cell sum, a pattern is a trophy); untested.
-- "Bits gained ≤ energy paid in surcharge" is not true today: a sideways move can gain many bits for no surcharge. It
-  is the sideways knock run forwards.
-- The size-based height and its price exist only on `claude/gravity-measure`, not on `develop`.
-- "Nearest target" has no cliff at the target but has one halfway between targets, where one unit changes the level.
+Structural, not a forecast of play: implement the score for two coefficient readings (closed form) and enumerate every
+one-call move from a few thousand states. **Falsified if** any move changes a score by more than pickiness times its
+price or its undo's, or any score exceeds height: then the "by construction" claims are wrong as implemented. Replaying
+the competitive table afterwards would show only what six scripted strategies do; a human trying to break it for an
+hour is worth more.
+
+## Where the brief's summary is off
+
+- "Bits gained ≤ energy paid in surcharge" is false today [C]: a sideways move can gain bits for no surcharge.
+- The size-based height and its price are on `claude/gravity-measure` only, not on `develop` [C].
+- "Nearest target" has no cliff at the target but has one halfway between targets, where one unit changes the level
+  [C by the rule's definition; its size in play unmeasured].
