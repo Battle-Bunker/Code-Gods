@@ -223,6 +223,28 @@ export function dockFor(view: Pick<ViewState, "panes" | "dock">, phase: GamePhas
   return tree;
 }
 
+/**
+ * The panes a drop replaced (v1: a pane dragged onto the centre of another replaces it, never stacks as a tab): the
+ * other members of each group that a pane joined from another group. A move to an edge, a tab click and a gutter
+ * dragged replace nothing; tabs a screen already had stay.
+ */
+export function droppedOnto(before: DockNode | null, now: DockNode | null): string[] {
+  if (!before || !now) return [];
+  const groupOf = new Map<string, number>();
+  dockGroups(before).forEach((l, i) => { for (const t of l.group.tabs) groupOf.set(t, i); });
+  const out: string[] = [];
+  for (const { group } of dockGroups(now)) {
+    const homes = new Set(group.tabs.map(t => groupOf.get(t)));
+    if (homes.size < 2) continue;
+    // The joiner is the pane whose old group the others did not share; the others are what it was dropped onto.
+    const counts = new Map<number | undefined, number>();
+    for (const t of group.tabs) counts.set(groupOf.get(t), (counts.get(groupOf.get(t)) ?? 0) + 1);
+    const joiner = group.tabs.find(t => counts.get(groupOf.get(t)) === 1 && t === group.active) ?? group.tabs.find(t => counts.get(groupOf.get(t)) === 1);
+    if (joiner) out.push(...group.tabs.filter(t => t !== joiner));
+  }
+  return out;
+}
+
 /** The phone's arrangement: columns left, main, right, then a bottom row; an empty column takes no room. */
 export function columns(panes: readonly OpenPane[]): Record<Place, string[]> {
   const out: Record<Place, string[]> = { left: [], main: [], right: [], bottom: [] };

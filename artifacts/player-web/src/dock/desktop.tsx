@@ -14,8 +14,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DockviewReact, type DockviewApi, type DockviewReadyEvent, type DockviewTheme, type IDockviewPanelHeaderProps, type IDockviewPanelProps } from "dockview-react";
 import "dockview-react/dist/styles/dockview.css";
-import { dockKindOf, formatDock, isGroup, type DockNode } from "@workspace/v2-affordances";
-import { dockFor, type GamePhase } from "@workspace/v2-client";
+import { dockKindOf, dockWithout, formatDock, isGroup, type DockNode } from "@workspace/v2-affordances";
+import { dockFor, droppedOnto, keepShown, type GamePhase, type ViewOp } from "@workspace/v2-client";
 import { useRuntime } from "@/core/affordance-runtime";
 import { toast } from "@/hooks/use-toast";
 import { fromDockview, toDockview } from "./adapter";
@@ -50,6 +50,8 @@ export default function DesktopDock({ phase }: { phase: GamePhase }) {
   const tree = useMemo(() => dockFor(view, phase), [view.panes, view.dock, phase]); // eslint-disable-line react-hooks/exhaustive-deps
   const treeNow = useRef(tree);
   treeNow.current = tree;
+  const viewNow = useRef(view);
+  viewNow.current = view;
   const container = useRef<HTMLDivElement>(null);
   const api = useRef<DockviewApi | null>(null);
   const gesture = useRef(false);
@@ -68,13 +70,29 @@ export default function DesktopDock({ phase }: { phase: GamePhase }) {
   const save = useCallback((): boolean => {
     const dock = api.current;
     if (!dock) return false;
-    const now = fromDockview(dock.toJSON());
-    if (!now || sameDock(now, treeNow.current)) return false;
-    void rt.perform("view.arrangeDock", { dock: formatDock(now), phase: kind }).then(out => {
-      if (!out.ok) { toast({ title: "The screen did not change", description: out.error.message, variant: "destructive" }); apply(treeNow.current); }
-    });
+    const drawn = fromDockview(dock.toJSON());
+    if (!drawn || sameDock(drawn, treeNow.current)) return false;
+    // A pane dropped onto the centre of another replaces it (v1), never stacks as a tab: the panes it landed on close.
+    const replaced = droppedOnto(treeNow.current, drawn);
+    const now = replaced.length ? dockWithout(drawn, p => replaced.includes(p)) : drawn;
+    if (!now) return false;
+    // The replaced panes close as the menu closes them (the shown panes kept first), then the arrangement is stored last.
+    for (const pane of replaced) { const panel = dock.getPanel(pane); if (panel) dock.removePanel(panel); }
+    const ops: ViewOp[] = replaced.length ? [...keepShown(viewNow.current, phase), ...replaced.map((pane): ViewOp => ({ id: "view.closePane", args: { pane } }))] : [];
+    void (async () => {
+      // The steps' arrangements in between are not drawn: the dock holds still as during a gesture, then draws the result.
+      if (ops.length) gesture.current = true;
+      try {
+        for (const op of [...ops, { id: "view.arrangeDock", args: { dock: formatDock(now), phase: kind } } as ViewOp]) {
+          const out = await rt.perform(op.id, op.args);
+          if (!out.ok) { toast({ title: "The screen did not change", description: out.error.message, variant: "destructive" }); break; }
+        }
+      } finally {
+        if (ops.length) { gesture.current = false; requestAnimationFrame(() => apply(treeNow.current)); }
+      }
+    })();
     return true;
-  }, [rt, kind, apply]);
+  }, [rt, kind, apply, phase]);
 
   const [ready, setReady] = useState(false);
   const onReady = useCallback((event: DockviewReadyEvent) => {

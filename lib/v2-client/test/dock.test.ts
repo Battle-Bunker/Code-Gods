@@ -122,3 +122,15 @@ test("a spectator's default is v1's: the leaderboard, the lines and public chat,
   assert.equal(formatDock(dockFor(opened, "live")!), "row(race 28, objects|*rules 44, public-chat 28)", "the spectator's screen kept; the pane opened in front at its home");
   assert.deepEqual(spectatorArrange(opened, "live", false), [], "stored once");
 });
+
+test("a pane dropped onto another's centre replaces it (v1 stored-panels: no tabs from a drop)", async () => {
+  const { droppedOnto } = await import("../src/panels.ts");
+  const before = parseDock("row(my-card 30, objects 40, column(feed 50, race 50) 30)");
+  assert.deepEqual(droppedOnto(before, parseDock("row(my-card 30, objects|*feed 40, race 30)")), ["objects"], "feed dropped on the lines");
+  assert.deepEqual(droppedOnto(before, parseDock("row(my-card 30, objects 40, column(race 50, feed 50) 30)")), [], "a move to an edge replaces nothing");
+  assert.deepEqual(droppedOnto(before, before), [], "a click on a tab, or a gutter dragged");
+  // Tabs the screen already had stay tabs: only the group the dropped pane joined loses its others.
+  const tabbed = parseDock("row(my-card|agents 30, objects 40, column(feed 50, race 50) 30)");
+  assert.deepEqual(droppedOnto(tabbed, parseDock("row(my-card|agents 30, objects|*race 40, feed 30)")), ["objects"]);
+  assert.deepEqual(droppedOnto(tabbed, parseDock("row(*my-card|agents|race 30, objects 40, feed 30)")), ["my-card", "agents"]);
+});
