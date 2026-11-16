@@ -543,6 +543,10 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     e.state.connections[a.request] = { userId: e.userId, client: "remote assistant", roomId: a.room ?? e.roomId, grant: a.grant };
     return ok;
   },
+  // The fake server has no script sandbox: a run is refused, and there are no runs to read.
+  "code.run": () => { throw new OpFailure("The offline server does not run code."); },
+  "code.get": () => { throw new OpFailure("No such run of yours."); },
+  "code.list": () => ({ page: [], nextCursor: null }),
   "panel.list": e => ({
     panels: Object.values(e.state.panels ?? {}).filter(p => p.userId === e.userId).map(p => ({
       panelId: p.panelId, slug: p.slug, title: p.title, placement: p.placement, size: p.size, currentVersion: p.versions.at(-1)!.version,

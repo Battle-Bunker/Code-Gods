@@ -205,6 +205,18 @@ export const agentPrograms = query({
   },
 });
 
+/** An act-log row as its player reads it: live, another player's move carries no mover, agent, calls or cost (v1's public log). */
+export const moveView = (game: Doc<"v2Games">) => (m: Doc<"v2Moves">) => {
+  const open = attributed(game, m.mine);
+  return {
+    seq: m.seq, worldSeconds: m.worldSeconds, objectId: m.objectId, number: m.number, agentId: open ? m.agentId ?? null : null, mine: m.mine,
+    calls: open ? m.calls : [], rep: open ? m.rep : "", stateBefore: m.stateBefore, stateAfter: m.stateAfter, before: snapIn(game)(m.before), after: snapIn(game)(m.after),
+    charge: open ? m.charge ?? null : null,
+    by: open && m.by ? { memberId: m.by, name: game.roster.find(r => r.memberId === m.by)?.name ?? "A player" } : null,
+    notes: m.notes ?? [],
+  };
+};
+
 /** The act log: moves that concern the caller, newest first. */
 export const moves = query({
   args: { gameId: v.string(), paginationOpts: paginationOptsValidator },
@@ -217,16 +229,7 @@ export const moves = query({
     return {
       ...page,
       // Live, another player's move carries no mover, agent, calls or cost (attributed: v1's public log).
-      page: page.page.map(m => {
-        const open = attributed(game, m.mine);
-        return {
-          seq: m.seq, worldSeconds: m.worldSeconds, objectId: m.objectId, number: m.number, agentId: open ? m.agentId ?? null : null, mine: m.mine,
-          calls: open ? m.calls : [], rep: open ? m.rep : "", stateBefore: m.stateBefore, stateAfter: m.stateAfter, before: snapIn(game)(m.before), after: snapIn(game)(m.after),
-          charge: open ? m.charge ?? null : null,
-          by: open && m.by ? { memberId: m.by, name: game.roster.find(r => r.memberId === m.by)?.name ?? "A player" } : null,
-          notes: m.notes ?? [],
-        };
-      }),
+      page: page.page.map(moveView(game)),
     };
   },
 });

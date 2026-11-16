@@ -530,4 +530,13 @@ export const v2Tables = {
   }).index("by_panel_version", ["panelId", "version"]),
   /** Recent save times per human (rolling-minute rate limit; at most LIMITS.savesPerMinute entries). */
   v2PanelQuotas: defineTable({ userId: v.string(), saves: v.array(v.number()) }).index("by_user", ["userId"]),
+  /**
+   * A human's code runs (v1's run_code, A15; codeRun.ts): a script's `main(data)` over one dataset of a game, read-only.
+   * One row per run, the caller's own: its source, outcome, the result as JSON text (bounded) and the console output.
+   */
+  v2CodeRuns: defineTable({
+    userId: v.string(), gameId: v.optional(v.id("v2Games")), title: v.string(), language: v.string(), source: v.string(),
+    dataset: v.string(), status: v.union(v.literal("ok"), v.literal("error")), resultJson: v.optional(v.string()),
+    output: v.string(), error: v.optional(v.string()), ms: v.number(), at: v.number(),
+  }).index("by_user_at", ["userId", "at"]),
 };
