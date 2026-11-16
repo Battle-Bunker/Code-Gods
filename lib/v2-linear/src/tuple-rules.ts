@@ -211,13 +211,15 @@ type PD = { digits: "odd" | "even"; meets: 1 | -1 };
 export const rulersTuple = tupleFamily<PD>({
   id: "rulers-tuple", title: "Same on Both Rulers (tuple)", depends: ["si"], rep: "si",
   versions: (["odd", "even"] as const).flatMap(digits => ([1, -1] as const).map(meets => ({ digits, meets }))),
-  main: p => `Find where the line meets y = ${p.meets === 1 ? "x" : "−x"}, ignoring a minus sign. A palindrome reads the same backwards (7, 44, 343, 1221); find the one with an ${p.digits} number of digits nearest to it. Primary: that palindrome, bigger is better.`,
+  main: p => `Find where the line meets y = ${p.meets === 1 ? "x" : "−x"}, ignoring a minus sign (a line parallel to it never meets it: use its y-intercept instead). A palindrome reads the same backwards (7, 44, 343, 1221); find the one with an ${p.digits} number of digits nearest to it. Primary: that palindrome, bigger is better.`,
   close: () => "How far the meeting point is from that palindrome: closer is better.",
   read: (ctx, p) => {
     const mRef = ref("si", "m"), { m, c } = lineMC(ctx);
     if (m === null || c === null) return { none: { undefined: "a vertical line" }, from: mRef };
     const den = Qn.sub(q(p.meets), m);
-    if (Qn.sign(den) === 0) return { none: { undefined: "parallel: it never meets" }, from: mRef };
+    // A parallel line never meets it: it reads its y-intercept's size instead (the coordinator's call, 16 Nov), so a
+    // tilt or reflection onto the parallel is not a one-move knock to nothing. Only y = ±x itself scores nothing.
+    if (Qn.sign(den) === 0) return Qn.sign(c) === 0 ? { none: { undefined: "the line itself: it meets everywhere" }, from: mRef } : { x: Qn.abs(c), m, c, from: [mRef, ref("si", "c")] };
     return { x: Qn.abs(Qn.div(c, den)), m, c, from: [mRef, ref("si", "c")] };
   },
   thirdReads: { "gradient-digits": ref("si", "m"), "intercept-multiple": ref("si", "c") },
