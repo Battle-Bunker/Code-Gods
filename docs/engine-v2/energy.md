@@ -24,8 +24,14 @@ better), the readings it `reads`, and its own `searches` (heuristics that propos
   tenth, priced as two choices. It has no inverse. The dynamic measure needs no exact potential (energy is re-estimated
   from starts, not read from a stationary law), so a one-way move is allowed. The birth walk never takes a one-way move (v2-core `walkStep`
   stays put when it draws one, and `cycleDiagnostic` skips them), so births keep the law π ∝ 2^−φ.
+- **Fraction fees** (17 Nov, the owner: "it should cost information to mutate a denominator to a bigger value"): an
+  amount p/q has size |p| + ⌈log2 q⌉ (v2-core codes.ts `amountSize`; whole numbers keep |k|), and the rational code's
+  rate is re-solved so births keep the law. A shift by 1/97 costs 115 energy (was about 11,650), 1/7 costs 39 (was
+  92), 1/1000 costs 198; a shift by 97 costs 11,659 (was 11,651). Re-measured below: padding still does not pay (ratio
+  about 1·10⁻⁷: the act's surcharge for the state's growth still prices it).
 - **Padding does not pay** (`test/energy.test.ts`, seen narrowly: one test rule u = −|c − 867|, K = 400, line-q
-  prices). E(867) = 549, E(8,670,001/10,000) = 573: the padded state scores the plain one plus about three roundings
+  prices; re-measured 17 Nov with the digit fees: E(867) = 548, E(8,670,001/10,000) = 573, cheapest padding found
+  2.4·10⁸). E(867) = 549, E(8,670,001/10,000) = 573: the padded state scores the plain one plus about three roundings
   (8.4 each), because its starts round to numbers within a binary digit of 867's starts. The cheapest padding found
   (a shift by 1/10,000, a stretch by 8,670,001/8,670,000, or two stretches) costs about 7·10^8, so the ratio of energy
   gained to energy spent padding is about 3·10^−8. How this could be wrong: a cheaper padding path than the three tried
@@ -162,3 +168,22 @@ The design-principles check (design-principles.md, adapted as above; labels as a
 How this could be wrong: K = 8 is noisy; the heuristics price group rewrites by single-cell acts only (a row move or a
 swap can be cheaper, so a good board can be overvalued); the one-digit test checks the dealt peers only (the spaces
 exclude every instance a one-digit board tops by construction, but a two-digit board may come close on some).
+
+## Fraction-native rules after the digit fees (seen narrowly, 17 Nov)
+
+One decent state per rule (its first dealt parameters), its energy at K = 40, and what it costs to reach from eight
+newborn line-q lines (each move its own act at the act charge, surcharge included): rounding the read reading to a
+whole number then one solved move, or the solved move alone. A player's income is about 2,530 a game.
+
+| Rule | State | u | Energy | Round then solve: median (min) | Solve alone: median |
+|---|---|---|---|---|---|
+| Unit Fraction (3) | c = 1/23 | 4.5 | 5 | 2,170 (196) | 7,482 |
+| Prime Sliver (3) | m = 1/23 | 4.5 | 7 | 46,868 (278) | 57,040 |
+| Crossing Sliver (7) | y = 2x − 2/17 | 4.1 | 10 | 1,067 (221) | 8,059 |
+| Fine Bottom (k 2) | c = 1/8 | 3.0 | 38 | 318 (69) | 1,000 |
+| Next-door Bottom (t 1) | m = 15/16 | 4.0 | 29 | 18,479 (687) | 33,396 |
+
+The rules on the y-intercept are now reachable within an income from a typical newborn; the two on the gradient are
+not from the median newborn (its gradient's own size is the cost: the tilt's numerator, not the fraction), only from the
+better ones. Energies are small because same-size starts reach these states cheaply through the shortcuts. How this could
+be wrong: one state per rule, eight starts, and only these two routes (a stretch or a mirror first can be cheaper).

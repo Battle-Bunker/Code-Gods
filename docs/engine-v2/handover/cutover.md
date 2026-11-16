@@ -23,10 +23,10 @@ Labels: **built** (in the code and tested), **seen narrowly** (measured under th
     seats swap places on noise; clear leads hold. Raising K to 16 halves the variance but (guess) about doubles a
     commit (some 460 ms median on grids against the 600 ms gate): K stays 8. Guess: the standing is a sum over many commits per
     object over a game, which averages some of it.
-  - *Fraction-native rules and fees:* stating a fraction is priced like its denominator's size (si.shift by 1/97 costs
-    about 11,650 energy against 6 for 1; 1/7 costs 92), so Unit Fraction, Prime Sliver, Crossing Sliver, Fine Bottom and
-    Next-door Bottom are reachable only through shortcuts (stretch by ½, ⅓, 1/10; rounding; mirrors). Proposal (not
-    built): price an amount's denominator by its digits (as decision 25 prices shortcuts) rather than by its size.
+  - *Fraction fees (built, #1168):* a denominator now costs its binary digits (size |p| + ⌈log2 q⌉): 1/97 costs 115
+    energy (was 11,650). Padding still does not pay (ratio about 1·10⁻⁷). The y-intercept fraction rules are reachable
+    within an income from a typical newborn; Prime Sliver and Next-door Bottom are not from the median newborn (the
+    gradient's own size): table in energy.md. Line commits stay inside the gate (median 116 ms, max 374 ms).
 - **Pair utility ideas (for later; two-line systems are withheld):** (1) *Crossing Prime*: the two lines' crossing x as
   a fraction p/q, utility log2 p − 4|x − p| for the nearest prime p (big crossings, precise); (2) *Right Angle*: m₁·m₂
   close to −1 with the gradients' bottoms big, utility log2(q₁q₂) − 8|m₁m₂ + 1|; (3) *Parallel Gap*: equal gradients
