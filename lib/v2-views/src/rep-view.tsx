@@ -4,8 +4,8 @@
  * expanded face shows several side by side.
  */
 import type { ReactElement } from "react";
-import { elementDecl, elementValue, refKey, representation, type ElementRef, type ElementValue, type Mark, type ObjectType, type SceneData, type Term } from "@workspace/v2-core";
-import { marksForRep, meaningKey, projectRef } from "./refs.ts";
+import { elementDecl, elementValue, refKey, representation, type ElementRef, type ElementValue, type GridScene, type Mark, type ObjectType, type SceneData, type Term } from "@workspace/v2-core";
+import { markRefs, marksForRep, meaningKey, projectRef } from "./refs.ts";
 import { labelWithArgs, typesetNote } from "./format.ts";
 import { rendererFor, type DrawSize } from "./scene.ts";
 import "./render/register.ts";
@@ -54,6 +54,12 @@ export interface RepViewProps<S> {
   readonly roles?: readonly { readonly ref: ElementRef; readonly role: "main" | "tb" }[];
 }
 
+/** The marks a grid representation draws: its own elements' and those on the board's cells it shows. */
+function gridMarks(repId: string, scene: GridScene, marks: readonly Mark[]): readonly Mark[] {
+  const cells = new Set(scene.cells.map(r => refKey({ ...r, site: undefined })));
+  return marks.filter(m => markRefs(m).every(r => r.rep === repId || cells.has(refKey({ ...r, site: undefined }))));
+}
+
 /** The marks with their notes' fractions typeset, once, so every view and its bookkeeping read the same text. */
 const typesetMarks = (marks: readonly Mark[]): readonly Mark[] =>
   marks.some(m => m.kind === "note" && /\d\/\d/.test(m.text)) ? marks.map(m => (m.kind === "note" ? { ...m, text: typesetNote(m.text) } : m)) : marks;
@@ -89,7 +95,8 @@ export function RepView<S>(props: RepViewProps<S>): ReactElement {
       {renderer.render({
         rep: repId, scene, values, size,
         // A plane also draws the marks of other representations that project onto it by meaning.
-        marks: typesetMarks(rep.scene === "plane" ? (props.marks ?? []) : marksForRep(repId, props.marks ?? [])),
+        // A grid representation draws the board's cells too, so it also draws the marks a rule puts on them.
+        marks: typesetMarks(rep.scene === "plane" ? (props.marks ?? []) : scene.kind === "grid" ? gridMarks(repId, scene, props.marks ?? []) : marksForRep(repId, props.marks ?? [])),
         project: (r, reps) => projectRef(type, r, reps),
         terms: new Map((props.terms ?? []).map(t => [t.id, t])),
         before: props.before === undefined ? undefined : valuesOf(type, props.before, site),

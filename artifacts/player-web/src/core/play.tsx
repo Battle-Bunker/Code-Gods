@@ -24,6 +24,7 @@ import { useLive } from "@/site/lib/convex";
 import type { Header, Room } from "@/sdk/types";
 import { Dock } from "@/dock/dock";
 import { useOpenPane } from "@/dock/open-pane";
+import { LiveErrorPanel } from "@/dock/pane-parts";
 import { PANE_COMPONENTS, StoredPanelPane } from "@/panes";
 import { ReplayBar } from "@/replay/bar";
 import { parseMoment } from "@/replay/moment-link";
@@ -86,8 +87,9 @@ function PlanningBar({ header, owner }: { header: Header; owner: boolean }) {
   );
 }
 
-function BarError({ error }: ErrorFallbackProps) {
-  return <p className="border-b px-3 py-1.5 text-xs text-destructive" role="alert">Your totals could not load: {error instanceof Error ? error.message : String(error)}</p>;
+/** A bar whose read failed: plain words, and it comes back by itself on that read's next answer (as a pane does). */
+function BarError(props: ErrorFallbackProps) {
+  return <LiveErrorPanel {...props} what="Your totals" testId="bar-error" className="flex flex-wrap gap-x-3 border-b px-3 py-1.5 text-xs [&>p]:m-0" />;
 }
 
 /**

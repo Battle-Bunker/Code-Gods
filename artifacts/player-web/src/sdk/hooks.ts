@@ -171,6 +171,12 @@ export function useMyAgents(): Agent[] | undefined {
   const replayed = useMemo(() => (frame && member ? frame.agents(member) : null), [frame, member]);
   return replayed ?? live?.page;
 }
+/** All of the viewer's agents, page by page (≤ 200 a player, 50 a page: W3 #898), for My agents; none in a replay. */
+export function useMyAgentPages() {
+  const { gameId, seated } = useGameScope();
+  const replay = useReplaySource();
+  return useLivePaged(api.v2.play.agents, gameId && seated && !replay ? { gameId } : "skip", 50);
+}
 /** An agent's energy account; not in the record, so none in a replay. */
 export function useAgentEnergy(agentId: string | null | undefined) {
   const replay = useReplaySource();
