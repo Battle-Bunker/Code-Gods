@@ -61,7 +61,9 @@ export function valuesOf(state: unknown, variantId: string, seats: readonly Seat
  * The object count a game's values assume for the uniqueness correction: its mean over the game (the starting objects
  * and half the births it expects), fixed per game. A live count would make every stored value stale at each birth.
  */
-export function valueObjects(settings: { startingObjects: number; worldSeconds: number; economy: { birthsPerSecond: number } }): number {
+export function valueObjects(settings: { startingObjects: number; worldSeconds: number; economy: { birthsPerSecond: number }; turnover?: { liveCap: number; retiredHolds: boolean; retiredPoints?: string } }): number {
+  // Line turnover with retired lines releasing their states (retirement-design.md rule 4): at most the cap hold states.
+  if (settings.turnover && !settings.turnover.retiredHolds) return settings.turnover.liveCap;
   return Math.max(1, Math.round(settings.startingObjects + settings.economy.birthsPerSecond * settings.worldSeconds / 2));
 }
 /** A game's value scope: its variant and `valueObjects`. */

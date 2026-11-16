@@ -15,7 +15,7 @@
 import type { ReplayCursor } from "@workspace/v2-affordances";
 import { familyOf } from "../sdk/rule.ts";
 import { defaultRepOf } from "../sdk/object-types.ts";
-import type { Agent, Digest, Move, MyRuleRow, ObjectSort, PlayObject, Standings, StandingsPoint } from "../sdk/types.ts";
+import type { Agent, Digest, Move, MyRuleRow, ObjectShow, ObjectSort, PlayObject, Standings, StandingsPoint } from "../sdk/types.ts";
 
 /** The file version this page reads (engine replays.ts STORED_REPLAY_VERSION). */
 export const STORED_REPLAY_VERSION = 1;
@@ -236,7 +236,7 @@ export interface ReplayFrame {
   history: StandingsPoint[];
   /** A line as it stood, with `member`'s value of it (none for null); null before its birth. */
   object(objectId: string, member: string | null): PlayObject | null;
-  objectIds(member: string, sort: ObjectSort): { objectId: string; number: number }[];
+  objectIds(member: string, sort: ObjectSort, show?: ObjectShow): { objectId: string; number: number }[];
   /** The moves that concerned `member`, newest first. */
   moves(member: string): Move[];
   digest(member: string): Digest | null;
@@ -280,16 +280,20 @@ export function frameAt(ix: ReplayIndex, applied: number): ReplayFrame {
       }
       return out;
     },
-    objectIds(member, sort) {
+    objectIds(member, sort, show = "all") {
       const key = (t: Timeline): number => {
         if (sort === "born") return t.number;
+        if (sort === "oldest") return -t.number;
+        if (sort === "mutations") return lastAt(t.states, a);
         if (sort === "recent") return t.states[lastAt(t.states, a)]!.changedAt;
         const v = valueOf(t, member);
         if (!v) return -Infinity;
-        return sort === "points" ? v.points : sort === "rarity" ? v.rarityBits : v.want;
+        return sort === "points" ? v.points : sort === "least" ? -v.points : sort === "rarity" ? v.rarityBits : v.want;
       };
       // The server pages its indexes in descending order, ties newest first.
-      return born.map(t => ({ t, k: key(t) })).sort((x, y) => y.k - x.k || y.t.number - x.t.number).map(({ t }) => ({ objectId: t.objectId, number: t.number }));
+      // v1's filters, as the server's: earning you points (and contested is the same here); chips need the server.
+      const keep = (t: Timeline) => show === "all" || show === "chips" || (valueOf(t, member)?.points ?? 0) > 0;
+      return born.filter(keep).map(t => ({ t, k: key(t) })).sort((x, y) => y.k - x.k || y.t.number - x.t.number).map(({ t }) => ({ objectId: t.objectId, number: t.number }));
     },
     moves(member) {
       const list = ix.moves.get(member) ?? [];

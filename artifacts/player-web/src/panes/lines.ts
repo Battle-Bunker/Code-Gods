@@ -10,21 +10,28 @@ import type { ViewState } from "@workspace/v2-affordances";
 // ------------------------------------------------------------------ sort
 
 export type ViewSort = ViewState["objects"]["sort"];
-export type ServerSort = "points" | "rarity" | "recent";
+export type ServerSort = ViewSort;
 
 /** The human's order (view.sortObjects) as the index the server pages by (rarity: more bits first). */
 export function serverSort(sort: ViewSort | undefined): ServerSort {
-  switch (sort) {
-    case "rarity": return "rarity";
-    case "recent": return "recent";
-    default: return "points";
-  }
+  return sort ?? "points";
 }
 
 export const SORTS: readonly { sort: ViewSort; label: string }[] = [
   { sort: "points", label: "your points" },
   { sort: "rarity", label: "your bits (rarity)" },
+  { sort: "want", label: "the others' bits" },
+  { sort: "mutations", label: "most changed" },
+  { sort: "born", label: "newest" },
+  { sort: "oldest", label: "oldest" },
   { sort: "recent", label: "recently changed" },
+];
+
+/** v1's filters (W3-2 #936): which lines the list shows. */
+export const SHOWS: readonly { show: "all" | "positive" | "contested" | "chips"; label: string }[] = [
+  { show: "all", label: "all" },
+  { show: "positive", label: "earning you points" },
+  { show: "contested", label: "contested" },
 ];
 
 // ------------------------------------------------------------------ payoff rectangle

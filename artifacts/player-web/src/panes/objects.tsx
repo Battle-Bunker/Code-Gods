@@ -28,7 +28,7 @@ import { listMaxHeight } from "@/lib/virtual-window";
 import { contestedLines, foldTugs } from "./tug-of-war";
 import { toast } from "@/hooks/use-toast";
 import { AffordanceButton } from "@/site/components/action";
-import { digestScale, payoffRect, serverSort, SORTS, whyLine, widen, type PayoffScale } from "./lines";
+import { digestScale, payoffRect, serverSort, SHOWS, SORTS, whyLine, widen, type PayoffScale } from "./lines";
 
 /** The rectangle's box: the side the largest value fills, and room for its two edge labels. */
 const SIDE = 44, LABEL_W = 42, LABEL_H = 13;
@@ -85,7 +85,25 @@ function SortControl() {
         onChange={e => sort.run({ sort: e.target.value as (typeof SORTS)[number]["sort"] }).catch((err: Error) => toast({ title: "The order did not change", description: err.message, variant: "destructive" }))}>
         {SORTS.map(s => <option key={s.sort} value={s.sort}>{s.label}</option>)}
       </select>
+      <ShowControl />
     </label>
+  );
+}
+
+/** v1's filters: all lines, only those earning you points, only the contested ones (the view state, so an assistant can set it). */
+function ShowControl() {
+  const view = useView();
+  const filter = useAffordance("view.filterObjects");
+  const show = view.objects.filter.show ?? "all";
+  return (
+    <>
+      <span className="ml-2 text-muted-foreground">Show</span>
+      <select value={show} disabled={!filter.available} title={filter.reason ?? filter.tooltip} data-testid="select-lines-show"
+        className="border border-[hsl(var(--card-border))] bg-background px-1.5 py-0.5"
+        onChange={e => filter.run({ ...view.objects.filter, show: e.target.value as (typeof SHOWS)[number]["show"] }).catch((err: Error) => toast({ title: "The list did not change", description: err.message, variant: "destructive" }))}>
+        {SHOWS.map(s => <option key={s.show} value={s.show}>{s.label}</option>)}
+      </select>
+    </>
   );
 }
 
@@ -171,7 +189,7 @@ function SeatedLines() {
   const moves = useMoves();
   const contested = useMemo(() => contestedLines(foldTugs(moves.results)), [moves.results]);
   const digest = useDigest();
-  const ids = useObjectIds(serverSort(view.objects.sort));
+  const ids = useObjectIds(serverSort(view.objects.sort), 30, view.objects.filter.show ?? "all");
   const openObject = useAffordance("view.openObject");
   const panes = usePaneOps(useReplaySource() ? "replay" : header?.phase ?? "live");
   const scale = useMemo(() => digestScale(digest?.packed), [digest?.packed]);

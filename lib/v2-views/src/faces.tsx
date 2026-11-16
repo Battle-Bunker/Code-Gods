@@ -35,6 +35,7 @@ export function bitsLine(a: Annotation): string {
 /** One part in one line: "● main part: y-intercept 25 · 2 above 23" / "◆ tie-breaker: that prime 23". */
 export function partLine(p: Contributor): string {
   const g = `${partGlyph(p.depth)} ${p.name}:`;
+  if (p.brief) return `${g} ${p.brief}`;
   const said = p.source.filter(x => x.text);
   const what = p.source.length > 3 ? p.title : said.map(x => `${x.label} ${x.text}`).join(", ");
   // A distance that already names what was read ("y-intercept 32 is nearest 31; …") is said once.
@@ -426,7 +427,9 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
 
       <div className="v2v-exp-body">
         <PartsList parts={sa.parts} active={lit} onActive={setHoverPart} selected={sel} onSelect={setSelected} />
-        {sa.parts.length > 1 && <p className="v2v-combine">The main part counts first; {`each preference after it decides only between ${a.noun}s that are equally good on everything before it.`}</p>}
+        {/* Lines' points become the sum of each layer's rarity (the owner's choice, 16 Nov): "counts first" would be false,
+            so lines say nothing about how layers combine until the per-layer bits draw the points tree. */}
+        {sa.parts.length > 1 && a.noun !== "line" && <p className="v2v-combine">The main part counts first; {`each preference after it decides only between ${a.noun}s that are equally good on everything before it.`}</p>}
         {props.improvement !== false && (props.climb
           ? <div className="v2v-moves-col"><MovesList list={list} noun={a.noun} bits={a.bits} others={props.others} />{props.climb}</div>
           : <MovesList list={list} noun={a.noun} bits={a.bits} others={props.others} />)}

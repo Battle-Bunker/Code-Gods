@@ -8,7 +8,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { query, type QueryCtx } from "../_generated/server";
 import { slimKnots, valueFnIn, type ValueScope } from "./values";
-import { seatRules } from "./loop";
+import { holdingRows, seatRules } from "./loop";
 import { dealablePool, familyOf, keepsParams } from "./deal";
 import { presetOf } from "./presets";
 import { decode, encode, penaltyWeightOf, scopeOf, typeOf, valuesOf, variantOf } from "./world";
@@ -175,7 +175,7 @@ export const agentEnergy = query({
     const capacity = energyCapacity(perSecond, game.settings.economy.fullChargeSeconds);
     const now = world === null ? { balance: e.energy, settledWorldSeconds: e.settledAt } : settle({ balance: e.energy, settledWorldSeconds: e.settledAt }, Math.max(e.settledAt, world), perSecond, capacity);
     return {
-      agentId: agent._id, energy: now.balance, acts: e.acts, skips: e.skips, failures: e.failures, spend: e.spend, pointsGained: e.pointsGained, lastActAt: e.lastActAt ?? null,
+      agentId: agent._id, energy: now.balance, acts: e.acts, skips: e.skips, failures: e.failures, spend: e.spend, spendRead: e.spendRead ?? 0, spendChange: e.spendChange ?? 0, lastAct: e.lastAct ?? null, pointsGained: e.pointsGained, lastActAt: e.lastActAt ?? null,
       perSecond, capacity, settledAt: now.settledWorldSeconds, history: e.history ?? [],
     };
   },
@@ -286,7 +286,7 @@ export const tugs = query({
     return rows.map(t => ({
       objectId: t.objectId, number: t.number, moves: t.moves, flips: t.flips, mySpend: t.mySpend,
       // Live, a tug names nobody on the other side (v1's public log); an ended game does.
-      others: attributed(game, false) ? t.others.map(memberId => ({ memberId, name: nameOf(memberId) })) : [], from: t.from, to: t.to, best: t.best,
+      others: attributed(game, false) ? t.others.map(memberId => ({ memberId, name: nameOf(memberId) })) : [], from: t.from, to: t.to, best: t.best, cycle: t.cycle ?? null,
     }));
   },
 });
@@ -331,7 +331,7 @@ export async function quoteOthers(ctx: QueryCtx, game: Doc<"v2Games">, memberId:
     const wire = encode(r.result, game.variant);
     const exact = valuesOf(r.result, game.variant, seats, scopeOf(game).objects, penaltyWeightOf(game)).find(x => x.memberId === memberId)?.want ?? 0;
     const want = exact + (salt !== null && disclosesNoise(game) ? readingNoise(game, memberId, `quote:${object._id}:${state.version}:${wire}:${salt}`) : 0);
-    const holders = await ctx.db.query("v2ObjectStates").withIndex("by_game_state", q => q.eq("gameId", game._id).eq("state", wire)).take(2);
+    const holders = await holdingRows(ctx, game._id, wire).take(2);
     const holder = holders.find(h => h.objectId !== object._id);
     const taken = holder ? (await ctx.db.get(holder.objectId))?.number ?? null : null;
     after.push({ state: wire, want, taken });

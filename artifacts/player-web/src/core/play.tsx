@@ -27,6 +27,7 @@ import { useOpenPane } from "@/dock/open-pane";
 import { LiveErrorPanel } from "@/dock/pane-parts";
 import { PANE_COMPONENTS, StoredPanelPane } from "@/panes";
 import { FilePanelPane } from "@/panes/file-panel";
+import { PanelConfirmations } from "@/panes/panel-policy";
 import { useFilePanels } from "@/panels/store";
 import { filePane } from "@workspace/v2-client";
 import { ReplayBar } from "@/replay/bar";
@@ -154,6 +155,7 @@ function GameDock({ phase }: { phase: GamePhase }): ReactNode {
       {SAFE_MODE && <p className="shrink-0 px-3 py-1 text-xs text-muted-foreground" data-testid="text-safe-mode">Safe mode: your panels are off</p>}
       <div className="min-h-0 flex-1" data-testid="dock"><StableDock phase={phase} panes={PANE_COMPONENTS} stored={SAFE_MODE ? SafeModePanel : StoredPanelPane} file={SAFE_MODE ? SafeModeFile : FilePanelPane} /></div>
       {phase !== "replay" && <OpenNewFilePanels phase={phase} />}
+      {!SAFE_MODE && <PanelConfirmations />}
     </>
   );
 }

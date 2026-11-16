@@ -1,5 +1,5 @@
 // Gap Ratio · Bold
-// Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Secondary preference: whichever you were dealt (the gap shares a factor with the number you divide by; the gap has a big smallest prime factor).
+// Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Secondary preference: whichever you were dealt (the number you divide by shares a factor with your next power; the y-intercepts' gap near a multiple of your next power; the gap plus your next power has a big smallest prime factor).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -12,15 +12,17 @@ function score(L, p, tie) {
   const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
   if (f.ygap === null || f.xgap === null || f.origin) return null;   // no gaps, or a line through (0, 0): no score
   const main = powerLadder(p.k, t => Q.add(dist(f.ygap), Q.abs(Q.sub(f.ygap, Q.mul(t, f.xgap)))));
+  const lv = levelOf(main, p.k), N = BigInt(p.k) ** BigInt((lv * (lv + 1)) / 2 + 1);   // your power reached, times k
   // main: the gaps' level: the y-intercepts' gap whole and k, k³, k⁶, … times the x-intercepts' gap (higher is better)
-  if (tie === "gap-divisor") return [main, common(whole(f.ygap), f.D)];   // the gap sharing a big factor with the number you divide by is better
-  if (tie === "gap-prime") return [main, spf(whole(f.ygap))];   // a gap with a big smallest prime factor is better
+  if (tie === "gap-divisor") return [main, common(f.D, N)];   // the number you divide by sharing a big factor with k times your power reached is better
+  if (tie === "gap-step") return [main, Q.neg(offMultiple(f.ygap, N))];   // a y-intercepts' gap near a multiple of k times your power reached (not 0) is better
+  if (tie === "gap-prime") return [main, spf(Q.add(Q.abs(whole(f.ygap)), Q.of(N)))];   // the gap plus k times your power reached with a big smallest prime factor is better
   return [main];
 }
 
 const FAR = 4;      // how far one move may go
 const QUOTES = 12;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["shift","tilt","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
+const KINDS = ["shift","tilt","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
 const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 

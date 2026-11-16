@@ -38,7 +38,7 @@ const PMI_ALIGNED = 2, PMI_ALIGNED_SHARE = 0.2, PMI_MAX = 4, PMI_MEAN = 1;
  */
 const EXEMPT: Readonly<Record<string, string>> = {
   // Row 3a: one or two dealt secondaries. The owner's instruction (15 Nov): at least three per family. Lines: the spec
-  // lead's repertoire work; pairs: the pairs session; grids-arithmetic: the grids session.
+  // lead's repertoire work; grids-arithmetic: the grids session (pairs: three or more since trial 37).
   "prime-landing 3a": "15 Nov, spec lead: repertoire in progress",
   "smooth-intercept 3a": "15 Nov, spec lead: repertoire in progress",
   "square-area 3a": "15 Nov, grids session: Square Area redesign",
@@ -49,14 +49,6 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "prime-staircase 3a": "15 Nov, spec lead: repertoire in progress",
   "ruler 3a": "15 Nov, grids session",
   "pythagorean-area 3a": "15 Nov, grids session",
-  "whole-answer 3a": "15 Nov, pairs session",
-  "no-fractions 3a": "15 Nov, pairs session",
-  "right-angle 3a": "15 Nov, pairs session",
-  "forty-five 3a": "15 Nov, pairs session",
-  "double-gap 3a": "15 Nov, pairs session",
-  "far-crossing 3a": "15 Nov, pairs session",
-  "high-start 3a": "15 Nov, pairs session",
-  "steep-ratio 3a": "15 Nov, pairs session",
   "divisibility 3a": "15 Nov, grids session",
   "opposite-nines 3a": "15 Nov, grids session: big-on-top undealt for a cheap peak (#902); grid repertoires after the deadline",
   "strangers 3a": "15 Nov, grids session: ones and prime-strangers undealt for cheap peaks (#902); grid repertoires after the deadline",
@@ -82,6 +74,8 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "lines-lenses 7-form:shares-factor": "15 Nov, spec lead: the repertoire adds other forms",
   "lines-pairs 7-kind:base-ladder": "15 Nov, pairs session: every pair family climbs a base's ladder",
   "lines-pairs 7-form:shares-factor": "15 Nov, pairs session",
+  "lines-pairs 7-form:near-multiple": "16 Nov, pairs session: tie-breakers tied to the level (trial 37) favour near-multiples; spread after the deadline",
+  "lines-pairs 7-form:factor-size": "16 Nov, pairs session: as near-multiple",
   "grids-beginner 7-form:second-axis": "15 Nov, grids session",
   // Row 5: no PMI table for the variant yet (lib/v2-agents scripts/pmi.ts).
   "lines-lenses 5-unmeasured": "15 Nov, spec lead: PMI table for line-q-lenses",
