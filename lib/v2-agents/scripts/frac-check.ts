@@ -2,7 +2,7 @@
  * The design-principles rows a fraction-native family must show before it is dealt (docs/engine-v2/fraction-families.md),
  * measured on its stored value functions (lib/v2-valuation/values/line-q/<family>):
  *
- *   node --experimental-strip-types scripts/frac-check.ts --family twin-fractions [--chains 6]
+ *   node --experimental-strip-types scripts/frac-check.ts --family twin-fractions [--chains 6] [--tb near,near>x-whole]
  *
  * - energy: the energy gate's greedy climber (artifacts/engine test/unit/v2-no-straight-hill.test.ts, the same moves and
  *   the beginner preset's income) from law draws: the best bits it reaches (the gate fails a dealt rule past 35);
@@ -19,7 +19,7 @@ import { applyCall, canonicalJson, evaluateSite, hashHex, isInvalid, rng, Qn, va
 import { lineLaw, lineType, slope, intercept, type LineState } from "@workspace/v2-linear";
 import { findVariant, valueLookup } from "@workspace/v2-valuation";
 
-const { values: o } = parseArgs({ options: { family: { type: "string" }, chains: { type: "string", default: "6" }, draws: { type: "string", default: "4000" }, income: { type: "string", default: "3000" }, only: { type: "string" } } });
+const { values: o } = parseArgs({ options: { family: { type: "string" }, chains: { type: "string", default: "6" }, draws: { type: "string", default: "4000" }, income: { type: "string", default: "3000" }, only: { type: "string" }, tb: { type: "string" } } });
 const { variant } = findVariant("line-q");
 const fam = lineType.families.find(f => f.id === o.family);
 if (!fam) throw new Error(`no family ${o.family}`);
@@ -57,7 +57,7 @@ const step = (s: LineState, c: { mutator: string; args: Record<string, string> }
 };
 const whole = (s: LineState) => { const l = s.lines[0]!; if (l.b === 0n) return true; return Qn.isInteger(slope(l)) && Qn.isInteger(intercept(l)); };
 
-for (const params of fam.dealable(variant).filter(p => !o.only || canonicalJson(p).includes(o.only))) for (const tb of fam.tieBreakers.map(t => t.id)) {
+for (const params of fam.dealable(variant).filter(p => !o.only || canonicalJson(p).includes(o.only))) for (const tb of o.tb ? o.tb.split(",") : fam.tieBreakers.map(t => t.id)) {
   const file = readdirSync(DIR).find(n => n === `${hashHex(canonicalJson(params))}-${tb}.json`);
   if (!file) { say(`no value function for ${canonicalJson(params)} + ${tb}`); continue; }
   const look = valueLookup(JSON.parse(readFileSync(join(DIR, file), "utf8")));
