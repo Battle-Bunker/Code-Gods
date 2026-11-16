@@ -7,6 +7,7 @@ import { z } from "zod/v4";
 import { affordance, id, obj, rep } from "../define.ts";
 import { CONTEXTS, IN_GAME, IN_ROOM } from "../types.ts";
 import { DOCK_KINDS, DOCK_LIMITS } from "../dock.ts";
+import { OBJECTS_SHOWS, OBJECTS_SORTS } from "../objects-view.ts";
 
 const GAME = [...IN_GAME, "ended", "replay"] as const;
 const pane = z.string().min(1).max(60).describe('A pane id, e.g. "objects", "agents", "forge", "rules", "my-panels", or "panel:<slug>" for one of the human\'s stored panels.');
@@ -77,16 +78,16 @@ export const viewOps = [
   }),
   affordance({
     id: "view.sortObjects", title: "Sort objects", group: "view", scope: "room",
-    description: "Sorts the human's objects pane by their points, rarity (bits) or most recent change.",
+    description: "Sorts the human's objects pane: by their points, their rarity (bits), the others' bits (want), the most changed (mutations), newest (born) or oldest first, or the most recent change.",
     tooltip: "Change the list's order.", keywords: ["sort", "order", "rank"],
-    params: obj({ sort: z.enum(["points", "rarity", "recent"]) }), result: done,
+    params: obj({ sort: z.enum(OBJECTS_SORTS) }), result: done,
     contexts: GAME, caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({
     id: "view.filterObjects", title: "Filter objects", group: "view", scope: "room",
-    description: "Filters the human's objects pane: only objects the caller's agents touched, or worth at least some bits. Empty clears the filter.",
+    description: "Filters the human's objects pane: only objects the caller's agents touched, worth at least some bits, or (show) only those earning the caller points, the contested ones, or those with chips. Empty clears the filter.",
     tooltip: "Show only some objects.", keywords: ["filter", "only mine", "search objects"],
-    params: obj({ mine: z.boolean().optional(), minBits: z.number().min(0).optional() }), result: done,
+    params: obj({ mine: z.boolean().optional(), minBits: z.number().min(0).optional(), show: z.enum(OBJECTS_SHOWS).optional() }), result: done,
     contexts: GAME, caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({
