@@ -63,6 +63,26 @@ export const header = internalQuery({
   },
 });
 
+/** Agents a programs page reads (each with its versions, each ≤ 16 KiB of source). */
+const PROGRAM_AGENTS = 4;
+/** Versions kept per agent in the file (an agent edited more often keeps its first ones). */
+const PROGRAM_VERSIONS = 64;
+
+/** A page of an ended game's agents (destroyed ones too) with every version of their programs, for the replay file. */
+export const programs = internalQuery({
+  args: { gameId: v.id("v2Games"), cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, { gameId, cursor }) => {
+    const page = await ctx.db.query("v2Agents").withIndex("by_game_live", q => q.eq("gameId", gameId)).paginate({ cursor, numItems: PROGRAM_AGENTS });
+    const out = [];
+    for (const a of page.page) {
+      for (const p of await ctx.db.query("v2AgentPrograms").withIndex("by_agent", q => q.eq("agentId", a._id)).take(PROGRAM_VERSIONS)) {
+        out.push({ agentId: a._id, memberId: a.memberId, name: a.name, version: p.version, language: p.language, source: p.source, summonedAt: p.summonedAt });
+      }
+    }
+    return { programs: out, cursor: page.isDone ? null : page.continueCursor };
+  },
+});
+
 /** The events after `after`: at most PAGE of them and about `maxBytes` (PAGE_BYTES) of data; `done` at the end. */
 export const events = internalQuery({
   args: { gameId: v.id("v2Games"), after: v.number(), maxBytes: v.optional(v.number()) },
