@@ -116,6 +116,11 @@ export const cart: Representation<LineState> = {
     el("ghost", "the line of gradient g through the same y-intercept", "segment", "dynamic",
       nonVertical((l, a) => { const g = arg(a, "g"), c = intercept(l); return through(-g.n * c.d, g.d * c.d, -c.n * g.d); }),
       { params: [{ name: "g", domain: "Q" }] }),
+    // What a rule compares the line with, away from the axes (the tree families, tree-nt-*.ts): a point at a height
+    // (read along y), the fixed line y = g·x through (0, 0), and a point on that fixed line (read along x).
+    el("heightAt", "the point at x = q, height y", "point", "dynamic", (_l, a) => pt(arg(a, "q"), arg(a, "y")), { params: [{ name: "q", domain: "Q" }, { name: "y", domain: "Q" }] }),
+    el("fixedLine", "the line y = g·x", "segment", "dynamic", (_l, a) => { const g = arg(a, "g"); return through(-g.n, g.d, 0n); }, { params: [{ name: "g", domain: "Q" }] }),
+    el("onFixed", "the point at x on the line y = g·x", "point", "dynamic", (_l, a) => pt(arg(a, "x"), Qn.mul(arg(a, "g"), arg(a, "x"))), { params: [{ name: "x", domain: "Q" }, { name: "g", domain: "Q" }] }),
   ],
   layout: (_s, site) => ({
     kind: "plane", window: [q(-WINDOW), q(-WINDOW), q(WINDOW), q(WINDOW)],
