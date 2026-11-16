@@ -159,7 +159,7 @@ want gravity to gradually attenuate so that numbers climb superlinearly with con
 ## The tests
 
 The bound tests ran again in both modes: no call moves a score by more than k × its price or its undo's price, and no
-score exceeds the height (linear: 2,500 states; log: 250 states, sizes up to 3,000, 4 rules, exact; area to 1e−2 in
+score exceeds the height (linear: 2,500 states; log: 250 states with sizes up to 3,000 for three rules and 120 small states for the layered rule, exact; area to 1e−2 in
 log mode on 15 states) [built and tested].
 
 ## Worked example, log mode (`node --experimental-strip-types lib/v2-linear/scripts/trial-log-example.ts`; ⚡)
