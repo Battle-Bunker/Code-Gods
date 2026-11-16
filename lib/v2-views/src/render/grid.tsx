@@ -232,8 +232,9 @@ function Scene({ p }: { p: P }): ReactElement {
       <g key={key(r)} className={tint[i] ? "cell tinted" : "cell"} {...elAttrs(q, r)} data-member={members.has(i) ? "" : undefined} {...hover(q, r)}>
         {tint[i] && <rect className="cell-colour" x={x + 1} y={y + 1} width={C - 2} height={C - 2} rx={expanded ? 4 : 2} style={{ fill: tint[i]!.css }} />}
         <rect className="cell-bg" x={x + 1} y={y + 1} width={C - 2} height={C - 2} rx={expanded ? 4 : 2} />
-        <text className="digit" x={x + C / 2} y={y + C / 2 + g.digit * 0.36} fontSize={g.digit} style={tint[i] ? { fill: tint[i]!.ink } : undefined}>{s.cellGlyphs?.[i] ?? shown(r)}</text>
-        {tint[i] && <text className="colour-letter" x={x + C - 4} y={y + C - 4} textAnchor="end" fontSize={Math.max(7, g.digit * 0.38)} style={{ fill: tint[i]!.ink }}>{tint[i]!.letter}</text>}
+        {/* A tinted tile keeps its number left of centre and the colour's letter small in the corner, clear of each other. */}
+        <text className="digit" x={x + (tint[i] ? C * 0.42 : C / 2)} y={y + C / 2 + g.digit * 0.36} fontSize={tint[i] ? g.digit * 0.85 : g.digit} style={tint[i] ? { fill: tint[i]!.ink } : undefined}>{s.cellGlyphs?.[i] ?? shown(r)}</text>
+        {tint[i] && <text className="colour-letter" x={x + C - 2.5} y={y + C - 3} textAnchor="end" fontSize={Math.max(5, C * 0.26)} style={{ fill: tint[i]!.ink }}>{tint[i]!.letter}</text>}
         {was !== null && <text className="was" x={x + 4} y={y + 11}>{was}</text>}
         {title(r)}
       </g>
