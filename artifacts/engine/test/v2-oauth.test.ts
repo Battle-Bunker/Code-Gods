@@ -108,3 +108,29 @@ test("a human denies an OAuth request: nothing to collect, and it cannot be appr
   assert.equal(late.error.code, "failed", "a denied request stays denied");
   assert.equal(await complete(flow, completion), null);
 });
+
+test("a refresh token sent again moments after its rotation (a reload cut the answer off) rotates again; an old one still revokes", { timeout: 90_000 }, async () => {
+  // Catches (Parity C, account mode): a page unloading while its refresh was in flight kept the rotated-out token, and its
+  // next use revoked the grant: signed out for good.
+  const [ada] = await humans("Refresh Ada");
+  const { roomId } = (await perform(ada!, "room.create", { name: "Refresh room" })).result;
+  const flow = await startOAuth(roomId, "act");
+  const completion = randomBytes(32).toString("base64url");
+  assert.equal((await perform(ada!, "account.approveConnection", { request: flow.request, completion, grant: "act", room: roomId })).ok, true);
+  const code = await complete(flow, completion);
+  const first = await (await fetch(`${SITE_}/api/oauth/token`, form({ grant_type: "authorization_code", code: code!, code_verifier: flow.verifier, client_id: flow.clientId, redirect_uri: REDIRECT, resource: SITE_ }))).json() as { refresh_token: string };
+  const refresh = (token: string) => fetch(`${SITE_}/api/oauth/token`, form({ grant_type: "refresh_token", refresh_token: token, client_id: flow.clientId, resource: SITE_ }));
+  const r1 = first.refresh_token;
+  assert.equal((await refresh(r1)).status, 200, "rotated; its answer is lost");
+  const again = await refresh(r1);
+  assert.equal(again.status, 200, `the same token moments later rotates again: ${await again.clone().text()}`);
+  const { refresh_token: r3, access_token } = await again.json() as { refresh_token: string; access_token: string };
+  assert.equal((await mcp(access_token, "tools/list")).result.tools.length > 0, true, "the connection still acts");
+  const later = await refresh(r3);
+  assert.equal(later.status, 200);
+  const { refresh_token: r4 } = await later.json() as { refresh_token: string };
+  // Past the grace a rotated-out token is a reuse: the connection is revoked.
+  await new Promise(r => setTimeout(r, 31_000));
+  assert.equal((await refresh(r1)).status, 400, "an old token is refused");
+  assert.equal((await refresh(r4)).status, 400, "and its reuse revoked the connection");
+});
