@@ -85,11 +85,11 @@ try {
     await check("three humans: alice starts; every viewer of the room is taken to the game's page, in planning", async () => {
       // Marks each document: the room page must take everyone to the game without a reload.
       for (const p of players) await p.page.evaluate(() => { (window as unknown as { sameDoc: boolean }).sameDoc = true; });
-      await missing(["e2e-site-smoke-8", "e2e-three-humans-walk-3"], "three humans: Start game starts in one click (v2 asks \"Start the game?\" first)", async () => {
+      await check("three humans: Start game starts in one click (v1: no \"Start the game?\" first)", async () => {
         await a.getByTestId("button-start-game").click();
         await a.getByTestId("button-start-game-confirm").waitFor({ state: "detached", timeout: 1_500 });
         if (await a.getByTestId("button-start-game-confirm").count()) throw new Error("a confirmation dialog opened");
-      }, async () => { if (await a.getByTestId("button-start-game-confirm-ok").count()) await a.getByTestId("button-start-game-confirm-ok").click(); });
+      });
       for (const p of players) await p.page.waitForURL(GAME_URL, { timeout: 120_000 });
       gameUrl = a.url();
       for (const p of players) {
@@ -287,14 +287,12 @@ try {
 
     await check("bidding: alice starts the game; the Start button reads \"Starting…\" in the same frame and refuses a second click", async () => {
       await a.getByTestId("button-start-game").waitFor({ timeout: 15_000 });
-      // v2 asks first: the frame is read after the confirmation's click.
-      await a.getByTestId("button-start-game").click();
-      await a.getByTestId("button-start-game-confirm-ok").waitFor();
-      await a.evaluate(() => document.querySelector('[data-testid="button-start-game-confirm-ok"]')!.addEventListener("click", () => requestAnimationFrame(() => {
+      // One click (v1): the frame after it is read.
+      await a.evaluate(() => document.querySelector('[data-testid="button-start-game"]')!.addEventListener("click", () => requestAnimationFrame(() => {
         const btn = document.querySelector('[data-testid="button-start-game"]');
         (window as unknown as { startFrame: unknown }).startFrame = { text: btn?.textContent, disabled: btn?.getAttribute("aria-disabled") ?? (btn as HTMLButtonElement | null)?.disabled?.toString() };
       }), { once: true }));
-      await a.getByTestId("button-start-game-confirm-ok").click();
+      await a.getByTestId("button-start-game").click();
       await a.waitForFunction(() => (window as unknown as { startFrame?: unknown }).startFrame);
       assert.deepEqual(await a.evaluate(() => (window as unknown as { startFrame: unknown }).startFrame), { text: "Starting…", disabled: "true" });
     });

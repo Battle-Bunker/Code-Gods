@@ -159,7 +159,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `seats.fillPracticePartners` | Fill empty seats with practice partners | — | server · room | owner | room | write |
 | `seats.addAi` | Add an AI player | template | server · room | owner | room | write; spends aiBudget; confirm summary |
 | `seats.removeAi` | Remove an AI player | memberId | server · room | owner | room | destructive; confirm inline |
-| `game.start` | Start the game | — | server · room | owner | room | write; confirm summary |
+| `game.start` | Start the game | — | server · room | owner | room | write |
 | `game.rematch` | Rematch: the same deal | — | server · room | owner | room | write; confirm summary |
 | `game.startWorldNow` | End planning now | — | server · game | owner | planning | write |
 | `game.resume` | Resume the game | — | server · game | owner | paused | write |
