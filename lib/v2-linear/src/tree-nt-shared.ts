@@ -129,9 +129,11 @@ export function treeFamily<P extends object, T extends Target>(o: {
   main: (p: P) => string; mainTitle: string;
   close: (p: P) => string; closeTitle: string;
   read: (ctx: Ctx, p: P) => Reading | { none: ElementValue; from: ElementRef };
-  nearest: (x: Q, p: P) => T;
+  /** The target nearest the reading's size x (the whole reading too, for a ruler that depends on the line). */
+  nearest: (x: Q, p: P, r: Reading) => T;
   /** Where the reading and a target are drawn (the annotation contract, #960): the measure's start, a target's element. */
-  draw: (r: Reading, p: P) => { from: ElementRef; target: (at: Q) => ElementRef };
+  /** null: the reading has no point on the plane to draw (a sum, an area): its working is a note on the reading. */
+  draw: (r: Reading, p: P) => { from: ElementRef; target: (at: Q) => ElementRef } | null;
   thirds: readonly Further<P, T>[];
 }): TreeNtFamily<P> {
   const shape: Shape<P> = {
@@ -142,7 +144,7 @@ export function treeFamily<P extends object, T extends Target>(o: {
   const f = family<P>(o.id, o.title, o.depends, shape, v => (lineParams(v).domain === "Q" ? sample : []), (ctx, p) => {
     const r = o.read(ctx, p);
     if ("none" in r) return allUndefined(ctx, shape, r.none, r.from);
-    const t = o.nearest(r.x, p);
+    const t = o.nearest(r.x, p, r);
     ctx.term("target", t.why, t.level, r.from);
     const d = Qn.abs(Qn.sub(r.x, t.at));
     ctx.term("closeness", Qn.isZero(d) ? `on ${mixed(t.at)}` : `${mixed(d)} from ${mixed(t.at)}`, d, r.from);
@@ -150,11 +152,56 @@ export function treeFamily<P extends object, T extends Target>(o: {
     const cite = (x: ElementRef) => { if (o.depends.includes(x.rep)) ctx.read(x); return x; };
     const mk = o.draw(r, p), signed = (v: Q) => (r.sign < 0 ? Qn.neg(v) : v);
     ctx.mark({ kind: "focus", ref: r.from[0]!, term: "target" });
-    const tgt = cite(mk.target(signed(t.at)));
-    ctx.mark({ kind: "candidate", ref: tgt, term: "target" });
-    for (const n of t.near) ctx.mark({ kind: "candidate", ref: cite(mk.target(signed(n))), term: "target" });
-    ctx.mark({ kind: "measure", from: cite(mk.from), to: tgt, term: "closeness" });
+    if (mk) {
+      const tgt = cite(mk.target(signed(t.at)));
+      ctx.mark({ kind: "candidate", ref: tgt, term: "target" });
+      for (const n of t.near) ctx.mark({ kind: "candidate", ref: cite(mk.target(signed(n))), term: "target" });
+      ctx.mark({ kind: "measure", from: cite(mk.from), to: tgt, term: "closeness" });
+    } else ctx.mark({ kind: "note", ref: r.from[0]!, term: "closeness", text: `${mixed(r.x)}: the target is ${mixed(t.at)}` });
     for (const th of o.thirds) th.evaluate(ctx, r, t, p);
   });
   return { ...f, valuation: "tree" as const, space: o.space, chains: chainsOf(o.thirds.map(t => t.layer.id)) };
+}
+
+// ---------------------------------------------------------------- shared by the later tree families
+
+/** A reading computed from the gradient and the y-intercept (read in y = mx + c): null where the line has none. */
+export function siReading(ctx: Ctx, of: (m: Q, c: Q) => Q | null, why: string): Reading | { none: ElementValue; from: ElementRef } {
+  const mr = ref("si", "m"), cr = ref("si", "c"), mv = ctx.read(mr), cv = ctx.read(cr), m = num(mv), c = num(cv);
+  if (m === null || c === null) return { none: m === null ? mv : cv, from: m === null ? mr : cr };
+  const x = of(m, c);
+  if (x === null) return { none: { kind: "undefined", reason: why }, from: mr };
+  return { x: Qn.abs(x), sign: Qn.sign(x) < 0 ? -1 : 1, m, c, from: [mr, cr] };
+}
+/** The y-intercept's size as a reading (a vertical line has none). */
+export function interceptReading(ctx: Ctx): Reading | { none: ElementValue; from: ElementRef } {
+  const cr = ref("si", "c"), cv = ctx.read(cr), c = num(cv);
+  if (c === null) return { none: cv, from: cr };
+  return { x: Qn.abs(c), sign: Qn.sign(c) < 0 ? -1 : 1, m: num(ctx.read(ref("si", "m"))), c, from: [cr] };
+}
+/** The x-crossing of y = mx + c (null for a flat line). */
+export const crossingOf = (m: Q, c: Q): Q | null => (Qn.sign(m) === 0 ? null : Qn.neg(Qn.div(c, m)));
+/** |log2(|x|)| as an exact rational to a millionth: how many doublings x is from 1 (null for 0). */
+export function doublingsFrom1(x: Q): Q | null {
+  if (Qn.sign(x) === 0) return null;
+  const lb = (b: bigint) => { const L = b.toString(2).length; return L <= 1000 ? Math.log2(Number(b)) : (L - 53) + Math.log2(Number(b >> BigInt(L - 53))); };
+  const a = Qn.abs(x), v = Math.abs(lb(a.n) - lb(a.d));
+  return q(BigInt(Math.round(v * 1e6)), 1_000_000n);
+}
+/**
+ * The rung nearest x on an increasing ladder at(1) < at(2) < … without end (the higher on a tie), with its neighbours;
+ * `skip` leaves rungs out (at least one of every two consecutive rungs must be kept).
+ */
+export function nearestOn(x: Q, at: (n: bigint) => Q, skip: (n: bigint) => boolean = () => false): { n: bigint; at: Q; up: Q; down: Q | null } {
+  let lo = 1n, hi = 2n;
+  if (Qn.cmp(at(1n), x) > 0) hi = 1n, lo = 0n;
+  else { while (Qn.cmp(at(hi), x) <= 0) { lo = hi; hi *= 2n; } while (hi - lo > 1n) { const mid = (lo + hi) / 2n; if (Qn.cmp(at(mid), x) <= 0) lo = mid; else hi = mid; } }
+  // at(lo) ≤ x < at(hi = lo + 1); step outward past skipped rungs.
+  let a = lo, b = lo + 1n;
+  while (a >= 1n && skip(a)) a--;
+  while (skip(b)) b++;
+  const pick = a < 1n || Qn.cmp(Qn.sub(at(b), x), Qn.sub(x, at(a))) <= 0 ? b : a;
+  let up = pick + 1n; while (skip(up)) up++;
+  let down: bigint | null = pick - 1n; while (down >= 1n && skip(down)) down--;
+  return { n: pick, at: at(pick), up: at(up), down: down >= 1n ? at(down) : null };
 }

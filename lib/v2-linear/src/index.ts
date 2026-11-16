@@ -10,6 +10,7 @@ export * from "./frac-twin-fractions.ts";
 export * from "./tuple-rules.ts";
 export * from "./tree-nt-index.ts";
 export * from "./tree-geo.ts";
+export * from "./tree-index.ts";
 export * from "./type.ts";
 export * from "./presets.ts";
 export * from "./sums.ts";
