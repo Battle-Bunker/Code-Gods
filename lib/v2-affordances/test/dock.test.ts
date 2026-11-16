@@ -123,3 +123,20 @@ test("v1's Reset layout and Layout: Two panels, on the screen in view", () => {
   assert.deepEqual(Object.keys(v.dock), ["planning"]);
   assert.equal(applyView(v, "view.resetLayout", {}, { ...live, context: "room" }).outcome.ok, false, "the room page has no dock");
 });
+
+test("v1's Maximise or restore: one pane over the others, a toggle; without a pane the largest shown one, or restore", () => {
+  const ok = (r: ReturnType<typeof applyView>) => { assert.ok(r.outcome.ok, JSON.stringify(r.outcome)); return r.view; };
+  let v = ok(applyView(EMPTY_VIEW, "view.maximisePane", { pane: "feed" }, live));
+  assert.equal(v.maximised, "feed");
+  assert.deepEqual(v.dock, {}, "the arrangement is untouched");
+  v = ok(applyView(v, "view.maximisePane", { pane: "feed" }, live));
+  assert.equal(v.maximised ?? null, null, "the same pane again restores the others");
+  // The palette's row gives no pane: the live default's largest group is the lines list.
+  v = ok(applyView(v, "view.maximisePane", {}, live));
+  assert.equal(v.maximised, "objects");
+  v = ok(applyView(v, "view.maximisePane", {}, live));
+  assert.equal(v.maximised ?? null, null);
+  // Closing the maximised pane restores the others.
+  v = ok(applyView(ok(applyView(v, "view.maximisePane", { pane: "race" }, live)), "view.closePane", { pane: "race" }, live));
+  assert.equal(v.maximised ?? null, null);
+});
