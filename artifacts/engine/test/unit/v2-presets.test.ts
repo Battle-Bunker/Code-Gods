@@ -44,10 +44,7 @@ test("the beginner start buys three of the starter a newcomer summons (Simple) a
   assert.equal(presetOf("grids-beginner").startingEnergy, GRIDS_BEGINNER_ECONOMY.startingEnergy);
   assert.equal(presetOf("lines-beginner").economy.powerPerSecond, 4);
 });
-test("Grids · arithmetic starts with three of its own typical starters (their summons cost more than the beginner grid's)", () => {
-  const p = presetOf("grids-arithmetic"), bits: number[] = [];
-  for (const r of p.pool) for (const lang of ["typescript", "python"] as const) for (const s of startersFor(r.family, lang)) bits.push(summonBits(lang, s.source).energy);
-  bits.sort((a, b) => a - b);
-  const three = STARTERS_AT_START * bits[bits.length >> 1]! * summonPriceScale(p.economy.powerPerSecond);
-  assert.ok(Math.abs(p.startingEnergy - three) <= 5, `starts with ${p.startingEnergy}, three starters cost ${three}`);
+test("the beginner grid presets do not drift, as v1's grid never redrew a seat's rule", async () => {
+  const { presetOf } = await import("../../convex/v2/presets.ts");
+  for (const id of ["grids-beginner", "grids-beginner-bidding"]) assert.equal(presetOf(id).driftSeconds, 0, id);
 });

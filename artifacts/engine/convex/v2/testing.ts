@@ -24,7 +24,7 @@ import { valueRecord as valueRecordOf } from "./values";
 import { seatRules as seatRulesOf } from "./loop";
 import { decode as decodeState, scopeOf as scopeOfGame, valuesOf as valuesOfState } from "./world";
 import { fullReadBits as fullReadBitsOf } from "./knowledge";
-import { newNoiseKey, objectReading, readingNoise, shownAt } from "./disclose";
+import { newNoiseKey, objectReading, quadrantOf, readingNoise, shownAt } from "./disclose";
 
 const fixtures = () => {
   if (!fixturesOn(process.env)) throw new ConvexError({ code: "FORBIDDEN", message: "v2 fixtures need TEST_FIXTURES=1" });
@@ -85,6 +85,8 @@ export const seedGame = internalMutation({
     moves: v.optional(v.number()),
     /** A disclosure-noise key (default none: exact, as games stored before the noise was restored). */
     noise: v.optional(v.boolean()),
+    /** Varied object versions (default every object at version 1): object i at 1 + (5i mod 7), for the "most mutated" sort. */
+    versions: v.optional(v.boolean()),
     /** Tugs-of-war in each member's v2Tugs (default none), on the first objects. */
     tugs: v.optional(v.number()),
     /** A line the owner's agent and the next seat's climbed together (every move raised both sides), by number. */
@@ -134,7 +136,8 @@ export const seedGame = internalMutation({
       const state: LineState = { lines: [fromMC({ n: BigInt(r.below(11) - 5), d: 1n }, { n: BigInt(r.below(21) - 10), d: 1n })] };
       const objectId = await ctx.db.insert("v2Objects", { gameId, number: i + 1, bornAt: i });
       objects.push(objectId);
-      await ctx.db.insert("v2ObjectStates", { objectId, gameId, state: lineType.encode(state), version: 1, changedAt: i });
+      const version = a.versions ? 1 + (5 * i) % 7 : 1;
+      await ctx.db.insert("v2ObjectStates", { objectId, gameId, state: lineType.encode(state), version, changedAt: i });
       const evals = rules.map(({ dealt }) => valueAt(state, lineZ.id, dealt, valueObjects({ startingObjects: preset.startingObjects, worldSeconds: preset.worldSeconds, economy: preset.economy })));
       const total = evals.reduce((s, e) => s + e.rarityBits, 0);
       // The object's birth in the public log (v1's), every seat's bits in roster order.
@@ -143,8 +146,9 @@ export const seedGame = internalMutation({
         const e = evals[k]!, want = total - e.rarityBits, points = e.rarityBits * want;
         pts.set(memberId, (pts.get(memberId) ?? 0) + points);
         packed.set(memberId, [...(packed.get(memberId) ?? []), i + 1, e.rarityBits, want]);
-        const shown = a.noise ? shownAt({ rarityBits: e.rarityBits, want }, readingNoise((await ctx.db.get(gameId))!, memberId, objectReading(objectId, 1))) : {};
-        await ctx.db.insert("v2ObjectValues", { objectId, gameId, memberId, number: i + 1, ...e, want, points, ...shown, version: 1, changedAt: i });
+        const shownRaw = a.noise ? shownAt({ rarityBits: e.rarityBits, want }, readingNoise((await ctx.db.get(gameId))!, memberId, objectReading(objectId, version))) : null;
+        const shown = shownRaw ? { ...shownRaw, quadrant: quadrantOf(e.rarityBits, shownRaw.shownWant) } : {};
+        await ctx.db.insert("v2ObjectValues", { objectId, gameId, memberId, number: i + 1, ...e, want, points, ...shown, version, changedAt: i });
       }
     }
 
@@ -657,5 +661,22 @@ export const setObjectState = internalMutation({
     const object = (await ctx.db.query("v2Objects").withIndex("by_game", q => q.eq("gameId", gameId).eq("number", number)).unique())!;
     const row = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", object._id)).unique())!;
     await ctx.db.patch(row._id, { state, version: row.version + 1 });
+  },
+});
+
+/** Line turnover's check (retirement-design.md): every line's points by member, the retired ones, the live list, totals. */
+export const turnoverOf = internalQuery({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => {
+    fixtures();
+    const engine = (await ctx.db.query("v2Engine").withIndex("by_game", q => q.eq("gameId", gameId)).unique())!;
+    const lines = [];
+    for (const o of await ctx.db.query("v2Objects").withIndex("by_game", q => q.eq("gameId", gameId)).collect()) {
+      const points: Record<string, number> = {};
+      for (const r of await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", o._id)).collect()) points[r.memberId] = r.points;
+      const st = await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", o._id)).unique();
+      lines.push({ number: o.number, retiredAt: o.retiredAt, released: !!st?.released, points });
+    }
+    return { lines, retired: lines.filter(l => l.retiredAt !== undefined), live: engine.live ?? null, totals: engine.totals };
   },
 });

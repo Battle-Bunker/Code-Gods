@@ -21,8 +21,10 @@ test("a player's object read carries their own value and the others' total, noth
   const json = (playObjectV as any).json;
   assert.deepEqual(Object.keys(json.value).sort(), ["bornAt", "changedAt", "changesSince", "knownAt", "lookPrice", "number", "objectId", "state", "value", "version"].sort(),
     "a new top-level field on the object read needs a look at what it discloses");
-  assert.deepEqual(fieldsOf(json.value.value.fieldType).sort(), ["points", "rarityBits", "score", "version", "want"].sort(),
-    "the value is the caller's own: score, bits, points, and `want` (the others' total), never a per-player breakdown");
+  // `parts` is the caller's OWN bits split by their own rule's layers (a tree-valued rule's points tree): still nothing per
+  // other player.
+  assert.deepEqual(fieldsOf(json.value.value.fieldType).sort(), ["parts", "points", "rarityBits", "score", "version", "want"].sort(),
+    "the value is the caller's own: score, bits (and their own layers' parts), points, and `want` (the others' total), never a per-player breakdown");
 });
 
 test("the beginner presets: 3 objects, a 600-second game, exact readings", () => {

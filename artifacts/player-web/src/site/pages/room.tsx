@@ -154,7 +154,7 @@ function RoomBody({ room }: { room: Room }) {
         <NextStepBar status={step.status} primary={step.primary && <StepButton step={step.primary} room={room} primary />}
           secondary={step.secondary.map(s => <StepButton key={s} step={s} room={room} />)} />
       </header>
-      {room.bidding && !room.game && <Bidding roomId={room.roomId} />}
+      {room.bidding && !room.game && <Bidding roomId={room.roomId} owner={!!room.members.find(m => m.me)?.owner} />}
       <div className="grid gap-6 lg:grid-cols-2 items-start">
         <Members room={room} />
         <Section title="Public chat"><RoomChat roomId={room.roomId} /></Section>

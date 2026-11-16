@@ -119,3 +119,26 @@ export const disclosesNoise = (game: Pick<NoiseGame, "phase">) => game.phase !==
 export function disclosed<V extends { want: number; points: number; shownWant?: number; shownPoints?: number }>(game: Pick<NoiseGame, "phase">, v: V): { want: number; points: number } {
   return disclosesNoise(game) ? { want: v.shownWant ?? v.want, points: v.shownPoints ?? v.points } : { want: v.want, points: v.points };
 }
+
+/**
+ * The objects pane's filters (v1's quadrants, lib/views quadrantOf): contested when the player's own bits and the
+ * others' sum as disclosed to them are both positive (exactly the objects whose shown points are positive: v1's
+ * "positive" and "contested" were the same set), chips when the others care and the player's own bits are 0, else other.
+ */
+export type Quadrant = "contested" | "chips" | "other";
+export const quadrantOf = (own: number, others: number): Quadrant => (others > 0 ? (own > 0 ? "contested" : "chips") : "other");
+
+
+/**
+ * The standings as one viewer may see them (v1's bid disclosure, archive docs/bid-phase.md "What players see": at the
+ * private level "nobody is told another player's bids, rule or handicap. Standings show scores after handicaps"). While
+ * a game dealt with a won bid runs at disclosure "none", every row but the viewer's own shows its net total only: the
+ * handicap reads 0 and the raw total is the net, so neither can be worked back. `handicapsHidden` says so. After the
+ * end, and at "handicaps" or "all", the rows are whole.
+ */
+export function standingsFor<R extends { memberId: string; total: number; handicap: number; net: number }>(
+  game: { phase: string; settings: { bid?: { disclosure: "none" | "handicaps" | "all" } } }, rows: readonly R[], viewer: string | null,
+): { rows: R[]; handicapsHidden: boolean } {
+  const hidden = game.phase !== "ended" && game.settings.bid?.disclosure === "none" && rows.some(r => r.handicap > 0);
+  return { rows: rows.map(r => (hidden && r.memberId !== viewer ? { ...r, total: r.net, handicap: 0 } : r)), handicapsHidden: hidden };
+}

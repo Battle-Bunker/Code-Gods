@@ -12,7 +12,8 @@ import { mutatorsOf } from "../../convex/v2/reads.ts";
 import { ruleKey } from "@workspace/v2-valuation";
 
 test("family ids are unique across object types", () => {
-  const ids = objectTypes.flatMap(t => t.families.map(f => f.id));
+  // A family shared by several types (the coloured boards, one type per size) is one object: the deal finds it by id.
+  const ids = [...new Set(objectTypes.flatMap(t => t.families))].map(f => f.id);
   assert.deepEqual(ids.length, new Set(ids).size);
 });
 
@@ -34,6 +35,16 @@ test("a grid variant is read and written as a grid; it is valued only once it ha
   } else {
     assert.throws(() => valuesOf(decode(wire, "grid-4-d10"), "grid-4-d10", seat, 1), new RegExp(`No value function for ${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
   }
+});
+
+test("a coloured board is read and written as a board of its own size, in the old game's wire", () => {
+  for (const [variant, size] of [["board-4-base10-rgb", 4], ["board-7-cards-rainbow6", 7]] as const) {
+    assert.equal(typeOf(variant).id, `board${size}`);
+    const wire = encode(typeOf(variant).origin(typeOf(variant).variants[0]!), variant);
+    assert.equal(encode(decode(wire, variant), variant), wire);
+  }
+  assert.equal(encode(decode("7R,3G,0B,1R/2R,9B,4G,4G/8R,0R,0R,0R/1B,1B,1B,1B", "board-4-base10-rgb"), "board-4-base10-rgb"), "7R,3G,0B,1R/2R,9B,4G,4G/8R,0R,0R,0R/1B,1B,1B,1B");
+  assert.ok(mutatorsOf("cells", "board-4-base10-rgb").some(m => m.id === "colours.step"));
 });
 
 test("a grid representation's mutators name their arguments, with choices for cells and lines", () => {
@@ -69,22 +80,10 @@ test("Grids · beginner deals every grid family, each a main layer plus one tie-
   assert.ok(presetOf("grids-beginner-bidding").bid);
 });
 
-test("Grids · arithmetic deals Divisibility's eight instances and Leading Digits' four, on the beginner grid's game, and is not the default", async () => {
-  const { DEFAULT_PRESET, presetOf } = await import("../../convex/v2/presets.ts");
-  const { dealablePool, playable } = await import("../../convex/v2/deal.ts");
-  const p = presetOf("grids-arithmetic"), grids = presetOf("grids-beginner");
-  assert.equal(p.id, "grids-arithmetic");
-  assert.equal(p.title, "Grids · arithmetic");
-  assert.notEqual(DEFAULT_PRESET, p.id);
-  assert.equal(p.variant, "grid-4-d10");
-  assert.deepEqual([p.startingEnergy, p.economy, p.worldSeconds, p.startingObjects, p.driftSeconds], [grids.startingEnergy, grids.economy, grids.worldSeconds, grids.startingObjects, grids.driftSeconds]);
-  const pool = dealablePool(p);
-  assert.ok(playable(p));
-  assert.deepEqual(pool.map(r => `${r.family}/${r.tieBreaker}`).sort(), [...Array(8).fill("divisibility/leftover-digits"), ...Array(4).fill("leading-digits/exponent-digits")]);
-  assert.deepEqual(pool.filter(r => r.family === "leading-digits").map(r => r.params), [{ b: 2, layout: "halves" }, { b: 2, layout: "alternate" }, { b: 7, layout: "halves" }, { b: 7, layout: "alternate" }]);
-  // No other deployed preset deals either family.
+test("Grids · arithmetic is withdrawn: no deployed preset deals Divisibility or Leading Digits (16 Nov)", async () => {
   const { PRESETS } = await import("../../convex/v2/presets.ts");
-  for (const other of PRESETS.filter(x => x.id !== p.id)) assert.ok(!other.families.some(f => f === "divisibility" || f === "leading-digits"), other.id);
+  assert.ok(!PRESETS.some(p => p.id === "grids-arithmetic"));
+  for (const p of PRESETS) assert.ok(!p.families.some(f => f === "divisibility" || f === "leading-digits"), p.id);
 });
 
 test("a grid player can summon a grid starter and keep about as large a share of the starting energy as a line player", async () => {

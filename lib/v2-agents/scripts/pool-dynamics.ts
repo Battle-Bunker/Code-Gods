@@ -24,7 +24,7 @@
  *
  *   node --experimental-strip-types scripts/pool-dynamics.ts [--type lines|grids|pairs] [--games 12] [--seconds 600]
  *     [--drift 120] [--kind simple] [--objects 3] [--births 0.0041667] [--variant line-q] [--only prime-landing,treasure]
- *     [--from 0] [--json out.json] [--preset grids-arithmetic] [--instances] [--focus prime-landing]
+ *     [--from 0] [--json out.json] [--preset grids-more-rules] [--instances] [--focus prime-landing]
  *
  * --focus seats the family in every game (seat 0, its dealt parameters in turn, game by game; the other two seats from
  * the rest of the pool) and reports it per parameter set. Valleys crossed: its main-part steps from a rung (a main part
@@ -61,6 +61,60 @@ import { lensClimber, LENS_IDS, lineStarter, optionsClimber, SHORTCUT } from "./
  * pairs of steps (each of its tries followed by a shift or tilt of up to FAR) with climb, and takes the first step of the
  * best pair: can it see joint climbs a greedy step cannot?
  */
+/**
+ * --menu full (an experiment, TypeScript line starters): the rest of the beginner menu beside the shipped tries: the
+ * pattern's step (seq.step ±1), a nudge to one number of ax + by + c = 0 (gen.nudge a, b or c by ±1) and turns about
+ * the y-axis crossing (rot.turn by ±1 and ±1/2), each with the line it reaches.
+ */
+function fullMenu(source: string): string {
+  const at = "  let options = tries.map(";
+  if (!source.includes(at)) return source;
+  return source.replace(at, `  if (Q.isQ(m) && Q.isQ(c)) {
+    for (const k of [-1, 1]) tries.push([move("seq.step", { k }), Q.add(m, k), Q.sub(c, k)]);
+    let b = 1n; for (const x of [m, c]) { const g = (a, b) => (b === 0n ? a : g(b, a % b)); b = (b * x.d) / g(b, x.d); }
+    const A = Q.neg(Q.mul(m, Q.of(b))), C = Q.neg(Q.mul(c, Q.of(b))), B = Q.of(b);
+    for (const k of [-1, 1]) {
+      const K = Q.of(k), Bk = Q.add(B, K);
+      tries.push([move("gen.nudge", { which: "a", k }), Q.neg(Q.div(Q.add(A, K), B)), c]);
+      if (!Q.isZero(Bk) && Q.cmp(Bk, Q.of(0)) > 0) tries.push([move("gen.nudge", { which: "b", k }), Q.neg(Q.div(A, Bk)), Q.neg(Q.div(C, Bk))]);
+      tries.push([move("gen.nudge", { which: "c", k }), m, Q.neg(Q.div(Q.add(C, K), B))]);
+    }
+    for (const t of [Q.of(1), Q.of(-1), Q.of(1, 2), Q.of(-1, 2)]) {
+      const den = Q.sub(Q.of(1), Q.mul(m, t));
+      if (!Q.isZero(den)) tries.push([move("rot.turn", { centre: 0, turn: t }), Q.div(Q.add(m, t), den), c]);
+    }
+  }
+${at}`);
+}
+
+/**
+ * --look two | dip:F (an experiment, TypeScript line starters): when no single step is worth it, look two moves ahead on
+ * the offered line: the 3 best first steps for the seat's rule, each followed by a shift or tilt by 1, and take the first
+ * move of the best affordable pair (climb prices the whole pair, honestly). two: any first move, even one that lowers
+ * the seat's points; dip:F: only first moves that keep at least 1 − F of the seat's own bits now.
+ */
+function lookahead(source: string, mode: string): string {
+  const call = /  return climb\(offer, options, (score\([^)]*\)), QUOTES\);/;
+  if (!call.test(source)) return source;
+  const f = mode.startsWith("dip:") ? Number(mode.slice(4)) : null;
+  return source.replace(call, (_m, now) => `  const one = climb(offer, options, ${now}, QUOTES);
+  if (one || PROTECT.includes(offer.object)) return one;
+  const here = ${now}, floor = ${f === null ? "null" : `(1 - ${f}) * rarity(offer, here)`};
+  const firsts = tries.slice(0, options.length).map((t, i) => [t, options[i][1]]).filter(([[, m1], s1]) => Q.isQ(m1) && s1)
+    .sort((a, b) => (better(a[1], b[1]) ? -1 : better(b[1], a[1]) ? 1 : 0)).slice(0, 6)
+    .filter(([, s1]) => floor === null || rarity(offer, s1) >= floor).slice(0, 3).map(([t]) => t);   // rarity is a host call: only for the 6 best
+  const pairs = [];
+  for (const [plan, m1, c1] of firsts) {
+    const first = Array.isArray(plan) ? plan : [plan];
+    for (const k of [-1, 1]) {
+      pairs.push([[...first, move("si.shift", { k })], ${now.replace("(m, c", "(m1, Q.add(c1, k)")}]);
+      pairs.push([[...first, move("si.tilt", { k })], ${now.replace("(m, c", "(Q.add(m1, k), c1")}]);
+    }
+  }
+  const two = climb(offer, pairs, here, 4);
+  return two ? two.slice(0, -1) : null;`);
+}
+
 function twoStep(source: string): string {
   const call = /  return climb\(offer, options, (score\([^)]*\)), QUOTES\);/;
   if (!call.test(source)) return source;
@@ -84,7 +138,7 @@ const { values: o } = parseArgs({ options: {
   games: { type: "string", default: "12" }, seconds: { type: "string", default: "600" }, drift: { type: "string", default: "120" },
   kind: { type: "string", default: "simple" }, objects: { type: "string", default: "3" }, births: { type: "string", default: String(1 / 240) },
   variant: { type: "string", default: "line-q" }, preset: { type: "string" }, instances: { type: "boolean", default: false }, only: { type: "string" }, from: { type: "string", default: "0" }, json: { type: "string" }, focus: { type: "string" }, climber: { type: "string", default: "plain" }, seed: { type: "string" },
-  seats: { type: "string", default: "3" }, cap: { type: "string" }, "births-quiet": { type: "string" }, "retire-play": { type: "string" }, "retire-family": { type: "string" }, twostep: { type: "boolean", default: false },
+  seats: { type: "string", default: "3" }, cap: { type: "string" }, look: { type: "string" }, menu: { type: "string" }, "births-quiet": { type: "string" }, "retire-play": { type: "string" }, "retire-family": { type: "string" }, twostep: { type: "boolean", default: false },
   power: { type: "string", default: "1" }, reading: { type: "string" }, server: { type: "boolean", default: false }, practice: { type: "boolean", default: false }, "drift-ladders": { type: "boolean", default: false }, "no-mirror": { type: "boolean", default: false },
 } });
 
@@ -168,6 +222,13 @@ const seenMoves = new Set<string>();
 const tug = { levels: 0, lateMoves: 0, lateOnTwoState: 0, lateObjects: 0, lateStates: 0, twoStateObjects: 0, moves: 0, mirrors: 0, flips: 0, mirrorFlips: 0, gain: 0, mirrorGain: 0, repairsAfterMirror: 0, repairsAfterOther: 0, repairGain: 0 };
 // --cap: rungs stepped in the last third on lines younger than 60 s against older ones.
 const lateUp = { young: 0, old: 0 };
+// Dips (lookahead's first moves): a committed move that lowered its mover's own bits, and what came next on that line:
+// the same seat's next move (it rose above where it dipped from: recovered), another seat's (undone: back to the state
+// before the dip), or nothing before the game ended.
+const failed = { acts: 0, n: 0, steps: 0, calls: 0 };
+// Survival: of the bits other seats held on a line just before a seat's move, the share they still hold after it.
+const survival = { held: 0, kept: 0 };
+const dips = { n: 0, followed: 0, recovered: 0, interrupted: 0, undone: 0, open: 0 };
 // --cap: line lives (retired lines; still live at the end: censored), rungs per line, banked share of seats' totals, moves
 // and own gains in a line's last 30 s before it retires, and (--births-quiet) gains on lines born in the last 90 s.
 const life = { retired: [] as number[], censored: 0, rungs: [] as number[], banked: [] as number[], nearMoves: 0, nearGain: 0, allMoves: 0, allGain: 0, lateBornGain: 0 };
@@ -211,7 +272,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
     const tieBreaker = r.tieBreakers[R.below(r.tieBreakers.length)]!;
     // --server: as the server seats practice partners (convex/v2/agents.ts): the first in TypeScript, the rest in Python.
     const a = startersFor(r.family, o.server && k > 0 ? "python" : "typescript").find(x => x.kind === o.kind)!;
-    const program = ending ? lineStarter(r.family, ending) : { language: a.language, source: o.twostep ? twoStep(a.source) : a.source };
+    const program = ending ? lineStarter(r.family, ending) : { language: a.language, source: (x => (o.look ? lookahead(x, o.look) : x))(o.menu === "full" ? fullMenu(o.twostep ? twoStep(a.source) : a.source) : o.twostep ? twoStep(a.source) : a.source) };
     // --no-mirror: the counterfactual with no reflections in any seat's search (the shortcuts of #855 less cart.mirror).
     if (o["no-mirror"]) program.source = program.source.replaceAll("shortcuts(m, c, rule.mutators)", `shortcuts(m, c, rule.mutators).filter(([plan]) => plan.mutator !== "cart.mirror")`);
     return { name: `P${k}`, kind: "starter" as const, rule: { family: r.family, params: r.params as Record<string, unknown>, tieBreaker }, program };
@@ -234,6 +295,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   const lastThird = new Map<number, { moves: number; states: Set<string> }>();   // object → its changing moves and distinct states in the last third
   let peakSeat = 0, peakTable = 0, stretchRun = 0, runBy = "";
   const bestJoint = seats.map(() => 0), peak = seats.map(() => 0);   // per seat: its highest bits on a state that also holds at least 10 of the others' bits
+  const dipOn = new Map<number, { seat: number; from: string; level: number }>();   // object → its open dip
   const retiredAt = new Map<number, number>(), bankedBy = seats.map(() => 0), gains: { object: number; at: number; gain: number; born: number }[] = [], rungsOn = new Map<number, number>();
   const rep = await runTable(boxes, {
     type, variant, lines: Number(o.objects), seed: `pool-${o.type}-${g}`, seconds, seats, unique: true, economy: E,
@@ -242,6 +304,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
     ...(retirePlay ? { offerFilter: (i: number, _obj: number, c: { age: number; live: number }) => seats[i]!.rule.family !== retireFamily || (retirePlay === "fresh" ? c.age >= Math.floor(c.live / 2) : c.age <= 1) } : {}), birthsPerSecond: Number(o.births), summonCap: E.startingEnergy, ...(drift > 0 ? { driftSeconds: drift } : {}), ...(o["drift-ladders"] ? { driftLadders: true } : {}), ...(o.server ? { regularBirths: true } : {}),
     onAct: e => {
       live = Math.max(live, e.objects);
+      failed.acts++; if (e.outcome === "failed") { failed.n++; if (/Step limit/.test(e.reason ?? "")) failed.steps++; else if (/host-call cap/.test(e.reason ?? "")) failed.calls++; }
       lastBalance[e.seat] = e.balance; income[e.seat] = e.income; spent[e.seat]! += e.charge;
       if (e.at >= (2 * seconds) / 3) { const sl = stat(keys[e.seat]!); sl.actsLate++; if (!e.committed) sl.skipsLate++; }
       if (!e.committed) return;
@@ -260,6 +323,17 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
         const m = byMove.get(key) ?? (byMove.set(key, { moves: 0, own: 0, fee: 0, aboveFee: 0, others: 0, halved: 0, exposed: 0, shared: 0 }), byMove.get(key)!);
         const gain = a[e.seat]! - b[e.seat]!;
         gains.push({ object: e.object, at: e.at, gain: Math.max(0, gain), born: e.born });
+        b.forEach((bj, j) => { if (j !== e.seat && bj > 0) { survival.held += bj; survival.kept += Math.min(bj, a[j]!); } });
+        {
+          const d = dipOn.get(e.object);
+          if (d) {
+            dipOn.delete(e.object);
+            if (d.seat === e.seat) { dips.followed++; const all = seats.map((_, j) => seatBits(j, e.state)); if (all[e.seat]! * all.reduce((t, y, j) => (j === e.seat ? t : t + y), 0) > d.level + 1e-9) dips.recovered++; }
+            else { dips.interrupted++; if (type.encode(e.state as never) === d.from) dips.undone++; }
+          }
+          const pts = (x: number[], i: number) => x[i]! * x.reduce((t, y, j) => (j === i ? t : t + y), 0);
+          if (pts(a, e.seat) < pts(b, e.seat) - 1e-9) { dips.n++; dipOn.set(e.object, { seat: e.seat, from: type.encode(e.before as never), level: pts(b, e.seat) }); }
+        }
         {
           const fam = keys[e.seat]!.split(" ")[0]!, mk = e.calls.map(c => c.mutator === "cart.mirror" ? `cart.mirror ${(c.args as { axis?: string }).axis}` : c.mutator).join("+") || "?";
           const fm = byFamMove.get(`${fam}|${mk}`) ?? (byFamMove.set(`${fam}|${mk}`, { moves: 0, gain: 0, repeats: 0 }), byFamMove.get(`${fam}|${mk}`)!);
@@ -355,6 +429,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
       if (next && next.at - d.at <= Math.min(drift, seconds - d.at)) { st.latency.push(next.at - d.at); st.answered++; }
     }
   });
+  dips.open += dipOn.size;
   peaks.push({ seat: peakSeat, table: peakTable, stretchRun, runBy, game: g });
   if (o.cap) {
     for (let k = 0; k < rep.objects; k++) { life.rungs.push(rungsOn.get(k) ?? 0); if (!retiredAt.has(k)) life.censored++; }
@@ -389,6 +464,9 @@ for (const [f, s] of rows) console.log([
   s.cur.length ? `${mean(s.cur).toFixed(1)} / ${mean(s.alt).toFixed(1)}` : "-",
   s.taken ? `${s.taken} (${pct(s.reclimbed, s.taken)})` : "0",
 ].join(" | ").replace(/^/, "| ").concat(" |"));
+console.log(`survival: a seat's bits on a line that survive the next move by another seat ${survival.held ? ((100 * survival.kept) / survival.held).toFixed(0) : "-"}%`);
+console.log(`acts failed: ${failed.n} of ${failed.acts} (step limit ${failed.steps}, host-call cap ${failed.calls})`);
+console.log(`dips (moves that lowered the mover's points, own bits × the others'): ${dips.n}; next move on that line by the same seat ${dips.followed} (above where it dipped from: ${dips.recovered}), by another seat ${dips.interrupted} (back to the state before the dip: ${dips.undone}), none before the end ${dips.open}`);
 console.log(`late rungs: on lines younger than 60 s ${lateUp.young}, on older lines ${lateUp.old}`);
 if (o.cap) {
   const q = (xs: number[], f: number) => { const v = [...xs].sort((a, b) => a - b); return v.length ? v[Math.floor(f * (v.length - 1))]! : 0; };

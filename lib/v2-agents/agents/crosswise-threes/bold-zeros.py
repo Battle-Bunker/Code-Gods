@@ -17,7 +17,7 @@ def score(b, p):
 
 FAR = 2      # how far one change may go
 QUOTES = 6  # at most this many plans are priced (each price is a host call)
-LEAVE = []      # boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
+LEAVE = []      # boards your agent skips, e.g. [19] or [4, 9]: others may still move them
 PROTECT = []    # boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
 
@@ -50,7 +50,7 @@ def agent(offer):
         for i in range(16):   # move k from one cell to another (their total is kept)
             for i2 in range(i + 1, 16):
                 tries.append(([move("cells.add", cell=NAME[i], k=k), move("cells.add", cell=NAME[i2], k=-k)], edit(b, [i, i2], lambda j: -k if j else k)))
-    options = [(plan, score(b2, p)) for plan, b2 in tries]   # each step and the score it reaches
+    options = score_each(tries, lambda t: (t[0], score(t[1], p)))   # each step and the score it reaches (fewer on a big board)
     # A promise: on these boards, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:
         options = [(plan, s) for plan, s in options if fair(offer, plan)]

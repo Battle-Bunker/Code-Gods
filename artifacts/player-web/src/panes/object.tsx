@@ -11,12 +11,15 @@ import { AffordanceButton } from "@/site/components/action";
 import { useMemo, useState } from "react";
 import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
-import { ANOTHER, ClimbHistory, climbOf, ExpandedFace, moves as candidatesOf, ObjectChip, shortTitle } from "@workspace/v2-views";
+import { ANOTHER, ClimbHistory, climbOf, ExpandedFace, moves as candidatesOf, ObjectChip, shortTitle, type ValuePart } from "@workspace/v2-views";
 import { representation } from "@workspace/v2-core";
 import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMyAgents, useMyObject, useMyRule, useObjectMoves, useOthersAt, useOthersBlurred, type OthersAtMaps } from "@/sdk";
 import { useReplaying, useView } from "@/core/affordance-runtime";
+import { requestComposer } from "./assistant-request";
+import { useRuntime } from "@/core/affordance-runtime";
 import { useOpenPane } from "@/dock/open-pane";
-import { bitsText, pointsText } from "@/core/words";
+import { bitsText, chanceText, pointsText } from "@/core/words";
+import { rarerThanText } from "@workspace/v2-views/format";
 import { BitsHelp } from "@/core/score-help";
 import { toast } from "@/hooks/use-toast";
 import { activeOp, compareOp, switcherOf, whyLine, type SwitchOp } from "./lines";
@@ -45,6 +48,7 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
   const openPane = useOpenPane(replaying ? "replay" : header?.phase ?? "live");
   const state = useMemo(() => (o ? decodeState(o.state, header?.variant) : null), [o?.state, header?.variant]); // eslint-disable-line react-hooks/exhaustive-deps
   const word = objectWord(header?.variant);
+  const aiOff = !!useRuntime().context.room?.aiOff;
   // The candidates, and the others' total bits at each (one live read for the object's few candidate states).
   const rule0 = seated ? my?.rule ?? null : null, value0 = my?.bits ?? undefined;
   const candidates = useMemo(() => (rule0 && state ? candidatesOf(rule0, state, value0, { k: CANDIDATES }) : []), [rule0, state, value0]);
@@ -55,7 +59,8 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
   const exact = useOthersAt(replaying || !ended ? null : objectId, calls);
   const whatIf = useAffordance("object.whatIf");
   // A quote holds for the state it was asked from (the server says which): once the line moves, it says so.
-  const [quote, setQuote] = useState<{ objectId: string; state: string; maps: OthersAtMaps } | null>(null);
+  // What the quote priced, kept with it: a paid quote stays on screen after the line moves on (coordinator, call 33).
+  const [quote, setQuote] = useState<{ objectId: string; state: string; maps: OthersAtMaps; priced: { words: string; want: number | null }[] } | null>(null);
   const myQuote = quote && quote.objectId === objectId ? quote : null;
   const quoteFresh = !!myQuote && myQuote.state === o?.state;
   const [quoting, setQuoting] = useState(false);
@@ -64,7 +69,8 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
     setQuoting(true);
     whatIf.run({ objectId, calls }).then(r => {
       const rows = r.after.flatMap(a => (a ? [a] : []));
-      setQuote({ objectId, state: r.state, maps: { want: new Map(rows.map(a => [a.state, a.want])), taken: new Map(rows.flatMap(a => (a.taken !== null ? [[a.state, a.taken] as const] : []))) } });
+      const priced = candidates.map((m, i) => ({ words: m.words, want: r.after[i]?.want ?? null }));
+      setQuote({ objectId, state: r.state, priced, maps: { want: new Map(rows.map(a => [a.state, a.want])), taken: new Map(rows.flatMap(a => (a.taken !== null ? [[a.state, a.taken] as const] : []))) } });
     }, failed("The quote did not come")).finally(() => setQuoting(false));
   };
   const others = ended ? exact : quoteFresh ? myQuote!.maps : undefined;
@@ -97,8 +103,15 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
           <span className="font-semibold">{word.One} {o.number}</span>
           {v && <span data-testid="text-line-points">{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
           {v && <BitsHelp testId="button-bits-help-line" />}
+          {/* v1's AskAboutObject: the line in a message to your assistant, to finish and send. */}
+          {!aiOff && (
+            <button type="button" className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" data-testid={`button-object-ask-${o.number}`}
+              title={`Put this ${word.one} in a message to your assistant`} onClick={() => void requestComposer({ fill: `${word.One} ${o.number}: ` }, openPane)}>ask my assistant</button>
+          )}
         </p>
         {v && <p className="text-xs text-muted-foreground" data-testid="text-line-formula">{whyLine({ rarity: v.rarityBits, want: v.want }, {}, word.one, blurred)}</p>}
+        {/* v1's why?: how rare the object is for your rule, as a share of random ones (the bits' meaning in one line). */}
+        {v && v.rarityBits > 0 && <p className="text-xs text-muted-foreground" data-testid="text-line-rarer">For your rule this {word.one} is {rarerThanText(v.rarityBits, word.many)} ({chanceText(v.rarityBits)} by chance).</p>}
         {/* Paid looks (W3 #643): this is the line as last seen; a look pays to see it as it is now. */}
         {isPaid(o) && (
           <p className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
@@ -107,7 +120,9 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
           </p>
         )}
       </div>
+      {/* A tree-valued rule's points, part by part (the server's value.parts, W-server2 #1017; null otherwise). */}
       <ExpandedFace rule={rule} state={state} value={my!.bits ?? undefined} active={active} compare={compared}
+        parts={v && "parts" in v ? (v.parts as readonly ValuePart[] | null | undefined) ?? null : null}
         moves={candidates} others={othersAt} climb={<ClimbHistory climb={climb} noun={word.one} approx={blurred} />}
         onActive={rep => void run(activeOp(objectId, rep, compared))} onCompare={rep => void run(compareOp(objectId, active, rep))} />
       {!ended && !replaying && candidates.length > 0 && (
@@ -116,8 +131,13 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
             {quoting ? "Quoting…" : `${myQuote ? "Quote again" : "Quote what these moves do for the others"} (${quotePrice(o.lookPrice, candidates.length)})`}
           </button>
           <span data-testid="text-quote-state" data-fresh={quoteFresh || undefined}>{quoteFresh ? "An estimate (≈): each quote is a fresh blurred reading, so asking again draws fresh."
-            : myQuote ? `This ${word.one} has moved since your quote: quote again for its moves now.` : "Their sums are paid and blurred while the game runs."}</span>
+            : myQuote ? `This ${word.one} has moved since your quote. What you paid for, from where it was:` : "Their sums are paid and blurred while the game runs."}</span>
         </p>
+      )}
+      {!ended && !replaying && myQuote && !quoteFresh && (
+        <ul className="space-y-0.5 text-xs text-muted-foreground" data-testid="list-stale-quote">
+          {myQuote.priced.map((p, i) => <li key={i}>{p.words}: the others' bits after it about {p.want === null ? "unknown" : bitsText(p.want)} (≈)</li>)}
+        </ul>
       )}
       <button type="button" className="mr-4 text-xs underline underline-offset-4" data-testid="button-open-what-if" onClick={() => void openPane("what-if")}>
         Try a change on this {word.one}

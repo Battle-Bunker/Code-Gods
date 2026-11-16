@@ -6,7 +6,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { mcpTools, type AffordanceContext } from "@workspace/v2-affordances";
+import { GAME_SCOPE_HEADER, mcpTools, type AffordanceContext } from "@workspace/v2-affordances";
 import { admin, humans, SITE_ } from "./v2-helpers.ts";
 
 const MCP = `${SITE_}/mcp`;
@@ -19,10 +19,10 @@ async function credential(subject: string, roomId: string, permission: "read" | 
   await admin.mutation("auth/testing:seedCredential", { subject, roomId, permission, tokenHash: sha256(token) });
   return token;
 }
-async function rpc(token: string, method: string, params: Record<string, unknown> = {}): Promise<any> {
+async function rpc(token: string, method: string, params: Record<string, unknown> = {}, game?: string): Promise<any> {
   const headers: Record<string, string> = {
     "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${token}`,
-    "mcp-protocol-version": "2026-07-28", "mcp-method": method,
+    "mcp-protocol-version": "2026-07-28", "mcp-method": method, ...(game ? { [GAME_SCOPE_HEADER]: game } : {}),
   };
   if (method === "tools/call") headers["mcp-name"] = String(params.name);
   const res = await fetch(MCP, { method: "POST", headers, body: JSON.stringify({ jsonrpc: "2.0", id: nextId++, method, params: { ...params, _meta: meta } }) });
@@ -61,4 +61,18 @@ test("a v2 room's credential gets the directory's tools for its context and gran
 
   const ownerCred = await credential(owner!.userId, roomId, "owner");
   assert.ok(names(await rpc(ownerCred, "tools/list")).includes("game_end"));
+});
+
+test("a request may name a game of its room (the CLI's --game): an ended game is reached, another room's never", async () => {
+  // Catches: once a game ends the room has no game in view, so `game get` and `game standings` answered "Tool not found".
+  const [owner, player, other] = await humans("Ended Owner", "Ended Player", "Ended Other");
+  const { roomId, gameId } = await admin.mutation("v2/testing:seedGame", { owner: owner!.userId, humans: [player!.userId], practice: 1, phase: "ended" });
+  const act = await credential(player!.userId, roomId, "act");
+  assert.ok(!names(await rpc(act, "tools/list")).includes("game_get"), "no game in view by default");
+  assert.ok(names(await rpc(act, "tools/list", {}, gameId)).includes("game_get"), "the named ended game is in view");
+  const got = await rpc(act, "tools/call", { name: "game_get", arguments: {} }, gameId);
+  assert.match(JSON.stringify(got.result), /\\?"phase\\?":\s*\\?"ended/, JSON.stringify(got).slice(0, 400));
+  // A credential bound to one room never reaches another room's game by naming it.
+  const elsewhere = await admin.mutation("v2/testing:seedGame", { owner: other!.userId, practice: 1, phase: "ended" });
+  assert.ok(!names(await rpc(act, "tools/list", {}, elsewhere.gameId)).includes("game_get"));
 });

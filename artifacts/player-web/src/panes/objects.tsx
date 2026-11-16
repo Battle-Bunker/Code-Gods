@@ -28,7 +28,7 @@ import { listMaxHeight } from "@/lib/virtual-window";
 import { contestedLines, foldTugs } from "./tug-of-war";
 import { toast } from "@/hooks/use-toast";
 import { AffordanceButton } from "@/site/components/action";
-import { digestScale, payoffRect, serverSort, SORTS, whyLine, widen, type PayoffScale } from "./lines";
+import { digestScale, listFooter, payoffRect, serverSort, SHOWS, SORTS, whyLine, widen, type PayoffScale } from "./lines";
 
 /** The rectangle's box: the side the largest value fills, and room for its two edge labels. */
 const SIDE = 44, LABEL_W = 42, LABEL_H = 13;
@@ -85,7 +85,25 @@ function SortControl() {
         onChange={e => sort.run({ sort: e.target.value as (typeof SORTS)[number]["sort"] }).catch((err: Error) => toast({ title: "The order did not change", description: err.message, variant: "destructive" }))}>
         {SORTS.map(s => <option key={s.sort} value={s.sort}>{s.label}</option>)}
       </select>
+      <ShowControl />
     </label>
+  );
+}
+
+/** v1's filters: all lines, only those earning you points, only the contested ones (the view state, so an assistant can set it). */
+function ShowControl() {
+  const view = useView();
+  const filter = useAffordance("view.filterObjects");
+  const show = view.objects.filter.show ?? "all";
+  return (
+    <>
+      <span className="ml-2 text-muted-foreground">Show</span>
+      <select value={show} disabled={!filter.available} title={filter.reason ?? filter.tooltip} data-testid="select-lines-show"
+        className="border border-[hsl(var(--card-border))] bg-background px-1.5 py-0.5"
+        onChange={e => filter.run({ ...view.objects.filter, show: e.target.value as (typeof SHOWS)[number]["show"] }).catch((err: Error) => toast({ title: "The list did not change", description: err.message, variant: "destructive" }))}>
+        {SHOWS.map(s => <option key={s.show} value={s.show}>{s.label}</option>)}
+      </select>
+    </>
   );
 }
 
@@ -171,7 +189,7 @@ function SeatedLines() {
   const moves = useMoves();
   const contested = useMemo(() => contestedLines(foldTugs(moves.results)), [moves.results]);
   const digest = useDigest();
-  const ids = useObjectIds(serverSort(view.objects.sort));
+  const ids = useObjectIds(serverSort(view.objects.sort), 30, view.objects.filter.show ?? "all");
   const openObject = useAffordance("view.openObject");
   const panes = usePaneOps(useReplaySource() ? "replay" : header?.phase ?? "live");
   const scale = useMemo(() => digestScale(digest?.packed), [digest?.packed]);
@@ -213,8 +231,14 @@ function SeatedLines() {
       <LookAll ids={loadedIds} many={objectWord(header?.variant).many} variant={header?.variant ?? ""} />
       <VirtualRows rows={results} rowHeight={ROW_H} maxHeight={maxHeight} keyOf={r => r.objectId} onNearEnd={onNearEnd} testId="lines-list"
         render={r => <LineRow objectId={r.objectId} number={r.number} rule={rule} value={my?.bits ?? null} rep={rep} scale={scale} focused={view.focus?.objectId === r.objectId} contested={contested.has(r.objectId)} onOpen={onOpen} variant={header?.variant ?? ""} />} />
+      <ListFooter text={listFooter({ shown: results.length, packed: digest?.packed, show: view.objects.filter.show ?? "all", more: status !== "Exhausted", many: objectWord(header?.variant).many })} />
     </div>
   );
+}
+
+/** How many rows are shown of how many (v1 objects-scroll's "N of M"); scrolling to the end loads the next page. */
+function ListFooter({ text }: { text: string }) {
+  return <p className="px-3 pb-1 text-xs text-muted-foreground" data-testid="text-objects-footer" aria-live="polite">{text}</p>;
 }
 
 function SpectatorRow({ objectId, number, variant }: { objectId: string; number: number; variant: string }) {
@@ -243,6 +267,7 @@ function SpectatorLines() {
       <p className="px-3 text-xs text-muted-foreground">You're watching: every {word.one} in the world, by number. The players' points on them are theirs alone.</p>
       <VirtualRows rows={results} rowHeight={SPECTATOR_ROW_H} maxHeight={maxHeight} keyOf={r => r.objectId} onNearEnd={onNearEnd} testId="lines-list"
         render={r => <SpectatorRow objectId={r.objectId} number={r.number} variant={variant} />} />
+      <ListFooter text={listFooter({ shown: results.length, packed: undefined, show: "all", more: status !== "Exhausted", many: word.many })} />
     </div>
   );
 }

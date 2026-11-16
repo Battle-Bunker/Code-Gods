@@ -17,8 +17,6 @@ const BEGINNER = new Set(beginnerGridFamilies(gridParams(grid4).size).map(f => f
  */
 const V1_PORTS = ["round-numbers", "column-addition"];
 const MORE = new Set([...moreGridFamilies(gridParams(grid4).size).map(f => f.id), ...V1_PORTS]);
-/** The arithmetic playtest pool: readings of the board as long numbers (grid-params.md §12–13). */
-const ARITHMETIC = new Set(["divisibility", "leading-digits"]);
 
 /**
  * The tie-breakers the beginner pool deals: only those tied to what the main part singles out (owner decision 29; the
@@ -61,10 +59,6 @@ export const gridPresets = [
     // directions and axes are symmetric, but their sampled value functions differ by more than the audit allows.
     rules: poolOf(MORE).filter(r => MORE_PARAMS[r.family] === undefined || JSON.stringify(r.params) === JSON.stringify(MORE_PARAMS[r.family])),
   },
-  {
-    // A readability playtest, not the default (grid-params.md §13): Divisibility's four instances (DIVISIBILITY_DEALT)
-    // and Leading Digits' four (LEADING_DIGITS_DEALT), each with its one tie-breaker on the attained number.
-    id: "grids-arithmetic", title: "Grids · arithmetic", variant: grid4.id,
-    rules: poolOf(ARITHMETIC),
-  },
+  // Grids · arithmetic (Divisibility and Leading Digits) is withdrawn (16 Nov, the coordinator): a lattice reduction finds
+  // Divisibility's top boards by formula (grid-params.md §14). The families keep their code and values, undealt.
 ] as const;

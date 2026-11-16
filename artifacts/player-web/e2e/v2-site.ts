@@ -10,6 +10,7 @@
  *  - home: the empty state offers Create room and Join with a code; Create room seats you and opens the room;
  *  - room: a lone owner is offered a practice game against practice partners (ux-lessons 1.1–1.2), never "not available";
  *  - configure: the palette opens the room's settings page; a change shows in Review, is checked, saved and reaches the room;
+ *  - your setups: one saved, duplicated, applied to the room by name, and the copy deleted;
  *  - a seeded live line game: your points and energy in the game bar (ux 2.5); the default panes; Lines rows with a
  *    compact face; opening a line shows every representation the rule depends on, and the Lines pane stays;
  *    the act log speaks in points and bits (yours × others' = points), 2 decimal places; no horizontal page scroll;
@@ -146,18 +147,59 @@ try {
       await page.goto(roomUrl);
     });
 
+    await check(`${label}: your setups: save one, duplicate it, apply it to the room, delete the copy (v1 site-smoke 3)`, async () => {
+      const roomUrl = page.url();
+      await page.goto(`${roomUrl}/configure`);
+      await page.getByTestId("group-your-setups").waitFor();
+      const name = `Slow ${label}`;
+      await page.getByTestId("choice-planningSeconds-300").click();
+      await page.getByTestId("input-setup-name").fill(name);
+      await page.getByTestId("button-save-setup").click();
+      await page.getByTestId(`row-setup-${name}`).waitFor({ timeout: 15_000 });
+      await page.getByTestId(`button-duplicate-setup-${name}`).click();
+      await page.getByTestId(`row-setup-${name}'s copy`).waitFor({ timeout: 15_000 });
+      // Apply the original: the page holds exactly it, so Save applies it by name.
+      await page.getByTestId(`choice-setup-${name}`).click();
+      await page.getByTestId("text-applies-setup").getByText(`Applies the setup “${name}”.`).waitFor();
+      await page.getByTestId("button-save-settings").click();
+      await page.getByTestId("button-save-settings-confirm-ok").click();
+      await page.waitForURL(roomUrl, { timeout: 15_000 });
+      await page.getByTestId("text-next-game-summary").getByText(/300 s to plan/).waitFor({ timeout: 15_000 });
+      await page.goto(`${roomUrl}/configure`);
+      await page.getByTestId("text-room-runs-setup").getByText(`runs the setup “${name}”`).waitFor({ timeout: 15_000 });
+      // Delete the copy (press again to confirm); the original stays.
+      await page.getByTestId(`button-delete-setup-${name}'s copy`).click();
+      await page.getByTestId(`button-delete-setup-${name}'s copy`).click();
+      await page.getByTestId(`row-setup-${name}'s copy`).waitFor({ state: "detached", timeout: 15_000 });
+      await page.getByTestId(`row-setup-${name}`).waitFor();
+      // Shared as in v1: the phone's player (bob) sees alice's setup from the desktop run, to use or copy, not delete.
+      if (label === "phone") {
+        const theirs = page.getByTestId("group-others-setups").getByTestId("row-setup-Slow desktop");
+        // Everyone's setups by name: the engine suites' setups may fill the first pages.
+        for (let i = 0; i < 30 && !await theirs.count(); i++) {
+          const more = page.getByTestId("button-more-setups-others");
+          if (await more.count()) await more.click(); else await page.waitForTimeout(500);
+        }
+        await theirs.waitFor({ timeout: 15_000 });
+        await theirs.getByText("Duplicate and edit").waitFor();
+        assert.equal(await theirs.getByText("Delete").count(), 0, "only its owner deletes a setup");
+      }
+      await noHorizontalScroll(page, `${label} your setups`);
+      await shot(page, `v2-setups-${label}`);
+      await page.goto(roomUrl);
+    });
+
     await check(`${label}: a live line game shows your totals, the panes and the lines' faces`, async () => {
       const room = code();
       const g = convexRun("v2/testing:seedGame", { owner: me.subject, practice: 2, code: room });
       await page.goto(`${SITE}/rooms/${room}/games/${g.gameId}`);
-      await page.getByTestId("text-my-total").waitFor();
-      assert.match(await page.getByTestId("text-my-total").innerText(), /points/);
+      await page.getByTestId("text-my-total").getByText(/points/).waitFor();   // "…" until the standings arrive
       assert.match(await page.getByTestId("text-my-energy").innerText(), /^Energy [\d,]+\.\d\d/);
       for (const pane of ["objects", "my-card", "feed", "agents", "race"]) await page.getByTestId(`pane-${pane}`).waitFor();
       const row = page.locator("[data-testid^=row-line-]").first();
       await row.waitFor();
       await page.locator("[data-testid^=marks-line-]").first().waitFor();   // each row's face arrives with its own subscription
-      await page.getByTestId("pane-feed").getByText(/Your agent/).first().waitFor();
+      await page.getByTestId("pane-feed").getByText(/Your agent\b/).first().waitFor();   // \b: not the folded table's "Your agents' move"
       const feed = await page.getByTestId("pane-feed").innerText();
       assert.match(feed, /Your agent/);
       assert.doesNotMatch(feed, /payoff|object|\p{Extended_Pictographic}/iu, "the act log speaks in player words");
@@ -225,6 +267,8 @@ try {
         await page.waitForURL(/\/games\//, { timeout: 30_000 });
         if (!await page.getByTestId("pane-my-card").count() && await page.getByTestId("button-jump-my-card").count()) await page.getByTestId("button-jump-my-card").click();
         const card = page.getByTestId("goal-card");
+        // The views are in the worked example, folded since #901: open it.
+        await card.locator("details.v2v-goal-example > summary").click();
         await card.locator(".v2v-switcher").first().waitFor({ timeout: 15_000 });
         const out = await card.evaluate((el: HTMLElement, w: number) => {
           const box = el.getBoundingClientRect(), right = Math.min(box.right, w);

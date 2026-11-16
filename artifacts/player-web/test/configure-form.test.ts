@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { AFFORDANCES } from "@workspace/v2-affordances";
 import { presetOf } from "@workspace/engine/convex/v2/presets.ts";
-import { DEFAULT_COMPUTE_MS, DEFAULT_PAUSE_SECONDS, DEFAULT_STEP_BUDGET, FIELDS, SECTIONS, draftErrors, draftOf, fieldsOf, overridesFor, reviewDiff, choiceLabel, formatValue, stepChoices, lengthLine } from "../src/site/lib/configure-form.ts";
+import { isHidden, saveArgs, setupNameProblem, DEFAULT_COMPUTE_MS, DEFAULT_PAUSE_SECONDS, DEFAULT_STEP_BUDGET, FIELDS, SECTIONS, draftErrors, draftOf, fieldsOf, overridesFor, reviewDiff, choiceLabel, formatValue, stepChoices, lengthLine } from "../src/site/lib/configure-form.ts";
 
 const beginner = presetOf("lines-beginner");
 
@@ -99,4 +99,53 @@ test("the page's pause default is the server's (a room left on it records no ove
 test("the page's compute defaults are the sandbox's (a room left on them records no override)", () => {
   const limits = readFileSync(new URL("../../../lib/v2-sandbox/src/limits.ts", import.meta.url), "utf8");
   assert.match(limits, new RegExp(`DEFAULT_LIMITS = Object\\.freeze\\(\\{ stepBudget: ${DEFAULT_STEP_BUDGET.toLocaleString("en-US").replace(/,/g, "_")}, hostCallCap: \\d+, wallMs: ${DEFAULT_COMPUTE_MS} \\}`));
+});
+
+test("defence goals are asked on grid setups only, and never sent for a lines setup (the server refuses them there)", () => {
+  const grids = presetOf("grids-beginner");
+  assert.ok(FIELDS.defenceGoals.only!(grids) && !FIELDS.defenceGoals.only!(beginner));
+  const on = { ...draftOf(beginner, {}), defenceGoals: true, penaltyWeight: 2 };
+  assert.deepEqual(overridesFor(on, beginner), {});
+  assert.deepEqual(overridesFor({ ...draftOf(grids, {}), defenceGoals: true, penaltyWeight: 2 }, grids), { defenceGoals: true, penaltyWeight: 2 });
+});
+
+test("rules never dealt: a set (order does not matter), never all of the setup's, and the bid questions only where there is bidding", () => {
+  const bidding = presetOf("lines-beginner-bidding");
+  const d = draftOf(bidding, {});
+  assert.deepEqual(overridesFor({ ...d, excludedFamilies: [] }, bidding), {});
+  assert.deepEqual(overridesFor({ ...d, excludedFamilies: [bidding.families[1]!, bidding.families[0]!] }, bidding), { excludedFamilies: [bidding.families[1], bidding.families[0]] });
+  const saved = { preset: bidding.id, draft: { ...d, excludedFamilies: [bidding.families[0]!, bidding.families[1]!] } };
+  assert.deepEqual(reviewDiff(saved, { preset: bidding.id, draft: { ...d, excludedFamilies: [bidding.families[1]!, bidding.families[0]!] } }), [], "the same set is no change");
+  assert.equal(draftErrors({ ...d, excludedFamilies: [...bidding.families] }, bidding).excludedFamilies, `Leave at least ${bidding.minPlayers} rule families to deal, one for each player.`);
+  assert.equal(draftErrors({ ...d, excludedFamilies: bidding.families.slice(bidding.minPlayers) }, bidding).excludedFamilies, undefined, "one per player is enough");
+  assert.equal(formatValue("excludedFamilies", ["x", "y"]), "2 rules");
+  assert.equal(choiceLabel("bidPricing", "second"), "Second price");
+  assert.equal(choiceLabel("bidDisclosure", "none"), "Own result only");
+  assert.equal(isHidden("bidPricing", beginner), true);
+  assert.equal(isHidden("bidPricing", bidding), false);
+  assert.equal(isHidden("excludedFamilies", beginner), false);
+  assert.equal(isHidden("bidPricing", beginner, { bidSeconds: 30 }), false, "v1: any setup may bid");
+  assert.equal(isHidden("bidPricing", bidding, { bidSeconds: 0 }), true, "0 is no bid phase");
+  assert.equal(d.bidSeconds, bidding.bid!.seconds);
+  assert.deepEqual(overridesFor({ ...d, bidSeconds: 0 }, bidding), { bidSeconds: 0 });
+  assert.equal(d.bidPricing, bidding.bid!.pricing);
+});
+
+test("Save applies a saved setup by its id while the page holds exactly that setup, else the preset and overrides", () => {
+  const d = draftOf(beginner, { planningSeconds: 120 });
+  const setup = { setupId: "s1", name: "Slow start", preset: beginner.id, overrides: { planningSeconds: 120 } };
+  assert.deepEqual(saveArgs({ preset: beginner.id, draft: d }, beginner.id, setup), { setupId: "s1" });
+  assert.deepEqual(saveArgs({ preset: beginner.id, draft: { ...d, planningSeconds: 60 } }, beginner.id, setup), { overrides: {} }, "changed by hand after loading it");
+  assert.deepEqual(saveArgs({ preset: beginner.id, draft: d }, beginner.id, null), { overrides: { planningSeconds: 120 } });
+  const fams = beginner.families;
+  const set = { ...setup, overrides: { excludedFamilies: [fams[1]!, fams[0]!] } };
+  assert.deepEqual(saveArgs({ preset: beginner.id, draft: draftOf(beginner, { excludedFamilies: [fams[0]!, fams[1]!] }) }, beginner.id, set), { setupId: "s1" }, "the rules never dealt are a set");
+  const other = presetOf("lines-beginner-bidding");
+  assert.deepEqual(saveArgs({ preset: other.id, draft: draftOf(other, {}) }, beginner.id, null), { preset: other.id, overrides: {} });
+});
+
+test("a setup's name: 1 to 40 characters once trimmed (v1's words)", () => {
+  assert.equal(setupNameProblem("  "), "Give the setup a name.");
+  assert.equal(setupNameProblem("x".repeat(41)), "At most 40 characters.");
+  assert.equal(setupNameProblem("  Slow start "), null);
 });

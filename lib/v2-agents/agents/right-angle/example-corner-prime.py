@@ -14,14 +14,14 @@ def score(L, p):
     if f.off_right is None or f.x is None:   # parallel lines never cross: no score
         return None
     main, Yc = ladder(f.y, p["q"], p["r"], f.off_right + dist(f.x))   # a right angle at a grid point, y on your ladder
-    t = abs(f.X) + abs(Yc)   # the corner's |x| + |y|
-    return [main, spf(t)]   # main: the corner's level: a right angle at a grid point, y on your ladder (higher is better); secondary: a corner whose |x| + |y| has a big smallest prime factor is better
+    mod1 = lambda n: abs(int(n)) or 1   # |n|, at least 1
+    return [main, spf(abs(f.X) + abs(Yc))]   # main: the corner's level: a right angle at a grid point, y on your ladder (higher is better); secondary: a corner whose |x| + |y| has a big smallest prime factor is better
 
 
 FAR = 4      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-KINDS = ["turn","slide","translate"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
-LEAVE = []      # pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
+KINDS = ["turn","slide","translate"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
+LEAVE = []      # pairs your agent skips, e.g. [19] or [4, 9]: others may still move them
 PROTECT = []    # pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
 

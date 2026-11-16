@@ -271,6 +271,16 @@ def _act_setup(seed, step_limit):
     _AGENT_BUILTINS = b
 
 
+
+def _steps_left():
+    # The agent's steps left this act (its own code's LINE and JUMP events), so it can do less instead of failing.
+    return max(0, _step_limit - _steps)
+
+
+def _step_budget():
+    return _step_limit
+
+
 _MON = sys.monitoring
 _TOOL = 4
 

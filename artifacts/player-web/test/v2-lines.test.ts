@@ -8,14 +8,16 @@ import { readdirSync, readFileSync } from "node:fs";
 import { evaluateObject, ruleLayers, type Score } from "@workspace/v2-core";
 import { valueLookup, type ValueFunction } from "@workspace/v2-valuation";
 import { lineType, type LineState } from "@workspace/v2-linear";
-import { activeOp, compareOp, digestScale, partsNote, payoffRect, serverSort, SORTS, switcherOf, whyLine, widen } from "../src/panes/lines.ts";
+import { activeOp, compareOp, digestScale, listFooter, partsNote, payoffRect, serverSort, SORTS, switcherOf, whyLine, widen } from "../src/panes/lines.ts";
 
 test("every order the human can pick pages by a server sort", () => {
   assert.equal(serverSort("points"), "points");
   assert.equal(serverSort("rarity"), "rarity");
   assert.equal(serverSort("recent"), "recent");
   assert.equal(serverSort(undefined), "points");
-  for (const s of SORTS) assert.ok(["points", "rarity", "recent"].includes(serverSort(s.sort)));
+  // Every order is one the server pages by (W3-2 #936: v2/play:objectIds sorts).
+  for (const s of SORTS) assert.ok(["points", "rarity", "want", "mutations", "born", "oldest", "recent"].includes(serverSort(s.sort)));
+  assert.equal(SORTS.length, 7, "v1's seven orders");
   assert.ok(SORTS.every(s => !/payoff|object/i.test(s.label)));
 });
 
@@ -87,4 +89,16 @@ function committedBits(variant: string, family: string, tieBreaker: string): ((u
 test("a Lines row's Why? is an estimate while the others' bits are blurred, exact otherwise", () => {
   assert.match(whyLine({ rarity: 3.4, want: 2 }, {}, "line", true), /^your 3\.40 bits × others' about 2\.00 bits ≈ 6\.80 points\./);
   assert.match(whyLine({ rarity: 3.4, want: 2 }, {}, "line"), /^your 3\.40 bits × others' 2\.00 bits = 6\.80 points\./);
+});
+
+test("the lines list footer: 'N of M' counted from the digest under the filter shown (v1 objects-scroll)", () => {
+  const packed = [0, 0, 0, 1, 2, 3, 2, 0, 5, 0, 0, 0, 4, 1, 0]; // objects 1, 2 and 4 (3 not born)
+  assert.equal(listFooter({ shown: 2, packed, show: "all", more: true, many: "lines" }), "2 of 3 lines · scroll for more");
+  assert.equal(listFooter({ shown: 3, packed, show: "all", more: false, many: "lines" }), "3 of 3 lines");
+  assert.equal(listFooter({ shown: 1, packed, show: "positive", more: false, many: "lines" }), "1 of 1 lines");
+  assert.equal(listFooter({ shown: 1, packed, show: "contested", more: false, many: "lines" }), "1 of 1 lines");
+  assert.equal(listFooter({ shown: 1, packed, show: "chips", more: false, many: "lines" }), "1 of 1 lines");
+  assert.equal(listFooter({ shown: 3, packed, show: "all", more: true, many: "lines" }), "3 of 3 lines", "the last page loaded before the server says it was the last");
+  assert.equal(listFooter({ shown: 5, packed: undefined, show: "all", more: false, many: "grids" }), "5 grids");
+  assert.equal(listFooter({ shown: 4, packed: [1, 1, 1], show: "all", more: false, many: "lines" }), "4 lines", "a lagging digest never says fewer than shown");
 });

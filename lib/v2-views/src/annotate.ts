@@ -34,6 +34,8 @@ export interface SiteAnnotation {
   readonly site: number;
   readonly evaluation: Evaluation;
   readonly parts: readonly Part[];
+  /** Every mark shown: the parts' marks (an undealt secondary's marks are not among them). */
+  readonly marks: readonly Mark[];
   /** The worked computation: the elements read (static ones), then the terms, as "label = value" lines. */
   readonly working: readonly string[];
 }
@@ -55,20 +57,15 @@ export interface Annotation {
 const PART_NAMES = ["main part", "secondary preference", "third preference", "fourth preference", "fifth preference"];
 export const partName = (i: number): string => PART_NAMES[i] ?? `preference ${i + 1}`;
 
-/** The terms the family scored, in order (WORST still names them: the undefined one is among them). */
-function components(e: Evaluation): { term: Term; sense: "max" | "min" }[] {
-  const byId = new Map(e.terms.map(t => [t.id, t]));
-  return e.components.map(c => ({ term: byId.get(c.term)!, sense: c.sense }));
-}
-
 
 function annotateSite<S, P>(rule: RuleRef<S, P>, e: Evaluation, site: number, state: S): SiteAnnotation {
-  const comps = components(e);
   const cs = contributorsOf(rule, state, e, site);
+  // A secondary owns the marks labelled with its layer's id; the main part owns the rest (the picture of the rule),
+  // except marks labelled with a secondary that is not dealt: those are shown to nobody.
+  const secondaries = new Set(rule.family.tieBreakers.map(t => t.id));
   const parts: Part[] = cs.map((c, i) => ({
     ...c,
-    // A tie-breaker owns the marks labelled with its term; the main part owns the rest (the picture of the rule).
-    marks: i === 0 ? e.marks.filter(m => !comps.slice(1).some(t => markTerm(m) === t.term.id)) : e.marks.filter(m => markTerm(m) === c.term),
+    marks: i === 0 ? e.marks.filter(m => { const t = markTerm(m); return t === undefined || !secondaries.has(t) || t === c.term; }) : e.marks.filter(m => markTerm(m) === c.term),
   }));
   const working: string[] = [];
   // A rule that reads most of a representation's coordinates (every cell of a board) gets that representation in one
@@ -90,7 +87,8 @@ function annotateSite<S, P>(rule: RuleRef<S, P>, e: Evaluation, site: number, st
     working.push(`${labelWithArgs(decl.label, r.args)} = ${v}`);
   }
   for (const t of e.terms) working.push(`${t.label} = ${fmtTermValue(t.value)}`);
-  return { site, evaluation: e, parts, working };
+  const shown = new Set(parts.flatMap(p => p.marks));
+  return { site, evaluation: e, parts, marks: e.marks.filter(m => shown.has(m)), working };
 }
 
 /** Coordinates read from one representation at or past which the working writes the representation whole. */

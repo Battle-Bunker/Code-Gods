@@ -1,5 +1,6 @@
 /** `game.*`: the game in view, its standings, the owner's lobby and game controls, ready and pause. */
-import { membersOf, openBidding, rematchDeal, rotationFor, startGame } from "../lobby";
+import { standingsFor } from "../disclose";
+import { membersOf, openBidding, bidOf, rematchDeal, rotationFor, startGame } from "../lobby";
 import { presetOf } from "../presets";
 import { touchActivity } from "../activity";
 import { OpFailure } from "@workspace/v2-affordances";
@@ -21,9 +22,10 @@ export const { op: get, as: getAs } = defineOp("game.get", "query", async env =>
 });
 
 export const { op: standings, as: standingsAs } = defineOp("game.standings", "query", async env => {
-  const { game } = inGame(env);
+  const { game, member } = inGame(env);
   const s = await env.ctx.db.query("v2Standings").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
-  return { rows: (s?.rows ?? []).map(r => ({ memberId: r.memberId, name: r.name, points: r.total, handicap: r.handicap, net: r.net, rank: r.rank })) };
+  const seen = standingsFor(game, s?.rows ?? [], member._id);
+  return { rows: seen.rows.map(r => ({ memberId: r.memberId, name: r.name, points: r.total, handicap: r.handicap, net: r.net, rank: r.rank })), handicapsHidden: seen.handicapsHidden };
 });
 
 /** Who holds which family next: the rotated deal while the room is mid-rotation; empty when the next deal is fresh. */
@@ -38,7 +40,7 @@ export const { op: rotation, as: rotationAs } = defineOp("game.rotation", "query
 export const { op: start, as: startAs } = defineOp("game.start", "mutation", async env => {
   const { room } = inRoom(env);
   await touchActivity(env.ctx);   // human activity: keeps the engine awake (activity.ts)
-  if (presetOf(room.preset).bid) {
+  if (bidOf(room)) {
     await openBidding(env.ctx, room);
     return { gameId: null, bidPhase: true };
   }

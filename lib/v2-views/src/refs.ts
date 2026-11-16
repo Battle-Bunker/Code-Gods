@@ -2,7 +2,7 @@
 import { elementDecl, refKey, representation, type ElementRef, type Mark, type ObjectType } from "@workspace/v2-core";
 
 /** The game's own noun for an object of this type ("line", "grid"), never "object" (ux-lessons 2.5). */
-export const nounOf = <S>(type: ObjectType<S>): string => type.id;
+export const nounOf = <S>(type: ObjectType<S>): string => type.id.replace(/^board\d+$/, "grid");   // the coloured boards (board4 … board7) are grids to a player
 
 /** Every element ref a mark cites. */
 export function markRefs(m: Mark): readonly ElementRef[] {
@@ -11,7 +11,7 @@ export function markRefs(m: Mark): readonly ElementRef[] {
 
 /** The term a mark is labelled with, if any. */
 export function markTerm(m: Mark): string | undefined {
-  return m.kind === "measure" ? m.term : m.kind === "candidate" ? m.term : undefined;
+  return m.term;
 }
 
 /** The marks a representation draws: those whose refs all belong to it (a measure needs both ends in it). */

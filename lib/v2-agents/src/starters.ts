@@ -16,6 +16,7 @@ import { lineType } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
 import { CATALOGUE, LENSES, type FamilyEntry, type Lens, type LensId } from "./catalogue.ts";
 import { gridExampleFor, gridScoreSource, gridShippedAgents, gridStartersFor, isGridFamily, isGridTypeFamily } from "./grid-starters.ts";
+import { boardExampleFor, boardScoreSource, boardShippedAgents, boardStartersFor, isBoardFamily, isBoardTypeFamily } from "./board-starters.ts";
 import { isPairFamily, isPairTypeFamily, pairExampleFor, pairScoreSource, pairShippedAgents, pairStartersFor } from "./pair-starters.ts";
 
 export type AgentKind = "example" | "simple" | "thorough" | "bold" | "naive";
@@ -156,7 +157,7 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     `const FAR = ${far};      // how far one change may go`,
     `const QUOTES = ${quotes};  // at most this many plans are priced (each price is a host call)`,
     ...(kind === "naive" ? [] : [
-      "const LEAVE = [];      // lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them",
+      "const LEAVE = [];      // lines your agent skips, e.g. [19] or [4, 9]: others may still move them",
       "const PROTECT = [];    // lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off",
     ]),
     "",
@@ -208,7 +209,9 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
       "  }",
       "  return plans.length ? cheapest(offer, plans.slice(0, QUOTES)) : null;   // the cheapest of the best, or skip",
     ] : [
-      `  let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, ${args})]);   // each step and the score it reaches`,
+      (kind === "thorough" || kind === "bold"
+        ? `  let options = scoreEach(tries, ([plan, m2, c2]) => [plan, score(m2, c2, ${args})]);   // each step and the score it reaches (fewer on a big line)`
+        : `  let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, ${args})]);   // each step and the score it reaches`),
       ...POINTS.ts,
       "  // The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or null.",
       ...(kind === "thorough" ? [
@@ -217,10 +220,11 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
         "  // No single step helps: look two steps ahead (each step, then a shift or tilt by 1) and take the first",
         "  // step of the best pair, though it may lower your points for a moment. It weighs the 4 best pairs: a few more small reads.",
         "  // The first steps: the 6 best for your rule (options are tries with their scores, in the same order).",
-        "  const firsts = tries.map((t, i) => [t, options[i][1]]).filter(([[, m1]]) => Q.isQ(m1))",
+        "  const firsts = tries.slice(0, options.length).map((t, i) => [t, options[i][1]]).filter(([[, m1]]) => Q.isQ(m1))",
         "    .sort((a, b) => (better(a[1], b[1]) ? -1 : better(b[1], a[1]) ? 1 : 0)).slice(0, 6).map(([t]) => t);",
         "  const pairs = [];",
         "  for (const [plan, m1, c1] of firsts) {",
+        "    if (stepsLeft() < 0.45 * stepBudget()) break;   // a big line: weigh fewer pairs rather than fail",
         "    const first = Array.isArray(plan) ? plan : [plan];",
         "    for (const k of [-1, 1]) {",
         `      pairs.push([[...first, move("si.shift", { k })], score(m1, Q.add(c1, k), ${args})]);`,
@@ -299,7 +303,7 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     `FAR = ${far}      # how far one change may go`,
     `QUOTES = ${quotes}  # at most this many plans are priced (each price is a host call)`,
     ...(kind === "naive" ? [] : [
-      "LEAVE = []      # lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them",
+      "LEAVE = []      # lines your agent skips, e.g. [19] or [4, 9]: others may still move them",
       "PROTECT = []    # lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off",
     ]),
     "",
@@ -356,7 +360,9 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
       "            plans.append(plan)             # as good as the best: the price decides",
       "    return cheapest(offer, plans[:QUOTES]) if plans else None   # the cheapest of the best, or skip",
     ] : [
-      `    options = [(plan, score(m2, c2, ${args})) for plan, m2, c2 in tries]   # each step and the score it reaches`,
+      (kind === "thorough" || kind === "bold"
+        ? `    options = score_each(tries, lambda t: (t[0], score(t[1], t[2], ${args})))   # each step and the score it reaches (fewer on a big line)`
+        : `    options = [(plan, score(m2, c2, ${args})) for plan, m2, c2 in tries]   # each step and the score it reaches`),
       ...POINTS.py,
       "    # The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or None.",
       ...(kind === "thorough" ? [
@@ -375,6 +381,8 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
         "        firsts.append(cands.pop(best)[0])",
         "    pairs = []",
         "    for plan, m1, c1 in firsts:",
+        "        if steps_left() < 0.45 * step_budget():   # a big line: weigh fewer pairs rather than fail",
+        "            break",
         "        first = list(plan) if isinstance(plan, (list, tuple)) else [plan]",
         "        for k in (-1, 1):",
         `            pairs.append((first + [move("si.shift", k=k)], score(m1, c1 + k, ${args})))`,
@@ -415,6 +423,7 @@ const LANGUAGES: readonly ShippedLanguage[] = ["typescript", "python"];
 /** The example for a dealt rule, in one language (null: no example for that family or tie-breaker). */
 export function exampleFor(family: string, tieBreaker: string, language: ShippedLanguage): ShippedAgent | null {
   if (isGridTypeFamily(family)) return gridExampleFor(family, tieBreaker, language);
+  if (isBoardTypeFamily(family)) return boardExampleFor(family, tieBreaker, language);
   if (isPairTypeFamily(family)) return pairExampleFor(family, tieBreaker, language);
   const e = CATALOGUE.find(x => x.family === family);
   return e?.tieBreakers[tieBreaker] ? render("example", family, tieBreaker, language) : null;
@@ -423,6 +432,7 @@ export function exampleFor(family: string, tieBreaker: string, language: Shipped
 /** The Simple, Thorough and Bold starters for a family, then Naive (a teaching example, never a default), in one language. */
 export function startersFor(family: string, language: ShippedLanguage, tieBreaker?: string | null): ShippedAgent[] {
   if (isGridTypeFamily(family)) return gridStartersFor(family, language, tieBreaker);   // grids: written for the dealt tie-breaker (lines read it themselves)
+  if (isBoardTypeFamily(family)) return boardStartersFor(family, language, tieBreaker);   // coloured boards: likewise
   if (isPairTypeFamily(family)) return pairStartersFor(family, language);   // pairs: read the dealt tie-breaker, as lines do
   return (["simple", "thorough", "bold", "naive"] as const).map(k => render(k, family, null, language));
 }
@@ -433,7 +443,7 @@ export function shippedAgents(): ShippedAgent[] {
   return CATALOGUE.filter(e => lineType.families.some(f => f.id === e.family)).flatMap(e => LANGUAGES.flatMap(language => [
     ...Object.keys(e.tieBreakers).filter(tb => familyOf(e.family).tieBreakers.some(t => t.id === tb)).map(tb => render("example", e.family, tb, language)),
     ...startersFor(e.family, language),
-  ])).concat(gridShippedAgents(), pairShippedAgents());
+  ])).concat(gridShippedAgents(), pairShippedAgents(), boardShippedAgents());
 }
 
 /**
@@ -442,7 +452,7 @@ export function shippedAgents(): ShippedAgent[] {
  * can always summon one.
  */
 export function hasStarters(family: string): boolean {
-  return isGridFamily(family) || isPairFamily(family) || (CATALOGUE.some(e => e.family === family) && lineType.families.some(f => f.id === family));
+  return isGridFamily(family) || isPairFamily(family) || isBoardFamily(family) || (CATALOGUE.some(e => e.family === family) && lineType.families.some(f => f.id === family));
 }
 
 /** Where a shipped agent's rendered copy is committed (for reading and review): agents/<family>/<name>.<ext>. */
@@ -457,6 +467,7 @@ export function shippedPath(a: ShippedAgent): string {
  */
 export function scoreSource(family: string, tieBreaker: string | null, language: ShippedLanguage): string {
   if (isGridTypeFamily(family)) return gridScoreSource(family, tieBreaker, language);
+  if (isBoardTypeFamily(family)) return boardScoreSource(family, tieBreaker, language);
   if (isPairTypeFamily(family)) return pairScoreSource(family, tieBreaker, language);
   const e = entryOf(family);
   return (language === "typescript" ? scoreTs(e, tieBreaker) : scorePy(e, tieBreaker)).join("\n") + "\n";

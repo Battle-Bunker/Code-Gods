@@ -36,17 +36,17 @@ function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<stri
   const blurred = useOthersBlurred();
   const g = useGame(); const length = g ? fixedLength(g) : null;
   const notes = useContext(NotesContext).get(move.seq);
-  // A grid's change is drawn (a small board, the changed cells marked), not written as sixteen digits.
+  // A grid's change (digits or a coloured board) is drawn (a small board, the changed cells marked), not written out.
   const board = useMemo(() => {
     const type = objectTypeOf(variant);
-    if (type.id !== "grid") return null;
+    if (type.representations[0]?.scene !== "grid") return null;   // a grid of digits, or a coloured board
     try { return { type, before: decodeState(move.stateBefore, variant), after: decodeState(move.stateAfter, variant), site: move.calls[0]?.site ?? 0 }; } catch { return null; }
   }, [move, variant]);
   const text = useMemo(() => {
     const site = move.calls[0]?.site ?? 0;
     let change: { before: string; after: string } | null = null;
     if (!board) try { change = { before: lineText(decodeState(move.stateBefore, variant), move.rep, site, variant), after: lineText(decodeState(move.stateAfter, variant), move.rep, site, variant) }; } catch { change = null; }
-    return moveSentence({ noun: objectWord(variant).one, approx: blurred,
+    return moveSentence({ noun: objectWord(variant).one, approx: blurred, number: move.number,
       who: moveWho(move, move.agentId ? names.get(move.agentId) : null),
       change, what: move.mine || !anonymous ? callWords(move.calls, variantOf(variant)) : null, before: move.before, after: move.after,
     });
@@ -74,6 +74,8 @@ function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<stri
 function TugRow({ tug, names, variant, kinds }: { tug: Extract<FeedItem<Move>, { kind: "tug" }>; names: ReadonlyMap<string, string>; variant: string; kinds: ReadonlyMap<string, string> }) {
   const anonymous = useContext(AnonymousContext);
   const g = useGame(); const length = g ? fixedLength(g) : null;
+  const openPane = useOpenPane(g?.phase ?? "live");
+  const people = [...kinds.values()].filter(k => k === "human").length;
   // Its moves' notes show on the entry itself: the moves are folded away below.
   const notesBySeq = useContext(NotesContext);
   const tugNotes = [...new Set(tug.moves.flatMap(m => notesBySeq.get(m.seq) ?? []))];
@@ -81,6 +83,8 @@ function TugRow({ tug, names, variant, kinds }: { tug: Extract<FeedItem<Move>, {
     <li className="space-y-1 border-l-4 border-destructive/60 px-4 py-2" data-testid={`row-tug-${tug.objectId}`}>
       <p className="text-xs text-muted-foreground tabular-nums">{timeLeft(tug.to, length)} · contested {objectWord(variant).one}</p>
       <p className="text-sm text-foreground" data-testid="text-tug-line"><CompactText text={tugSentence(tug, kinds, objectWord(variant).one, length, { anonymous })} /></p>
+      {/* The note says to talk: one press there (playtest round 34: chat was nowhere on screen). */}
+      {people > 1 && g?.phase !== "ended" && <button type="button" className="text-xs underline underline-offset-4" onClick={() => void openPane("public-chat")} data-testid="button-tug-chat">Open chat</button>}
       {tugNotes.map(n => <AgentNote key={n} text={n} variant={variant} />)}
       <details>
         <summary className="cursor-pointer text-xs text-muted-foreground underline underline-offset-4">Show the {tug.moves.length} moves</summary>
@@ -208,7 +212,7 @@ function LogRowView({ r, variant, approx, length }: { r: LogEntry; variant: stri
   const change = useMemo(() => {
     // A board written out is sixteen digits (round 6): a grid's row says which grid and your points only.
     // A paid game's other players' moves carry no state while live (their content is paid).
-    if (objectTypeOf(variant).id === "grid" || r.state === null) return null;
+    if (objectTypeOf(variant).representations[0]?.scene === "grid" || r.state === null) return null;   // digits or a coloured board
     try {
       const after = lineText(decodeState(r.state, variant), "", 0, variant);
       return { before: r.stateBefore ? lineText(decodeState(r.stateBefore, variant), "", 0, variant) : "", after };

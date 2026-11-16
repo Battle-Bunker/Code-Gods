@@ -8,7 +8,7 @@
 import { q, ref, type ElementRef, type RuleFamily, type Variant } from "@workspace/v2-core";
 import { at, gridParams, type GridState } from "./grid.ts";
 import { boxes, cols, corners, rows } from "./units.ts";
-import { offTotals, diagonals, term, distance, family, more, readCells, readNum, type Ctx, type Shape } from "./family-kit.ts";
+import { offTotals, upTo, diagonals, term, distance, family, more, readCells, readNum, type Ctx, type Shape } from "./family-kit.ts";
 
 type None = Record<string, never>;
 type Cells = { v: number[]; refs: ElementRef[] };
@@ -30,7 +30,9 @@ function groups(n: number, v: readonly number[], joined: (a: number, b: number) 
   }
   return out;
 }
-const focusAll = (ctx: Ctx, cells: Cells, which: Iterable<number>) => { for (const i of new Set(which)) ctx.mark({ kind: "focus", ref: cells.refs[i]! }); };
+const focusAll = (ctx: Ctx, cells: Cells, which: Iterable<number>, term?: string) => { for (const i of new Set(which)) ctx.mark({ kind: "focus", ref: cells.refs[i]!, ...(term ? { term } : {}) }); };
+/** A secondary's note on an element (labelled with its id, so it shows only while that secondary is dealt). */
+const noteOn = (ctx: Ctx, term: string, r: ElementRef, text: string) => ctx.mark({ kind: "note", ref: r, text, term });
 /** A count, recorded as a term over the given cells. */
 
 // ---------------------------------------------------------------- 1. Kings and Subjects
@@ -44,9 +46,9 @@ export function kingsAndSubjects(n: number): RuleFamily<GridState, None> {
     main: distance<None>("kings", "every corner box's king equals his subjects",
       () => `In each corner box of four cells, the biggest number (the king) should equal the other three added up, like 9 with 2, 3 and 4. A box whose biggest number appears twice has no king and is ${NO_KING} off.`, "cells"),
     tieBreakers: [
-      more<None>("different-kings", "pairs of kings that are different numbers", "The kings should all be different numbers.", "cells"),
-      more<None>("king-multiples", "kings that are a multiple of the smallest number in their box", "Each king should be a multiple of the smallest number in his box, like 8 with a 2.", "cells"),
-      more<None>("kings-on-diagonals", "kings on the board's diagonals", "Each king should stand on one of the board's two diagonals.", "cells"),
+      upTo(more<None>("different-kings", "pairs of kings that are different numbers", "The kings should all be different numbers.", "cells"), (bx.length * (bx.length - 1)) / 2),
+      upTo(more<None>("king-multiples", "kings that are a multiple of the smallest number in their box", "Each king should be a multiple of the smallest number in his box, like 8 with a 2.", "cells"), bx.length),
+      upTo(more<None>("kings-on-diagonals", "kings on the board's diagonals", "Each king should stand on one of the board's two diagonals.", "cells"), bx.length),
     ],
   };
   return family<None>("kings-and-subjects", "Kings and Subjects", ["cells"], shape, [{}], ctx => {
@@ -66,6 +68,13 @@ export function kingsAndSubjects(n: number): RuleFamily<GridState, None> {
     term(ctx, "king-multiples", "kings that are a multiple of the smallest number in their box", kings.filter(k => k.least >= 1 && k.king % k.least === 0).length, kingRefs);
     const onDiagonal = (i: number) => { const r = Math.floor(i / n), c = i % n; return r === c || r + c === n - 1; };
     term(ctx, "kings-on-diagonals", "kings on the board's diagonals", kings.filter(k => onDiagonal(k.cell)).length, kingRefs);
+    for (const k of kings) {
+      const same = kings.filter(o => o !== k && o.king === k.king).length;
+      if (same) noteOn(ctx, "different-kings", cells.refs[k.cell]!, `another king is also ${k.king}`); else focusAll(ctx, cells, [k.cell], "different-kings");
+      if (k.least >= 1 && k.king % k.least === 0) focusAll(ctx, cells, [k.cell], "king-multiples");
+      else noteOn(ctx, "king-multiples", cells.refs[k.cell]!, k.least === 0 ? "the smallest in his box is 0: nothing is a multiple of 0" : `not a multiple of ${k.least}, the smallest in his box`);
+      if (onDiagonal(k.cell)) focusAll(ctx, cells, [k.cell], "kings-on-diagonals");
+    }
   }, n);
 }
 
@@ -77,8 +86,8 @@ export function steppingStones(n: number): RuleFamily<GridState, None> {
       "Make the biggest group of cells you can hop between: you can hop between touching cells whose numbers differ by exactly 2.", "cells"),
     tieBreakers: [
       distance<None>("outside-small", "the cells outside the biggest group, added up", () => "The cells outside the biggest group should add up to as little as possible.", "cells"),
-      more<None>("group-reach", "rows and columns the biggest group reaches", "The biggest group should reach into as many rows and columns as possible.", "cells"),
-      more<None>("group-corners", "board corners in the biggest group", "The biggest group should reach as many of the board's corners as possible.", "cells"),
+      upTo(more<None>("group-reach", "rows and columns the biggest group reaches", "The biggest group should reach into as many rows and columns as possible.", "cells"), 2 * n),
+      upTo(more<None>("group-corners", "board corners in the biggest group", "The biggest group should reach as many of the board's corners as possible.", "cells"), 4),
     ],
   };
   return family<None>("stepping-stones", "Stepping Stones", ["cells"], shape, [{}], ctx => {
@@ -90,6 +99,10 @@ export function steppingStones(n: number): RuleFamily<GridState, None> {
     term(ctx, "outside-small", "the cells outside the biggest group, added up", cells.v.reduce((t, x, i) => (best.includes(i) ? t : t + x), 0), refs);
     term(ctx, "group-reach", "rows and columns the biggest group reaches", new Set(best.map(i => Math.floor(i / n))).size + new Set(best.map(i => i % n)).size, refs);
     term(ctx, "group-corners", "board corners in the biggest group", corners(n).filter(i => best.includes(i)).length, refs);
+    focusAll(ctx, cells, cells.v.flatMap((_, i) => (best.includes(i) ? [] : [i])), "outside-small");
+    const reachRows = new Set(best.map(i => Math.floor(i / n))).size, reachCols = new Set(best.map(i => i % n)).size;
+    noteOn(ctx, "group-reach", cells.refs[best[0]!]!, `the biggest group reaches ${reachRows} of ${n} rows and ${reachCols} of ${n} columns`);
+    focusAll(ctx, cells, corners(n).filter(i => best.includes(i)), "group-corners");
   }, n);
 }
 
@@ -100,8 +113,8 @@ export function mountainClimb(n: number): RuleFamily<GridState, None> {
     main: more<None>("climb", "cells on the longest climb from the top-left cell",
       "Starting at the top-left cell, climb as far as you can: each step goes to a touching cell exactly 1 bigger. Count the cells on your longest climb.", "cells"),
     tieBreakers: [
-      more<None>("climb-reach", "cells some climb reaches", "As many cells as possible should be on some climb from the top-left.", "cells"),
-      more<None>("climb-far", "how far the climb gets from the top-left cell", "The climb should end as far from the top-left cell as possible.", "cells"),
+      upTo(more<None>("climb-reach", "cells some climb reaches", "As many cells as possible should be on some climb from the top-left.", "cells"), n * n),
+      upTo(more<None>("climb-far", "how far the climb gets from the top-left cell", "The climb should end as far from the top-left cell as possible.", "cells"), 2 * (n - 1)),
       more<None>("climb-summit", "the biggest number the climb reaches", "The climb should reach as big a number as possible.", "cells"),
     ],
   };
@@ -121,6 +134,11 @@ export function mountainClimb(n: number): RuleFamily<GridState, None> {
     term(ctx, "climb-reach", "cells some climb reaches", reached.length, refs);
     term(ctx, "climb-far", "steps across and down from the top-left cell to the farthest cell the climb reaches", Math.max(...reached.map(i => Math.floor(i / n) + (i % n))), refs);
     term(ctx, "climb-summit", "the biggest number the climb reaches", cells.v[0]! + steps - 1, refs);
+    focusAll(ctx, cells, reached, "climb-reach");
+    const far = Math.max(...reached.map(i => Math.floor(i / n) + (i % n)));
+    focusAll(ctx, cells, reached.filter(i => Math.floor(i / n) + (i % n) === far), "climb-far");
+    const summit = cells.v[0]! + steps - 1;
+    focusAll(ctx, cells, reached.filter(i => cells.v[i] === summit), "climb-summit");
   }, n);
 }
 
@@ -157,6 +175,9 @@ export function uphill(n: number): RuleFamily<GridState, { corner: Corner }> {
     const peak = cells.v[cornerCell(n, p.corner)]!, start = cells.v[cornerCell(n, OPPOSITE[p.corner])]!;
     term(ctx, "corner-peak", `numbers smaller than the one in ${CORNER_WORDS[p.corner]}`, cells.v.filter(x => x < peak).length, cells.refs);
     term(ctx, "start-low", `numbers bigger than the one in ${CORNER_WORDS[OPPOSITE[p.corner]]}`, cells.v.filter(x => x > start).length, cells.refs);
+    focusAll(ctx, cells, byOne, "rise-by-one");
+    noteOn(ctx, "corner-peak", cells.refs[cornerCell(n, p.corner)]!, `bigger than ${cells.v.filter(x => x < peak).length} of the other numbers`);
+    noteOn(ctx, "start-low", cells.refs[cornerCell(n, OPPOSITE[p.corner])]!, `smaller than ${cells.v.filter(x => x > start).length} of the other numbers`);
   }, n);
 }
 
@@ -182,14 +203,24 @@ export function staircase(n: number): RuleFamily<GridState, { direction: Directi
     ctx.term("staircase", `numbers 1 more than the one ${p.direction === "right" ? "to their left" : "above them"}`, q(hits.length), cells.refs);
     focusAll(ctx, cells, hits);
     // A flight: stairs one after another along a row (or down a column), counting the cell it starts from.
-    let flight = 1;
-    for (const l of lines) { let run = 1; for (let k = 1; k < l.length; k++) { run = cells.v[l[k]!] === cells.v[l[k - 1]!]! + 1 ? run + 1 : 1; flight = Math.max(flight, run); } }
+    let flight = 1, flightCells: number[] = [];
+    for (const l of lines) {
+      let run = 1;
+      for (let k = 1; k < l.length; k++) {
+        run = cells.v[l[k]!] === cells.v[l[k - 1]!]! + 1 ? run + 1 : 1;
+        if (run > flight) { flight = run; flightCells = l.slice(k - run + 1, k + 1); }
+      }
+    }
+    if (flight > 1) focusAll(ctx, cells, flightCells, "long-flight");
+    else noteOn(ctx, "long-flight", cells.refs[0]!, "no stairs yet: a flight is one cell long");
     term(ctx, "long-flight", "cells in the longest flight of stairs", flight, cells.refs);
     const back = p.direction === "right" ? n : 1;   // the number the other way: above, or to the left
     const both = hits.filter(i => (p.direction === "right" ? i >= n : i % n > 0) && cells.v[i] === cells.v[i - back]! + 1);
     term(ctx, "double-stairs", `stairs also 1 more than the number ${p.direction === "right" ? "above them" : "to their left"}`, both.length, cells.refs);
     const before = p.direction === "right" ? 1 : n;   // the number before a stair: to its left, or above
     term(ctx, "low-stairs", "the numbers the stairs climb from, added up", hits.reduce((t, i) => t + cells.v[i - before]!, 0), cells.refs);
+    focusAll(ctx, cells, both, "double-stairs");
+    focusAll(ctx, cells, hits.map(i => i - before), "low-stairs");
   }, n);
 }
 
@@ -220,11 +251,22 @@ export function magicAccountant(n: number): RuleFamily<GridState, Accounts> {
     const other = p.axis === "rows" ? "columns" : "rows";
     const otherRefs = rows(n).map((_, k) => ref("tally", `${p.axis === "rows" ? "col" : "row"}${k}`));
     term(ctx, "other-way", `how far the ${other}' totals are from ${p.T}, added up`, otherRefs.reduce((t, r) => t + Math.abs(readNum(ctx, r) - p.T), 0), otherRefs);
+    for (const r of otherRefs) { const d = readNum(ctx, r) - p.T; if (d === 0) ctx.mark({ kind: "focus", ref: r, term: "other-way" }); else noteOn(ctx, "other-way", r, d < 0 ? `${-d} short` : `${d} over`); }
     const cells = readCells(ctx, n);
     const diag = diagonals(n);
     term(ctx, "diagonals", `how far the diagonals' totals are from ${p.T}, added up`, offTotals(cells.v, diag, p.T), diag.flat().map(i => cells.refs[i]!));
     const dealt = p.axis === "rows" ? rows(n) : cols(n);
     term(ctx, "all-different", `${p.axis} of ${n} different numbers`, dealt.filter(l => new Set(l.map(i => cells.v[i])).size === l.length).length, cells.refs);
+    diag.forEach((d, k) => {
+      focusAll(ctx, cells, d, "diagonals");
+      const x = d.reduce((t, i) => t + cells.v[i]!, 0);
+      noteOn(ctx, "diagonals", cells.refs[d[0]!]!, `${k === 0 ? "the diagonal from the top-left" : "the diagonal from the top-right"} adds up to ${x}${x === p.T ? "" : x < p.T ? `: ${p.T - x} short` : `: ${x - p.T} over`}`);
+    });
+    dealt.forEach((l, k) => {
+      const twice = [...new Set(l.map(i => cells.v[i]!))].filter(x => l.filter(i => cells.v[i] === x).length > 1);
+      if (!twice.length) focusAll(ctx, cells, l, "all-different");
+      else noteOn(ctx, "all-different", cells.refs[l[0]!]!, `${p.axis === "rows" ? "row" : "column"} ${k + 1} repeats ${twice.join(" and ")}`);
+    });
   }, n);
 }
 
@@ -249,6 +291,11 @@ export function fillomino(n: number): RuleFamily<GridState, None> {
     term(ctx, "patch-kinds", "different numbers in right-size patches", new Set(fits.map(g => cells.v[g[0]!])).size, cells.refs);
     term(ctx, "patch-count", "right-size patches", fits.length, cells.refs);
     term(ctx, "near-misses", "how far the wrong-size patches are from their numbers, added up", patches.reduce((t, g) => t + Math.abs(g.length - cells.v[g[0]!]!), 0), cells.refs);
+    const kinds = new Map<number, number[]>();
+    for (const g of fits) kinds.set(cells.v[g[0]!]!, [...(kinds.get(cells.v[g[0]!]!) ?? []), ...g]);
+    for (const [x, cs] of kinds) { focusAll(ctx, cells, cs, "patch-kinds"); if (cs.length > x) noteOn(ctx, "patch-kinds", cells.refs[cs[0]!]!, `${cs.length / x} patches of ${x}s: they count once`); }
+    for (const g of fits) noteOn(ctx, "patch-count", cells.refs[g[0]!]!, `a patch of ${g.length} ${cells.v[g[0]!]}s`);
+    for (const g of patches) if (g.length !== cells.v[g[0]!]) noteOn(ctx, "near-misses", cells.refs[g[0]!]!, `a patch of ${g.length} ${g.length === 1 ? "cell" : "cells"} holding ${cells.v[g[0]!]}: ${Math.abs(g.length - cells.v[g[0]!]!)} ${g.length < cells.v[g[0]!]! ? "short" : "over"}`);
   }, n);
 }
 

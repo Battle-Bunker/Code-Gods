@@ -42,10 +42,14 @@ export type HostRequest =
   | { op: "rarity"; score: (QWire | null)[] | null }
   | { op: "recent" }
   | { op: "note"; text: string }
-  | { op: "othersAfter"; calls: Call[] };
+  | { op: "othersAfter"; calls: Call[] }
+  | { op: "locks" }
+  | { op: "lock"; predicate: string; amount: number }
+  | { op: "fund"; lock: number; amount: number }
+  | { op: "drain"; lock: number; amount: number };
 
 export type HostOp = HostRequest["op"];
-export const HOST_OPS: readonly HostOp[] = ["view", "element", "myRule", "myScore", "quote", "budget", "worth", "rarity", "recent", "note", "othersAfter"];
+export const HOST_OPS: readonly HostOp[] = ["view", "element", "myRule", "myScore", "quote", "budget", "worth", "rarity", "recent", "note", "othersAfter", "locks", "lock", "fund", "drain"];
 
 /** §3.1 */
 export interface ViewReply { rep: string; site: number; elements: Record<string, ElementValueWire>; bits: number }
@@ -61,6 +65,8 @@ export interface RuleReply {
   card: string;
   /** The dealt layers in order (main part, then tie-breaker); sense "min": smaller is better. */
   layers: { id: string; title: string; sense: "min" | "max" }[];
+  /** The defence goal dealt beside the rule (grids, when the room turns them on), with the game's weight w; null or absent: none. */
+  defence?: { family: string; params: unknown; weight: number } | null;
 }
 export interface ScoreReply {
   /** null: WORST. A null component: that layer is undefined for this state (v2-core's layered ladders). */
@@ -83,12 +89,22 @@ export interface WorthReply { mine: number; others: number; points: number }
  * The other players' rarity on the offered line, added up, now and after a plan (coordinator, 2026-11-14: the total
  * only, never each player's), in bits; `after` is null when the plan is not allowed.
  */
-export interface OthersAfterReply { before: number; after: number | null }
+export interface OthersAfterReply {
+  before: number; after: number | null;
+  /** With a defence goal: the player's own bits before and after the plan (their rarity less the penalty's hinge). */
+  mine?: { before: number; after: number | null };
+}
 /** The rarity the player's own rule gives a score (their own calibration, as their goal card shows), in bits. */
 export interface RarityReply { bits: number }
 /** The latest moves on the offered line the player may see (newest last): theirs, and others' that changed their points. */
 export interface RecentReply { moves: { mine: boolean; pointsBefore: number; pointsAfter: number }[] }
 export interface NoteReply { kept: boolean }
+/** An object's live locks (docs/engine-v2/locks.md): predicate, plain words, energy now, upkeep a second, information content. */
+export interface LocksReply { locks: { lock: number; predicate: string; words: string; energy: number; rate: number; info: number }[] }
+/** A new lock queued for the act's commit: its canonical predicate, words, I and fee, and whether the offered state meets it. */
+export interface LockReply { queued: true; predicate: string; words: string; info: number; fee: number; holdsNow: boolean }
+/** A fund or drain queued for the act's commit: the lock's energy after it. */
+export interface LockChangeReply { queued: true; lock: number; energy: number }
 
 /** The result half of a successful reply, per op. */
 export interface HostResults {
@@ -103,6 +119,10 @@ export interface HostResults {
   recent: RecentReply;
   note: NoteReply;
   othersAfter: OthersAfterReply;
+  locks: LocksReply;
+  lock: LockReply;
+  fund: LockChangeReply;
+  drain: LockChangeReply;
 }
 
 /**

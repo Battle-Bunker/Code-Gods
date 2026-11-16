@@ -30,6 +30,9 @@ export const KINDS = {
   "power-count": "how often a power divides the board's number",
   "leading-digits": "the board's number's leading digits",
   "written-sum": "rows making a written sum (column addition with carries)",
+  "colour-pattern": "a pattern of colours over neighbouring cells (a chessboard, three in a line)",
+  "colour-match": "cells wearing the colour their number (or place) asks for",
+  "colour-count": "a number counting the colours around it",
 } as const;
 export type Kind = keyof typeof KINDS;
 
@@ -76,14 +79,14 @@ export const RULE_FORMS: Readonly<Record<string, FamilyForms>> = {
   ruler: { kind: "large-prime", forms: { "shared-factor": "shares-factor" } },
   "pythagorean-area": { kind: "large-prime", forms: { "shared-factor": "shares-factor", "same-ending": "digit-match" } },
   // Two-line systems (lib/v2-pair).
-  "whole-answer": { kind: "base-ladder", forms: { "peg-divisor": "shares-factor", "south-west": "direction" } },
-  "no-fractions": { kind: "base-ladder", forms: { "numerator-smooth": "factor-count", "numerator-shared": "shares-factor" } },
-  "right-angle": { kind: "base-ladder", forms: { "corner-prime": "factor-size", "corner-steep": "shares-factor" } },
-  "forty-five": { kind: "base-ladder", forms: { "corner-smooth": "factor-count", "corner-gap": "shares-factor" } },
-  "double-gap": { kind: "base-ladder", forms: { "gap-divisor": "shares-factor", "gap-prime": "factor-size" } },
-  "far-crossing": { kind: "base-ladder", forms: { "far-gap": "near-multiple", "far-height": "near-multiple" } },
-  "high-start": { kind: "base-ladder", forms: { "start-echo": "near-multiple", "start-crossing": "near-multiple" } },
-  "steep-ratio": { kind: "base-ladder", forms: { "ratio-gap": "shares-factor", "ratio-prime": "factor-size" } },
+  "whole-answer": { kind: "base-ladder", forms: { "x-multiple": "near-multiple", "sum-prime": "factor-size", "y-steep": "shares-factor" } },
+  "no-fractions": { kind: "base-ladder", forms: { "numerator-smooth": "factor-count", "numerator-shared": "shares-factor", "numerator-small": "small-values" } },
+  "right-angle": { kind: "base-ladder", forms: { "corner-multiple": "near-multiple", "corner-steep": "shares-factor", "corner-prime": "factor-size" } },
+  "forty-five": { kind: "base-ladder", forms: { "corner-divisor": "shares-factor", "corner-gap": "near-multiple", "corner-smooth": "factor-count" } },
+  "double-gap": { kind: "base-ladder", forms: { "gap-divisor": "shares-factor", "gap-step": "near-multiple", "gap-prime": "factor-size" } },
+  "far-crossing": { kind: "base-ladder", forms: { "far-gap": "near-multiple", "far-height": "near-multiple", "far-steep": "shares-factor" } },
+  "high-start": { kind: "base-ladder", forms: { "start-echo": "near-multiple", "start-crossing": "near-multiple", "start-prime": "factor-size", "start-steep": "shares-factor" } },
+  "steep-ratio": { kind: "base-ladder", forms: { "ratio-gap": "near-multiple", "ratio-prime": "factor-size", "ratio-smooth": "factor-count" } },
   // Grids (lib/v2-grid): tags proposed by the spec lead, 15 Nov, for the grids session to check.
   mirrormancer: { kind: "symmetry", forms: { "mirror-columns": "second-axis", "one-apart": "adjacent-step", "small-middle": "small-values" } },
   "magic-eighteen": { kind: "line-sums", forms: { columns: "second-axis", diagonals: "diagonals", "different-numbers": "all-different" } },
@@ -106,4 +109,13 @@ export const RULE_FORMS: Readonly<Record<string, FamilyForms>> = {
   "round-numbers": { kind: "line-sums", forms: { "exact-rounds": "count", "big-rounds": "big-values", "round-steps": "adjacent-step" } },
   "number-bonds": { kind: "pair-sums", forms: { "far-split": "distance", "bond-run": "run-length", "prime-bonds": "primes" } },
   "column-addition": { kind: "written-sum", forms: { "right-columns": "count", "near-digits": "distance", "big-answer": "big-values" } },
+  // The coloured boards' original-rules baseline (lib/v2-grid-boards; call 37): v1's families as v1 had them.
+  chessmaster: { kind: "colour-pattern", forms: { seams: "count" } },
+  "parity-painter": { kind: "colour-match", forms: {} },
+  "colour-mirror": { kind: "symmetry", forms: { "colour-pairs": "count" } },
+  "picture-frame": { kind: "colour-match", forms: {} },
+  "colour-bonds": { kind: "pair-sums", forms: {} },
+  "honest-minesweeper": { kind: "colour-count", forms: {} },
+  kingdom: { kind: "region", forms: {} },
+  "set-spotter": { kind: "colour-pattern", forms: {} },
 };

@@ -117,6 +117,43 @@ async function driveReplay(page: Page, label: string, final: Record<string, stri
   await page.getByTestId("button-replay-back").click();
   await waitApplied(page, n => n === first, "a step back returns to the move before");
   console.log(`${label}: stepped ${first} → ${second} → ${first} of ${end}`);
+  // Key moments (v1's "◆ prev / next ◆"): each summon and lead change is marked on the slider; next ◆ goes to the
+  // next one after the playhead, ◆ prev back, and Shift+→ does what next ◆ does.
+  const marks = page.locator("[data-testid^=replay-mark-]");
+  assert.ok(await marks.count() > 0, `${label}: the replay marks its key moments (at least the summons)`);
+  assert.match(await page.getByTestId("text-replay-event").innerText(), new RegExp(`^event ${first} of ${end}$`));
+  if (await page.getByTestId("button-replay-next-moment").isEnabled()) {
+    await page.getByTestId("button-replay-next-moment").click();
+    const moment = await waitApplied(page, n => n > first, "next ◆ moves to a key moment");
+    await page.getByTestId("button-replay-prev-moment").click().catch(() => {});
+    const back = await waitApplied(page, n => n < moment, "◆ prev moves back");
+    // The keys are the page's, not a focused button's (a pressed button keeps the focus).
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press("Shift+ArrowRight");
+    await waitApplied(page, n => n > back, "Shift+→ jumps forward to a key moment");
+    console.log(`${label}: ${await marks.count()} key moments; next ◆ went to ${moment}`);
+    // Back to where the steps left it, for the playing checks below.
+    await page.keyboard.press("Home");
+    await waitApplied(page, n => n === 0, "Home returns to the start");
+    // v1's slider keys: ↑/↓ step one event, PageUp/PageDown a tenth of the game; [ and ] change the speed.
+    const slider = page.getByTestId("input-replay-seek");
+    await slider.focus();
+    await page.keyboard.press("ArrowUp");
+    await waitApplied(page, n => n === 1, "↑ on the slider steps one event");
+    await page.keyboard.press("PageUp");
+    const tenth = await waitApplied(page, n => n > 1, "PageUp on the slider seeks further");
+    assert.ok(tenth >= Math.floor(end / 10), `${label}: PageUp moves about a tenth of the game (${tenth} of ${end})`);
+    await page.keyboard.press("ArrowDown");
+    await waitApplied(page, n => n === tenth - 1, "↓ on the slider steps back one event");
+    await slider.blur();
+    const speedBefore = await page.getByTestId("select-replay-speed").inputValue();
+    await page.keyboard.press("]");
+    await page.waitForFunction((was: string) => (document.querySelector("[data-testid=select-replay-speed]") as HTMLSelectElement | null)?.value !== was, speedBefore, { timeout: 10_000 });
+    await page.keyboard.press("[");
+    await page.waitForFunction((was: string) => (document.querySelector("[data-testid=select-replay-speed]") as HTMLSelectElement | null)?.value === was, speedBefore, { timeout: 10_000 });
+    await page.keyboard.press("Home");
+    await waitApplied(page, n => n === 0, "Home returns to the start");
+  }
   await shot(page, `replay-${label}-step`);
 
   // Play at 8×, then pause: it stops where the playhead was, and stays there.
@@ -129,6 +166,20 @@ async function driveReplay(page: Page, label: string, final: Record<string, stri
   await page.waitForTimeout(800);
   assert.equal(await applied(page), paused, `${label}: a paused replay stays put`);
   assert.ok(paused > second, `${label}: the pause kept the playhead (${paused})`);
+  // v1's score chart: the whole game's race with the playhead on it; a click on the chart goes there.
+  const race = page.getByTestId("replay-race");
+  if (await race.count()) {
+    await race.getByTestId("chart-playhead").waitFor({ state: "attached", timeout: 10_000 });
+    // Behind a tab in the replay's arrangement (feed | race): bring it to the front.
+    if (!await race.isVisible() && await page.getByTestId("tab-race").count()) await page.getByTestId("tab-race").click({ position: { x: 6, y: 10 } });
+    if (!await race.isVisible() && await page.getByTestId("button-jump-race").count()) await page.getByTestId("button-jump-race").click();
+    // (A vertical line has no width, so Playwright never calls it visible: the chart is what must show.)
+    await race.locator("svg").first().waitFor({ timeout: 10_000 });
+    const before = await applied(page);
+    const box = (await race.locator("svg").first().boundingBox())!;
+    await race.locator("svg").first().click({ position: { x: box.width * 0.9, y: box.height / 2 } });
+    await waitApplied(page, n => n !== before, "a click on the race chart seeks");
+  } else console.log(`${label}: the race pane is not in this replay's arrangement`);
   // v1's keys (focus off the speed menu first: keys never act inside a field): → steps, Home goes to the start, space plays.
   await page.getByTestId("text-replay-clock").click();
   await page.keyboard.press("ArrowRight");

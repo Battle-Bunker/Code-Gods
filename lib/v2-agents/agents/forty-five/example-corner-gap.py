@@ -1,5 +1,5 @@
-# Forty-Five · Example: that |x| + |y| shares a factor with the y-intercepts' gap
-# Main part: 45° at whole x and y, |x| + |y| on your pattern. Secondary preference: that |x| + |y| shares a factor with the y-intercepts' gap.
+# Forty-Five · Example: the y-intercepts' gap near a multiple of that |x| + |y|
+# Main part: 45° at whole x and y, |x| + |y| on your pattern. Secondary preference: the y-intercepts' gap near a multiple of that |x| + |y|.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
@@ -10,16 +10,17 @@ def score(L, p):
     # How good are the two lines L for your rule? [main part, secondary]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
+    mod1 = lambda n: abs(int(n)) or 1   # |n|, at least 1
     if f.D == 0:   # parallel lines never cross: no score
         return None
     main, S = ladder(abs(f.x) + abs(f.y), p["q"], p["r"], f.off45 + dist(f.x))   # 45 degrees at a grid point, |x| + |y| on your ladder
-    return [main, None if f.ygap is None else common(S, whole(f.ygap))]   # main: the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better); secondary: a corner whose |x| + |y| shares a big factor with the y-intercepts' gap is better
+    return [main, None if f.ygap is None else -off_multiple(f.ygap, mod1(S))]   # main: the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better); secondary: a y-intercepts' gap near a multiple of the corner's |x| + |y| (not 0) is better
 
 
 FAR = 4      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-KINDS = ["turn","slide","translate"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
-LEAVE = []      # pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
+KINDS = ["turn","slide","translate"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
+LEAVE = []      # pairs your agent skips, e.g. [19] or [4, 9]: others may still move them
 PROTECT = []    # pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
 

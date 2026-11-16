@@ -31,7 +31,7 @@ function score(m, c, p, tie) {
 
 const FAR = 3;      // how far one change may go
 const QUOTES = 20;  // at most this many plans are priced (each price is a host call)
-const LEAVE = [];      // lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
+const LEAVE = [];      // lines your agent skips, e.g. [19] or [4, 9]: others may still move them
 const PROTECT = [];    // lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
 function agent(offer) {
@@ -63,7 +63,7 @@ function agent(offer) {
     tries.push([move("si.shift", { k: d }), m, Q.add(c, d)], [move("si.tilt", { k: Q.div(d, p.k) }), Q.add(m, Q.div(d, p.k)), c]); }
   tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
   tries.push(...shortcuts(m, c, rule.mutators));   // other views the game offers: mirrors, a slide, turns, one intercept moved
-  let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches
+  let options = scoreEach(tries, ([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches (fewer on a big line)
   // A promise: on these lines, only steps that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));
   // The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or null.
@@ -72,10 +72,11 @@ function agent(offer) {
   // No single step helps: look two steps ahead (each step, then a shift or tilt by 1) and take the first
   // step of the best pair, though it may lower your points for a moment. It weighs the 4 best pairs: a few more small reads.
   // The first steps: the 6 best for your rule (options are tries with their scores, in the same order).
-  const firsts = tries.map((t, i) => [t, options[i][1]]).filter(([[, m1]]) => Q.isQ(m1))
+  const firsts = tries.slice(0, options.length).map((t, i) => [t, options[i][1]]).filter(([[, m1]]) => Q.isQ(m1))
     .sort((a, b) => (better(a[1], b[1]) ? -1 : better(b[1], a[1]) ? 1 : 0)).slice(0, 6).map(([t]) => t);
   const pairs = [];
   for (const [plan, m1, c1] of firsts) {
+    if (stepsLeft() < 0.45 * stepBudget()) break;   // a big line: weigh fewer pairs rather than fail
     const first = Array.isArray(plan) ? plan : [plan];
     for (const k of [-1, 1]) {
       pairs.push([[...first, move("si.shift", { k })], score(m1, Q.add(c1, k), p, tie)]);

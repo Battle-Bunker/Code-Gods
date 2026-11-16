@@ -17,24 +17,28 @@ import { Link, useLocation, useParams } from "wouter";
 import { api } from "@workspace/engine/convex/_generated/api";
 import { PRESETS, presetOf } from "@workspace/engine/convex/v2/presets.ts";
 import { useAffordance } from "@workspace/v2-affordances/react";
-import { useLive } from "@/site/lib/convex";
+import { useLive, useLivePages } from "@/site/lib/convex";
 import { useAuth } from "@/site/hooks/use-auth";
 import { Page, openPalette } from "@/site/components/layout";
 import { AffordanceButton } from "@/site/components/action";
 import { ErrorLine } from "@/site/components/page-parts";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { errMsg } from "@/site/lib/errors";
 import { roomPath } from "@/site/lib/routes";
 import { affordanceContext } from "@/core/affordance-context";
 import { toast } from "@/hooks/use-toast";
 import { setupBlurb, setupGroups } from "@/site/lib/setup-picker";
+import { SETUP_NAME_MAX } from "@workspace/v2-affordances";
+import { galleryFamilies } from "@/site/lib/rule-gallery";
+import type { Preset } from "@workspace/engine/convex/v2/presets.ts";
 import {
-  FIELDS, SECTIONS, choiceLabel, draftErrors, draftOf, fieldsOf, formatValue, lengthLine, overridesFor, reviewDiff, stepChoices,
+  FIELDS, SECTIONS, choiceLabel, draftErrors, isHidden, saveArgs, setupNameProblem, type SavedSetup, draftOf, fieldsOf, formatValue, lengthLine, overridesFor, reviewDiff, stepChoices,
   type Draft, type FieldKey, type SectionId,
 } from "@/site/lib/configure-form";
 import type { Room } from "@/sdk/types";
 
-type Stored = { base: { preset: string; draft: Draft }; preset: string; draft: Draft };
+type Stored = { base: { preset: string; draft: Draft }; preset: string; draft: Draft; loadedId?: string | null };
 const draftKey = (roomId: string) => `code-gods:configure-draft:${roomId}`;
 const loadDraft = (k: string): Stored | null => { try { const raw = window.localStorage.getItem(draftKey(k)); return raw ? JSON.parse(raw) as Stored : null; } catch { return null; } };
 const saveDraft = (k: string, s: Stored | null) => { try { if (s) window.localStorage.setItem(draftKey(k), JSON.stringify(s)); else window.localStorage.removeItem(draftKey(k)); } catch { /* a convenience */ } };
@@ -80,15 +84,26 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
   const [presetId, setPresetId] = useState(() => stored?.preset ?? saved.preset);
   const [draft, setDraft] = useState<Draft>(() => stored?.draft ?? saved.draft);
   const [elsewhere, setElsewhere] = useState(false);
+  // The saved setup the page holds (loaded from Your setups, or the one the room runs): Save then applies it by id.
+  const [loadedId, setLoadedId] = useState<string | null>(() => (stored ? stored.loadedId ?? null : room.setup?.setupId ?? null));
+  const loadedQ = useLive(api.v2.setups.get, loadedId ? { setupId: loadedId } : "skip");
+  const loaded = (loadedQ.data ?? null) as SavedSetup | null;
+  const [saveName, setSaveName] = useState(room.setup?.name ?? "");
   const preset = presetOf(presetId);
   const next = { preset: presetId, draft };
   const changes = reviewDiff(saved, next);
   const dirty = !same(next, base);
-  const errors = draftErrors(draft);
+  const errors = draftErrors(draft, preset);
   const invalid = Object.keys(errors).length > 0;
 
+  // A link to a part of the page (the palette's New setup… opens #field-save-setup): scroll there once it is drawn.
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (id) document.getElementById(id)?.scrollIntoView({ block: "start" });
+  }, []);
+
   // Keep the draft across reloads; clear it once nothing differs.
-  useEffect(() => { if (owner) saveDraft(key, dirty ? { base, preset: presetId, draft } : null); }, [owner, key, base, presetId, draft, dirty]);
+  useEffect(() => { if (owner) saveDraft(key, dirty ? { base, preset: presetId, draft, loadedId } : null); }, [owner, key, base, presetId, draft, dirty, loadedId]);
 
   // The room changed elsewhere: an untouched draft follows it; an edited one is kept and the owner may load theirs.
   // A draft restored from an earlier visit is compared with what the room holds now, so a change made meanwhile shows.
@@ -96,21 +111,35 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
   useEffect(() => {
     if (same(lastSaved.current, saved)) return;
     lastSaved.current = saved;
-    if (!dirty || same(next, saved)) { setPresetId(saved.preset); setDraft(saved.draft); setElsewhere(false); }
+    if (!dirty || same(next, saved)) { setPresetId(saved.preset); setDraft(saved.draft); setLoadedId(room.setup?.setupId ?? null); setElsewhere(false); }
     else if (!same(saved, base)) setElsewhere(true);
     setBase(saved);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const change = (patch: Partial<Draft>) => { if (editable) setDraft(d => ({ ...d, ...patch })); };
+  /** A saved setup into the draft (v1's "Edit" of one's own setup): its preset and its values. */
+  const loadSetup = (setup: SavedSetup) => {
+    if (!editable) return;
+    setPresetId(setup.preset); setDraft(draftOf(presetOf(setup.preset), setup.overrides)); setLoadedId(setup.setupId); setSaveName(setup.mine === false ? "" : setup.name);
+  };
   /** A new setup keeps the values the owner set by hand; everything else follows the new setup (as the server does). */
   const pickPreset = (id: string) => {
     if (!editable || id === presetId) return;
-    setDraft(draftOf(presetOf(id), overridesFor(draft, preset)));
+    // The families never dealt are the old setup's: keep only those the new one deals too.
+    const next = presetOf(id), kept = overridesFor(draft, preset);
+    // Without a bid phase there (the new setup's, or a bidding time set by hand) the bid settings go: nothing would show them.
+    const { bidPricing: _p, bidVisibility: _v, bidDisclosure: _d, ...unbid } = kept;
+    const bids = (kept.bidSeconds ?? next.bid?.seconds ?? 0) > 0;
+    setDraft(draftOf(next, { ...(bids ? kept : unbid), excludedFamilies: draft.excludedFamilies.filter(f => next.families.includes(f)) }));
     setPresetId(id);
   };
-  const saveBlocker = !owner ? "Only the room's owner changes its setup." : locked ? locked : !editable ? "Settings cannot change here." : invalid ? "Fix the settings marked in red first." : !changes.length ? "Nothing has changed yet." : null;
+  const saveTo = saveArgs(next, room.preset, loaded);
+  // Applying a saved setup the room does not run yet is a change, even when every value already matches.
+  const appliesNew = "setupId" in saveTo && room.setup?.setupId !== saveTo.setupId;
+  const saveBlocker = !owner ? "Only the room's owner changes its setup." : locked ? locked : !editable ? "Settings cannot change here." : invalid ? "Fix the settings marked in red first." : !changes.length && !appliesNew ? "Nothing has changed yet." : null;
   // The page checks every value against the affordance's own limits first (draftErrors), so the draft's numbers are its.
-  const args = () => ({ ...(presetId !== room.preset ? { preset: presetId } : {}), overrides: overridesFor(draft, preset) }) as Parameters<typeof settings.run>[0];
+  const args = () => saveTo as Parameters<typeof settings.run>[0];
+  const nameProblem = setupNameProblem(saveName);
   const confirmText = `${changes.map(c => `${c.label}: ${c.from} → ${c.to}`).join("; ")}.`;
   const code = room.code;
 
@@ -120,6 +149,7 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
         <div className="min-w-0">
           <h1 className="font-display text-4xl md:text-5xl leading-none break-words" data-testid="text-setup-title">{editable ? "Set up the next game" : preset.title}</h1>
           <p className="mt-2 text-sm text-muted-foreground" data-testid="text-setup-owner">
+            {room.setup ? <span data-testid="text-room-runs-setup">Room {code} runs the setup “{room.setup.name}”. </span> : null}
             {owner ? (locked ? locked : `Saving puts room ${code}'s next game on these settings.`) : "Only the room's owner can change its setup."}
             {room.game ? ` Game ${room.game.number} keeps the settings it started with.` : ""}
           </p>
@@ -144,15 +174,21 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
         </nav>
         <div className="space-y-10 min-w-0">
           <FormSection id="setup">
-            <SetupChoice current={presetId} admin={admin} editable={editable} onPick={pickPreset} />
+            <SetupChoice current={presetId} admin={admin} editable={editable} onPick={id => { if (id !== presetId) setLoadedId(null); pickPreset(id); }} />
+            {owner && (
+              <ErrorBoundary FallbackComponent={({ error }) => <ErrorLine message={`Your setups could not load: ${errMsg(error)}`} />}>
+                <SavedSetups mine editable={editable} loadedId={loadedId} onLoad={loadSetup} onGone={id => { if (id === loadedId) setLoadedId(null); }} />
+                <SavedSetups mine={false} editable={editable} loadedId={loadedId} onLoad={loadSetup} onGone={() => {}} />
+              </ErrorBoundary>
+            )}
           </FormSection>
 
           {(["goals", "agents", "energy", "population", "time"] as const).filter(s => SECTIONS.some(x => x.id === s)).map(section => (
             <FormSection key={section} id={section}>
-              {fieldsOf(section).filter(k => FIELDS[k].tier === "ask").map(k => <Field key={k} k={k} draft={draft} editable={editable} change={change} error={errors[k]} />)}
+              {fieldsOf(section).filter(k => FIELDS[k].tier === "ask" && !isHidden(k, preset, draft)).map(k => <Field key={k} k={k} draft={draft} editable={editable} change={change} error={errors[k]} preset={preset} />)}
               {fieldsOf(section).some(k => FIELDS[k].tier === "more") && (
-                <More section={section}>
-                  {fieldsOf(section).filter(k => FIELDS[k].tier === "more").map(k => <Field key={k} k={k} draft={draft} editable={editable} change={change} error={errors[k]} />)}
+                <More section={section} preset={preset} draft={draft}>
+                  {fieldsOf(section).filter(k => FIELDS[k].tier === "more" && !isHidden(k, preset, draft)).map(k => <Field key={k} k={k} draft={draft} editable={editable} change={change} error={errors[k]} preset={preset} />)}
                 </More>
               )}
             </FormSection>
@@ -182,6 +218,7 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
                     disabledReason={saveBlocker} showReason confirmText={confirmText}
                     onDone={() => { saveDraft(key, null); toast({ title: `Saved: room ${code}'s next game runs ${preset.title}` }); navigate(roomPath(code)); }} />
                   <Link href={roomPath(code)} className="text-sm underline underline-offset-4" data-testid="link-cancel">Cancel</Link>
+                  {loaded && <span className="text-xs text-muted-foreground" data-testid="text-applies-setup">{"setupId" in saveTo ? `Applies the setup “${loaded.name}”.` : `Changed from the setup “${loaded.name}”: saved by hand.`}</span>}
                   {Object.keys(room.overrides).some(k => k in FIELDS) && (
                     <AffordanceButton id="room.settings" args={{ overrides: {} }} label="Use the setup's own settings" tone="quiet" testId="button-reset-settings"
                       onDone={() => {
@@ -190,6 +227,18 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
                         toast({ title: `Back to ${presetOf(room.preset).title}'s own settings` });
                       }} />
                   )}
+                </div>
+                <div className="border-t pt-4 space-y-2" id="field-save-setup" data-testid="field-save-setup">
+                  <label htmlFor="input-setup-name" className="font-medium block">Keep these settings as one of your setups</label>
+                  <p className="text-sm text-muted-foreground">{loaded?.mine ? `Saving updates “${loaded.name}” (renaming it if you change the name); Duplicate it under Setup for a copy.` : "Your setups are yours alone: pick one here for any room you own. A name you already use is overwritten."}</p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <input id="input-setup-name" value={saveName} maxLength={SETUP_NAME_MAX + 10} onChange={e => setSaveName(e.target.value)} placeholder="Setup name" aria-invalid={(!!saveName && !!nameProblem) || undefined}
+                      className="w-full max-w-xs border bg-background px-3 py-1.5 text-sm outline-none focus:border-primary" data-testid="input-setup-name" />
+                    <AffordanceButton id="setups.save" label={loaded?.mine ? `Update your setup “${loaded.name}”` : "Save as a setup"} busyLabel="Saving…" testId="button-save-setup" showReason
+                      disabledReason={nameProblem ?? (invalid ? "Fix the settings marked in red first." : null)}
+                      args={() => ({ name: saveName.trim().replace(/\s+/g, " "), preset: presetId, overrides: overridesFor(draft, preset), ...(loaded?.mine ? { setupId: loaded.setupId } : {}) }) as never}
+                      onDone={r => { const out = r as { setupId: string; name: string; created: boolean }; setLoadedId(out.setupId); toast({ title: `${out.created ? "Saved" : "Updated"} your setup “${out.name}”` }); }} />
+                  </div>
                 </div>
               </>)}
             </div>
@@ -212,6 +261,52 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
         </aside>
       </div>
     </div>
+  );
+}
+
+/**
+ * The saved setups (v1's "You" and owner groups; shared as in v1: anyone may use or copy a setup, only its owner saves
+ * over or deletes it). Each list is a paginated skeleton of ids, each row subscribing to its own setup (read-architecture
+ * R1). Use loads one into the page; Duplicate copies it as yours and loads the copy (v1's "Duplicate and edit"); Delete
+ * (yours only) acts at once through its affordance.
+ */
+function SavedSetups({ mine, editable, loadedId, onLoad, onGone }: { mine: boolean; editable: boolean; loadedId: string | null; onLoad: (s: SavedSetup) => void; onGone: (id: string) => void }) {
+  const list = useLivePages(mine ? api.v2.setups.mine : api.v2.setups.shared, {}, { initialNumItems: 20 });
+  const rows = mine ? list.results : list.results.filter(r => !r.mine);
+  if (!mine && rows.length === 0 && list.status !== "CanLoadMore") return null;
+  return (
+    <fieldset className="space-y-2" data-testid={mine ? "group-your-setups" : "group-others-setups"}>
+      <legend className="label-mono mb-1">{mine ? "Your setups" : "Other players' setups"}</legend>
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground" data-testid={mine ? "text-no-setups" : undefined}>{list.isLoading ? "Loading…" : mine ? "None yet. Keep the settings below as a setup from the Review section." : "None on this page."}</p>
+      ) : (
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {rows.map(r => <SavedSetupRow key={r.setupId} setupId={r.setupId} on={r.setupId === loadedId} editable={editable} onLoad={onLoad} onGone={onGone} />)}
+        </ul>
+      )}
+      {list.status === "CanLoadMore" && <button type="button" className="text-sm underline underline-offset-4" onClick={() => list.loadMore(20)} data-testid={`button-more-setups-${mine ? "mine" : "others"}`}>More setups</button>}
+    </fieldset>
+  );
+}
+
+function SavedSetupRow({ setupId, on, editable, onLoad, onGone }: { setupId: string; on: boolean; editable: boolean; onLoad: (s: SavedSetup) => void; onGone: (id: string) => void }) {
+  const q = useLive(api.v2.setups.get, { setupId });
+  const s = q.data as SavedSetup | null | undefined;
+  if (!s) return null;
+  const changes = Object.keys(s.overrides).filter(k => k in FIELDS).length;
+  return (
+    <li className={`border p-3 text-sm space-y-2 ${on ? "border-primary bg-primary/10 ring-1 ring-primary" : ""}`} data-testid={`row-setup-${s.name}`}>
+      <button type="button" role="radio" aria-checked={on} disabled={!editable} onClick={() => onLoad(s)} className="block w-full text-left disabled:cursor-default" data-testid={`choice-setup-${s.name}`}>
+        <span className="block font-medium">{s.name}{s.mine === false ? <span className="font-normal text-muted-foreground"> · {s.ownerName}'s</span> : null}</span>
+        <span className="block text-muted-foreground">{presetOf(s.preset).title}{changes ? `, ${changes} setting${changes === 1 ? "" : "s"} changed` : ", as it comes"}</span>
+      </button>
+      <span className="flex flex-wrap gap-3">
+        <AffordanceButton id="setups.duplicate" args={{ setupId }} label={s.mine === false ? "Duplicate and edit" : "Duplicate"} tone="link" testId={`button-duplicate-setup-${s.name}`}
+          onDone={r => { const c = r as { setupId: string; name: string }; toast({ title: `Made “${c.name}”` }); if (s.mine === false && editable) onLoad({ ...s, setupId: c.setupId, name: c.name, mine: true }); }} />
+        {s.mine !== false && <AffordanceButton id="setups.remove" args={{ setupId }} label="Delete" tone="link" testId={`button-delete-setup-${s.name}`}
+          onDone={() => { onGone(setupId); toast({ title: `Deleted your setup “${s.name}”`, description: "Rooms it was applied to keep their settings." }); }} />}
+      </span>
+    </li>
   );
 }
 
@@ -266,16 +361,42 @@ function Question({ k, children, error }: { k: FieldKey; children?: ReactNode; e
   );
 }
 
-type FieldProps = { k: FieldKey; draft: Draft; editable: boolean; change: (patch: Partial<Draft>) => void; error?: string };
+type FieldProps = { k: FieldKey; draft: Draft; editable: boolean; change: (patch: Partial<Draft>) => void; error?: string; preset: Preset };
 
-function Field({ k, draft, editable, change, error }: FieldProps) {
+function Field({ k, draft, editable, change, error, preset }: FieldProps) {
   const doc = FIELDS[k];
+  if (doc.control === "checklist") return <Question k={k} error={error}><RuleChecklist preset={preset} excluded={draft.excludedFamilies} editable={editable} onChange={excludedFamilies => change({ excludedFamilies })} /></Question>;
   if (doc.control === "number") return <NumberQuestion k={k} value={draft[k] as number} editable={editable} onSet={v => change({ [k]: v })} error={error} />;
   if (doc.control === "switch") return <Question k={k} error={error}><Switch k={k} value={draft[k] as boolean} editable={editable} onChange={v => change({ [k]: v })} /></Question>;
   return (
     <Question k={k} error={error}>
       <Segmented k={k} value={draft[k] as number | string} choices={stepChoices(k, draft[k])} editable={editable} onPick={v => change({ [k]: v })} />
     </Question>
+  );
+}
+
+/** The setup's rule families, a box each (ticked: may be dealt; v1's "Rules that can be dealt" shelf). */
+function RuleChecklist({ preset, excluded, editable, onChange }: { preset: Preset; excluded: readonly string[]; editable: boolean; onChange: (excluded: string[]) => void }) {
+  const titles = useMemo(() => { const g = galleryFamilies(preset.variant); return new Map([...g.beginner, ...g.more].map(f => [f.id, f.title])); }, [preset.variant]);
+  const allowed = preset.families.filter(f => !excluded.includes(f)).length;
+  return (
+    <div className="space-y-2" data-testid="checklist-families">
+      <p className="text-sm"><span data-testid="text-families-allowed">{allowed} of {preset.families.length}</span> rule families can be dealt</p>
+      <ul className="grid gap-1.5 sm:grid-cols-2">
+        {preset.families.map(f => {
+          const out = excluded.includes(f);
+          return (
+            <li key={f}>
+              <label className={`flex items-start gap-2 border px-2 py-1.5 text-sm ${out ? "text-muted-foreground" : ""}`} data-testid={`row-family-${f}`}>
+                <input type="checkbox" checked={!out} disabled={!editable} data-testid={`check-family-${f}`} className="mt-1 accent-[hsl(var(--primary))]"
+                  onChange={e => onChange(e.target.checked ? excluded.filter(x => x !== f) : [...excluded, f])} />
+                <span className="font-medium">{titles.get(f) ?? f}</span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -328,8 +449,8 @@ function NumberQuestion({ k, value, editable, onSet, error }: { k: FieldKey; val
   );
 }
 
-function More({ section, children }: { section: SectionId; children: ReactNode }) {
-  const count = fieldsOf(section).filter(k => FIELDS[k].tier === "more").length;
+function More({ section, preset, draft, children }: { section: SectionId; preset: Preset; draft: Draft; children: ReactNode }) {
+  const count = fieldsOf(section).filter(k => FIELDS[k].tier === "more" && !isHidden(k, preset, draft)).length;
   return (
     <details className="border-l-2 pl-4 space-y-4" data-testid={`more-${section}`}>
       <summary className="cursor-pointer text-sm">More {SECTIONS.find(s => s.id === section)?.title.toLowerCase()} options ({count})</summary>

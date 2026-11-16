@@ -17,6 +17,7 @@ import type { ReactElement, ReactNode } from "react";
 import type { ElementRef, ElementValue, GridScene } from "@workspace/v2-core";
 import { fmtQ, fmtValue } from "../format.ts";
 import { markRefs } from "../refs.ts";
+import { partGlyph } from "../contributors.ts";
 import type { RenderProps, SceneRenderer } from "../scene.ts";
 import { compactMarks, elAttrs, hover, key, markState, NOTE_MAX, numberOf, Readouts } from "./common.tsx";
 
@@ -84,7 +85,7 @@ function Scene({ p }: { p: P }): ReactElement {
   const shown = (r: ElementRef) => fmtValue(p.values(r));
   const besideNote = new Map<string, string>();
   // Notes listed under the picture, one line per element ("the top half …: = 3² × 1371742; one more 3: add 18 or …").
-  const listedBy = new Map<string, { label: string; texts: string[] }>();
+  const listedBy = new Map<string, { ref: ElementRef; label: string; texts: string[] }>();
   const drawnNotes = new Set<string>();
   const rightKeys = new Set(right.map(key));
   for (const m of expanded ? marks : []) {
@@ -94,12 +95,15 @@ function Scene({ p }: { p: P }): ReactElement {
     if (m.text === shown(m.ref)) continue; // the note only repeats the value drawn
     if (rightKeys.has(k) && m.text.length <= NOTE_MAX && !besideNote.has(k)) besideNote.set(k, m.text);
     else {
-      const e = listedBy.get(k) ?? { label: p.labelOf(m.ref), texts: [] };
-      if (!e.texts.includes(m.text)) e.texts.push(m.text);
+      const e = listedBy.get(k) ?? { ref: m.ref, label: p.labelOf(m.ref), texts: [] };
+      // Each note says which part of the rule it is about when the parts are known (● main part, ◆ secondary).
+      const depth = p.markDepth?.(m) ?? null;
+      const text = depth !== null ? `${partGlyph(depth)} ${m.text}` : m.text;
+      if (!e.texts.includes(text)) e.texts.push(text);
       listedBy.set(k, e);
     }
   }
-  const listed = [...listedBy.values()].map(e => `${e.label}: ${e.texts.join("; ")}`);
+  const listed = [...listedBy.values()].map(e => ({ ref: e.ref, text: `${e.label}: ${e.texts.join("; ")}` }));
   const noteW = besideNote.size ? Math.max(...[...besideNote.values()].map(t => t.length)) * NOTE_CHAR + 6 : 0;
 
   // Geometry.
@@ -123,6 +127,16 @@ function Scene({ p }: { p: P }): ReactElement {
   bottom.forEach((r, col) => { if (lit(r)) for (let row = 0; row < s.rows; row++) members.add(row * s.cols + col); });
   for (const gr of s.groups ?? []) if (lit(gr.el)) for (const c of gr.cells) members.add(c);
 
+  // Each focus is drawn with its part's glyph (● main part, ◆ secondary, ▲ third …), so a mark never relies on colour alone.
+  const glyphs = (r: ElementRef): string => {
+    if (!p.markDepth) return "";
+    const k = key(r);
+    const depths = [...new Set(marks.filter(m => m.kind === "focus" && key(m.ref) === k).map(m => p.markDepth!(m)))].filter((d): d is number => d !== null);
+    return depths.sort((a, b) => a - b).map(partGlyph).join("");
+  };
+  // Every element a mark cites is a keyboard stop (focus picks it out, as pointing does); the rest are not.
+  const citedKeys = new Set(marks.flatMap(markRefs).map(key));
+  const stop = (r: ElementRef) => (p.onHover && citedKeys.has(key(r)) ? { tabIndex: 0 } : {});
   const title = (r: ElementRef, extra = "") => <title>{`${p.labelOf(r)}: ${shown(r)}${extra}`}</title>;
 
   // ---------------------------------------------------------------- layers
@@ -145,7 +159,7 @@ function Scene({ p }: { p: P }): ReactElement {
       const y = horizontal ? oy + Math.floor(a / s.cols) * C + C * 0.8 : (cy(a) + cy(b)) / 2;
       const w = Math.max(16, val.length * 6.5 + 6);
       labels.push(
-        <g key={key(gr.el)} className="step" {...attrs} {...hover(q, gr.el)}>
+        <g key={key(gr.el)} className="step" {...attrs} {...stop(gr.el)} {...hover(q, gr.el)}>
           <rect className="pill" x={x - w / 2} y={y - 7} width={w} height={14} rx={7} />
           {expanded && <text className="pill-text" x={x} y={y + 3.6}>{val}</text>}
           {title(gr.el)}
@@ -170,7 +184,7 @@ function Scene({ p }: { p: P }): ReactElement {
       links.push(<g key={`${key(gr.el)}-line`} className="link-under" data-focus={attrs["data-focus"]} data-cand={attrs["data-cand"]} data-lit={attrs["data-lit"]}>{line}</g>);
       const w = Math.max(14, val.length * 6 + 5);
       labels.push(
-        <g key={key(gr.el)} className="link" {...attrs} {...hover(q, gr.el)}>
+        <g key={key(gr.el)} className="link" {...attrs} {...stop(gr.el)} {...hover(q, gr.el)}>
           <rect className="badge-bg" x={bx - w / 2} y={by - 6} width={w} height={12} rx={3} />
           <text className="badge" x={bx} y={by + 3.3}>{val}</text>
           {title(gr.el)}
@@ -197,7 +211,7 @@ function Scene({ p }: { p: P }): ReactElement {
         // A big group among overlapping ones (a half of the board) is labelled only when picked: its label sits over digits.
         el: gr.el, picked, big: overlapping && gr.cells.length > 4, box: { x: x - w / 2, y: y - 8, w, h: 16 },
         node: (
-          <g key={key(gr.el)} className="box" {...attrs} {...hover(q, gr.el)}>
+          <g key={key(gr.el)} className="box" {...attrs} {...stop(gr.el)} {...hover(q, gr.el)}>
             <rect className="pill" x={x - w / 2} y={y - 8} width={w} height={16} rx={8} />
             <text className="group-label" x={x} y={y + 4}>{val}</text>
             {title(gr.el)}
@@ -220,6 +234,14 @@ function Scene({ p }: { p: P }): ReactElement {
   }
 
   const before = p.before;
+  // A coloured board: each tile in its colour, with the colour's letter (lib/v2-grid-boards).
+  const tint = s.cellColours ?? [];
+  // A move that only recolours a tile changes its colour element (r0c0.colour), not its number: mark that cell changed too.
+  const recoloured = (r: ElementRef): boolean => {
+    if (!tint.length || !before) return false;
+    const c = { ...r, name: `${r.name}.colour` };
+    try { return fmtValue(before(c)) !== fmtValue(q.values(c)); } catch { return false; }
+  };
   const cells = s.cells.map((r, i) => {
     const x = ox + (i % s.cols) * C, y = oy + Math.floor(i / s.cols) * C;
     let was: string | null = null;
@@ -227,10 +249,14 @@ function Scene({ p }: { p: P }): ReactElement {
       try { const b = before(r); if (fmtValue(b) !== shown(r)) was = fmtValue(b); } catch { was = null; }
     }
     return (
-      <g key={key(r)} className="cell" {...elAttrs(q, r)} data-member={members.has(i) ? "" : undefined} {...hover(q, r)}>
+      <g key={key(r)} className={tint[i] ? "cell tinted" : "cell"} {...elAttrs(q, r)} {...(recoloured(r) ? { "data-changed": "" } : {})} data-member={members.has(i) ? "" : undefined} {...stop(r)} {...hover(q, r)}>
+        {tint[i] && <rect className="cell-colour" x={x + 1} y={y + 1} width={C - 2} height={C - 2} rx={expanded ? 4 : 2} style={{ fill: tint[i]!.css }} />}
         <rect className="cell-bg" x={x + 1} y={y + 1} width={C - 2} height={C - 2} rx={expanded ? 4 : 2} />
-        <text className="digit" x={x + C / 2} y={y + C / 2 + g.digit * 0.36} fontSize={g.digit}>{shown(r)}</text>
+        {/* A tinted tile keeps its number left of centre and the colour's letter small in the corner, clear of each other. */}
+        <text className="digit" x={x + (tint[i] ? C * 0.42 : C / 2)} y={y + C / 2 + g.digit * 0.36} fontSize={tint[i] ? g.digit * 0.85 : g.digit} style={tint[i] ? { fill: tint[i]!.ink } : undefined}>{s.cellGlyphs?.[i] ?? shown(r)}</text>
+        {tint[i] && <text className="colour-letter" x={x + C - 2.5} y={y + C - 3} textAnchor="end" fontSize={Math.max(5, C * 0.26)} style={{ fill: tint[i]!.ink }}>{tint[i]!.letter}</text>}
         {was !== null && <text className="was" x={x + 4} y={y + 11}>{was}</text>}
+        {expanded && glyphs(r) && <text className="mark-glyph" x={x + C - 4} y={y + 11}>{glyphs(r)}</text>}
         {title(r)}
       </g>
     );
@@ -239,9 +265,10 @@ function Scene({ p }: { p: P }): ReactElement {
   const marginCell = (r: ElementRef, x: number, y: number, w: number, h: number) => {
     const note = besideNote.get(key(r));
     return (
-      <g key={key(r)} className="margin" {...elAttrs(q, r)} {...hover(q, r)}>
+      <g key={key(r)} className="margin" {...elAttrs(q, r)} {...stop(r)} {...hover(q, r)}>
         <rect className="margin-bg" x={x} y={y} width={w} height={h} rx={4} />
         <text className="margin-val" x={x + w / 2} y={y + h / 2 + (expanded ? 5 : 3.5)} fontSize={expanded ? 15 : 10}>{shown(r)}</text>
+        {expanded && glyphs(r) && <text className="mark-glyph" x={x + w - 2} y={y + 9}>{glyphs(r)}</text>}
         {title(r, note ? ` (${note})` : "")}
       </g>
     );
@@ -253,10 +280,12 @@ function Scene({ p }: { p: P }): ReactElement {
     return t ? [<text key={key(r)} className="note" x={mx + g.margin + 4} y={oy + row * C + C / 2 + 4}>{t}</text>] : [];
   });
 
+  // While an element is picked out (pointed at, or reached with Tab), the cells outside it are dimmed (v1's 0.32).
+  const picked = members.size > 0 || s.cells.some(r => lit(r) && citedKeys.has(key(r)));
   const placed = new Set<string>([...s.cells, ...right, ...bottom, ...groups.map(gr => gr.el)].map(key).filter(k => !unsaid.has(k)));
   return (
     <>
-      <svg className="v2v-grid" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={gridText(s, p.values)}>
+      <svg className="v2v-grid" data-picked={picked ? "" : undefined} width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={gridText(s, p.values)}>
         <rect className="board" x={ox} y={oy} width={W} height={H} rx={expanded ? 6 : 3} />
         {Array.from({ length: s.cols - 1 }, (_, i) => <line key={`v${i}`} className="board-line" x1={ox + (i + 1) * C} y1={oy} x2={ox + (i + 1) * C} y2={oy + H} />)}
         {Array.from({ length: s.rows - 1 }, (_, i) => <line key={`h${i}`} className="board-line" x1={ox} y1={oy + (i + 1) * C} x2={ox + W} y2={oy + (i + 1) * C} />)}
@@ -270,7 +299,10 @@ function Scene({ p }: { p: P }): ReactElement {
         {titleRow > 0 && <text className="margin-title" x={mx + g.margin / 2} y={oy - 4}>{s.rightTitle}</text>}
         {cornerTitle && <text className="margin-title" x={mx + g.margin / 2} y={fy + g.foot / 2 + 4}>{s.bottomTitle}</text>}
       </svg>
-      {listed.length > 0 && <ul className="v2v-notes">{listed.map(n => <li key={n}>{n}</li>)}</ul>}
+      {listed.length > 0 && (
+        // Each note points at its element: pointing at the line (or reaching it with Tab) picks the element out on the board.
+        <ul className="v2v-notes">{listed.map(n => <li key={n.text} data-ref={key(n.ref)} {...stop(n.ref)} {...hover(q, n.ref)}>{n.text}</li>)}</ul>
+      )}
       <Readouts p={q} placed={placed} drawnNotes={drawnNotes} />
     </>
   );
@@ -280,7 +312,9 @@ function Scene({ p }: { p: P }): ReactElement {
 function gridText(s: GridScene, values: (r: ElementRef) => ElementValue): string {
   const v = (r: ElementRef) => fmtValue(values(r));
   if (s.cells[0] && values(s.cells[0]).kind === "undefined") return v(s.cells[0]);
-  const rows = Array.from({ length: s.rows }, (_, r) => s.cells.slice(r * s.cols, (r + 1) * s.cols).map(v).join(" ")).join(" / ");
+  // A coloured board reads as the old game wrote it: "7R 3G …" (the glyph, then the colour's letter).
+  const cell = (r: ElementRef, i: number) => (s.cellGlyphs?.[i] ?? v(r)) + (s.cellColours?.[i]?.letter ?? "");
+  const rows = Array.from({ length: s.rows }, (_, r) => s.cells.slice(r * s.cols, (r + 1) * s.cols).map((x, j) => cell(x, r * s.cols + j)).join(" ")).join(" / ");
   const parts = [rows];
   if (s.right?.length) parts.push(`${s.rightTitle ?? "value"} per row: ${s.right.map(v).join(", ")}`);
   if (s.bottom?.length) parts.push(`${s.bottomTitle ?? "value"} per column: ${s.bottom.map(v).join(", ")}`);
