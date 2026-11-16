@@ -87,6 +87,12 @@ try {
     await page.waitForURL(/\/games\//, { timeout: 30_000 });
     console.log(`${label}: seated and playing at ${clock(t0)}`);
 
+    // The board in planning (W3 #931): the starting lines are born, valued and scored at game start, so the Lines pane is
+    // on screen with them before the world starts.
+    await page.getByTestId("pane-objects").getByTestId("row-line-1").waitFor({ timeout: 20_000 });
+    assert.ok(await page.getByTestId("planning-line").count(), `${label}: the lines are shown while still planning`);
+    console.log(`${label}: the board in planning at ${clock(t0)}`);
+
     // "Where am I", before the first agent: how a score is made, in one sentence, and the step to the line-by-line list.
     const overview = page.getByTestId("pane-overview");
     await overview.getByText(SCORE_SENTENCE).waitFor({ timeout: 20_000 });

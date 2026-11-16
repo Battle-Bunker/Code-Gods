@@ -41,8 +41,9 @@ test("an arrangement round-trips through the view state and survives the next ga
   assert.equal(formatDock(dockFor(v, "live")!), text.replace(", object 40", "").replace("column(objects 60) 60", "objects 60"), "the one line is not open, so it is left out");
   v = run(v, [{ id: "view.openObject", args: { objectId: "o1" } }], "live");
   assert.equal(formatDock(dockFor(v, "live")!), text, "the one line opens where the human put it");
-  // The next game: planning has its own default (no squeezed rows carried in), and the live screen comes back.
-  assert.equal(formatDock(dockFor(v, "planning")!), formatDock(dockFor(EMPTY_VIEW, "planning")!));
+  // The next game: planning has its own default (no squeezed rows carried in; the one line, open, below the lines since
+  // the board shows in planning), and the live screen comes back.
+  assert.equal(formatDock(dockFor(v, "planning")!), "row(column(overview 45, my-card 55) 33, column(objects 45, object 55) 37, forge 30)");
   assert.equal(formatDock(dockFor(v, "paused")!), formatDock(dockFor(v, "live")!));
 });
 
@@ -77,7 +78,7 @@ test("a whole game of changes leaves the next planning screen as it was, the age
   v = run(v, openPlan(v, "live", "public-chat"), "live");
   v = run(v, openPlan(v, "ended", "points-over-time"), "ended");
   // Panes opened during the game that planning can show join behind the tabs in front.
-  assert.equal(formatDock(dockFor(v, "planning")!), "row(overview 20, my-card 30, forge|agents|public-chat 50)");
+  assert.equal(formatDock(dockFor(v, "planning")!), "row(overview 20, my-card 30, forge|objects|agents|public-chat 50)");
 });
 
 test("after the end the results keep their full height: panes carried from the live screen join behind tabs", () => {
@@ -94,7 +95,7 @@ test("a default closed in the next game's planning stays closed, and keeps its p
   v = run(v, openPlan(v, "live", "public-chat"), "live");
   v = run(v, closePlan(v, "planning", "overview"), "planning");
   assert.ok(!dockPanes(dockFor(v, "planning")).includes("overview"), formatDock(dockFor(v, "planning")!));
-  assert.deepEqual(dockPanes(dockFor(v, "planning")).sort(), ["agents", "forge", "my-card", "public-chat"], "panes opened in the live game that planning can show stay");
+  assert.deepEqual(dockPanes(dockFor(v, "planning")).sort(), ["agents", "forge", "my-card", "objects", "public-chat"], "panes opened in the live game that planning can show stay");
   const live = formatDock(dockFor(v, "live")!);
   assert.ok(live.startsWith("row(objects") && /, feed\|race\|/.test(live) && visible(v, "live").includes("objects"), live);
 });
