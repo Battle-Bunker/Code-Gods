@@ -1,6 +1,6 @@
 /**
  * Lines (the `objects` pane): which lines earn you points, and why. A virtualised list over the skeleton of ids in the
- * human's order (`v2/play:objectIds`, page by page as the end comes into view), each visible row its own subscription
+ * human's order (`v2/playState:objectIds`, page by page as the end comes into view), each visible row its own subscription
  * to its line (`v2/play:object`), dropped when it scrolls away (docs/convex-read-architecture.md R1). A row: the line
  * drawn in your rule's main view (or the representation pinned for the family) with its marks, your bits (rarity) and points,
  * the points rectangle (width = your bits, height = the others' bits added together, area = your points: ux-lessons 2.8)

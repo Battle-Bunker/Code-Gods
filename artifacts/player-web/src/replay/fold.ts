@@ -253,7 +253,7 @@ export interface ReplayFrame {
   /** A line as it stood, with `member`'s value of it (none for null); null before its birth. */
   object(objectId: string, member: string | null): PlayObject | null;
   objectIds(member: string, sort: ObjectSort, show?: ObjectShow): { objectId: string; number: number }[];
-  /** The retired lines (turnover), the latest first, as `v2/play:banked` pages them. */
+  /** The retired lines (turnover), the latest first, as `v2/playState:banked` pages them. */
   banked(member: string): { objectId: string; number: number }[];
   /** The moves that concerned `member`, newest first. */
   moves(member: string): Move[];

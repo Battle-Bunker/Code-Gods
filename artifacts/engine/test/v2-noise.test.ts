@@ -26,7 +26,7 @@ test("while live every others' sum is the exact one plus the reader's own readin
   await perform(ada!, "game.startWorldNow", {}, { gameId });
   await new Promise(r => setTimeout(r, 12_000));   // a scoreboard (every 10 world seconds) and some moves
 
-  const ids = (await ada!.query("v2/play:objectIds", { gameId, sort: "born", paginationOpts: page })).page.map((r: any) => r.objectId);
+  const ids = (await ada!.query("v2/playState:objectIds", { gameId, sort: "born", paginationOpts: page })).page.map((r: any) => r.objectId);
   assert.ok(ids.length >= 3);
   let noisy = 0, apart = 0;
   for (const objectId of ids) {
@@ -43,7 +43,7 @@ test("while live every others' sum is the exact one plus the reader's own readin
   assert.ok(apart >= noisy - 1, `each player's reading is their own, never shared (${apart} of ${noisy} differ)`);
 
   // The sort on the others' sum follows the disclosed values, not the exact ones.
-  const byWant = (await ada!.query("v2/play:objectIds", { gameId, sort: "want", paginationOpts: page })).page.map((r: any) => r.objectId);
+  const byWant = (await ada!.query("v2/playState:objectIds", { gameId, sort: "want", paginationOpts: page })).page.map((r: any) => r.objectId);
   const shownWant = new Map<string, number>();
   for (const id of byWant) shownWant.set(id, (await ada!.query("v2/play:object", { objectId: id })).value.want);
   const ws = byWant.map((id: string) => shownWant.get(id)!);
@@ -59,20 +59,20 @@ test("while live every others' sum is the exact one plus the reader's own readin
     for (const r of live.rows) assert.ok(close(r.total, published.standings.find((s: any) => s.memberId === r.memberId).total), "the published standings are the exact record's");
 
   // Live anonymity (v1's public log): another player's move carries no mover, agent, calls or cost; tugs name nobody.
-  const liveMoves = (await ada!.query("v2/play:moves", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page;
+  const liveMoves = (await ada!.query("v2/playState:moves", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page;
   const theirs = liveMoves.filter((m: any) => !m.mine);
   assert.ok(theirs.length > 0, "another player's moves concerned Ada");
   for (const m of theirs) assert.deepEqual([m.by, m.agentId, m.calls, m.charge], [null, null, [], null], "unattributed while live");
   for (const m of liveMoves.filter((x: any) => x.mine)) assert.ok(m.by && m.calls.length > 0, "Ada's own moves keep their calls");
-  for (const t of await ada!.query("v2/play:tugs", { gameId })) assert.deepEqual(t.others, [], "a live tug names nobody");
+  for (const t of await ada!.query("v2/playState:tugs", { gameId })) assert.deepEqual(t.others, [], "a live tug names nobody");
   const listed = await perform(ada!, "moves.list", { limit: 50 }, { gameId }, "query");
   for (const m of listed.result.page.filter((x: any) => !x.mine)) assert.deepEqual([m.agentId, m.calls, m.charge], [null, [], null]);
 
   // A page loaded while live keeps its cursor through the end (the app's paginated list re-runs it then).
-  const firstPage = await ada!.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 1, cursor: null } });
+  const firstPage = await ada!.query("v2/playState:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 1, cursor: null } });
   assert.equal((await perform(ada!, "game.end", {}, { gameId })).ok, true);
-  await ada!.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 1, cursor: firstPage.continueCursor } });
-  const ended = (await ada!.query("v2/play:moves", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page.filter((m: any) => !m.mine);
+  await ada!.query("v2/playState:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 1, cursor: firstPage.continueCursor } });
+  const ended = (await ada!.query("v2/playState:moves", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page.filter((m: any) => !m.mine);
   assert.ok(ended.length > 0 && ended.every((m: any) => m.by && m.calls.length > 0), "after the end every move names its mover and calls");
   for (const objectId of ids.slice(0, 8)) {
     const a = await ada!.query("v2/play:object", { objectId });
@@ -84,7 +84,7 @@ test("while live every others' sum is the exact one plus the reader's own readin
   for (const r of final.rows) assert.ok(close(r.total, exact[r.memberId] ?? 0, 1e-6), "the final standings are exact");
   // The scatter goes back to the exact sums (scheduled at the end).
   for (let i = 0; ; i++) {
-    const d = await ada!.query("v2/play:digest", { gameId });
+    const d = await ada!.query("v2/playState:digest", { gameId });
     const a = await ada!.query("v2/play:object", { objectId: ids[0] });
     const at = 3 * (a.number - 1);
     if (close(d.packed[at + 2], a.value.want)) break;
@@ -92,7 +92,7 @@ test("while live every others' sum is the exact one plus the reader's own readin
     await new Promise(r => setTimeout(r, 250));
   }
   // After the end the points sort is the exact order.
-  const byPoints = (await ada!.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: page })).page;
+  const byPoints = (await ada!.query("v2/playState:objectIds", { gameId, sort: "points", paginationOpts: page })).page;
   const pts: number[] = [];
   for (const r of byPoints) pts.push((await ada!.query("v2/play:object", { objectId: r.objectId })).value.points);
   assert.ok(pts.every((p, i) => i === 0 || p <= pts[i - 1]! + 1e-9), `the ended points sort is exact: ${pts.map(p => p.toFixed(1)).join(" ")}`);

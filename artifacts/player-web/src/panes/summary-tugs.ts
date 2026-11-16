@@ -24,7 +24,7 @@ export function mergeTugs<S>(episodes: readonly TugEpisode<S>[]): TugEpisode<S>[
   return [...by.values()];
 }
 
-/** The tick's tug rows (v2/play:tugs) as the summary's: names, whether every other side is a practice partner, the best state decoded. */
+/** The tick's tug rows (v2/playState:tugs) as the summary's: names, whether every other side is a practice partner, the best state decoded. */
 export function tugsFromServer<S>(rows: readonly {
   number: number; flips: number; mySpend: number; others: readonly { memberId: string; name: string }[];
   best: { state: string; points: number } | null; cycle?: { moves: number } | null;

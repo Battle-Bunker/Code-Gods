@@ -20,7 +20,7 @@ about 28 worlds ran at once on the local backend. From the start of my games unt
 - The page shows "Your totals could not load: … timed out" and panes read "This pane could not load: the server took too
   long (it is busy right now). Try again (reloads the page)" (01). **A pane does not recover by itself** once the server
   is quiet; only the reload brings it back. Bob's phone kept the red banners to the end (04).
-- At idle afterwards, on a page reload, `v2/play:object` and `v2/play:objectMoves` still took **0.85–0.97 s** each (logged
+- At idle afterwards, on a page reload, `v2/play:object` and `v2/playState:objectMoves` still took **0.85–0.97 s** each (logged
   as warnings against the 1 s limit). So one page's per-object reads sit at the edge of the limit with only ~30 stored
   games.
 

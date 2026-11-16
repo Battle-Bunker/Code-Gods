@@ -36,14 +36,14 @@ A page query answers at most 50 rows, whatever `numItems` asks (`convex/v2/pages
 | `v2/rooms:chat`, `v2/rooms:history` | `roomId, paginationOpts` | member |
 | `v2/games:header`, `standings` | `gameId` | member; `header.me` is the caller's seat or null |
 | `v2/games:standingsHistory` | `gameId, after` | member; ≤ 100 rows after `after` |
-| `v2/play:agents` | `gameId, paginationOpts` | seated; the caller's live agents, oldest first, a page of ≤ 50 (a player holds ≤ 200, call 35); each row's energy is `agentEnergy` |
+| `v2/playState:agents` | `gameId, paginationOpts` | seated; the caller's live agents, oldest first, a page of ≤ 50 (a player holds ≤ 200, call 35); each row's energy is `agentEnergy` |
 | `v2/play:myRule`, `me`, `digest` | `gameId` | seated; `myRule.value` is the rule's value function (`{knots, tail}`, what `valueLookup` takes); `me` adds `ownPerSecond`, `capacity` (the store stops at it) and `settledAt` (world s) |
-| `v2/play:objectIds` | `gameId, sort (points, rarity, want, born, recent), paginationOpts` | seated |
+| `v2/playState:objectIds` | `gameId, sort (points, rarity, want, born, recent), paginationOpts` | seated |
 | `v2/play:object` | `objectId` | member; `value` is the caller's own, null for a spectator |
-| `v2/play:agentEnergy`, `agentPrograms` | `agentId` | the agent's owner |
-| `v2/play:moves` | `gameId, paginationOpts` | seated; every row's `by` names the mover; `charge` and `notes` (what their agent noted for them) only on the caller's own moves |
-| `v2/play:log` | `gameId, paginationOpts` | room member: the public log (v1's), newest first: every birth and move with state before/after, version and world time; seated, the caller's own bits, the others' summed bits (with the disclosure noise while live) and points, after and before (null for a member not seated); mover, agent, calls and cost only on the caller's own moves while live, on every move after the end |
-| `v2/play:tugs` | `gameId` | seated: the caller's tugs-of-war over the whole game (lines that changed hands between their agents and others' at least twice), most-flipped first, ≤ 20: moves, flips, their agents' spend, the others by name, first and last world second, the best state for them. The tick folds them as moves commit (`v2Tugs`) |
+| `v2/playState:agentEnergy`, `agentPrograms` | `agentId` | the agent's owner |
+| `v2/playState:moves` | `gameId, paginationOpts` | seated; every row's `by` names the mover; `charge` and `notes` (what their agent noted for them) only on the caller's own moves |
+| `v2/playState:log` | `gameId, paginationOpts` | room member: the public log (v1's), newest first: every birth and move with state before/after, version and world time; seated, the caller's own bits, the others' summed bits (with the disclosure noise while live) and points, after and before (null for a member not seated); mover, agent, calls and cost only on the caller's own moves while live, on every move after the end |
+| `v2/playState:tugs` | `gameId` | seated: the caller's tugs-of-war over the whole game (lines that changed hands between their agents and others' at least twice), most-flipped first, ≤ 20: moves, flips, their agents' spend, the others by name, first and last world second, the best state for them. The tick folds them as moves commit (`v2Tugs`) |
 | `v2/spectate:objectIds`, `object` | as above | member; states only |
 | `v2/layout:current` | `roomId` | member |
 | `v2/replays:stored` | `gameId` | member |
@@ -166,5 +166,5 @@ Suites: `v2-contract`, `v2-lobby`, `v2-play`, `v2-game` (M1's acceptance and rep
 
 - Agents run inline in the Node action (no worker thread in a Convex bundle): QuickJS keeps its time cap; a single long
   native Python step runs until the action's limit, and the watchdog then restarts the chain.
-- `v2/play:digest` grows with objects (30 KiB at 1,000 with three players; 64 KiB near 2,300).
+- `v2/playState:digest` grows with objects (30 KiB at 1,000 with three players; 64 KiB near 2,300).
 - R8's cold check (a cold query survives tick commits) is not yet run.

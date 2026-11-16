@@ -30,7 +30,7 @@ test("a paid game shows each object as last told; a look pays to see it now; the
   await new Promise(r => setTimeout(r, 8000));   // the practice partner's agent moves lines Ada does not watch
   await perform(ada!, "game.pause", {}, scope);
 
-  const ids = (await ada!.query("v2/play:objectIds", { gameId, sort: "born", paginationOpts: page })).page.map((r: any) => r.objectId);
+  const ids = (await ada!.query("v2/playState:objectIds", { gameId, sort: "born", paginationOpts: page })).page.map((r: any) => r.objectId);
   let stale: string | null = null;
   for (const objectId of ids) {
     const [mine, live] = [await ada!.query("v2/play:object", { objectId }), await admin.query("v2/testing:stateOf", { objectId })];
@@ -46,19 +46,19 @@ test("a paid game shows each object as last told; a look pays to see it now; the
     }
   }
   assert.ok(stale, "the partner's agent changed a line Ada was not told");
-  const log = (await ada!.query("v2/play:log", { gameId, paginationOpts: page })).page;
+  const log = (await ada!.query("v2/playState:log", { gameId, paginationOpts: page })).page;
   for (const r of log.filter((x: any) => x.kind === "move" && !x.mine)) assert.deepEqual([r.state, r.stateBefore, r.own, r.others], [null, null, null, null], "another player's move: activity, not content");
   assert.ok(log.some((r: any) => r.kind === "born" && r.state), "a birth is public");
-  for (const m of (await ada!.query("v2/play:moves", { gameId, paginationOpts: page })).page) assert.equal(m.mine, true, "only Ada's own agents' moves");
+  for (const m of (await ada!.query("v2/playState:moves", { gameId, paginationOpts: page })).page) assert.equal(m.mine, true, "only Ada's own agents' moves");
 
   // A look: the object's full read at the read price, from Ada's own store; then she sees it as it is.
-  const before = (await ada!.query("v2/play:me", { gameId })).energy;
+  const before = (await ada!.query("v2/playState:me", { gameId })).energy;
   const quoted = (await ada!.query("v2/play:object", { objectId: stale })).lookPrice;
   const looked = await perform(ada!, "object.look", { objectId: stale }, scope);
   assert.ok(Math.abs(quoted - looked.result.price) < 1e-9, `the object shows what a look costs: ${quoted}`);
   assert.equal(looked.ok, true, JSON.stringify(looked));
   assert.ok(looked.result.price > 0 && looked.result.looked === 1);
-  const after = (await ada!.query("v2/play:me", { gameId })).energy;
+  const after = (await ada!.query("v2/playState:me", { gameId })).energy;
   assert.ok(Math.abs(before - after - looked.result.price) < 0.5, `the look is paid from the store: ${before} → ${after} for ${looked.result.price}`);
   const bits = await admin.query("v2/testing:fullReadBits", { objectId: stale! });
   const weight = (await ada!.query("v2/games:header", { gameId })).readPriceWeight;
@@ -76,13 +76,13 @@ test("a paid game shows each object as last told; a look pays to see it now; the
   const all = await perform(ada!, "object.look", {}, scope);
   assert.equal(all.result.looked, ids.length, "a look at every object");
 
-  const firstPage = await ada!.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 1, cursor: null } });
+  const firstPage = await ada!.query("v2/playState:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 1, cursor: null } });
   await perform(ada!, "game.end", {}, scope);
   // A page loaded while live keeps its cursor through the end (the app's paginated list re-runs it then).
-  await ada!.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 1, cursor: firstPage.continueCursor } });
+  await ada!.query("v2/playState:objectIds", { gameId, sort: "points", paginationOpts: { numItems: 1, cursor: firstPage.continueCursor } });
   const listed = await perform(ada!, "objects.list", { sort: "points", limit: 50 }, scope, "query");
   for (let i = 0; ; i++) {   // the end tells everyone everything, exact (scheduled at the end)
-    const rows = (await ada!.query("v2/play:objectIds", { gameId, sort: "points", paginationOpts: page })).page;
+    const rows = (await ada!.query("v2/playState:objectIds", { gameId, sort: "points", paginationOpts: page })).page;
     const exact: number[] = [];
     for (const r of rows) exact.push((await admin.query("v2/testing:valueOf", { objectId: r.objectId, userId: ada!.userId })).points);
     if (rows.length === ids.length && exact.every((p, j) => j === 0 || p <= exact[j - 1]! + 1e-9)) break;
@@ -94,7 +94,7 @@ test("a paid game shows each object as last told; a look pays to see it now; the
     const o = await ada!.query("v2/play:object", { objectId });
     assert.equal(o.state, (await admin.query("v2/testing:stateOf", { objectId })).state, "after the end everything is open");
   }
-  const ended = (await ada!.query("v2/play:log", { gameId, paginationOpts: page })).page;
+  const ended = (await ada!.query("v2/playState:log", { gameId, paginationOpts: page })).page;
   assert.ok(ended.filter((r: any) => r.kind === "move").every((r: any) => r.state !== null));
 });
 

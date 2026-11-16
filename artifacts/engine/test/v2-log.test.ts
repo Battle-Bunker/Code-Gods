@@ -27,13 +27,13 @@ test("every seated player reads every move, unattributed while live, with their 
   await perform(ada!, "game.startWorldNow", {}, { gameId });
   // Until the first move: the practice partners' starters skip most offers early on (85–98% skips in the playtests;
   // the first move can take 30 world seconds), so a fixed 10 s often saw births only.
-  for (let i = 0; !(await ada!.query("v2/play:log", { gameId, paginationOpts: page })).page.some((r: any) => r.kind === "move"); i++) {
+  for (let i = 0; !(await ada!.query("v2/playState:log", { gameId, paginationOpts: page })).page.some((r: any) => r.kind === "move"); i++) {
     assert.ok(i < 90, "a practice partner moves within 90 s");
     await new Promise(r => setTimeout(r, 1000));
   }
   await perform(ada!, "game.pause", {}, { gameId });   // a still board, so both read the same rows
 
-  const [a, b] = [(await ada!.query("v2/play:log", { gameId, paginationOpts: page })).page, (await bo!.query("v2/play:log", { gameId, paginationOpts: page })).page];
+  const [a, b] = [(await ada!.query("v2/playState:log", { gameId, paginationOpts: page })).page, (await bo!.query("v2/playState:log", { gameId, paginationOpts: page })).page];
   assert.deepEqual(a.map((r: any) => r.seq), b.map((r: any) => r.seq), "both players read the same rows: every move, theirs or not");
   assert.ok(a.some((r: any) => r.kind === "move") && a.some((r: any) => r.kind === "born"), `a move and a birth: ${JSON.stringify(a.map((r: any) => r.kind))}`);
   const moves = a.filter((r: any) => r.kind === "move");
@@ -54,12 +54,12 @@ test("every seated player reads every move, unattributed while live, with their 
     if (o.version !== r.version) continue;
     assert.ok(close(r.own, o.value.rarityBits) && close(r.others, o.value.want), `row ${r.seq} is Ada's value now`);
   }
-  const watcher = (await cy!.query("v2/play:log", { gameId, paginationOpts: page })).page;
+  const watcher = (await cy!.query("v2/playState:log", { gameId, paginationOpts: page })).page;
   assert.equal(watcher.length, a.length);
   assert.ok(watcher.every((r: any) => r.own === null && r.others === null && r.points === null), "a member watching sees no bits");
 
   await perform(ada!, "game.end", {}, { gameId });
-  const ended = (await ada!.query("v2/play:log", { gameId, paginationOpts: page })).page;
+  const ended = (await ada!.query("v2/playState:log", { gameId, paginationOpts: page })).page;
   for (const r of ended.filter((x: any) => x.kind === "move")) assert.ok(r.by && r.calls?.length, "after the end every move names its mover and calls");
   for (const r of ended) {
     if (seen.has(`exact:${r.objectId}`)) continue;
@@ -82,7 +82,7 @@ test("game.boardAt: every object as the caller's log shows it at a time; nothing
   await perform(ada!, "game.startWorldNow", {}, { gameId });
   await new Promise(r => setTimeout(r, 8_000));
   await perform(ada!, "game.pause", {}, { gameId });
-  const log = (await ada!.query("v2/play:log", { gameId, paginationOpts: { numItems: 400, cursor: null } })).page;
+  const log = (await ada!.query("v2/playState:log", { gameId, paginationOpts: { numItems: 400, cursor: null } })).page;
   const newest = new Map<string, any>();
   for (const r of log) if (!newest.has(r.objectId)) newest.set(r.objectId, r);
   const now = (await perform(ada!, "game.boardAt", { world: 1e6 }, { gameId }, "action")).result;

@@ -24,24 +24,26 @@ test("nothing Bo is told names Ada's rule, and every value Bo gets is Bo's own",
   const told: unknown[] = [];
   const q = async (name: string, args: Record<string, unknown>) => { const r = await bo!.query(name, args); told.push(r); return r; };
   const op = async (id: string, args: Record<string, unknown>) => { const r = await perform(bo!, id, args, { gameId }, "query"); told.push(r); return r; };
-  for (const name of ["v2/games:header", "v2/games:standings", "v2/play:myRule", "v2/play:me", "v2/play:digest"]) await q(name, { gameId });
-  await q("v2/play:agents", { gameId, paginationOpts: page });
+  for (const name of ["v2/games:header", "v2/games:standings", "v2/play:myRule", "v2/playState:me", "v2/playState:digest"]) await q(name, { gameId });
+  await q("v2/playState:agents", { gameId, paginationOpts: page });
   await q("v2/games:standingsHistory", { gameId, after: -1 });
   await q("v2/rooms:get", { roomId });
-  await q("v2/play:moves", { gameId, paginationOpts: page });
-  for (const sort of ["points", "rarity", "want", "born", "recent"]) await q("v2/play:objectIds", { gameId, sort, paginationOpts: page });
+  await q("v2/playState:moves", { gameId, paginationOpts: page });
+  for (const sort of ["points", "rarity", "want", "born", "recent"]) await q("v2/playState:objectIds", { gameId, sort, paginationOpts: page });
   for (const id of ["game.get", "game.standings", "rule.explain", "rule.values", "agents.list"]) await op(id, {});
   await op("objects.list", { sort: "points", limit: 50 });
   await op("moves.list", { limit: 50 });
   // The public log, as the directory serves it (assistants, MCP, CLI) and as the app reads it: the same rows.
   const logged = await op("log.list", { limit: 20 }) as { ok: boolean; result: { page: unknown[] } };
   assert.equal(logged.ok, true, JSON.stringify(logged));
-  const read = await q("v2/play:log", { gameId, paginationOpts: { cursor: null, numItems: 20 } }) as { page: unknown[] };
+  const read = await q("v2/playState:log", { gameId, paginationOpts: { cursor: null, numItems: 20 } }) as { page: unknown[] };
   assert.deepEqual(logged.result.page, read.page, "log.list answers play:log's page");
   for (const objectId of objects) {
     const mine = await q("v2/play:object", { objectId });
     const value = await admin.query("v2/testing:valueOf", { objectId, userId: bo!.userId });
-    assert.deepEqual(mine.value, value, "Bo's value of each object is Bo's own row");
+    // `parts`: Bo's own points tree (play.ts ownParts, his own rule only), beside the row it is drawn from.
+    const { parts: _parts, ...row } = mine.value;
+    assert.deepEqual(row, value, "Bo's value of each object is Bo's own row");
     await q("v2/spectate:object", { objectId });
     await op("object.score", { objectId });
     await op("object.read", { objectId, rep: "si" });
@@ -80,18 +82,18 @@ test("What if, the others' total after a candidate move: only the sum, from the 
 
 
 test("one object's moves are the caller's own act-log rows for it, newest first, with bits and the others' total", async () => {
-  const all = await bo!.query("v2/play:moves", { gameId, paginationOpts: page });
+  const all = await bo!.query("v2/playState:moves", { gameId, paginationOpts: page });
   const first = all.page[0];
   if (!first) return;
-  const rows = await bo!.query("v2/play:objectMoves", { gameId, number: first.number });
+  const rows = await bo!.query("v2/playState:objectMoves", { gameId, number: first.number });
   assert.deepEqual(rows.map((r: { seq: number }) => r.seq), all.page.filter((m: { number: number }) => m.number === first.number).map((m: { seq: number }) => m.seq));
   assert.deepEqual(Object.keys(rows[0].after).sort(), ["points", "rarityBits", "want"], "the caller's bits and the others' total, nothing per player");
-  assert.deepEqual(await bo!.query("v2/play:objectMoves", { gameId, number: 9999 }), []);
+  assert.deepEqual(await bo!.query("v2/playState:objectMoves", { gameId, number: 9999 }), []);
 });
 
 test("live, another player's move on an object is unattributed; only the player's own moves carry a name", async () => {
   const live = await admin.mutation("v2/testing:seedGame", { owner: ada!.userId, humans: [bo!.userId], objects: 4, contested: 1 });
-  const rows = await ada!.query("v2/play:objectMoves", { gameId: live.gameId, number: 1 });
+  const rows = await ada!.query("v2/playState:objectMoves", { gameId: live.gameId, number: 1 });
   assert.ok(rows.some((r: { mine: boolean }) => !r.mine), "the seed's other player moved it");
   for (const r of rows) if (!r.mine) assert.equal(r.by, null, `seq ${r.seq}: ${JSON.stringify(r.by)}`);
   assert.ok(!JSON.stringify(rows).includes("Disc Bo"), "Bo is not named");

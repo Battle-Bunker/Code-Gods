@@ -19,7 +19,7 @@ function Energy({ value, testId }: { value: number; testId: string }) {
   return exact ? <Tip text={exact}>{shown}</Tip> : shown;
 }
 
-/** The agent's energy after each of its recent acts (v2/play:agentEnergy history), a line a few words wide. */
+/** The agent's energy after each of its recent acts (v2/playState:agentEnergy history), a line a few words wide. */
 function Sparkline({ history }: { history: readonly { at: number; energy: number }[] }) {
   if (history.length < 2) return null;
   const W = 72, H = 16;

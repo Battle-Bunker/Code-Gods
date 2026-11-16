@@ -1,5 +1,5 @@
 /**
- * What a pane that failed to load says (playtest round 8/04: "[CONVEX Q(v2/play:moves)] [Request ID: …] Server Error
+ * What a pane that failed to load says (playtest round 8/04: "[CONVEX Q(v2/playState:moves)] [Request ID: …] Server Error
  * Function execution timed out …", and Try again showed the same request). Pure, so it is unit tested.
  *
  * A server failure stays in the shared subscription while anything on the page reads it, so resetting the pane alone

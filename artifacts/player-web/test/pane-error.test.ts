@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { LiveError, liveSourceOf, paneErrorWords } from "../src/dock/pane-error.ts";
 
 test("a server timeout reads in plain words and retries by reloading (round 8/04: raw error, same request ID)", () => {
-  const w = paneErrorWords(new Error("[CONVEX Q(v2/play:moves)] [Request ID: d4eecc2af49a3060] Server Error Function execution timed out (maximum duration: 1s) Called by client"));
+  const w = paneErrorWords(new Error("[CONVEX Q(v2/playState:moves)] [Request ID: d4eecc2af49a3060] Server Error Function execution timed out (maximum duration: 1s) Called by client"));
   assert.equal(w.text, "This pane could not load: the server took too long (it is busy right now).");
   assert.equal(w.reload, true);
   assert.doesNotMatch(w.text, /CONVEX|Request ID/);

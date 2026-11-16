@@ -233,7 +233,7 @@ function LogRowView({ r, variant, approx, length }: { r: LogEntry; variant: stri
   );
 }
 
-/** "All moves (the public log)": every move in the game, unattributed while it runs, virtualised (v2/play:log). */
+/** "All moves (the public log)": every move in the game, unattributed while it runs, virtualised (v2/playState:log). */
 function PublicLog() {
   const header = useGame();
   const blurred = useOthersBlurred();

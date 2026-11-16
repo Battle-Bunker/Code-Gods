@@ -62,7 +62,7 @@ export function climbOf(moves: readonly ClimbMove[]): Climb {
 export const namesText = (list: readonly string[]) => (list.length <= 1 ? list[0] ?? "another player" : `${list.slice(0, -1).join(", ")} and ${list.at(-1)}`);
 
 /** One sentence for a contested object at the end of a game. */
-/** How many times the object changed hands: consecutive moves by different sides (the tick's tug count, v2/play:tugs). */
+/** How many times the object changed hands: consecutive moves by different sides (the tick's tug count, v2/playState:tugs). */
 export const handChanges = (c: Climb): number => c.steps.reduce((n, s, i) => n + (i > 0 && s.by !== c.steps[i - 1]!.by ? 1 : 0), 0);
 
 /** `changes`: the tick's count for this object when known, so the page says one number for one tug (round 33). */

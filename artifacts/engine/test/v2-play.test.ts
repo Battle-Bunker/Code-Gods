@@ -29,7 +29,7 @@ before(async () => {
   gameId = (await perform(ada!, "game.start", {}, { roomId })).result.gameId;
 });
 
-const me = (h: Human) => h.query("v2/play:me", { gameId });
+const me = (h: Human) => h.query("v2/playState:me", { gameId });
 
 test("planning: check, summon, replace, put back, split power, destroy", async () => {
   const rule = await ada!.query("v2/play:myRule", { gameId });
@@ -52,7 +52,7 @@ test("planning: check, summon, replace, put back, split power, destroy", async (
   const agentId = summoned.result.agentId;
   // Paid from the own store; what the store's smaller capacity (its power now split with the agent) cannot hold moves to
   // the agent (docs/energy-model.md: power moves with its energy).
-  const given = (await ada!.query("v2/play:agentEnergy", { agentId })).energy;
+  const given = (await ada!.query("v2/playState:agentEnergy", { agentId })).energy;
   assert.ok(Math.abs(before.energy - summoned.result.price - after.energy - given) < 1e-6, `the price is paid from the own store: ${before.energy} − ${summoned.result.price} = ${after.energy} + ${given} given to the agent`);
 
   // Dense (about 10,000 bits, under the 16 KiB limit): dearer than Bo's 400 even at the game's power scale, 4 ÷ 64 (about 630).
@@ -76,7 +76,7 @@ test("planning: check, summon, replace, put back, split power, destroy", async (
   assert.equal(notMine.error?.code, "failed", "another player's agent cannot be quoted");
   const back = await perform(ada!, "agent.putBack", { agentId, version: 1 }, scope(), "action");
   assert.equal(back.result.version, 3, JSON.stringify(back));
-  const versions = await ada!.query("v2/play:agentPrograms", { agentId });
+  const versions = await ada!.query("v2/playState:agentPrograms", { agentId });
   assert.deepEqual(versions.map((p: any) => p.version), [3, 2, 1, 0]);
   assert.equal(versions[0].source, tiny, "version 1 is running again");
 
@@ -84,19 +84,19 @@ test("planning: check, summon, replace, put back, split power, destroy", async (
   assert.equal(second.ok, true, JSON.stringify(second));
   // Absolute shares: each named agent gets that fraction of Ada's power; what no agent holds feeds Ada's own store.
   assert.equal((await perform(ada!, "power.allocate", { shares: { [agentId]: 0.6, [second.result.agentId]: 0.2 } }, scope())).ok, true);
-  const agents = (await ada!.query("v2/play:agents", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page;
+  const agents = (await ada!.query("v2/playState:agents", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page;
   assert.deepEqual(agents.map((a: any) => a.share).sort(), [0.2, 0.6]);
   const kept = await me(ada!);
   assert.ok(Math.abs(kept.ownPerSecond - kept.power * 0.2) < 1e-6, `the store keeps the 20% no agent holds: ${JSON.stringify(kept)}`);
   // Pulling power back to pay for something: the store's share (and so its income and capacity) grows.
-  const energyOf = async (id: string) => await ada!.query("v2/play:agentEnergy", { agentId: id });
+  const energyOf = async (id: string) => await ada!.query("v2/playState:agentEnergy", { agentId: id });
   await perform(ada!, "power.allocate", { shares: { [agentId]: 0.1 } }, scope());
   assert.ok(Math.abs((await me(ada!)).ownPerSecond - kept.power * 0.7) < 1e-6, "lowering an agent's share returns that power to the store");
   const over = await perform(ada!, "power.allocate", { shares: { [agentId]: 0.9 } }, scope()).catch((e: any) => e.data);
   assert.equal(over.error.code, "failed", "with the other agent's 20%, 90% is more than all of Ada's power");
   assert.equal((await perform(ada!, "power.allocate", { shares: { [agentId]: 0 } }, scope())).error.code, "invalid_args", "a zero share is a destroy, not an allocation");
   assert.equal((await perform(ada!, "agent.destroy", { agentId: second.result.agentId }, scope())).ok, true);
-  assert.equal((await ada!.query("v2/play:agents", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page.length, 1);
+  assert.equal((await ada!.query("v2/playState:agents", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page.length, 1);
 
   assert.equal((await perform(bo!, "agent.destroy", { agentId }, scope())).error.code, "refused", "another player's agent");
 });
@@ -143,7 +143,7 @@ test("ready: the world starts when every human is ready", async () => {
 
 test("reads: a representation, an element, a quote and a score, as an agent is told them", async () => {
   // A line with a gradient that a shift can move (a vertical line cannot): the newest few, the first that does.
-  const newest = (await ada!.query("v2/play:objectIds", { gameId, sort: "born", paginationOpts: { numItems: 10, cursor: null } })).page;
+  const newest = (await ada!.query("v2/playState:objectIds", { gameId, sort: "born", paginationOpts: { numItems: 10, cursor: null } })).page;
   let objectId = "", si: any = null;
   for (const o of newest) {
     si = await perform(ada!, "object.read", { objectId: o.objectId, rep: "si" }, scope(), "query");
@@ -176,7 +176,7 @@ test("pause once, resume by the owner, end by the owner", async () => {
   await perform(late!, "room.join", { code: (await ada!.query("v2/rooms:get", { roomId })).code });
   assert.equal((await ada!.query("v2/rooms:get", { roomId })).members.find((m: any) => m.name === "Play Late").spectator, true, "joining mid-game: watching");
   // Ada's agent stops moving lines for a while, so it saves up energy (for the pay-now summon below, while paused).
-  const saver = (await ada!.query("v2/play:agents", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page[0].agentId;
+  const saver = (await ada!.query("v2/playState:agents", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page[0].agentId;
   assert.equal((await perform(ada!, "agent.replace", { agentId: saver, language: "typescript", source: "function agent(offer) {\n  return null;\n}\n" }, scope(), "action")).ok, true);
   assert.equal((await perform(ada!, "power.allocate", { shares: { [saver]: 0.9 } }, scope())).ok, true);
   await new Promise(r => setTimeout(r, 4000));
@@ -185,12 +185,12 @@ test("pause once, resume by the owner, end by the owner", async () => {
   assert.deepEqual([paused.phase, paused.endsAt], ["paused", null], "no countdown while paused");
   assert.equal((await perform(bo!, "game.resume", {}, scope())).error.code, "refused", "only the owner resumes");
   const agentId = saver;
-  const energyOf = async (id: string) => await ada!.query("v2/play:agentEnergy", { agentId: id });
+  const energyOf = async (id: string) => await ada!.query("v2/playState:agentEnergy", { agentId: id });
   const small = "function agent(offer) {\n  return null;\n}\n";
   // While paused (nothing accrues or acts): a summon the store cannot pay: the refusal carries the numbers and the split that pays now; that split does.
   const store = (await me(ada!)).energy, held = await energyOf(agentId);
   assert.ok(held.energy > 0, "the agent holds energy");
-  const share = (await ada!.query("v2/play:agents", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page[0].share, whole = held.capacity / share, release = held.energy - 0.001 * whole;
+  const share = (await ada!.query("v2/playState:agents", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page[0].share, whole = held.capacity / share, release = held.energy - 0.001 * whole;
   const priceOf = async (k: number) => (await perform(ada!, "agent.check", { language: "typescript", source: small + Array.from({ length: k }, (_, i) => `const pad${i} = ${i};\n`).join("") }, scope(), "action")).result.price;
   let lo = 0, hi = 256;   // the fewest padding lines whose price is above the store
   while (lo < hi) { const mid = (lo + hi) >> 1; if (await priceOf(mid) > store + 1) hi = mid; else lo = mid + 1; }
@@ -217,8 +217,8 @@ test("pause once, resume by the owner, end by the owner", async () => {
   assert.ok(resumed.phase === "live" && resumed.endsAt > Date.now(), "the end is set again on resume");
   assert.equal((await perform(bo!, "game.pause", {}, scope())).error.code, "refused", "one pause each");
   await new Promise(r => setTimeout(r, 4000));
-  const moves = await ada!.query("v2/play:moves", { gameId, paginationOpts: { numItems: 50, cursor: null } });
-  const energy = await ada!.query("v2/play:agentEnergy", { agentId: (await ada!.query("v2/play:agents", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page[0].agentId });
+  const moves = await ada!.query("v2/playState:moves", { gameId, paginationOpts: { numItems: 50, cursor: null } });
+  const energy = await ada!.query("v2/playState:agentEnergy", { agentId: (await ada!.query("v2/playState:agents", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page[0].agentId });
   assert.ok(energy.acts > 0 || moves.page.length > 0, "Ada's agent acts once the world runs");
   for (const m of moves.page) {
     // Live, only Ada's own moves name their mover; another player's move is unattributed (v1's public log).

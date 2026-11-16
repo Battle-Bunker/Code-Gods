@@ -1,6 +1,6 @@
 /**
  * The objects pane's orders (v1's sorts and filters, v1-audit A3): one page of a player's objects in one index's order,
- * for the app's skeleton (`v2/play:objectIds`) and the `objects.list` affordance alike.
+ * for the app's skeleton (`v2/playState:objectIds`) and the `objects.list` affordance alike.
  *
  * Sorts (v1 name → v2): payoff → points, your bits → rarity, others' care → want, most mutated → mutations (the row's
  * version, 1 at birth), newest → born, oldest → oldest (born, ascending), recently mutated → recent; and least (points

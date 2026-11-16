@@ -37,7 +37,7 @@ test("check 3: the web app runs v2 operations only through useAffordance", () =>
 
 test("check 3 names hooks and direct calls, and allows the one runtime file", () => {
   const root = mkdtempSync(join(tmpdir(), "v2app-"));
-  writeFileSync(join(root, "button.tsx"), 'const end = useMutation(api.v2.ops.game.end);\nconst go = useAction(makeFunctionReference("v2/ops/agent:summon"));\nconst q = useQuery(api.v2.play.me, {});\n');
+  writeFileSync(join(root, "button.tsx"), 'const end = useMutation(api.v2.ops.game.end);\nconst go = useAction(makeFunctionReference("v2/ops/agent:summon"));\nconst q = useQuery(api.v2.playState.me, {});\n');
   writeFileSync(join(root, "sneaky.ts"), 'await convex.mutation(api.v2.ops.game.end, {});\nconst r = makeFunctionReference(`v2/ops/agent:summon`);\n');
   writeFileSync(join(root, "affordance-runtime.ts"), 'const p = opPath(id).public;\nawait convex.mutation(makeFunctionReference(`v2/${p}`), x);\n');
   writeFileSync(join(root, "label.ts"), 'const label = opPath(id).public;\nawait convex.mutation(api.v2.ops.game.end, {});\n');

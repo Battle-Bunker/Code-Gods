@@ -129,7 +129,7 @@ test("locks by hand: hidden when off; made, funded by another, listed with the h
     const started = await perform(ada!, "game.start", {}, { roomId });
     assert.equal(started.ok, true, JSON.stringify(started));
     const { gameId } = started.result;
-    const page = (await ada!.query("v2/play:objectIds", { gameId, sort: "born", paginationOpts: { numItems: 10, cursor: null } })).page;
+    const page = (await ada!.query("v2/playState:objectIds", { gameId, sort: "born", paginationOpts: { numItems: 10, cursor: null } })).page;
     return { gameId, objectIds: page.map((o: any) => o.objectId) as string[] };
   };
 

@@ -1,6 +1,6 @@
 /**
  * code.run (v1's run_code, A15): a read-only script over one dataset of the game in view, run in its own sandbox and
- * kept for its author. The datasets respect the read rules: my-moves is the caller's act log as v2/play:moves shows it,
+ * kept for its author. The datasets respect the read rules: my-moves is the caller's act log as v2/playState:moves shows it,
  * replay is an ended game's stored record only.
  *
  * What would break: a script that sees data its author could not read (another player's act log; a live game's
@@ -19,7 +19,7 @@ before(async () => {
 });
 
 test("my-moves: the caller's own act log, as they read it; the run is kept for its author only", async () => {
-  const shown = (await ada.query("v2/play:moves", { gameId, paginationOpts: { numItems: 100, cursor: null } })).page;
+  const shown = (await ada.query("v2/playState:moves", { gameId, paginationOpts: { numItems: 100, cursor: null } })).page;
   const r = await perform(ada, "code.run", { language: "typescript", source: COUNT, dataset: "my-moves", title: "Count" }, { gameId }, "action");
   assert.equal(r.ok, true, JSON.stringify(r));
   assert.equal(r.result.status, "ok", JSON.stringify(r.result));

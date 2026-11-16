@@ -20,11 +20,8 @@ export const penaltyWeightOf = (game: { settings: object }): number =>
   (game.settings as { penaltyWeight?: number }).penaltyWeight ?? DEFAULT_PENALTY_WEIGHT;
 export interface Value { memberId: string; score: (string | null)[] | null; rarityBits: number; want: number; points: number; /** With a defence goal: the badness h in bits. */ badnessBits?: number }
 
-export const variantOf = (id: string) => findVariant(id).variant;
-/** The object type a variant belongs to (lines, grids): every state, birth and host of a game goes through it. */
-export const typeOf = (variantId: string): ObjectType<unknown> => findVariant(variantId).type as ObjectType<unknown>;
-export const decode = (wire: string, variantId: string): unknown => typeOf(variantId).decode(wire);
-export const encode = (state: unknown, variantId: string): string => typeOf(variantId).encode(state);
+export { decode, encode, typeOf, variantOf } from "./variants.ts";
+import { encode, typeOf, variantOf } from "./variants.ts";
 
 /**
  * One player's utility (as its wire) and its worth in bits. With a defence goal, the worth is v1's signed bits

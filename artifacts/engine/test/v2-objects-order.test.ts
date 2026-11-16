@@ -24,7 +24,7 @@ before(async () => {
 });
 
 const ids = async (sort: string, filter?: string): Promise<string[]> =>
-  (await ada.query("v2/play:objectIds", { gameId, sort, ...(filter ? { filter } : {}), paginationOpts: all })).page.map((r: any) => r.objectId as string);
+  (await ada.query("v2/playState:objectIds", { gameId, sort, ...(filter ? { filter } : {}), paginationOpts: all })).page.map((r: any) => r.objectId as string);
 const shown = async () => new Map(await Promise.all(objects.map(async (id: string) => [id, await ada.query("v2/play:object", { objectId: id })] as const)));
 const descending = (xs: number[]) => xs.every((x, i) => i === 0 || xs[i - 1]! >= x);
 

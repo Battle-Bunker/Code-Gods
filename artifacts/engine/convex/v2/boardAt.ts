@@ -8,7 +8,7 @@
 import { v } from "convex/values";
 import { internalQuery } from "../_generated/server";
 import { resolveContext, userById } from "./access";
-import { logPage } from "./play";
+import { logPage } from "./playState";
 import { DEFAULT_PEER_NOISE_VARIANCE } from "./disclose";
 import { valueObjects } from "./world";
 export { foldBoard, type BoardRow } from "./boardFold";

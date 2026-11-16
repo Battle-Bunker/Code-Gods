@@ -1,6 +1,6 @@
 /**
  * What others care about (integration plan §1.6): every line as a dot, across your bits, up how much the others
- * want it, from the viewer's digest written by the tick (`v2/play:digest`, one document). You never see another
+ * want it, from the viewer's digest written by the tick (`v2/playState:digest`, one document). You never see another
  * player's rule, only the others' total want, so the corners say who cares: both of you (your points), only the others
  * (worth offering in a deal), only you (no points until they want it too), nobody yet.
  */
@@ -41,7 +41,7 @@ export function OthersCarePane() {
   );
 }
 
-/** v1's "Possible gods": every rule anyone in this game could hold (v2/play:candidates), never who holds which. */
+/** v1's "Possible gods": every rule anyone in this game could hold (v2/playState:candidates), never who holds which. */
 function PossibleGods() {
   const rules = useRuleCandidates();
   const w = objectWord(useGame()?.variant);

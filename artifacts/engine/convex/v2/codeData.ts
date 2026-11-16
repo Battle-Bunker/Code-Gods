@@ -3,14 +3,14 @@
  * app would show it (the read rules hold: nothing a page could not show the caller), and the run's row.
  *
  *   replay     an ended game's stored record (replays.ts: every event and every rule; after the end nothing is private)
- *   my-moves   the caller's act log in the game (≤ MY_MOVES rows, newest first), as v2/play:moves discloses it
+ *   my-moves   the caller's act log in the game (≤ MY_MOVES rows, newest first), as v2/playState:moves discloses it
  *   none       no data (a script over its params)
  */
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { resolveContext, userById } from "./access";
 import { readsKnowledge } from "./knowledge";
-import { moveView } from "./play";
+import { moveView } from "./playState";
 
 /** At most this many act-log rows in a my-moves dataset (newest first). */
 export const MY_MOVES = 2000;
