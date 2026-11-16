@@ -36,7 +36,9 @@ export function bitsLine(a: Annotation): string {
 export function partLine(p: Contributor): string {
   const g = `${partGlyph(p.depth)} ${p.name}:`;
   const said = p.source.filter(x => x.text);
-  if (p.distance && said.length) return `${g} ${p.source.length > 3 ? p.title : said.map(x => `${x.label} ${x.text}`).join(", ")} · ${p.distance}`;
+  const what = p.source.length > 3 ? p.title : said.map(x => `${x.label} ${x.text}`).join(", ");
+  // A distance that already names what was read ("y-intercept 32 is nearest 31; …") is said once.
+  if (p.distance && said.length) return p.distance.startsWith(what) ? `${g} ${p.distance}` : `${g} ${what} · ${p.distance}`;
   return `${g} ${p.title}: ${p.valueText}`;
 }
 
