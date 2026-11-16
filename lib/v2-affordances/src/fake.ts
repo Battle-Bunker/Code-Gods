@@ -345,9 +345,14 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "objects.list": (e, a) => {
     const g = gameOf(e);
     const rows = Object.entries(g.objects).map(([objectId, o]) => ({ objectId, number: numberOf(g, objectId), bits: bitsOf(g, e.userId, o), points: bitsOf(g, e.userId, o) }));
-    const key = a.sort;
-    if (key !== "recent") rows.sort((x, y) => key === "rarity" ? y.bits - x.bits : y.points - x.points);
-    return page(rows, a);
+    const key = a.sort, filter = a.filter ?? "all";
+    // The fake has no others' sums, versions or change times: a filter keeps the objects with points (positive, contested)
+    // or none (chips); mutations and recent keep insertion order.
+    const kept = filter === "all" ? rows : rows.filter(r => (filter === "chips" ? r.points <= 0 : r.points > 0));
+    if (key === "oldest") kept.sort((x, y) => x.number - y.number);
+    else if (key === "born") kept.sort((x, y) => y.number - x.number);
+    else if (key === "rarity" || key === "points" || key === "want") kept.sort((x, y) => key === "rarity" ? y.bits - x.bits : y.points - x.points);
+    return page(kept, a);
   },
   "object.read": (e, a) => ({ rep: a.rep, site: a.site ?? 0, ...readRep(objectOf(e, a.objectId), a.rep) }),
   "object.element": (e, a) => {

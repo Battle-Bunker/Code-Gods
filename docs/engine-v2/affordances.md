@@ -179,7 +179,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `rule.candidates` | List the rules that could be dealt | — | server · game | member | planning, live, paused, ended, replay | read |
 | `rule.fit` | Fit the others' rules | hints, exclude, top | server (action) · game | member | planning, live, paused, ended, replay | read |
 | `rule.worth` | Look up what a score is worth | score | server · game | seated | planning, live, paused, ended, replay | read |
-| `objects.list` | List objects | sort, cursor, limit | server · game | member | planning, live, paused, ended, replay | read |
+| `objects.list` | List objects | sort, filter, cursor, limit | server · game | member | planning, live, paused, ended, replay | read |
 | `object.read` | Read an object in one representation | objectId, rep, site | server · game | member | planning, live, paused, ended, replay | read |
 | `object.element` | Read one element of an object | objectId, rep, name, args, site | server · game | member | planning, live, paused, ended, replay | read |
 | `rep.mutators` | List a representation's mutators | rep | server · game | member | planning, live, paused, ended, replay | read |
