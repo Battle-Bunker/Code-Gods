@@ -14,7 +14,7 @@ import { pairPresets, pairQ, pairType } from "@workspace/v2-pair";
 import { DEFAULT_LIMITS } from "@workspace/v2-sandbox";
 import { births } from "../src/births.ts";
 import { findValues } from "../src/harness.ts";
-import { runAct, sandboxes, startersFor } from "../src/index.ts";
+import { CATALOGUE, runAct, sandboxes, startersFor } from "../src/index.ts";
 
 const boxes = sandboxes();
 after(() => boxes.close());
@@ -27,6 +27,11 @@ const BIG_LINES = [fromMC(q(997), q(-1234)), fromMC(q(-12, 7), q(355, 113)), fro
 type Case = { type: ObjectType<any>; variant: Variant; rules: readonly { family: string; params: unknown; tieBreakers: readonly unknown[] }[]; states: readonly unknown[] };
 const cases: Case[] = [
   { type: lineType, variant: lineQ, rules: presets.find(p => p.id === "lines-beginner")!.rules, states: BIG_LINES.map(l => ({ lines: [l] })) },
+  // The tuple families, not dealt yet, with their first dealable numbers.
+  { type: lineType, variant: lineQ, states: BIG_LINES.map(l => ({ lines: [l] })), rules: CATALOGUE.filter(e => e.boundedSimple).flatMap(e => {
+    const f = lineType.families.find(x => x.id === e.family), params = f?.dealable(lineQ)[0];
+    return f && params ? [{ family: f.id, params, tieBreakers: f.tieBreakers.map(t => t.id).filter(id => e.tieBreakers[id]) }] : [];
+  }) },
   { type: gridType as ObjectType<any>, variant: grid4, rules: gridPresets.flatMap(p => p.rules), states: births(gridType as ObjectType<any>, grid4, "budget", 3) },
   { type: pairType as ObjectType<any>, variant: pairQ, rules: pairPresets.flatMap(p => p.rules), states: births(pairType as ObjectType<any>, pairQ, "budget", 2) },
 ];

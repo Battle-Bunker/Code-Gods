@@ -9,6 +9,7 @@
 import { agentIncome, chargeAct, energyCapacity, readCharge, settle, type Account } from "@workspace/v2-economy";
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
+import type { EndReason } from "./tables.ts";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { decode, distinctBirths, heldReason, penaltyWeightOf, scopeOf, valuesOf, type SeatRule, type Value as ExactValue } from "./world.ts";
@@ -159,6 +160,11 @@ async function retireLine(ctx: MutationCtx, game: Doc<"v2Games">, number: number
   const st = await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", object._id)).unique();
   if (st && !turnover.retiredHolds) await ctx.db.patch(st._id, { released: true });
   const rows = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", object._id)).take(16);
+  // Nobody is told the line's final state for free (decision 35: content is paid): in a game that pays to read, a
+  // retired line shows each player as they last saw it, until the end opens everything.
+  // Its rows leave the live lists (the sort indexes key on `retired`) for the retired list (play.ts banked).
+  for (const r of rows) await ctx.db.patch(r._id, { retired: true });
+  for (const k of await ctx.db.query("v2Knowledge").withIndex("by_object_member", q => q.eq("objectId", object._id)).take(16)) await ctx.db.patch(k._id, { retired: true });
   if (turnover.retiredPoints === "dropped") for (const r of rows) {
     const d = drops.get(r.memberId) ?? { points: 0, shown: 0 };
     drops.set(r.memberId, { points: d.points + r.points, shown: d.shown + (r.shownPoints ?? r.points) });
@@ -312,7 +318,8 @@ async function reknow(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[],
   const scope = scopeOf(game).objects;
   const digest = await ctx.db.query("v2Digests").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", memberId)).unique();
   const packed = digest ? [...digest.packed] : [];
-  for await (const k of ctx.db.query("v2Knowledge").withIndex("by_game_member_born", q => q.eq("gameId", game._id).eq("memberId", memberId))) {
+  for await (const k of ctx.db.query("v2Knowledge").withIndex("by_game_member_born", q => q.eq("gameId", game._id).eq("memberId", memberId).eq("retired", undefined))) {
+    // (Retired lines keep what was banked: their rows are past this range.)
     const mine = valuesOf(decode(k.state, game.variant), game.variant, seats, scope, penaltyWeightOf(game)).find(x => x.memberId === memberId);
     if (!mine) continue;
     await ctx.db.patch(k._id, { score: mine.score, rarityBits: mine.rarityBits, points: mine.rarityBits * Math.max(0, k.want), quadrant: quadrantOf(mine.rarityBits, k.want) });
@@ -415,21 +422,21 @@ export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
 const withoutTranscript = ({ transcript: _, ...rest }: { transcript?: unknown; [k: string]: unknown }) => rest;
 
 /** The game ends: the lease goes, the final scoreboard and `gameEnded`, the room is free for the next game. */
-export async function endGame(ctx: MutationCtx, game: Doc<"v2Games">) {
+export async function endGame(ctx: MutationCtx, game: Doc<"v2Games">, reason: EndReason) {
   if (game.phase === "ended") return;
   const engine = await ctx.db.query("v2Engine").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
   const clock = await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
   if (engine && clock) {
     await ctx.db.patch(engine._id, { leaseId: "" });
     const rows = await scoreboard(ctx, game, clock.worldSeconds);
-    await ctx.db.patch(game._id, { phase: "ended", endedAt: Date.now(), summary: { winner: rows[0]?.memberId ?? null, objects: engine.objects, acts: engine.acts } });
+    await ctx.db.patch(game._id, { phase: "ended", endedAt: Date.now(), endReason: reason, summary: { winner: rows[0]?.memberId ?? null, objects: engine.objects, acts: engine.acts } });
     await appendEvent(ctx, game._id, "gameEnded", { worldSeconds: clock.worldSeconds, standings: rows.map(r => ({ memberId: r.memberId, total: r.total, net: r.net, rank: r.rank })) });
     await ctx.scheduler.runAfter(0, BUILD_REPLAY, { gameId: game._id });
     // An ended game is fully transparent: each player's values, sorts, scatter and (paid) knowledge become exact.
     for (const s of game.roster) await ctx.scheduler.runAfter(0, EXACT_VALUES, { gameId: game._id, memberId: s.memberId });
   } else {
     // A game with no engine or clock (a seeded fixture: v2/testing seedGame) has no world to score or record: it just ends.
-    await ctx.db.patch(game._id, { phase: "ended", endedAt: Date.now(), summary: { winner: null, objects: 0, acts: 0 } });
+    await ctx.db.patch(game._id, { phase: "ended", endedAt: Date.now(), endReason: reason, summary: { winner: null, objects: 0, acts: 0 } });
   }
   const room = (await ctx.db.get(game.roomId))!;
   if (room.gameId === game._id) await ctx.db.patch(room._id, { gameId: undefined, revision: room.revision + 1 });
@@ -500,7 +507,7 @@ export const watchdog = internalMutation({
       await ctx.db.patch(engine._id, { leaseId: lease, failures: engine.failures + 1 });
       await ctx.db.patch(clock._id, { lastTickAt: now });
       await ctx.scheduler.runAfter(0, TICK, { gameId, leaseId: lease });
-      if (engine.failures + 1 >= MAX_FAILURES) { await endGame(ctx, game); return; }
+      if (engine.failures + 1 >= MAX_FAILURES) { await endGame(ctx, game, "retired"); return; }
     }
     await ctx.scheduler.runAfter(WATCHDOG_MS, WATCHDOG, { gameId, leaseId: lease });
   },
@@ -767,7 +774,7 @@ export const commit = internalMutation({
     await ctx.db.patch(engine._id, { tick: engine.tick + 1, objects, acts, moves, ...(live !== null ? { live } : {}) });
     await ctx.db.patch(clock._id, { tick: clock.tick + 1, worldSeconds: world, lastTickAt: a.now, objects, commits: clock.commits + 1 });
     const fresh = (await ctx.db.get(game._id))!;
-    if (world >= endWorldOf(game)) { await endGame(ctx, fresh); return { committed: true, ended: true }; }
+    if (world >= endWorldOf(game)) { await endGame(ctx, fresh, "lifetime"); return { committed: true, ended: true }; }
     if (world - engine.scoreboardAt >= scoreIntervalOf(game)) await scoreboard(ctx, fresh, world);
     // Nobody has acted for 30 minutes (activity.ts, v1's idle parking): park, so ticks cost nothing until someone returns.
     if (await shouldPark(ctx, fresh)) { await parkGame(ctx, fresh); return { committed: true, ended: false }; }
@@ -787,7 +794,7 @@ export const tickFailed = internalMutation({
     // A game whose ticks keep failing is ended rather than left spinning (the failures are in the logs).
     if (engine.failures + 1 >= MAX_FAILURES) {
       const game = await ctx.db.get(gameId);
-      if (game) await endGame(ctx, game);
+      if (game) await endGame(ctx, game, "retired");
       return;
     }
     await ctx.scheduler.runAfter(TICK_MS, TICK, { gameId, leaseId });
@@ -819,7 +826,7 @@ export const exactValues = internalMutation({
       const told = { state: st.state, version: st.version, score: r.score, rarityBits: r.rarityBits, want: r.want, points: r.points, quadrant };
       const known = await ctx.db.query("v2Knowledge").withIndex("by_object_member", q => q.eq("objectId", r.objectId).eq("memberId", memberId)).unique();
       if (known) await ctx.db.patch(known._id, told);   // learnedAt kept: the "recent" sort stays the order of telling
-      else await ctx.db.insert("v2Knowledge", { gameId, memberId, objectId: r.objectId, number: r.number, learnedAt: world, ...told });
+      else await ctx.db.insert("v2Knowledge", { gameId, memberId, objectId: r.objectId, number: r.number, learnedAt: world, ...told, ...(r.retired ? { retired: true as const } : {}) });
     }
     if (digest) await ctx.db.patch(digest._id, { packed, version: digest.version + 1 });
   },

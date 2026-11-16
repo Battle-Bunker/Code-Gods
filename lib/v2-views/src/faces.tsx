@@ -345,6 +345,24 @@ export interface ExpandedFaceProps<S, P> {
    * "uniqueness" and "defence" corrections; they sum to the bits. Null or absent: the rule is not tree-valued.
    */
   readonly parts?: readonly ValuePart[] | null;
+  /**
+   * The locks on the object (docs/engine-v2/locks.md): each drawn as marks on the elements its predicate reads (a site-less
+   * ref is this face's line) and listed under the parts. Not part of the rule's score. Absent: nothing changes.
+   */
+  readonly locks?: readonly FaceLock[];
+}
+
+/** A lock as the face draws it: its plain words, the elements its predicate reads and, when known, the energy it holds. */
+export interface FaceLock { readonly id: string; readonly words: string; readonly refs: readonly ElementRef[]; readonly energy?: number }
+
+/** A lock's marks on one site: a focus on each element it reads there and its words as a note on the first. */
+export function lockMarks(locks: readonly FaceLock[], site: number): Mark[] {
+  return locks.flatMap(l => {
+    const refs = l.refs.filter(r => (r.site ?? site) === site).map(({ site: _site, ...r }) => r);
+    if (!refs.length) return [];
+    const term = `lock:${l.id}`;
+    return [...refs.map(ref => ({ kind: "focus" as const, ref, term })), { kind: "note" as const, ref: refs[0]!, text: `Lock: ${l.words}`, term }];
+  });
 }
 
 /** A layer's share of the viewer's own bits, or a correction on them (v2/play:object value.parts). */
@@ -415,7 +433,9 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
   const part = (i: number | null) => (i !== null && i < sa.parts.length ? i : null);
   const sel = part(selected);
   const lit = sel ?? part(hoverPart);
-  const marks: readonly Mark[] = sel === null ? sa.marks : sa.parts[sel]!.marks;
+  const locked = useMemo(() => lockMarks(props.locks ?? [], site), [props.locks, site]);
+  // A part selected draws only its own marks; otherwise the locks' marks join the rule's.
+  const marks: readonly Mark[] = sel === null ? (locked.length ? [...sa.marks, ...locked] : sa.marks) : sa.parts[sel]!.marks;
 
   // The rule's own views side by side (the primary first), the active one and the compared one.
   const panels = [...new Set([rule.family.main.rep, ...depends, active, ...(compare ? [compare] : [])])];
@@ -467,6 +487,11 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
 
       <div className="v2v-exp-body">
         <PartsList parts={sa.parts} active={lit} onActive={setHoverPart} selected={sel} onSelect={setSelected} />
+        {props.locks && props.locks.length > 0 && (
+          <ul className="v2v-locks" aria-label="The locks on it">
+            {props.locks.map(l => <li key={l.id} data-lock={l.id}>Lock: {l.words}{l.energy !== undefined ? ` (held by ${fmtEnergy(l.energy)})` : ""}</li>)}
+          </ul>
+        )}
         {/* Lines' points become the sum of each layer's rarity (the owner's choice, 16 Nov): "counts first" would be false,
             so lines say nothing about how layers combine until the per-layer bits draw the points tree. */}
         {props.parts && props.parts.length > 0 && <PointsTree parts={props.parts} of={sa.parts} />}

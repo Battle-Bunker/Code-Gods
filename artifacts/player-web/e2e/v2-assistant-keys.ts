@@ -28,6 +28,7 @@ if (!process.env.SKIP_DEPLOY) {
 const browser = await chromium.launch();
 try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: SITE });
   const page: Page = await context.newPage();
   const errors: string[] = [];
   page.on("pageerror", (e: Error) => errors.push(e.message));
@@ -106,6 +107,39 @@ try {
   const gap = await page.getByTestId("assistant-transcript").evaluate((el: HTMLElement) => el.scrollHeight - el.scrollTop - el.clientHeight);
   assert.ok(gap < 24, `the end of the answer is ${gap}px below the visible transcript`);
   console.log(`ok   the transcript stays at its end when the chips appear (gap ${gap}px)`);
+  // The palette's "New conversation" and "Switch assistant conversation…" (v1).
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  const thread = page.getByTestId("select-assistant-thread");
+  assert.notEqual(await thread.inputValue(), "new", "the answered conversation is the one in view");
+  await page.keyboard.press("Control+K");
+  await page.getByTestId("input-palette").fill("New conversation");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => (document.querySelector("[data-testid=select-assistant-thread]") as HTMLSelectElement | null)?.value === "new", null, { timeout: 10_000 });
+  await waitFocused("New conversation");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+K");
+  await page.getByTestId("input-palette").fill("Switch assistant conversation");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => document.activeElement?.getAttribute("data-testid") === "select-assistant-thread", null, { timeout: 10_000 });
+  console.log("ok   the palette starts a new conversation and opens the conversation picker");
+  // v1's "Who am I" from the palette: who you are signed in as and what you are in this room.
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+K");
+  await page.getByTestId("input-palette").fill("Show who I am");
+  await page.keyboard.press("Enter");
+  const info = page.getByTestId("panel-palette-info");
+  await info.waitFor({ timeout: 10_000 });
+  assert.match(await info.innerText(), /You are .+, the owner and a player in room [A-Z0-9]+/);
+  // Escape goes back from the answer to the list, then closes the palette.
+  for (let i = 0; i < 3 && await page.getByTestId("dialog-palette").count(); i++) await page.keyboard.press("Escape");
+  await page.getByTestId("dialog-palette").waitFor({ state: "detached", timeout: 5_000 });
+  console.log("ok   Show who I am names you and your place in the room");
+  await page.keyboard.press("Control+K");
+  await page.getByTestId("input-palette").fill("Copy room link");
+  await page.keyboard.press("Enter");
+  await page.getByText(/Invite link copied|Could not copy the invite link/).first().waitFor({ timeout: 10_000 });
+  assert.match(await page.evaluate(() => navigator.clipboard.readText()), /\/rooms\/[A-Z0-9]+$/, "the room's link is on the clipboard");
+  console.log("ok   Copy room link copies the room's invite link");
   assert.deepEqual(errors, [], "no page errors");
 } finally {
   await browser.close();

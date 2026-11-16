@@ -175,7 +175,7 @@ try {
     // The first scoring move (a move can also leave the step and the points where they were).
     // A move row of its own: a move folded into a tug-of-war entry is hidden inside its closed <details>.
     // Its own row, or inside a tug-of-war entry (contested grids fold their moves under "Show the N moves").
-    const mine = feed.locator("[data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed a grid.*Your rarity/ }).first();
+    const mine = feed.locator("[data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed (a grid|grid \d+).*Your rarity/ }).first();
     await mine.waitFor({ state: "attached", timeout: 60_000 }).catch(async (e: Error) => { await page.screenshot({ path: path.join(shots, `grid-${label}-no-move.png`) }); console.log(`${label}: feed says: ${(await feed.innerText()).slice(0, 600)}`); throw e; });
     const folded = mine.locator("xpath=ancestor::details[1]");
     if (await folded.count() && (await folded.getAttribute("open")) === null) await folded.locator("summary").click();

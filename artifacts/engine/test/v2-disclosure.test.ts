@@ -7,7 +7,7 @@
  */
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import { admin, humans, perform, type Human } from "./v2-helpers.ts";
+import { admin, errorCode, humans, perform, type Human } from "./v2-helpers.ts";
 
 let ada: Human, bo: Human, cy: Human, roomId: string, gameId: string, objects: string[];
 const page = { numItems: 100, cursor: null };
@@ -111,6 +111,7 @@ test("live, a What if quote of the others' total is the player's own blurred rea
     return live.after[0].want as number;
   };
   const [liveA, liveB] = [await read(ada), await read(bo)];
+  assert.equal(await errorCode(ada!.query("v2/play:othersAt", { objectId, calls: [shift] })), "BAD_REQUEST", "no exact others' totals while live");
   await admin.mutation("v2/testing:markEnded", { gameId: g.gameId });
   const exactA = (await ada!.query("v2/play:othersAt", { objectId, calls: [shift] })).after[0].want;
   const exactB = (await bo!.query("v2/play:othersAt", { objectId, calls: [shift] })).after[0].want;

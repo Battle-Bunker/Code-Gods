@@ -134,6 +134,11 @@ export interface GridScene {
   /** What the groups' values are ("pair totals"), for the scene's text form. */
   readonly groupTitle?: string;
   /**
+   * Elements not drawn on the board but about some of its cells (how far a box is from two pairs): which cells, so a
+   * note on one can show them (v1's unit list showed each unit's tiles).
+   */
+  readonly unitCells?: readonly { readonly el: ElementRef; readonly cells: readonly number[] }[];
+  /**
    * A coloured board's cells (lib/v2-grid-boards), one per cell: the tile's colour, its text colour, and the colour's
    * letter, always drawn too, so colour is never the only signal. Absent: plain number tiles.
    */

@@ -25,6 +25,12 @@ export function useRoomInfo() {
   return useLiveValue(api.v2.rooms.get, { roomId: useGameScope().roomId });
 }
 
+/** Which seats are ready (v2/games:readiness; v1's "Who is here" ✓): one small index page, cold. */
+export function useReadiness() {
+  const { gameId } = useGameScope();
+  return useLiveValue(api.v2.games.readiness, gameId ? { gameId } : "skip");
+}
+
 /** The room's rotation round: its ended games and each seat's running total (null outside a rotation). */
 export function useRotationRound() {
   return useLiveValue(api.v2.rooms.round, { roomId: useGameScope().roomId });
@@ -107,6 +113,16 @@ export function useObjectIds(sort: ObjectSort, pageSize = 30, show: ObjectShow =
   const live = useLivePaged(api.v2.play.objectIds, gameId && seated && !replay ? { gameId, sort, ...(show !== "all" ? { filter: show } : {}) } : "skip", pageSize);
   const frame = replay?.frame, member = replay?.member;
   const replayed = useMemo(() => (frame && member ? pagedFrom(frame.objectIds(member, sort, show)) : null), [frame, member, sort, show]);
+  return (replayed ?? live) as typeof live;
+}
+
+/** The retired lines' skeleton (turnover), the latest first; each row subscribes to its own object. Empty without turnover. */
+export function useBankedIds(pageSize = 30) {
+  const { gameId, seated } = useGameScope();
+  const replay = useReplaySource();
+  const live = useLivePaged(api.v2.play.banked, gameId && seated && !replay ? { gameId } : "skip", pageSize);
+  const frame = replay?.frame, member = replay?.member;
+  const replayed = useMemo(() => (frame && member ? pagedFrom(frame.banked(member)) : null), [frame, member]);
   return (replayed ?? live) as typeof live;
 }
 

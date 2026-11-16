@@ -112,11 +112,17 @@ export function magicEighteen(n: number): RuleFamily<GridState, AxedT> {
     ],
   };
   return family<AxedT>("magic-eighteen", "Magic Eighteen", ["tally", "cells"], shape, AXES.map(axis => ({ axis, T: 18 })), (ctx, p) => {
-    const [mine, other] = p.axis === "rows" ? ["row", "col"] : ["col", "row"];
+    const [mine] = p.axis === "rows" ? ["row", "col"] : ["col", "row"];
     const totals = readAll(ctx, "tally", rows(n).map((_, k) => `${mine}${k}`));
     ctx.term("lines", `how far the ${p.axis}' totals are from ${p.T}, added up`, q(sumOf(totals.v.map(x => Math.abs(x - p.T)))), totals.refs);
-    noteEach(ctx, totals, x => x === p.T, x => (x < p.T ? `${p.T - x} short` : `${x - p.T} over`));
     const cells = readCells(ctx, n);
+    // Each line's working, as v1's card proved its unit ("✓ 5+6+2+5 = 18"): the sum, and how far it is from the target.
+    const lines = p.axis === "rows" ? rows(n) : cols(n);
+    totals.refs.forEach((r, k) => {
+      const x = totals.v[k]!, sum = `${lines[k]!.map(i => cells.v[i]).join("+")} = ${x}`;
+      if (x === p.T) ctx.mark({ kind: "focus", ref: r });
+      ctx.mark({ kind: "note", ref: r, text: x === p.T ? `✓ ${sum}` : `${sum}: ${x < p.T ? `${p.T - x} short` : `${x - p.T} over`}` });
+    });
     totalOf(ctx, "first-line", `the first ${otherWord(p.axis)}'s total`, cells, across(n, p.axis)[0]!);
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
     countCells(ctx, "odd", "odd numbers on the board", cells, x => x % 2 === 1, false);
@@ -180,8 +186,18 @@ export function twoPair(n: number): RuleFamily<GridState, None> {
   return family<None>("two-pair", "Two Pair", ["boxes", "cells"], shape, [{}], ctx => {
     const gaps = readAll(ctx, "boxes", bx.map((_, k) => `pairs${k}`));
     ctx.term("two-pair", "how far the boxes are from two different pairs, added up", q(sumOf(gaps.v)), gaps.refs);
-    noteEach(ctx, gaps, x => x === 0, x => `off by ${x}`);
     const cells = readCells(ctx, n);
+    // Each box's working: the pairs it makes (the best pairing), ✓ when they are two different pairs.
+    gaps.refs.forEach((r, k) => {
+      if (bx[k]!.length < 4) return;   // a box too small to hold two pairs (the 2×2 test board) has no working to say
+      const [a, b, c, d] = bx[k]!.map(i => cells.v[i]!) as [number, number, number, number];
+      const pairings: [number, number, number, number][] = [[a, b, c, d], [a, c, b, d], [a, d, b, c]];
+      const [w, x, y, z] = pairings.reduce((best, q) => (Math.abs(q[0] - q[1]) + Math.abs(q[2] - q[3]) < Math.abs(best[0] - best[1]) + Math.abs(best[2] - best[3]) ? q : best));
+      const g = gaps.v[k]!;
+      if (g === 0) ctx.mark({ kind: "focus", ref: r });
+      ctx.mark({ kind: "note", ref: r, text: g === 0 ? `✓ two ${w}s and two ${y}s`
+        : a === b && b === c && c === d ? `off by ${g}: four ${a}s, not two different pairs` : `off by ${g}: ${w} with ${x}, ${y} with ${z}` });
+    });
     const apart = sumOf(bx.map(cs => { const v = cs.map(i => cells.v[i]!); return Math.max(...v) - Math.min(...v); }));
     ctx.term("apart", "biggest minus smallest in each box, added up", q(apart), cells.refs);
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);

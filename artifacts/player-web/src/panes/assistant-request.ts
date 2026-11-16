@@ -4,7 +4,11 @@
  * sent: the player finishes the message and presses Send. The composer takes the request once (on its next render or
  * as it mounts after the pane opens).
  */
-export interface ComposerRequest { fill?: string }
+export interface ComposerRequest {
+  fill?: string;
+  /** "new": start a new conversation (v1's "New conversation"); "pick": focus the conversation picker ("Switch assistant conversation…"). */
+  thread?: "new" | "pick";
+}
 
 let pending: ComposerRequest | null = null;
 const listeners = new Set<() => void>();

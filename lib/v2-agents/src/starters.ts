@@ -209,7 +209,7 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
       "  }",
       "  return plans.length ? cheapest(offer, plans.slice(0, QUOTES)) : null;   // the cheapest of the best, or skip",
     ] : [
-      (kind === "thorough" || kind === "bold"
+      (kind === "thorough" || kind === "bold" || (kind === "simple" && e.boundedSimple)
         ? `  let options = scoreEach(tries, ([plan, m2, c2]) => [plan, score(m2, c2, ${args})]);   // each step and the score it reaches (fewer on a big line)`
         : `  let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, ${args})]);   // each step and the score it reaches`),
       ...POINTS.ts,
@@ -360,7 +360,7 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
       "            plans.append(plan)             # as good as the best: the price decides",
       "    return cheapest(offer, plans[:QUOTES]) if plans else None   # the cheapest of the best, or skip",
     ] : [
-      (kind === "thorough" || kind === "bold"
+      (kind === "thorough" || kind === "bold" || (kind === "simple" && e.boundedSimple)
         ? `    options = score_each(tries, lambda t: (t[0], score(t[1], t[2], ${args})))   # each step and the score it reaches (fewer on a big line)`
         : `    options = [(plan, score(m2, c2, ${args})) for plan, m2, c2 in tries]   # each step and the score it reaches`),
       ...POINTS.py,

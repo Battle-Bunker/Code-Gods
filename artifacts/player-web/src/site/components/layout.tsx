@@ -28,6 +28,7 @@ import { codeCommands, paletteCommands } from "@/core/palette-commands";
 import { SAFE_MODE } from "@/core/safe-mode";
 import { useFilePanels } from "@/panels/store";
 import { requestComposer } from "@/panes/assistant-request";
+import { copyInvite } from "@/site/lib/invite";
 import "@/panels/registry";
 import { api, useLive } from "@/site/lib/convex";
 import { affordanceContext } from "@/core/affordance-context";
@@ -89,8 +90,9 @@ function Palette({ open, init, onOpenChange, placeholder, suggested, chip, roomP
   const filePanels = useMemo(() => fileEntries.map(e => e.id), [fileEntries]);
   const commands = useMemo(() => paletteCommands(rt.context, {
     perform: rt.perform, navigate, roomPath, notify: title => toast({ title }), ...(panes ? { panes } : {}), ...(noun ? { noun } : {}),
-    ...(storedPanels ? { storedPanels } : {}), filePanels, ...(panes ? { focusAssistant: () => requestComposer({}, panes.open) } : {}), safeMode: SAFE_MODE, setSafeMode,
-  }), [rt, navigate, roomPath, panes, noun, storedPanels, filePanels]);
+    ...(user ? { me: { name: user.name ?? "" } } : {}), ...(roomPath && /\/rooms\/([^/]+)/.test(roomPath) ? (() => { const roomCode = /\/rooms\/([^/]+)/.exec(roomPath)![1]!; return { roomCode, copyRoomLink: () => copyInvite(roomCode) }; })() : {}),
+    ...(storedPanels ? { storedPanels } : {}), filePanels, ...(panes ? { focusAssistant: (r?: { thread?: "new" | "pick" }) => requestComposer(r ?? {}, panes.open) } : {}), safeMode: SAFE_MODE, setSafeMode,
+  }), [rt, navigate, roomPath, panes, noun, storedPanels, filePanels, user]);
   const p = rt.context.principal;
   const ctx: PaletteContext = { role: p.owner ? "owner" : p.seated ? "seated" : p.member ? "member" : p.signedIn ? "signed-in" : "visitor", admin: p.admin, assistantOn: false };
   return (

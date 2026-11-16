@@ -217,3 +217,17 @@ test("what the main part reads is always on the page, with its badge (W5: Ruler'
   const html = renderToStaticMarkup(<ExpandedFace rule={r} state={mc(-4, 10)} improvement={false} />);
   assert.match(html, /data-ref="norm\.dist2"[^>]*data-role="main"|data-role="main"[^>]*data-ref="norm\.dist2"/, "the distance² is listed, badged as the main part's");
 });
+
+test("expanded face: locks are drawn as marks on what they read and listed apart from the rule's parts", () => {
+  // Catches: a lock drawn by a second system, mixed into the rule's parts (it is not part of the score), or missing.
+  const lock = { id: "3", words: "the y-intercept is at least 10", refs: [{ rep: "si", name: "c" }], energy: 12.5 };
+  const html = renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} value={VALUE} active="si" onActive={() => {}} locks={[lock]} improvement={false} />);
+  const t = text(html);
+  assert.match(html, /data-ref="si\.c"[^>]*data-focus/);
+  assert.match(t, /Lock: the y-intercept is at least 10 \(held by 12\.50 energy\)/);
+  assert.doesNotMatch(text(renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} value={VALUE} active="si" onActive={() => {}} improvement={false} />)), /Lock:/);
+  // A lock on another line of a system is not drawn on this one.
+  const other = renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} value={VALUE} active="si" onActive={() => {}} improvement={false}
+    locks={[{ ...lock, refs: [{ rep: "si", name: "c", site: 1 }] }]} />);
+  assert.doesNotMatch(other, /data-ref="si\.c"[^>]*data-focus/);
+});

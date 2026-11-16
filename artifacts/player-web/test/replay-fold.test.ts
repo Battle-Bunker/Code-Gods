@@ -203,3 +203,29 @@ test("parameter drift (call 18): the replay's rule card is the one in force at t
   assert.equal(before.previous, null);
   assert.deepEqual(frameAt(x, 5).rule("m2")!.params, { A: "6" }, "a seat the drift did not redraw keeps its rule");
 });
+
+test("a retired line (turnover) leaves the lines at its retirement, joins the retired list, and keeps its banked value", () => {
+  // Catches: a retired line still listed (or listed before it retired), a retired list in the wrong order, its value lost.
+  const withRetire = {
+    ...FILE,
+    events: [
+      ...EVENTS.slice(0, -1),
+      ["retired", { objectId: "o1", number: 1, worldSeconds: 10, state: "s1b", banked: true, points: [{ memberId: "m1", points: 4 }, { memberId: "m2", points: 4 }] }],
+      ["objectBorn", { objectId: "o3", number: 3, state: "s3a", worldSeconds: 10 }],
+      ["values", { objectId: "o3", number: 3, values: [val("m1", 1), val("m2", 1)] }],
+      EVENTS.at(-1)!,
+    ].map(([kind, data], seq) => ({ seq, kind, data })),
+  };
+  const rx = indexReplay(withRetire), retiredAt = EVENTS.length;   // the retired event's position, 1-based
+  const before = frameAt(rx, retiredAt - 1), after = frameAt(rx, retiredAt);
+  assert.deepEqual(before.objectIds("m1", "born").map(r => r.number), [2, 1]);
+  assert.deepEqual(before.banked("m1"), []);
+  assert.equal(before.object("o1", "m1")!.retiredAt, undefined);
+  assert.deepEqual(after.objectIds("m1", "born").map(r => r.number), [2]);
+  assert.deepEqual(after.banked("m1").map(r => r.number), [1]);
+  const o1 = after.object("o1", "m1")!;
+  assert.deepEqual([o1.retiredAt, o1.state, o1.value!.points], [10, "s1b", 4]);
+  const end = frameAt(rx, rx.end);
+  assert.deepEqual(end.objectIds("m1", "born").map(r => r.number), [3, 2]);
+  assert.deepEqual(end.banked("m2").map(r => r.number), [1]);
+});
