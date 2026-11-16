@@ -118,6 +118,28 @@ cost, as the ladder audit measures.
   - **(b) A main part counted in steps between targets.** The tie-breaker would be the share of the way from this
     prime to the next, so walking up between primes gains instead of losing. That is the spec lead's call for the pool.
 
+**Re-measured under the tree valuation** (the coordinator, 16 Nov: the spec lead found that bounding the inner terms
+removes the stall on single lines; scripts/prime-crossing-tree.ts).
+
+The setup:
+- 100,000 law draws, valued by lib/v2-valuation tree-value.ts.
+- 16 greedy climbs of one seat's 2,500⚡ on one pair. Each step takes the best bits per energy over every pair move:
+  shift, tilt, turn, slide, stretch, translate and zoom.
+
+| valuation | primes stepped per climb (median / max) | climbs stepping ≥ 2 primes | final bits (median / max) |
+|---|---|--:|---|
+| tree (chain rule) | 2 / 4 | 9 of 16 | 13.5 / 17.9 |
+| tree, closeness and third at most 2 bits each | 14 / 29 | 16 of 16 | 17.9 / 19.6 |
+| tree, closeness in units of the gap to the next target | 3 / 5 | 13 of 16 | 13.5 / 17.9 |
+
+- **Bounding the inner terms removes the stall for Prime Crossing too.** So it is dealable in the shape, on that
+  valuation, pending the energy gate and test 2 once built.
+- **Grading closeness by the gap barely helps here.** The gaps between primes ending in 1 are 10–30, so a unit step is
+  still a sizeable share.
+- **Every climb still ends frozen,** because the tree's level term stops growing past the largest prime its draws
+  measured (tree-value.ts: "nothing beyond the best measured u0"). That is a top of its own. A level tail like the
+  pairs' ladder-log, capped by witnesses, is needed before a bounded tree is dealt.
+
 **Versions:** the ending 1, 3, 7 or 9, equal by the symmetry of primes' endings.
 
 **Alternative thirds:**
@@ -130,7 +152,7 @@ cost, as the ladder audit measures.
 | row | Power Ratio | Prime Crossing |
 |---|---|---|
 | 1 unbounded | yes: powers without end | yes: primes without end |
-| 2 climbed all game | expected: the stretch shortcut joins targets, and its price rises with size (to measure) | **no as it stands**: the climb stalls after the first exact prime |
+| 2 climbed all game | expected: the stretch shortcut joins targets, and its price rises with size (to measure) | with inner terms bounded at 2 bits: a greedy seat steps 14 primes (median); without: 2, a stall |
 | 3 tie-breaker defined by the main part | yes: closeness to that power; the third reads the same power | yes: closeness to that prime; the third reads the same prime |
 | 3a ≥ 3 candidates of different forms | three thirds listed (near-multiple, near-multiple of another reading, near-whole) | three listed |
 | 3b nearest-target shape | yes | yes |
