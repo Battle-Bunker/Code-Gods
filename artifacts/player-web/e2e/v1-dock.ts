@@ -96,13 +96,18 @@ try {
     } finally { await second.close(); }
   });
 
-  await missing(["e2e-stored-panels-6"], "the panel menu is a combobox: it opens focused, Esc closes it, typing \"chat\" then Enter switches the pane to Public chat", async () => {
+  await check("the panel menu is a combobox: it opens focused, Esc closes it, typing \"chat\" then Enter switches the pane to Public chat", async () => {
     const pane = (await openPanes(page)).find(id => id !== "assistant" && id !== "public-chat")!;
+    await page.getByTestId(`button-pane-menu-${pane}`).click();
+    const input = page.getByTestId(`input-pane-menu-${pane}`);
+    await page.waitForFunction((id: string) => document.activeElement?.getAttribute("data-testid") === id, `input-pane-menu-${pane}`, { timeout: 3_000 });
+    await page.keyboard.press("Escape");
+    await input.waitFor({ state: "detached", timeout: 3_000 });
     await page.getByTestId(`button-pane-menu-${pane}`).click();
     await page.keyboard.type("chat");
     await page.keyboard.press("Enter");
     await page.getByTestId("pane-public-chat").waitFor({ timeout: 3_000 });
-  }, () => escapeAll(page));
+  });
 
   await check("the lines list pages itself: scrolling to its end loads the next page (\"N of M\" footer)", async () => {
     const lines = page.getByTestId("pane-objects");

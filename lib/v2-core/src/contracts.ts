@@ -195,6 +195,11 @@ export interface EvalContext<S> {
   read(ref: ElementRef): ElementValue;
   /** Record a term. A term whose id is a layer's id is that layer's measure: the score is made of them. */
   term(id: TermId, label: string, value: Q | Undef, from: readonly ElementRef[]): TermId;
+  /**
+   * Record a mark. A mark cites what the rule read, or an element of a representation the family does not depend on: an
+   * annotation is drawn from the state the player already holds and is never read, charged or added to depends, so it
+   * never changes what an agent pays to score (the coordinator, 16 Nov).
+   */
   mark(mark: Mark): void;
 }
 
