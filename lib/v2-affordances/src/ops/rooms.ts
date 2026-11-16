@@ -84,7 +84,7 @@ export const roomOps = [
   // The owner's lobby and game controls.
   affordance({
     id: "room.settings", title: "Change the room's settings", group: "owner", scope: "room",
-    description: "Sets the preset and the next game's overrides (unset: the preset's): planningSeconds, worldSeconds, startingEnergy; durationMode fixed or halfLife; scoreIntervalSeconds (10); peerNoiseVariance 0/4/16/64/256; readPriceWeight 0-4; driftSeconds (0 off); pauseSeconds (180); commitClause; startingObjects 0-1000; birthsPerSecond 0-10; opportunitiesPerSecond 0-1000; powerPerSecond; fullChargeSeconds; stepBudget per act (500,000); interactionComputeMs per act (2,000); excludedFamilies (never dealt); bidPricing first/second; bidVisibility sealed/open; bidDisclosure none/handicaps/all.",
+    description: "Sets the preset and the next game's overrides: planningSeconds, worldSeconds, startingEnergy; durationMode fixed or halfLife; scoreIntervalSeconds (10); peerNoiseVariance 0/4/16/64/256; readPriceWeight 0-4; driftSeconds (0 off); pauseSeconds (180); commitClause; startingObjects 0-1000; birthsPerSecond 0-10; opportunitiesPerSecond 0-1000; powerPerSecond; fullChargeSeconds; stepBudget (500,000) and interactionComputeMs (2,000) per act; excludedFamilies (never dealt); bidPricing first/second; bidVisibility sealed/open; bidDisclosure none/handicaps/all; defenceGoals (grids), penaltyWeight 0-4 (1).",
     tooltip: "Pick the preset and adjust its length.", keywords: ["settings", "configure", "preset", "length"],
     params: obj({
       preset: z.string().max(64).optional(),
@@ -96,6 +96,7 @@ export const roomOps = [
         driftSeconds: z.number().int().min(0).max(3600),
         pauseSeconds: z.number().int().min(1).max(1800),
         commitClause: z.boolean(),
+        defenceGoals: z.boolean(), penaltyWeight: z.number().min(0).max(4),
         // v1's ranges (archive game-core settings.ts and settings-form.ts LIMITS); the CPU limit's top is the sandbox's.
         startingObjects: z.number().int().min(0).max(1000), birthsPerSecond: z.number().min(0).max(10),
         opportunitiesPerSecond: z.number().min(0).max(1000),

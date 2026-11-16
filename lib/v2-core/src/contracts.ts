@@ -51,7 +51,17 @@ export interface ObjectType<S> {
   readonly representations: readonly Representation<S>[];
   readonly mutators: readonly Mutator<S, any>[];
   readonly families: readonly RuleFamily<S, any>[];
+  /**
+   * Defence goals (v1, restored; owner-decisions call 1): penalty families, never dealt as a rule; a seat may be dealt
+   * one beside its rule. A penalty's main part is badness, bigger is worse; its value function prices how rare "at
+   * least this bad" is (lib/v2-valuation defence.ts). Absent: the type has none.
+   */
+  readonly penalties?: readonly RuleFamily<S, any>[];
 }
+
+/** A type's family by id: its rules first, then its penalty families (defence goals). */
+export const familyById = <S,>(type: ObjectType<S>, id: string): RuleFamily<S, any> | undefined =>
+  type.families.find(f => f.id === id) ?? type.penalties?.find(f => f.id === id);
 
 // ---------------------------------------------------------------- representations (§3)
 

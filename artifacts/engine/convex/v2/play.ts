@@ -11,7 +11,7 @@ import { slimKnots, valueFnIn, type ValueScope } from "./values";
 import { seatRules } from "./loop";
 import { dealablePool, familyOf, keepsParams } from "./deal";
 import { presetOf } from "./presets";
-import { decode, encode, scopeOf, typeOf, valuesOf, variantOf } from "./world";
+import { decode, encode, penaltyWeightOf, scopeOf, typeOf, valuesOf, variantOf } from "./world";
 import { callV } from "./tables";
 import type { Infer } from "convex/values";
 type Call = Infer<typeof callV>;
@@ -329,7 +329,7 @@ export async function quoteOthers(ctx: QueryCtx, game: Doc<"v2Games">, memberId:
     const r = applyCall(type, variant, now, call);
     if (isInvalid(r)) { after.push(null); continue; }
     const wire = encode(r.result, game.variant);
-    const exact = valuesOf(r.result, game.variant, seats, scopeOf(game).objects).find(x => x.memberId === memberId)?.want ?? 0;
+    const exact = valuesOf(r.result, game.variant, seats, scopeOf(game).objects, penaltyWeightOf(game)).find(x => x.memberId === memberId)?.want ?? 0;
     const want = exact + (salt !== null && disclosesNoise(game) ? readingNoise(game, memberId, `quote:${object._id}:${state.version}:${wire}:${salt}`) : 0);
     const holders = await ctx.db.query("v2ObjectStates").withIndex("by_game_state", q => q.eq("gameId", game._id).eq("state", wire)).take(2);
     const holder = holders.find(h => h.objectId !== object._id);

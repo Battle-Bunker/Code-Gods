@@ -11,7 +11,7 @@ import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
-import { decode, distinctBirths, heldReason, scopeOf, valuesOf, type SeatRule, type Value as ExactValue } from "./world.ts";
+import { decode, distinctBirths, heldReason, penaltyWeightOf, scopeOf, valuesOf, type SeatRule, type Value as ExactValue } from "./world.ts";
 import { agentSeen, measured, objectReading, quadrantOf, readingNoise, shownAt } from "./disclose.ts";
 import { durationModeOf, endWorldOf, scoreIntervalOf, timeScaleOf } from "./duration.ts";
 import { shouldPark } from "./activity.ts";
@@ -62,7 +62,10 @@ export async function seatRules(ctx: QueryCtx, game: Doc<"v2Games">): Promise<Se
   const out: SeatRule[] = [];
   for (const s of game.roster) {
     const r = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", s.memberId)).unique();
-    if (r) out.push({ memberId: s.memberId, rule: { family: r.family, params: r.params, tieBreaker: r.tieBreaker, ruleKey: r.ruleKey, contentHash: r.contentHash } });
+    if (r) out.push({
+      memberId: s.memberId, rule: { family: r.family, params: r.params, tieBreaker: r.tieBreaker, ruleKey: r.ruleKey, contentHash: r.contentHash },
+      ...(r.defence ? { defence: { family: r.defence.family, params: r.defence.params, ruleKey: r.defence.ruleKey } } : {}),
+    });
   }
   return out;
 }
@@ -108,7 +111,7 @@ async function holderOf(ctx: MutationCtx, gameId: Id<"v2Games">, state: string, 
 /** A player's value of an object at a version, exact and as they read it while live (disclose.ts: their own reading). */
 type Value = ExactValue & { shownWant: number; shownPoints: number };
 function valuesAt(game: Doc<"v2Games">, seats: SeatRule[], wire: string, objectId: Id<"v2Objects">, version: number): Value[] {
-  return valuesOf(decode(wire, game.variant), game.variant, seats, scopeOf(game).objects)
+  return valuesOf(decode(wire, game.variant), game.variant, seats, scopeOf(game).objects, penaltyWeightOf(game))
     .map(v => ({ ...v, ...shownAt(v, readingNoise(game, v.memberId, objectReading(objectId, version))) }));
 }
 /** The disclosed fields of a value row, with its filter (disclose.ts quadrantOf, on the disclosed others' sum). */
@@ -261,7 +264,7 @@ async function reknow(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[],
   const digest = await ctx.db.query("v2Digests").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", memberId)).unique();
   const packed = digest ? [...digest.packed] : [];
   for await (const k of ctx.db.query("v2Knowledge").withIndex("by_game_member_born", q => q.eq("gameId", game._id).eq("memberId", memberId))) {
-    const mine = valuesOf(decode(k.state, game.variant), game.variant, seats, scope).find(x => x.memberId === memberId);
+    const mine = valuesOf(decode(k.state, game.variant), game.variant, seats, scope, penaltyWeightOf(game)).find(x => x.memberId === memberId);
     if (!mine) continue;
     await ctx.db.patch(k._id, { score: mine.score, rarityBits: mine.rarityBits, points: mine.rarityBits * Math.max(0, k.want), quadrant: quadrantOf(mine.rarityBits, k.want) });
     const at = 3 * (k.number - 1);
