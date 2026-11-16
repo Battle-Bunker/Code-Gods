@@ -184,3 +184,22 @@ The rule takes the seventh nearest the gradient and the seventh nearest the y-in
 - **Nearly Whole:** a nudge onto a whole number keeps 1–3%, because its targets crowd towards a whole number.
 - **Square Fraction Intercept:** a unit shift from an exact square took 18.4 bits to 2.0, the fragility the owner rejected. The median kept was only 59–76%.
 - **Repeating Bottom and Polygon Bottom** (bottom-size readings): the greedy climber reached 41–56 bits with the ladder tail, over the gate.
+
+## Closeness graded in gap units (prototype (a), 16 November): not adopted
+
+The patch is docs/engine-v2/scripts/tree-gap-closeness.patch. Each cell's gap is twice the farthest draw from its target, and a distance below floor × gap counts as floor × gap.
+
+**Exact hit on 10⅓, Mixed Intercept ("a third"):**
+
+| setting | bits |
+|---|---|
+| raw | 22.7 |
+| floor 1/64 | 22.7 |
+| floor 1/16 | 14.5 |
+
+**Climbs:**
+- Mixed Intercept still stalls at the first exact hit, at 20.8 bits for 62–108⚡.
+- Fraction Gradient (sevenths) is unchanged at 23.4–23.8 bits.
+- Points stay non-monotone in the level.
+
+**Why:** the law's rational readings near a target are rare at any scale, and the third layer's bits are untouched. The integrator's flat 2-bit cap on closeness and the third works better.
