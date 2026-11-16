@@ -9,6 +9,8 @@ export * from "./rational2.ts";
 export * from "./frac-twin-fractions.ts";
 export * from "./frac-fraction-gradient.ts";
 export * from "./frac-square-intercept.ts";
+export * from "./frac-fraction-pair.ts";
+export * from "./frac-mixed-intercept.ts";
 export * from "./type.ts";
 export * from "./presets.ts";
 export * from "./sums.ts";
