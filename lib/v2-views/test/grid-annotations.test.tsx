@@ -108,3 +108,15 @@ test("a bounded count's ruler ends where the count can end: Two Pair's boxes wit
   assert.ok(part.ruler, "a ruler");
   assert.equal(Math.max(...part.ruler!.refs.map(x => x.at)), 4, part.ruler!.refs.map(x => x.at).join(","));
 });
+
+test("a view whose groups carry numbers says what those numbers are (the circled box totals)", () => {
+  const html = renderToStaticMarkup(<RepView type={gridType} state={B} rep="boxes" size="expanded" />);
+  assert.match(html, /class="v2v-legend"[^>]*>[^<]*box totals/);
+});
+
+test("a part lists only its own units: another layer's notes on the same cells are not its", () => {
+  const fam = gridType.families.find(f => f.id === "magic-eighteen")!;
+  const r: RuleRef<GridState, unknown> = { type: gridType, family: fam, params: { T: 18 }, variant: grid4, tieBreaker: "first-column" };
+  const part = annotate(r, board("3208", "3233", "2109", "1012")).sites[0]!.parts[1]!;
+  assert.ok(!part.units.some(u => /repeats|diagonal/.test(u.text)), part.units.map(u => u.text).join(" · "));
+});

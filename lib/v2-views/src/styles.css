@@ -205,6 +205,7 @@
 .v2v-grid [tabindex]:focus-visible .cell-bg, .v2v-grid [tabindex]:focus-visible .margin-bg { stroke: var(--v2v-ink); stroke-width: 2; }
 .v2v-notes li[tabindex] { cursor: default; border-radius: 4px; }
 .v2v-notes li[tabindex]:hover, .v2v-notes li[tabindex]:focus-visible { background: var(--v2v-lit); outline: none; }
+.v2v-legend { margin: 4px 0 0; font-size: 12px; color: var(--v2v-muted); }
 .v2v-grid .mark-glyph { fill: var(--v2v-focus); font-size: 8px; text-anchor: end; }
 .v2v-grid .was { fill: var(--v2v-faint); font-size: 9px; text-decoration: line-through; }
 
