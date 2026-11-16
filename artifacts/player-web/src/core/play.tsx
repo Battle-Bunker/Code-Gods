@@ -30,6 +30,7 @@ import { FilePanelPane } from "@/panes/file-panel";
 import { useFilePanels } from "@/panels/store";
 import { filePane } from "@workspace/v2-client";
 import { ReplayBar } from "@/replay/bar";
+import { ChatButton } from "@/site/components/chat-button";
 import { parseMoment } from "@/replay/moment-link";
 import { ReplayProvider, useReplayControls } from "@/replay/controller";
 import { toast } from "@/hooks/use-toast";
@@ -69,6 +70,7 @@ function GameBar({ header }: { header: Header }) {
           {e.full && !replay && header.phase !== "ended" && <> <button type="button" className="text-xs underline underline-offset-4" onClick={() => void openPane("forge")} data-testid="button-energy-full">spend it on another agent</button></>}
         </span>; })()}
       </>) : <span className="text-muted-foreground" data-testid="text-watching">You're watching this game.</span>}
+      {!replay && <ChatButton />}
     </div>
   );
 }
