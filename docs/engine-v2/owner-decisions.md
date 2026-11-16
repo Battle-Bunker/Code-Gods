@@ -778,6 +778,12 @@ back) or TRIAL (a declared experiment, measured and reported).
     limits hold even for the baseline: a value function is honest (no extrapolated tail paying beyond what was measured),
     and a family with a cheap peak in the hundreds of bits is reported to the coordinator before it is dealt.
 
+38. **CALL** (the coordinator's, 16 Nov): **Grids · arithmetic is withdrawn** from the setups. A lattice reduction finds
+    Divisibility's top boards by formula (an optimum found, reported as a bug): powers of 3 on halves reach 46 powers on
+    **1110/1212/1116/0261**, against search's 28–40, and the attack applies to every divisibility goal on readings
+    linear in the digits (grid-params.md §14). The preset was a v2 invention, not part of the original baseline.
+    Divisibility and Leading Digits keep their code and values, undealt, for the grid design session.
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.

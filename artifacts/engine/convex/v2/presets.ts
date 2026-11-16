@@ -167,9 +167,7 @@ export const PRESETS: readonly Preset[] = [
   { ...GRIDS, id: "grids-beginner-bidding", title: "Grids · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
   // Grid starters are dearer: 900 to start, so a starter takes about the share of it a line starter takes of 600.
   fromPool("grids-more-rules", { ...V1_DEFAULT_BOARD, startingEnergy: 900 }),
-  // A readability playtest, not the default (docs/engine-v2/grid-params.md §13): Divisibility and Leading Digits, the
-  // board read as long numbers, on the beginner grid's game and economy.
-  fromPool("grids-arithmetic", { ...BEGINNER_WORLD, startingEnergy: GRIDS.startingEnergy }),
+  // Grids · arithmetic is withdrawn (16 Nov): Divisibility's tops are found by lattice reduction (grid-params.md §14).
 ];
 export const DEFAULT_PRESET = BEGINNER.id;
 

@@ -57,10 +57,8 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "far-crossing 3a": "15 Nov, pairs session",
   "high-start 3a": "15 Nov, pairs session",
   "steep-ratio 3a": "15 Nov, pairs session",
-  "divisibility 3a": "15 Nov, grids session",
   "opposite-nines 3a": "15 Nov, grids session: big-on-top undealt for a cheap peak (#902); grid repertoires after the deadline",
   "strangers 3a": "15 Nov, grids session: ones and prime-strangers undealt for cheap peaks (#902); grid repertoires after the deadline",
-  "leading-digits 3a": "15 Nov, grids session",
   // Row 1 (not checked here for grids): every beginner grid main part has a global top on the 0–9 board, as v1's did.
   // Leapfrog and Two Pair reached theirs in real games within 10 minutes (round 34, baseline 2); kept dealt as the v1
   // baseline by the coordinator (16 Nov). See docs/engine-v2/grid-v1-v2-compare.md, "Known reachable tops".
@@ -87,7 +85,6 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "lines-lenses 5-unmeasured": "15 Nov, spec lead: PMI table for line-q-lenses",
   "grids-beginner 5-unmeasured": "15 Nov, grids session: PMI table for grid-4-d10",
   "grids-more-rules 5-unmeasured": "15 Nov, grids session: PMI table for grid-4-d10",
-  "grids-arithmetic 5-unmeasured": "15 Nov, grids session: PMI table for grid-4-d10",
   "lines-pairs 5-unmeasured": "15 Nov, pairs session: PMI table for pair-q",
   // Decision 13. Prime Staircase's shared factor needs a run of two primes, which law draws do not reach: it reads 0
   // on all of them. Whether it takes many values on the rungs is not measured here.
