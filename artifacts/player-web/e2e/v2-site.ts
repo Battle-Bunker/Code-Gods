@@ -157,7 +157,7 @@ try {
       const row = page.locator("[data-testid^=row-line-]").first();
       await row.waitFor();
       await page.locator("[data-testid^=marks-line-]").first().waitFor();   // each row's face arrives with its own subscription
-      await page.getByTestId("pane-feed").getByText(/Your agent/).first().waitFor();
+      await page.getByTestId("pane-feed").getByText(/Your agent\b/).first().waitFor();   // \b: not the folded table's "Your agents' move"
       const feed = await page.getByTestId("pane-feed").innerText();
       assert.match(feed, /Your agent/);
       assert.doesNotMatch(feed, /payoff|object|\p{Extended_Pictographic}/iu, "the act log speaks in player words");
@@ -225,6 +225,8 @@ try {
         await page.waitForURL(/\/games\//, { timeout: 30_000 });
         if (!await page.getByTestId("pane-my-card").count() && await page.getByTestId("button-jump-my-card").count()) await page.getByTestId("button-jump-my-card").click();
         const card = page.getByTestId("goal-card");
+        // The views are in the worked example, folded since #901: open it.
+        await card.locator("details.v2v-goal-example > summary").click();
         await card.locator(".v2v-switcher").first().waitFor({ timeout: 15_000 });
         const out = await card.evaluate((el: HTMLElement, w: number) => {
           const box = el.getBoundingClientRect(), right = Math.min(box.right, w);
