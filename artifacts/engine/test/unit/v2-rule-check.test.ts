@@ -55,7 +55,31 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "kingdom 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
   "set-spotter 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
   "set-spotter 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
-  "grids-original-colours 5-unmeasured": "16 Nov, boards worker: no PMI table for board-4-base10-rgb yet (baseline, call 37)",
+  // v1's number families on the same board, as v1 had them (lib/v2-grid-boards v1-numbers-*.ts): v1's one secondary
+  // (or none) and v1's one parameter set (Magic Accountant: one target of v1's seven, presets.ts UNDEALT).
+  "original-magic-eighteen 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "original-magic-eighteen 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "original-opposite-nines 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "original-opposite-nines 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "original-two-pair 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "original-two-pair 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "original-spread-three 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "original-spread-three 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "original-strangers 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "original-strangers 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "original-leapfrog 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "original-leapfrog 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "original-crosswise-threes 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "original-crosswise-threes 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "original-magic-accountant 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "original-magic-accountant 4": "16 Nov, boards worker: grid baseline (call 37); one target dealt: 16 and 20 have one-digit tops, the rest are not peers",
+  "original-stepping-stones 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "original-stepping-stones 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "original-kings-and-subjects 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "original-kings-and-subjects 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  // v1's secondaries on these were mostly a distance from the main part's target (6 families).
+  "grids-original-colours 7-form:distance": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "grids-original-colours 5-unmeasured":"16 Nov, boards worker: no PMI table for board-4-base10-rgb yet (baseline, call 37)",
 
   // Row 3a: one or two dealt secondaries. The owner's instruction (15 Nov): at least three per family. Lines: the spec
   // lead's repertoire work; grids-arithmetic withdrawn 16 Nov (pairs: three or more since trial 37).

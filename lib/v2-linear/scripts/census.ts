@@ -22,12 +22,15 @@
  */
 import { writeFileSync } from "node:fs";
 import { evaluateSite, Qn, q, rng, type Q, type RuleFamily, type TieBreaker } from "@workspace/v2-core";
-import { fromMC, lineQ, lineType, type LineState } from "../src/index.ts";
+import { fromMC, lineQ, lineType, mcOf, rarityHeight, type LineState } from "../src/index.ts";
 
 const args = process.argv.slice(2);
 const opt = (n: string, d: string) => { const i = args.indexOf(`--${n}`); return i < 0 ? d : args[i + 1]!; };
 const DRAWS = Number(opt("draws", "60")), T = Number(opt("threshold", "5")), SEED = opt("seed", "census-1");
 const POOL = opt("pool", "all");
+/** "grid": every line of the grid counts the same. "trial": a line counts its chance under the scoring trial's law, 2^−H
+ * (trial-rarity.ts rarityHeight), so big numbers are as rare as the trial makes them. */
+const LAW = opt("law", "grid");
 
 // ---------------------------------------------------------------- the grid
 
@@ -66,6 +69,13 @@ interface Scored { bits: Float32Array; main: Float64Array; layers: Float64Array[
 const cache = new Map<string, Scored>();
 const STATES: LineState[] = [];
 for (let i = 0; i < NM; i++) for (let j = 0; j < NC; j++) STATES.push({ lines: [fromMC(MS[i]!, CS[j]!)] });
+/** Each line's weight, summing to 1. */
+const WEIGHT = new Float64Array(N);
+{
+  let total = 0;
+  for (let k = 0; k < N; k++) { const mc = mcOf(STATES[k]!.lines[0]!); WEIGHT[k] = LAW === "trial" ? 2 ** -rarityHeight(mc!) : 1; total += WEIGHT[k]!; }
+  for (let k = 0; k < N; k++) WEIGHT[k]! /= total;
+}
 
 function scoreRule(rule: Rule): Scored {
   const hit = cache.get(rule.label);
@@ -83,11 +93,12 @@ function scoreRule(rule: Rule): Scored {
   // Rarity on the grid: the share at least as good, lexicographically.
   const order = Array.from({ length: N }, (_, k) => k).sort((a, b) => { for (let d = 0; d < depth; d++) { const x = vec[d]![b]! - vec[d]![a]!; if (x) return x > 0 ? 1 : -1; } return 0; });
   const bits = new Float32Array(N);
-  let start = 0;
+  let start = 0, mass = 0;
   for (let r = 0; r < N; r++) {
+    mass += WEIGHT[order[r]!]!;
     const same = r + 1 < N && vec.every(v => v[order[r]!] === v[order[r + 1]!]);
     if (same) continue;
-    const share = (r + 1) / N;   // every line in the tie block [start, r] has r + 1 lines at least as good
+    const share = Math.min(1, mass);   // every line in the tie block [start, r] has this much weight at least as good
     for (let t = start; t <= r; t++) bits[order[t]!] = -Math.log2(share);
     start = r + 1;
   }
@@ -156,8 +167,9 @@ function draw(rules: Rule[]): DrawResult {
   let spread = 0;
   for (const a of placeBestK) for (const b of placeBestK) spread = Math.max(spread, Math.abs(Math.floor(a / NC) - Math.floor(b / NC)) + Math.abs(a % NC - b % NC));
   const goodLines = joint.reduce((s, v) => s + (v >= T ? 1 : 0), 0);
-  const each = sc.map((s, i) => s.bits.reduce((n, v) => n + (v >= bar[i]! ? 1 : 0), 0) / N);
-  const pmi = goodLines ? Math.log2(goodLines / N / each.reduce((a, b) => a * b, 1)) : -Infinity;
+  const goodMass = joint.reduce((s, v, k) => s + (v >= T ? WEIGHT[k]! : 0), 0);
+  const each = sc.map((s, i) => s.bits.reduce((n, v, k) => n + (v >= bar[i]! ? WEIGHT[k]! : 0), 0));
+  const pmi = goodLines ? Math.log2(goodMass / each.reduce((a, b) => a * b, 1)) : -Infinity;
 
   // Cheap moves: from sampled lines, each rule's improving steps, and their effect on the other rules.
   const r = rng(`${SEED}:moves:${rules.map(x => x.label).join("|")}`);
@@ -227,11 +239,13 @@ for (const size of [2, 3]) for (let d = 0; d < DRAWS; d++) {
 console.error(`${results.length} draws on ${N.toLocaleString("en")} lines (${NM} gradients × ${NC} intercepts), ${cache.size} rules scored, ${((Date.now() - t0) / 1000).toFixed(0)} s`);
 if (args.includes("--json")) writeFileSync(opt("json", "census.json"), JSON.stringify(results, null, 1));
 
+// Where the good places sit: the median over draws of the best place's |m| and |c| (the grid-edge question).
+const edge = results.filter(r => r.placeBest.length).map(r => { const m = /y = (-?[\d/]+)x \+ (-?[\d/]+)/.exec(r.placeBest[0]!); const v = (x: string) => { const [a, b = "1"] = x.split("/"); return Math.abs(Number(a) / Number(b)); }; return m ? [v(m[1]!), v(m[2]!)] : [NaN, NaN]; });
 const median = (v: number[]) => { const s = [...v].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)]! : NaN; };
 for (const size of [2, 3]) {
   const rs = results.filter(r => r.size === size);
   const by = (v: string) => rs.filter(r => r.verdict === v).length;
-  console.log(`\n## Draws of ${size} rules (${rs.length}; threshold ${T} bits each, grid rarity)\n`);
+  console.log(`\n## Draws of ${size} rules (${rs.length}; threshold ${T} bits each, ${LAW === "trial" ? "the trial's law" : "grid rarity"})\n`);
   console.log(`- rich ${by("rich")}, dull ${by("dull")}, conflict ${by("conflict")}, hopeless ${by("hopeless")}`);
   console.log(`- jointly good places per draw: median ${median(rs.map(r => r.places))}, share with 2 or more ${(rs.filter(r => r.places >= 2).length / rs.length * 100).toFixed(0)}%`);
   console.log(`- of draws with 2 or more places, share where every route between some two passes through a worse state: ${(rs.filter(r => r.places >= 2 && r.valleys.length).length / Math.max(1, rs.filter(r => r.places >= 2).length) * 100).toFixed(0)}%; median valley depth ${median(rs.flatMap(r => r.valleys)).toFixed(1)} bits`);
@@ -254,3 +268,5 @@ console.log(`\n## Pairs (draws of two)\n\n| pair | verdicts |\n|---|---|`);
 const pairs = new Map<string, string[]>();
 for (const r of results.filter(x => x.size === 2)) { const k = r.rules.map(x => x.slice(0, x.indexOf("("))).sort().join(" + "); pairs.set(k, [...(pairs.get(k) ?? []), r.verdict]); }
 for (const [k, v] of [...pairs].sort()) console.log(`| ${k} | ${v.join(", ")} |`);
+
+console.log(`\n## Where the best place sits (law: ${LAW})\n\n- median |m| ${median(edge.map(e => e[0]!))}, median |c| ${median(edge.map(e => e[1]!))}; on the grid's edge (|c| = ${Qn.toNumber(CS.at(-1)!)} or |m| = ${Qn.toNumber(MS.at(-1)!)}): ${edge.filter(e => e[1] === Qn.toNumber(CS.at(-1)!) || e[0] === Qn.toNumber(MS.at(-1)!)).length} of ${edge.length}`);

@@ -69,12 +69,19 @@ test("the board's scene carries each cell's colour and letter, and a card's glyp
   assert.equal(scene.cellGlyphs, undefined);
 });
 
-test("Grids · original colours deals v1's eight colour families, Picture Frame on one symbol", async () => {
+test("Grids · original colours deals v1's eight colour families and ten of its twelve number families, Picture Frame on one symbol and Magic Accountant on one target", async () => {
   const { boardPresets } = await import("../src/index.ts");
   const p = boardPresets.find(x => x.id === "grids-original-colours")!;
-  assert.deepEqual([...new Set(p.rules.map(r => r.family))].sort(), ["chessmaster", "colour-bonds", "colour-mirror", "honest-minesweeper", "kingdom", "parity-painter", "picture-frame", "set-spotter"]);
+  assert.deepEqual([...new Set(p.rules.map(r => r.family))].sort(), [
+    "chessmaster", "colour-bonds", "colour-mirror", "honest-minesweeper", "kingdom",
+    "original-crosswise-threes", "original-kings-and-subjects", "original-leapfrog", "original-magic-accountant", "original-magic-eighteen",
+    "original-opposite-nines", "original-spread-three", "original-stepping-stones", "original-strangers", "original-two-pair",
+    "parity-painter", "picture-frame", "set-spotter",
+  ]);
   const frames = p.rules.filter(r => r.family === "picture-frame").map(r => (r.params as { symbol: string }).symbol);
   assert.deepEqual(frames, ["7", "7", "7"]);
+  // A one-digit board tops Mirrormancer and Number Bonds (and Magic Accountant on 16 and 20): undealt (presets.ts).
+  assert.deepEqual(p.rules.filter(r => r.family === "original-magic-accountant").map(r => r.params), [{ axis: "rows", target: 18 }, { axis: "columns", target: 18 }]);
 });
 
 test("colour-renamed twins of a rule are valued as one: colours are renamed to the board's first, in order", async () => {

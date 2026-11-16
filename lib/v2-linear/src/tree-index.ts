@@ -11,4 +11,6 @@ export * from "./tree-nt-more.ts";
 export * from "./tree-geo-shapes.ts";
 export * from "./tree-rep-more.ts";
 export * from "./tree-rep-step.ts";
-export const treeMoreFamilies = [smoothMixed, tower, legRatio, quadrantSquare, borrowedBottom, drawnStep, partWay] as const;
+import { treeSplitFamilies } from "./tree-split.ts";
+export * from "./tree-split.ts";
+export const treeMoreFamilies = [smoothMixed, tower, legRatio, quadrantSquare, borrowedBottom, drawnStep, partWay, ...treeSplitFamilies] as const;

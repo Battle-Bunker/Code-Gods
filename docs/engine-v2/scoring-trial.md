@@ -430,3 +430,140 @@ B is measured without its third part. Results are [seen]: 200 starts, three rule
   - The routes are bounded at two shortcuts plus one finish.
   - The band is half a doubling, and narrowing it would lower bigger-is-better's residue.
   - Rarity and sideways were compared on two rules and eleven offsets, so the 0.97 is narrow evidence.
+
+## Neighbourhood, no lift (the owner's definition, 16 November, late)
+
+Script: `lib/v2-linear/scripts/neighbourhood-trial.ts` (`--pairs 160`). The owner: "If we define the neighbourhood of a
+utility level as the states with dependent params for the rule (in whatever representation the rule draws its params
+from) within a Gaussian band of height in each of those parameters with matching mean and variance as the distribution
+of states within the utility level ... then let's define the expected sideways distance to a utility level as the
+expected distance between a state sampled from its neighbourhood distribution and a state sampled uniformly randomly
+from its member states." V1 is that; V2 (the coordinator's amendment) prices the way to the NEAREST member.
+
+**Built.** A rule reads one number in its own representation (y-intercept c, x-intercept X = −c/m, signed area
+−c²/(2m)); the line's other number is free. A level is an interval of the reading: exact (one point), a target's basin
+(midpoints to its neighbours), or one unit off. Members: the reading uniform in the interval, the free number from the
+scale-free law. Neighbourhood: log2 of the reading Gaussian with the members' mean and spread, the spread at least 0.5
+doublings (the minimum band, so a one-point level is not degenerate); the free number from the law. Prices: the log
+mode's callPrice. V1: to the member line exactly (tilt then shift, shift then tilt, or a stretch then a shift). V2: the
+single addition (or stretch) solved onto the level, as `finish()` does, with V1's routes as a fallback. One seed.
+
+#### (1) Energy against height, on the y-intercept (pairs 160; σ_min 0.5 doublings)
+
+| target set | h (doublings) | T | exact V1 / V2 | basin V1 / V2 | basin width | retype price |
+|---|---|---|---|---|---|---|
+| whole numbers ending in 7 | 4 | 17 | 360 / 79 | 927 / 18 | 10.0 | 553 |
+| whole numbers ending in 7 | 8 | 257 | 1247 / 880 | 1847 / 475 | 10.0 | 1928 |
+| whole numbers ending in 7 | 12 | 4097 | 15762 / 15442 | 22292 / 11517 | 10.0 | 19167 |
+| whole numbers ending in 7 | 16 | 65537 | 195639 / 195307 | 361907 / 188868 | 10.0 | 289006 |
+| primes ending in 1 | 4 | 11 | 384 / 56 | 582 / 10 | 21.0 | 476 |
+| primes ending in 1 | 8 | 251 | 1289 / 1026 | 2180 / 237 | 15.0 | 1898 |
+| primes ending in 1 | 12 | 4091 | 14183 / 13957 | 25187 / 9803 | 30.0 | 19141 |
+| primes ending in 1 | 16 | 65521 | 204995 / 204782 | 341898 / 170294 | 85.0 | 288936 |
+| primes ending in 101 | 4 | 101 | 690 / 365 | 25541 / 19 | 2601.0 | 1110 |
+| primes ending in 101 | 8 | 101 | 619 / 354 | 28263 / 20 | 2601.0 | 1110 |
+| primes ending in 101 | 12 | 5101 | 20604 / 19854 | 27488 / 48 | 3000.0 | 23602 |
+| primes ending in 101 | 16 | 65101 | 184582 / 184398 | 416006 / 26287 | 6000.0 | 287093 |
+| squares | 4 | 16 | 289 / 76 | 363 / 22 | 8.0 | 543 |
+| squares | 8 | 256 | 1115 / 871 | 2575 / 187 | 32.0 | 1923 |
+| squares | 12 | 4096 | 15490 / 15127 | 22787 / 2870 | 128.0 | 19163 |
+| squares | 16 | 65536 | 219509 / 219116 | 306869 / 136563 | 512.0 | 289001 |
+| powers of 2 | 4 | 16 | 314 / 68 | 1029 / 17 | 12.0 | 543 |
+| powers of 2 | 8 | 256 | 1325 / 1027 | 1877 / 46 | 192.0 | 1923 |
+| powers of 2 | 12 | 4096 | 14010 / 13651 | 26482 / 81 | 3072.0 | 19163 |
+| powers of 2 | 16 | 65536 | 185672 / 185363 | 398631 / 82 | 49152.0 | 289001 |
+
+#### (2) One joint tied condition against its single-number parent (y-intercept on T; joint: and the gradient on the number of T's digits)
+
+| T | parent V1 / V2 | joint V1 / V2 |
+|---|---|---|
+| 11 | 355 / 59 | 95 / 94 |
+| 251 | 1133 / 871 | 879 / 879 |
+| 4091 | 14532 / 14055 | 12110 / 11998 |
+| 65521 | 219136 / 218814 | 212707 / 212707 |
+
+#### (3) Representation neutrality: the same exact target read in three representations
+
+| T | y-intercept V1 / V2 | x-intercept V1 / V2 | signed area V1 / V2 |
+|---|---|---|---|
+| 11 | 421 / 58 | 1435 / 116 | 18661369 / 161590 |
+| 251 | 1224 / 934 | 7506 / 2019 | 1106234 / 630435 |
+| 4091 | 15488 / 14554 | 71093 / 25196 | 29317738 / 14560787 |
+| 65521 | 244051 / 243677 | 1690466 / 985313 | 44719980712 / 35756936544 |
+
+#### (4) Exact against one unit off (primes ending in 1, y-intercept)
+
+| T | exact V1 / V2 | one off (T ± 1) V1 / V2 |
+|---|---|---|
+| 11 | 545 / 59 | 296 / 57 |
+| 251 | 1474 / 818 | 1140 / 821 |
+| 4091 | 13342 / 13065 | 15384 / 15061 |
+| 65521 | 212702 / 212374 | 206417 / 206067 |
+
+### What it says (seen narrowly unless marked)
+
+1. **Energy rises with height at the same rate for every target set, in both variants, on exact levels**, and the rise
+   is about proportional to T itself (4,000 → 65,000: ×15), close to the price of retyping the number (the shift from 0
+   to T). Built, mostly: an exact level's members are the same whatever the set, so the set cannot matter; and a
+   minimum band of 0.5 doublings around T puts the neighbourhood about 40% of T away, a move whose price grows with T.
+   So on exact levels the measure reads the band, not rarity. The coordinator's conjecture for V1 holds and extends to
+   V2: exact levels do not separate the sets.
+2. **On basins, V2 separates the sets sharply; V1 does not.** V2 at h = 16: whole numbers ending in 7 (basin 10 wide)
+   about 189,000; primes ending in 101 (basin 6,000) about 26,000; powers of 2 (basin 49,000) 82. A wide basin catches
+   most neighbourhood draws, so V2 tracks basin width, which is rarity's direction (a narrow basin is rare). V1 stays
+   near 360,000 to 420,000 for all: it measures the spread of the members, as conjectured. V1 also passes the retype
+   price on basins (about 1.3 to 1.4 times it), since a random member's free number is far away too.
+3. **A joint tied condition is not dearer than its parent** (joint: the y-intercept on T and the gradient on T's number of
+   digits): V2 about equal or lower (94 against 59 at T = 11, then 879 against 871, 11,998 against 14,055). Built: the
+   neighbourhood matches every dependent parameter, so the tied gradient is drawn near its target too; adding a condition
+   narrows the neighbourhood as much as it narrows the level.
+4. **Not representation-neutral.** For the same exact T, the x-intercept costs 2 to 7 times the y-intercept (V2) and the
+   signed area thousands to a hundred thousand times. The cause is the mutators: shift and tilt act on m and c, so
+   putting the x-intercept on T needs a tilt to c/T and the signed area a tilt to c²/(2T), fractions whose size and
+   bottom the price charges; there is no move that acts on X or the area directly (a stretch keeps X and scales the
+   area by its factor). A representation is neutral only if every representation has its own additions.
+5. **Exact and one unit off cost the same** (within the noise: 13,065 against 15,061, 212,374 against 206,067). Built:
+   both are one-point levels with the same minimum band; closeness earns nothing under this definition, only which level.
+
+**How this could be wrong.** The minimum band dominates every exact level (results 1, 3 and 5 move with it); one seed
+and 160 pairs; routes are one solved addition or two additions, with no other shortcuts (mirror, swap, turn); members are
+uniform in the reading, not law-weighted; the neighbourhood rounds readings to bottoms of at most 4; the "retype" price
+is a single shift from 0, not a defined operation.
+
+**Guess, for the owner.** The neighbourhood idea separates rarity only where a level has width (basins), and only in V2.
+For the owner's wish (sideways alone gives energy, rising faster for some rules than others), the level must be the
+rule's basin, not its exact hit, and the mutator set must give each representation its own additions; otherwise one
+representation is privileged by price.
+
+## Neighbourhood, pooled (V2; the coordinator's correction of the brief)
+
+Script: `lib/v2-linear/scripts/neighbourhood-pooled.ts` (`--pairs 200`). Built: the level at size T is every trophy of
+the rule's set within 0.5 doublings of T (if none, the nearest trophy), all members; the neighbourhood is log2|c|
+Gaussian matched to the members (spread at least 0.5 doublings), the gradient from the law; energy is the mean cheapest
+price to the NEAREST member (a solved shift either side and either sign, or the stretch by the exact ratio). "Basin":
+each member's basin, reached at its nearest edge. On the y-intercept; one seed. Seen narrowly:
+
+| target set | T ≈ 100 exact / basin (members) | T ≈ 1,000 exact / basin (members) | T ≈ 10,000 exact / basin (members) | T ≈ 100,000 exact / basin (members) |
+|---|---|---|---|---|
+| whole numbers ending in 7 | 130 / 73 (7) | 258 / 195 (70) | 333 / 371 (707) | 496 / 397 (7071) |
+| primes ending in 1 | 119 / 68 (3) | 259 / 197 (24) | 467 / 273 (182) | 559 / 460 (1536) |
+| primes ending in 101 | 239 / 0 (1) | 251 / 0 (1) | 1089 / 393 (2) | 1376 / 404 (19) |
+| squares | 138 / 120 (3) | 338 / 186 (11) | 592 / 377 (34) | 965 / 467 (111) |
+| powers of 2 | 249 / 101 (1) | 670 / 212 (1) | 1018 / 290 (1) | 1335 / 404 (1) |
+| retype price (a shift from 0 to T) | 1104 | 5382 | 45183 | 440201 |
+
+1. **Pooled, the sets separate, and the rates differ.** From T ≈ 100 to 100,000 (exact): ending in 7 rises 130 → 496,
+   primes ending 1 119 → 559, squares 138 → 965, powers of 2 249 → 1,335, primes ending 101 239 → 1,376. Dense sets rise
+   slowest, sparse ones fastest: the direction rarity asks for. The guess "ending in 7 flat and tiny" is half right: it
+   is the lowest, but it still rises, because the shift to the nearest member costs more lift at a larger height.
+2. **All stay far below the retype price** (440,201 at 100,000): no saturation in this range. Energy grows about with
+   the number of digits (logarithmically), not with T.
+3. **Basins compress the differences** (all about 400 to 470 at 100,000): a sparse set's wide basins catch more
+   neighbourhood draws, cancelling its sparsity. Exact pooled levels separate better.
+4. **Neutrality with each representation's own additions at the same fee: equal, by construction.** The computation
+   above then runs on that representation's own number unchanged, so the x-intercept and the signed area give the same
+   table. The non-neutrality of the previous section was the mutator menu (shift and tilt act on m and c), not the measure.
+
+How it could be wrong: one seed; a band of 0.5 doublings fixes how many trophies pool (seven at T = 100 for ending in 7,
+one for powers of 2), so the comparison depends on it; routes are one shift or one stretch; prices are the trial's log
+mode only.
