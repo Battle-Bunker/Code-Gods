@@ -30,7 +30,10 @@ from commit history and PR bodies.
 
 This table is machine-checked. `docs/engine-v2/v1-audit-status.json` mirrors it row for row (item, title, status,
 the PRs and decision, call and trial numbers it names, the evidence) and adds, for every **restored** or **kept** row,
-the test files that would fail if that behaviour broke, or a `gap` saying what no test guards.
+the test files that would fail if that behaviour broke, or a `gap` saying what no test guards (a **partly** row may
+name the tests that guard the part that is back). Evidence names files and functions or symbols, not line numbers,
+so it does not drift. Rows updated 16 November against `develop` 9e3c57672: defence goals, the commit clause, 200
+agents and user setups restored; grid boards, rival inference and the "secondary preference" wording partly.
 `artifacts/engine/test/unit/v1-audit-status.test.ts` keeps the two in step: the same rows in the same order, every
 named decision, call and trial present in owner-decisions.md, every listed test file present, and no restored or kept
 row without a test or a stated gap (it prints the gaps). Change a row here and in the JSON together.
@@ -43,73 +46,73 @@ delegation"; a call number below means the one whose subject is named.
 
 | Item | Status | Evidence |
 |---|---|---|
-| §1.1 Live moves attributed | restored (#587, #615); owner 33 | convex/v2/disclose.ts:113; play.ts:194-201 |
-| §1.2 Exact others' sums | owner 32 (#608, #611, #673); call 33 (What if quotes cost a look and carry the blur) | disclose.ts:34-40; play.ts othersAt |
-| §1.3 Paid looks deleted | restored (#643, #653); owner 35 (every game pays to read, weight may be 0, #685) | knowledge.ts:28-35 |
-| §1.4 Default domain line-z | restored (line-q beginner; owner 2, call 6; whole-number setups retired #620) | lib/v2-linear/src/presets.ts:45 |
+| §1.1 Live moves attributed | restored (#587, #615); owner 33 | disclose.ts attributed; play.ts log, moves, objectMoves |
+| §1.2 Exact others' sums | owner 32 (#608, #611, #673); call 33 (What if quotes cost a look and carry the blur) | disclose.ts peerNoiseVarianceOf, readingNoise; play.ts othersAt |
+| §1.3 Paid looks deleted | restored (#643, #653); owner 35 (every game pays to read, weight may be 0, #685) | knowledge.ts paysToRead, paidLive, lookPrice |
+| §1.4 Default domain line-z | restored (line-q beginner; owner 2, call 6; whole-number setups retired #620) | lib/v2-linear/src/presets.ts (lines-beginner on line-q); convex/v2/presets.ts BEGINNER, DEFAULT_PRESET |
 | §1.5 Hold rarity | owner 43 (not restored; measurement docs/engine-v2/hold-measurement.md, call 11) | owner-decisions.md decision 43 |
-| §1.5 Defence goals | **STILL MISSING** (call 1 said restore) | no defence code in v2; v1 archive lib/game-utilities/src/families/grid/defence.ts |
-| §1.6 Hidden random end | restored (#623) as a setting, default on the v1-board presets; beginner fixed 600 s by owner 34 ("10m long") | duration.ts; presets.ts:105,126 |
+| §1.5 Defence goals | restored (#983; call 1): off by default, a room setting on grids only | deal.ts dealDefence, defencePool; lobby.ts defenceGoals override; world.ts valueOf (defence); tick.ts defenceOf |
+| §1.6 Hidden random end | restored (#623) as a setting, default on the v1-board presets; beginner fixed 600 s by owner 34 ("10m long") | duration.ts drawEnd; presets.ts V1_DEFAULT_BOARD (halfLife), BEGINNER_WORLD (fixed 600 s) |
 | §1.7 Fair-aligned dealer | trial 12 (logging only; the deal is the seeded shuffle with the seating rules) | deal.ts policyDeal; lobby.ts |
 | §1.8 Idle parking | restored (#629) | activity.ts |
 | §1.9 Scoreboard interval | restored (#623); exact standings by call 15, owner 33 | lobby.ts scoreIntervalSeconds |
 | §1.10 Tiers | owner 13, 23, 29 (a main part plus a tie-breaker, no gates) | lib/v2-linear presets |
-| §1.11 Commit clause, shelter targeting | commit clause: call 34 (restoring, lens worker and W3); shelter: call 32 (not restored) | no `only_if_better`, no shelter in v2; v1 archive lib/game-core/src/settings.ts:153,158 |
+| §1.11 Commit clause, shelter targeting | commit clause: restored (#884; lens worker #874), call 34; shelter: call 32 (not restored) | lib/v2-agents act.ts commitClause, onlyIfBetter; tick.ts passes settings.commitClause; no shelter in v2; v1 archive lib/game-core/src/settings.ts:153,158 |
 | §1.12 Futility memo | call 31 (not restored: a v2 act is not a pure function of source and object) | tick.ts offers with no memo; v1 archive lib/futility.ts |
-| §1.13 Birth law and counts | call 4 (stationary-law births); owner 31 (beginner counts) | world.ts:49-64; tick.ts:59-61 |
-| §1.14 Move onto own state | restored (#615); owner 24 | tick.ts:124-126 |
-| §1.15 200 agents per god | call 35 (to restore, with paginated agent lists; v2 caps 20 today, play.ts:26) | agents.ts:86 |
-| §2.1 Live, a player sees only their own utility | kept | world.ts:30-36 |
-| §2.1 Every transformation and spawn is public | restored (#587, #615); owners 33, 36 narrow the spread | play.ts:194-201 |
-| §2.1 Others' summons hidden | kept (v1's public agent count is not shown; minor) | play.ts:133-140 |
+| §1.13 Birth law and counts | call 4 (stationary-law births); owner 31 (beginner counts) | world.ts birthDraws, distinctBirths; tick.ts regularBirths, opportunities |
+| §1.14 Move onto own state | restored (#615); owner 24 | tick.ts `occupied` (the holder map includes the object's own state); loop.ts holderOf |
+| §1.15 200 agents per god | restored (#898; call 35), with paginated agent lists | play.ts MAX_AGENTS, agents (paginated); agents.ts summon refuses past MAX_AGENTS |
+| §2.1 Live, a player sees only their own utility | kept | world.ts valueOf; validators.ts playObjectV |
+| §2.1 Every transformation and spawn is public | restored (#587, #615); owners 33, 36 narrow the spread | play.ts log, objectMoves; disclose.ts attributed |
+| §2.1 Others' summons hidden | kept (v1's public agent count is not shown; minor) | play.ts agents, agentEnergy, agentPrograms (requireSeat, ownAgent: the caller's own agents only) |
 | §2.1 Public scores move together | restored (#623); call 15, owner 33 | loop.ts scoreboard |
 | §2.1 Disclosed sums carry Gaussian noise | owner 32 (#673) | disclose.ts; presets.ts peerNoiseVariance |
-| §2.1 The commit clause decides on noisy values | owner 32 (per-player stable readings) | play.ts:323-325; lib/v2-agents host.ts:203-209 |
-| §2.1 Per-object public figures | kept; counts "as last looked" by owners 33, 35 | spectate.ts:24-36 |
+| §2.1 The commit clause decides on noisy values | owner 32 (per-player stable readings) | lib/v2-agents host.ts othersAfter (the disclosed payoff); act.ts commitClause |
+| §2.1 Per-object public figures | kept; counts "as last looked" by owners 33, 35 | spectate.ts object (bornAt, version, changedAt) |
 | §2.1 Paid observation | restored (#643, #653); owner 35 | knowledge.ts |
 | §2.1 Spectators see the public view | kept | spectate.ts |
-| §2.1 Ended games fully transparent | kept | replays.ts; disclose.ts:113 |
-| §2.1 Nothing visible disappears | kept (UNVERIFIED pane by pane) | disclose.ts:113 |
-| §2.1 Rival inference is a legitimate read | **STILL MISSING** (no counterpart of v1's fit_utility_mixture) | v1 archive lib/game-utilities/src/inference.ts |
+| §2.1 Ended games fully transparent | kept | replays.ts; disclose.ts attributed, disclosesNoise |
+| §2.1 Nothing visible disappears | kept (UNVERIFIED pane by pane) | disclose.ts attributed, disclosesNoise |
+| §2.1 Rival inference is a legitimate read | partly (#922; call 36): rule.fit (v1's fit_utility_mixture) and rule.candidates are restored; the fit is offered on lines at noise σ ≥ 8 only, so it is refused on grids and in the beginner game (noise 0), by call 36's guard | fit.ts fitRefusal; ops/rule.ts; lib/v2-affordances ops/play.ts rule.fit, rule.candidates; play.ts candidates |
 | §2.1 Bids sealed | kept (owner 18) | bids.ts |
-| §2.2 Every object unique | restored (#615); owner 24 | tick.ts:124-126; loop.ts |
+| §2.2 Every object unique | restored (#615); owner 24 | tick.ts `occupied`; loop.ts holderOf; world.ts distinctBirths |
 | §2.2 Every object an independent universe | kept, tested (test/v2-independence.test.ts) | lib/v2-core contracts |
 | §2.2 Births: Poisson | call 4; owner 31 (beginner) | world.ts; tick.ts |
 | §2.2 Integer and string objects | owner 15 | — |
-| §2.2 Grid object boards | partly (call 13: grids-more-rules, grids-arithmetic on the 4×4 digit board); colour, glyph, playing-card and larger boards **STILL MISSING** | presets.ts:144-154; lib/v2-grid has grid-4-d10, grid-2-d3 |
-| §2.2 Opportunity targeting: uniform or shelter | call 32 (shelter not restored) | tick.ts:5 (uniform) |
-| §2.3 Payoff | kept | world.ts:30-37 |
+| §2.2 Grid object boards | partly: call 13 (grids-more-rules on the 4×4 digit board); call 37 and #925 (v1's coloured 4×4 board, Grids · original colours); Grids · arithmetic withdrawn (#1045, call 39); the 5×5, 6×6 and 7×7 card boards are in lib/v2-grid-boards but in no preset, **STILL MISSING** as setups | presets.ts PRESETS (grids-beginner, grids-more-rules, grids-original-colours); lib/v2-grid-boards type.ts BOARD_VARIANTS |
+| §2.2 Opportunity targeting: uniform or shelter | call 32 (shelter not restored) | tick.ts header comment (an object uniformly) |
+| §2.3 Payoff | kept | world.ts valueOf, valuesOf; disclose.ts standingsFor |
 | §2.3 Bits are rarity | owner 10 (4, 19, 20, 22, 23) | values.ts worthOf |
 | §2.3 Hold rarity | owner 43 | as §1.5 |
-| §2.3 Defence goals | **STILL MISSING** | as §1.5 |
+| §2.3 Defence goals | restored (#983; call 1) | as §1.5 |
 | §2.3 Tiered rules | owner 14; call (f) | lib/v2-linear presets |
 | §2.3 Continuous landscape | kept (owner 13, 23) | spec §0.3 |
 | §2.3 Params named and typed | kept | lib/v2-core contracts.ts ParamDecl |
 | §2.3 Params of equal opportunity | restored (#630) | test/unit/v2-params-equal.test.ts |
-| §2.3 Scores are points tuples, never "tie-break" | call 35 (restore v1's wording, "secondary preference", in the app) | player-web panes/lines.ts:89; lib/v2-views faces.tsx:427 |
+| §2.3 Scores are points tuples, never "tie-break" | partly (call 35): a line's parts are said "main part", "secondary preference" in the app; "tie-breaker" remains on the rule gallery page and in the AI players' prompt (lib/v2-views faces.tsx has it only in comments) | lib/v2-views annotate.ts partName; player-web panes/lines.ts partsNote; site/pages/rule-gallery.tsx; lib/v2-ai prompts.ts |
 | §2.3 Heterogeneous simple utilities | kept (owner 14) | beginnerPool, 11 families |
 | §2.3 Dealing fair-aligned | trial 12; call 30 (practice dealt as real) | deal.ts |
 | §2.3 Rule rotation | kept | deal.ts |
-| §2.3 Commit clause | call 34 (restoring) | as §1.11 |
+| §2.3 Commit clause | restored (#884; lens worker #874), call 34 | as §1.11 |
 | §2.3 Futility memo | call 31 (not restored) | as §1.12 |
-| §2.4 Power per god | owner 38; call 17 (beginner 4/s; 64 elsewhere) | lib/v2-economy settings.ts:25; presets.ts:125-128 |
+| §2.4 Power per god | owner 38; call 17 (beginner 4/s; 64 elsewhere) | lib/v2-economy settings.ts LINES_BEGINNER_ECONOMY; presets.ts V1_DEFAULT_BOARD |
 | §2.4 Capacity | kept; call 17 (beginner 240 s) | energy.ts |
-| §2.4 Energy and debt move with power | kept | energy.ts:8-9 |
-| §2.4 Debt bound | kept | energy.ts:13,148 |
+| §2.4 Energy and debt move with power | kept | energy.ts movePower |
+| §2.4 Debt bound | kept | energy.ts actCredit, affordable, chargeAct |
 | §2.4 Selection proportional to energy | kept | energy.ts pickByEnergy |
-| §2.4 Opportunity rate | owner 37 | settings.ts:28; presets.ts:127 |
+| §2.4 Opportunity rate | owner 37 | lib/v2-economy settings.ts LINES_BEGINNER_ECONOMY (3/s) and its bounds; presets.ts V1_DEFAULT_BOARD (100/s) |
 | §2.4 Act charge | kept | lib/v2-economy charge.ts |
 | §2.4 Offer read log2(live objects) | kept | energy.ts offerReadBits |
 | §2.4 Read metering | owner 6, 35 | presets.ts readPriceWeight |
 | §2.4 Change cost | owner 11, 17, 19 | lib/v2-core walk.ts |
 | §2.4 Summon price | owner 21 | lib/v2-agents summon.ts |
 | §2.4 Starting energy | call 17 (beginner); kept elsewhere (600, 900 on grids-more-rules) | presets.ts |
-| §2.4 First agent's share | kept | energy.ts:49-59 |
+| §2.4 First agent's share | kept | energy.ts FIRST_AGENT_SHARE_TARGET, firstAgentShare |
 | §2.4 Bid phase and handicap | kept (owner 18) | lib/v2-economy bidding.ts |
 | §2.5 Sandboxed Python or TypeScript | kept | lib/v2-sandbox |
 | §2.5 Step budget 500,000 | kept (owner 6) | lib/v2-sandbox limits.ts |
 | §2.5 Agent sees only its object | owner 6 | lib/v2-agents host.ts |
-| §2.5 At most 200 agents | call 35 (to restore) | as §1.15 |
+| §2.5 At most 200 agents | restored (#898; call 35) | as §1.15 |
 | §2.5 One pause per player, 180 s | restored (#873): a pause ends by itself after the room's pauseSeconds (default 180), or earlier when the owner resumes; only a running game pauses | loop.ts pauseGame, pauseEnds; header pauseEndsAt |
 | §2.5 Planning holds until sandboxes are warm | restored (#635) | readiness.ts; loop.ts allReady |
 | §2.6 At least 3 players | kept | presets.ts minPlayers |
@@ -124,7 +127,7 @@ delegation"; a call number below means the one whose subject is named.
 | §2.6 Park after 30 minutes idle | restored (#629) | activity.ts IDLE_MS |
 | §2.6 Members players or spectators | kept | lobby.ts |
 | §2.6 Practice partners and AI never bid | kept (owner 18) | bids.ts |
-| §2.6 Setups: users may save their own | call 35 (to restore; only deployed presets plus room overrides today) | convex/v2/setups.ts |
+| §2.6 Setups: users may save their own | restored (#931, #965; call 35): users save, share, duplicate and apply their own setups | convex/v2/setups.ts |
 
 ---
 

@@ -2,7 +2,7 @@
  * The v1 audit's status table is checked, not remembered (like docs/engine-v2/v1-parity.json for the app):
  * docs/engine-v2/v1-audit-status.json mirrors the table under "## Status, re-audited" in docs/engine-v2/v1-audit.md row
  * for row, and adds, for every restored or kept row, the test files that would fail if that behaviour broke, or a `gap`
- * saying what no test guards.
+ * saying what no test guards (a partly restored row may name the tests that guard the part that is back).
  *
  * What would break: a row changed in one file and not the other; a decision, call or trial cited that owner-decisions.md
  * does not have; a test file renamed or deleted under a row that cites it; a restored or kept row with neither a test
@@ -79,7 +79,7 @@ test("every row is well formed, unique, and its status one of the set", () => {
     assert.ok(Array.isArray(r.refs) && r.refs.every(x => /^(#\d+|(owner|call|trial) (\d+|\(\w\)))$/.test(x)), `${id}: refs ${r.refs}`);
     assert.equal(typeof r.evidence, "string", `${id}: evidence`);
     assert.ok(Array.isArray(r.tests), `${id}: tests`);
-    if (!guarded(r)) assert.deepEqual(r.tests, [], `${id}: only a restored or kept row lists tests`);
+    if (!guarded(r) && r.status !== "partly") assert.deepEqual(r.tests, [], `${id}: only a restored, kept or partly restored row lists tests`);
     if (r.gap !== undefined) assert.ok(guarded(r) && r.gap.trim(), `${id}: a gap is said of a restored or kept row`);
   }
 });
@@ -93,6 +93,11 @@ test("the JSON and the markdown table hold the same rows in the same order", () 
     assert.deepEqual(r.refs, refsOf(`${status} ${evidence}`), `${id}: refs, from "${status}"`);
     assert.equal(r.evidence, evidence, `${id}: evidence`);
   }
+});
+
+test("evidence names files and symbols, never a line number of today's code (v1 archive references excepted)", () => {
+  const drifting = rows.filter(r => r.evidence.split(";").some(part => !/archive/.test(part) && /\.tsx?:\d/.test(part))).map(r => `${r.item} ${r.title}: ${r.evidence}`);
+  assert.deepEqual(drifting, []);
 });
 
 test("every listed test file exists", () => {
