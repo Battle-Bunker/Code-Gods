@@ -60,6 +60,7 @@ import type * as v2_checkData from "../v2/checkData.js";
 import type * as v2_checkNode from "../v2/checkNode.js";
 import type * as v2_commands from "../v2/commands.js";
 import type * as v2_connect from "../v2/connect.js";
+import type * as v2_cycles from "../v2/cycles.js";
 import type * as v2_deal from "../v2/deal.js";
 import type * as v2_disclose from "../v2/disclose.js";
 import type * as v2_drift from "../v2/drift.js";
@@ -187,6 +188,7 @@ declare const fullApi: ApiFromModules<{
   "v2/checkNode": typeof v2_checkNode;
   "v2/commands": typeof v2_commands;
   "v2/connect": typeof v2_connect;
+  "v2/cycles": typeof v2_cycles;
   "v2/deal": typeof v2_deal;
   "v2/disclose": typeof v2_disclose;
   "v2/drift": typeof v2_drift;

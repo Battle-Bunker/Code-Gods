@@ -1,4 +1,5 @@
 /** Live game queries every member reads: the header, the scoreboard and its history (integration plan §2.2). */
+import { standingsFor } from "./disclose";
 import { durationModeOf, scoreIntervalOf, timeScaleOf } from "./duration";
 import { peerNoiseSigmaOf, peerNoiseVarianceOf } from "./disclose";
 import { readPriceWeightOf } from "./knowledge";
@@ -53,9 +54,10 @@ export const standings = query({
   args: { gameId: v.string() },
   returns: v.union(standingsV, v.null()),
   handler: async (ctx, { gameId }) => {
-    const { game } = await requireGameMember(ctx, gameId);
+    const { game, member } = await requireGameMember(ctx, gameId);
     const s = await ctx.db.query("v2Standings").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
-    return s ? { seq: s.seq, worldSeconds: s.worldSeconds, rows: s.rows } : null;
+    // v1's private bid results: another player's handicap is not told while the game runs (disclose.ts standingsFor).
+    return s ? { seq: s.seq, worldSeconds: s.worldSeconds, ...standingsFor(game, s.rows, member._id) } : null;
   },
 });
 

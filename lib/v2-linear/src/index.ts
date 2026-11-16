@@ -10,6 +10,7 @@ export * from "./frac-twin-fractions.ts";
 export * from "./frac-fraction-gradient.ts";
 export * from "./frac-fraction-pair.ts";
 export * from "./frac-mixed-intercept.ts";
+export * from "./tuple-rules.ts";
 export * from "./type.ts";
 export * from "./presets.ts";
 export * from "./sums.ts";

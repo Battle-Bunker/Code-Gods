@@ -175,7 +175,7 @@ export const agentEnergy = query({
     const capacity = energyCapacity(perSecond, game.settings.economy.fullChargeSeconds);
     const now = world === null ? { balance: e.energy, settledWorldSeconds: e.settledAt } : settle({ balance: e.energy, settledWorldSeconds: e.settledAt }, Math.max(e.settledAt, world), perSecond, capacity);
     return {
-      agentId: agent._id, energy: now.balance, acts: e.acts, skips: e.skips, failures: e.failures, spend: e.spend, pointsGained: e.pointsGained, lastActAt: e.lastActAt ?? null,
+      agentId: agent._id, energy: now.balance, acts: e.acts, skips: e.skips, failures: e.failures, spend: e.spend, spendRead: e.spendRead ?? 0, spendChange: e.spendChange ?? 0, lastAct: e.lastAct ?? null, pointsGained: e.pointsGained, lastActAt: e.lastActAt ?? null,
       perSecond, capacity, settledAt: now.settledWorldSeconds, history: e.history ?? [],
     };
   },
@@ -286,7 +286,7 @@ export const tugs = query({
     return rows.map(t => ({
       objectId: t.objectId, number: t.number, moves: t.moves, flips: t.flips, mySpend: t.mySpend,
       // Live, a tug names nobody on the other side (v1's public log); an ended game does.
-      others: attributed(game, false) ? t.others.map(memberId => ({ memberId, name: nameOf(memberId) })) : [], from: t.from, to: t.to, best: t.best,
+      others: attributed(game, false) ? t.others.map(memberId => ({ memberId, name: nameOf(memberId) })) : [], from: t.from, to: t.to, best: t.best, cycle: t.cycle ?? null,
     }));
   },
 });

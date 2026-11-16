@@ -33,6 +33,8 @@ export interface MoveSentenceInput {
   readonly approx?: boolean;
   /** What the game calls its objects: "line" (the default) or "grid" (objectWord(variant).one). */
   readonly noun?: string;
+  /** The object's number ("line 5"), when known. */
+  readonly number?: number | null;
 }
 
 import { bitsText, chanceText, num, onlyYouNote, scoreFormula } from "../core/words.ts";
@@ -114,7 +116,7 @@ export function moveSentence(i: MoveSentenceInput): string {
   const change = i.change ? `: ${i.change.before} → ${i.change.after}` : "";
   const what = i.what ? ` (${i.what})` : "";
   const parts = [
-    `${i.who} changed a ${i.noun ?? "line"}${change}${what}.`,
+    `${i.who} changed ${i.number != null ? `${i.noun ?? "line"} ${i.number}` : `a ${i.noun ?? "line"}`}${change}${what}.`,
     same(i.before.rarityBits, 0) && same(i.after.rarityBits, 0) ? null : rarityText(i.before.rarityBits, i.after.rarityBits),
     pointsText(i.before, i.after, i.noun, i.approx),
   ];

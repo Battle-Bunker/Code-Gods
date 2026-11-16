@@ -38,6 +38,8 @@ export interface Contributor {
   readonly role: Role;
   /** The layer's place in the rule: 0 the main part, 1 the secondary preference, 2 the third, … (its name and symbol). */
   readonly depth: number;
+  /** The part in a few words for a compact face, numbers never cut ("y-intercept 32: nearest 31, next 41"). */
+  readonly brief?: string;
   /** "main part" / "tie-breaker". */
   readonly name: string;
   /** The layer's title in player words, parameters replaced by their values: "y(2) close to 37". */
@@ -222,6 +224,7 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
   const layerNotes = e.marks.filter((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && m.term === term.id && i > 0).map(m => typesetNote(m.text));
 
   let distance: string | null = null;
+  let brief: string | undefined;
   let ruler: RulerData | null = null;
   const kind = title + " " + term.label;
   // A distance, or a ladder (a count or size read through a reference: Prime Landing's rungs): the source on a ruler
@@ -233,6 +236,7 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
     const size = (v: number) => Math.abs(v);
     const up = marked.filter(m => size(m.value) > size(reference!.value)).sort((a, b) => size(a.value) - size(b.value))[0];
     distance = `${srcSource.label} ${srcSource.text} is nearest ${reference.text}${up ? `; next up ${readableN(up.value)}: ${readableN(size(up.value) - size(N(src)))} more` : ""}`;
+    brief = `${srcSource.label} ${srcSource.text}: nearest ${reference.text}${up ? `, next ${readableN(up.value)}` : ""}`;
     ruler = {
       value: N(src), valueText: `${srcSource.label} ${srcSource.text}`,
       refs: marked.map(m => ({ at: m.value, label: readableN(m.value), ...(m.value === reference!.value ? { strong: true } : {}) })),
@@ -263,6 +267,7 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
       // The rule's working on this layer first, when it gave one ("31 × ¹⁄₃₁ = 1: exactly").
       const how = Qn.isZero(value) ? "exactly" : `off by ${readable(value)}`;
       distance = layerNotes.length ? `${layerNotes.join("; ")}: ${how}` : how;
+      if (layerNotes.length) brief = distance;
     }
   } else if (!isUndef(value) && rule.family.keepsParams && role === "main" && Qn.sign(value) <= 0 && src) {
     // A ladder's main part off every rung (round 29: "…as big a dealt prime as possible: −½"): the reading and, when the
@@ -284,7 +289,9 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
     distance ??= "not on a rung yet";
   } else if (!isUndef(value)) {
     const v = N(value);
-    const near = neighbours(/prime/.test(kind) ? "prime" : "whole", Math.max(0, v - 8), v + 14).filter(x => x !== v);
+    // A bounded count's ruler ends where the count can end (Layer.most).
+    const most = layer.most?.(rule.params as never, rule.variant);
+    const near = neighbours(/prime/.test(kind) ? "prime" : "whole", Math.max(0, v - 8), most ?? v + 14).filter(x => x !== v);
     ruler = { value: v, valueText: `${valueText}`, refs: [{ at: v, label: readable(value), strong: true }, ...near.map(x => ({ at: x, label: readableN(x) }))] };
   }
 
@@ -321,7 +328,7 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
       ? `${cap(what || title)}${distance ? `: ${distance}` : source.length > 3 ? `: ${valueText}` : ""}. ${cap(aim)}.`
       : `${cap(title)}: ${valueText}${distance && marked.length >= 2 ? ` (${distance})` : ""}. ${cap(aim)}.`;
   return {
-    role, depth: i, name: partName(i), title, wants, sense: layer.sense, aim, term: term.id, value, valueText,
+    role, depth: i, ...(brief ? { brief } : {}), name: partName(i), title, wants, sense: layer.sense, aim, term: term.id, value, valueText,
     source, reference, distance, ruler, sentence, units: named,
   };
 }

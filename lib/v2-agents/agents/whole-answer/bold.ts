@@ -1,5 +1,5 @@
 // Whole Answer · Bold
-// Main part: the answer's y on your pattern. Secondary preference: whichever you were dealt (the answer's |x| + |y| and the number you divide by share a factor; the answer far down and to the left).
+// Main part: the answer's y on your pattern. Secondary preference: whichever you were dealt (the answer's x near a multiple of its y; the answer's |x| + |y| has a big smallest prime factor; the answer's y, without its factors of your number, shares a factor with the steeper gradient).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -10,17 +10,21 @@
 function score(L, p, tie) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
+  const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down
+  const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1
+  const core = n => { const Qb = BigInt(p.q), zero = BigInt(0); let m = BigInt(n); if (m < zero) m = -m; while (m > zero && m % Qb === zero) m /= Qb; return m; };   // without its factors of q
   if (f.x === null) return null;   // parallel lines never cross: no score
-  const { score: main, n: Yv } = valuationLadder(f.y, p.q, p.r, dist(f.x));   // y on your ladder, x a whole number
+  const { score: main, n: Yv } = valuationLadder(f.y, p.q, p.r, dist(f.x));   // y on your ladder, x near a whole number
   // main: the answer's level: whole numbers, y on your ladder (higher is better)
-  if (tie === "peg-divisor") return [main, common(Q.add(Q.abs(f.X), Q.abs(Yv)), f.D)];   // |X| + |Y| sharing a big factor with the number you divide by is better
-  if (tie === "south-west") return [main, Q.neg(Q.add(f.X, Yv))];   // an answer far down and to the left is better
+  if (tie === "x-multiple") return [main, Q.neg(offMultiple(f.x, mod1(Yv)))];   // an answer whose x is near a multiple of its y (not 0) is better
+  if (tie === "sum-prime") return [main, spf(Q.add(Q.abs(f.X), Q.abs(Yv)))];   // an answer whose |x| + |y| has a big smallest prime factor is better
+  if (tie === "y-steep") return [main, f.ms === null ? 0 : common(core(Yv), floor(Q.abs(f.ms)))];   // y's number (without its factors of q) sharing a big factor with the steeper gradient is better
   return [main];
 }
 
 const FAR = 4;      // how far one move may go
 const QUOTES = 12;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["slide","turn","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
+const KINDS = ["slide","turn","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
 const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 

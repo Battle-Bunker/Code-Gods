@@ -16,6 +16,7 @@ import { twinFractions } from "./frac-twin-fractions.ts";
 import { fractionGradient } from "./frac-fraction-gradient.ts";
 import { fractionPair } from "./frac-fraction-pair.ts";
 import { mixedIntercept } from "./frac-mixed-intercept.ts";
+import { tupleFamilies } from "./tuple-rules.ts";
 
 type Ctx = EvalContext<LineState>;
 type L<P> = Layer<P>;
@@ -186,5 +187,6 @@ export const crossingCheck: RuleFamily<LineState, KQ> = {
 export const ownerFamilies = [primeGradient, triangleArea, mMeetsC, crossingCheck] as const;
 /** Every line family (the line type's list): the owner's, the beginner pool's, and the rational-native ones (undealt). */
 /** Close Landing, Close Intercept and Close Gradient (close-landing.ts, close-readings.ts) are prototypes: valued and measured, in no pool.
- * The fraction-native families (frac-*.ts, docs/engine-v2/fraction-families.md) are undealt until the coordinator reads their walk-through. */
-export const families = [...ownerFamilies, ...beginnerFamilies, ...rationalFamilies, ...rational2Families, closeLanding, closeIntercept, closeGradient, twinFractions, fractionGradient, fractionPair, mixedIntercept] as const;
+ * The fraction-native families (frac-*.ts, docs/engine-v2/fraction-families.md) and the tuple families (tuple-rules.ts,
+ * pool-plan.md v2) are undealt until the owner has read their cards. */
+export const families = [...ownerFamilies, ...beginnerFamilies, ...rationalFamilies, ...rational2Families, closeLanding, closeIntercept, closeGradient, twinFractions, fractionGradient, fractionPair, mixedIntercept, ...tupleFamilies] as const;

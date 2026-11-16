@@ -28,9 +28,9 @@ export const playOps = [
   }),
   affordance({
     id: "game.standings", title: "Show the standings", group: "play", scope: "game",
-    description: "Every player's points, bid handicap and net total (total less the handicap's share), ranked by net total, as of the last scoreboard (at most 10 s old).",
+    description: "Every player's points, bid handicap and net total (total less the handicap's share), ranked by net total, as of the last scoreboard (at most 10 s old). While a game whose bid results are private runs, other players show their net only (handicapsHidden).",
     tooltip: "Who is ahead.", keywords: ["leaderboard", "scores", "ranking", "points"],
-    params: none, result: z.object({ rows: z.array(z.object({ memberId: id, name: z.string(), points: z.number(), handicap: z.number().int(), net: z.number(), rank: z.number().int() })) }),
+    params: none, result: z.object({ rows: z.array(z.object({ memberId: id, name: z.string(), points: z.number(), handicap: z.number().int(), net: z.number(), rank: z.number().int() })), handicapsHidden: z.boolean() }),
     contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
@@ -102,10 +102,10 @@ export const playOps = [
   }),
   affordance({
     id: "objects.list", title: "List objects", group: "objects", scope: "game",
-    description: "Pages through the game's objects for the viewer, with each object's bits and points. Sorts: points (payoff), rarity (the viewer's own bits), want (the others' care), mutations (most changed), born (newest), oldest, recent (most recently changed). Filters: all, positive or contested (the viewer's bits and the others' care both positive: points above 0), chips (the others care, the viewer's bits are 0).",
+    description: "Pages through the game's objects for the viewer, with each object's bits and points. Sorts: points (payoff), least (fewest points first), rarity (the viewer's own bits), want (the others' care), mutations (most changed), born (newest), oldest, recent (most recently changed). Filters: all, positive or contested (the viewer's bits and the others' care both positive: points above 0), chips (the others care, the viewer's bits are 0).",
     tooltip: "Objects in this game.", keywords: ["objects", "lines", "list", "browse", "sort", "filter", "contested", "chips", "most mutated", "newest", "oldest"],
     params: obj({
-      sort: z.enum(["points", "rarity", "want", "mutations", "born", "oldest", "recent"]).default("points"),
+      sort: z.enum(["points", "least", "rarity", "want", "mutations", "born", "oldest", "recent"]).default("points"),
       filter: z.enum(["all", "positive", "contested", "chips"]).default("all"),
       ...paging,
     }),

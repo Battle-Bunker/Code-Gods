@@ -751,6 +751,58 @@ back) or TRIAL (a declared experiment, measured and reported).
     old game is the spec), and 200 agents per player is restored with paginated agent lists so the read rules R1–R9
     hold. In player text the second preference is a "secondary preference", never "tie-break" (the owner's own word;
     v1 forbade "tie-break" in player text).
+36. **TRIAL** (the coordinator's order after #856, carried out by the two-line-systems worker; two-line-systems.md §13):
+    a pair ladder's rung is a window, and a zoom joins residue rungs.
+    - **The window.** Level L is held while the state is within 1/(L + 2) of the level's number, counting the main
+      part's exactness too (the angle, a whole x): ½ at the first valuation level, ⅓ at the first residue or power
+      level, and narrower each level up. The tie-breakers read the rung's number, rounded. Cards say "near".
+    - **The zoom (`sys.zoom`).** A zoom of both lines about (0, 0) by a factor, priced as a factor, with trial 29's size
+      floor on the larger line. With a slide of the plane by the remainder r it takes a residue ladder's number N to
+      q·N + r, which is on the next level whenever N is on this one.
+    - **Motivation.** On exact rungs almost every single move broke the level, so a seat on a rung had no tie-breaker
+      work and no next step.
+      - From a rung, the share of single moves that keep the level: 7–53%.
+      - The share that also change the tie-breaker: 0–36%.
+      - The share that raise the level: about 0.
+    - **Effects:** §13 of two-line-systems.md.
+37. **TRIAL** (the coordinator's order after #856, rows 3 and 3a of design-principles.md; two-line-systems.md §13):
+    each pair family deals a repertoire of tie-breakers tied to the number its main part reached (N). Stepping up
+    changes N, so it restarts each climb.
+    - **Forms.** Each tie-breaker takes one of these:
+      - near a multiple of N, other than 0;
+      - a smallest prime factor of N or of |N| + another number;
+      - a common factor of N with another number;
+      - a count of prime factors;
+      - a size.
+    - **None is climbed by the ladder's own shortcut.** A stretch or zoom by q multiplies N. That lengthens a distance
+      to a multiple of N and lowers a smallest prime factor of a sum with it. On the valuation ladders, common factors
+      and counts read N without its factors of q, which no stretch by q raises.
+    - **Found by the energy gate on the way:**
+      - "y and D share a factor" reached 52 bits, because a stretch multiplies both.
+      - "the intercept shares a factor with the steeper gradient" reached 41 bits, and "the ratio shares a factor with
+        the gentler intercept" 38.
+      - All three were replaced.
+    - **The dealt repertoire:**
+      - **Whole Answer:** x near a multiple of y; |x| + |y| with a big smallest prime factor; y without its factors of
+        q sharing a factor with the steeper gradient.
+      - **Divide By:** it keeps its two, the numerators x·D and y·D, which change with D: their prime count and their
+        common factor. It adds the numerators small (a size).
+        - Relations to k^T(L) × k were tried instead and were unfair between peers: about log₂ k rarer for a bigger k,
+          3.85 bits apart. A smallest prime factor was 1.2 bits apart.
+      - **Right Angle:** the corner's x near a multiple of y; y and the steeper gradient sharing a factor; |x| + |y|
+        with a big smallest prime factor.
+      - **Forty-Five:** |x| + |y| and D sharing a factor; the gap near a multiple of |x| + |y|; |x| + |y| with many
+        prime factors.
+      - **Gap Ratio:** D and N sharing a factor; the gap near a multiple of N; |gap| + N with a big smallest prime
+        factor.
+      - **Steep Ratio:** the gap near a multiple of the ratio; the ratio's smallest prime factor; the ratio without its
+        factors of q with many prime factors.
+      - **High Start:** its two distance tie-breakers; |H| + |x| with a big smallest prime factor; H without its
+        factors of q sharing a factor with the steeper gradient.
+      - **Far Crossing (open):** its two distance tie-breakers and a common factor with the steeper gradient, so three
+        candidates in two forms. A prime and a prime-count reading of its number were unequal between peers (q 7
+        against 11, 1.0–1.4 bits).
+    - **Effects:** §13.
 
 36. **CALL** (the coordinator's, 15 Nov, on the lens worker's account of v1's rival-inference tools): v1's
     `get_utility_series`, `get_board_at` and `list_utility_candidates` are restored as v1 had them, through

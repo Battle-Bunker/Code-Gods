@@ -58,6 +58,7 @@ const PAIR_CALLS: Record<string, readonly Record<string, string>[]> = {
   ...Object.fromEntries(Object.entries(CALLS).map(([m, list]) => [m, ["1", "2"].flatMap(line => list.map(a => ({ line, ...a })))])),
   "pair.reflect": [{ line: "1" }, { line: "2" }],
   "pair.quarter": [{ line: "1" }, { line: "2" }],
+  "sys.zoom": FACTORS.map(f => ({ f })),
 };
 
 /**
