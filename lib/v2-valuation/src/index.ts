@@ -7,3 +7,4 @@ export * from "./value-pair.ts";
 export * from "./value-board.ts";
 export * from "./defence.ts";
 export * from "./tree-value.ts";
+export * from "./value-big-grid.ts";
