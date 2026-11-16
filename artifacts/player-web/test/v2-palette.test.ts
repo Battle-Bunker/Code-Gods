@@ -160,3 +160,11 @@ test("in a grid game the palette's “Open a pane” names its panes in grids, a
   assert.equal(options.find(o => o.id === "object")!.label, "One grid");
   for (const o of options) assert.doesNotMatch(`${o.label} ${o.detail ?? ""}`, /\blines?\b/i, o.id);
 });
+
+test("in a grid game the pane rows say grids (baseline-1: 'Open Lines', 'One line' in a grid game)", () => {
+  const ctx = affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: true, spectator: false }], preset: "lines-beginner" } as never, header: { phase: "live", me: "m1" } as never });
+  const host = { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, noun: { one: "grid", many: "grids" }, panes: { open: async () => {}, close: async () => {} } };
+  const titles = paletteCommands(ctx, host as never).map(r => r.human.title);
+  assert.ok(titles.includes("Open Grids") && titles.includes("Open One grid"), titles.filter(t => t.startsWith("Open")).join(", "));
+  assert.ok(!titles.some(t => /^Open .*\bline/i.test(t)), "no pane named for lines");
+});
