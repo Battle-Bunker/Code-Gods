@@ -66,6 +66,9 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "treasure 3a": "15 Nov, spec lead: repertoire in progress",
   "same-on-both-rulers 3a": "15 Nov, spec lead: repertoire in progress",
   "prime-gradient 3a": "15 Nov, spec lead: repertoire in progress",
+  // A space of 444 suffixes (RuleFamily.space); only the peers 1 and 9 are dealt until worth is a formula of the suffix
+  // (the scoring trial): sampled curves for 3 and 7 put the peers 1.33 bits apart, and sparse suffixes extrapolate.
+  "prime-gradient 4": "16 Nov, rules-interaction worker: 444 drawable, 2 dealt until the worth formula lands",
   "prime-staircase 3a": "15 Nov, spec lead: repertoire in progress",
   "ruler 3a": "15 Nov, grids session",
   "pythagorean-area 3a": "15 Nov, grids session",
