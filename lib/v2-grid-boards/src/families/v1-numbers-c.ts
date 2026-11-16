@@ -12,7 +12,7 @@
  */
 import type { RuleFamily, Variant } from "@workspace/v2-core";
 import { boardParams, isCard, symbolCount, symbolValue, type BoardState } from "../board.ts";
-import { family, less, more, readBoard, sizeOf, term, type Cells, type Ctx, type Shape } from "./kit.ts";
+import { family, less, markFor, more, readBoard, sizeOf, term, type Cells, type Ctx, type Shape } from "./kit.ts";
 
 const focus = (ctx: Ctx, cells: Cells, which: Iterable<number>) => { for (const i of new Set(which)) ctx.mark({ kind: "focus", ref: cells.refs[i]! }); };
 /** The values a symbol of the board can have (digits 0 … base−1; cards 1 … 13). */
@@ -50,16 +50,17 @@ export function originalMagicAccountant(): RuleFamily<BoardState, MagicParams> {
     const n = sizeOf(ctx);
     const cells = readBoard(ctx, n);
     let exact = 0, distance = 0;
-    const lit: number[] = [];
+    const lit: number[] = [], off: number[] = [];
     for (let k = 0; k < n; k++) {
       const run = Array.from({ length: n }, (_, j) => (p.axis === "rows" ? k * n + j : j * n + k));
       const total = run.reduce((s, i) => s + cells.v[i]!, 0);
-      if (total === p.target) { exact++; lit.push(...run); }
+      if (total === p.target) { exact++; lit.push(...run); } else off.push(...run);
       distance += Math.abs(total - p.target);
     }
     term(ctx, "magic-totals", `${p.axis} that add up to ${p.target}`, exact, cells.refs);
     focus(ctx, cells, lit);
     term(ctx, "magic-distance", `how far the ${p.axis}' totals are from ${p.target}, added up`, distance, cells.refs);
+    markFor(ctx, "magic-distance", cells, off);   // the lines off the magic number
   });
 }
 
@@ -153,17 +154,18 @@ export function originalKingsAndSubjects(): RuleFamily<BoardState, KingsParams> 
     const n = sizeOf(ctx);
     const cells = readBoard(ctx, n);
     let courts = 0, gap = 0;
-    const lit: number[] = [];
+    const lit: number[] = [], off: number[] = [];
     for (const i of courtCorners(n, p.squares)) {
       const four = [i, i + 1, i + n, i + n + 1], vals = four.map(j => cells.v[j]!);
       const top = Math.max(...vals), total = vals.reduce((a, b) => a + b, 0);
-      if (vals.filter(x => x === top).length > 1) { gap += p.noKing; continue; }
+      if (vals.filter(x => x === top).length > 1) { gap += p.noKing; off.push(...four); continue; }
       const away = Math.abs(2 * top - total);
       gap += away;
-      if (away === 0) { courts++; lit.push(...four); }
+      if (away === 0) { courts++; lit.push(...four); } else off.push(...four);
     }
     term(ctx, "courts", `2×2 ${p.squares === "corners" ? "boxes" : "squares"} that are courts`, courts, cells.refs);
     focus(ctx, cells, lit);
     term(ctx, "court-gaps", "how far the kings are from their subjects, added up", gap, cells.refs);
+    markFor(ctx, "court-gaps", cells, off);   // the boxes that are not courts
   });
 }

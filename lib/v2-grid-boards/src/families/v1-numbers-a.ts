@@ -10,7 +10,7 @@
  */
 import type { RuleFamily, Variant } from "@workspace/v2-core";
 import { boardParams, isCard, symbolCount, type BoardState } from "../board.ts";
-import { family, less, more, readBoard, sizeOf, term, type Cells, type Ctx, type Shape } from "./kit.ts";
+import { family, less, markFor, more, readBoard, sizeOf, term, type Cells, type Ctx, type Shape } from "./kit.ts";
 
 type None = Record<string, never>;
 const focus = (ctx: Ctx, cells: Cells, which: Iterable<number>) => { for (const i of new Set(which)) ctx.mark({ kind: "focus", ref: cells.refs[i]! }); };
@@ -48,6 +48,7 @@ export function originalMirrormancer(): RuleFamily<BoardState, NumberMirrorParam
     term(ctx, "mirrors", `mirror ${p.axis} of numbers`, mirrors, cells.refs);
     focus(ctx, cells, lit);
     term(ctx, "matching-pairs", "matching number pairs", pairs, [...new Set(paired)].map(i => cells.refs[i]!));
+    markFor(ctx, "matching-pairs", cells, paired);
   });
 }
 
@@ -71,16 +72,17 @@ export function originalMagicEighteen(): RuleFamily<BoardState, EighteenParams> 
     const n = sizeOf(ctx);
     const cells = readBoard(ctx, n);
     let exact = 0, distance = 0;
-    const lit: number[] = [];
+    const lit: number[] = [], off: number[] = [];
     for (let k = 0; k < n; k++) {
       const cs = run(n, p.axis, k);
       const total = cs.reduce((s, i) => s + cells.v[i]!, 0);
-      if (total === p.target) { exact++; lit.push(...cs); }
+      if (total === p.target) { exact++; lit.push(...cs); } else off.push(...cs);
       distance += Math.abs(total - p.target);
     }
     term(ctx, "on-total", `${p.axis} that add up to ${p.target}`, exact, cells.refs);
     focus(ctx, cells, lit);
     term(ctx, "total-gap", `how far each ${one(p.axis)}'s total is from ${p.target}, added up`, distance, cells.refs);
+    markFor(ctx, "total-gap", cells, off);   // the lines off the total
   });
 }
 
@@ -99,15 +101,16 @@ export function originalOppositeNines(): RuleFamily<BoardState, NinesParams> {
     const n = sizeOf(ctx);
     const cells = readBoard(ctx, n);
     let nines = 0, distance = 0;
-    const lit: number[] = [];
+    const lit: number[] = [], off: number[] = [];
     for (let i = 0; i < (n * n) >> 1; i++) {
       const o = n * n - 1 - i, total = cells.v[i]! + cells.v[o]!;
-      if (total === p.target) { nines++; lit.push(i, o); }
+      if (total === p.target) { nines++; lit.push(i, o); } else off.push(i, o);
       distance += Math.abs(total - p.target);
     }
     term(ctx, "opposite-totals", `opposite pairs that add up to ${p.target}`, nines, cells.refs);
     focus(ctx, cells, lit);
     term(ctx, "opposite-gap", `how far each opposite pair's total is from ${p.target}, added up`, distance, cells.refs);
+    markFor(ctx, "opposite-gap", cells, off);   // the pairs off the total
   });
 }
 
@@ -136,6 +139,7 @@ export function originalTwoPair(): RuleFamily<BoardState, None> {
     term(ctx, "two-pairs", "2×2 boxes with two different pairs", twoPairs, cells.refs);
     focus(ctx, cells, lit);
     term(ctx, "one-pairs", "2×2 boxes with one pair or three of a kind", onePair, half.map(i => cells.refs[i]!));
+    markFor(ctx, "one-pairs", cells, half);
   });
 }
 

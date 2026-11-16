@@ -10,7 +10,7 @@
  */
 import type { RuleFamily, Variant } from "@workspace/v2-core";
 import { boardParams, isCard, type BoardState } from "../board.ts";
-import { family, less, more, readBoard, sizeOf, term, type Cells, type Ctx, type Shape } from "./kit.ts";
+import { family, less, markFor, more, readBoard, sizeOf, term, type Cells, type Ctx, type Shape } from "./kit.ts";
 
 type None = Record<string, never>;
 const focus = (ctx: Ctx, cells: Cells, which: Iterable<number>) => { for (const i of new Set(which)) ctx.mark({ kind: "focus", ref: cells.refs[i]! }); };
@@ -39,17 +39,18 @@ export function originalSpreadThree(): RuleFamily<BoardState, None> {
     const n = sizeOf(ctx);
     const cells = readBoard(ctx, n);
     let spotOn = 0, gaps = 0;
-    const lit: number[] = [];
+    const lit: number[] = [], off: number[] = [];
     for (let r = 0; r + 1 < n; r++) for (let c = 0; c + 1 < n; c++) {
       const square = [r * n + c, r * n + c + 1, (r + 1) * n + c, (r + 1) * n + c + 1];
       const vs = square.map(i => cells.v[i]!);
       const spread = Math.max(...vs) - Math.min(...vs);
-      if (spread === SPREAD) { spotOn++; lit.push(...square); }
+      if (spread === SPREAD) { spotOn++; lit.push(...square); } else off.push(...square);
       gaps += Math.abs(spread - SPREAD);
     }
     term(ctx, "spot-on-squares", `2×2 squares that spread exactly ${SPREAD}`, spotOn, cells.refs);
     focus(ctx, cells, lit);
     term(ctx, "spread-gaps", `steps the squares' spreads are away from ${SPREAD}`, gaps, cells.refs);
+    markFor(ctx, "spread-gaps", cells, off);   // the squares off the spread
   });
 }
 
@@ -76,19 +77,20 @@ export function originalStrangers(): RuleFamily<BoardState, None> {
     const n = sizeOf(ctx);
     const cells = readBoard(ctx, n);
     let pairs = 0, ones = 0;
-    const lit: number[] = [];
+    const lit: number[] = [], beside: number[] = [];
     // The touching pairs inside the boxes: in each row and each column, cells 1 and 2, 3 and 4, and so on.
     for (let k = 0; k < n; k++) for (let j = 0; j + 1 < n; j += 2) {
       for (const [i, o] of [[k * n + j, k * n + j + 1], [j * n + k, (j + 1) * n + k]] as const) {
         const a = cells.v[i]!, b = cells.v[o]!;
         if (a * b < 2 || gcd(a, b) > 1) continue;   // a 0, two 1s, or a shared divisor
-        if (a === 1 || b === 1) ones++;
+        if (a === 1 || b === 1) { ones++; beside.push(i, o); }
         else if (Math.abs(a - b) > 1) { pairs++; lit.push(i, o); }
       }
     }
     term(ctx, "stranger-pairs", "touching strangers in a box, both bigger than 1", pairs, cells.refs);
     focus(ctx, cells, lit);
     term(ctx, "ones-beside-bigger", "1s touching a bigger number in their box", ones, cells.refs);
+    markFor(ctx, "ones-beside-bigger", cells, beside);
   });
 }
 
@@ -138,15 +140,16 @@ export function originalCrosswiseThrees(): RuleFamily<BoardState, None> {
     const n = sizeOf(ctx);
     const cells = readBoard(ctx, n);
     let threes = 0, gaps = 0;
-    const lit: number[] = [];
+    const lit: number[] = [], off: number[] = [];
     for (let r = 0; r < n; r++) for (let c = 0; r + c < n - 1; c++) {
       const i = r * n + c, o = (n - 1 - c) * n + (n - 1 - r);
-      const off = Math.abs(Math.abs(cells.v[i]! - cells.v[o]!) - APART);
-      if (off === 0) { threes++; lit.push(i, o); }
-      gaps += off;
+      const away = Math.abs(Math.abs(cells.v[i]! - cells.v[o]!) - APART);
+      if (away === 0) { threes++; lit.push(i, o); } else off.push(i, o);
+      gaps += away;
     }
     term(ctx, "pairs-three-apart", `folded pairs ${APART} apart`, threes, cells.refs);
     focus(ctx, cells, lit);
     term(ctx, "fold-gaps", `steps the folded pairs' differences are away from ${APART}`, gaps, cells.refs);
+    markFor(ctx, "fold-gaps", cells, off);   // the pairs not 3 apart
   });
 }
