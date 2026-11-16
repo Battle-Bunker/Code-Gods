@@ -35,7 +35,7 @@ const FIXED_POINT = [
   /\bkeep (it|them|the line) (there|as it is|where it is|unchanged)\b/i,
   /\b(end|target|final) state\b/i,
   /\ba state to reach\b/i,
-  /\btoward (its|their|a|the) (own )?state\b/i,
+  /\btowards? (its |their |a |the )?(own )?states?\b/i,
   /\bdefend(s|ed|ing)? (it|them|the line|lines)?\b/i,
   /\b(line|board|pair|object)s? [\d, and]+ (is|are) (yours|mine|theirs)\b/i,
   /\bagreed to leave\b/i,
@@ -51,6 +51,7 @@ const ALLOWED: readonly { readonly text: string; readonly why: string }[] = [
   { text: "never a final state to hold", why: "says the opposite" },
   { text: "there is no final state to reach", why: "says the opposite" },
   { text: "not a state to reach", why: "says the opposite" },
+  { text: "climbs step by step towards states that pay both sides", why: "a code comment in climb.tsx about hill climbing upward, not text a player reads" },
 ];
 
 /** Every text the lint reads, with where it came from. */

@@ -31,7 +31,7 @@ def score(m, c, p, tie):
 
 FAR = 2      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-LEAVE = []      # lines your agent skips, e.g. [19] or [4, 9]: it does not act on them (others still may)
+LEAVE = []      # lines your agent skips, e.g. [19] or [4, 9]: others may still move them
 PROTECT = []    # lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
 

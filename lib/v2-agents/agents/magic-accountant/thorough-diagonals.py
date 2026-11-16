@@ -18,7 +18,7 @@ def score(b, p):
 
 FAR = 1      # how far one change may go
 QUOTES = 6  # at most this many plans are priced (each price is a host call)
-LEAVE = []      # boards your agent skips, e.g. [19] or [4, 9]: it does not act on them (others still may)
+LEAVE = []      # boards your agent skips, e.g. [19] or [4, 9]: others may still move them
 PROTECT = []    # boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 LINE, LINES = [], []   # the rows and columns: their names, and their cells
 for i in range(4):
