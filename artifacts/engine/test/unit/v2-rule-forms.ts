@@ -35,6 +35,7 @@ export const KINDS = {
   "colour-count": "a number counting the colours around it",
   repeats: "equal numbers sharing a row, a column or a side (v1's Full House and Snap!)",
   balance: "two halves of a row or column adding up to the same (v1's Seesaw)",
+  "called-numbers": "cells showing dealt numbers, and complete rows, columns or diagonals of them",
 } as const;
 export type Kind = keyof typeof KINDS;
 
@@ -129,4 +130,5 @@ export const RULE_FORMS: Readonly<Record<string, FamilyForms>> = {
   "twenty-one": { kind: "line-sums", forms: { "bust-by-little": "distance", "crossing-blackjacks": "second-axis", "low-cards": "small-values" } },
   seesaw: { kind: "balance", forms: { "other-way": "second-axis", "heavy-seesaws": "big-values", "ends-and-middle": "distance" } },
   snap: { kind: "repeats", forms: { "snap-values": "big-values", "snap-kinds": "all-different", "snap-reach": "reach" } },
+  "bingo-caller": { kind: "called-numbers", forms: { "near-bingo": "count", "big-dabs": "big-values", "diagonal-dabs": "diagonals" } },
 };

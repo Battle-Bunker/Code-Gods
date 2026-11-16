@@ -23,6 +23,9 @@ import { fullHouse } from "./v1-full-house.ts";
 import { twentyOne } from "./v1-twenty-one.ts";
 import { seesaw } from "./v1-seesaw.ts";
 import { snap } from "./v1-snap.ts";
+import { bingoCaller } from "./v1-bingo-caller.ts";
+import { ladderOfNumbers } from "./v1-ladder-of-numbers.ts";
+import { sudokuScholar } from "./v1-sudoku-scholar.ts";
 import { boxEdges, boxes, cols, corners, folds, gcd, leaps, pairs, rows, strangers, windows } from "./units.ts";
 
 export { isPrimeCell };
@@ -398,5 +401,8 @@ export const beginnerGridFamilies = (n: number): readonly RuleFamily<GridState, 
 
 /** Every grid family: the beginner pool, the second pool, the parameterised trials (param-families.ts, in no preset yet), then the coupled rules (more-families.ts). */
 export const gridFamilies = (n: number): readonly RuleFamily<GridState, any>[] =>
-  [...beginnerGridFamilies(n), steadySteps(n), boxTotals(n), primeCells(n), ...paramGridFamilies(n), divisibility(n), leadingDigits(n), roundNumbers(n), numberBonds(n), ...(n >= 3 ? [columnAddition(n)] : []), ...moreGridFamilies(n),   // a written sum needs three rows
-    fullHouse(n), twentyOne(n), seesaw(n), snap(n), lookingGlass(n), pinwheel(n), constellation(n)];
+  [...beginnerGridFamilies(n), steadySteps(n), boxTotals(n), primeCells(n), ...paramGridFamilies(n), divisibility(n), leadingDigits(n),
+    // v1 ports, 16 Nov (the grid baseline): each its own v1-*.ts. A written sum needs three rows.
+    roundNumbers(n), numberBonds(n), ...(n >= 3 ? [columnAddition(n)] : []), fullHouse(n), twentyOne(n), seesaw(n), snap(n),
+    lookingGlass(n), pinwheel(n), constellation(n), bingoCaller(n), ladderOfNumbers(n), sudokuScholar(n),
+    ...moreGridFamilies(n)];

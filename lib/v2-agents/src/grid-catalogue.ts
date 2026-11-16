@@ -667,6 +667,39 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
     },
   },
   {
+    family: "bingo-caller", simple: ["swap"],
+    mainSays: "the dabs (cells showing a called number), and 4 more for each complete row, column or long diagonal of dabs (more is better)",
+    main: {
+      ts: [
+        "const dab = b.map(x => p.called.includes(x));   // the dabbed cells: those showing a called number",
+        "const ways = [0, 1, 2, 3].flatMap(k => [[0, 1, 2, 3].map(j => 4 * k + j), [0, 1, 2, 3].map(j => 4 * j + k)]).concat([[0, 5, 10, 15], [3, 6, 9, 12]]);   // the rows, the columns and the two long diagonals",
+        "const main = dab.filter(x => x).length + 4 * ways.filter(w => w.every(i => dab[i])).length;   // a dab scores 1, a BINGO 4 more",
+      ],
+      py: [
+        "dab = [x in p[\"called\"] for x in b]   # the dabbed cells: those showing a called number",
+        "ways = [[4 * k + j for j in range(4)] for k in range(4)] + [[4 * j + k for j in range(4)] for k in range(4)] + [[0, 5, 10, 15], [3, 6, 9, 12]]   # the rows, the columns and the two long diagonals",
+        "main = sum(dab) + 4 * len([w for w in ways if all(dab[i] for i in w)])   # a dab scores 1, a BINGO 4 more",
+      ],
+    },
+    tieBreakers: {
+      "near-bingo": {
+        ts: "ways.filter(w => w.filter(i => dab[i]).length === 3).length", py: "len([w for w in ways if sum(dab[i] for i in w) == 3])",
+        says: "more rows, columns and long diagonals one dab short of BINGO is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps bring a row one dab short without losing a dab?",
+      },
+      "big-dabs": {
+        ts: "b.reduce((t, x, i) => (dab[i] ? t + x : t), 0)", py: "sum(x for x, d in zip(b, dab) if d)",
+        says: "the dabbed numbers adding up to more is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; can it move a dab to a bigger called number?",
+      },
+      "diagonal-dabs": {
+        ts: "[0, 5, 10, 15, 3, 6, 9, 12].filter(i => dab[i]).length", py: "len([i for i in (0, 5, 10, 15, 3, 6, 9, 12) if dab[i]])",
+        says: "more dabs on the two long diagonals is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps dab a diagonal cell without losing another dab?",
+      },
+    },
+  },
+  {
     family: "divisibility", simple: ["swap"],
     mainSays: "the q's dividing the four readings (or the two differences), added up, less the repeated rows and columns (more is better)",
     main: {

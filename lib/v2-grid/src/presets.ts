@@ -7,6 +7,7 @@ import { tieBreakersOn } from "@workspace/v2-core";
 import { gridType, grid4 } from "./type.ts";
 import { beginnerGridFamilies } from "./families.ts";
 import { moreGridFamilies } from "./more-families.ts";
+import { BINGO_DEALT } from "./v1-bingo-caller.ts";
 import { gridParams } from "./grid.ts";
 
 const BEGINNER = new Set(beginnerGridFamilies(gridParams(grid4).size).map(f => f.id));
@@ -49,7 +50,9 @@ export const BEGINNER_DEALT: Readonly<Record<string, readonly string[]>> = {
 
 /** The parameters the more-rules pool deals, for its families that have several. */
 const MORE_PARAMS: Readonly<Record<string, unknown>> = { uphill: { corner: "BR" }, staircase: { direction: "right" }, "magic-accountant": { axis: "rows", T: 18 },
-  "round-numbers": { axis: "rows" }, "column-addition": { top: 0 }, "full-house": { axis: "rows" }, seesaw: { axis: "rows" }, constellation: { star: 0 } };
+  "round-numbers": { axis: "rows" }, "column-addition": { top: 0 }, "full-house": { axis: "rows" }, seesaw: { axis: "rows" }, constellation: { star: 0 },
+  "bingo-caller": BINGO_DEALT,   // one of v1's 210 called sets (v1-bingo-caller.ts)
+};
 
 const poolOf = (ids: Set<string>, dealt?: Readonly<Record<string, readonly string[]>>): readonly GridPoolRule[] =>
   gridType.families.filter(f => ids.has(f.id)).flatMap(f => f.dealable(grid4).map(params => ({
