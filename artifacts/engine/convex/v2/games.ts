@@ -32,6 +32,8 @@ export function headerView(game: Doc<"v2Games">, me: Doc<"v2Members">["_id"] | n
     timeScale: timeScaleOf(game.settings),
     // Parameter drift (drift.ts): drift k at world second k × driftSeconds, so the app counts down from the clock.
     driftSeconds: driftSecondsOf(game),
+    // Line turnover (retirement-design.md): at most this many live lines, the oldest retiring; null: none retire.
+    liveCap: game.settings.turnover?.liveCap ?? null,
   };
 }
 
