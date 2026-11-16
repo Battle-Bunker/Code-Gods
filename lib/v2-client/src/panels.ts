@@ -21,7 +21,7 @@ const BOARD: readonly GamePhase[] = ["planning", ...WORLD];
 export const REPLAY_PANE = "replay";
 const docked = (p: { pane: string }) => p.pane !== REPLAY_PANE;
 
-export const PANE_IDS = ["overview", "my-card", "objects", "object", "what-if", "feed", "agents", "forge", "race", "public-chat", "results", "others-care", "points-over-time", "rules", "assistant", "my-panels"] as const;
+export const PANE_IDS = ["overview", "my-card", "objects", "object", "what-if", "feed", "agents", "forge", "race", "public-chat", "results", "others-care", "points-over-time", "rules", "assistant", "my-panels", "code-output"] as const;
 export type PaneId = (typeof PANE_IDS)[number];
 
 export interface PaneDefinition {
@@ -54,6 +54,7 @@ export const PANES: Readonly<Record<PaneId, PaneDefinition>> = {
   rules: def({ id: "rules", title: "How to play", blurb: "The game in 90 seconds, with this game's settings.", phases: ALL, keywords: ["rules", "help", "how", "settings", "energy", "power"], home: "main" }),
   assistant: def({ id: "assistant", title: "Your assistant", blurb: "Ask your assistant for help, or let it play for you.", phases: ALL, keywords: ["assistant", "ask", "help", "autopilot", "ai"], home: "right" }),
   "my-panels": def({ id: "my-panels", title: "Your panels", blurb: "Panels you or your assistant wrote: open, edit, roll back or turn them off.", phases: ALL, keywords: ["panels", "custom", "widgets", "code"], home: "right" }),
+  "code-output": def({ id: "code-output", title: "Code results", blurb: "Your scripts' runs over the game's data: the table or JSON each returned, what it printed, and its code.", phases: ALL, keywords: ["code", "script", "run", "analysis", "results", "table"], home: "main" }),
   results: def({ id: "results", title: "How the game went", blurb: "Final standings and why you finished where you did.", phases: ["ended"], keywords: ["end", "winner", "final"], home: "main" }),
 };
 

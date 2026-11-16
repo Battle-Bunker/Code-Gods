@@ -220,3 +220,13 @@ test("'Copy room link' is a row wherever a room is in view (v1)", () => {
   assert.equal(copied, 1);
   assert.equal(paletteCommands(affordanceContext({ signedIn: true, admin: false }), host as never).some(r => r.id === "room-copy-link"), false, "not without a room");
 });
+
+test("a code run read opens the Code results pane, not a notice (v1's code-output panel, A15)", async () => {
+  const { READ_PANES, NOTICE_READS } = await import("../src/core/palette-commands.ts");
+  const { PANES } = await import("@workspace/v2-client");
+  for (const id of ["code.get", "code.list"]) {
+    assert.equal(READ_PANES[id], "code-output", id);
+    assert.ok(!NOTICE_READS.has(id), id);
+  }
+  assert.deepEqual([...PANES["code-output"].phases], ["planning", "live", "paused", "ended", "replay"], "every phase: a run can be about any game");
+});
