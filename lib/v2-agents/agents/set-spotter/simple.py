@@ -1,5 +1,5 @@
 # Set Spotter · Simple
-# Your rule: SETs of three in a line.
+# Your rule: SETs of three in a row.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 # other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
@@ -19,7 +19,7 @@ def score(B, p, tie):
                     a, b, d = r * B.n + c, (r + dr) * B.n + c + dc, r2 * B.n + c2
                     if len({B.c[a], B.c[b], B.c[d]}) != 2 and B.v[b] - B.v[a] == B.v[d] - B.v[b]:
                         main += 1
-    # main: SETs of three in a line
+    # main: SETs of three in a row
     return [main]
 
 

@@ -1,5 +1,5 @@
 # Colour Mirror · Example: matching colour pairs
-# Main part: mirror lines of colour. Secondary preference: matching colour pairs.
+# Main part: rows or columns that mirror their colours. Secondary preference: matching colour pairs.
 # What it does: reads the board once (a small read), tries changes in its own head, and takes the one that raises your
 # points most (your rarity times the other players'), working on your secondary preference once the main part is set.
 # Try this: change FAR to 2: it then also tries bigger number changes, which this rule ignores: watch the price go up for nothing.
@@ -10,12 +10,12 @@ def score(B, p):
     # B.n: its side; B.v: its numbers row by row; B.c: their colours ("red", ...); B.s: suits, on cards.
     main, pairs = 0, 0
     for k in range(B.n):
-        line = [k * B.n + j if p["axis"] == "rows" else j * B.n + k for j in range(B.n)]
-        m = sum(1 for j in range(B.n // 2) if B.c[line[j]] == B.c[line[B.n - 1 - j]])
+        run = [k * B.n + j if p["axis"] == "rows" else j * B.n + k for j in range(B.n)]
+        m = sum(1 for j in range(B.n // 2) if B.c[run[j]] == B.c[run[B.n - 1 - j]])
         pairs += m
         if m == B.n // 2:
             main += 1
-    return [main, pairs]   # main: mirror lines of colour; secondary: matching colour pairs
+    return [main, pairs]   # main: rows or columns that mirror their colours; secondary: matching colour pairs
 
 
 FAR = 1      # how far one change of a number may go

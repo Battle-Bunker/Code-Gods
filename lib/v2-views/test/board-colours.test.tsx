@@ -23,3 +23,8 @@ test("cards show their glyphs", () => {
   const html = renderToStaticMarkup(<RepView type={board7Type} state={s} rep="cells" size="expanded" marks={[]} terms={[]} />);
   assert.match(html, />A♠</);
 });
+
+test("a coloured board is a grid to a player", async () => {
+  const { nounOf } = await import("../src/refs.ts");
+  assert.equal(nounOf(board4Type), "grid");
+});

@@ -10,7 +10,7 @@
 def score(B, p):
     # How good is the board B for your rule? [main part, secondary]: bigger is better.
     # B.n: its side; B.v: its numbers row by row; B.c: their colours ("red", ...); B.s: suits, on cards.
-    opp = lambda i, j: (B.c[i] == p["a"] and B.c[j] == p["b"]) or (B.c[i] == p["b"] and B.c[j] == p["a"])
+    opp = lambda i, j: (B.c[i] == p["first"] and B.c[j] == p["second"]) or (B.c[i] == p["second"] and B.c[j] == p["first"])
     right = lambda i: i + 1 if i % B.n < B.n - 1 else -1
     down = lambda i: i + B.n if i + B.n < B.n * B.n else -1
     main, seams = 0, 0

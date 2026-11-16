@@ -1,5 +1,5 @@
 // Set Spotter · Bold
-// Your rule: SETs of three in a line.
+// Your rule: SETs of three in a row.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
@@ -16,7 +16,7 @@ function score(B, p, tie) {
     const a = r * B.n + c, b = (r + dr) * B.n + c + dc, d = r2 * B.n + c2;
     if (new Set([B.c[a], B.c[b], B.c[d]]).size !== 2 && B.v[b] - B.v[a] === B.v[d] - B.v[b]) main++;
   }
-  // main: SETs of three in a line
+  // main: SETs of three in a row
   return [main];
 }
 

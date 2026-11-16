@@ -33,7 +33,7 @@ export const BOARD_CATALOGUE: readonly BoardFamilyEntry[] = [
     family: "chessmaster", moves: ["colours"], mainSays: "2×2 chessboards of your two colours",
     main: {
       ts: [
-        "const opp = (i, j) => (B.c[i] === p.a && B.c[j] === p.b) || (B.c[i] === p.b && B.c[j] === p.a);",
+        "const opp = (i, j) => (B.c[i] === p.first && B.c[j] === p.second) || (B.c[i] === p.second && B.c[j] === p.first);",
         NEIGHBOURS_TS,
         "let main = 0, seams = 0;",
         "for (let i = 0; i < B.n * B.n; i++) {",
@@ -42,7 +42,7 @@ export const BOARD_CATALOGUE: readonly BoardFamilyEntry[] = [
         "}",
       ],
       py: [
-        "opp = lambda i, j: (B.c[i] == p[\"a\"] and B.c[j] == p[\"b\"]) or (B.c[i] == p[\"b\"] and B.c[j] == p[\"a\"])",
+        "opp = lambda i, j: (B.c[i] == p[\"first\"] and B.c[j] == p[\"second\"]) or (B.c[i] == p[\"second\"] and B.c[j] == p[\"first\"])",
         ...NEIGHBOURS_PY.split("\n"),
         "main, seams = 0, 0",
         "for i in range(B.n * B.n):",
@@ -78,14 +78,14 @@ export const BOARD_CATALOGUE: readonly BoardFamilyEntry[] = [
     tieBreakers: {},
   },
   {
-    family: "colour-mirror", moves: ["colours"], mainSays: "mirror lines of colour",
+    family: "colour-mirror", moves: ["colours"], mainSays: "rows or columns that mirror their colours",
     main: {
       ts: [
         "let main = 0, pairs = 0;",
         "for (let k = 0; k < B.n; k++) {",
-        "  const line = [...Array(B.n).keys()].map(j => (p.axis === \"rows\" ? k * B.n + j : j * B.n + k));",
+        "  const run = [...Array(B.n).keys()].map(j => (p.axis === \"rows\" ? k * B.n + j : j * B.n + k));",
         "  let m = 0;",
-        "  for (let j = 0; j < B.n >> 1; j++) if (B.c[line[j]] === B.c[line[B.n - 1 - j]]) m++;",
+        "  for (let j = 0; j < B.n >> 1; j++) if (B.c[run[j]] === B.c[run[B.n - 1 - j]]) m++;",
         "  pairs += m;",
         "  if (m === B.n >> 1) main++;",
         "}",
@@ -93,8 +93,8 @@ export const BOARD_CATALOGUE: readonly BoardFamilyEntry[] = [
       py: [
         "main, pairs = 0, 0",
         "for k in range(B.n):",
-        "    line = [k * B.n + j if p[\"axis\"] == \"rows\" else j * B.n + k for j in range(B.n)]",
-        "    m = sum(1 for j in range(B.n // 2) if B.c[line[j]] == B.c[line[B.n - 1 - j]])",
+        "    run = [k * B.n + j if p[\"axis\"] == \"rows\" else j * B.n + k for j in range(B.n)]",
+        "    m = sum(1 for j in range(B.n // 2) if B.c[run[j]] == B.c[run[B.n - 1 - j]])",
         "    pairs += m",
         "    if m == B.n // 2:",
         "        main += 1",
@@ -210,7 +210,7 @@ export const BOARD_CATALOGUE: readonly BoardFamilyEntry[] = [
     tieBreakers: {},
   },
   {
-    family: "set-spotter", moves: ["add", "colours"], mainSays: "SETs of three in a line",
+    family: "set-spotter", moves: ["add", "colours"], mainSays: "SETs of three in a row",
     main: {
       ts: [
         "let main = 0;",

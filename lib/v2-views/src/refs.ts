@@ -2,7 +2,7 @@
 import { elementDecl, refKey, representation, type ElementRef, type Mark, type ObjectType } from "@workspace/v2-core";
 
 /** The game's own noun for an object of this type ("line", "grid"), never "object" (ux-lessons 2.5). */
-export const nounOf = <S>(type: ObjectType<S>): string => type.id;
+export const nounOf = <S>(type: ObjectType<S>): string => type.id.replace(/^board\d+$/, "grid");   // the coloured boards (board4 … board7) are grids to a player
 
 /** Every element ref a mark cites. */
 export function markRefs(m: Mark): readonly ElementRef[] {

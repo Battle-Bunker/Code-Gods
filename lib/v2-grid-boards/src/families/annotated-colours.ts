@@ -44,7 +44,7 @@ export function parityPainter(): RuleFamily<BoardState, ParityParams> {
 export interface MirrorParams { readonly axis: "rows" | "columns" }
 export function colourMirror(): RuleFamily<BoardState, MirrorParams> {
   const shape: Shape<MirrorParams> = {
-    main: more<MirrorParams>("colour-mirrors", "mirror lines of colour",
+    main: more<MirrorParams>("colour-mirrors", "rows or columns that mirror their colours",
       p => `Make ${p.axis} whose colours read the same forwards and backwards.`),
     tieBreakers: [more<MirrorParams>("colour-pairs", "matching colour pairs",
       p => `As many matching pairs (first and last, second and second-last …) in any of the ${p.axis} as possible.`)],
@@ -55,11 +55,11 @@ export function colourMirror(): RuleFamily<BoardState, MirrorParams> {
     let mirrors = 0, pairs = 0;
     const lit: number[] = [];
     for (let k = 0; k < n; k++) {
-      const line = Array.from({ length: n }, (_, j) => (p.axis === "rows" ? k * n + j : j * n + k));
+      const run = Array.from({ length: n }, (_, j) => (p.axis === "rows" ? k * n + j : j * n + k));
       let matches = 0;
-      for (let j = 0; j < n >> 1; j++) if (cells.c[line[j]!] === cells.c[line[n - 1 - j]!]) matches++;
+      for (let j = 0; j < n >> 1; j++) if (cells.c[run[j]!] === cells.c[run[n - 1 - j]!]) matches++;
       pairs += matches;
-      if (matches === n >> 1) { mirrors++; lit.push(...line); }
+      if (matches === n >> 1) { mirrors++; lit.push(...run); }
     }
     term(ctx, "colour-mirrors", `mirror ${p.axis} of colour`, mirrors, cells.refs);
     focus(ctx, cells, lit);
@@ -188,8 +188,8 @@ export function kingdom(): RuleFamily<BoardState, KingdomParams> {
 
 export function setSpotter(): RuleFamily<BoardState, None> {
   const shape: Shape<None> = {
-    main: more<None>("sets", "SETs of three in a line",
-      "Spot SETs: 3 cells in a line (across, down or diagonally) whose colours are all the same or all different, and whose numbers are all the same or evenly spaced (like 2, 5, 8). Each SET scores 1."),
+    main: more<None>("sets", "SETs of three in a row",
+      "Spot SETs: 3 cells in a row (across, down or diagonally) whose colours are all the same or all different, and whose numbers are all the same or evenly spaced (like 2, 5, 8). Each SET scores 1."),
     tieBreakers: [],
   };
   return family<None>("set-spotter", "Set Spotter", shape, v => (paletteOf(v).length >= 3 ? [{}] : []), ctx => {
@@ -203,7 +203,7 @@ export function setSpotter(): RuleFamily<BoardState, None> {
       const a = r * n + c, b = (r + dr) * n + c + dc, d = r2 * n + c2;
       if (new Set([cells.c[a], cells.c[b], cells.c[d]]).size !== 2 && cells.v[b]! - cells.v[a]! === cells.v[d]! - cells.v[b]!) { sets++; lit.push(a, b, d); }
     }
-    term(ctx, "sets", "SETs of three in a line", sets, cells.refs);
+    term(ctx, "sets", "SETs of three in a row", sets, cells.refs);
     focus(ctx, cells, lit);
   });
 }

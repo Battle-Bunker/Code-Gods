@@ -36,10 +36,10 @@ function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<stri
   const blurred = useOthersBlurred();
   const g = useGame(); const length = g ? fixedLength(g) : null;
   const notes = useContext(NotesContext).get(move.seq);
-  // A grid's change is drawn (a small board, the changed cells marked), not written as sixteen digits.
+  // A grid's change (digits or a coloured board) is drawn (a small board, the changed cells marked), not written out.
   const board = useMemo(() => {
     const type = objectTypeOf(variant);
-    if (type.id !== "grid") return null;
+    if (type.representations[0]?.scene !== "grid") return null;   // a grid of digits, or a coloured board
     try { return { type, before: decodeState(move.stateBefore, variant), after: decodeState(move.stateAfter, variant), site: move.calls[0]?.site ?? 0 }; } catch { return null; }
   }, [move, variant]);
   const text = useMemo(() => {

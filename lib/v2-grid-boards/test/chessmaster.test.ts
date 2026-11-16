@@ -4,10 +4,10 @@ import { evaluateSite } from "@workspace/v2-core";
 import { board4Type, board4rgb, chessmaster, decodeBoard } from "../src/index.ts";
 
 const f = chessmaster();
-const score = (w: string, p = { a: "red", b: "blue" }, tb = "seams") => evaluateSite(board4Type, f, p, decodeBoard(w), board4rgb, 0, tb);
+const score = (w: string, p = { first: "red", second: "blue" }, tb = "seams") => evaluateSite(board4Type, f, p, decodeBoard(w), board4rgb, 0, tb);
 
 test("Chessmaster deals one rule per pair of the board's colours", () => {
-  assert.deepEqual(f.dealable(board4rgb), [{ a: "red", b: "green" }, { a: "red", b: "blue" }, { a: "green", b: "blue" }]);
+  assert.deepEqual(f.dealable(board4rgb), [{ first: "red", second: "green" }, { first: "red", second: "blue" }, { first: "green", second: "blue" }]);
 });
 
 test("a full chessboard of red and blue has 9 little chessboards and 24 seams; numbers do not matter", () => {

@@ -1,5 +1,5 @@
 // Colour Mirror · Naive (for learning)
-// Main part: mirror lines of colour. Secondary preference: matching colour pairs.
+// Main part: rows or columns that mirror their colours. Secondary preference: matching colour pairs.
 // What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 // board it is offered, whatever it costs and whatever the other players think of the board. It is here to learn from.
 // Try this: summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.
@@ -9,13 +9,13 @@
 function score(B, p) {
   let main = 0, pairs = 0;
   for (let k = 0; k < B.n; k++) {
-    const line = [...Array(B.n).keys()].map(j => (p.axis === "rows" ? k * B.n + j : j * B.n + k));
+    const run = [...Array(B.n).keys()].map(j => (p.axis === "rows" ? k * B.n + j : j * B.n + k));
     let m = 0;
-    for (let j = 0; j < B.n >> 1; j++) if (B.c[line[j]] === B.c[line[B.n - 1 - j]]) m++;
+    for (let j = 0; j < B.n >> 1; j++) if (B.c[run[j]] === B.c[run[B.n - 1 - j]]) m++;
     pairs += m;
     if (m === B.n >> 1) main++;
   }
-  return [main, pairs];   // main: mirror lines of colour; secondary: matching colour pairs
+  return [main, pairs];   // main: rows or columns that mirror their colours; secondary: matching colour pairs
 }
 
 const FAR = 1;      // how far one change of a number may go

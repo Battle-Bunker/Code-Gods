@@ -1,5 +1,5 @@
 // Set Spotter · Naive (for learning)
-// Your rule: SETs of three in a line.
+// Your rule: SETs of three in a row.
 // What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 // board it is offered, whatever it costs and whatever the other players think of the board. It is here to learn from.
 // Try this: summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.
@@ -14,7 +14,7 @@ function score(B, p, tie) {
     const a = r * B.n + c, b = (r + dr) * B.n + c + dc, d = r2 * B.n + c2;
     if (new Set([B.c[a], B.c[b], B.c[d]]).size !== 2 && B.v[b] - B.v[a] === B.v[d] - B.v[b]) main++;
   }
-  // main: SETs of three in a line
+  // main: SETs of three in a row
   return [main];
 }
 

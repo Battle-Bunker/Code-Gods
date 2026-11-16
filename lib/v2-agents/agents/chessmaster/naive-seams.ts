@@ -7,7 +7,7 @@
 // How good is the board B for your rule? [main part, secondary]: bigger is better.
 // B.n: its side; B.v: its numbers row by row; B.c: their colours ("red", ...); B.s: suits, on cards.
 function score(B, p) {
-  const opp = (i, j) => (B.c[i] === p.a && B.c[j] === p.b) || (B.c[i] === p.b && B.c[j] === p.a);
+  const opp = (i, j) => (B.c[i] === p.first && B.c[j] === p.second) || (B.c[i] === p.second && B.c[j] === p.first);
   const right = i => (i % B.n < B.n - 1 ? i + 1 : -1), down = i => (i + B.n < B.n * B.n ? i + B.n : -1);
   let main = 0, seams = 0;
   for (let i = 0; i < B.n * B.n; i++) {

@@ -79,7 +79,14 @@ test("Grids · original colours deals v1's eight colour families, Picture Frame 
 
 test("colour-renamed twins of a rule are valued as one: colours are renamed to the board's first, in order", async () => {
   const { canonicalColours } = await import("../src/index.ts");
-  assert.deepEqual(canonicalColours({ a: "blue", b: "red" }, v4), { a: "red", b: "green" });
+  assert.deepEqual(canonicalColours({ first: "blue", second: "red" }, v4), { first: "red", second: "green" });
   assert.deepEqual(canonicalColours({ colour: "green", symbol: "7" }, v4), { colour: "red", symbol: "7" });
   assert.deepEqual(canonicalColours({ target: 10 }, v4), { target: 10 });
+});
+
+test("no board family has a one- or two-letter parameter (a card would replace that word everywhere)", async () => {
+  const { BOARD_FAMILIES, BOARD_VARIANTS } = await import("../src/index.ts");
+  for (const f of BOARD_FAMILIES) for (const v of BOARD_VARIANTS) for (const p of f.dealable(v) as object[]) {
+    for (const k of Object.keys(p)) assert.ok(k.length > 2, `${f.id}: parameter ${k}`);
+  }
 });

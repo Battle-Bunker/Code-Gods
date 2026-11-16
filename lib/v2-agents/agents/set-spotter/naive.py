@@ -1,5 +1,5 @@
 # Set Spotter · Naive (for learning)
-# Your rule: SETs of three in a line.
+# Your rule: SETs of three in a row.
 # What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 # board it is offered, whatever it costs and whatever the other players think of the board. It is here to learn from.
 # Try this: summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.
@@ -17,7 +17,7 @@ def score(B, p, tie):
                     a, b, d = r * B.n + c, (r + dr) * B.n + c + dc, r2 * B.n + c2
                     if len({B.c[a], B.c[b], B.c[d]}) != 2 and B.v[b] - B.v[a] == B.v[d] - B.v[b]:
                         main += 1
-    # main: SETs of three in a line
+    # main: SETs of three in a row
     return [main]
 
 
