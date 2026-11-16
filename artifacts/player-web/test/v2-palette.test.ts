@@ -180,3 +180,9 @@ test("'Focus assistant (Ctrl+`)' is a row in a game with the assistant, and focu
   const off = affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: true, spectator: false }], preset: "lines-beginner" } as never, header: { phase: "live", me: "m1" } as never, aiOff: "No AI here." });
   assert.equal(paletteCommands(off, host as never).some(r => r.id === "assistant-focus"), false, "not in a room without AI");
 });
+
+test("server info reads as one line: builds, sandboxes, tick (v1's Server info)", async () => {
+  const { serverInfoWords } = await import("../src/core/palette-commands.ts");
+  assert.equal(serverInfoWords({ builds: { app: { build: "a1" }, functions: null }, sandboxes: [{ language: "python", state: "failed", reason: "boot timed out" }], engine: { tickMs: 1500 } }),
+    "Builds: app a1, functions not recorded. Sandboxes: python failed (boot timed out). A tick every 1.5 s.");
+});

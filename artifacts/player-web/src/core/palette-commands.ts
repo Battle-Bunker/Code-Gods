@@ -34,7 +34,7 @@ export const ROOM_READS: ReadonlySet<string> = new Set(["room.get", "room.histor
 /** Reads the avatar menu shows (who you are, your connected apps). */
 export const ACCOUNT_READS: ReadonlySet<string> = new Set(["account.whoami", "account.connections"]);
 /** Reads the palette answers itself, in a notice (a command's status). */
-export const NOTICE_READS: ReadonlySet<string> = new Set(["receipt.get"]);
+export const NOTICE_READS: ReadonlySet<string> = new Set(["receipt.get", "server.info"]);
 
 export interface PaletteHost {
   perform(id: AffordanceId, args: unknown): Promise<OpOutcome>;
@@ -105,6 +105,8 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
   if (id === "agent.leaveAlone" && panes) {
     return { kind: "submit", run: () => requestForge({ kind: "leave", numbers: [] }, p => panes.open(p)) };
   }
+  // v1's Server info sheet: what this server runs, in a notice.
+  if (id === "server.info") return { kind: "submit", run: async () => { const out = await run(host, id, {}); host.notify?.(serverInfoWords(out)); return out; } };
   if (!e.needsInput) return { kind: "submit", run: () => run(host, id, {}) };
   const sole = soleParam(id);
   if (sole) {
@@ -128,6 +130,14 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
 export function receiptWords(result: unknown): string {
   const r = result as { applied: boolean; operation: string | null };
   return r.applied ? `That command (${r.operation}) went through.` : "That command did not apply: it is safe to send it again.";
+}
+
+/** The server's builds, sandboxes and tick in one line (v1's Server info). */
+export function serverInfoWords(result: unknown): string {
+  const r = result as { builds: Record<"app" | "functions", { build: string } | null>; sandboxes: { language: string; state: string; reason: string | null }[]; engine: { tickMs: number } };
+  const builds = `app ${r.builds.app?.build ?? "not recorded"}, functions ${r.builds.functions?.build ?? "not recorded"}`;
+  const sandboxes = r.sandboxes.map(s => `${s.language} ${s.state}${s.reason ? ` (${s.reason})` : ""}`).join(", ");
+  return `Builds: ${builds}. Sandboxes: ${sandboxes}. A tick every ${r.engine.tickMs / 1000} s.`;
 }
 
 /** What a field's operation says once done. */
