@@ -355,17 +355,16 @@ async function scoreboard(ctx: MutationCtx, game: Doc<"v2Games">, world: number)
 
 // ---------------------------------------------------------------- phases
 
-/** Planning ends (its deadline, everyone ready, or the owner): births, values, the lease, the first tick. */
-export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
-  if (game.phase !== "planning") return;
-  // Planning holds past its deadline until every language's sandbox is ready (readiness.ts, v1): world time then
-  // starts for everyone at once, and no agent waits for a boot.
-  if (!await allReady(ctx)) {
-    await ensureWarm(ctx);
-    await ctx.scheduler.runAfter(HOLD_MS, PLANNING_ENDS, { gameId: game._id });
-    return;
-  }
-  const now = Date.now(), seats = await seatRules(ctx, game);
+/**
+ * The starting board, at world 0: the starting objects born, valued and scored, and the first standings published.
+ * Done when the game starts (lobby.ts startGame), so planning shows the board each player plans against (v1; baseline-1
+ * item 3); world time starts later (startWorld). Idempotent: a game whose board exists already is left alone.
+ * Returns whether it published the first standings.
+ */
+export async function bornAtStart(ctx: MutationCtx, game: Doc<"v2Games">): Promise<boolean> {
+  const engine = await engineOf(ctx, game._id);
+  if (engine.objects > 0) return false;
+  const seats = await seatRules(ctx, game);
   const states = distinctBirths(game.variant, game.seed, game.settings.startingObjects);
   const changes = [];
   for (const [i, wire] of states.entries()) {
@@ -380,14 +379,35 @@ export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
   const cap = capOf(game.settings), live = states.map((_, i) => i + 1), drops: Drops = new Map();
   while (cap !== null && live.length > cap) await retireLine(ctx, game, live.shift()!, 0, drops);
   await applyDrops(ctx, game._id, drops);
+  const clock = await clockOf(ctx, game._id);
+  await ctx.db.patch(engine._id, { objects: states.length, ...(cap !== null ? { live } : {}) });
+  await ctx.db.patch(clock._id, { objects: states.length });
+  await scoreboard(ctx, game, 0);
+  return true;
+}
+
+/**
+ * Planning ends (its deadline, everyone ready, or the owner): the lease, world time and the first tick. The board was
+ * born when the game started (bornAtStart); a game started before that (or a fixture) gets it here.
+ */
+export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
+  if (game.phase !== "planning") return;
+  // Planning holds past its deadline until every language's sandbox is ready (readiness.ts, v1): world time then
+  // starts for everyone at once, and no agent waits for a boot.
+  if (!await allReady(ctx)) {
+    await ensureWarm(ctx);
+    await ctx.scheduler.runAfter(HOLD_MS, PLANNING_ENDS, { gameId: game._id });
+    return;
+  }
+  const now = Date.now();
+  await bornAtStart(ctx, game);
   const leaseId = crypto.randomUUID();
   const engine = await engineOf(ctx, game._id), clock = await clockOf(ctx, game._id);
-  await ctx.db.patch(engine._id, { leaseId, objects: states.length, ...(cap !== null ? { live } : {}) });
-  await ctx.db.patch(clock._id, { lastTickAt: now, worldSeconds: 0, objects: states.length });
+  await ctx.db.patch(engine._id, { leaseId });
+  await ctx.db.patch(clock._id, { lastTickAt: now, worldSeconds: 0 });
   // A dilated game's world runs timeScale times faster than the wall (decision 37): it ends that much sooner.
   await ctx.db.patch(game._id, { phase: "live", startedAt: now, endsAt: now + endWorldOf(game) * 1000 / timeScaleOf(game.settings) });
   await appendEvent(ctx, game._id, "phase", { phase: "live", worldSeconds: 0 });
-  await scoreboard(ctx, { ...game, phase: "live" }, 0);
   await ctx.scheduler.runAfter(0, TICK, { gameId: game._id, leaseId });
   await ctx.scheduler.runAfter(WATCHDOG_MS, WATCHDOG, { gameId: game._id, leaseId });
 }

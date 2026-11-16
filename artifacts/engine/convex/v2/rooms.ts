@@ -38,7 +38,7 @@ export async function roomView(ctx: QueryCtx, room: Doc<"v2Rooms">, userId: stri
     members: members.map(m => ({
       memberId: m._id, name: m.name, kind: m.kind, spectator: m.spectator, owner: !!m.userId && m.userId === room.ownerId, me: m.userId === userId,
     })),
-    game, lastGame, bidding: room.bidding ?? null,
+    game, lastGame, bidding: room.bidding ?? null, setup: room.setup ?? null,
   };
 }
 

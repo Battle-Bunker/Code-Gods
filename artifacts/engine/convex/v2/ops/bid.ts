@@ -7,7 +7,8 @@ import { OpFailure } from "@workspace/v2-affordances";
 import { BID_MAX_PERCENT, BID_MIN_PERCENT } from "@workspace/v2-economy";
 import type { Doc } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
-import { bidders, closeIfAllDone, openBids } from "../lobby";
+import { closeIfAllDone } from "../lobby";
+import { bidders, openBids } from "../bids";
 import { MAX_MEMBERS } from "../access";
 import { defineOp, inRoom } from "./define";
 

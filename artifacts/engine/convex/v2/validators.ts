@@ -26,6 +26,8 @@ export const roomV = v.object({
     deadline: v.number(), pricing: v.union(v.literal("first"), v.literal("second")), families: v.array(offerV),
     visibility: v.optional(v.union(v.literal("sealed"), v.literal("open"))),
   }), v.null()),
+  /** The saved setup last applied, as named then; null after a change by hand. */
+  setup: v.union(v.object({ setupId: v.id("v2Setups"), name: v.string() }), v.null()),
 });
 export const roomListV = paginationResultValidator(v.object({ roomId: v.id("v2Rooms"), memberId: v.id("v2Members"), joinedAt: v.number() }));
 export const chatPageV = paginationResultValidator(v.object({ id: v.id("v2Chat"), from: v.string(), memberId: v.union(v.id("v2Members"), v.null()), text: v.string(), at: v.number() }));
@@ -127,7 +129,15 @@ export const objectIdsV = paginationResultValidator(v.object({ objectId: v.id("v
 export const playObjectV = v.object({
   objectId: v.id("v2Objects"), number: v.number(), bornAt: v.number(),
   state: v.string(), version: v.number(), changedAt: v.number(),
-  value: v.union(v.object({ score: scoreWireV, rarityBits: v.number(), want: v.number(), points: v.number(), version: v.number() }), v.null()),
+  value: v.union(v.object({
+    score: scoreWireV, rarityBits: v.number(), want: v.number(), points: v.number(), version: v.number(),
+    /**
+     * The caller's own bits as a points tree (a tree-valued rule, treeLookup): each dealt layer's bits in rule order by
+     * layer id, then "uniqueness" and "defence" corrections when they change anything; they sum to rarityBits. Null for
+     * today's lexicographic rules. Absent from answers written before it.
+     */
+    parts: v.optional(v.union(v.array(v.object({ layer: v.string(), bits: v.number() })), v.null())),
+  }), v.null()),
   /** Paid observation (knowledge.ts): when the caller was last told this object (world seconds), and how many changes it has had since (public). */
   knownAt: v.optional(v.union(v.number(), v.null())), changesSince: v.optional(v.number()),
   /** In a game that pays to read (decision 35), live and seated: what a look at it costs now, in energy. */

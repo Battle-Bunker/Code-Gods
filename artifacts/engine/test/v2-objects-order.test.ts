@@ -47,6 +47,10 @@ test("every sort is a full, correctly directed order over the reader's shown val
   assert.ok(descending(await by("recent", x => x.changedAt)), "recently mutated first");
 });
 
+test("today's lexicographic rules carry no points tree (value.parts null; tree rules: unit test v2-value-parts)", async () => {
+  for (const o of (await shown()).values()) assert.equal(o.value.parts, null, JSON.stringify(o.value));
+});
+
 test("filters keep exactly the objects the reader is shown inside them, in the sort's order", async () => {
   const o = await shown();
   const positive = objects.filter(id => o.get(id)!.value.points > 0);

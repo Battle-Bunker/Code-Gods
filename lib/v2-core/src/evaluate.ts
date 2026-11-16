@@ -186,12 +186,19 @@ class Context<S> implements EvalContext<S> {
     this.terms.set(id, { id, label, value, from: fromRefs.map(r => this.norm(r)) });
     return id;
   }
+  /** A mark's ref: read, or of a representation outside depends (an element that exists; never read or charged). */
+  private cited(r: ElementRef): void {
+    if (this.family.depends.includes(r.rep)) return this.known(r);
+    const n = this.norm(r);
+    if (n.site! < 0 || n.site! >= this.sites) throw new Error(`${refKey(n)}: no such line`);
+    elementDecl(this.type, n);
+  }
   mark(m: Mark): void {
     switch (m.kind) {
-      case "focus": case "note": this.known(m.ref); break;
-      case "candidate": this.known(m.ref); if (m.term !== undefined && !this.terms.has(m.term)) throw new Error(`mark cites unrecorded term ${m.term}`); break;
+      case "focus": case "note": this.cited(m.ref); break;
+      case "candidate": this.cited(m.ref); if (m.term !== undefined && !this.terms.has(m.term)) throw new Error(`mark cites unrecorded term ${m.term}`); break;
       case "measure":
-        this.known(m.from); this.known(m.to);
+        this.cited(m.from); this.cited(m.to);
         if (!this.terms.has(m.term)) throw new Error(`mark cites unrecorded term ${m.term}`);
         break;
     }
