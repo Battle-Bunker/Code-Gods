@@ -340,6 +340,46 @@ export interface ExpandedFaceProps<S, P> {
   readonly climb?: ReactNode;
   /** The candidates, when the app computed them already (to read the others' totals at them); else the face finds them. */
   readonly moves?: readonly Move<S>[];
+  /**
+   * A tree-valued rule's points tree (the server's value.parts): each dealt layer's bits by layer id, in rule order, then
+   * "uniqueness" and "defence" corrections; they sum to the bits. Null or absent: the rule is not tree-valued.
+   */
+  readonly parts?: readonly ValuePart[] | null;
+}
+
+/** A layer's share of the viewer's own bits, or a correction on them (v2/play:object value.parts). */
+export interface ValuePart { readonly layer: string; readonly bits: number }
+
+const CORRECTION_WORDS: Record<string, string> = {
+  uniqueness: "others holding the same",
+  defence: "your defence goal",
+};
+
+/**
+ * The points as a small tree in the card's words (coordinator, 16 Nov): "● nearest 31: 4.60 bits", "◆ 1 above 31:
+ * +5.10 bits", …, "together 9.70 bits". Each layer's line is its part's own few words; a part the face does not know
+ * (a layer not dealt here) is named by its id.
+ */
+export function PointsTree({ parts, of }: { parts: readonly ValuePart[]; of: readonly Part[] }): ReactElement {
+  const total = parts.reduce((t, p) => t + p.bits, 0);
+  return (
+    <div className="v2v-points-tree" data-testid="points-tree">
+      <h5>Your points from this, part by part</h5>
+      <ul>
+        {parts.map((v, i) => {
+          const p = of.find(x => x.term === v.layer);
+          const words = p ? `${partGlyph(p.depth)} ${p.brief ?? p.distance ?? `${p.title}: ${p.valueText}`}` : CORRECTION_WORDS[v.layer] ?? v.layer;
+          return (
+            <li key={`${v.layer}${i}`} data-layer={v.layer}>
+              <span className="v2v-pt-words">{words}</span>{" "}
+              <span className="v2v-pt-bits">{i === 0 ? fmtBits(v.bits) : `${signed(v.bits)} ${Math.abs(Math.round(v.bits * 100) / 100) === 1 ? "bit" : "bits"}`}</span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="v2v-pt-total">together {fmtBits(total)}</p>
+    </div>
+  );
 }
 
 export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement {
@@ -429,7 +469,8 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
         <PartsList parts={sa.parts} active={lit} onActive={setHoverPart} selected={sel} onSelect={setSelected} />
         {/* Lines' points become the sum of each layer's rarity (the owner's choice, 16 Nov): "counts first" would be false,
             so lines say nothing about how layers combine until the per-layer bits draw the points tree. */}
-        {sa.parts.length > 1 && a.noun !== "line" && <p className="v2v-combine">The main part counts first; {`each preference after it decides only between ${a.noun}s that are equally good on everything before it.`}</p>}
+        {props.parts && props.parts.length > 0 && <PointsTree parts={props.parts} of={sa.parts} />}
+        {sa.parts.length > 1 && a.noun !== "line" && !props.parts && <p className="v2v-combine">The main part counts first; {`each preference after it decides only between ${a.noun}s that are equally good on everything before it.`}</p>}
         {props.improvement !== false && (props.climb
           ? <div className="v2v-moves-col"><MovesList list={list} noun={a.noun} bits={a.bits} others={props.others} />{props.climb}</div>
           : <MovesList list={list} noun={a.noun} bits={a.bits} others={props.others} />)}
