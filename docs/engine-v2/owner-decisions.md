@@ -273,6 +273,21 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     while the app's annotation tests use it as a fixture. A replacement family from the backlog is in design
     (design-principles.md rows 1 to 13).
 
+45. On valuing tuple rules (relayed by the coordinator, 16 November), choosing "level plus closeness" over strict
+    order: "I think this is better ... It means we get something more like a tree structure in exploring score space
+    with 3 branching levels for rules with a tertiary preference. That's a good kind of complexity as long as the math
+    to calibrate energy/bits from utility remains tractable." So a tuple rule's bits are −log2 P(level ≥ j) −
+    log2 P(closeness at least this good | that target) − log2 P(third at least this good | that target, at least that
+    close): the chain rule, so bits never exceed the state's code length (lib/v2-valuation tree-value.ts).
+
+46. On the beginner line pool (relayed by the coordinator, 16 November): "It seems like you're attached to your
+    existing set of utility functions and want to amend them to fit the newly desired shape. That's ok, but I want some
+    utility functions that were crafted with rationals in mind from the beginning. Increase target utility function
+    pool for the beginner config to 12 and add 4 rules / utility functions that prefer non-integer rational values,
+    such as via rules in terms of numerators and denominators or other creative ways to prefer certain kinds of
+    fractional values." So the beginner line pool's target is 12 families: the recast families, the owner's two
+    examples, and four fraction-native families from the rule sessions.
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact
