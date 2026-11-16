@@ -274,14 +274,20 @@ try {
       assert.ok(await lines.locator("[data-testid^=row-line-]").count() <= 2, "at most 2 live lines listed");
       await shot(page, `v2-turnover-${label}`);
       // The end page: the retired lines with what each banked.
-      await page.getByTestId("results").waitFor({ timeout: 90_000 });
+      await page.getByTestId("button-watch-replay").waitFor({ timeout: 90_000 });   // the game has ended
       const end = page.getByTestId("results").getByTestId("retired-lines");
-      await end.locator("[data-testid^=text-retired-line-]").first().waitFor({ timeout: 30_000 });
+      await end.locator("[data-testid^=text-retired-line-]").first().waitFor({ timeout: 30_000 })
+        .catch(async (e: unknown) => { await shot(page, `v2-turnover-end-failed-${label}`); throw e; });
+      // Ended: the exact figure, called banked.
+      assert.match(await end.innerText(), /retired at \d+:\d\d · banked [\d.,−-]+ points?/);
       const banked = await end.locator("[data-testid^=row-retired-]").count();
       assert.ok(banked >= 3, `${banked} retired lines on the end page`);
       await shot(page, `v2-turnover-end-${label}`);
       // The replay: at its end the same retired lines.
       await page.getByTestId("button-watch-replay").click();
+      // The replay opens at the start, before anything retired; at its end, the same retired lines.
+      await page.getByTestId("replay-bar").waitFor({ timeout: 60_000 });
+      await page.getByTestId("button-replay-end").click();
       const replayRetired = page.getByTestId("pane-objects").getByTestId("retired-lines");
       await replayRetired.locator("[data-testid^=row-retired-]").first().waitFor({ timeout: 60_000 });
       assert.equal(await replayRetired.locator("[data-testid^=row-retired-]").count(), banked, "the replay's end shows the same retired lines");
