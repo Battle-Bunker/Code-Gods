@@ -46,6 +46,11 @@ function agent(offer) {
   // A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.
   if (!Q.isQ(m)) return climb(offer, tips(offer).filter(([plan]) => !PROTECT.includes(offer.object) || fair(offer, plan)).map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]), null, QUOTES);
   const tries = [];                 // [plan, m after, c after]: changes tried in the agent's own head
+  // The next pile up (the ladder has no top): the coin pile just above y(k), by a shift or by a tilt.
+  { const s = p.side ?? 1, yk = Q.add(Q.mul(m, p.k), c), w = Q.mul(s, yk);
+    const h = Q.cmp(w, 1) < 0 ? 0 : whole(Q.sub(Q.div(Q.sub(root(Q.add(Q.mul(8, whole(w)), 1)), 1), 2), Q.div(1, 2)));   // the biggest pile's height up to y(k)
+    const d = Q.sub(Q.mul(s, Q.div(Q.mul(Q.add(h, 1), Q.add(h, 2)), 2)), yk);   // how far y(k) must move to the next pile
+    tries.push([move("si.shift", { k: d }), m, Q.add(c, d)], [move("si.tilt", { k: Q.div(d, p.k) }), Q.add(m, Q.div(d, p.k)), c]); }   // first: on a big line the small steps may not all be weighed
   for (let k = -FAR; k <= FAR; k++) {
     if (k === 0) continue;
     tries.push([move("si.shift", { k }), m, Q.add(c, k)]);     // move the line up or down
@@ -54,11 +59,6 @@ function agent(offer) {
       if (j !== 0) tries.push([[move("si.shift", { k }), move("si.tilt", { k: j })], Q.add(m, j), Q.add(c, k)]);
     }
   }
-  // The next pile up (the ladder has no top): the coin pile just above y(k), by a shift or by a tilt.
-  { const s = p.side ?? 1, yk = Q.add(Q.mul(m, p.k), c), w = Q.mul(s, yk);
-    const h = Q.cmp(w, 1) < 0 ? 0 : whole(Q.sub(Q.div(Q.sub(root(Q.add(Q.mul(8, whole(w)), 1)), 1), 2), Q.div(1, 2)));   // the biggest pile's height up to y(k)
-    const d = Q.sub(Q.mul(s, Q.div(Q.mul(Q.add(h, 1), Q.add(h, 2)), 2)), yk);   // how far y(k) must move to the next pile
-    tries.push([move("si.shift", { k: d }), m, Q.add(c, d)], [move("si.tilt", { k: Q.div(d, p.k) }), Q.add(m, Q.div(d, p.k)), c]); }
   tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
   let options = scoreEach(tries, ([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches (fewer on a big line)
   // A promise: on these lines, only steps that leave the other players at least as well off.

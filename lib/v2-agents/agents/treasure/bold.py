@@ -49,7 +49,12 @@ def agent(offer):
     # A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.
     if m == None:
         return climb(offer, [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tips(offer) if offer.object not in PROTECT or fair(offer, plan)], None, QUOTES)
-    tries = []                 # (plan, m after, c after): changes tried in the agent's own head
+    # (plan, m after, c after): changes tried in the agent's own head. The next pile up (the ladder has no top): the coin pile just above y(k), by a shift or by a tilt.
+    s = p.get("side", 1)
+    yk = m * p["k"] + c
+    h = 0 if s * yk < 1 else (root(8 * whole(s * yk) + 1) - 1) // 2   # the biggest pile's height up to y(k)
+    d = s * Fraction((h + 1) * (h + 2), 2) - yk      # how far y(k) must move to the next pile
+    tries = [(move("si.shift", k=d), m, c + d), (move("si.tilt", k=d / p["k"]), m + d / p["k"], c)]   # first: on a big line the small steps may not all be weighed
     for k in range(-FAR, FAR + 1):
         if k == 0:
             continue
@@ -58,13 +63,6 @@ def agent(offer):
         for j in range(-FAR, FAR + 1):                         # both at once
             if j != 0:
                 tries.append(([move("si.shift", k=k), move("si.tilt", k=j)], m + j, c + k))
-    # The next pile up (the ladder has no top): the coin pile just above y(k), by a shift or by a tilt.
-    s = p.get("side", 1)
-    yk = m * p["k"] + c
-    h = 0 if s * yk < 1 else (root(8 * whole(s * yk) + 1) - 1) // 2   # the biggest pile's height up to y(k)
-    d = s * Fraction((h + 1) * (h + 2), 2) - yk      # how far y(k) must move to the next pile
-    tries.append((move("si.shift", k=d), m, c + d))
-    tries.append((move("si.tilt", k=d / p["k"]), m + d / p["k"], c))
     tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
     options = score_each(tries, lambda t: (t[0], score(t[1], t[2], p, tie)))   # each step and the score it reaches (fewer on a big line)
     # A promise: on these lines, only steps that leave the other players at least as well off.

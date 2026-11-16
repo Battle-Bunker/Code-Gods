@@ -207,10 +207,12 @@ test("the tail never over-pays the law: on lines it rises at most STEP bits per 
   assert.deepEqual(score, [q(0), q(367)]);
   const bits = valueLookup(vf)(score).bits, phi = lineType.readLength(witness, lineQ);
   assert.ok(bits <= phi, `spf 367: ${bits} bits against the witness's φ ${phi}`);
-  // spf is a prime: its tail is the code's own ½ bit per unit (Layer.measure), so 367 is worth nearly its witness's φ,
-  // not the ~26 bits a magnitude ramp gave (owner decision 30: an unbounded hill to climb).
+  // spf is a prime: its tail is measured by primes (Layer.measure), and the hill keeps rising past the knots (owner
+  // decision 30: an unbounded hill to climb). Under gravity (gravity.md) φ is the witness's height, not p/2, so the
+  // value is no longer within a few bits of φ; it is a high hill and a rising one.
   assert.equal(vf.tail.secondary.measure, "prime");
-  assert.ok(bits >= phi - 12, `spf 367: ${bits} bits, within a few bits of the witness's φ ${phi}`);
+  const lower = valueLookup(vf)([q(0), q(101)]).bits;
+  assert.ok(bits > lower + 20, `spf 367: ${bits} bits against ${lower} at 101`);
   const t2 = tailOf(knots, TAIL_CEILING, { secondary: "prime" });
   assert.deepEqual([t2.secondary.form, t2.secondary.slope], ["linear", TAIL_CEILING]);
   assert.equal(tailOf([{ u: null, bits: 0 }, { u: ["0", "5"], bits: 4 }], TAIL_CEILING, { secondary: "prime" }).secondary.slope, TAIL_CEILING,
