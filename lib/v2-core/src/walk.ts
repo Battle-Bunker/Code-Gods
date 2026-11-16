@@ -99,6 +99,9 @@ export function applyCalls<S>(type: ObjectType<S>, variant: Variant, state: S, c
 export function walkStep<S>(type: ObjectType<S>, variant: Variant, state: S, rng: Rng, accept?: (s: S) => boolean): S {
   const ms = variantMutators(type, variant);
   const m = drawMutator(ms, variant, rng);
+  // A one-way move (inverse "none": a rounding) is a player's simplification, never a step of the walk: the walk is
+  // Metropolis on φ and needs every step to have a reverse. Drawing one stays put, so births keep the law π ∝ 2^−φ.
+  if (m.inverse.kind === "none") return state;
   const site = m.perSite ? rng.below(type.sites(state, variant)) : 0;
   const a = m.args(variant).sample(rng);
   if (a === null) return state;

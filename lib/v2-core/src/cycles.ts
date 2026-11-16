@@ -23,6 +23,8 @@ export function proposals<S>(type: ObjectType<S>, variant: Variant, maxArgBits: 
     if (edges) return edges;
     edges = new Map();
     for (const m of ms) {
+      // A one-way move (inverse "none", e.g. a rounding) is never proposed by the walk (walkStep): it has no reverse.
+      if (m.inverse.kind === "none") continue;
       const code = m.args(variant);
       if (!code.enumerate) throw new Error(`${m.id} cannot enumerate its arguments`);
       const sites = m.perSite ? type.sites(s, variant) : 1;

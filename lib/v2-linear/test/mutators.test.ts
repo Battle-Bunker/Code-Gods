@@ -11,8 +11,8 @@ const after = (v: Variant, s: ReturnType<typeof mc>, mutator: string, args: Reco
 };
 
 test("each mutator's effect and price on worked examples (spec §12.4)", () => {
-  // line-z offers the twelve (log2 12 each); line-q adds the turn, and the twelve pay log2 (12 / 0.95) there.
-  const which = Math.log2(12), whichQ = Math.log2(12 / 0.95);
+  // line-z offers the thirteen (log2 13 each, the rounding included); line-q adds the turn, and the thirteen pay log2 (13 / 0.95) there.
+  const which = Math.log2(13), whichQ = Math.log2(13 / 0.95);
   const phi = (st: ReturnType<typeof mc>, v: Variant) => lineType.readLength(st, v);
   const up = (from: ReturnType<typeof mc>, to: ReturnType<typeof mc>, v: Variant) => Math.max(0, phi(to, v) - phi(from, v));
   // A sized call's whole fee is rate(o)·size, o the bits of the rest of the call (v2-core codes.ts, far moves are dear).

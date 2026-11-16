@@ -453,13 +453,16 @@ switching for the player). A call whose result equals its input is refused.
 
 On an unbounded domain a walk whose moves cost the same both ways never comes to rest, and no level has a probability.
 With the surcharge, the walk accepts a move away from short states only with probability 2^−(growth), which confines it.
-**Every price list is an exact potential** (owner decision 19, which withdraws call (a)). Each mutator may carry a
+**Every price list is an exact potential** (owner decision 19, which withdraws call (a)). *Superseded for the dynamic
+energy measure (16 Nov, [energy.md](energy.md)): energy is estimated from random starts, not read from a stationary
+law, so a one-way move is allowed; `si.round` is the first. The walk (births) never takes a one-way move, so the law
+below still holds for births.* Each mutator may carry a
 handling fee and argument prices, but a move and its inverse pay the same; the only asymmetric part is the surcharge,
 which comes from one energy function of the line, the read length φ. The walk is then Metropolis on φ, detailed balance
 holds, and the stationary law is exactly π ∝ 2^−φ, so a rule's value is an exact sum over lines
 ([analytic-calibration.md](analytic-calibration.md)). The price list still matters to play (what an agent pays for a
 move), but not to value. The cycle test is a hard gate: lib/v2-linear's potential test proposes every move from a set of
-lines on every variant, and fails on any one-way move or any pair whose weights differ. gen.nudge refuses a result with a
+lines on every variant, and fails on any one-way move (other than one marked `inverse: none`, which the walk never takes) or any pair whose weights differ. gen.nudge refuses a result with a
 common factor for that reason (dividing it through had no inverse).
 
 ### 5.4 The walk
@@ -980,6 +983,7 @@ against 346.7).
 | `cross.shift` | crossing, cart | k: nz (the shift's schedule) | the x-crossing += k, keeping the gradient (c −= m·k; a vertical line x = X moves to X + k); refused on a flat line | `cross.shift(−k)` |
 | `area.shift` | tri | k: nz (the shift's schedule) | the signed area ½·X·Y += k, keeping the gradient and the quarter (c = ±√(−2m(area + k)), c's sign kept); refused when that is not a fraction, when the area would reach 0 or change sign, and for a line with no triangle | partial: `area.shift(−k)` |
 | `cart.reflect` | cart | mirror: a line a,b,c, priced by its read length (mixed(a) + mixed(b) + mixed(c)) | reflect in the supplied line | self |
+| `si.round` | si | which: m or c (1 bit); to: whole, tens or tenths (log2 3) | round that reading to the nearest multiple (halves away from 0); refused when it is already there | none (one-way: the dynamic measure needs no exact potential, energy.md) |
 
 Results outside the variant's domain are invalid (a Z-domain line with a fractional coefficient, a vertical line in Z;
 there is no limit on size, owner decision 26). The cheap-in-one-lens, dear-in-another examples of #346 §4.5 hold: y = x + 5 → y = 3x + 3 is one

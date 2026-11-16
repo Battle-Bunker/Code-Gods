@@ -410,7 +410,35 @@ export const reflect: M = {
   inverse: { kind: "self" },
 };
 
-export const mutators: readonly M[] = [shift, tilt, step, pivot, slide, mirror, nudge, move, shortcutFloor(stretch), crossShift, areaShift, reflect];
+/** x rounded to the nearest multiple of u (u > 0), halves away from zero. */
+export function roundTo(x: Q, u: Q): Q {
+  const y = Qn.div(x, u), N = y.n < 0n ? -y.n : y.n, r = (2n * N + y.d) / (2n * y.d);
+  return Qn.mul(q(y.n < 0n ? -r : r), u);
+}
+const ROUND_UNITS = { whole: q(1), tens: q(10), tenths: q(1, 10) } as const;
+/**
+ * Round the gradient or the y-intercept to the nearest whole number, ten or tenth (the coordinator, 16 Nov: the owner's
+ * model has "divisions and rounds and subtractions" making controlled descent cheap). A simplification, priced as two
+ * choices (decision 25), never by how far it moves. It has no inverse: many numbers round to one, and the dynamic energy
+ * measure needs no exact potential (docs/engine-v2/energy.md). Rounding to where the number already is changes nothing,
+ * so it is refused.
+ */
+export const round: M = {
+  id: "si.round", reps: ["si"], title: "round the gradient or the y-intercept", perSite: true,
+  argHelp: () => ({
+    which: { label: "Which number", hint: "the gradient or the y-intercept", example: "c", choices: { m: "the gradient", c: "the y-intercept" } },
+    to: { label: "Round to the nearest", hint: "whole number, ten or tenth (halves round away from 0)", example: "whole", choices: { whole: "whole number", tens: "ten", tenths: "tenth" } },
+  }),
+  describe: a => `round the ${S(a, "which") === "m" ? "gradient" : "y-intercept"} to the nearest ${({ whole: "whole number", tens: "ten", tenths: "tenth" } as const)[S(a, "to") as keyof typeof ROUND_UNITS]}`,
+  args: v => fields(baseBits(v, true, "si.round"), { which: oneOf(["m", "c"]), to: oneOf(Object.keys(ROUND_UNITS)) }),
+  apply: viaMC((m, c, a) => {
+    const u = ROUND_UNITS[S(a, "to") as keyof typeof ROUND_UNITS];
+    return S(a, "which") === "m" ? [roundTo(m, u), c] : [m, roundTo(c, u)];
+  }),
+  inverse: { kind: "none", note: "many numbers round to the same one" },
+};
+
+export const mutators: readonly M[] = [shift, tilt, step, pivot, slide, mirror, nudge, move, shortcutFloor(stretch), crossShift, areaShift, reflect, round];
 
 // ---------------------------------------------------------------- the lens mutators (lenses-and-mutators.md §5)
 //

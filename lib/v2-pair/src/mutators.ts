@@ -73,7 +73,7 @@ function perLine(m: Mutator<PairState, Args>): M {
       const r = m.apply(s, idx(a), rest(a), v);
       return isInvalid(r) ? r : canonicalPair(r.lines, v);
     },
-    inverse: { kind: "partial", id: m.id, args: a => a, note: "the same move's inverse on the moved line, which may now be listed first or second" },
+    inverse: m.inverse.kind === "none" ? m.inverse : { kind: "partial", id: m.id, args: a => a, note: "the same move's inverse on the moved line, which may now be listed first or second" },
   };
 }
 

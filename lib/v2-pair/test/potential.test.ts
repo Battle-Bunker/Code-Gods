@@ -22,5 +22,6 @@ test("pair-q: every proposal has a reverse of the same weight (no one-way move, 
   for (const [id, s] of Object.entries(r.perMutator)) assert.equal(s.asymmetric, 0, `${id}: ${s.asymmetric} asymmetric pairs, worst ${s.worst} bits`);
   assert.ok(r.worstEdge < 1e-9 && r.worstCycle < 1e-9, `edge ${r.worstEdge}, loop ${r.worstCycle}`);
   assert.ok(r.edges > 100, "the diagnostic saw moves");
-  assert.equal(Object.keys(r.perMutator).length, pairQ.mutators.length, "every mutator proposed something");
+  // Every reversible mutator proposed something (a one-way move, the rounding, is never proposed by the walk).
+  assert.equal(Object.keys(r.perMutator).length, pairType.mutators.filter(m => pairQ.mutators.includes(m.id) && m.inverse.kind !== "none").length, "every mutator proposed something");
 });
