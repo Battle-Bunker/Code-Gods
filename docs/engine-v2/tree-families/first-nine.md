@@ -4,17 +4,23 @@ Undealt, no value files. Code: `lib/v2-linear/src/tree-*.ts`; tests: `lib/v2-lin
 tuples). Prime Top and Tangent Rings were built by the stopped sessions (their walk-throughs: `tangent-rings.md` and
 `docs/engine-v2/handover/tree-nt.md`); the seven below complete three per lens.
 
-| lens | family | reads (primary) | targets | whole / fraction |
-|---|---|---|---|---|
-| number theory | Prime Top | x-crossing | p/d, p a prime with a drawn suffix | fraction |
-| number theory | Smooth Mixed | height at x = k (a point on the line) | smooth w + drawn r/s | both |
-| number theory | Tower | meeting point with y = g·x | n + u/(n + v) | fraction |
-| geometry | Tangent Rings | distance from (0, 0) | rings n/d | both |
-| geometry | Leg Ratio | base + height of the axis triangle | (p + q)·n/d | both |
-| geometry | Quadrant Square | area of the axis triangle | (p/q)·n² | both |
-| representations | Borrowed Bottom | y-intercept or x-crossing, on the gradient's ruler | t/B, t with a drawn suffix | fraction |
-| representations | Drawn Step | y-intercept | non-whole multiples of u/v | fraction |
-| representations | Part Way | y-intercept, x-crossing, area or gradient | u/v of the way along a ladder | fraction |
+| lens | family | reads (primary) | single or combined reading | targets | gaps between targets | whole / fraction |
+|---|---|---|---|---|---|---|
+| number theory | Prime Top | x-crossing | single | p/d, p a prime with a drawn suffix | grow slowly (about 10^L·ln p / d) | fraction |
+| number theory | Smooth Mixed | height at x = k | single (m·k + c) | smooth w + drawn r/s | grow fast (smooth numbers thin out polynomially) | both |
+| number theory | Tower | meeting point with y = g·x | combined (c/(g − m)) | n + u/(n + v) | about 1 | fraction |
+| geometry | Tangent Rings | distance² from (0, 0) | combined | rings n/d | 1/d in the radius | both |
+| geometry | Leg Ratio | base + height of the axis triangle | combined | (p + q)·n/d | constant | both |
+| geometry | Quadrant Square | area of the axis triangle | combined | (p/q)·n² | grow linearly | both |
+| representations | Borrowed Bottom | y-intercept or x-crossing, on the gradient's ruler | single (the ruler is the gradient's) | t/B, t with a drawn suffix | constant (10^L / B) | fraction |
+| representations | Drawn Step | y-intercept | single | non-whole multiples of u/v | constant | fraction |
+| representations | Part Way | y-intercept, x-crossing, area or gradient | single, or combined for area | u/v of the way along a ladder | grow linearly (squares, triangles), quadratically (cubes), geometrically (powers) | fraction |
+
+The two right-hand columns matter for scale-free rarity (the scoring trial, `docs/engine-v2/scoring-trial.md`): an
+exact hit is worth about log2 of the target gap, so sets whose gaps grow fast (Smooth Mixed, Part Way on powers) make
+exact hits dominate at height; and combined readings need a sampled fallback there. Conjecture for the pool: prefer the
+slow-gap, single-reading families (Prime Top, Borrowed Bottom, Drawn Step, Part Way on squares) and draw Part Way's
+ladders without powers until that is settled.
 
 Coverage: the gradient (Prime Gradient, dealt; Part Way reading m; the thirds of Smooth Mixed, Tower, Drawn Step,
 Borrowed Bottom), both intercepts, area, distance, a point on the line, meeting points, tops and bottoms (Prime Top,
