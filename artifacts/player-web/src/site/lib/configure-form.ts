@@ -389,11 +389,15 @@ export interface SavedSetup { setupId: string; name: string; preset: string; ove
  * differ from it (a change by hand: the room shows no setup).
  */
 export function saveArgs(next: { preset: string; draft: Draft }, roomPreset: string, loaded: SavedSetup | null): { setupId: string } | { preset?: string; overrides: Overrides } {
-  if (loaded && loaded.preset === next.preset && sameValue(JSON.stringify(sortKeys(overridesFor(next.draft, presetOf(next.preset)))), JSON.stringify(sortKeys(overridesFor(draftOf(presetOf(loaded.preset), loaded.overrides), presetOf(loaded.preset))))))
-    return { setupId: loaded.setupId };
+  if (loaded && holdsSetup(next, loaded)) return { setupId: loaded.setupId };
   return { ...(next.preset !== roomPreset ? { preset: next.preset } : {}), overrides: overridesFor(next.draft, presetOf(next.preset)) };
 }
-const sortKeys = (o: object) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b)));
+/** Whether the page holds exactly this saved setup: its preset, and every value as the setup gives it (a set as a set). */
+export function holdsSetup(next: { preset: string; draft: Draft }, s: SavedSetup): boolean {
+  if (s.preset !== next.preset) return false;
+  const theirs = draftOf(presetOf(s.preset), s.overrides);
+  return (Object.keys(FIELDS) as FieldKey[]).every(k => sameValue(next.draft[k], theirs[k]));
+}
 
 /** Why a setup name is refused (v1's words), or null. */
 export function setupNameProblem(raw: string): string | null {

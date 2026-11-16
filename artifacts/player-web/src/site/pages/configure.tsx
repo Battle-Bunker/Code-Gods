@@ -29,6 +29,7 @@ import { roomPath } from "@/site/lib/routes";
 import { affordanceContext } from "@/core/affordance-context";
 import { toast } from "@/hooks/use-toast";
 import { setupBlurb, setupGroups } from "@/site/lib/setup-picker";
+import { SETUP_NAME_MAX } from "@workspace/v2-affordances";
 import { galleryFamilies } from "@/site/lib/rule-gallery";
 import type { Preset } from "@workspace/engine/convex/v2/presets.ts";
 import {
@@ -37,7 +38,7 @@ import {
 } from "@/site/lib/configure-form";
 import type { Room } from "@/sdk/types";
 
-type Stored = { base: { preset: string; draft: Draft }; preset: string; draft: Draft };
+type Stored = { base: { preset: string; draft: Draft }; preset: string; draft: Draft; loadedId?: string | null };
 const draftKey = (roomId: string) => `code-gods:configure-draft:${roomId}`;
 const loadDraft = (k: string): Stored | null => { try { const raw = window.localStorage.getItem(draftKey(k)); return raw ? JSON.parse(raw) as Stored : null; } catch { return null; } };
 const saveDraft = (k: string, s: Stored | null) => { try { if (s) window.localStorage.setItem(draftKey(k), JSON.stringify(s)); else window.localStorage.removeItem(draftKey(k)); } catch { /* a convenience */ } };
@@ -84,7 +85,7 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
   const [draft, setDraft] = useState<Draft>(() => stored?.draft ?? saved.draft);
   const [elsewhere, setElsewhere] = useState(false);
   // The saved setup the page holds (loaded from Your setups, or the one the room runs): Save then applies it by id.
-  const [loadedId, setLoadedId] = useState<string | null>(room.setup?.setupId ?? null);
+  const [loadedId, setLoadedId] = useState<string | null>(() => (stored ? stored.loadedId ?? null : room.setup?.setupId ?? null));
   const loadedQ = useLive(api.v2.setups.get, loadedId ? { setupId: loadedId } : "skip");
   const loaded = (loadedQ.data ?? null) as SavedSetup | null;
   const [saveName, setSaveName] = useState(room.setup?.name ?? "");
@@ -95,8 +96,14 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
   const errors = draftErrors(draft, preset);
   const invalid = Object.keys(errors).length > 0;
 
+  // A link to a part of the page (the palette's New setup… opens #field-save-setup): scroll there once it is drawn.
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (id) document.getElementById(id)?.scrollIntoView({ block: "start" });
+  }, []);
+
   // Keep the draft across reloads; clear it once nothing differs.
-  useEffect(() => { if (owner) saveDraft(key, dirty ? { base, preset: presetId, draft } : null); }, [owner, key, base, presetId, draft, dirty]);
+  useEffect(() => { if (owner) saveDraft(key, dirty ? { base, preset: presetId, draft, loadedId } : null); }, [owner, key, base, presetId, draft, dirty, loadedId]);
 
   // The room changed elsewhere: an untouched draft follows it; an edited one is kept and the owner may load theirs.
   // A draft restored from an earlier visit is compared with what the room holds now, so a change made meanwhile shows.
@@ -104,7 +111,7 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
   useEffect(() => {
     if (same(lastSaved.current, saved)) return;
     lastSaved.current = saved;
-    if (!dirty || same(next, saved)) { setPresetId(saved.preset); setDraft(saved.draft); setElsewhere(false); }
+    if (!dirty || same(next, saved)) { setPresetId(saved.preset); setDraft(saved.draft); setLoadedId(room.setup?.setupId ?? null); setElsewhere(false); }
     else if (!same(saved, base)) setElsewhere(true);
     setBase(saved);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -126,9 +133,12 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
     setDraft(draftOf(next, { ...(bids ? kept : unbid), excludedFamilies: draft.excludedFamilies.filter(f => next.families.includes(f)) }));
     setPresetId(id);
   };
-  const saveBlocker = !owner ? "Only the room's owner changes its setup." : locked ? locked : !editable ? "Settings cannot change here." : invalid ? "Fix the settings marked in red first." : !changes.length ? "Nothing has changed yet." : null;
+  const saveTo = saveArgs(next, room.preset, loaded);
+  // Applying a saved setup the room does not run yet is a change, even when every value already matches.
+  const appliesNew = "setupId" in saveTo && room.setup?.setupId !== saveTo.setupId;
+  const saveBlocker = !owner ? "Only the room's owner changes its setup." : locked ? locked : !editable ? "Settings cannot change here." : invalid ? "Fix the settings marked in red first." : !changes.length && !appliesNew ? "Nothing has changed yet." : null;
   // The page checks every value against the affordance's own limits first (draftErrors), so the draft's numbers are its.
-  const args = () => saveArgs(next, room.preset, loaded) as Parameters<typeof settings.run>[0];
+  const args = () => saveTo as Parameters<typeof settings.run>[0];
   const nameProblem = setupNameProblem(saveName);
   const confirmText = `${changes.map(c => `${c.label}: ${c.from} → ${c.to}`).join("; ")}.`;
   const code = room.code;
@@ -164,7 +174,7 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
         </nav>
         <div className="space-y-10 min-w-0">
           <FormSection id="setup">
-            <SetupChoice current={presetId} admin={admin} editable={editable} onPick={id => { setLoadedId(null); pickPreset(id); }} />
+            <SetupChoice current={presetId} admin={admin} editable={editable} onPick={id => { if (id !== presetId) setLoadedId(null); pickPreset(id); }} />
             {owner && (
               <ErrorBoundary FallbackComponent={({ error }) => <ErrorLine message={`Your setups could not load: ${errMsg(error)}`} />}>
                 <YourSetups editable={editable} loadedId={loadedId} onLoad={loadSetup} onGone={id => { if (id === loadedId) setLoadedId(null); }} />
@@ -207,7 +217,7 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
                     disabledReason={saveBlocker} showReason confirmText={confirmText}
                     onDone={() => { saveDraft(key, null); toast({ title: `Saved: room ${code}'s next game runs ${preset.title}` }); navigate(roomPath(code)); }} />
                   <Link href={roomPath(code)} className="text-sm underline underline-offset-4" data-testid="link-cancel">Cancel</Link>
-                  {loaded && <span className="text-xs text-muted-foreground" data-testid="text-applies-setup">{"setupId" in saveArgs(next, room.preset, loaded) ? `Applies your setup “${loaded.name}”.` : `Changed from your setup “${loaded.name}”: saved by hand.`}</span>}
+                  {loaded && <span className="text-xs text-muted-foreground" data-testid="text-applies-setup">{"setupId" in saveTo ? `Applies your setup “${loaded.name}”.` : `Changed from your setup “${loaded.name}”: saved by hand.`}</span>}
                   {Object.keys(room.overrides).some(k => k in FIELDS) && (
                     <AffordanceButton id="room.settings" args={{ overrides: {} }} label="Use the setup's own settings" tone="quiet" testId="button-reset-settings"
                       onDone={() => {
@@ -219,13 +229,13 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
                 </div>
                 <div className="border-t pt-4 space-y-2" id="field-save-setup" data-testid="field-save-setup">
                   <label htmlFor="input-setup-name" className="font-medium block">Keep these settings as one of your setups</label>
-                  <p className="text-sm text-muted-foreground">Your setups are yours alone: pick one here for any room you own. A name you already use is overwritten.</p>
+                  <p className="text-sm text-muted-foreground">{loaded ? `Saving updates “${loaded.name}” (renaming it if you change the name); Duplicate it under Setup for a copy.` : "Your setups are yours alone: pick one here for any room you own. A name you already use is overwritten."}</p>
                   <div className="flex flex-wrap items-center gap-3">
-                    <input id="input-setup-name" value={saveName} maxLength={60} onChange={e => setSaveName(e.target.value)} placeholder="Setup name" aria-invalid={(!!saveName && !!nameProblem) || undefined}
+                    <input id="input-setup-name" value={saveName} maxLength={SETUP_NAME_MAX + 10} onChange={e => setSaveName(e.target.value)} placeholder="Setup name" aria-invalid={(!!saveName && !!nameProblem) || undefined}
                       className="w-full max-w-xs border bg-background px-3 py-1.5 text-sm outline-none focus:border-primary" data-testid="input-setup-name" />
-                    <AffordanceButton id="setups.save" label="Save as a setup" busyLabel="Saving…" testId="button-save-setup" showReason
+                    <AffordanceButton id="setups.save" label={loaded ? `Update your setup “${loaded.name}”` : "Save as a setup"} busyLabel="Saving…" testId="button-save-setup" showReason
                       disabledReason={nameProblem ?? (invalid ? "Fix the settings marked in red first." : null)}
-                      args={() => ({ name: saveName.trim().replace(/\s+/g, " "), preset: presetId, overrides: overridesFor(draft, preset) }) as never}
+                      args={() => ({ name: saveName.trim().replace(/\s+/g, " "), preset: presetId, overrides: overridesFor(draft, preset), ...(loaded ? { setupId: loaded.setupId } : {}) }) as never}
                       onDone={r => { const out = r as { setupId: string; name: string; created: boolean }; setLoadedId(out.setupId); toast({ title: `${out.created ? "Saved" : "Updated"} your setup “${out.name}”` }); }} />
                   </div>
                 </div>
@@ -301,7 +311,7 @@ function SetupChoice({ current, admin, editable, onPick }: { current: string; ad
     <div className="space-y-4" data-testid="field-preset">
       <h3 className="font-medium">What does the next game play?</h3>
       <p className="text-sm text-muted-foreground">Each setup is a board and the rules that can be dealt on it. Picking another keeps the values you set by hand below; the rest follow the setup.</p>
-      {setupGroups(PRESETS, { admin, current }).map(g => ({ ...g, label: g.label === "Setups" ? "System setups" : g.label })).map(g => (
+      {setupGroups(PRESETS, { admin, current }).map(g => (
         <fieldset key={g.label} className="space-y-2">
           <legend className="label-mono mb-1">{g.label}</legend>
           <div role="radiogroup" aria-label={g.label} className="grid gap-2 sm:grid-cols-2">

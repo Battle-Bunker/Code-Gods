@@ -137,6 +137,9 @@ test("Save applies a saved setup by its id while the page holds exactly that set
   assert.deepEqual(saveArgs({ preset: beginner.id, draft: d }, beginner.id, setup), { setupId: "s1" });
   assert.deepEqual(saveArgs({ preset: beginner.id, draft: { ...d, planningSeconds: 60 } }, beginner.id, setup), { overrides: {} }, "changed by hand after loading it");
   assert.deepEqual(saveArgs({ preset: beginner.id, draft: d }, beginner.id, null), { overrides: { planningSeconds: 120 } });
+  const fams = beginner.families;
+  const set = { ...setup, overrides: { excludedFamilies: [fams[1]!, fams[0]!] } };
+  assert.deepEqual(saveArgs({ preset: beginner.id, draft: draftOf(beginner, { excludedFamilies: [fams[0]!, fams[1]!] }) }, beginner.id, set), { setupId: "s1" }, "the rules never dealt are a set");
   const other = presetOf("lines-beginner-bidding");
   assert.deepEqual(saveArgs({ preset: other.id, draft: draftOf(other, {}) }, beginner.id, null), { preset: other.id, overrides: {} });
 });
