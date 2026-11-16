@@ -9,6 +9,7 @@ import { bidDealer, dealDefence, defencePool, isGridVariant, dealablePool, dealK
 import { dealWithBids, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
 import { isPreset, presetOf, TURNOVER_DEFAULTS, type Preset, type Turnover } from "./presets.ts";
 import { DEFAULT_PENALTY_WEIGHT, typeOf } from "./world.ts";
+import { valueHead } from "./values.ts";
 import { summonPracticePartners } from "./agents.ts";
 import { makeFunctionReference } from "convex/server";
 import { newNoiseKey } from "./disclose.ts";
@@ -394,6 +395,8 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     timeScale,
   };
   const number = room.games + 1;
+  // Defence goals (v1, restored; call 1), one per seat, when the room turns them on (grids only).
+  const defence = settings.defenceGoals ? dealDefence(preset.variant, seats.length, `${seed}:${number}`, settings.excludedDefenceFamilies ?? []) : null;
   const gameId = await ctx.db.insert("v2Games", {
     roomId: room._id, number, code: `${room.code}-${number}`, phase: "planning", preset: preset.id, variant: preset.variant, seed,
     settings, noiseKey: newNoiseKey(), roster: seats.map(m => ({ memberId: m._id, name: m.name, kind: m.kind })), createdAt: now, startedAt: now,
@@ -409,9 +412,11 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     // The seating rule's pairs this deal left (grids; deal.ts): forbidden ones (none unless the pool is too small) and aligned ones.
     ...(hasSeatingRule(preset.variant) ? { seating: { clashes: seatingClashes(preset.variant, rules), aligned: seatingAligned(preset.variant, rules) } } : {}),
     ...(rotation ? { rotation } : {}),
-    artefacts: seats.map((m, i) => ({ memberId: m._id, ruleKey: rules[i]!.ruleKey, contentHash: rules[i]!.contentHash })),
+    artefacts: seats.map((m, i) => ({
+      memberId: m._id, ruleKey: rules[i]!.ruleKey, contentHash: rules[i]!.contentHash,
+      ...(defence ? { defence: { ruleKey: defence[i]!.ruleKey, contentHash: valueHead(defence[i]!.ruleKey)!.contentHash } } : {}),
+    })),
   });
-  const defence = settings.defenceGoals ? dealDefence(preset.variant, seats.length, `${seed}:${number}`, settings.excludedDefenceFamilies ?? []) : null;
   for (const [i, m] of seats.entries()) {
     const rule = rules[i]!, view = ruleView(rule);
     await ctx.db.insert("v2Rules", {

@@ -765,12 +765,17 @@ def climb(offer, options, now, most=None):
             if p is not None and p <= cap:
                 return _as_plan(plan)
         return None
-    value, spare, ranked, left = w.mine * w.others, 2, [], calls - 12
+    # A defence goal (grids, when the room deals them): your bits are your rule's rarity less the penalty, and may be
+    # negative, so the server's floor applies (points = yours x max(0, the others')) and your rule's rarity alone
+    # cannot rule a step out: others_after says your bits after it.
+    defence = offer.my_rule().defence is not None
+    value = w.mine * max(0, w.others) if defence else w.mine * w.others
+    spare, ranked, left = 2, [], calls - 12
     for plan, s in options:
         r = rarity(offer, s)   # free
-        if r <= 0:   # sorted best first: the rest score no points for you either
+        if not defence and r <= 0:   # sorted best first: the rest score no points for you either
             break
-        if r <= w.mine + 1e-9:   # your rule cannot rise: price only two such steps
+        if not defence and r <= w.mine + 1e-9:   # your rule cannot rise: price only two such steps
             if spare == 0:
                 break
             spare -= 1
@@ -783,7 +788,11 @@ def climb(offer, options, now, most=None):
             continue
         if o.after is None:   # not allowed (e.g. another object is in that state)
             continue
-        v = r * o.after
+        # With a defence goal the host says your own bits after the plan (your rarity less the penalty's hinge).
+        if defence and "mine" in o and o["mine"]["after"] is not None:
+            v = o["mine"]["after"] * max(0, o.after)
+        else:
+            v = r * o.after
         if v > value + 1e-9:
             ranked.append((v, plan))
     # The best step it can pay for within its allowance (its energy, and a few seconds of its income).

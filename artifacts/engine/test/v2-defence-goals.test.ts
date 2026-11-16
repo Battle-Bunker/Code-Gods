@@ -5,7 +5,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { humans, perform } from "./v2-helpers.ts";
+import { admin, humans, perform } from "./v2-helpers.ts";
 
 test("defence goals: off by default, refused on lines, dealt to every seat on grids", { timeout: 240_000 }, async () => {
   const [ada] = await humans("Defence Ada");
@@ -26,5 +26,17 @@ test("defence goals: off by default, refused on lines, dealt to every seat on gr
   await new Promise(r => setTimeout(r, 6_000));
   const log = (await ada!.query("v2/play:log", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page;
   assert.ok(log.length > 0 && log.every((r: any) => r.own === null || Number.isFinite(r.own)), "the game plays on with finite bits");
+  // The practice partners' agents act with their defence goals in the host (tick.ts): acts are judged, nothing fails.
+  let acts: any[] = [];
+  for (let i = 0; !acts.length; i++) {
+    assert.ok(i < 60, "the partners' agents act");
+    acts = (await admin.query("v2/testing:events", { gameId, after: -1 })).filter((e: any) => e.kind === "act");
+    if (!acts.length) await new Promise(r => setTimeout(r, 500));
+  }
+  assert.deepEqual(acts.filter((e: any) => e.data.outcome === "failed").map((e: any) => e.data.reason ?? e.data.code), [], "no act fails in the host");
+  // A quote says the bits the commit would pay, the penalty taken off (a move to any cell: one of the two directions is allowed).
+  const quotes = await Promise.all(["1", "-1"].map(k => perform(ada!, "object.quote", { objectId: log[0].objectId, calls: [{ mutator: "cells.add", args: { cell: "r0c0", k } }] }, { gameId }, "query")));
+  const after = quotes.map((q: any) => q.result).find((r: any) => r.valid)!.after;
+  assert.ok(after && Number.isFinite(after.bits), JSON.stringify(after));
   await perform(ada!, "game.end", {}, { gameId });
 });
