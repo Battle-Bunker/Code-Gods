@@ -187,3 +187,16 @@ test("New setup… (setups.save) opens the configure page at Save as a setup", (
   assert.ok(row);
   assert.deepEqual(row.performer, { kind: "navigate", to: "/rooms/ABCD/configure#field-save-setup" });
 });
+
+test("'New conversation' and 'Switch assistant conversation…' open the assistant so (v1)", async () => {
+  const ctx = affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: true, spectator: false }], preset: "lines-beginner" } as never, header: { phase: "live", me: "m1" } as never });
+  const asked: unknown[] = [];
+  const host = { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, panes: { open: async () => {}, close: async () => {} }, focusAssistant: async (r?: unknown) => { asked.push(r); } };
+  const rows = paletteCommands(ctx, host as never);
+  for (const [title, req] of [["New conversation", { thread: "new" }], ["Switch assistant conversation…", { thread: "pick" }]] as const) {
+    const row = rows.find(r => r.human.title === title);
+    assert.ok(row && row.performer.kind === "submit", title);
+    await row.performer.run();
+    assert.deepEqual(asked.at(-1), req);
+  }
+});
