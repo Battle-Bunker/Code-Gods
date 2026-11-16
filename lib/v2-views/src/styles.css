@@ -415,6 +415,7 @@
 .v2v-move-order button[aria-pressed="true"] { background: var(--v2v-ink); border-color: var(--v2v-ink); color: var(--v2v-paper); font-weight: 600; }
 .v2v-move-now { color: var(--v2v-muted); }
 .v2v-move-option[data-both] { border-color: var(--v2v-cand); background: var(--v2v-cand-bg); }
+.v2v-move-price, .v2v-move-bits { overflow-wrap: anywhere; }
 .v2v-move-both { color: var(--v2v-cand); font-style: normal; }
 .v2v-move-option[data-unavailable] { opacity: 0.6; border-style: dotted; }
 .v2v-move-delta { font-weight: 600; color: var(--v2v-ink); }
