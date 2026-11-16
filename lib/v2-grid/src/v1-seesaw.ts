@@ -9,7 +9,7 @@
 import type { RuleFamily } from "@workspace/v2-core";
 import type { GridState } from "./grid.ts";
 import { cols, rows } from "./units.ts";
-import { distance, family, more, readCells, sumOf, term, type Shape } from "./family-kit.ts";
+import { distance, family, more, readCells, sumOf, term, markFor, type Shape } from "./family-kit.ts";
 
 export type SeesawAxis = "rows" | "columns";
 type Seesaw = { axis: SeesawAxis };
@@ -41,6 +41,10 @@ export function seesaw(n: number): RuleFamily<GridState, Seesaw> {
     const leans = lines.map(l => lean(cells.v, l));
     term(ctx, "seesaw", `how far each ${one(p)}'s two halves are from balancing, added up`, sumOf(leans), cells.refs);
     lines.forEach((l, k) => { if (leans[k] === 0) for (const i of l) ctx.mark({ kind: "focus", ref: cells.refs[i]! }); });
+    const at = (ls: number[][], keep: (l: number[], k: number) => boolean) => ls.flatMap((l, k) => (keep(l, k) ? l.map(i => cells.refs[i]!) : []));
+    markFor(ctx, "other-way", at(other, l => lean(cells.v, l) !== 0));   // the other way's unbalanced seesaws
+    markFor(ctx, "heavy-seesaws", at(lines, (_, k) => leans[k] === 0));   // the balanced seesaws
+    markFor(ctx, "ends-and-middle", at(lines, l => cells.v[l[0]!]! + cells.v[l[n - 1]!]! !== cells.v[l[1]!]! + cells.v[l[n - 2]!]!));   // ends off their middle
     term(ctx, "other-way", `how far each ${p.axis === "rows" ? "column" : "row"}'s two halves are from balancing, added up`, sumOf(other.map(l => lean(cells.v, l))), cells.refs);
     term(ctx, "heavy-seesaws", `the numbers in the ${p.axis} that balance, added up`, sumOf(lines.filter((_, k) => leans[k] === 0).map(l => sumOf(l.map(i => cells.v[i]!)))), cells.refs);
     term(ctx, "ends-and-middle", "how far each seesaw's ends are from its middle, added up",

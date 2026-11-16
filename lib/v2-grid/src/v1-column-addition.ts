@@ -7,7 +7,7 @@
 import type { RuleFamily } from "@workspace/v2-core";
 import { type GridState } from "./grid.ts";
 import { rows } from "./units.ts";
-import { term, family, more, distance, readCells, type Shape } from "./family-kit.ts";
+import { term, markFor, family, more, distance, readCells, type Shape } from "./family-kit.ts";
 
 type SumParams = { top: number };
 const BASE = 10;
@@ -51,12 +51,16 @@ export function columnAddition(n: number): RuleFamily<GridState, SumParams> {
     if (s.blank) {
       term(ctx, "column-addition", "right columns in the run from the right-hand end (none: the top row is all 0s)", 0, refs);
       term(ctx, "right-columns", "right columns anywhere (none: the top row is all 0s)", 0, refs);
+      markFor(ctx, "near-digits", ansRow.map(i => cells.refs[i]!));
       term(ctx, "near-digits", "how far each answer digit is from the right digit, added up (all 9 off: the top row is all 0s)", 9 * n, refs);
       term(ctx, "big-answer", "the answer row's digits added up (none: the top row is all 0s)", 0, refs);
       return;
     }
     term(ctx, "column-addition", "right columns in the run from the right-hand end", run, refs);
     ansRow.forEach((i, k) => ctx.mark(s.ok[k] ? { kind: "focus", ref: cells.refs[i]! } : { kind: "note", ref: cells.refs[i]!, text: `${s.right[k]} is right` }));
+    markFor(ctx, "right-columns", ansRow.filter((_, k) => s.ok[k]).map(i => cells.refs[i]!));
+    ansRow.forEach((i, k) => { if (!s.ok[k]) ctx.mark({ kind: "note", ref: cells.refs[i]!, text: `${Math.abs(s.answer[k]! - s.right[k]!)} off`, term: "near-digits" }); });
+    markFor(ctx, "big-answer", ansRow.filter((_, k) => s.answer[k]! > 0).map(i => cells.refs[i]!));
     term(ctx, "right-columns", "right columns anywhere in the sum", s.ok.filter(Boolean).length, refs);
     term(ctx, "near-digits", "how far each answer digit is from the right digit, added up", s.answer.reduce((t, x, k) => t + Math.abs(x - s.right[k]!), 0), refs);
     term(ctx, "big-answer", "the answer row's digits added up", s.answer.reduce((t, x) => t + x, 0), refs);

@@ -9,7 +9,7 @@
 import { type RuleFamily, type Variant } from "@workspace/v2-core";
 import { gridParams, type GridState } from "./grid.ts";
 import { cols, rows } from "./units.ts";
-import { diagonals, family, more, readCells, term, type Shape } from "./family-kit.ts";
+import { diagonals, family, more, readCells, term, markFor, type Shape } from "./family-kit.ts";
 
 export type Bingo = { called: readonly number[] };
 
@@ -54,6 +54,9 @@ export function bingoCaller(n: number): RuleFamily<GridState, Bingo> {
     term(ctx, "bingo", `dabs, and ${n} for each BINGO`, dabs + n * bingos.length, cells.refs);
     for (const i of new Set(bingos.flat())) ctx.mark({ kind: "focus", ref: cells.refs[i]! });
     const dabRefs = cells.refs.filter((_, i) => dabbed[i]);
+    markFor(ctx, "near-bingo", lines.filter(l => l.filter(i => dabbed[i]).length === n - 1).flat().map(i => cells.refs[i]!));
+    markFor(ctx, "big-dabs", dabRefs);
+    markFor(ctx, "diagonal-dabs", [...new Set(diagonals(n).flat())].filter(i => dabbed[i]).map(i => cells.refs[i]!));
     term(ctx, "near-bingo", "rows, columns and long diagonals one dab short of BINGO", lines.filter(l => l.filter(i => dabbed[i]).length === n - 1).length, cells.refs);
     term(ctx, "big-dabs", "the dabbed numbers, added up", cells.v.reduce((t, x, i) => (dabbed[i] ? t + x : t), 0), dabRefs);
     term(ctx, "diagonal-dabs", "dabs on the long diagonals", [...new Set(diagonals(n).flat())].filter(i => dabbed[i]).length, dabRefs);

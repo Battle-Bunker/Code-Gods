@@ -7,7 +7,7 @@
  */
 import type { RuleFamily } from "@workspace/v2-core";
 import { at, type GridState } from "./grid.ts";
-import { family, more, readCells, term, type Shape } from "./family-kit.ts";
+import { family, more, readCells, term, markFor, type Shape } from "./family-kit.ts";
 
 export type Fold = "V" | "H";
 type GlassP = { axis: Fold };
@@ -40,6 +40,7 @@ export function lookingGlass(n: number): RuleFamily<GridState, GlassP> {
     const hits = twinPairs(n, p.axis).filter(([a, b]) => cells.v[a] === cells.v[b]);
     term(ctx, "twins", "pairs of mirror twins holding the same number", hits.length, cells.refs);
     for (const [a, b] of hits) { ctx.mark({ kind: "focus", ref: cells.refs[a]! }); ctx.mark({ kind: "focus", ref: cells.refs[b]! }); }
+    markFor(ctx, "twin-total", hits.flat().map(i => cells.refs[i]!));
     term(ctx, "twin-total", "the numbers in the matching pairs (one from each pair), added up", hits.reduce((t, [a]) => t + cells.v[a]!, 0), hits.flat().map(i => cells.refs[i]!));
   }, n);
 }

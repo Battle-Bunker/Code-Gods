@@ -8,7 +8,7 @@
 import type { RuleFamily } from "@workspace/v2-core";
 import type { GridState } from "./grid.ts";
 import { cols, rows } from "./units.ts";
-import { family, more, readCells, term, type Shape } from "./family-kit.ts";
+import { family, more, readCells, term, markFor, type Shape } from "./family-kit.ts";
 
 export type HouseAxis = "rows" | "columns";
 type House = { axis: HouseAxis };
@@ -34,6 +34,8 @@ export function fullHouse(n: number): RuleFamily<GridState, House> {
       if (cells.v[h[i]!] === cells.v[h[j]!]) found.push({ a: h[i]!, b: h[j]!, gap: j - i });
     term(ctx, "pairs", `pairs of equal numbers in a ${one(p)}`, found.length, cells.refs);
     for (const i of new Set(found.flatMap(x => [x.a, x.b]))) ctx.mark({ kind: "focus", ref: cells.refs[i]! });
+    const paired = [...new Set(found.flatMap(x => [x.a, x.b]))].map(i => cells.refs[i]!);
+    for (const id of ["pair-values", "pair-kinds", "pairs-apart"]) markFor(ctx, id, paired);
     term(ctx, "pair-values", "the paired numbers, added up once per pair", found.reduce((t, x) => t + cells.v[x.a]!, 0), cells.refs);
     term(ctx, "pair-kinds", "different numbers that make a pair", new Set(found.map(x => cells.v[x.a])).size, cells.refs);
     term(ctx, "pairs-apart", "steps between the paired cells, added up", found.reduce((t, x) => t + x.gap, 0), cells.refs);

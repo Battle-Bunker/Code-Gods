@@ -6,7 +6,7 @@
  */
 import type { RuleFamily } from "@workspace/v2-core";
 import type { GridState } from "./grid.ts";
-import { family, more, readCells, term, type Shape } from "./family-kit.ts";
+import { family, more, readCells, term, markFor, type Shape } from "./family-kit.ts";
 
 type None = Record<string, never>;
 
@@ -32,6 +32,7 @@ export function snap(n: number): RuleFamily<GridState, None> {
     term(ctx, "snaps", "touching pairs of equal numbers", snaps.length, cells.refs);
     const hit = [...new Set(snaps.flat())];
     for (const i of hit) ctx.mark({ kind: "focus", ref: cells.refs[i]! });
+    for (const id of ["snap-values", "snap-kinds", "snap-reach"]) markFor(ctx, id, hit.map(i => cells.refs[i]!));
     term(ctx, "snap-values", "the snapped numbers, added up once per snap", snaps.reduce((t, [a]) => t + cells.v[a]!, 0), cells.refs);
     term(ctx, "snap-kinds", "different numbers that snap", new Set(snaps.map(([a]) => cells.v[a])).size, cells.refs);
     term(ctx, "snap-reach", "rows and columns holding a snapped cell", new Set(hit.map(i => Math.floor(i / n))).size + new Set(hit.map(i => i % n)).size, cells.refs);

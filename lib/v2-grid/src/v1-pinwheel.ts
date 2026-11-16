@@ -6,7 +6,7 @@
  */
 import type { RuleFamily } from "@workspace/v2-core";
 import { at, type GridState } from "./grid.ts";
-import { family, more, readCells, term, type Shape } from "./family-kit.ts";
+import { family, more, readCells, term, markFor, type Shape } from "./family-kit.ts";
 
 type None = Record<string, never>;
 
@@ -41,6 +41,8 @@ export function pinwheel(n: number): RuleFamily<GridState, None> {
       const keys = set.map(i => cells.v[i]!);
       const same = Math.max(...keys.map(k => keys.filter(x => x === k).length));
       most += same;
+      const top = keys.find(k => keys.filter(x => x === k).length === same);
+      markFor(ctx, "commonest", set.filter(i => cells.v[i] === top).map(i => cells.refs[i]!));   // the cells holding the set's commonest number
       if (same === 4) { full++; for (const i of set) ctx.mark({ kind: "focus", ref: cells.refs[i]! }); }
     }
     term(ctx, "pinwheel", "sets of 4 a quarter turn moves round, all holding the same number", full, cells.refs);

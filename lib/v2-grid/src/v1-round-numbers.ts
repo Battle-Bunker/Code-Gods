@@ -7,7 +7,7 @@
 import { ref, type RuleFamily } from "@workspace/v2-core";
 import { type GridState } from "./grid.ts";
 import { rows } from "./units.ts";
-import { term, distance, family, more, readNum, type Shape } from "./family-kit.ts";
+import { term, markFor, distance, family, more, readNum, type Shape } from "./family-kit.ts";
 import type { Axis } from "./more-families.ts";
 
 type RoundParams = { axis: Axis };
@@ -37,6 +37,9 @@ export function roundNumbers(n: number): RuleFamily<GridState, RoundParams> {
     const off = totals.map((t, k) => Math.abs(t - rounds[k]!));
     term(ctx, "round-numbers", `how far each ${word(p)}'s total is from the nearest multiple of 10, added up`, off.reduce((a, b) => a + b, 0), refs);
     refs.forEach((r, k) => ctx.mark(off[k] === 0 ? { kind: "focus", ref: r } : { kind: "note", ref: r, text: `${off[k]} off ${rounds[k]}` }));
+    markFor(ctx, "exact-rounds", refs.filter((_, k) => off[k] === 0));
+    markFor(ctx, "big-rounds", refs.filter((_, k) => rounds[k]! > 0));
+    markFor(ctx, "round-steps", refs.flatMap((r, k) => (k > 0 && Math.abs(rounds[k]! - rounds[k - 1]!) === BASE ? [refs[k - 1]!, r] : [])));
     term(ctx, "exact-rounds", `${word(p)}s adding up to exactly a multiple of 10`, off.filter(d => d === 0).length, refs);
     term(ctx, "big-rounds", "the round numbers the totals are nearest to, added up", rounds.reduce((a, b) => a + b, 0), refs);
     term(ctx, "round-steps", `neighbouring ${word(p)}s whose round numbers are 10 apart`, rounds.slice(1).filter((r, k) => Math.abs(r - rounds[k]!) === BASE).length, refs);

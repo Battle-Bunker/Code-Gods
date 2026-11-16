@@ -7,7 +7,7 @@
  */
 import type { RuleFamily } from "@workspace/v2-core";
 import { at, gridParams, type GridState } from "./grid.ts";
-import { family, more, readCells, term, type Shape } from "./family-kit.ts";
+import { family, more, readCells, term, markFor, type Shape } from "./family-kit.ts";
 
 type StarP = { star: number };
 
@@ -52,6 +52,7 @@ export function constellation(n: number): RuleFamily<GridState, StarP> {
     const best = cs.filter(g => g.length === size).reduce<number[]>((b, g) => (reach(n, g) > reach(n, b) ? g : b), []);
     term(ctx, "stars", `stars (cells holding ${p.star}) in the biggest cluster`, size, cells.refs);
     for (const i of best) ctx.mark({ kind: "focus", ref: cells.refs[i]! });
+    markFor(ctx, "cluster-reach", best.map(i => cells.refs[i]!));
     term(ctx, "cluster-reach", "rows and columns the biggest cluster reaches", reach(n, best), best.length ? best.map(i => cells.refs[i]!) : cells.refs);
   }, n);
 }
