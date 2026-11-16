@@ -66,7 +66,7 @@ export const GLOSSARY = {
   turn: { term: "Turn", gloss: "A chance for an agent to act on one line or grid. Turns go out at random: more energy, more turns." },
   "tug-of-war": { term: "Tug-of-war", gloss: "Your agent and another player's keep moving the same line or grid back and forth: both of you burn energy. Talk." },
   "leave-alone": { term: "Leave alone", gloss: "A list of lines or grids your agent never moves: how you keep your side of a deal." },
-  representation: { term: "View", gloss: "One way to see a line or grid, e.g. slope-intercept or the line on the plane. Your rule reads some of them." },
+  representation: { term: "View", gloss: "One way to see a line or grid, e.g. a line's equation or a grid's board. Your rule reads some of them." },
   palette: { term: "Command palette", gloss: "The search box (Ctrl or Cmd+K) that runs every command you have: the same ones your assistant has." },
   panel: { term: "Panel", gloss: "A view of the game in a pane: a built-in one, or one you or your assistant wrote." },
   pane: { term: "Pane", gloss: "One tile of your screen: a panel or your assistant; move it anywhere." },

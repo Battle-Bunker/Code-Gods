@@ -118,3 +118,8 @@ test("in a room where AI cannot spend, nothing that spends the AI budget is offe
   assert.deepEqual(refusal(AFFORDANCES["assistant.send"], live), { ok: false, reason: off, hidden: true });
   assert.ok(ids(ctx("live", "seated", { room: { players: 3, minPlayers: 3 } })).includes("assistant.send"), "offered where AI can spend");
 });
+
+test("palette titles speak the game's words: no “representation” or “mutator” jargon in a title", async () => {
+  const { DIRECTORY } = await import("../src/index.ts");
+  for (const a of DIRECTORY) assert.doesNotMatch(a.title, /representation's mutators/i, a.id);
+});
