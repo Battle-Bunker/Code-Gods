@@ -189,3 +189,21 @@ export const bidStateV = v.object({
   mine: v.array(bidV), done: v.boolean(),
   players: v.array(v.object({ memberId: v.id("v2Members"), name: v.string(), done: v.boolean() })),
 });
+
+/**
+ * `v2/games:details` (v1's "Game details"): the settings as frozen at the start (tables.ts v2Games.settings), the
+ * timings, and after the end every seat's rule (null while live: who holds which rule is private until the end).
+ */
+export const gameDetailsV = v.object({
+  gameId: v.id("v2Games"), phase: v.string(), preset: v.string(), variant: v.string(),
+  settings: v.any(),
+  createdAt: v.number(), startedAt: v.union(v.number(), v.null()), planningEndsAt: v.union(v.number(), v.null()),
+  endsAt: v.union(v.number(), v.null()), endedAt: v.union(v.number(), v.null()),
+  /** The world second the game ended at (after the end only: a halfLife game's end is hidden while live). */
+  endWorld: v.union(v.number(), v.null()),
+  rules: v.union(v.null(), v.array(v.object({
+    memberId: v.id("v2Members"), name: v.string(), kind: v.string(),
+    family: v.string(), params: v.any(), tieBreaker: v.union(v.string(), v.null()), title: v.string(), card: v.string(),
+    bid: v.union(v.number(), v.null()), handicap: v.union(v.number(), v.null()), drifts: v.number(),
+  }))),
+});
