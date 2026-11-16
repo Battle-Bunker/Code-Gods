@@ -62,3 +62,9 @@ test("the old game's seeded boards each have a variant", () => {
   for (const v of BOARD_VARIANTS) assert.equal(boardTypeOf(v).id, `board${(v.params as { size: number }).size}`);
   for (const id of ["board-4-base10-rgb", "board-5-base10-rgby", "board-6-base16-rainbow6", "board-7-cards-rainbow6"]) assert.ok(ids.includes(id), id);
 });
+
+test("the board's scene carries each cell's colour and letter, and a card's glyph", () => {
+  const scene = boardType.representations[0]!.layout(decodeBoard("7R,3G,0B,1R/2R,9B,4G,4G/8R,0R,0R,0R/1B,1B,1B,1B"), 0) as { cellColours?: { letter: string; css: string }[]; cellGlyphs?: string[] };
+  assert.deepEqual(scene.cellColours!.slice(0, 3).map(c => c.letter), ["R", "G", "B"]);
+  assert.equal(scene.cellGlyphs, undefined);
+});

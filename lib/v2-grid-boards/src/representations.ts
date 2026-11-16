@@ -4,7 +4,7 @@
  * (`r0c0.suit`).
  */
 import { q, ref, type ElementDecl, type Representation } from "@workspace/v2-core";
-import { COLOURS, SUIT_NAMES, type BoardState } from "./board.ts";
+import { COLOURS, PLAIN, SUIT_NAMES, symbolGlyph, type BoardState } from "./board.ts";
 import { cellLabel, cellName } from "./units.ts";
 
 type Decl = ElementDecl<BoardState>;
@@ -30,7 +30,12 @@ export function boardRepresentations(n: number, cards: boolean): readonly Repres
         value: s => (s.cards ? { kind: "symbol", text: SUIT_NAMES[Math.floor(s.sym[i]! / 13)]! } : { kind: "undefined", reason: "a digit has no suit" }),
       })),
     ],
-    layout: () => ({ kind: "grid", rows: n, cols: n, cells: Array.from({ length: N2 }, (_, i) => ref("cells", cellName(n, i))) }),
+    layout: s => ({
+      kind: "grid", rows: n, cols: n, cells: Array.from({ length: N2 }, (_, i) => ref("cells", cellName(n, i))),
+      // Plain tiles on a one-colour board; every other board shows its colours (and its letters), and cards their glyphs.
+      ...(s.col.some(c => c !== PLAIN) ? { cellColours: s.col.map(c => ({ css: COLOURS[c]!.css, ink: COLOURS[c]!.ink, letter: COLOURS[c]!.letter })) } : {}),
+      ...(s.cards || s.sym.some(x => x > 9) ? { cellGlyphs: s.sym.map(x => symbolGlyph(s.cards ? "cards" : "base16", x)) } : {}),
+    }),
   };
   return [cells];
 }
