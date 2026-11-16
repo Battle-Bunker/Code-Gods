@@ -450,6 +450,8 @@ const MAX_HELD = 8000;
  * ≤ 8,000 held states; a full game is the snapshot and 15 more pages.
  */
 export const TICK_AGENT_PAGE = 100;
+/** Samples an agent's energy row keeps for the sparkline (one a tick at most: at the default ~1 s ticks, two minutes). */
+export const AGENT_HISTORY = 120;
 
 /** One page of a game's live agents with their programs and energy, as the tick runs them. */
 async function tickAgentsPage(ctx: QueryCtx, gameId: Id<"v2Games">, cursor: string | null) {
@@ -590,8 +592,11 @@ export const commit = internalMutation({
       const charge = committed || outcome === "skipped" || (outcome === "failed" && !holder) ? record.charge : readCharge(record.readBits);
       const charged = chargeAct(account, charge);
       const n = act.n;
+      // The sparkline's sample: the balance after this act (a later act in the same tick replaces it).
+      const kept = (energy.history ?? []).filter(h => h.at < world);
+      const history = [...kept, { at: world, energy: charged.balance }].slice(-AGENT_HISTORY);
       await ctx.db.patch(energy._id, {
-        energy: charged.balance, settledAt: charged.settledWorldSeconds, acts: energy.acts + 1, spend: energy.spend + charge, lastActAt: world,
+        energy: charged.balance, settledAt: charged.settledWorldSeconds, acts: energy.acts + 1, spend: energy.spend + charge, lastActAt: world, history,
         ...(outcome === "skipped" ? { skips: energy.skips + 1 } : outcome === "failed" ? { failures: energy.failures + 1 } : {}),
       });
       const actSeq = await appendEvent(ctx, game._id, "act", {
