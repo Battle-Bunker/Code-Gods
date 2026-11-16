@@ -131,6 +131,8 @@ export function treeFamily<P extends object, T extends Target>(o: {
   read: (ctx: Ctx, p: P) => TreeReading | { none: ElementValue; from: ElementRef };
   /** The target nearest the reading's size x (the whole reading too, for a ruler that depends on the line). */
   nearest: (x: Q, p: P, r: TreeReading) => T;
+  /** The second layer's distance, when it is not |reading − target| (the digit families: the gap between the first digits that differ). */
+  closeness?: (x: Q, t: T) => { d: Q; why: string };
   /** Where the reading and a target are drawn (the annotation contract, #960): the measure's start, a target's element. */
   /** null: the reading has no point on the plane to draw (a sum, an area): its working is a note on the reading. */
   draw: (r: TreeReading, p: P) => { from: ElementRef; target: (at: Q) => ElementRef } | null;
@@ -146,8 +148,8 @@ export function treeFamily<P extends object, T extends Target>(o: {
     if ("none" in r) return allUndefined(ctx, shape, r.none, r.from);
     const t = o.nearest(r.x, p, r);
     ctx.term("target", t.why, t.level, r.from);
-    const d = Qn.abs(Qn.sub(r.x, t.at));
-    ctx.term("closeness", Qn.isZero(d) ? `on ${mixed(t.at)}` : `${mixed(d)} from ${mixed(t.at)}`, d, r.from);
+    const own = o.closeness?.(r.x, t), d = own ? own.d : Qn.abs(Qn.sub(r.x, t.at));
+    ctx.term("closeness", own ? own.why : Qn.isZero(d) ? `on ${mixed(t.at)}` : `${mixed(d)} from ${mixed(t.at)}`, d, r.from);
     // Marks, each with its layer's term; a mark on a view outside depends is drawn, never read or charged (#1022).
     const cite = (x: ElementRef) => { if (o.depends.includes(x.rep)) ctx.read(x); return x; };
     const mk = o.draw(r, p), signed = (v: Q) => (r.sign < 0 ? Qn.neg(v) : v);
