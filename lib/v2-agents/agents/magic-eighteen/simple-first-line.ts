@@ -1,5 +1,5 @@
 // Magic Eighteen · Simple
-// Main part: every row adds up to the target. Secondary preference: the first column's total.
+// Main part: every row (or column) adds up to the target. Secondary preference: the first line the other way's total.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
@@ -8,9 +8,10 @@
 
 // How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
+  if (p.axis === "columns") b = b.map((_, i) => b[i % 4 * 4 + (i >> 2)]);   // columns dealt: read them as rows
   let main = 0;
   for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] + b[r + 1] + b[r + 2] + b[r + 3] - p.T);   // each row: how far its total is from T
-  return [main, b[0] + b[4] + b[8] + b[12]];   // main: how far the rows' totals are from T, added up (closer is better); secondary: a bigger first column is better
+  return [main, b[0] + b[4] + b[8] + b[12]];   // main: how far the rows' (or columns', the dealt axis) totals are from T, added up (closer is better); secondary: a bigger first line the other way (column, or row) is better
 }
 
 const FAR = 1;      // how far one change may go

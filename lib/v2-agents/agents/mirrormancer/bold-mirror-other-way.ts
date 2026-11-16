@@ -1,21 +1,21 @@
-// Magic Eighteen · Example: every column adds up to the target too
-// Main part: every row adds up to the target. Secondary preference: every column adds up to the target too.
+// Mirrormancer · Bold
+// Main part: every row (or column) reads the same backwards. Secondary preference: the other way reads the same backwards too.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
-// time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
-// (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
-// a note, so you can make a deal with that player. Of the changes that are best for your rule, it takes the one that
-// raises your points most (your rarity times the other players').
-// Try this: remove the "trade" line: can single cells fix the columns without spoiling the rows?
+// time) and takes the change that raises your points most. Your points on a board are your rarity there times the
+// other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
+// lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
+// Try this: change FAR = 2 to 1: single steps, the same price per step, but more turns to get there.
 
 // How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
+  if (p.axis === "columns") b = b.map((_, i) => b[i % 4 * 4 + (i >> 2)]);   // columns dealt: read them as rows
   let main = 0;
-  for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] + b[r + 1] + b[r + 2] + b[r + 3] - p.T);   // each row: how far its total is from T
-  return [main, -[0, 1, 2, 3].reduce((t, c) => t + Math.abs(b[c] + b[c + 4] + b[c + 8] + b[c + 12] - p.T), 0)];   // main: how far the rows' totals are from T, added up (closer is better); secondary: columns adding up closer to T are better
+  for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] - b[r + 3]) + Math.abs(b[r + 1] - b[r + 2]);   // each row: its ends' gap and its middle's gap
+  return [main, -[0, 1, 2, 3].reduce((t, c) => t + Math.abs(b[c] - b[c + 12]) + Math.abs(b[c + 4] - b[c + 8]) + (b[c] === b[c + 4] && b[c] === b[c + 8] && b[c] === b[c + 12] ? 1 : 0), 0)];   // main: how far each row (or column, the dealt axis) is from reading the same backwards, added up (closer is better); secondary: the other way (columns, or rows) closer to reading the same backwards, with two different numbers in each, is better
 }
 
 const FAR = 2;      // how far one change may go
-const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
+const QUOTES = 6;  // at most this many plans are priced (each price is a host call)
 const LEAVE = [];      // boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
@@ -37,14 +37,12 @@ function agent(offer) {
   const { params: p } = goal(offer);   // your rule's numbers (free)
   const NAME = Object.keys(v).slice(0, 16);   // the cells' names, r0c0 ... r3c3, row by row
   const b = NAME.map(n => Q.toNumber(v[n]));   // their 16 numbers
-  const add = (i, k) => move("cells.add", { cell: NAME[i], k });   // the move that adds k to cell i
   const tries = [];                 // [plan, board after]: changes tried in the agent's own head
   for (let k = -FAR; k <= FAR; k++) {
-    if (k === 0) continue;
-    for (let i = 0; i < 16; i++) tries.push([add(i, k), edit(b, [i], j => k)]);   // add k to one cell
-    for (let i = 0; i < 16; i++) for (let i2 = i + 1; i2 < 16; i2++) tries.push([[add(i, k), add(i2, -k)], edit(b, [i, i2], j => (j ? -k : k))]);   // move k from one cell to another (their total is kept)
+    if (k * k < 4) continue;   // only steps of 2 (each costs two single steps)
+    for (let i = 0; i < 16; i++) for (let i2 = i + 1; i2 < 16; i2++) tries.push([[move("cells.add", { cell: NAME[i], k }), move("cells.add", { cell: NAME[i2], k: -k })], edit(b, [i, i2], j => (j ? -k : k))]);   // move k from one cell to another (their total is kept)
   }
-  let options = tries.map(([plan, b2]) => [plan, score(b2, p)]);   // each step and the score it reaches
+  let options = scoreEach(tries, ([plan, b2]) => [plan, score(b2, p)]);   // each step and the score it reaches (fewer on a big board)
   // A promise: on these boards, only steps that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));
   // The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or null.

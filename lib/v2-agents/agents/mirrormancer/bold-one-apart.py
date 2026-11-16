@@ -1,5 +1,5 @@
 # Mirrormancer · Bold
-# Main part: every row reads the same backwards. Secondary preference: each end number one apart from the number beside it.
+# Main part: every row (or column) reads the same backwards. Secondary preference: each end number one apart from the number beside it.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 # other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
@@ -9,10 +9,12 @@
 
 def score(b, p):
     # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
+    if p["axis"] == "columns":   # columns dealt: read them as rows
+        b = [b[i % 4 * 4 + i // 4] for i in range(16)]
     main = 0
     for r in range(0, 16, 4):   # each row: its ends' gap and its middle's gap
         main -= abs(b[r] - b[r + 3]) + abs(b[r + 1] - b[r + 2])
-    return [main, -sum(abs(abs(b[r] - b[r + 1]) - 1) + abs(abs(b[r + 2] - b[r + 3]) - 1) for r in range(0, 16, 4))]   # main: how far each row is from reading the same backwards, added up (closer is better); secondary: each end number closer to one apart from the number beside it is better
+    return [main, -sum(abs(abs(b[r] - b[r + 1]) - 1) + abs(abs(b[r + 2] - b[r + 3]) - 1) for r in range(0, 16, 4))]   # main: how far each row (or column, the dealt axis) is from reading the same backwards, added up (closer is better); secondary: each end number closer to one apart from the number beside it is better
 
 
 FAR = 2      # how far one change may go

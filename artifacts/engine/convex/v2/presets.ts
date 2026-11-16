@@ -93,7 +93,9 @@ export function medianLookBits(variant: string): number {
  * weight.
  */
 // line-q: 715 since the starters score an ordered list of tie-breakers (any depth), up from 663 (15 Nov).
-export const MEDIAN_STARTER_BITS: Readonly<Record<string, number>> = { "line-q": 715, "line-q-lenses": 715, "grid-4-d10": 701 };
+// grid-4-d10: 766 since Mirrormancer and Magic Eighteen deal both axes (16 Nov): two pool entries each, and their
+// starters read the columns as rows when dealt the columns, up from 701.
+export const MEDIAN_STARTER_BITS: Readonly<Record<string, number>> = { "line-q": 715, "line-q-lenses": 715, "grid-4-d10": 766 };
 export const STARTERS_AT_START = 3;
 /** The beginner start at this power: STARTERS_AT_START typical starters at the scaled summon price, to the nearest 10. */
 export function beginnerStart(variant: string, powerPerSecond: number): number {
@@ -168,8 +170,9 @@ export const PRESETS: readonly Preset[] = [
   // Grid starters are dearer: 900 to start, so a starter takes about the share of it a line starter takes of 600.
   fromPool("grids-more-rules", { ...V1_DEFAULT_BOARD, startingEnergy: 900 }),
   // A readability playtest, not the default (docs/engine-v2/grid-params.md §13): Divisibility and Leading Digits, the
-  // board read as long numbers, on the beginner grid's game and economy.
-  fromPool("grids-arithmetic", { ...BEGINNER_WORLD, startingEnergy: GRIDS.startingEnergy }),
+  // board read as long numbers, on the beginner grid's game and economy; its start buys three of its own typical starters
+  // (130, which was the beginner grid's until both axes of Mirrormancer and Magic Eighteen were dealt, 16 Nov).
+  fromPool("grids-arithmetic", { ...BEGINNER_WORLD, startingEnergy: 130 }),
 ];
 export const DEFAULT_PRESET = BEGINNER.id;
 

@@ -167,8 +167,8 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
     family: "mirrormancer", simple: ["twin"],
     mainSays: "how far each row (or column, the dealt axis) is from reading the same backwards, added up (closer is better)",
     main: {
-      ts: ["if (p.axis === \"columns\") b = b.map((_, i) => b[4 * (i % 4) + Math.floor(i / 4)]);   // dealt the columns: flip the board over its diagonal, so its columns read as rows", "let main = 0;", "for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] - b[r + 3]) + Math.abs(b[r + 1] - b[r + 2]);   // each row: its ends' gap and its middle's gap"],
-      py: ["if p[\"axis\"] == \"columns\":   # dealt the columns: flip the board over its diagonal, so its columns read as rows", "    b = [b[4 * (i % 4) + i // 4] for i in range(16)]", "main = 0", "for r in range(0, 16, 4):   # each row: its ends' gap and its middle's gap", "    main -= abs(b[r] - b[r + 3]) + abs(b[r + 1] - b[r + 2])"],
+      ts: ["if (p.axis === \"columns\") b = b.map((_, i) => b[i % 4 * 4 + (i >> 2)]);   // columns dealt: read them as rows", "let main = 0;", "for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] - b[r + 3]) + Math.abs(b[r + 1] - b[r + 2]);   // each row: its ends' gap and its middle's gap"],
+      py: ["if p[\"axis\"] == \"columns\":   # columns dealt: read them as rows", "    b = [b[i % 4 * 4 + i // 4] for i in range(16)]", "main = 0", "for r in range(0, 16, 4):   # each row: its ends' gap and its middle's gap", "    main -= abs(b[r] - b[r + 3]) + abs(b[r + 1] - b[r + 2])"],
     },
     tieBreakers: {
       middle: { ts: "b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]", py: "b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]", says: "bigger middle columns are better", lenses: ["add", "line"], steps: 2, tryThis: "remove the \"line\" line: can it raise the middle without a whole row at once?" },
@@ -198,8 +198,8 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
     family: "magic-eighteen", simple: ["line"],
     mainSays: "how far the rows' (or columns', the dealt axis) totals are from T, added up (closer is better)",
     main: {
-      ts: ["if (p.axis === \"columns\") b = b.map((_, i) => b[4 * (i % 4) + Math.floor(i / 4)]);   // dealt the columns: flip the board over its diagonal, so its columns read as rows", "let main = 0;", "for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] + b[r + 1] + b[r + 2] + b[r + 3] - p.T);   // each row: how far its total is from T"],
-      py: ["if p[\"axis\"] == \"columns\":   # dealt the columns: flip the board over its diagonal, so its columns read as rows", "    b = [b[4 * (i % 4) + i // 4] for i in range(16)]", "main = 0", "for r in range(0, 16, 4):   # each row: how far its total is from T", "    main -= abs(b[r] + b[r + 1] + b[r + 2] + b[r + 3] - p[\"T\"])"],
+      ts: ["if (p.axis === \"columns\") b = b.map((_, i) => b[i % 4 * 4 + (i >> 2)]);   // columns dealt: read them as rows", "let main = 0;", "for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] + b[r + 1] + b[r + 2] + b[r + 3] - p.T);   // each row: how far its total is from T"],
+      py: ["if p[\"axis\"] == \"columns\":   # columns dealt: read them as rows", "    b = [b[i % 4 * 4 + i // 4] for i in range(16)]", "main = 0", "for r in range(0, 16, 4):   # each row: how far its total is from T", "    main -= abs(b[r] + b[r + 1] + b[r + 2] + b[r + 3] - p[\"T\"])"],
     },
     tieBreakers: {
       "first-line": { ...FIRST_COLUMN, says: "a bigger first line the other way (column, or row) is better", lenses: ["add", "line", "swap"], steps: 2, tryThis: "remove the \"swap\" line: can it fill the first column without rearranging a row?" },

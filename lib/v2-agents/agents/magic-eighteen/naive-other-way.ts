@@ -1,5 +1,5 @@
 // Magic Eighteen · Naive (for learning)
-// Main part: every row adds up to the target. Secondary preference: every column adds up to the target too.
+// Main part: every row (or column) adds up to the target. Secondary preference: the other way adds up to the target too.
 // What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 // board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 // board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
@@ -8,9 +8,10 @@
 
 // How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
+  if (p.axis === "columns") b = b.map((_, i) => b[i % 4 * 4 + (i >> 2)]);   // columns dealt: read them as rows
   let main = 0;
   for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] + b[r + 1] + b[r + 2] + b[r + 3] - p.T);   // each row: how far its total is from T
-  return [main, -[0, 1, 2, 3].reduce((t, c) => t + Math.abs(b[c] + b[c + 4] + b[c + 8] + b[c + 12] - p.T), 0)];   // main: how far the rows' totals are from T, added up (closer is better); secondary: columns adding up closer to T are better
+  return [main, -[0, 1, 2, 3].reduce((t, c) => t + Math.abs(b[c] + b[c + 4] + b[c + 8] + b[c + 12] - p.T), 0)];   // main: how far the rows' (or columns', the dealt axis) totals are from T, added up (closer is better); secondary: the other way (columns, or rows) adding up closer to T is better
 }
 
 const FAR = 1;      // how far one change may go

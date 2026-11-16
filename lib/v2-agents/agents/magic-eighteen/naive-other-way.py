@@ -1,5 +1,5 @@
 # Magic Eighteen · Naive (for learning)
-# Main part: every row adds up to the target. Secondary preference: the first column's total.
+# Main part: every row (or column) adds up to the target. Secondary preference: the other way adds up to the target too.
 # What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 # board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 # board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
@@ -9,10 +9,12 @@
 
 def score(b, p):
     # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
+    if p["axis"] == "columns":   # columns dealt: read them as rows
+        b = [b[i % 4 * 4 + i // 4] for i in range(16)]
     main = 0
     for r in range(0, 16, 4):   # each row: how far its total is from T
         main -= abs(b[r] + b[r + 1] + b[r + 2] + b[r + 3] - p["T"])
-    return [main, b[0] + b[4] + b[8] + b[12]]   # main: how far the rows' totals are from T, added up (closer is better); secondary: a bigger first column is better
+    return [main, -sum(abs(b[c] + b[c + 4] + b[c + 8] + b[c + 12] - p["T"]) for c in range(4))]   # main: how far the rows' (or columns', the dealt axis) totals are from T, added up (closer is better); secondary: the other way (columns, or rows) adding up closer to T is better
 
 
 FAR = 1      # how far one change may go
