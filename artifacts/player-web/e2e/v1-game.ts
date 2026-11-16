@@ -145,13 +145,10 @@ try {
       }
     });
 
-    await missing(["page-game-owner-menu"], "three humans: the owner ends the game from the ⋯ owner menu (End game, confirm)", async () => {
+    await check("three humans: the owner ends the game from the ⋯ owner menu (End game, confirm); every page shows the ended game on the same URL", async () => {
       await a.getByTestId("button-owner-menu").click({ timeout: 3_000 });
       await a.getByTestId("button-end-game").click();
-    }, () => escapeAll(a));
-
-    await check("three humans: the owner ends the game (palette in v2); every page shows the ended game on the same URL", async () => {
-      await paletteRun(a, "end the game", "game.end");
+      await a.getByTestId("button-end-game-yes").click();
       for (const p of players) {
         await p.page.getByTestId("text-phase").filter({ hasText: /ended/i }).waitFor({ timeout: 90_000 });
         assert.equal(p.page.url().replace(/[?#].*$/, ""), gameUrl, `${p.who} left the game's page`);

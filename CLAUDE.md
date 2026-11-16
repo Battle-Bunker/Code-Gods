@@ -43,6 +43,20 @@ query needs an entry in the query-cost gate (R8).
   that help players reach or hold a fixed point (agreed destination states, settle-and-hold, copying one state). Report
   simulation results for dynamics (do objects keep moving, do states converge, does one strategy dominate), not only
   totals. An AI model's bias is toward single-point optimisation; correct for it.
+- **Defence by locks, and cooperation on chosen states (owner, 2026-11-16).** "I think it's good that it becomes
+  increasingly hard to defend higher energy/scoring objects because of the asymmetry in cheaply imposing costs relative
+  to repairing what was destroyed ... But I also want it to be more possible to defend higher scores with extra
+  investment of energy." The mechanic: a **lock** on an object with an attached **predicate** that the object's current
+  state meets (for example "the y-intercept is prime", "the gradient is −2", a floor on a reading); "to push the object
+  to a state that doesn't meet that predicate, one must pay the energy cost to remove the lock"; "the expense of creating
+  the lock and sustaining it proportional to the information content of the predicate"; "any agent that gets offered
+  interaction with that object can query the locks and add or subtract energy from any given lock with their available
+  energy balance." This narrows the bullet above: locks, and players agreeing on states and strategies, are wanted. "It's
+  ok for specific states to be calculated in advance and then effortfully pursued by multiple cooperating agents over
+  many steps (and then locked collaboratively too), as long as such high value states can't be easily reached in one
+  step and as long as multiple distinct high value states need to be found to do well in aggregate." What stays a bug: a
+  high-value state reachable in one step, or one state being enough to do well. Design and status:
+  `docs/engine-v2/locks.md`.
 - **Agents are dynamic hill climbers.** Objects are unique within a game; a far move in one act costs at least the path
   of small ones; "all strategies should be incremental hill climbing towards profitable combined states."
 - **Representation shortcuts are wanted (owner decision 25).** The far-move rule is about the *size* of an additive

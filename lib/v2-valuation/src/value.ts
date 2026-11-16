@@ -26,6 +26,7 @@ import {
 import { fromMC, lineLaw, lineParams, lineSums, lineType, type Band, type Law, type LineState, type LineSums } from "@workspace/v2-linear";
 import { integersWithin } from "./exact.ts";
 import { ruleKey, valuesHash } from "./keys.ts";
+import { buildTree, treeLookup, type TreeValue } from "./tree-value.ts";
 
 // ---------------------------------------------------------------- survival oracles
 
@@ -363,6 +364,8 @@ export interface ValueFunction {
   /** Worst first. The first is always the worst score (null, 0 bits). */
   readonly knots: readonly ValueKnot[];
   readonly tail: ValueTail;
+  /** A tree-valued rule's tree (RuleFamily.valuation "tree", owner decision 45): valueLookup reads it instead of the knots. */
+  readonly tree?: TreeValue;
   readonly diagnostics: {
     readonly exact: readonly { readonly name: string; readonly outside: number }[];
     readonly sampled: { readonly draws: number; readonly accepted: number; readonly ess: number } | null;
@@ -618,8 +621,13 @@ export interface Lookup {
   /** Certified bounds (hi is Infinity beyond the best knot). */
   readonly lo: number;
   readonly hi: number;
-  /** "knot": the score is a knot; "between": bracketed by two knots; "beyond": better than every knot (extrapolated). */
-  readonly at: "knot" | "between" | "beyond";
+  /**
+   * "knot": the score is a knot; "between": bracketed by two knots; "beyond": better than every knot (extrapolated);
+   * "tree": a tree-valued rule, whose bits are the sum of `parts`.
+   */
+  readonly at: "knot" | "between" | "beyond" | "tree";
+  /** A tree-valued rule only: the bits of each part, level then closeness then the third (they add up to `bits`). */
+  readonly parts?: readonly number[];
 }
 
 /** What a rule's main layer and dealt tie-breaker declare they measure: the tail's measures. */
@@ -634,7 +642,11 @@ export function layerMeasures(family: RuleFamily<any, any>, tb: TieBreaker): Tai
  * A lookup function for a value function: bits at any score. Past the best knot the tail rule extrapolates without
  * bound (owner decision 26); a value function given without its tail takes the tail its knots imply (tailOf).
  */
-export function valueLookup(vf: { readonly knots: readonly Pick<ValueKnot, "u" | "bits" | "lo" | "hi">[]; readonly tail?: ValueTail | null }): (u: Score) => Lookup {
+export function valueLookup(vf: { readonly knots: readonly Pick<ValueKnot, "u" | "bits" | "lo" | "hi">[]; readonly tail?: ValueTail | null; readonly tree?: TreeValue }): (u: Score) => Lookup {
+  if (vf.tree) {
+    const look = treeLookup(vf.tree);
+    return (u: Score) => { const t = look(u); return { bits: t.bits, lo: t.bits, hi: t.bits, at: "tree", parts: t.parts }; };
+  }
   const ks = vf.knots.map(k => ({ ...k, s: scoreFromWire(k.u) }));
   const tail = vf.tail ?? tailOf(vf.knots);
   return (u: Score) => {
@@ -804,9 +816,10 @@ export function lineValueFunction<P>(family: RuleFamily<LineState, P>, params: P
   const tb = tieBreaker === "none" ? null : tieBreaker;
   const exact = options.exact === false ? [] : exactLineOracles(family, params, variant, tb, cfg);
   const oracles: Oracle[] = [...exact];
-  let sampled: ValueFunction["diagnostics"]["sampled"] = null;
+  let sampled: ValueFunction["diagnostics"]["sampled"] = null, tree: TreeValue | undefined;
   if (cfg.drawsPerTilt > 0) {
     const { draws, total } = sampledDraws(lineType, lineLaw(variant), family, params, variant, tb, cfg, seed);
+    if (family.valuation === "tree") tree = buildTree(draws);
     const W = draws.reduce((a, d) => a + d.w, 0), W2 = draws.reduce((a, d) => a + d.w * d.w, 0);
     sampled = { draws: total, accepted: draws.length, ess: Math.round(W2 > 0 ? (W * W) / W2 : 0) };
     oracles.push(sampledOracle("direct draws", draws));
@@ -817,6 +830,7 @@ export function lineValueFunction<P>(family: RuleFamily<LineState, P>, params: P
     ruleKey: ruleKey(lineType as ObjectType<unknown>, variant, family.id, params, tieBreaker),
     objectType: lineType.id, objectTypeVersion: lineType.version, variant: variant.id, variantHash: valuesHash(variant),
     family: family.id, params, tieBreaker, seed, config: cfg, knots, tail: tailOf(knots, TAIL_CEILING, layerMeasures(family, tb), undefined, ladderCaps(lineType, family, params, variant)),
+    ...(tree ? { tree } : {}),
     diagnostics: { exact: exact.map(o => ({ name: o.name, outside: o.outside ?? 0 })), sampled, candidates },
   };
   return { ...body, contentHash: hashHex(canonicalJson(body)) };
