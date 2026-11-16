@@ -55,7 +55,7 @@ test("a redraw keeps the family and tie-breaker, may keep or change the paramete
 });
 
 
-const lineQOf = () => findVariant("line-q");
+const lineQOf = () => findVariant("line-q").variant;
 test("a ladder family is never redrawn (the coordinator's amendment of call 18): its seat keeps its dealt parameters", async () => {
   const { familyOf } = await import("../../convex/v2/deal.ts");
   const { dynamicFamilies } = await import("@workspace/v2-linear");

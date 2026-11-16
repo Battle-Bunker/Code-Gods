@@ -40,6 +40,8 @@ export function familyOf(id: string): RuleFamily<unknown, unknown> {
   if (!f) throw new Error(`Unknown rule family ${id}`);
   return f;
 }
+/** A family by id, or undefined when it is no longer defined (a stored game may name one retired since: decision 50). */
+export const knownFamily = (id: string): RuleFamily<unknown, unknown> | undefined => FAMILIES.get(id);
 /** Whether a family keeps its params under drift (a ladder: RuleFamily.keepsParams); false for a family no longer defined. */
 export const keepsParams = (id: string): boolean => FAMILIES.get(id)?.keepsParams === true;
 
@@ -321,7 +323,8 @@ export interface RuleView { title: string; card: string; depends: string[]; prim
 
 /** What the player is shown about a dealt rule: its card and layers (its value function is `valueRecord(ruleKey)`). */
 export function ruleView(rule: DealtRule): RuleView {
-  const f = familyOf(rule.family);
+  const f = knownFamily(rule.family);
+  if (!f) return { title: "A retired rule", card: "This rule was retired on 17 November 2026 (the rules are now one number each); it scores nothing.", depends: [], primary: "si", layers: [] };
   return { title: f.title, card: f.card(rule.params, rule.tieBreaker), depends: [...f.depends], primary: f.main.rep, layers: ruleLayers(f, rule.tieBreaker).map(l => l.id) };
 }
 

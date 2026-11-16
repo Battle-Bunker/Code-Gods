@@ -6,7 +6,7 @@
 import { energyOf, evaluateObject, familyById, type EstimateOpts, ruleLayers, scoreToWire, type ObjectType } from "@workspace/v2-core";
 import { defenceNet } from "@workspace/v2-valuation";
 import { findVariant } from "@workspace/v2-valuation";
-import { familyOf, type DealtRule } from "./deal.ts";
+import { knownFamily, type DealtRule } from "./deal.ts";
 import { penaltyBitsOf, penaltyMean, worthOf, type ValueScope } from "./values.ts";
 import { births } from "@workspace/v2-agents/pure";
 
@@ -51,7 +51,9 @@ export function partsOf(look: { parts?: readonly number[] }, layers: readonly st
 
 /** valueOf, and the parts of the bits for a tree-valued rule (null otherwise): what a player's own object read shows. */
 export function valueWithParts(state: unknown, variantId: string, rule: DealtRule, objects: number, defence?: DefenceRule, weight = DEFAULT_PENALTY_WEIGHT, estimate?: EstimateOpts) {
-  const family = familyOf(rule.family);
+  const family = knownFamily(rule.family);
+  // A family retired since the game was dealt (decision 50) scores nothing.
+  if (!family) return { value: { score: null, rarityBits: 0 }, parts: null };
   if (family.dynamic) {
     // The dynamic measure (owner, 16 Nov): energy is a fresh estimate each time, in energy units (energy.md); no
     // uniqueness correction and no defence goal (neither is dealt with a dynamic family).
