@@ -36,10 +36,10 @@ test("joining by code asks for the code (a minimum length is not mistaken for no
 
 test("every read the palette offers in a game opens where the app shows it live (playtest: 'Show the auction's result' failed)", async () => {
   const { AFFORDANCES } = await import("@workspace/v2-affordances");
-  const { READ_PANES, ROOM_READS, ACCOUNT_READS, NOTICE_READS } = await import("../src/core/palette-commands.ts");
+  const { READ_PANES, ROOM_READS, ACCOUNT_READS, NOTICE_READS, SETUP_READS } = await import("../src/core/palette-commands.ts");
   for (const a of Object.values(AFFORDANCES) as { id: string; effect: string; runs: string; kind?: string; contexts: readonly string[] }[]) {
     if (a.effect !== "read" || a.runs === "client" || a.id === "agent.check" || a.id === "room.list") continue;
-    const shown = a.id in READ_PANES || ROOM_READS.has(a.id) || ACCOUNT_READS.has(a.id) || NOTICE_READS.has(a.id);
+    const shown = a.id in READ_PANES || ROOM_READS.has(a.id) || ACCOUNT_READS.has(a.id) || NOTICE_READS.has(a.id) || SETUP_READS.has(a.id);
     assert.ok(shown, `${a.id}: the palette has nowhere to show it`);
   }
 });
@@ -179,4 +179,24 @@ test("'Focus assistant (Ctrl+`)' is a row in a game with the assistant, and focu
   assert.equal(focused, 1);
   const off = affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: true, spectator: false }], preset: "lines-beginner" } as never, header: { phase: "live", me: "m1" } as never, aiOff: "No AI here." });
   assert.equal(paletteCommands(off, host as never).some(r => r.id === "assistant-focus"), false, "not in a room without AI");
+});
+
+test("New setup… (setups.save) opens the configure page at Save as a setup", () => {
+  const ctx = affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: true, spectator: false }], preset: "lines-beginner", phase: "lobby", game: null } as never });
+  const row = paletteCommands(ctx, { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, roomPath: "/rooms/ABCD" } as never).find(r => r.id === "setups.save");
+  assert.ok(row);
+  assert.deepEqual(row.performer, { kind: "navigate", to: "/rooms/ABCD/configure#field-save-setup" });
+});
+
+test("'New conversation' and 'Switch assistant conversation…' open the assistant so (v1)", async () => {
+  const ctx = affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: true, spectator: false }], preset: "lines-beginner" } as never, header: { phase: "live", me: "m1" } as never });
+  const asked: unknown[] = [];
+  const host = { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, panes: { open: async () => {}, close: async () => {} }, focusAssistant: async (r?: unknown) => { asked.push(r); } };
+  const rows = paletteCommands(ctx, host as never);
+  for (const [title, req] of [["New conversation", { thread: "new" }], ["Switch assistant conversation…", { thread: "pick" }]] as const) {
+    const row = rows.find(r => r.human.title === title);
+    assert.ok(row && row.performer.kind === "submit", title);
+    await row.performer.run();
+    assert.deepEqual(asked.at(-1), req);
+  }
 });

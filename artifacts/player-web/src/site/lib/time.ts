@@ -28,7 +28,7 @@ export function secsLeft(target: number, now: number) {
 }
 
 export const endReasonLabel = (r: string | null | undefined) =>
-  r === "lifetime" ? "world lifetime expired" : r === "owner" ? "ended by owner" : r === "retired" ? "retired by server" : r ? r : "—";
+  r === "lifetime" ? "world lifetime expired" : r === "owner" ? "ended by owner" : r === "retired" ? "retired by server" : r === "abandoned" ? "its player left for another game" : r ? r : "—";
 
 /**
  * The world clock without a per-tick query (docs/convex-read-architecture.md §4.2): the world time of the last published

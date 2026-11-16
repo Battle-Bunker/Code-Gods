@@ -6,13 +6,15 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { jumpTarget, keyMoments } from "./moments";
+import { around, replayEvents, type ReplayEventRow } from "./events";
+import { objectWord, useGame } from "@/sdk";
 import { Download, Link2, Pause, Play, SkipBack, SkipForward, StepBack, StepForward, X } from "lucide-react";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { REPLAY_PANE } from "@workspace/v2-client";
 import { clock } from "@/core/words";
 import { toast } from "@/hooks/use-toast";
 import { downloadReplayFile, useReplayControls } from "./controller";
-import { momentLink, replayKey } from "./moment-link";
+import { momentLink, nextSpeed, replayKey } from "./moment-link";
 import { nextStop, prevStop } from "./fold";
 import { stepOp } from "./playhead";
 
@@ -33,6 +35,8 @@ export function ReplayBar() {
   const watchAs = useAffordance("replay.watchAs");
   const close = useAffordance("view.closePane");
   const [drag, setDrag] = useState<number | null>(null);
+  // v1's hover read-out on the track: the time and the event under the pointer.
+  const [hover, setHover] = useState<{ x: number; seq: number } | null>(null);
   const slider = useRef<HTMLInputElement>(null);
   const commit = useRef((_seq: number) => {});
   commit.current = (seq: number) => { void seek.run({ seq }).catch(failed).finally(() => setDrag(null)); };
@@ -59,6 +63,8 @@ export function ReplayBar() {
   }, []);
   const index = c?.index;
   const moments = useMemo(() => (index ? keyMoments(index) : []), [index]);
+  const noun = objectWord(useGame()?.variant).one;
+  const events = useMemo(() => (index ? replayEvents(index, noun) : []), [index, noun]);
   if (!c) return null;
   const closeButton = (
     <button type="button" className={btn} onClick={() => void close.run({ pane: REPLAY_PANE }).catch(failed)} disabled={!close.available} data-testid="button-replay-close">
@@ -106,6 +112,10 @@ export function ReplayBar() {
     if (k === "toggle") toggle();
     else if (k === "back") { if (!atStart) go(-1); }
     else if (k === "forward") { if (!atEnd) go(1); }
+    else if (k === "slower" || k === "faster") {
+      const to = nextSpeed(SPEEDS, c.speed, k === "faster" ? 1 : -1);
+      if (to !== null) void speed.run({ speed: to }).catch(failed);
+    }
     else if (k === "prevMoment") jump(-1);
     else if (k === "nextMoment") jump(1);
     else if (k === "start") void seek.run({ seq: 0 }).catch(failed);
@@ -147,7 +157,18 @@ export function ReplayBar() {
           {clock(c.world)}<span className="text-xs font-normal text-muted-foreground"> of {clock(ix.endWorld)}</span>
         </span>
       </div>
-      <div className="relative">
+      <div className="relative" onPointerLeave={() => setHover(null)}
+        onPointerMove={e => {
+          const r = e.currentTarget.getBoundingClientRect();
+          const frac = Math.min(1, Math.max(0, (e.clientX - r.left) / Math.max(1, r.width)));
+          setHover({ x: e.clientX - r.left, seq: Math.round(frac * ix.end) });
+        }}>
+        {hover && (
+          <span className="pointer-events-none absolute -top-7 z-10 -translate-x-1/2 whitespace-nowrap border bg-background px-1.5 py-0.5 font-mono text-xs tabular-nums shadow-sm"
+            style={{ left: hover.x }} data-testid="replay-scrub-tooltip">
+            {clock(hover.seq > 0 ? ix.world[hover.seq - 1] ?? 0 : 0)} · event {hover.seq}
+          </span>
+        )}
         <input ref={slider} type="range" min={0} max={ix.end} step={1} value={drag ?? c.applied} disabled={!seek.available}
           onChange={e => setDrag(Number(e.target.value))} aria-label="Move through the game" aria-valuetext={`${clock(c.world)}, event ${c.applied} of ${ix.end}`}
           className="block w-full accent-[hsl(var(--primary))]" data-testid="input-replay-seek" />
@@ -161,9 +182,10 @@ export function ReplayBar() {
         </div>
       </div>
       <span className="font-mono text-xs text-muted-foreground tabular-nums" data-testid="text-replay-event">event {c.applied} of {ix.end}</span>
+      <EventList rows={events} applied={c.applied} onSeek={seq => void seek.run({ seq }).catch(failed)} />
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <label className="flex items-center gap-1.5 text-xs">
-          <span className="text-muted-foreground">Speed</span>
+          <span className="text-muted-foreground" title="[ slower, ] faster">Speed</span>
           <select value={c.speed} disabled={!speed.available} data-testid="select-replay-speed"
             className="border border-[hsl(var(--card-border))] bg-background px-1.5 py-1"
             onChange={e => void speed.run({ speed: Number(e.target.value) as Speed }).catch(failed)}>
@@ -188,5 +210,32 @@ export function ReplayBar() {
         {closeButton}
       </div>
     </div>
+  );
+}
+
+/**
+ * v1's event list: what happened around the playhead, in order, each with its world time; the latest applied one is
+ * marked, the ones still to come are faint, and a click goes to that moment. Collapsed until opened.
+ */
+function EventList({ rows, applied, onSeek }: { rows: readonly ReplayEventRow[]; applied: number; onSeek: (seq: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const shown = open ? around(rows, applied) : [];
+  const current = [...rows].reverse().find(r => r.at <= applied)?.at;
+  return (
+    <details className="text-xs" onToggle={e => setOpen((e.currentTarget as HTMLDetailsElement).open)} data-testid="replay-events">
+      <summary className="cursor-pointer text-muted-foreground underline-offset-4 hover:underline">Events ({rows.length})</summary>
+      {open && (
+        <ol className="mt-1 max-h-56 space-y-0.5 overflow-auto">
+          {shown.map(r => (
+            <li key={`${r.kind}-${r.at}-${r.text}`}>
+              <button type="button" onClick={() => onSeek(r.at)} data-testid={`replay-event-${r.at}`} data-current={r.at === current || undefined}
+                className={`w-full px-2 py-0.5 text-left hover:bg-muted ${r.at === current ? "bg-[hsl(var(--primary)/0.1)] font-medium" : ""} ${r.at > applied ? "opacity-50" : ""}`}>
+                <span className="mr-2 font-mono text-muted-foreground tabular-nums">{clock(r.world)}</span>{r.text}
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
+    </details>
   );
 }

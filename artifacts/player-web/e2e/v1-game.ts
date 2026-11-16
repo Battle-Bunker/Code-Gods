@@ -29,6 +29,9 @@ async function escapeAll(page: Page) { for (let i = 0; i < 3; i++) await page.ke
 
 /** Shows a dock pane: on a phone its tab, on a desktop the pane if it is open, else through a pane's menu. */
 async function openPane(page: Page, id: string) {
+  // A phone's stacked dock: the jump row scrolls to a pane that is in the stack.
+  const jump = page.getByTestId(`button-jump-${id}`);
+  if (await jump.count()) { await jump.first().click(); return page.getByTestId(`pane-${id}`); }
   const tab = page.getByTestId(`tab-${id}`);
   if (await tab.count()) { await tab.first().click({ position: { x: 6, y: 10 } }); return page.getByTestId(`pane-${id}`); }
   const pane = page.getByTestId(`pane-${id}`);
@@ -324,13 +327,25 @@ try {
         await b.getByText("You passed. Waiting for 1 more player…").waitFor({ timeout: 3_000 });
         await b.getByTestId("button-bidding-change").waitFor({ timeout: 2_000 });
       }
+      // Carol keeps a bid (bidding-shots: the outcome shows on the winner's card), then is done.
+      const carolFamily = (await c.locator('[data-testid^="bid-family-"]').first().getAttribute("data-testid"))!.replace("bid-family-", "");
+      await c.getByTestId(`button-bid-${carolFamily}-10`).click();
+      await c.getByTestId(`text-my-bid-${carolFamily}`).filter({ hasText: "10%" }).waitFor();
       await c.getByTestId("button-bidding-done").click();
       for (const p of [b, c]) await p.waitForURL(GAME_URL, { timeout: 120_000 });
     });
 
+    await check("bidding: the bid's outcome is on the winner's card: carol won her rule for 10% off her final total", async () => {
+      // "Where am I" is in the phone's default stack.
+      const note = c.getByTestId("text-overview-bid");
+      await note.waitFor({ timeout: 30_000 });
+      assert.match(await note.innerText(), /^You won .+ in the bid: 10% comes off your total/);
+      await shot(c, "game2-bid-outcome-carol");
+    });
+
     await check("bidding: the spectating owner watches the clock and is taken to the game, with the spectator view", async () => {
       await a.waitForURL(GAME_URL, { timeout: 120_000 });
-      await a.getByTestId("text-watching").waitFor({ timeout: 60_000 });
+      await a.getByTestId("game-bar").getByTestId("text-watching").waitFor({ timeout: 60_000 });
       assert.equal(await a.getByTestId("button-summon-first").count(), 0, "a spectator has nothing to summon");
       await shot(a, "game2-spectator-alice");
       await noHorizontalScroll(a, "phone spectator");

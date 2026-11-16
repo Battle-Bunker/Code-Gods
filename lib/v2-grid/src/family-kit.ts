@@ -43,6 +43,12 @@ export function totalOf(ctx: Ctx, id: string, label: string, cells: { v: number[
   ctx.term(id, label, q(which.reduce((t, i) => t + cells.v[i]!, 0)), which.map(i => cells.refs[i]!));
 }
 
+/**
+ * A count with a ceiling on this board (four corner boxes, nine 2×2 squares): its ruler ends there (Layer.most). Read
+ * only by the views; never a value function's maximum (owner decision 26).
+ */
+export const upTo = <P,>(layer: L<P>, most: number | ((p: P) => number)): L<P> => ({ ...layer, most: p => (typeof most === "number" ? most : most(p)) });
+
 /** Tie-breakers several families share; each family sets their rungs so that its dealt top is in the band. */
 export const primesTie = <P,>(): L<P> => more("primes", "prime numbers on the board", "As many cells as possible should hold a prime number (2, 3, 5 or 7).", "cells");
 export const zerosTie = <P,>(): L<P> => more("zeros", "0s on the board", "As many cells as possible should hold 0.", "cells");

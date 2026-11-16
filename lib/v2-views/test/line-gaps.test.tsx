@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { q } from "@workspace/v2-core";
-import { fromMC, lineQ, lineType, ruler, type LineState } from "@workspace/v2-linear";
+import { fromMC, lineQ, lineType, ruler, sameOnBothRulers, type LineState } from "@workspace/v2-linear";
 import { annotate, ExpandedFace, type RuleRef } from "../src/index.ts";
 
 const mc = (m: number, c: number): LineState => ({ lines: [fromMC(q(m), q(c))] });
@@ -29,4 +29,12 @@ test("Square Area: the preferences read the nearest square (its root), so the dr
     const t = e.terms.find(x => x.id === id)!;
     assert.ok(t.from.some(r => r.rep === "tri" && r.name === "square" && r.args?.s === "5"), `${id} cites the square`);
   }
+});
+
+test("Same on Both Rulers: the meeting point is the reading, the palindrome it should round to the target", () => {
+  const rule = { type: lineType, family: sameOnBothRulers, params: { meets: 1, digits: "odd" }, variant: lineQ } as RuleRef<LineState, unknown>;
+  const s = mc(0, 120);   // y = 120 meets y = x at x = 120, nearest the palindrome 121
+  const html = renderToStaticMarkup(<ExpandedFace rule={rule} state={s} improvement={false} initialRep="cart" />);
+  assert.match(html, /data-ref="cart\.pointAtX\(q=120\)"[^>]*data-focus/);
+  assert.match(html, /data-ref="cart\.xAxisMark\(x=121\)"[^>]*data-cand/);
 });

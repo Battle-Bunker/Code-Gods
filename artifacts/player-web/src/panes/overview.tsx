@@ -4,7 +4,7 @@
  */
 import { fixedLength } from "@/core/timer-text";
 import { summonFirst } from "@/panes/first-summon";
-import { objectWord, useAgentCount, useGame, useGameScope, useLeaderboard, useMe, useMyRule } from "@/sdk";
+import { objectWord, useAgentCount, useGame, useGameScope, useLeaderboard, useMe, useMyRule, useReadiness, useRoomInfo } from "@/sdk";
 import { useOpenPane } from "@/dock/open-pane";
 import { bidNote, isTied, ordinal, pointsText, powerText, scoreSentence, TIE_NOTE, totalNote, totalSumNote, countedNote } from "@/core/words";
 import { BitsHelp, LineByLine, TiedMark } from "@/core/score-help";
@@ -45,6 +45,7 @@ export function OverviewPane() {
           {me && <><dt className="text-muted-foreground">Your power</dt><dd>{powerText(me.power)}</dd></>}
         </dl>
       )}
+      <WhoIsHere />
       {seated && (
         <div className="space-y-2" data-testid="text-points-explained">
           <p>{scoreSentence(objectWord(header.variant).one, objectWord(header.variant).many)}</p>
@@ -56,5 +57,41 @@ export function OverviewPane() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * v1's "Who is here" (archive core/panels/overview.tsx): everyone seated in this game, a ✓ beside each who is ready
+ * while the game is planning, AI players and practice partners marked, the owner marked; then who is watching.
+ */
+function WhoIsHere() {
+  const header = useGame();
+  const room = useRoomInfo();
+  const readiness = useReadiness();
+  if (!header) return null;
+  const planning = header.phase === "planning";
+  const ready = new Map((readiness ?? []).map(r => [r.memberId as string, r.ready]));
+  const member = new Map((room?.members ?? []).map(m => [m.memberId as string, m]));
+  const watching = (room?.members ?? []).filter(m => m.spectator);
+  return (
+    <section className="space-y-1" data-testid="who-is-here">
+      <h3 className="text-sm font-semibold">Who is here</h3>
+      <ul className="grid gap-1 text-sm sm:grid-cols-2" aria-label="Who is here">
+        {header.roster.map(s => {
+          const isReady = ready.get(s.memberId) ?? false, m = member.get(s.memberId);
+          return (
+            <li key={s.memberId} className="flex items-center gap-2" data-testid={`row-member-${s.memberId}`}>
+              {planning && <span aria-hidden className={isReady ? "text-primary" : "text-muted-foreground"}>{isReady ? "✓" : "○"}</span>}
+              <span className="truncate">{s.name}{m?.me ? " (you)" : ""}</span>
+              {s.kind === "ai" && <span className="text-xs text-muted-foreground">AI</span>}
+              {s.kind === "practice" && <span className="text-xs text-muted-foreground">practice partner</span>}
+              {m?.owner && <span className="text-xs text-muted-foreground">owner</span>}
+              {planning && <span className="sr-only">{isReady ? "ready" : "not ready"}</span>}
+            </li>
+          );
+        })}
+      </ul>
+      {watching.length > 0 && <p className="text-xs text-muted-foreground" data-testid="text-watching">Watching: {watching.map(m => m.name).join(", ")}</p>}
+    </section>
   );
 }
