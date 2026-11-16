@@ -150,3 +150,13 @@ test("each file panel (src/panels/*.tsx) is a typed-only row, 'Open file panel: 
   assert.ok(open.kind === "form" && open.page.kind === "pick");
   assert.ok((await open.page.options("")).some(o => o.id === "file:my-bits"));
 });
+
+test("in a grid game the palette's “Open a pane” names its panes in grids, as the dock does (playtest: “Lines”, “One line”)", async () => {
+  const host = { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, noun: { one: "grid", many: "grids" }, panes: { open() {}, close() {} } };
+  const row = paletteCommands(ctx, host as never).find(r => r.id === "view.openPane")!;
+  assert.equal(row.performer.kind, "form");
+  const options = (row.performer as { page: { options: () => { id: string; label: string; detail?: string }[] } }).page.options();
+  assert.equal(options.find(o => o.id === "objects")!.label, "Grids");
+  assert.equal(options.find(o => o.id === "object")!.label, "One grid");
+  for (const o of options) assert.doesNotMatch(`${o.label} ${o.detail ?? ""}`, /\blines?\b/i, o.id);
+});
