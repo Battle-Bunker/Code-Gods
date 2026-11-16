@@ -31,6 +31,7 @@ import { toast } from "@/hooks/use-toast";
 import type { Room } from "@/sdk/types";
 
 import { copyInvite } from "@/site/lib/invite";
+import { roomRotationLine, type RotationRound } from "@/panes/results-headline";
 
 /**
  * "Play a practice game": one press fills the empty seats with practice partners and starts (ux-lessons 1.1). Two
@@ -134,6 +135,13 @@ function PastGames({ room }: { room: Room }) {
   );
 }
 
+/** v1's rotation line on the room page: which game of the round this is, and whose rule playing again deals the viewer. */
+function RotationLine({ roomId }: { roomId: string }) {
+  const round = useLive(api.v2.rooms.round, { roomId: roomId as Id<"v2Rooms"> }).data;
+  const line = roomRotationLine(round as RotationRound | null | undefined);
+  return line ? <p className="text-sm text-muted-foreground" data-testid="text-rotation-line">{line}</p> : null;
+}
+
 function RoomBody({ room }: { room: Room }) {
   const step = nextStep(room, presetOf(room.preset).minPlayers);
   const owner = room.members.find(m => m.owner);
@@ -151,6 +159,7 @@ function RoomBody({ room }: { room: Room }) {
         <NextStepBar status={step.status} primary={step.primary && <StepButton step={step.primary} room={room} primary />}
           secondary={step.secondary.map(s => <StepButton key={s} step={s} room={room} />)} />
       </header>
+      {!room.game && <RotationLine roomId={room.roomId} />}
       {room.bidding && !room.game && <Bidding roomId={room.roomId} owner={!!room.members.find(m => m.me)?.owner} />}
       <div className="grid gap-6 lg:grid-cols-2 items-start">
         <Members room={room} />

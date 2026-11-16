@@ -54,13 +54,12 @@ try {
   });
 
   await check("My agents: once the agent has moved, its actual average cost per move", async () => {
-    const actual = page.getByTestId(`text-actual-act-cost-${agentId}`);
-    await actual.waitFor({ timeout: 90_000 });
-    assert.match(await actual.innerText(), /^Actual average [\d,]+\.\d\d energy per move$/);
+    // Before its first move the line shows the estimate alone (#1112); once it has moved, the actual beside the estimate.
+    await page.getByTestId(`text-actual-act-cost-${agentId}`).getByText(/^Actual average [\d,]+\.\d\d energy per move( \(estimate was [\d,.]+\))?$/).waitFor({ timeout: 90_000 });
   });
 
-  await missing(["e2e-debt-shots"], "My agents: the act cost it was told at the summon, beside the actual", async () => {
-    await page.getByTestId(`text-expected-act-cost-${agentId}`).waitFor({ timeout: 3_000 });
+  await check("My agents: the act cost it was told at the summon, beside the actual", async () => {
+    await page.getByTestId(`text-actual-act-cost-${agentId}`).getByText(/\(estimate was [\d,.]+\)$/).waitFor({ timeout: 30_000 });
   });
 
   await check("Destroy asks first, saying what happens to the energy the agent holds; confirmed, the agent stops and leaves the list", async () => {
