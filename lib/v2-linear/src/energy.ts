@@ -201,8 +201,8 @@ export function startLike(s: Line, reads: readonly string[], band: number, r: Rn
 
 // ------------------------------------------------------------------ the energy
 
-/** K on the server (each estimate is a few milliseconds a start); tests and trials pass their own. */
-export const LINE_K = 12;
+/** K on the server: 8 keeps a commit (every seat's estimate) near 200 ms in the Convex runtime (energy.md); tests pass their own. */
+export const LINE_K = 8;
 export interface LineEstimateOpts extends EstimateOpts {
   /** The band of start sizes above s's, in bits (½). */
   readonly band?: number;

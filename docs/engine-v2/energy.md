@@ -35,7 +35,7 @@ better), the readings it `reads`, and its own `searches` (heuristics that propos
   where each shortcut lands. Adding a heuristic only lowers the estimate on the same starts (tested).
 - **Price**: the game's own act charge for each move as its own act (`changeCharge`), so energy is in the units players
   pay. The scoring trial used its friction floor instead; that was a comparison only.
-- K = 12 on the server (`LINE_K`).
+- K = 8 on the server (`LINE_K`; 12 until 17 Nov, lowered for the commit's time, below).
 
 ## Where it runs (built)
 
@@ -43,8 +43,14 @@ better), the readings it `reads`, and its own `searches` (heuristics that propos
   are still own energy × the others' energy summed. That product still rewards states good for several rules at once,
   and nothing here breaks it.
 - A look (`object.look`) estimates the looker's own energy afresh, so the same line reads differently each time.
-- Rules in this measure have no table, so `rule.values` and `rule.worth` say so. Agents are given no table either, so
-  they climb their own utility. Pricing what a plan does to the others' energy (`othersAfter`) is next.
+- Rules in this measure have no table, so `rule.values` and `rule.worth` say so. Agents' hosts value states by energy
+  (own bits, `othersAfter` and the commit clause; seeded by the act's seed, so one act sees one number per state).
+- **Cost in the Convex runtime** (seen narrowly, test/v2-energy-cost.test.ts: one Lines · beginner game, four seats,
+  the local backend on this machine, 17 Nov): a commit (every seat's energy on the changed line) took a median 302 ms
+  and at most 431 ms at K = 12, and 199 ms (max 430, a cold start) at K = 8; a look at every object at most 254 ms at
+  K = 12 and 173 ms at K = 8. Convex stops a mutation at 1 s; the test fails past 600 ms. How this could be wrong: the
+  cloud runtime is slower or faster than this machine; more seats cost proportionally more; a far-off state can take
+  longer than the sample (every utility bounds its own search at 10^10).
 - Seen narrowly: a 60-world-second Lines · beginner game with three practice partners ran to its end on the local
   backend (test/v2-game.test.ts), with no function-limit warnings. One estimate takes 1–35 ms in Node (K = 12, the eight
   families on a few sample lines). One outlier, a far-off state under a trial family, took 0.9 s, so a utility must
