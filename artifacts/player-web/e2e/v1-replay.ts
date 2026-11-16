@@ -144,12 +144,12 @@ try {
     await page.waitForFunction(() => { const b = document.querySelector("[data-testid=replay-bar]"); return b?.getAttribute("data-applied") === b?.getAttribute("data-end"); });
   });
 
-  await missing(["e2e-replay-shot"], "the palette jumps the replay to the start (v1: \"Replay: jump to the start\")", async () => {
+  await check("the palette jumps the replay to the start (v1: \"Replay: jump to the start\")", async () => {
     await page.keyboard.press("Control+K");
     await page.getByTestId("input-palette").fill("start");
     await page.locator('[data-testid^="row-palette-"]', { hasText: /start/i }).filter({ hasText: /replay/i }).first().click({ timeout: 3_000 });
     await page.waitForFunction(() => Number(document.querySelector("[data-testid=replay-bar]")?.getAttribute("data-applied")) === 0, null, { timeout: 5_000 });
-  }, async () => { for (let i = 0; i < 3; i++) await page.keyboard.press("Escape"); });
+  });
 
   await check("the palette plays the replay", async () => {
     await page.getByTestId("button-replay-start").click().catch(() => {});

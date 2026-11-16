@@ -65,6 +65,19 @@ test("replay controls move a cursor and refuse without a replay", () => {
   assert.equal((applyView(v, "replay.play", {}, live).outcome as { ok: false; error: { message: string } }).error.message, "Not available while the game runs.");
 });
 
+test("the replay jumps to its start and to its end in one step (v1: \"Replay: jump to the start\")", () => {
+  // Catches: a palette or an assistant that can only seek with a number, so "jump to the start" needs a value.
+  const replay: AffordanceContext = { context: "replay", principal: PRINCIPALS.member! };
+  let v = applyView(EMPTY_VIEW, "replay.open", { gameId: "g1" }, replay).view;
+  v = applyView(v, "replay.play", {}, replay).view;
+  v = applyView(v, "replay.start", {}, replay).view;
+  assert.deepEqual(v.replay!.cursor, { seq: 0 }, "the start: before the first event");
+  assert.equal(v.replay!.playing, false, "a jump stops play");
+  v = applyView(v, "replay.end", {}, replay).view;
+  assert.deepEqual(v.replay!.cursor, REPLAY_END);
+  assert.equal(applyView(EMPTY_VIEW, "replay.start", {}, replay).outcome.ok, false, "no replay open");
+});
+
 test("a replay is watched through one player's eyes, chosen by the human and kept while the cursor moves", () => {
   // Catches: the point of view lost on a seek or a step (the panes would jump back to the viewer's own rule).
   const replay: AffordanceContext = { context: "replay", principal: PRINCIPALS.member! };
