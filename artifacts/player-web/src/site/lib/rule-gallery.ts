@@ -6,7 +6,7 @@
  * rule again; anything unknown in it falls back to the first choice.
  */
 import { representation, tieBreakersOn, type ObjectType, type RuleFamily, type Variant } from "@workspace/v2-core";
-import { beginnerFamilies } from "@workspace/v2-linear";
+import { dynamicFamilies } from "@workspace/v2-linear";
 import { beginnerGridFamilies, grid4 } from "@workspace/v2-grid";
 import { objectTypeOf, variantOf as variantById } from "../../sdk/object-types.ts";
 import { PRESETS } from "@workspace/engine/convex/v2/presets.ts";
@@ -23,8 +23,8 @@ const DEFAULT_BOARD = BOARDS[0]!.id;
 type Family = RuleFamily<any, unknown>;
 const variantOf = (id: string): Variant => variantById(id);
 const typeOf = (v: Variant): ObjectType<any> => objectTypeOf(v.id);
-/** The curators' beginner pools, of every type. */
-const BEGINNER = new Set<string>([...beginnerFamilies, ...beginnerGridFamilies(4)].map(f => f.id));
+/** The beginner pools, of every type (the beginner lines deal the dynamic families: energy.md). */
+const BEGINNER = new Set<string>([...dynamicFamilies, ...beginnerGridFamilies(4)].map(f => f.id));
 
 export interface GalleryEntry {
   id: string;

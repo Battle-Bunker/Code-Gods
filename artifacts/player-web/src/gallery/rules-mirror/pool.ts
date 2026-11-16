@@ -74,6 +74,8 @@ export function mirrorCatalogue(valued: (ruleKey: string) => boolean): MirrorCat
   for (const r of p.rules) {
     const f = lineType.families.find(x => x.id === r.family);
     if (!f || !hasStarters(r.family)) continue;
+    // A dynamic family (energy.md) is dealt with no table, main part only (deal.ts buildPool).
+    if (f.dynamic) { dealtKeys.add(keyOf(f, r.params, null)); continue; }
     for (const tb of r.tieBreakers) { const k = keyOf(f, r.params, tb); if (valued(k)) dealtKeys.add(k); }
   }
   const all: MirrorFamily[] = lineType.families.map(f => {
