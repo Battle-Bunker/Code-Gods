@@ -31,6 +31,8 @@ export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
 export const ROOM_READS: ReadonlySet<string> = new Set(["room.get", "room.history", "game.rotation", "bid.state"]);
 /** Reads the avatar menu shows (who you are, your connected apps). */
 export const ACCOUNT_READS: ReadonlySet<string> = new Set(["account.whoami", "account.connections"]);
+/** Reads the palette answers itself, in a notice (a command's status). */
+export const NOTICE_READS: ReadonlySet<string> = new Set(["receipt.get"]);
 
 export interface PaletteHost {
   perform(id: AffordanceId, args: unknown): Promise<OpOutcome>;
@@ -106,7 +108,7 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
         validate: v => (!v.trim() ? "Type something first." : sole.kind === "number" && !Number.isFinite(Number(v)) ? "A number, please." : null),
         onSubmit: async v => {
           const out = await run(host, id, { [sole.name]: sole.kind === "number" ? Number(v) : v.trim() });
-          host.notify?.(DONE[id] ?? `Done: ${e.title}.`);
+          host.notify?.(id === "receipt.get" ? receiptWords(out) : DONE[id] ?? `Done: ${e.title}.`);
           return out;
         },
       },
@@ -115,11 +117,17 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
   return { kind: "form", page: { kind: "info", title: e.title, lines: [e.tooltip, "Use its controls on the screen; your assistant can also do it for you."] } };
 }
 
+/** A command's status in words (v1's "Check a command's status…"): applied, or safe to send again. */
+export function receiptWords(result: unknown): string {
+  const r = result as { applied: boolean; operation: string | null };
+  return r.applied ? `That command (${r.operation}) went through.` : "That command did not apply: it is safe to send it again.";
+}
+
 /** What a field's operation says once done. */
 const DONE: Partial<Record<AffordanceId, string>> = { "chat.send": "Message sent to the room's chat.", "room.join": "You joined the room." };
 
 /** A field's label in words: the parameter's name only when there is none. */
-const FIELD_LABELS: Record<string, string> = { text: "Your message", code: "Room code", name: "Name", question: "Your question" };
+const FIELD_LABELS: Record<string, string> = { text: "Your message", code: "Room code", name: "Name", question: "Your question", id: "The command's request id" };
 
 /** "Leave objects alone" in a grid game: "Leave grids alone" (any case, singular and plural). */
 export function nouned(text: string, noun?: { one: string; many: string }): string {

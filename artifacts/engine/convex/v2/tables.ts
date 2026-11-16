@@ -122,7 +122,11 @@ export const v2Tables = {
     .index("by_room", ["roomId", "at"]),
 
   /** Completed writes by (caller, affordance, requestId): a retry is answered, never applied twice. */
-  v2Receipts: defineTable({ key: v.string(), outcome: v.any(), at: v.number() }).index("by_key", ["key"]),
+  v2Receipts: defineTable({
+    key: v.string(), outcome: v.any(), at: v.number(),
+    /** The key's parts (callerKey|operation|requestId), for receipt.get by request id; absent on rows stored before it. */
+    callerKey: v.optional(v.string()), operation: v.optional(v.string()), requestId: v.optional(v.string()),
+  }).index("by_key", ["key"]).index("by_caller_request", ["callerKey", "requestId"]),
 
   /** A game's header (cold: written by the lobby, and by the loop only when the phase changes). */
   v2Games: defineTable({

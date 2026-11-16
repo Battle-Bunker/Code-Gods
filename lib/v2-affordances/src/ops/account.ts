@@ -11,6 +11,14 @@ const CONSENT = { except: ["assistant", "mcp", "cli"], because: "consent" } as c
 
 export const accountOps = [
   affordance({
+    id: "receipt.get", title: "Check a command's status", group: "account", scope: "none",
+    description: "Whether a command the caller sent with a requestId applied, and its result (v1's receipts). A command whose outcome is unknown (the connection dropped) can also simply be sent again with the same requestId: it applies at most once.",
+    tooltip: "Did my command go through?", keywords: ["receipt", "status", "did it apply", "retry", "command"],
+    params: obj({ id: z.string().uuid().describe("The requestId the command was sent with.") }),
+    result: z.object({ applied: z.boolean(), operation: z.string().nullable().describe("The operation that applied, e.g. chat.send."), result: z.unknown().nullable().describe("The command's result as it was returned, when it applied.") }),
+    contexts: SIGNED_IN, caller: "signedIn", effect: "read", confirm: "none", runs: "server",
+  }),
+  affordance({
     id: "account.whoami", title: "Show who I am", group: "account", scope: "none",
     description: "The signed-in human's display name and user id, and, for a delegated credential, the room it is bound to and its permission.",
     tooltip: "Your account.", keywords: ["account", "profile", "me", "whoami"],

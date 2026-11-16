@@ -474,6 +474,11 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     if (e.grant === "read") throw new OpFailure("A read-only connection cannot wake the engine.");
     return { resumed: 0 };
   },
+  "receipt.get": (e, a) => {
+    const key = Object.keys(e.state.receipts ?? {}).find(k => k.startsWith(`${e.userId}|`) && k.endsWith(`|${a.id}`));
+    const seen = key ? e.state.receipts[key] : undefined;
+    return seen?.ok ? { applied: true, operation: key!.split("|").at(-2)!, result: seen.result ?? null } : { applied: false, operation: null, result: null };
+  },
   "account.whoami": e => ({ userId: e.userId, name: nameOf(e.state, e.userId), roomId: e.roomId, grant: e.grant ?? null }),
   "account.connections": e => ({ connections: Object.entries(e.state.connections).filter(([, c]) => c.userId === e.userId).map(([connectionId, c]) => ({ connectionId, client: c.client, roomId: c.roomId, grant: c.grant, lastUsedAt: null })) }),
   "account.revokeConnection": (e, a) => {
