@@ -99,6 +99,22 @@ export const objectIds = query({
   },
 });
 
+/**
+ * The retired lines' skeleton (turnover, retirement-design.md): a page of the caller's retired lines, the latest first;
+ * each row subscribes to `object`, which carries its final state, its retirement and the points it banked. One index
+ * page; empty when the game has no turnover.
+ */
+export const banked = query({
+  args: { gameId: v.string(), paginationOpts: paginationOptsValidator },
+  returns: objectIdsV,
+  handler: async (ctx, { gameId, paginationOpts }) => {
+    const { game, member } = await requireSeat(ctx, gameId);
+    const page = await ctx.db.query("v2ObjectValues").withIndex("by_game_member_born", q => q.eq("gameId", game._id).eq("memberId", member._id).eq("retired", true))
+      .order("desc").paginate(pageOpts(paginationOpts));
+    return { ...page, page: page.page.map(r => ({ objectId: r.objectId, number: r.number })) };
+  },
+});
+
 /** A move's value snapshot without a level stored before decision 23 (migrations:stripLevels). */
 /** A move's value snapshot as a read discloses it (disclose.ts: the noisy others' sum while live, exact after). */
 const snapIn = (game: Parameters<typeof disclosed>[0]) => (s: { score: (string | null)[] | null; rarityBits: number; want: number; points: number; shownWant?: number; shownPoints?: number }) =>
@@ -126,16 +142,17 @@ export const object = query({
     if (readsKnowledge(game, member._id)) {
       const k = await knownOf(ctx, object._id, member._id);
       return {
-        objectId: object._id, number: object.number, bornAt: object.bornAt, state: k?.state ?? "", version: k?.version ?? 0, changedAt: state.changedAt,
+        objectId: object._id, number: object.number, bornAt: object.bornAt, retiredAt: object.retiredAt, state: k?.state ?? "", version: k?.version ?? 0, changedAt: state.changedAt,
         value: k ? { score: k.score, rarityBits: k.rarityBits, want: k.want, points: k.points, version: k.version, parts: await ownParts(ctx, game, member._id, k.state) } : null,
         knownAt: k?.learnedAt ?? null, changesSince: state.version - (k?.version ?? 0),
         // What a look at it costs now (decision 35): its full read at the read price times the game's weight.
-        lookPrice: lookPrice(game.variant, state.state, readPriceWeightOf(game)),
+        // (none on a retired line: it is told to every player as it retires)
+        lookPrice: object.retiredAt === undefined ? lookPrice(game.variant, state.state, readPriceWeightOf(game)) : undefined,
       };
     }
     const value = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", object._id).eq("memberId", member._id)).unique();
     return {
-      objectId: object._id, number: object.number, bornAt: object.bornAt, state: state.state, version: state.version, changedAt: state.changedAt,
+      objectId: object._id, number: object.number, bornAt: object.bornAt, retiredAt: object.retiredAt, state: state.state, version: state.version, changedAt: state.changedAt,
       // The others' sum and the points as disclosed while live (disclose.ts), exact after the end.
       value: value ? { score: value.score, rarityBits: value.rarityBits, ...disclosed(game, value), version: value.version, parts: await ownParts(ctx, game, member._id, state.state) } : null,
     };

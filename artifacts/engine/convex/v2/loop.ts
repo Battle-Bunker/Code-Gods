@@ -160,6 +160,11 @@ async function retireLine(ctx: MutationCtx, game: Doc<"v2Games">, number: number
   const st = await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", object._id)).unique();
   if (st && !turnover.retiredHolds) await ctx.db.patch(st._id, { released: true });
   const rows = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", object._id)).take(16);
+  // Nobody is told the line's final state for free (decision 35: content is paid): in a game that pays to read, a
+  // retired line shows each player as they last saw it, until the end opens everything.
+  // Its rows leave the live lists (the sort indexes key on `retired`) for the retired list (play.ts banked).
+  for (const r of rows) await ctx.db.patch(r._id, { retired: true });
+  for (const k of await ctx.db.query("v2Knowledge").withIndex("by_object_member", q => q.eq("objectId", object._id)).take(16)) await ctx.db.patch(k._id, { retired: true });
   if (turnover.retiredPoints === "dropped") for (const r of rows) {
     const d = drops.get(r.memberId) ?? { points: 0, shown: 0 };
     drops.set(r.memberId, { points: d.points + r.points, shown: d.shown + (r.shownPoints ?? r.points) });
@@ -313,7 +318,8 @@ async function reknow(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[],
   const scope = scopeOf(game).objects;
   const digest = await ctx.db.query("v2Digests").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", memberId)).unique();
   const packed = digest ? [...digest.packed] : [];
-  for await (const k of ctx.db.query("v2Knowledge").withIndex("by_game_member_born", q => q.eq("gameId", game._id).eq("memberId", memberId))) {
+  for await (const k of ctx.db.query("v2Knowledge").withIndex("by_game_member_born", q => q.eq("gameId", game._id).eq("memberId", memberId).eq("retired", undefined))) {
+    // (Retired lines keep what was banked: their rows are past this range.)
     const mine = valuesOf(decode(k.state, game.variant), game.variant, seats, scope, penaltyWeightOf(game)).find(x => x.memberId === memberId);
     if (!mine) continue;
     await ctx.db.patch(k._id, { score: mine.score, rarityBits: mine.rarityBits, points: mine.rarityBits * Math.max(0, k.want), quadrant: quadrantOf(mine.rarityBits, k.want) });
@@ -820,7 +826,7 @@ export const exactValues = internalMutation({
       const told = { state: st.state, version: st.version, score: r.score, rarityBits: r.rarityBits, want: r.want, points: r.points, quadrant };
       const known = await ctx.db.query("v2Knowledge").withIndex("by_object_member", q => q.eq("objectId", r.objectId).eq("memberId", memberId)).unique();
       if (known) await ctx.db.patch(known._id, told);   // learnedAt kept: the "recent" sort stays the order of telling
-      else await ctx.db.insert("v2Knowledge", { gameId, memberId, objectId: r.objectId, number: r.number, learnedAt: world, ...told });
+      else await ctx.db.insert("v2Knowledge", { gameId, memberId, objectId: r.objectId, number: r.number, learnedAt: world, ...told, ...(r.retired ? { retired: true as const } : {}) });
     }
     if (digest) await ctx.db.patch(digest._id, { packed, version: digest.version + 1 });
   },

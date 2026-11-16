@@ -53,6 +53,8 @@ export interface PaletteHost {
   /** Who is signed in, and the room in view's code (v1's "Who am I"). */
   me?: { name: string; email?: string | null };
   roomCode?: string;
+  /** Copies the room's invite link (v1's "Copy room link"). */
+  copyRoomLink?(): void;
   /** Opens the assistant and focuses its composer (v1's Ctrl+`), optionally on a new conversation or at its picker. */
   focusAssistant?(request?: { thread?: "new" | "pick" }): Promise<unknown>;
   /** The file panels (src/panels/*.tsx) this copy of the app has; none in safe mode. */
@@ -248,6 +250,14 @@ export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Comm
       id: "assistant-threads", human: { title: "Switch assistant conversation…", tooltip: "Pick another of your conversations with the assistant." },
       group: "view", keywords: ["assistant", "conversation", "thread", "switch", "history"],
       performer: { kind: "submit", run: () => focusAssistant({ thread: "pick" }) }, available: () => ({ ok: true }),
+    });
+  }
+  // v1's "Copy room link": the room page's link, to invite people.
+  const copyRoomLink = host.copyRoomLink;
+  if (copyRoomLink && ctx.room) {
+    rows.push({
+      id: "room-copy-link", human: { title: "Copy room link", tooltip: "The room page's link, to invite people." }, group: "room",
+      keywords: ["invite", "link", "share", "copy link", "room link"], performer: { kind: "local", run: () => copyRoomLink() }, available: () => ({ ok: true }),
     });
   }
   // v1's safe mode: reload the page with every panel of yours off (a panel that breaks the page can then be fixed), and back.

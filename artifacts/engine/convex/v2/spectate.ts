@@ -16,7 +16,8 @@ export const objectIds = query({
   returns: paginationResultValidator(v.object({ objectId: v.id("v2Objects"), number: v.number() })),
   handler: async (ctx, { gameId, paginationOpts }) => {
     const { game } = await requireGameMember(ctx, gameId);
-    const page = await ctx.db.query("v2Objects").withIndex("by_game", q => q.eq("gameId", game._id)).paginate(pageOpts(paginationOpts));
+    // The live lines (turnover retires lines: they leave the board).
+    const page = await ctx.db.query("v2Objects").withIndex("by_game_live", q => q.eq("gameId", game._id).eq("retiredAt", undefined)).paginate(pageOpts(paginationOpts));
     return { ...page, page: page.page.map(o => ({ objectId: o._id, number: o.number })) };
   },
 });
