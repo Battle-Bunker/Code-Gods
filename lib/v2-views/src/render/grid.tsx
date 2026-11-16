@@ -87,8 +87,9 @@ function Scene({ p }: { p: P }): ReactElement {
   const listedBy = new Map<string, { label: string; texts: string[] }>();
   const drawnNotes = new Set<string>();
   const rightKeys = new Set(right.map(key));
+  const cellKeys = new Set(s.cells.map(key));
   for (const m of expanded ? marks : []) {
-    if (m.kind !== "note" || m.ref.rep !== p.rep) continue;
+    if (m.kind !== "note" || (m.ref.rep !== p.rep && !cellKeys.has(key(m.ref)))) continue;
     const k = key(m.ref);
     drawnNotes.add(m.text);
     if (m.text === shown(m.ref)) continue; // the note only repeats the value drawn

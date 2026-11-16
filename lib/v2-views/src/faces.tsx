@@ -83,7 +83,7 @@ export function CompactFace<S, P>(props: CompactFaceProps<S, P>): ReactElement {
   const bits = bitsLine(a);
   return (
     <div className="v2v v2v-compact-face" data-scoring={a.score === null ? undefined : ""}>
-      <RepView type={props.rule.type} state={props.state} rep={rep} size="compact" site={site} marks={e.marks} terms={e.terms} roles={rolesOf(parts)}
+      <RepView type={props.rule.type} state={props.state} rep={rep} size="compact" site={site} marks={a.sites[site]!.marks} terms={e.terms} roles={rolesOf(parts)}
         before={props.before} next={next ? next.after : undefined} />
       {bits && <div className="v2v-face-foot"><span className="v2v-rarity" data-worst={a.score === null ? "" : undefined} title={BITS_HELP}>{bits}</span></div>}
       {a.worst
@@ -372,7 +372,7 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
   const part = (i: number | null) => (i !== null && i < sa.parts.length ? i : null);
   const sel = part(selected);
   const lit = sel ?? part(hoverPart);
-  const marks: readonly Mark[] = sel === null ? e.marks : sa.parts[sel]!.marks;
+  const marks: readonly Mark[] = sel === null ? sa.marks : sa.parts[sel]!.marks;
 
   // The rule's own views side by side (the primary first), the active one and the compared one.
   const panels = [...new Set([rule.family.main.rep, ...depends, active, ...(compare ? [compare] : [])])];

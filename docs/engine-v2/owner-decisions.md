@@ -752,6 +752,17 @@ back) or TRIAL (a declared experiment, measured and reported).
     grid-4-d10 no table is identified within 3,000 probes at σ 8, but with the rules known 2 of 3 tables are cheap
     (test 2 fails). The fit ships with the σ 8 guard on lines and is refused on grids until grid test 2 passes.
 
+37. **CALL** (the coordinator's, 16 Nov): the old game's coloured grid boards (4×4 digits rgb, 5×5 rgby, 6×6 hex
+    rainbow6, 7×7 cards rainbow6; lib/v2-grid-boards) return with their rule families **ported as the old game had them**,
+    bounded main parts included, in clearly labelled, non-default original-rules baseline presets (e.g. "Grids ·
+    original colours"). The reason is the owner's (15 Nov): "the grid based game should be pretty close to the original
+    under the new engine ... a baseline to compare to the original code to check functionality is retained under the
+    rewrite"; rule redesign is happening on lines, with the owner, and redesigning grid rules is a later step with the
+    owner. Each family's failures against design-principles.md and its energy-gate result are recorded, dated, in the
+    rule check's exemption map under "grid baseline: ported as v1" and in the preset's description, never silently. Two
+    limits hold even for the baseline: a value function is honest (no extrapolated tail paying beyond what was measured),
+    and a family with a cheap peak in the hundreds of bits is reported to the coordinator before it is dealt.
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.
