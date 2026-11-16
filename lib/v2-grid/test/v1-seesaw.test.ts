@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateSite, type Q } from "@workspace/v2-core";
-import { gridType, grid4, type GridState } from "../src/index.ts";
+import { gridPresets, gridType, grid4, type GridState } from "../src/index.ts";
 import { board } from "./helpers.ts";
 
 const fam = gridType.families.find(f => f.id === "seesaw")!;
@@ -29,4 +29,15 @@ test("Seesaw: each row's left half against its right half; v1's wobble is the ma
 test("Seesaw: the card says which halves, and each tie-breaker", () => {
   assert.match(fam.card({ axis: "rows" }, null), /^Make every row balance like a seesaw: its two sides are its left half and right half\./);
   assert.match(fam.card({ axis: "columns" }, "other-way"), /top half and bottom half.*Secondary: The rows should balance too \(their left and right halves\)/);
+});
+
+// A bounded top that newborn boards start at (16 Nov): every gap is a distance whose best is 0, so any board of one
+// repeated digit (the empty board, the birth walk's origin, among them) is exact on the main part and on two of the
+// three secondaries, and the all-9s board tops heavy-seesaws too. An optimum found is a bug: Seesaw is undealt.
+test("Seesaw's top is any one-digit board (true by construction), so no preset deals it", () => {
+  for (const d of [0, 5, 9]) {
+    const t = terms({ cells: Array(16).fill(d) });
+    assert.deepEqual([t.seesaw, t["other-way"], t["ends-and-middle"]], [0, 0, 0], `all ${d}s`);
+  }
+  assert.ok(gridPresets.every(p => p.rules.every(r => r.family !== "seesaw")), "no preset deals Seesaw");
 });

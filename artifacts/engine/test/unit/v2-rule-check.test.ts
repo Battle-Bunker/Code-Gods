@@ -90,7 +90,7 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "fillomino 4": "15 Nov, grids session",
   "round-numbers 4": "16 Nov, grids session: grid baseline: ported as v1",
   "column-addition 4": "16 Nov, grids session: grid baseline: ported as v1",
-  "full-house 4": "16 Nov, grids session: grid baseline: ported as v1", "seesaw 4": "16 Nov, grids session: grid baseline: ported as v1", "snap 4": "16 Nov, grids session: grid baseline: ported as v1",
+  "full-house 4": "16 Nov, grids session: grid baseline: ported as v1", "snap 4": "16 Nov, grids session: grid baseline: ported as v1",
   "looking-glass 4": "16 Nov, grids session: grid baseline: ported as v1",
   "pinwheel 4": "16 Nov, grids session: grid baseline: ported as v1",
   "constellation 4": "16 Nov, grids session: grid baseline: ported as v1 (one star dealt: the stars are not peers on v2's law)",

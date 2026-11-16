@@ -18,10 +18,14 @@ const BEGINNER = new Set(beginnerGridFamilies(gridParams(grid4).size).map(f => f
  */
 const V1_PORTS = ["round-numbers", "column-addition"];
 const MORE = new Set([...moreGridFamilies(gridParams(grid4).size).map(f => f.id), ...V1_PORTS]);
-// v1's Full House, Seesaw and Snap!, ported as v1 had them (the grid baseline, 16 Nov). Twenty-One is ported but
+// v1's Full House and Snap!, ported as v1 had them (the grid baseline, 16 Nov). Twenty-One is ported but
 // UNDEALT: a cheap peak, the energy gate's climber took T 16 + bust-by-little to 35.8 bits for 230⚡ (every row and
 // column exactly T is a reachable top; T 15, 16 and 20 measured 25–36 bits on every tie-breaker).
-for (const id of ["full-house", "seesaw", "snap"]) MORE.add(id);
+// Seesaw is ported but UNDEALT (16 Nov, item 4 of the playtest session): a bounded top that newborn boards start at.
+// Its main part and two of its three secondaries are gaps whose best is 0, so any one-digit board (the empty board, the
+// birth walk's origin) is exact on all three (about 17 bits, past the top measured knot), and the all-9s board tops
+// heavy-seesaws; no move makes such a board better (test/v1-seesaw.test.ts). An optimum found is a bug.
+for (const id of ["full-house", "snap"]) MORE.add(id);
 /**
  * v1's Looking-Glass, Pinwheel and Constellation, ported as v1 (16 Nov) into the more-rules pool: both folds, and
  * Constellation's star 0 (v1's canonical star; MORE_PARAMS). v1 dealt every star 0–9, but on v2's law the stars are not

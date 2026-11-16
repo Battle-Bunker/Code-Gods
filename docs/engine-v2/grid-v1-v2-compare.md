@@ -33,7 +33,7 @@ not to be restored.
 | ladder_of_numbers | weak, excluded | nearest: `number-lines`, undealt | MISSING | no recorded decision (was weak in v1) | 3 |
 | column_addition | excluded on beginner | none | MISSING | no recorded decision | 4 |
 | number_bonds | excluded on beginner | none (nearest `pair-sums`, undealt) | MISSING | no recorded decision | 4 |
-| seesaw | excluded on beginner | none | MISSING | no recorded decision | 3 |
+| seesaw | excluded on beginner | lib/v2-grid/src/v1-seesaw.ts | PORTED, UNDEALT | a one-digit board tops it (16 Nov; presets.ts, test/v1-seesaw.test.ts) | 0 |
 | snap | excluded on beginner | none | MISSING | no recorded decision | 3 |
 | looking_glass | excluded on beginner | none | MISSING | no recorded decision | 3 |
 | pinwheel | excluded on beginner | none | MISSING | no recorded decision | 3 |
