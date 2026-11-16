@@ -380,7 +380,7 @@ export const crossShift: M = {
 export const areaShift: M = {
   id: "area.shift", reps: ["tri"], title: "change the triangle's area, keeping the gradient and the quarter", perSite: true,
   argHelp: () => ({ k: { label: "Add to the area", hint: "a number such as 5, −2 or 1/2; the new area must be a square-friendly number for the line to stay on fractions", example: "5" } }),
-  describe: a => `${Qn.sign(k(a)) > 0 ? "grow" : "shrink"} the triangle's area by ${w(Qn.abs(k(a)))}`,
+  describe: a => `add ${w(k(a))} to the triangle's signed area`,
   args: v => fields(baseBits(v, true, "area.shift"), {}, amount(argD(v))),
   apply: (state, site, a, v) => {
     const l = state.lines[site]!;
@@ -603,7 +603,7 @@ function mirrorArgs(v: Variant): ArgCode<Args> {
   return {
     bits,
     // The fold's mirror lines, which cost it one bit more (its choice of branch).
-    enumerate: maxBits => foldArgs(v).enumerate!(maxBits + 1).filter(a => typeof a.mirror === "string" && bits(a) <= maxBits + 1e-9),
+    enumerate: maxBits => [...foldArgs(v).enumerate!(maxBits + 1)].filter((a: Args) => typeof a.mirror === "string" && bits(a) <= maxBits + 1e-9),
     sample: rng => {
       const A = sampleMixedInt(rng), B = sampleMixedInt(rng), C = sampleMixedInt(rng), n = normalise(A, B, C);
       // A triple that is not a line's own canonical form is the code's leftover mass.
