@@ -731,4 +731,124 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       },
     },
   },
+  {
+    family: "round-numbers", simple: ["line"], needs: ["lines"],
+    mainSays: "how far each row's (or column's) total is from the nearest multiple of 10, added up (closer is better)",
+    main: {
+      ts: [
+        "const tot = [0, 1, 2, 3].map(k => [0, 1, 2, 3].reduce((t, j) => t + (p.axis === \"rows\" ? b[4 * k + j] : b[4 * j + k]), 0));   // each row's (or column's) total",
+        "const rnd = tot.map(t => Math.floor((t + 5) / 10) * 10);   // the multiple of 10 nearest each total (one ending in 5: the one above)",
+        "let main = -tot.reduce((s, t, k) => s + Math.abs(t - rnd[k]), 0);   // how far each total is from it, added up",
+      ],
+      py: [
+        "tot = [sum(b[4 * k + j] if p[\"axis\"] == \"rows\" else b[4 * j + k] for j in range(4)) for k in range(4)]   # each row's (or column's) total",
+        "rnd = [(t + 5) // 10 * 10 for t in tot]   # the multiple of 10 nearest each total (one ending in 5: the one above)",
+        "main = -sum(abs(t - r) for t, r in zip(tot, rnd))   # how far each total is from it, added up",
+      ],
+    },
+    tieBreakers: {
+      "exact-rounds": {
+        ts: "tot.filter((t, k) => t === rnd[k]).length", py: "len([k for k in range(4) if tot[k] == rnd[k]])",
+        says: "more rows (or columns) adding up to exactly a multiple of 10 is better", lenses: ["add", "trade"], steps: 2,
+        tryThis: "remove the \"trade\" line: can single steps make a total exactly round without spoiling another?",
+      },
+      "big-rounds": {
+        ts: "rnd.reduce((s, r) => s + r, 0)", py: "sum(rnd)",
+        says: "bigger round numbers nearest the totals is better", lenses: ["add", "line"], steps: 5,
+        tryThis: "change FAR = 5 to 2: can a total still cross half way (24 to 26) to the next round number up?",
+      },
+      "round-steps": {
+        ts: "[1, 2, 3].filter(k => Math.abs(rnd[k] - rnd[k - 1]) === 10).length", py: "len([k for k in (1, 2, 3) if abs(rnd[k] - rnd[k - 1]) == 10])",
+        says: "more neighbouring rows (or columns) nearest round numbers 10 apart is better", lenses: ["add", "line"], steps: 5,
+        tryThis: "change FAR = 5 to 2: can a total still cross half way to a round number 10 from its neighbour's?",
+      },
+    },
+  },
+  {
+    family: "number-bonds", simple: ["swap"],
+    mainSays: "the bonds: touching cells whose numbers add up to 10 (more is better)",
+    main: {
+      ts: [
+        "const pairs = [];   // every touching pair: each cell with the cell to its right and the cell below it",
+        "for (let i = 0; i < 16; i++) { if (i % 4 < 3) pairs.push([i, i + 1]); if (i < 12) pairs.push([i, i + 4]); }",
+        "const bonds = pairs.filter(([x, y]) => b[x] + b[y] === 10);   // a bond: two touching numbers adding up to 10",
+        "let main = bonds.length;",
+      ],
+      py: [
+        "pairs = []   # every touching pair: each cell with the cell to its right and the cell below it",
+        "for i in range(16):",
+        "    if i % 4 < 3:",
+        "        pairs.append((i, i + 1))",
+        "    if i < 12:",
+        "        pairs.append((i, i + 4))",
+        "bonds = [(x, y) for x, y in pairs if b[x] + b[y] == 10]   # a bond: two touching numbers adding up to 10",
+        "main = len(bonds)",
+      ],
+    },
+    tieBreakers: {
+      "far-split": {
+        ts: "bonds.reduce((t, [x, y]) => t + Math.abs(b[x] - b[y]), 0)", py: "sum(abs(b[x] - b[y]) for x, y in bonds)",
+        says: "bonds whose two numbers are further apart (1 and 9 rather than 5 and 5) is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps widen a bond without breaking it?",
+      },
+      "bond-run": {
+        pre: {
+          ts: ["let run = 0;   // the longest run of cells along a row or column, each making a bond with the next", "for (let k = 0; k < 4; k++) for (const step of [1, 4]) { let cur = 1; for (let j = 1; j < 4; j++) { const i = step === 1 ? 4 * k + j : 4 * j + k; cur = b[i] + b[i - step] === 10 ? cur + 1 : 1; if (cur > 1) run = Math.max(run, cur); } }"],
+          py: ["run = 0   # the longest run of cells along a row or column, each making a bond with the next", "for k in range(4):", "    for step in (1, 4):", "        cur = 1", "        for j in range(1, 4):", "            i = 4 * k + j if step == 1 else 4 * j + k", "            cur = cur + 1 if b[i] + b[i - step] == 10 else 1", "            if cur > 1:", "                run = max(run, cur)"],
+        },
+        ts: "run", py: "run",
+        says: "a longer unbroken run of bonds along a row or column is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; can it still join two bonds into a run?",
+      },
+      "prime-bonds": {
+        ts: "bonds.filter(([x, y]) => [2, 3, 5, 7].includes(b[x]) && [2, 3, 5, 7].includes(b[y])).length", py: "len([1 for x, y in bonds if b[x] in (2, 3, 5, 7) and b[y] in (2, 3, 5, 7)])",
+        says: "more bonds made of two primes (3 and 7, or 5 and 5) is better", lenses: ["add", "trade"], steps: 2,
+        tryThis: "remove the \"trade\" line: can single steps turn a 1 and 9 bond into a 3 and 7?",
+      },
+    },
+  },
+  {
+    family: "column-addition", simple: ["swap"],
+    mainSays: "the right columns of the written sum in a run from the right-hand end (more is better)",
+    main: {
+      ts: [
+        "const A = 4 * p.top, B = A + 4, S = A + 8;   // the first cells of the two rows added, and of the answer row",
+        "const right = [0, 0, 0, 0], ok = [false, false, false, false];   // each column's right digit, and whether the answer shows it",
+        "for (let j = 3, carry = 0; j >= 0; j--) { const t = b[A + j] + b[B + j] + carry; right[j] = t % 10; ok[j] = right[j] === b[S + j]; carry = Math.floor(t / 10); }   // the written sum, from the right-hand end",
+        "const blank = [0, 1, 2, 3].every(j => b[A + j] === 0);   // a top row of 0s: nothing counts",
+        "let main = 0;",
+        "if (!blank) for (let j = 3; j >= 0 && ok[j]; j--) main++;   // right columns in a run from the right-hand end",
+      ],
+      py: [
+        "A, B, S = 4 * p[\"top\"], 4 * p[\"top\"] + 4, 4 * p[\"top\"] + 8   # the first cells of the two rows added, and of the answer row",
+        "right, ok, carry = [0] * 4, [False] * 4, 0   # each column's right digit, and whether the answer shows it",
+        "for j in (3, 2, 1, 0):   # the written sum, from the right-hand end",
+        "    t = b[A + j] + b[B + j] + carry",
+        "    right[j], ok[j], carry = t % 10, t % 10 == b[S + j], t // 10",
+        "blank = all(b[A + j] == 0 for j in range(4))   # a top row of 0s: nothing counts",
+        "main = 0",
+        "for j in (3, 2, 1, 0):   # right columns in a run from the right-hand end",
+        "    if blank or not ok[j]:",
+        "        break",
+        "    main += 1",
+      ],
+    },
+    tieBreakers: {
+      "right-columns": {
+        ts: "blank ? 0 : ok.filter(Boolean).length", py: "0 if blank else sum(ok)",
+        says: "more right columns anywhere in the sum is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps fix a column on the left?",
+      },
+      "near-digits": {
+        ts: "blank ? -36 : -[0, 1, 2, 3].reduce((t, j) => t + Math.abs(b[S + j] - right[j]), 0)", py: "-36 if blank else -sum(abs(b[S + j] - right[j]) for j in range(4))",
+        says: "answer digits closer to the right digits is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; do the wrong digits still close in?",
+      },
+      "big-answer": {
+        ts: "blank ? 0 : b[S] + b[S + 1] + b[S + 2] + b[S + 3]", py: "0 if blank else b[S] + b[S + 1] + b[S + 2] + b[S + 3]",
+        says: "an answer row whose digits add up to more is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps grow the sum without spoiling a column?",
+      },
+    },
+  },
 ];

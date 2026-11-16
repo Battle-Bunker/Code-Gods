@@ -10,7 +10,13 @@ import { moreGridFamilies } from "./more-families.ts";
 import { gridParams } from "./grid.ts";
 
 const BEGINNER = new Set(beginnerGridFamilies(gridParams(grid4).size).map(f => f.id));
-const MORE = new Set(moreGridFamilies(gridParams(grid4).size).map(f => f.id));
+/**
+ * v1's grid families ported as v1 had them (16 Nov, the grid baseline), each its own family file (v1-*.ts). Number Bonds
+ * (v1-number-bonds.ts) is registered but undealt: the energy gate found a cheap peak, 35.4 bits for 150⚡ on bond-run
+ * (a run of 1, 9, 1, 9 bonds along a row from a law draw), above the gate's 35 (16 Nov, grids session).
+ */
+const V1_PORTS = ["round-numbers", "column-addition"];
+const MORE = new Set([...moreGridFamilies(gridParams(grid4).size).map(f => f.id), ...V1_PORTS]);
 /** The arithmetic playtest pool: readings of the board as long numbers (grid-params.md §12–13). */
 const ARITHMETIC = new Set(["divisibility", "leading-digits"]);
 
@@ -33,7 +39,7 @@ export const BEGINNER_DEALT: Readonly<Record<string, readonly string[]>> = {
 };
 
 /** The parameters the more-rules pool deals, for its families that have several. */
-const MORE_PARAMS: Readonly<Record<string, unknown>> = { uphill: { corner: "BR" }, staircase: { direction: "right" }, "magic-accountant": { axis: "rows", T: 18 } };
+const MORE_PARAMS: Readonly<Record<string, unknown>> = { uphill: { corner: "BR" }, staircase: { direction: "right" }, "magic-accountant": { axis: "rows", T: 18 }, "round-numbers": { axis: "rows" }, "column-addition": { top: 0 } };
 
 const poolOf = (ids: Set<string>, dealt?: Readonly<Record<string, readonly string[]>>): readonly GridPoolRule[] =>
   gridType.families.filter(f => ids.has(f.id)).flatMap(f => f.dealable(grid4).map(params => ({

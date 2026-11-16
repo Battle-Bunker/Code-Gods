@@ -29,6 +29,7 @@ export const KINDS = {
   "monotone-steps": "steps rising by one",
   "power-count": "how often a power divides the board's number",
   "leading-digits": "the board's number's leading digits",
+  "written-sum": "rows making a written sum (column addition with carries)",
 } as const;
 export type Kind = keyof typeof KINDS;
 
@@ -101,4 +102,8 @@ export const RULE_FORMS: Readonly<Record<string, FamilyForms>> = {
   fillomino: { kind: "region", forms: { "patch-kinds": "all-different", "patch-count": "count", "near-misses": "distance" } },
   divisibility: { kind: "power-count", forms: { "leftover-digits": "digit-sum" } },
   "leading-digits": { kind: "leading-digits", forms: { "exponent-digits": "digit-sum" } },
+  // v1 grid baseline ports (16 Nov, grids session: ported as v1).
+  "round-numbers": { kind: "line-sums", forms: { "exact-rounds": "count", "big-rounds": "big-values", "round-steps": "adjacent-step" } },
+  "number-bonds": { kind: "pair-sums", forms: { "far-split": "distance", "bond-run": "run-length", "prime-bonds": "primes" } },
+  "column-addition": { kind: "written-sum", forms: { "right-columns": "count", "near-digits": "distance", "big-answer": "big-values" } },
 };
