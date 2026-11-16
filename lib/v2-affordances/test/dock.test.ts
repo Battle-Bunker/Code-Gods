@@ -118,6 +118,10 @@ test("v1's Reset layout and Layout: Two panels, on the screen in view", () => {
   // From a screen of fewer panes: the two stacked, nothing on the right.
   const two = ok(applyView(v, "view.arrangeDock", { dock: "row(objects, race)" }, live));
   assert.equal(formatDock(ok(applyView(two, "view.twoPanels", {}, live)).dock.live!), "column(objects 50, race 50)");
+  // Panes the human closed are left out (they are not drawn): the left column holds two panes that show.
+  const open = { ...EMPTY_VIEW, panes: ["agents", "objects", "race", "assistant"].map(pane => ({ pane, place: "main" as const })) };
+  assert.equal(formatDock(ok(applyView(open, "view.twoPanels", {}, live)).dock.live!), "row(column(agents 50, objects 50) 40, race|assistant 60)");
+  assert.equal(ok(applyView(open, "view.maximisePane", {}, live)).maximised, "objects", "the largest group that shows");
   // Reset: the screen in view back to its default.
   v = ok(applyView(v, "view.resetLayout", {}, live));
   assert.deepEqual(Object.keys(v.dock), ["planning"]);

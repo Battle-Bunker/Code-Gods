@@ -104,10 +104,18 @@ try {
       await page.getByTestId("input-palette").fill(title);
       await page.getByTestId(`row-palette-${id}`).click();
     };
-    const before = await dock.getAttribute("data-dock");
+    // Start from the screen's default (the steps before closed panes), so Two panels has several panes to arrange.
+    await run("Reset layout", "view.resetLayout");
+    await page.waitForTimeout(1_000);
+    const before = (await dock.getAttribute("data-dock"))!;
     await run("Layout: Two panels", "view.twoPanels");
-    await page.waitForFunction(() => /^row\(column\(/.test(document.querySelector('[data-testid="dock-desktop"]')?.getAttribute("data-dock") ?? ""), null, { timeout: 10_000 });
-    const two = (await dock.getAttribute("data-dock"))!;
+    const changed = await page.waitForFunction(b => {
+      const now = document.querySelector('[data-testid="dock-desktop"]')?.getAttribute("data-dock") ?? "";
+      return now !== b && now;
+    }, before, { timeout: 10_000 }).then(h => h.jsonValue() as Promise<string>).catch(() => null);
+    const two = changed ?? (await dock.getAttribute("data-dock"))!;
+    // Two shown panes stacked on the left (a column), the rest in one group on the right.
+    assert.match(two, /^(row\(column\(|column\()/, `two panels from ${before}: ${two}`);
     await run("Reset layout", "view.resetLayout");
     await page.waitForFunction(b => document.querySelector('[data-testid="dock-desktop"]')?.getAttribute("data-dock") !== b, two, { timeout: 10_000 });
     assert.notEqual(await dock.getAttribute("data-dock"), null, `before: ${before}`);
