@@ -741,39 +741,43 @@ back) or TRIAL (a declared experiment, measured and reported).
       - The share that also change the tie-breaker: 0–36%.
       - The share that raise the level: about 0.
     - **Effects:** §13 of two-line-systems.md.
-37. **TRIAL** (the coordinator's order after #856, row 3 of design-principles.md; two-line-systems.md §13): each
-    tie-breaker of Whole Answer, Right Angle, Forty-Five, Gap Ratio and Steep Ratio is a relation between
-    the number its main part reached (N) and another aspect of the system: "near a multiple of N, other than 0", or
-    "the biggest common factor with N".
-    - **For the power ladders,** N is k^T(L) × k.
-    - **Stepping up changes N, so it restarts the climb,** as Far Crossing's and High Start's tie-breakers already did.
-    - **Retired:** the smallest prime factor of |x| + |y|, how many prime factors a numerator has, and the like. These
-      read the object alone and were the same whatever level the main part reached.
-    - **Common factors that climb with the main part are out.** A stretch that multiplies both numbers would climb the
-      tie-breaker with the main part, an aligned hill: Whole Answer reached 52 bits on the energy gate with "y and D share
-      a factor". Those tie-breakers became "near a multiple", whose distance grows with the same stretch.
-    - **The new tie-breakers.**
-      - Whole Answer: D near a multiple of y's number; x near a multiple of y.
-      - Divide By keeps its tie-breakers. They read the numerators x·D and y·D, which change when D steps up. The
-        relations tried instead were unfair between peers: a whole-number relation to N is about log₂ k rarer for a
-        bigger k (3.85 bits apart), and a share of N moved the median knot as much.
-      - Right Angle: the corner's x near a multiple of its y; its y shares a factor with the steeper gradient.
-      - Forty-Five: |x| + |y| shares a factor with D; the y-intercepts' gap near a multiple of |x| + |y|.
-      - Gap Ratio: D shares a factor with N; the y-intercepts' gap near a multiple of N.
-      - Steep Ratio: the y-intercepts' gap near a multiple of the ratio; D near a multiple of the ratio.
-    - **A repertoire of three or more (principle 3a, the owner via the coordinator, 15 Nov).** Every family deals at
-      least three tie-breakers of at least three forms: near a multiple, a smallest prime factor, and a common factor
-      (or a count of prime factors). Each is tied to the main part's number, and none is climbed by the ladder's own
-      shortcut, because a stretch or zoom by q multiplies the number.
-      - Whole Answer adds "|x| + |y| has a big smallest prime factor" and "y shares a factor with the steeper
-        gradient".
-      - Divide By adds the smallest prime factor of |x·D| + |y·D|.
-      - Right Angle and Forty-Five get back their prime and smooth readings, now of the level's number.
-      - Gap Ratio adds "the gap plus N has a big smallest prime factor".
-      - Steep Ratio gets back "the ratio's smallest prime factor" and adds "the ratio shares a factor with the gentler
-        intercept".
-      - Far Crossing and High Start keep their two distance tie-breakers and add a prime and a common-factor one: four
-        candidates in three forms.
+37. **TRIAL** (the coordinator's order after #856, rows 3 and 3a of design-principles.md; two-line-systems.md §13):
+    each pair family deals a repertoire of tie-breakers tied to the number its main part reached (N). Stepping up
+    changes N, so it restarts each climb.
+    - **Forms.** Each tie-breaker takes one of these:
+      - near a multiple of N, other than 0;
+      - a smallest prime factor of N or of |N| + another number;
+      - a common factor of N with another number;
+      - a count of prime factors;
+      - a size.
+    - **None is climbed by the ladder's own shortcut.** A stretch or zoom by q multiplies N. That lengthens a distance
+      to a multiple of N and lowers a smallest prime factor of a sum with it. On the valuation ladders, common factors
+      and counts read N without its factors of q, which no stretch by q raises.
+    - **Found by the energy gate on the way:**
+      - "y and D share a factor" reached 52 bits, because a stretch multiplies both.
+      - "the intercept shares a factor with the steeper gradient" reached 41 bits, and "the ratio shares a factor with
+        the gentler intercept" 38.
+      - All three were replaced.
+    - **The dealt repertoire:**
+      - **Whole Answer:** x near a multiple of y; |x| + |y| with a big smallest prime factor; y without its factors of
+        q sharing a factor with the steeper gradient.
+      - **Divide By:** it keeps its two, the numerators x·D and y·D, which change with D: their prime count and their
+        common factor. It adds the numerators small (a size).
+        - Relations to k^T(L) × k were tried instead and were unfair between peers: about log₂ k rarer for a bigger k,
+          3.85 bits apart. A smallest prime factor was 1.2 bits apart.
+      - **Right Angle:** the corner's x near a multiple of y; y and the steeper gradient sharing a factor; |x| + |y|
+        with a big smallest prime factor.
+      - **Forty-Five:** |x| + |y| and D sharing a factor; the gap near a multiple of |x| + |y|; |x| + |y| with many
+        prime factors.
+      - **Gap Ratio:** D and N sharing a factor; the gap near a multiple of N; |gap| + N with a big smallest prime
+        factor.
+      - **Steep Ratio:** the gap near a multiple of the ratio; the ratio's smallest prime factor; the ratio without its
+        factors of q with many prime factors.
+      - **High Start:** its two distance tie-breakers; |H| + |x| with a big smallest prime factor; H without its
+        factors of q sharing a factor with the steeper gradient.
+      - **Far Crossing (open):** its two distance tie-breakers and a common factor with the steeper gradient, so three
+        candidates in two forms. A prime and a prime-count reading of its number were unequal between peers (q 7
+        against 11, 1.0–1.4 bits).
     - **Effects:** §13.
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
