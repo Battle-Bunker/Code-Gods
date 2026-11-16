@@ -27,9 +27,19 @@ its reads are charged (once into the complexity, or per check), and ready-made e
 examples.
 
 Built: `lib/v2-core` locks.ts (the lock arithmetic and the order of an act under locks, pure), `lib/v2-agents`
-predicates.ts (running a predicate program, its complexity, the ready-made predicates of §11) and the agent API. The
-server, the operations and the screens follow (§7); the hand-over that resumed the work is
+predicates.ts (running a predicate program, its complexity) and ready-predicates.ts (§11), the agent API, and the server
+(`artifacts/engine/convex/v2` locks.ts, lockNode.ts, ops/lock.ts; the tick and the commit in tick.ts and loop.ts). Live
+tests: `artifacts/engine/test/v2-locks.test.ts`. The screens follow (§7). The hand-over that resumed the work is
 `docs/engine-v2/handover/locks.md`.
+
+How the server runs it: the tick (Node) runs every check, in act order, on its running view of each offered object's
+locks, and records on the act which locks its calls were checked against (`lockChecked`) and what the act's lock
+changes measured. The commit (a mutation) runs no program: it applies the funds, drains and new locks again
+(`commitLocks`), clips drains to what is left, renumbers a new lock if another was made first, refuses a move if a lock
+it was not checked against is live by then (made or refilled since), and refuses a new lock if the object moved since
+it was measured. A player's `lock.create` measures the program in an action and writes through the same path, refused
+if the object moved meanwhile. An act's record carries the locks it saw without their programs (`lockSeen`); a replay
+joins each program from the lock's `create` event and re-executes the act exactly (tested).
 
 ## 1. What a lock is
 

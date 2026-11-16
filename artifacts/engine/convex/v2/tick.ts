@@ -5,8 +5,8 @@
  * proportional to its settled energy and an object uniformly, run the act in the sandbox (`runAct`, lib/v2-agents),
  * and send everything to `loop:commit`, which owns every write. Deterministic given the seed and the tick's inputs.
  */
-import { lockInfo, runAct } from "@workspace/v2-agents";
-import { hash64, locksAfterDone, rng, type ActLock } from "@workspace/v2-core";
+import { predicateBits, predicateRunner, runAct } from "@workspace/v2-agents";
+import { commitLocks, hash64, isInvalid, rng, type ActLock, type LockRates } from "@workspace/v2-core";
 import { actCredit, affordable, agentIncome, energyCapacity, opportunities, pickByEnergy, readCharge, settle } from "@workspace/v2-economy";
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
@@ -14,13 +14,13 @@ import type { Id } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 import { MAX_DT } from "./loop";
 import { regularBirths, timeScaleOf } from "./duration";
-import { sandboxFor } from "./runtime";
+import { predicateBoxesFor, sandboxFor } from "./runtime";
 import { birthDraws, decode, penaltyWeightOf, scopeOf, typeOf, variantOf } from "./world";
 import { capOf, liveLines, offerable, pickLine, retiringCount } from "./turnover";
 import type { Turnover } from "./presets";
 import { actReadings } from "./disclose";
 import { penaltyMean, valueFnIn, valueRecord } from "./values";
-import { actLock, actLockWire, type LockWire } from "./lockWire";
+import { actLock, lockSeen, type LockWire } from "./lockWire";
 
 type Snapshot = {
   phase: string; seed: string; variant: string; leaseId: string; tick: number; acts: number; objects: number; endsAt: number | null;
@@ -32,7 +32,7 @@ type Snapshot = {
   /** The world second the game ends at (private in halfLife mode; the tick only follows it). */
   endWorld: number;
   held: { objectId: string; state: string }[]; noiseKey: string | null;
-  settings: { worldSeconds: number; startingObjects: number; peerNoiseVariance?: number; timeScale?: number; regularBirths?: boolean; commitClause?: boolean; locks?: boolean; penaltyWeight?: number; turnover?: Turnover; stepBudget?: number; interactionComputeMs?: number; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
+  settings: { worldSeconds: number; startingObjects: number; peerNoiseVariance?: number; timeScale?: number; regularBirths?: boolean; commitClause?: boolean; locks?: boolean; lockRates?: LockRates; penaltyWeight?: number; turnover?: Turnover; stepBudget?: number; interactionComputeMs?: number; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
   seats: { memberId: string; rule: { family: string; params: unknown; tieBreaker: string | null; ruleKey: string }; defence?: { family: string; params: unknown; ruleKey: string } }[];
   ready: ("typescript" | "python")[];
   agents: TickAgent[];
@@ -102,9 +102,13 @@ export const tick = internalAction({
       const states = new Map((await ctx.runQuery(STATES, { gameId, numbers: picks, ...(locking ? { locks: true } : {}) })).map(s => [s.number, s]));
       // Locks (docs/engine-v2/locks.md): each offered object's live locks as this tick sees them, updated act by act
       // (the commit re-checks every act against the locks then).
-      const type = typeOf(snap.variant), info = locking ? lockInfo(type, variant) : null;
+      const type = typeOf(snap.variant);
       const lockView = new Map<number, { live: ActLock[]; next: number }>();
-      if (locking) for (const s of states.values()) lockView.set(s.number, { live: (s.locks ?? []).map(d => actLock(type, d)), next: s.nextLock ?? 1 });
+      // Predicates run in their own sandboxes, one per language an agent or a live lock is written in (§2).
+      const lockLanguages = locking ? [...new Set([...snap.ready, ...[...states.values()].flatMap(s => (s.locks ?? []).map(l => l.language))])] : [];
+      const lockRun = locking ? predicateRunner(type, variant, await predicateBoxesFor(ctx, lockLanguages)) : null;
+      const rates: LockRates = snap.settings.lockRates ?? { createPerBit: econ.powerPerSecond / 64, upkeepPerBit: econ.powerPerSecond / 64 / econ.fullChargeSeconds };
+      if (locking) for (const s of states.values()) lockView.set(s.number, { live: (s.locks ?? []).map(actLock), next: s.nextLock ?? 1 });
 
       // Energy settled to this tick's world time, then spent act by act (the commit settles again, authoritatively).
       const acting = snap.agents.filter(a => snap.ready.includes(a.language));
@@ -160,7 +164,7 @@ export const tick = internalAction({
         // The seat's value function (decision 23), as the deal recorded it by ruleKey: replay re-derives it from the bundle.
         const vf = valueFnIn(seat.rule.ruleKey, scope);
         const lv = locking ? lockView.get(number)! : null;
-        const seenLocks = lv ? { world, nextLock: lv.next, live: lv.live.map(actLockWire) } : null;
+        const seenLocks = lv ? { world, nextLock: lv.next, live: lv.live.map(lockSeen) } : null;
         const { record } = await runAct(sandbox, {
           type: typeOf(snap.variant), variant, state: decode(local.get(number) ?? s.state, snap.variant),
           rule: ruleOf(seat.rule),
@@ -172,7 +176,7 @@ export const tick = internalAction({
           // The commit clause (v1's option, off by default; call 34): an onlyIfBetter plan commits only if it raises the
           // owner's points as othersAfter discloses them (runAct decides it).
           ...(snap.settings.commitClause ? { commitClause: true } : {}),
-          ...(lv ? { locks: { world, live: lv.live, nextLock: lv.next, fullChargeSeconds: econ.fullChargeSeconds, info: info! } } : {}),
+          ...(lv ? { locks: { world, live: lv.live, nextLock: lv.next, rates, run: lockRun!, programBits: predicateBits } } : {}),
           // The room's per-act compute limits (v1's stepBudget and interactionComputeMs); else the sandbox's defaults.
           ...(snap.settings.stepBudget !== undefined || snap.settings.interactionComputeMs !== undefined ? { limits: {
             ...(snap.settings.stepBudget !== undefined ? { stepBudget: snap.settings.stepBudget } : {}),
@@ -188,7 +192,9 @@ export const tick = internalAction({
         balance.set(agent.agentId, energy - (verdict === "unaffordable" ? readCharge(record.readBits) : record.charge + (record.lockSpend ?? 0)));
         if (locking && record.locks?.length && verdict !== "unaffordable") {
           const lv = lockView.get(number)!;
-          lockView.set(number, { live: locksAfterDone(type, lv.live, record.locks, world), next: lv.next + record.locks.filter(d => d.op === "create").length });
+          // As the commit will apply them (no program runs; a skip's changes need no check).
+          const c = commitLocks({ locks: lv.live, done: record.locks, checked: null, world, nextLock: lv.next });
+          if (!isInvalid(c)) lockView.set(number, { live: c.locks, next: lv.next + record.locks.filter(d => d.op === "create").length });
         }
         if (verdict === "committed") {
           const was = local.get(number) ?? s.state;
@@ -197,10 +203,10 @@ export const tick = internalAction({
           local.set(number, record.after);
         }
         // The locks the act saw, recorded with its inputs so a replay re-executes it exactly.
-        const lockSeen = seenLocks ? { lockSeen: seenLocks } : {};
+        const seenInput = seenLocks ? { lockSeen: seenLocks } : {};
         acts.push({
           n: snap.acts + i, verdict, agentId: agent.agentId, memberId: agent.memberId, objectId: s.objectId, number, version: s.version,
-          seed, energy, liveObjects, programVersion: agent.version, record, input: { ...input, ...lockSeen },
+          seed, energy, liveObjects, programVersion: agent.version, record, input: { ...input, ...seenInput },
         });
       }
       await ctx.runMutation(COMMIT, { gameId, leaseId, world, now, born, acts: chainVersions(acts), picks: picks.length });

@@ -72,6 +72,8 @@ export const headerV = v.object({
   readPriceWeight: v.number(),
   /** The factor on summon and edit prices: the game's power ÷ 64 (v2-economy summonPriceScale). */
   priceScale: v.number(),
+  /** Locks (docs/engine-v2/locks.md): null when the room setting is off; else the prices (energy per bit to create, per bit per world second to sustain). */
+  locks: v.union(v.null(), v.object({ createPerBit: v.number(), upkeepPerBit: v.number() })),
   /** Parameter drift's interval in world seconds (drift.ts; 0: off): drift k happens at world second k × it. */
   driftSeconds: v.number(),
   /** Line turnover (retirement-design.md): at most `liveCap` live lines, a birth every `birthSeconds` (null: at random), the oldest retiring with its points kept in the totals (`banked`) or not; null: every line stays live. */

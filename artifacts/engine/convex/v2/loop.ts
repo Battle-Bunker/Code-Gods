@@ -23,7 +23,7 @@ import { paysToRead, tell } from "./knowledge.ts";
 import { driftEventsDue, driftSecondsOf, redrawParams } from "./drift.ts";
 import { ruleView } from "./deal.ts";
 import { capOf, liveLines } from "./turnover.ts";
-import { liveLockDocs, lockDocs, locksOn, lockWire, nextLockOf, recheck, retireLocks, sweepLocks, writeLocks } from "./locks.ts";
+import { liveLockDocs, lockDocs, locksOn, lockWire, nextLockOf, recommit, retireLocks, sweepLocks, writeLocks } from "./locks.ts";
 
 /** Wall milliseconds between ticks; world time advances by the wall time that passed, at most MAX_DT a tick. */
 export const TICK_MS = 1500;
@@ -692,7 +692,7 @@ export const commit = internalMutation({
       const energy = await ctx.db.query("v2AgentEnergy").withIndex("by_agent", q => q.eq("agentId", act.agentId)).unique();
       if (!agent || agent.destroyedAt !== undefined || !energy) continue;   // destroyed since the tick read it
       if (retiredNow.has(act.number)) continue;   // retired by this commit's births (the tick offers none such)
-      const record = act.record as { outcome: string; after: string; before: string; charge: number; readBits: number; calls: { mutator: string; site: number; args: Record<string, string>; rep: string }[]; reason?: string; notes?: string[]; locks?: unknown[] };
+      const record = act.record as { outcome: string; after: string; before: string; charge: number; readBits: number; calls: { mutator: string; site: number; args: Record<string, string>; rep: string }[]; reason?: string; notes?: string[]; locks?: unknown[]; lockChecked?: number[] };
       const st = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", act.objectId)).unique())!;
       const income = agentIncome(P.powerPerSecond, agent.share), capacity = energyCapacity(income, P.fullChargeSeconds);
       const account: Account = settle({ balance: energy.energy, settledWorldSeconds: energy.settledAt }, world, income, capacity);
@@ -707,17 +707,19 @@ export const commit = internalMutation({
       let charge = committed || outcome === "skipped" || (outcome === "failed" && !holder) ? record.charge : readCharge(record.readBits);
       // Locks (docs/engine-v2/locks.md §4): the act re-run against the object's state and live locks now; a lock this
       // commit made or drained first counts. A refusal fails the act (it pays its reads); the lock changes cost on top.
-      let lockFail: string | null = null, lockSpend = 0, locked: Exclude<ReturnType<typeof recheck>, { invalid: string }> | null = null;
+      let lockFail: string | null = null, lockSpend = 0, locked: Exclude<ReturnType<typeof recommit>, { invalid: string }> | null = null;
       let lockObject: Doc<"v2Objects"> | null = null, lockDocsNow: Doc<"v2Locks">[] = [];
       const lockOps = (record.locks ?? []) as LockOpDone[];
       if (locksOn(game) && (committed || (outcome === "skipped" && lockOps.length))) {
-        // A skip's lock changes need no version: funds and drains do not read the state, and a new lock is checked
-        // against the state as it is now. A move commits only on the version it was made on (above).
+        // No program runs here: the tick checked the calls (`lockChecked`: against which locks) and measured any new
+        // lock on the state its calls reached. A new lock needs that state still to be the object's (the version);
+        // funds and drains read no state. A lock made or refilled since the act looked refuses its move.
         lockObject = await ctx.db.get(act.objectId);
         lockDocsNow = await liveLockDocs(ctx, act.objectId, world, (k, d) => appendEvent(ctx, game._id, k, d));
         if (!lockObject) lockFail = "the object is gone";
+        else if (lockOps.some(d => d.op === "create") && st.version !== act.version) lockFail = "the object moved before the act's new lock could be made";
         else if (lockOps.length || lockDocsNow.length) {
-          const r = recheck(game, lockObject, lockDocsNow, st.state, committed ? record.calls : [], lockOps, world);
+          const r = recommit(lockObject, lockDocsNow, lockOps, committed ? record.lockChecked ?? [] : null, world);
           if (isInvalid(r)) lockFail = r.invalid;
           else if (account.balance - charge < r.spend - 1e-9) lockFail = "not enough energy for these lock changes";
           else { locked = r; lockSpend = r.spend; }

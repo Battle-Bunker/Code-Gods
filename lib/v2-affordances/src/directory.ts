@@ -10,12 +10,13 @@ import { assistantOps } from "./ops/assistant.ts";
 import { biddingOps } from "./ops/bidding.ts";
 import { panelOps } from "./ops/panels.ts";
 import { playOps } from "./ops/play.ts";
+import { lockOps } from "./ops/locks.ts";
 import { roomOps } from "./ops/rooms.ts";
 import { setupOps } from "./ops/setups.ts";
 import { viewOps } from "./ops/view.ts";
 import type { AffordanceContext, AnyAffordance, Availability, Caller, Principal, Surface } from "./types.ts";
 
-export const DIRECTORY = [...roomOps, ...setupOps, ...biddingOps, ...playOps, ...agentOps, ...viewOps, ...accountOps, ...assistantOps, ...panelOps, ...codeOps] as const;
+export const DIRECTORY = [...roomOps, ...setupOps, ...biddingOps, ...playOps, ...lockOps, ...agentOps, ...viewOps, ...accountOps, ...assistantOps, ...panelOps, ...codeOps] as const;
 export type Directory = readonly AnyAffordance[];
 
 type Entry = (typeof DIRECTORY)[number];

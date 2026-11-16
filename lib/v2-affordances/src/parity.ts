@@ -30,7 +30,10 @@ export const PRINCIPALS: Readonly<Record<string, Principal>> = {
 
 /** Every (context, principal) pair. Game facts are left unknown, so dynamic checks do not hide anything. */
 export function allContexts(): AffordanceContext[] {
-  return CONTEXTS.flatMap(context => Object.values(PRINCIPALS).map(principal => ({ context, principal })));
+  // A game in view has every optional feature on (locks), so operations hidden without it are still checked.
+  const phases = ["planning", "live", "paused", "ended"] as const;
+  return CONTEXTS.flatMap(context => Object.values(PRINCIPALS).map(principal => ({ context, principal,
+    ...((phases as readonly string[]).includes(context) ? { game: { phase: context as (typeof phases)[number], locks: true } } : {}) })));
 }
 
 /** The surfaces under test: the real generators, or broken ones a test injects to see the checks fail. */

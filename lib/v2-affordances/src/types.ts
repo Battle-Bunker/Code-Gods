@@ -55,6 +55,8 @@ export interface GameFacts {
   pauseUsed?: boolean;
   /** The viewer's live agents. */
   agents?: number;
+  /** Whether the game has locks (the room setting; docs/engine-v2/locks.md). */
+  locks?: boolean;
 }
 
 /** The room in view, from its cold document (enough for lobby checks). */

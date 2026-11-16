@@ -427,6 +427,13 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     const total = bits.reduce((s, b) => s + b, 0), g = gameOf(e), d = distanceOf(g, e.userId, o);
     return { valid: true, bits, total, charge: total + 0.05 * total * total, after: { score: [String(-d)], terms: [] } };
   },
+  // The fake game has no locks (the room setting is off).
+  "lock.list": () => ({ locks: [] }),
+  "lock.create": () => { throw new OpFailure("This game has no locks (the room setting is off)."); },
+  "lock.check": () => { throw new OpFailure("This game has no locks (the room setting is off)."); },
+  "lock.fund": () => { throw new OpFailure("This game has no locks (the room setting is off)."); },
+  "lock.drain": () => { throw new OpFailure("This game has no locks (the room setting is off)."); },
+  "lock.test": () => ({ allowed: true, breaks: [] }),
   "object.look": () => { throw new OpFailure("This game shows every object as it is; there is nothing to pay for."); },
   "object.whatIf": (_e, a) => ({ state: "", price: 0, after: a.calls.map(() => null) }),
   "object.score": (e, a) => {

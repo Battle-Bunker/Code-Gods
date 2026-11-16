@@ -390,7 +390,8 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     // The commit clause (v1's option, off by default).
     ...(room.overrides.commitClause ? { commitClause: true } : {}),
     // Locks (docs/engine-v2/locks.md; off by default until played).
-    ...(room.overrides.locks ? { locks: true } : {}),
+    // Prices (§3): create at power ÷ 64 a bit (the summon price's scale), upkeep re-paying that once per full charge.
+    ...(room.overrides.locks ? { locks: true, lockRates: lockRatesOf(o, o.powerPerSecond ?? preset.economy.powerPerSecond, o.fullChargeSeconds ?? preset.economy.fullChargeSeconds) } : {}),
     // The bid phase's pricing and disclosure (v1's bidDisclosure): the standings hide others' handicaps at "none".
     ...(auction ? { bid: { pricing: auction.pricing, disclosure: bidOf(room)?.disclosure ?? "none" } } : {}),
     // Defence goals (v1, restored; owner-decisions call 1): grids only, off unless the room turns them on.
@@ -492,4 +493,10 @@ export function turnoverOf(preset: Preset, o: Doc<"v2Rooms">["overrides"]): { tu
     retiredPoints: o.retiredPoints ?? preset.turnover?.retiredPoints ?? TURNOVER_DEFAULTS.retiredPoints,
     retiredHolds: o.retiredHolds ?? preset.turnover?.retiredHolds ?? TURNOVER_DEFAULTS.retiredHolds,
   } };
+}
+
+/** The room's lock prices, resolved at start (docs/engine-v2/locks.md §3): the room's own, else from the economy. */
+export function lockRatesOf(o: { lockCreatePerBit?: number; lockUpkeepPerBit?: number }, powerPerSecond: number, fullChargeSeconds: number) {
+  const createPerBit = o.lockCreatePerBit ?? powerPerSecond / 64;
+  return { createPerBit, upkeepPerBit: o.lockUpkeepPerBit ?? createPerBit / fullChargeSeconds };
 }
