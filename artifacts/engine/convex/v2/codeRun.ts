@@ -23,16 +23,28 @@ const transpile = (source: string) => {
 type Resolved = { refused: string } | { gameId: Id<"v2Games">; file: Id<"_storage"> | null; rows: unknown[] | null };
 const DATASET = makeFunctionReference<"query", Record<string, unknown>, Resolved>("v2/codeData:dataset");
 const RECORD = makeFunctionReference<"mutation", Record<string, unknown>, Id<"v2CodeRuns">>("v2/codeData:record");
+const SCRIPT = makeFunctionReference<"query", { userId: string; name: string }, { language: string; source: string; title: string } | null>("v2/codeData:script");
+const SAVE = makeFunctionReference<"mutation", Record<string, unknown>, { saved: boolean; reason?: string }>("v2/codeData:saveScript");
 
 /** What the caller (and an assistant) gets back: bounded; the whole result is the run's row (code.get). */
 const PREVIEW = 4000;
 
 export const run = internalAction({
   args: {
-    userId: v.string(), scope: v.any(), language: v.union(v.literal("typescript"), v.literal("javascript")), source: v.string(),
+    userId: v.string(), scope: v.any(), language: v.optional(v.union(v.literal("typescript"), v.literal("javascript"))), source: v.optional(v.string()),
+    /** A saved script to run instead of `source` (v1's `script`), and a name to save the source under after a good run (`saveAs`). */
+    script: v.optional(v.string()), saveAs: v.optional(v.string()),
     dataset: v.union(v.literal("replay"), v.literal("my-moves"), v.literal("none")), params: v.optional(v.any()), title: v.optional(v.string()),
   },
   handler: async (ctx, a) => {
+    let language = a.language, source = a.source, title = a.title;
+    if (a.script !== undefined) {
+      if (source !== undefined) return { refused: "Give a source or a saved script's name, not both." };
+      const saved = await ctx.runQuery(SCRIPT, { userId: a.userId, name: a.script });
+      if (!saved) return { refused: `You have no saved script ${JSON.stringify(a.script)} (save one with saveAs).` };
+      language = saved.language as "typescript" | "javascript"; source = saved.source; title ??= saved.title;
+    }
+    if (source === undefined || language === undefined) return { refused: "Give a language and a source, or a saved script's name." };
     const d = await ctx.runQuery(DATASET, { userId: a.userId, scope: a.scope, dataset: a.dataset });
     if ("refused" in d) return { refused: d.refused };
     let dataJson = "null";
@@ -41,14 +53,16 @@ export const run = internalAction({
       if (!blob) return { refused: "This game's replay file is missing." };
       dataJson = await blob.text();
     } else if (d.rows) dataJson = JSON.stringify(d.rows);
-    const outcome = runScript(await getQuickJS(), transpile, { language: a.language, source: a.source, dataJson, params: a.params ?? {} });
-    const title = (a.title ?? "").trim().slice(0, 80) || `${a.dataset} script`;
+    const outcome = runScript(await getQuickJS(), transpile, { language, source, dataJson, params: a.params ?? {} });
+    const shown = (title ?? "").trim().slice(0, 80) || a.script || `${a.dataset} script`;
     const runId = await ctx.runMutation(RECORD, {
-      userId: a.userId, gameId: d.gameId, title, language: a.language, source: a.source, dataset: a.dataset, status: outcome.status,
+      userId: a.userId, gameId: d.gameId, title: shown, language, source, dataset: a.dataset, status: outcome.status,
       ...(outcome.status === "ok" ? { resultJson: outcome.resultJson } : { error: outcome.error }), output: outcome.output, ms: outcome.ms,
     });
+    // v1's saveAs: the source is kept under its name once it ran without an error.
+    const saved = a.saveAs !== undefined && outcome.status === "ok" ? await ctx.runMutation(SAVE, { userId: a.userId, name: a.saveAs, language, source, title: shown }) : null;
     return {
-      runId, status: outcome.status, title,
+      runId, status: outcome.status, title: shown, saved: saved ? (saved.saved ? a.saveAs! : null) : null, ...(saved && !saved.saved ? { saveRefused: saved.reason } : {}),
       resultPreview: outcome.status === "ok" ? outcome.resultJson.slice(0, PREVIEW) : null,
       resultChars: outcome.status === "ok" ? outcome.resultJson.length : 0,
       error: outcome.status === "error" ? outcome.error : null,

@@ -551,4 +551,7 @@ export const v2Tables = {
     dataset: v.string(), status: v.union(v.literal("ok"), v.literal("error")), resultJson: v.optional(v.string()),
     output: v.string(), error: v.optional(v.string()), ms: v.number(), at: v.number(),
   }).index("by_user_at", ["userId", "at"]),
+  /** A human's saved scripts (v1's run_code saveAs, scripts/<name>): run again by name with code.run's `script`. */
+  v2CodeScripts: defineTable({ userId: v.string(), name: v.string(), language: v.string(), source: v.string(), title: v.string(), updatedAt: v.number() })
+    .index("by_user_name", ["userId", "name"]),
 };

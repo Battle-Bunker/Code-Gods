@@ -44,3 +44,28 @@ export const record = internalMutation({
   },
   handler: async (ctx, a) => await ctx.db.insert("v2CodeRuns", { ...a, at: Date.now() }),
 });
+
+/** At most this many saved scripts per human (v1's object quota, simplified). */
+export const MAX_SCRIPTS = 100;
+
+/** One of the human's saved scripts, by name, or null. */
+export const script = internalQuery({
+  args: { userId: v.string(), name: v.string() },
+  handler: async (ctx, { userId, name }) => {
+    const row = await ctx.db.query("v2CodeScripts").withIndex("by_user_name", q => q.eq("userId", userId).eq("name", name)).unique();
+    return row ? { language: row.language, source: row.source, title: row.title } : null;
+  },
+});
+
+/** Saves (or replaces) a script under its name; refused past MAX_SCRIPTS. */
+export const saveScript = internalMutation({
+  args: { userId: v.string(), name: v.string(), language: v.string(), source: v.string(), title: v.string() },
+  handler: async (ctx, a) => {
+    const old = await ctx.db.query("v2CodeScripts").withIndex("by_user_name", q => q.eq("userId", a.userId).eq("name", a.name)).unique();
+    if (old) { await ctx.db.patch(old._id, { language: a.language, source: a.source, title: a.title, updatedAt: Date.now() }); return { saved: true }; }
+    const count = (await ctx.db.query("v2CodeScripts").withIndex("by_user_name", q => q.eq("userId", a.userId)).take(MAX_SCRIPTS)).length;
+    if (count >= MAX_SCRIPTS) return { saved: false, reason: `You have ${MAX_SCRIPTS} saved scripts: delete one first.` };
+    await ctx.db.insert("v2CodeScripts", { ...a, updatedAt: Date.now() });
+    return { saved: true };
+  },
+});
