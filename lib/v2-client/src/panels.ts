@@ -41,7 +41,7 @@ export const PANES: Readonly<Record<PaneId, PaneDefinition>> = {
   "my-card": def({ id: "my-card", title: "Your secret goal", blurb: "Your rule in plain words, a worked example and the steps to the top.", phases: ALL, keywords: ["rule", "goal", "card", "ladder"], home: "left" }),
   objects: def({ id: "objects", title: "Lines", blurb: "Which lines earn you points, and why.", phases: WORLD, keywords: ["objects", "lines", "points", "rarity"], home: "main" }),
   object: def({ id: "object", title: "One line", blurb: "One line in every representation your rule reads, with why it scores.", phases: WORLD, keywords: ["expanded", "representations", "compare"], home: "main" }),
-  "what-if": def({ id: "what-if", title: "What if", blurb: "Try a change on a line and see its new step, rarity in bits and points, without making it.", phases: WORLD, keywords: ["what if", "try", "preview", "price", "change", "quote"], home: "main" }),
+  "what-if": def({ id: "what-if", title: "What if", blurb: "Try a change and see what it does to your rarity in bits and your points, without making it.", phases: WORLD, keywords: ["what if", "try", "preview", "price", "change", "quote"], home: "main" }),
   feed: def({ id: "feed", title: "What just changed", blurb: "Every move that changed your points, and why.", phases: WORLD, keywords: ["act log", "moves", "why", "feed"], home: "right" }),
   agents: def({ id: "agents", title: "My agents", blurb: "Your agents, their energy, and what they spent it on.", phases: PLAY, keywords: ["energy", "power", "share"], home: "left" }),
   forge: def({ id: "forge", title: "Agent code", blurb: "Write, check, summon and replace your agents.", phases: ["planning", "live", "paused"], keywords: ["code", "summon", "replace", "editor"], home: "main" }),
@@ -65,7 +65,12 @@ const STORED = "panel:";
 export const storedPane = (slug: string): string => `${STORED}${slug}`;
 export const storedSlugOf = (pane: string): string | null => (pane.startsWith(STORED) && pane.length > STORED.length ? pane.slice(STORED.length) : null);
 
-export const paneTitle = (id: string): string => (isPaneId(id) ? PANES[id].title : storedSlugOf(id) ?? id);
+/** A file panel (src/panels/*.tsx in the app, v1's file panels) opens as the pane `file:<id>`, in every phase. */
+const FILE = "file:";
+export const filePane = (id: string): string => `${FILE}${id}`;
+export const fileIdOf = (pane: string): string | null => (pane.startsWith(FILE) && pane.length > FILE.length ? pane.slice(FILE.length) : null);
+
+export const paneTitle = (id: string): string => (isPaneId(id) ? PANES[id].title : storedSlugOf(id) ?? fileIdOf(id) ?? id);
 
 export type OpenPane = { pane: string; place: Place };
 
@@ -82,7 +87,7 @@ export function defaultPanes(phase: GamePhase): OpenPane[] {
   }
 }
 
-const inPhase = (id: string, phase: GamePhase) => (isPaneId(id) ? PANES[id].phases.includes(phase) : storedSlugOf(id) !== null);
+const inPhase = (id: string, phase: GamePhase) => (isPaneId(id) ? PANES[id].phases.includes(phase) : storedSlugOf(id) !== null || fileIdOf(id) !== null);
 /** A pane that needs the world (not offered in planning). */
 const needsWorld = (id: string) => isPaneId(id) && !PANES[id].phases.includes("planning");
 

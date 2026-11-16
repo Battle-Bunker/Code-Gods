@@ -11,18 +11,9 @@ import { bridge } from "./bridge-client";
 import type { HookName, PagedAnswer } from "./protocol";
 import { bitsOf, ruleRefOf, valueOf } from "../sdk/rule";
 import type { MyRuleRow } from "../sdk/types";
+import { actionsOver, type PanelActions } from "../sdk/panel-actions-sdk";
 
-export { definePanel, PANEL_SDK, type PanelDefinition, type PanelManifest } from "../sdk/panel";
-export { useGameScope, type GameScope } from "../sdk/game";
-export { decodeState, familyOf, ruleRefOf, valueOf, variantOf, type GameRule } from "../sdk/rule";
-export { defaultRepOf, objectTypeOf, objectWord } from "../sdk/object-types";
-export type * from "../sdk/types";
-export type { MyRule } from "../sdk/hooks";
-// Drawing and working out, as the app's own panes do (pure: nothing here reads or sends anything).
-export { LineChart, CareScatter, slotColour } from "../components/charts";
-export { raceSeries, careKind, carePoints, CARE_KINDS, type Series, type CarePoint, type CareKind } from "../panes/chart-model";
-export { standing, whatIf, mutatorChoices, wireArgs, formError, type Standing, type WhatIf, type MutatorChoice } from "../panes/what-if-model";
-export { fmtBits, fmtNum, pointsText } from "@workspace/v2-views/format";
+export * from "../sdk/panel-kit";
 
 function useBridged(hook: HookName, args: unknown[]) {
   const w = bridge().watch(hook, args);
@@ -84,6 +75,18 @@ export const useMyRule: Hook<"useMyRule"> = () => {
     return { row: raw.row, rule: ruleRefOf(raw.row, variant), value, bits: bitsOf(value) };
   }, [raw, variant]);
 };
+
+/**
+ * Acting as the player (v1's useActions): each call is one affordance, answered with its outcome. Chat, summon,
+ * replace, destroy and pause first show the player a confirmation in the app with exactly what would be sent (unless
+ * they let this panel act without asking); a declined one answers `{ ok: false, error: { code: "declined" } }`. The
+ * engine checks every call as for the player's own buttons, so a panel can do no more than its player could.
+ */
+export function useActions(): PanelActions {
+  const game = useGame();
+  const seated = !!game?.me, phase = game?.phase;
+  return useMemo(() => actionsOver((op, args) => bridge().act(op, args), seated && phase !== "ended"), [seated, phase]); // eslint-disable-line react-hooks/exhaustive-deps
+}
 
 export const useObjectIds: Hook<"useObjectIds"> = (sort, pageSize = 30) => usePaged("useObjectIds", [sort, pageSize]) as never;
 export const useSpectatorObjectIds: Hook<"useSpectatorObjectIds"> = (pageSize = 30) => usePaged("useSpectatorObjectIds", [pageSize]) as never;

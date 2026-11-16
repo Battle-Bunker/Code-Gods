@@ -17,7 +17,8 @@ import { boardValueFunction } from "./value-board.ts";
 const args = process.argv.slice(2);
 const opt = (name: string): string | undefined => { const i = args.indexOf(`--${name}`); return i === -1 ? undefined : args[i + 1]; };
 const { type, variant } = findVariant(opt("variant") ?? "line-z");
-const families = (type.families as RuleFamily<any, unknown>[]).filter(f => !opt("family") || f.id === opt("family"));
+// Penalty families (defence goals, ObjectType.penalties) are valued like rules: their main part is badness.
+const families = ([...type.families, ...(type.penalties ?? [])] as RuleFamily<any, unknown>[]).filter(f => !opt("family") || f.id === opt("family"));
 if (!families.length) throw new Error(`No family ${opt("family")}`);
 const tbOpt = opt("tie-breaker");
 const ROOT = join(import.meta.dirname, "..");

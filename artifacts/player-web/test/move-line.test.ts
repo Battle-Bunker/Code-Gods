@@ -106,3 +106,8 @@ test("live, with the others' bits blurred, the act log's points are estimates: a
   assert.match(s, /Points on this line 6\.80 → 16\.32: your 6\.80 bits × others' about 2\.40 bits ≈ 16\.32 points \(others' bits were about 2\.00\)\./);
   assert.doesNotMatch(s, / = /);
 });
+
+test("the sentence names the object's number when known (playtest round 34: “changed a line” said which?)", () => {
+  assert.match(moveSentence({ who, number: 5, change, before: snap(3.4, 2.4, 8.16), after: snap(6.8, 2.4, 16.32) }), /^Your agent Tank-1 changed line 5: y = /);
+  assert.match(moveSentence({ who, number: 2, noun: "grid", before: snap(0, 0, 0), after: snap(0, 0, 0) }), /^Your agent Tank-1 changed grid 2\./);
+});

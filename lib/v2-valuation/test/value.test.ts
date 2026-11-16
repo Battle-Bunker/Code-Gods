@@ -161,7 +161,7 @@ test("a sampled estimate never moves an exact knot's certified interval; no orac
 });
 
 test("committed value functions are intact: each content hash matches, knots rise, no sampled knot passes sampledMaxBits, and no tail saturates", async () => {
-  const { canonicalJson, hashHex } = await import("@workspace/v2-core");
+  const { canonicalJson, hashHex, familyById } = await import("@workspace/v2-core");
   const { readdirSync: ls, readFileSync: read } = await import("node:fs");
   const root = new URL("../values/", import.meta.url);
   let n = 0;
@@ -171,7 +171,7 @@ test("committed value functions are intact: each content hash matches, knots ris
     for (let i = 1; i < body.knots.length; i++) assert.ok(body.knots[i].bits >= body.knots[i - 1].bits, `${v}/${f}/${x}: knots rise`);
     for (const k of body.knots) if (k.source === "sampled") assert.ok(k.bits <= body.config.sampledMaxBits, `${v}/${f}/${x}: ${k.bits}`);
     assert.equal(body.schema, 7, `${v}/${f}/${x}: schema`);
-    const family = (findVariant(v).type.families as RuleFamily<unknown, unknown>[]).find(y => y.id === body.family)!;
+    const family = familyById(findVariant(v).type as never, body.family) as RuleFamily<unknown, unknown>;
     const measures = layerMeasures(family, body.tieBreaker === "none" ? null : body.tieBreaker);
     const tb = body.tieBreaker === "none" ? null : body.tieBreaker;
     const { type, variant } = findVariant(v);
@@ -232,4 +232,15 @@ test("a ladder's tie-breaker is worth its rarity given the level past the best k
   const vf = { knots: [{ u: ["1"], bits: 0, lo: 0, hi: 0 }, { u: ["2", "0"], bits: 1, lo: 1, hi: 1 }], tail: { ...tailOf([{ u: ["1"], bits: 0 }, { u: ["2", "0"], bits: 1 }]), levels: lv } };
   const look = valueLookup(vf);
   assert.ok(look([q(5), q(8)]).bits > look([q(5), q(2)]).bits + 4, "at the top a better tie-breaker is worth more");
+});
+
+test("a distance tie-breaker's curve climbs by halvings of the distance to its target, from any floor", () => {
+  // Found on the energy gate (two-line-systems.md §13): one sampled draw at −2.6 × 10¹⁹ made the floor of a "near a
+  // multiple" tie-breaker, and on a size's axis every ordinary distance was worth 25 bits.
+  const draws: { u: Score; w: number }[] = [{ u: [q(4), q(-(10n ** 19n))], w: 1e-9 }];
+  for (let i = 0; i < 4000; i++) { const t = -(2 ** (i % 12)); draws.push({ u: [q(4), q(t)], w: 2 ** (i % 12) / 4096 }); }
+  const lv = tieBreakerLevels(draws, 3);
+  const far = tieBreakerBits(lv, 1, -3000), near = tieBreakerBits(lv, 1, -2), at = tieBreakerBits(lv, 1, 0);
+  assert.ok(far < 2, `${far} bits 3,000 away`);
+  assert.ok(near > far && at >= near && Number.isFinite(at), `${near} bits 2 away, ${at} on target`);
 });

@@ -11,7 +11,7 @@ export function markRefs(m: Mark): readonly ElementRef[] {
 
 /** The term a mark is labelled with, if any. */
 export function markTerm(m: Mark): string | undefined {
-  return m.kind === "measure" ? m.term : m.kind === "candidate" ? m.term : undefined;
+  return m.term;
 }
 
 /** The marks a representation draws: those whose refs all belong to it (a measure needs both ends in it). */

@@ -2,8 +2,8 @@
  * The rule check (docs/engine-v2/design-principles.md) on every preset's dealt pool, lines, grids and pairs alike, for
  * the rows that read a family's declarations and its law draws:
  *
- * - 3a: at least three dealt secondaries per dealt family, of different forms; no beginner preset deals more than two
- *   layers (main and one secondary);
+ * - 3a: at least three dealt secondaries per dealt family, of different forms (any depth may be dealt, beginner
+ *   included: design-principles.md principle 3b);
  * - 4: at least four dealt parameter sets per dealt family;
  * - 7: every dealt family declares its kind and every dealt secondary its form (v2-rule-forms.ts); at most
  *   MAX_PER_KIND dealt families of one preset share a kind and at most MAX_PER_FORM share a form; no family deals one
@@ -58,7 +58,7 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "grids-original-colours 5-unmeasured": "16 Nov, boards worker: no PMI table for board-4-base10-rgb yet (baseline, call 37)",
 
   // Row 3a: one or two dealt secondaries. The owner's instruction (15 Nov): at least three per family. Lines: the spec
-  // lead's repertoire work; pairs: the pairs session; grids-arithmetic: the grids session.
+  // lead's repertoire work; grids-arithmetic: the grids session (pairs: three or more since trial 37).
   "prime-landing 3a": "15 Nov, spec lead: repertoire in progress",
   "smooth-intercept 3a": "15 Nov, spec lead: repertoire in progress",
   "square-area 3a": "15 Nov, grids session: Square Area redesign",
@@ -69,18 +69,13 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "prime-staircase 3a": "15 Nov, spec lead: repertoire in progress",
   "ruler 3a": "15 Nov, grids session",
   "pythagorean-area 3a": "15 Nov, grids session",
-  "whole-answer 3a": "15 Nov, pairs session",
-  "no-fractions 3a": "15 Nov, pairs session",
-  "right-angle 3a": "15 Nov, pairs session",
-  "forty-five 3a": "15 Nov, pairs session",
-  "double-gap 3a": "15 Nov, pairs session",
-  "far-crossing 3a": "15 Nov, pairs session",
-  "high-start 3a": "15 Nov, pairs session",
-  "steep-ratio 3a": "15 Nov, pairs session",
   "divisibility 3a": "15 Nov, grids session",
-  "opposite-nines 3a": "16 Nov, grids session: big-on-top undealt for its cheap peak (#902)",
-  "strangers 3a": "16 Nov, grids session: ones and prime-strangers undealt for their cheap peaks (#902)",
+  "opposite-nines 3a": "15 Nov, grids session: big-on-top undealt for a cheap peak (#902); grid repertoires after the deadline",
+  "strangers 3a": "15 Nov, grids session: ones and prime-strangers undealt for cheap peaks (#902); grid repertoires after the deadline",
   "leading-digits 3a": "15 Nov, grids session",
+  // Row 1 (not checked here for grids): every beginner grid main part has a global top on the 0–9 board, as v1's did.
+  // Leapfrog and Two Pair reached theirs in real games within 10 minutes (round 34, baseline 2); kept dealt as the v1
+  // baseline by the coordinator (16 Nov). See docs/engine-v2/grid-v1-v2-compare.md, "Known reachable tops".
   // Row 4: one dealt parameter set.
   "square-area 4": "15 Nov, grids session: Square Area redesign",
   "mirrormancer 4": "15 Nov, grids session", "magic-eighteen 4": "15 Nov, grids session", "opposite-nines 4": "15 Nov, grids session",
@@ -99,6 +94,8 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "lines-lenses 7-form:shares-factor": "15 Nov, spec lead: the repertoire adds other forms",
   "lines-pairs 7-kind:base-ladder": "15 Nov, pairs session: every pair family climbs a base's ladder",
   "lines-pairs 7-form:shares-factor": "15 Nov, pairs session",
+  "lines-pairs 7-form:near-multiple": "16 Nov, pairs session: tie-breakers tied to the level (trial 37) favour near-multiples; spread after the deadline",
+  "lines-pairs 7-form:factor-size": "16 Nov, pairs session: as near-multiple",
   "grids-beginner 7-form:second-axis": "15 Nov, grids session",
   // Row 5: no PMI table for the variant yet (lib/v2-agents scripts/pmi.ts).
   "lines-lenses 5-unmeasured": "15 Nov, spec lead: PMI table for line-q-lenses",
@@ -140,7 +137,6 @@ function problems(): { found: Problem[]; families: Set<string>; presets: Set<str
       const fam = familyOf(id);
       const tbs = [...new Set(rs.map(r => r.tieBreaker))];
       // Row 3a.
-      if (tbs.some(t => (t ?? "").split(">").length > 1) && preset.id.includes("beginner")) add(`${preset.id} 3a-depth`, `${id} deals more than one secondary in a beginner preset`);
       if (tbs.filter(t => t !== null).length < MIN_SECONDARIES) add(`${id} 3a`, `${tbs.filter(t => t !== null).length} dealt secondaries (${tbs.join(", ")})`);
       // Row 4.
       const instances = new Set(rs.map(r => JSON.stringify(r.params))).size;

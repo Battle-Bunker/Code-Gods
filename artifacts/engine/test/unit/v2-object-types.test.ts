@@ -88,7 +88,9 @@ test("Grids · arithmetic deals Divisibility's eight instances and Leading Digit
   assert.equal(p.title, "Grids · arithmetic");
   assert.notEqual(DEFAULT_PRESET, p.id);
   assert.equal(p.variant, "grid-4-d10");
-  assert.deepEqual([p.startingEnergy, p.economy, p.worldSeconds, p.startingObjects, p.driftSeconds], [grids.startingEnergy, grids.economy, grids.worldSeconds, grids.startingObjects, grids.driftSeconds]);
+  assert.deepEqual([p.startingEnergy, p.economy, p.worldSeconds, p.startingObjects], [grids.startingEnergy, grids.economy, grids.worldSeconds, grids.startingObjects]);
+  // Its families have several instances, so it drifts (the beginner grid's single-instance families do not, as v1).
+  assert.ok(p.driftSeconds > 0);
   const pool = dealablePool(p);
   assert.ok(playable(p));
   assert.deepEqual(pool.map(r => `${r.family}/${r.tieBreaker}`).sort(), [...Array(8).fill("divisibility/leftover-digits"), ...Array(4).fill("leading-digits/exponent-digits")]);

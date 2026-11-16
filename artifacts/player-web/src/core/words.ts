@@ -8,6 +8,8 @@
  */
 import { BITS_HELP, chanceText, fmtBits, fmtNum, pointsText, scoreFormula } from "@workspace/v2-views/format";
 export { chanceText, pointsText, scoreFormula };
+/** The game bar's own total: "…" until the standings hold the viewer's row (not a made-up 0.00 points). */
+export const myTotalText = (mine: { net: number } | undefined): string => (mine ? pointsText(mine.net) : "…");
 
 /** A measure in hundredths, as shown. */
 const shown = (x: number) => Math.round((Number.isFinite(x) ? x : 0) * 100);

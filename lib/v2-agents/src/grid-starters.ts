@@ -168,7 +168,7 @@ function tablesTs(e: GridFamilyEntry, lenses: readonly GridLensId[], edit = true
 }
 
 type Ending = "naive" | "points";
-const CLIMB_TS = (args: string, end: Ending) => end === "naive" ? [
+const CLIMB_TS = (args: string, end: Ending, kind?: string) => end === "naive" ? [
   `  let top = score(b, ${args}), plans = [];`,
   "  for (const [plan, b2] of tries) {",
   `    const s = score(b2, ${args});`,
@@ -177,7 +177,9 @@ const CLIMB_TS = (args: string, end: Ending) => end === "naive" ? [
   "  }",
   "  return plans.length ? cheapest(offer, plans.slice(0, QUOTES)) : null;   // the cheapest of the best, or skip",
 ] : [
-  `  let options = tries.map(([plan, b2]) => [plan, score(b2, ${args})]);   // each step and the score it reaches`,
+  (kind === "thorough" || kind === "bold"
+    ? `  let options = scoreEach(tries, ([plan, b2]) => [plan, score(b2, ${args})]);   // each step and the score it reaches (fewer on a big board)`
+    : `  let options = tries.map(([plan, b2]) => [plan, score(b2, ${args})]);   // each step and the score it reaches`),
   "  // A promise: on these boards, only steps that leave the other players at least as well off.",
   "  if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));",
   "  // The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or null.",
@@ -215,7 +217,7 @@ function agentTs(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null,
   for (const id of lenses.filter(id => GRID_LENSES[id].k)) out.push(`    ${snippet(GRID_LENSES[id].ts, lenses, "typescript")}   // ${GRID_LENSES[id].comment}`);
   out.push("  }");
   for (const id of lenses.filter(id => !GRID_LENSES[id].k)) out.push(`  ${snippet(GRID_LENSES[id].ts, lenses, "typescript")}   // ${GRID_LENSES[id].comment}`);
-  out.push(...CLIMB_TS(tieBreaker !== null ? "p" : "p, tie", kind === "naive" ? "naive" : "points"), "}");
+  out.push(...CLIMB_TS(tieBreaker !== null ? "p" : "p, tie", kind === "naive" ? "naive" : "points", kind), "}");
   return out;
 }
 
@@ -281,7 +283,7 @@ function tablesPy(e: GridFamilyEntry, lenses: readonly GridLensId[], edit = true
   return out;
 }
 
-const CLIMB_PY = (args: string, end: Ending) => end === "naive" ? [
+const CLIMB_PY = (args: string, end: Ending, kind?: string) => end === "naive" ? [
   `    top, plans = score(b, ${args}), []`,
   "    for plan, b2 in tries:",
   `        s = score(b2, ${args})`,
@@ -291,7 +293,9 @@ const CLIMB_PY = (args: string, end: Ending) => end === "naive" ? [
   "            plans.append(plan)             # as good as the best: the price decides",
   "    return cheapest(offer, plans[:QUOTES]) if plans else None   # the cheapest of the best, or skip",
 ] : [
-  `    options = [(plan, score(b2, ${args})) for plan, b2 in tries]   # each step and the score it reaches`,
+  (kind === "thorough" || kind === "bold"
+    ? `    options = score_each(tries, lambda t: (t[0], score(t[1], ${args})))   # each step and the score it reaches (fewer on a big board)`
+    : `    options = [(plan, score(b2, ${args})) for plan, b2 in tries]   # each step and the score it reaches`),
   "    # A promise: on these boards, only steps that leave the other players at least as well off.",
   "    if offer.object in PROTECT:",
   "        options = [(plan, s) for plan, s in options if fair(offer, plan)]",
@@ -334,7 +338,7 @@ function agentPy(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null,
   const k = lenses.filter(id => GRID_LENSES[id].k), flat = lenses.filter(id => !GRID_LENSES[id].k);
   for (const id of k) { const l = { ...GRID_LENSES[id], py: GRID_LENSES[id].py.map(x => snippet(x, lenses, "python")) }; out.push(`        ${l.py[0]}   # ${l.comment}`, ...l.py.slice(1).map(x => `        ${x}`)); }
   for (const id of flat) { const l = { ...GRID_LENSES[id], py: GRID_LENSES[id].py.map(x => snippet(x, lenses, "python")) }; out.push(`    ${l.py[0]}   # ${l.comment}`, ...l.py.slice(1).map(x => `    ${x}`)); }
-  out.push(...CLIMB_PY(tieBreaker !== null ? "p" : "p, tie", kind === "naive" ? "naive" : "points"));
+  out.push(...CLIMB_PY(tieBreaker !== null ? "p" : "p, tie", kind === "naive" ? "naive" : "points", kind));
   return out;
 }
 

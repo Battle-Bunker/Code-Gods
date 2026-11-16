@@ -23,3 +23,9 @@ test("keys: space plays, arrows step, Home and End jump; typing in a field is le
   assert.equal(replayKey({ key: " ", target: "BUTTON" }), null);
   assert.equal(replayKey({ key: "ArrowRight", ctrl: true }), null);
 });
+
+test("Shift+← and Shift+→ jump to the previous and next key moment (v1)", () => {
+  assert.equal(replayKey({ key: "ArrowLeft", shift: true }), "prevMoment");
+  assert.equal(replayKey({ key: "ArrowRight", shift: true }), "nextMoment");
+  assert.equal(replayKey({ key: "ArrowRight", shift: true, target: "INPUT" }), null);
+});

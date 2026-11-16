@@ -18,15 +18,19 @@ export interface Draft {
   planningSeconds: number; worldSeconds: number; startingEnergy: number;
   durationMode: DurationMode; scoreIntervalSeconds: number; peerNoiseVariance: number;
   readPriceWeight: number; driftSeconds: number; pauseSeconds: number; commitClause: boolean;
+  defenceGoals: boolean; penaltyWeight: number;
   startingObjects: number; birthsPerSecond: number; opportunitiesPerSecond: number;
   powerPerSecond: number; fullChargeSeconds: number; stepBudget: number; interactionComputeMs: number;
+  excludedFamilies: string[]; bidPricing: "first" | "second"; bidVisibility: "sealed" | "open"; bidDisclosure: "none" | "handicaps" | "all";
+  /** Line turnover (engine docs/engine-v2/retirement-design.md): 0 is off, and 0 births-every is the setup's births. */
+  liveCap: number; birthSeconds: number; retiredPoints: "banked" | "dropped"; retiredHolds: boolean;
 }
 export type FieldKey = keyof Draft;
 export type Overrides = Partial<Draft>;
 
 export type SectionId = "setup" | "goals" | "agents" | "energy" | "population" | "time" | "players" | "review";
 type FieldSection = Exclude<SectionId, "setup" | "players" | "review">;
-export type ControlKind = "number" | "segmented" | "switch";
+export type ControlKind = "number" | "segmented" | "switch" | "checklist";
 
 /** v1's units, limits and docs for one field (game-core FieldDoc + settings-form LIMITS). */
 export interface FieldSpec {
@@ -36,7 +40,13 @@ export interface FieldSpec {
   /** Typed in minutes, stored in seconds (v1: game length, planning, pause). */
   minutes?: boolean;
   limit?: { min: number; max?: number; int?: boolean };
+  /** Asked only on these setups (defence goals: grids); elsewhere the question is hidden and never sent. */
+  only?: (p: Pick<Preset, "variant">) => boolean;
+  /** Shown only on a setup with a bid phase (v1: hidden while bidSeconds is 0). */
+  onlyWithBid?: boolean;
 }
+/** A grid setup (defence goals are dealt on grids only, as in v1). */
+const onGrids = (p: Pick<Preset, "variant">) => p.variant.startsWith("grid");
 
 /** The sandbox's per-act limits when the room sets none (lib/v2-sandbox limits.ts DEFAULT_LIMITS). */
 export const DEFAULT_STEP_BUDGET = 500_000;
@@ -46,6 +56,30 @@ export const DEFAULT_PAUSE_SECONDS = 180;
 export const READ_PRICE_WEIGHTS: readonly number[] = [0, 0.5, 1, 2, 3, 4];
 
 export const FIELDS: Readonly<Record<FieldKey, FieldSpec>> = {
+  excludedFamilies: {
+    label: "Rules never dealt", section: "goals", tier: "more", control: "checklist",
+    question: "Which rules are never dealt?",
+    meaning: "Families of rules the setup deals that are never dealt in this room.",
+    consequence: "Excluding more families makes goals more predictable, and at least one family per player must stay.",
+  },
+  bidPricing: {
+    label: "Bid price", section: "goals", tier: "more", control: "segmented", suggested: ["first", "second"], onlyWithBid: true,
+    question: "What does the winner of a bid pay?",
+    meaning: "With first price the winner's handicap is their own bid, and with second price it is the highest bid they beat on that rule, or 1% when nobody else bid on it.",
+    consequence: "With second price a player can simply bid what a rule is worth to them, while with first price they must guess what the others will bid and bid a little less.",
+  },
+  bidVisibility: {
+    label: "Bids shown", section: "goals", tier: "more", control: "segmented", suggested: ["sealed", "open"], onlyWithBid: true,
+    question: "Can players see each other's bids while bidding?",
+    meaning: "Sealed bids are seen only by their bidder until bidding ends, while open bids are seen by every player as they are placed.",
+    consequence: "Open bidding becomes a live auction where players raise each other, while sealed bidding is quicker and keeps wishes secret.",
+  },
+  bidDisclosure: {
+    label: "Bid results shown", section: "goals", tier: "more", control: "segmented", suggested: ["none", "handicaps", "all"], onlyWithBid: true,
+    question: "What are players told about the others after bidding?",
+    meaning: "Own result only tells each player their own result, handicaps shows everyone each winner's handicap, and the whole auction shows every bid and who won which rule; after the game everything is shown.",
+    consequence: "Showing more tells players who holds which rule and how much they paid for it, which removes part of the guessing from the game.",
+  },
   peerNoiseVariance: {
     label: "Blur on others' interest", section: "goals", tier: "more", control: "segmented", suggested: PEER_NOISE_VARIANCE_OPTIONS,
     question: "How blurred are the other players' combined interest in each object?",
@@ -57,6 +91,18 @@ export const FIELDS: Readonly<Record<FieldKey, FieldSpec>> = {
     question: "How often do the rules get new numbers?",
     meaning: "Every this many seconds of world time, each player's rule keeps its kind but may get a new target; a rule with one set of numbers keeps it, and zero is never.",
     consequence: "Shorter intervals keep the world from settling, so a plan that worked must keep adapting.",
+  },
+  defenceGoals: {
+    label: "Defence goals", section: "goals", tier: "more", control: "switch", only: onGrids,
+    question: "Does every player also get a defence goal?",
+    meaning: "Each player is dealt a second, private goal beside their rule: a kind of board they dislike (a hated number, or one number crowding the board). Their bits on a board are their rule's rarity less how bad the board is for them, weighed by the defence weight.",
+    consequence: "Defence goals give everyone something to protect, so a board good for one player can be costly for another; off is v1's default.",
+  },
+  penaltyWeight: {
+    label: "Defence weight", section: "goals", tier: "more", control: "segmented", suggested: [0.5, 1, 2, 4], only: onGrids,
+    question: "How much does a defence goal weigh?",
+    meaning: "How many bits a board's badness takes off a player's own bits, relative to the rarity their rule gives it (1 is v1's default).",
+    consequence: "A heavier weight makes defending matter more than climbing; it only matters with defence goals on.",
   },
   commitClause: {
     label: "Conditional moves", section: "agents", tier: "more", control: "switch",
@@ -99,6 +145,30 @@ export const FIELDS: Readonly<Record<FieldKey, FieldSpec>> = {
     question: "How often does a new object appear?",
     meaning: "How many new random objects appear per second of world time.",
     consequence: "Raising it brings more fresh objects to claim, and totals grow faster.",
+  },
+  liveCap: {
+    label: "Live objects at most", section: "population", tier: "more", control: "number", suggested: [0, 3, 5, 8], unit: "objects", limit: { min: 0, max: 50, int: true },
+    question: "How many objects are live at once?",
+    meaning: "New in v2 (line turnover): when a new object would make more than this many live, the oldest retires first. No agent acts on a retired object again. 0 means no limit.",
+    consequence: "A small number with frequent births keeps fresh objects coming and stops players pulling one object back and forth for the whole game.",
+  },
+  birthSeconds: {
+    label: "A new object every", section: "population", tier: "more", control: "number", suggested: [0, 15, 30, 60, 240], unit: "s", limit: { min: 0, max: 3600, int: true },
+    question: "Should a new object arrive on a fixed beat?",
+    meaning: "New in v2: one new object every this many seconds of world time, on a regular schedule, in place of the rate above. 0 keeps the setup's births.",
+    consequence: "With a live limit, this sets how long each object lives.",
+  },
+  retiredPoints: {
+    label: "Retired objects' points", section: "population", tier: "more", control: "segmented", suggested: ["banked", "dropped"],
+    question: "Do a retired object's points still count?",
+    meaning: "New in v2: kept, a retired object's points stay in every player's total as they stood when it retired. Dropped, they leave the totals.",
+    consequence: "Kept rewards what was built before an object retired; dropped makes only the live objects matter.",
+  },
+  retiredHolds: {
+    label: "Retired objects keep their place", section: "population", tier: "more", control: "switch",
+    question: "Does a retired object keep its state taken?",
+    meaning: "New in v2: no two objects may be in the same state. On, a retired object still holds its last state, so no other object can move there.",
+    consequence: "Off frees retired objects' states for the live ones.",
   },
   opportunitiesPerSecond: {
     label: "World speed", section: "time", tier: "ask", control: "number", suggested: [3, 25, 100, 300, 1000], unit: "acts per second", limit: { min: 0, max: 1000 },
@@ -174,10 +244,12 @@ export function presetDraft(p: Preset): Draft {
   return {
     planningSeconds: p.planningSeconds, worldSeconds: p.worldSeconds, startingEnergy: p.startingEnergy, durationMode: p.durationMode,
     scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS, peerNoiseVariance: p.peerNoiseVariance, readPriceWeight: p.readPriceWeight,
-    driftSeconds: p.driftSeconds, pauseSeconds: DEFAULT_PAUSE_SECONDS, commitClause: false,
+    driftSeconds: p.driftSeconds, pauseSeconds: DEFAULT_PAUSE_SECONDS, commitClause: false, defenceGoals: false, penaltyWeight: 1,
     startingObjects: p.startingObjects, birthsPerSecond: p.economy.birthsPerSecond, opportunitiesPerSecond: p.economy.opportunitiesPerSecond,
     powerPerSecond: p.economy.powerPerSecond, fullChargeSeconds: p.economy.fullChargeSeconds,
     stepBudget: DEFAULT_STEP_BUDGET, interactionComputeMs: DEFAULT_COMPUTE_MS,
+    excludedFamilies: [], bidPricing: p.bid?.pricing ?? "first", bidVisibility: "sealed", bidDisclosure: p.bid?.disclosure ?? "none",
+    liveCap: p.turnover?.liveCap ?? 0, birthSeconds: 0, retiredPoints: p.turnover?.retiredPoints ?? "banked", retiredHolds: p.turnover?.retiredHolds ?? true,
   };
 }
 /** The room's next game: the preset with the room's overrides on top (a stored field the page does not know is ignored). */
@@ -189,10 +261,14 @@ export function draftOf(p: Preset, o: Record<string, unknown>): Draft {
 /** What to send: only what differs from the preset. */
 export function overridesFor(d: Draft, p: Preset): Overrides {
   const own = presetDraft(p), out: Record<string, unknown> = {};
-  for (const k of Object.keys(FIELDS) as FieldKey[]) if (!sameValue(d[k], own[k])) out[k] = d[k];
+  for (const k of Object.keys(FIELDS) as FieldKey[]) if ((FIELDS[k].only?.(p) ?? true) && !sameValue(d[k], own[k])) out[k] = d[k];
   return out as Overrides;
 }
-const sameValue = (a: unknown, b: unknown) => (typeof a === "number" && typeof b === "number" ? Math.abs(a - b) < 1e-9 : a === b);
+const sameValue = (a: unknown, b: unknown) => (typeof a === "number" && typeof b === "number" ? Math.abs(a - b) < 1e-9
+  : Array.isArray(a) && Array.isArray(b) ? JSON.stringify([...a].sort()) === JSON.stringify([...b].sort()) : a === b);
+/** A field with no effect on this setup (the bid questions without a bid phase; defence goals off grids). */
+export const isHidden = (key: FieldKey, p: Pick<Preset, "bid" | "variant">) =>
+  (!!FIELDS[key].onlyWithBid && !p.bid) || (FIELDS[key].only ? !FIELDS[key].only!(p) : false);
 
 const n = (v: number) => v.toLocaleString("en-US");
 const unitText = (u?: string) => (u ? ` ${u === "s" ? "seconds" : u}` : "");
@@ -208,9 +284,11 @@ export function fieldError(key: FieldKey, value: unknown): string | null {
   }
   return null;
 }
-export function draftErrors(d: Draft): Partial<Record<FieldKey, string>> {
+export function draftErrors(d: Draft, p?: Pick<Preset, "families" | "minPlayers">): Partial<Record<FieldKey, string>> {
   const out: Partial<Record<FieldKey, string>> = {};
   for (const k of Object.keys(FIELDS) as FieldKey[]) { const e = fieldError(k, d[k]); if (e) out[k] = e; }
+  // One family per player at least (the server's rule: two players on one family climb the same hill unopposed).
+  if (p && p.families.filter(f => !d.excludedFamilies.includes(f)).length < Math.min(p.minPlayers, p.families.length)) out.excludedFamilies = `Leave at least ${p.minPlayers} rule families to deal, one for each player.`;
   return out;
 }
 
@@ -231,9 +309,14 @@ const NAMED: Partial<Record<FieldKey, Record<string, string>>> = {
   opportunitiesPerSecond: { 25: "Slow", 100: "Normal", 300: "Fast", 1000: "Max" },
 };
 /** A stepped choice's label: "Normal (5 min)", "every 10 s", "Exact", "2×". */
+const BID_WORDS: Record<string, string> = {
+  banked: "Kept", dropped: "Dropped",
+  first: "First price", second: "Second price", sealed: "Sealed", open: "Open", none: "Own result only", handicaps: "Everyone's handicap", all: "The whole auction",
+};
 export function choiceLabel(key: FieldKey, v: number | string | boolean): string {
   if (key === "durationMode") return v === "fixed" ? "Fixed duration" : "Half-life";
-  if (typeof v === "boolean") return v ? "Offered" : "Off";
+  if ((key === "bidPricing" || key === "bidVisibility" || key === "bidDisclosure" || key === "retiredPoints") && typeof v === "string") return BID_WORDS[v] ?? v;
+  if (typeof v === "boolean") return key === "defenceGoals" ? (v ? "On: everyone" : "Off") : key === "retiredHolds" ? (v ? "On" : "Off") : v ? "Offered" : "Off";
   const named = NAMED[key]?.[String(v)];
   if (typeof v === "number") {
     if (key === "worldSeconds") return named ? `${named} (${duration(v)})` : duration(v);
@@ -242,9 +325,12 @@ export function choiceLabel(key: FieldKey, v: number | string | boolean): string
     if (key === "driftSeconds") return v === 0 ? "Never" : `every ${duration(v)}`;
     if (key === "peerNoiseVariance") return v === 0 ? "Exact" : `±${Math.round(Math.sqrt(v) * 10) / 10} bits`;
     if (key === "readPriceWeight") return v === 0 ? "Free" : `${weightText(v)}×`;
+    if (key === "penaltyWeight") return v === 0.5 ? "½" : n(v);
     if (key === "opportunitiesPerSecond") return named ? `${named} (${n(v)}/s)` : `${n(v)}/s`;
     if (key === "birthsPerSecond") return v === 0 ? "None" : v < 1 ? `1 every ${n(Math.round(1 / v))} s` : `${n(v)}/s`;
     if (key === "fullChargeSeconds") return duration(v);
+    if (key === "liveCap") return v === 0 ? "No limit" : n(v);
+    if (key === "birthSeconds") return v === 0 ? "The setup's" : `every ${duration(v)}`;
     if (key === "powerPerSecond") return `${n(v)}/s`;
     return n(v);
   }
@@ -252,7 +338,9 @@ export function choiceLabel(key: FieldKey, v: number | string | boolean): string
 }
 /** A value in plain words, for summaries and the Review diff: "600 energy", "offered", "never". */
 export function formatValue(key: FieldKey, v: unknown): string {
+  if (key === "excludedFamilies" && Array.isArray(v)) return v.length ? `${v.length} rule${v.length === 1 ? "" : "s"}` : "none";
   if (key === "commitClause") return v ? "offered" : "off";
+  if (key === "defenceGoals") return v ? "every player" : "off";
   if (key === "driftSeconds" && v === 0) return "never";
   if (key === "durationMode" && typeof v === "string") return choiceLabel(key, v).toLowerCase();
   if (key === "startingEnergy" && typeof v === "number") return `${n(v)} energy`;

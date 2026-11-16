@@ -34,7 +34,8 @@ try {
       page.on("pageerror", e => errors.push(e.message));
       page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
       await page.goto(`${BASE}/v2-views.html?scheme=${scheme}`);
-      await page.locator(".v2v-expanded").first().waitFor();
+      // The gallery draws every family on several objects (hundreds of faces, each searching its moves): about 45 s.
+      await page.locator(".v2v-expanded").first().waitFor({ timeout: 120_000 });
       await page.evaluate(() => document.fonts.ready);
       assert.deepEqual(errors, [], `${width} ${scheme}: page errors`);
       const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -99,7 +100,7 @@ try {
       if (OUT) {
         // The long families section only twice (desktop light, phone dark) to keep the repository small.
         const long = (width === 1440 && scheme === "light") || (width === 390 && scheme === "dark");
-        for (const section of long ? ["story", "families", "dealt", "grids", "lenses", "pairs"] : ["story", "dealt", "lenses", "pairs"]) {
+        for (const section of long ? ["story", "families", "dealt", "grids", "lenses", "pairs", "tree"] : ["story", "dealt", "lenses", "pairs", "tree"]) {
           const s = page.locator(`[data-section=${section}]`);
           await s.screenshot({ path: `${OUT}/${section}-${width}-${scheme}.png` });
         }

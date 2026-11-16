@@ -65,13 +65,19 @@ export const receiptGet = internalQuery({
 });
 export const receiptPut = internalMutation({
   args: { key: v.string(), outcome: v.any() },
-  handler: async (ctx, { key, outcome }) => { await ctx.db.insert("v2Receipts", { key, outcome, at: Date.now() }); },
+  handler: async (ctx, { key, outcome }) => { await ctx.db.insert("v2Receipts", receiptRow(key, outcome)); },
 });
+
+/** A receipt row: its key (lib/v2-affordances runOp: callerKey|operation|requestId) and the parts receipt.get looks up. */
+function receiptRow(key: string, outcome: unknown) {
+  const parts = key.split("|"), requestId = parts.pop()!, operation = parts.pop()!;
+  return { key, outcome, at: Date.now(), callerKey: parts.join("|"), operation, requestId };
+}
 
 function receiptsIn(ctx: MutationCtx): ReceiptStore {
   return {
     get: async key => (await ctx.db.query("v2Receipts").withIndex("by_key", q => q.eq("key", key)).first())?.outcome as OpOutcome ?? null,
-    put: async (key, outcome) => { await ctx.db.insert("v2Receipts", { key, outcome, at: Date.now() }); },
+    put: async (key, outcome) => { await ctx.db.insert("v2Receipts", receiptRow(key, outcome)); },
   };
 }
 

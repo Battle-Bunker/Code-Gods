@@ -6,7 +6,7 @@
 import { presetOf } from "@workspace/engine/convex/v2/presets.ts";
 import { useState } from "react";
 import { agentPrimer } from "@workspace/v2-agents/pure";
-import { objectTypeOf, useGame, variantOf } from "@/sdk";
+import { objectTypeOf, useGame, useGameDetails, variantOf } from "@/sdk";
 import { toast } from "@/hooks/use-toast";
 import { rulesFacts, rulesForAi, rulesParagraphs, type RulesInput } from "./rules-words";
 
@@ -51,7 +51,28 @@ export function RulesPane() {
           ])}
         </dl>
       </section>
+      <DealtRules />
       <CopyForAi input={input} variant={header.variant} />
     </div>
+  );
+}
+
+/** v1's game details after the end: who held which rule (v2/games:details; hidden while the game runs). */
+function DealtRules() {
+  const d = useGameDetails();
+  if (!d?.rules?.length) return null;
+  return (
+    <section className="space-y-1.5" data-testid="dealt-rules">
+      <h3 className="text-sm font-semibold">Who held which rule</h3>
+      <ul className="space-y-1.5 text-sm">
+        {d.rules.map(r => (
+          <li key={r.memberId} data-testid="row-dealt-rule">
+            <span className="font-medium">{r.name}</span>{r.kind !== "human" ? <span className="text-muted-foreground"> ({r.kind === "ai" ? "AI player" : "practice partner"})</span> : null}: <span className="font-medium">{r.title}.</span> {r.card}
+            {r.handicap ? <span className="text-muted-foreground"> Won by bid: −{r.handicap}%.</span> : null}
+            {r.drifts > 0 ? <span className="text-muted-foreground"> Its numbers changed {r.drifts} time{r.drifts === 1 ? "" : "s"} during the game.</span> : null}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

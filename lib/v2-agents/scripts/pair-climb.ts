@@ -15,7 +15,7 @@ import { valuer } from "../src/harness.ts";
 import { poolOf } from "./landscape-lib.ts";
 
 const { values: o } = parseArgs({ options: {
-  family: { type: "string" }, starts: { type: "string", default: "3" }, income: { type: "string", default: "2500" }, steps: { type: "string", default: "80" },
+  family: { type: "string" }, params: { type: "string" }, starts: { type: "string", default: "3" }, income: { type: "string", default: "2500" }, steps: { type: "string", default: "80" },
 } });
 const INCOME = Number(o.income), STARTS = Number(o.starts), STEPS = Number(o.steps);
 const FACTORS = ["2", "3", "5", "7", "11", "1/2", "1/3", "1/5", "1/7", "-1", "-2", "-3"];
@@ -25,13 +25,13 @@ const CALLS = ["1", "2"].flatMap(line => [
   { mutator: "pair.reflect", args: { line } }, { mutator: "pair.quarter", args: { line } },
   ...AMOUNTS.flatMap(k => [{ mutator: "si.shift", args: { line, k } }, { mutator: "si.tilt", args: { line, k } }, { mutator: "pair.turn", args: { line, k } }]),
   ...["1", "-1", "2", "-2", "5", "-5"].flatMap(k => [{ mutator: "pair.slide", args: { line, k } }, { mutator: "pair.combine", args: { line, k } }]),
-]).concat(["1", "-1", "5", "-5"].flatMap(u => [{ mutator: "sys.translate", args: { u, v: "0" } }, { mutator: "sys.translate", args: { u: "0", v: u } }]));
+]).concat(["2", "3", "5", "7", "11", "1/2", "1/3", "1/5", "1/7"].map(f => ({ mutator: "sys.zoom", args: { f } }))).concat(["1", "-1", "5", "-5"].flatMap(u => [{ mutator: "sys.translate", args: { u, v: "0" } }, { mutator: "sys.translate", args: { u: "0", v: u } }]));
 const step = (s: PairState, c: { mutator: string; args: Record<string, string> }) => {
   const a = applyCall(pairType, pairQ, s, { mutator: c.mutator, site: 0, args: c.args });
   return isInvalid(a) ? null : { s: a.result, fee: a.price.total, call: `${c.mutator} ${Object.values(c.args).join(",")}` };
 };
 const only = o.family ? new Set(o.family.split(",")) : null;
-const rules = poolOf("pair-q").rules.filter(r => !only || only.has(r.family));
+const rules = poolOf("pair-q").rules.filter(r => (!only || only.has(r.family)) && (!o.params || JSON.stringify(r.params) === o.params));
 const seen = new Set<string>();
 const law = pairLaw(pairQ);
 console.log(`Pairs: one seat, ${INCOME}⚡ on one object, from a rung start; each step the best bits per energy.`);
