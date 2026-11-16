@@ -50,6 +50,9 @@ export interface PaletteHost {
   noun?: { one: string; many: string };
   /** The viewer's stored panels (their one live list), so each enabled one can be opened as a pane. */
   storedPanels?: readonly { slug: string; title: string; enabled: boolean }[];
+  /** Who is signed in, and the room in view's code (v1's "Who am I"). */
+  me?: { name: string; email?: string | null };
+  roomCode?: string;
   /** Opens the assistant and focuses its composer (v1's Ctrl+`), optionally on a new conversation or at its picker. */
   focusAssistant?(request?: { thread?: "new" | "pick" }): Promise<unknown>;
   /** The file panels (src/panels/*.tsx) this copy of the app has; none in safe mode. */
@@ -80,10 +83,22 @@ function soleParam(id: AffordanceId): { name: string; kind: "string" | "number" 
   return null;
 }
 
-function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
+/** "You are Ada (ada@example.com), the owner and a player in room ABC123." (v1's whoami, from what the page knows). */
+export function whoAmI(ctx: AffordanceContext, host: Pick<PaletteHost, "me" | "roomCode">): string {
+  const p = ctx.principal;
+  if (!p.signedIn) return "You are not signed in.";
+  const who = host.me ? `${host.me.name}${host.me.email ? ` (${host.me.email})` : ""}` : "signed in";
+  const roles = [p.owner ? "the owner" : null, p.seated ? "a player" : p.member ? "a spectator" : null].filter(Boolean);
+  const where = host.roomCode ? (p.member ? `, ${roles.join(" and ")} in room ${host.roomCode}` : `, not a member of room ${host.roomCode}`) : "";
+  return `You are ${who}${where}${p.admin ? ". You are an administrator" : ""}.`;
+}
+
+function performerFor(e: PaletteEntry, host: PaletteHost, ctx: AffordanceContext): Performer {
   const id = e.id as AffordanceId;
   if (ROOM_READS.has(id) && host.roomPath) return { kind: "navigate", to: host.roomPath };
   if (SETUP_READS.has(id) && host.roomPath) return { kind: "navigate", to: `${host.roomPath}/configure#section-setup` };
+  // v1's "Who am I": who you are signed in as and what you are here; your connected apps are under the avatar.
+  if (id === "account.whoami") return { kind: "form", page: { kind: "info", title: e.title, lines: [whoAmI(ctx, host), "Your account and connected apps are in the menu under your avatar (top right)."] } };
   if (ACCOUNT_READS.has(id)) return { kind: "form", page: { kind: "info", title: e.title, lines: ["Your account and connected apps are in the menu under your avatar (top right)."] } };
   if (id === "room.list") return { kind: "navigate", to: "/" };
   // The room's settings are a page of their own (v1's "Configure the room's setup"): every question, with a Review.
@@ -164,7 +179,7 @@ const OPENS_CONTROL = new Set<AffordanceId>(["agent.leaveAlone"]);
 
 /** The palette's commands for this context. */
 export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Command[] {
-  const rows: Command[] = paletteFor(ctx).map(e => { const performer = performerFor(e, host); return {
+  const rows: Command[] = paletteFor(ctx).map(e => { const performer = performerFor(e, host, ctx); return {
     id: e.id,
     human: { title: nouned(e.title, host.noun), tooltip: nouned(e.tooltip, host.noun) },
     group: e.group,
