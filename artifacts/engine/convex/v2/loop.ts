@@ -12,6 +12,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { decode, distinctBirths, heldReason, penaltyWeightOf, scopeOf, valuesOf, type SeatRule, type Value as ExactValue } from "./world.ts";
+import { stepCycle, type Cycle } from "./cycles.ts";
 import { agentSeen, measured, objectReading, quadrantOf, readingNoise, shownAt } from "./disclose.ts";
 import { durationModeOf, endWorldOf, scoreIntervalOf, timeScaleOf } from "./duration.ts";
 import { shouldPark } from "./activity.ts";
@@ -210,9 +211,10 @@ async function foldTugs(ctx: MutationCtx, gameId: Id<"v2Games">, moves: readonly
   for (const list of byPair.values()) {
     const { memberId, objectId, number } = list[0]!;
     const row = await ctx.db.query("v2Tugs").withIndex("by_game_member_object", q => q.eq("gameId", gameId).eq("memberId", memberId).eq("objectId", objectId)).unique();
-    const t = row ? { moves: row.moves, flips: row.flips, lastMine: row.lastMine, mySpend: row.mySpend, others: [...row.others], from: row.from, to: row.to, best: row.best }
-      : { moves: 0, flips: 0, lastMine: list[0]!.mine, mySpend: 0, others: [] as Id<"v2Members">[], from: list[0]!.world, to: list[0]!.world, best: null as { state: string; points: number } | null };
+    const t = row ? { moves: row.moves, flips: row.flips, lastMine: row.lastMine, mySpend: row.mySpend, others: [...row.others], from: row.from, to: row.to, best: row.best, lastStates: [...(row.lastStates ?? [])], cycle: row.cycle ?? null }
+      : { moves: 0, flips: 0, lastMine: list[0]!.mine, mySpend: 0, others: [] as Id<"v2Members">[], from: list[0]!.world, to: list[0]!.world, best: null as { state: string; points: number } | null, lastStates: [] as string[], cycle: null as Cycle | null };
     for (const m of list) {
+      ({ lastStates: t.lastStates, cycle: t.cycle } = stepCycle(t.lastStates, t.cycle, m.state));
       if (t.moves > 0 && m.mine !== t.lastMine) t.flips++;
       t.moves++; t.lastMine = m.mine; t.mySpend += m.charge; t.to = m.world;
       if (!m.mine && !t.others.includes(m.by)) t.others.push(m.by);

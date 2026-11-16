@@ -167,6 +167,8 @@ export const tugsV = v.array(v.object({
   from: v.number(), to: v.number(),
   /** The state it passed through that was worth most to the caller, and those points. */
   best: v.union(v.object({ state: v.string(), points: v.number() }), v.null()),
+  /** The two-state cycle it is in, if any: the two states (a < b) and how many moves went between exactly those two. */
+  cycle: v.union(v.object({ a: v.string(), b: v.string(), moves: v.number() }), v.null()),
 }));
 /** `v2/play:log`: the public log, newest first, as the caller reads it (bits null for a member not seated). */
 export const logPageV = paginationResultValidator(v.object({

@@ -424,6 +424,13 @@ export const v2Tables = {
     gameId: v.id("v2Games"), memberId: v.id("v2Members"), objectId: v.id("v2Objects"), number: v.number(),
     moves: v.number(), flips: v.number(), lastMine: v.boolean(), mySpend: v.number(), others: v.array(v.id("v2Members")),
     from: v.number(), to: v.number(), best: v.union(v.object({ state: v.string(), points: v.number() }), v.null()),
+    /** The states the last two moves left it in, oldest first (rows stored before: absent). */
+    lastStates: v.optional(v.array(v.string())),
+    /**
+     * The two-state cycle it is in (playtest rounds 32 and 33: a line toggled between two states): the pair (a < b) and
+     * how many moves went between exactly those two states. Null until a move does.
+     */
+    cycle: v.optional(v.union(v.object({ a: v.string(), b: v.string(), moves: v.number() }), v.null())),
   }).index("by_game_member_object", ["gameId", "memberId", "objectId"])
     .index("by_game_member_flips", ["gameId", "memberId", "flips"]),
 

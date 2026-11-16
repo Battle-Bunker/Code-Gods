@@ -286,7 +286,7 @@ export const tugs = query({
     return rows.map(t => ({
       objectId: t.objectId, number: t.number, moves: t.moves, flips: t.flips, mySpend: t.mySpend,
       // Live, a tug names nobody on the other side (v1's public log); an ended game does.
-      others: attributed(game, false) ? t.others.map(memberId => ({ memberId, name: nameOf(memberId) })) : [], from: t.from, to: t.to, best: t.best,
+      others: attributed(game, false) ? t.others.map(memberId => ({ memberId, name: nameOf(memberId) })) : [], from: t.from, to: t.to, best: t.best, cycle: t.cycle ?? null,
     }));
   },
 });
