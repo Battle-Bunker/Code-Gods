@@ -10,6 +10,11 @@ import { affordanceForTool, mcpTools, UNTRUSTED_NOTICE, wrapResult } from "./sur
 import type { AffordanceContext } from "./types.ts";
 
 export type Perform = (id: string, args: unknown) => Promise<OpOutcome>;
+/**
+ * The HTTP header with which a /mcp request names the game it acts on (the CLI's `--game`): a game of the credential's
+ * room, e.g. one that has ended, when the room has none in view. Without it, the room's current game is in view.
+ */
+export const GAME_SCOPE_HEADER = "code-gods-game";
 export interface ToolCallResult {
   content: { type: "text"; text: string }[];
   structuredContent?: ReturnType<typeof wrapResult>;
