@@ -25,7 +25,7 @@ import { fromMC, isVertical, type Line } from "./line.ts";
 import { allMutators } from "./mutators.ts";
 import { lineQLenses } from "./type.ts";
 import { callPrice, height, ownFee, TRIAL_LOG } from "./trial.ts";
-import { mcOf, READINGS, type Targets } from "./trial-rarity.ts";
+import { drawLine, mcOf, READINGS, type Targets } from "./trial-rarity.ts";
 
 /** A utility class in a reading's space: a union of [lo, hi] spans of |reading|. */
 export type Spans = readonly (readonly [number, number])[];
@@ -206,4 +206,58 @@ export function sidewaysFormula(rule: SidewaysRule, s: Line): number {
     sum += dens * cost; w += dens;
   }
   return sum / w;
+}
+
+// ------------------------------------------------------------------ per part (the coordinator's follow-up)
+//
+// energy(s) = g·log2(1 + reading) (the lift of the number the rule reads, other numbers at their cheapest) + sideways,
+// where starts are random lines whose READING lies within half a doubling of s's (the other numbers drawn from the
+// law), and the class is "a basin of at least the same level AND at least as close": any target T′ ≥ T with
+// |reading − T′| ≤ |reading(s) − T|. A bigger-is-better rule's class is [reading(s), ∞).
+
+/** The per-part class of a target rule: within s's distance of any target at or above s's target (up to 8× s's size). */
+export function partRule(label: string, reading: "m" | "c" | "area", targets: Targets): SidewaysRule {
+  return {
+    label, reading,
+    classOf(x) {
+      let t = targets.around(x);
+      const d = Math.abs(x - t.T), out: [number, number][] = [];
+      for (let i = 0; i < 400 && t.T <= 8 * x + 16; i++) {
+        out.push([Math.max(0, t.T - d), t.T + d]);
+        t = targets.around(t.next);
+        if (t.T <= out[out.length - 1]![0]) break;
+      }
+      return out;
+    },
+  };
+}
+
+/** A random line whose reading is within half a doubling of x; the other numbers from the scale-free law. */
+export function startReadingAt(rule: SidewaysRule, x: number, r: Rng): Line {
+  const u = Math.log2(1 + x) + r.unit() - 0.5, y = Math.max(1, Math.round(2 ** u - 1)), sgn = r.bit() ? 1n : -1n;
+  for (;;) {
+    const o = drawLine(r);
+    const m = q(BigInt(o.m.p), BigInt(o.m.q)), c = q(BigInt(o.c.p), BigInt(o.c.q));
+    if (rule.reading === "m") return fromMC(q(BigInt(y) * sgn), c);
+    if (rule.reading === "c") return fromMC(m, q(BigInt(y) * sgn));
+    if (Qn.isZero(c)) continue;
+    return fromMC(Qn.mul(q(sgn), Qn.div(Qn.mul(c, c), q(BigInt(2 * y)))), c);  // area = c²/(2|m|) = y
+  }
+}
+
+export interface PartSideways { readonly lift: number; readonly sideways: number; readonly units: number; readonly inClass: number; readonly energy: number }
+/** The fee of adding one unit (a shift by 1): sideways ÷ this reads as "units to the nearest qualifying value". */
+export const UNIT_FEE = (): number => ownFee("si.shift", { k: q(1) }, TRIAL_LOG);
+export function sidewaysPerPart(rule: SidewaysRule, s: Line, n = 200, seed = 1): PartSideways {
+  const x = readOf(rule, s);
+  if (x === null) return { lift: 0, sideways: 0, units: 0, inClass: 1, energy: 0 };
+  const cls = rule.classOf(x), r = makeRng("sideways-part", rule.label, seed), lift = TRIAL_LOG.g * Math.log2(1 + x);
+  let sum = 0, inside = 0;
+  for (let i = 0; i < n; i++) {
+    const p = cheapestRoute(rule, cls, startReadingAt(rule, x, r));
+    if (p === 0) inside++;
+    sum += Number.isFinite(p) ? p : 0;
+  }
+  const sideways = sum / n;
+  return { lift, sideways, units: sideways / UNIT_FEE(), inClass: inside / n, energy: lift + sideways };
 }
