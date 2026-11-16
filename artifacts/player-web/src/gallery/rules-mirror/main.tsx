@@ -314,15 +314,15 @@ function TrialPanel({ line }: { line: Line }) {
   const mc = mcOf(line);
   return (
     <div className="rm-verdict" data-testid="trial">
-      <div className="rm-verdict-head"><span>Scoring trial</span> <span className="rm-muted">height {mode === "rarity" ? (mc ? `${rarityHeight(mc).toFixed(2)} bits (the law's −log2 chance)` : "off the trial board") : Number.isFinite(H) ? `${H.toFixed(2)}${mode === "log" ? `⚡ (${(H / D.g).toFixed(2)} doublings)` : " bits"}` : "off the trial board"}</span></div>
+      <div className="rm-verdict-head"><span>Scoring trial</span> <span className="rm-muted">height {mode === "rarity" ? (mc ? `${rarityHeight(mc).toFixed(2)} bits (the law's −log2 chance)` : "off the trial board") : Number.isFinite(H) ? `${H.toFixed(2)}${mode === "log" ? ` energy (${(H / D.g).toFixed(2)} doublings)` : " bits"}` : "off the trial board"}</span></div>
       <div className="rm-buttons" data-testid="trial-mode">
         <Pill on={mode === "log"} onClick={() => setMode("log")}>log height (g a doubling)</Pill>
         <Pill on={mode === "linear"} onClick={() => setMode("linear")}>linear height (g a unit)</Pill>
         <Pill on={mode === "rarity"} onClick={() => setMode("rarity")}>scale-free rarity (bits)</Pill>
       </div>
       <p className="rm-muted">{mode === "rarity" ? "Bits: the rarity, under the law with chance 2^−H, of doing at least this well; parts: level, closeness, third. " : ""}Worth of the best trophy less {D.k} × the cheapest price to reach it ({mode === "log"
-        ? `g = ${D.g}⚡ a doubling; friction ${D.alphaS} along the size direction, ${D.alphaD} across it; prices are the game's fees`
-        : `g = ${D.g} a unit, α = ${D.alpha.toFixed(4)}, ${D.w}⚡ a bit`}).
+        ? `g = ${D.g} energy a doubling; friction ${D.alphaS} along the size direction, ${D.alphaD} across it; prices are the game's fees`
+        : `g = ${D.g} a unit, α = ${D.alpha.toFixed(4)}, ${D.w} energy a bit`}).
         Suffix <input className="rm-num" value={suffix} onChange={e => setSuffix(e.target.value)} size={4} aria-label="trial gradient suffix" />{" "}
         primes <input className="rm-num" value={primes} onChange={e => setPrimes(e.target.value)} size={8} aria-label="trial intercept primes" /></p>
       <table className="rm-trial"><tbody>
