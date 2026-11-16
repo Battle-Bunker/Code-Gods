@@ -250,6 +250,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
       families: FAMILIES.map(family => ({ family, card: `The ${family} rule.`, measuredTo: bitsAt(0) })),
       mine: Object.entries(b.bids[e.userId] ?? {}).map(([family, percent]) => ({ family, percent })),
       done: r.members.filter(m => m.userId && b.done.includes(m.userId)).map(m => ({ memberId: m.memberId, name: m.name })),
+      visibility: "sealed" as const, others: [],
     };
   },
   "bid.place": (e, a) => {

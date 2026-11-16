@@ -184,4 +184,7 @@ export const bidStateV = v.object({
   open: v.boolean(), deadline: v.union(v.number(), v.null()), families: v.array(offerV),
   mine: v.array(bidV), done: v.boolean(),
   players: v.array(v.object({ memberId: v.id("v2Members"), name: v.string(), done: v.boolean() })),
+  /** v1's open bidding: "open" shows every other player's bids as they are placed; sealed shows none. */
+  visibility: v.union(v.literal("sealed"), v.literal("open")),
+  others: v.array(v.object({ memberId: v.id("v2Members"), name: v.string(), bids: v.array(bidV) })),
 });

@@ -87,6 +87,12 @@ export async function setSpectator(ctx: MutationCtx, room: Doc<"v2Rooms">, membe
   await closeIfAllDone(ctx, room._id);
 }
 
+/** The rules a room deals: its preset's dealable pool less the families the room never deals (v1's excludedFamilies). */
+export function roomPool(room: Pick<Doc<"v2Rooms">, "preset" | "overrides">) {
+  const pool = dealablePool(presetOf(room.preset)), out = room.overrides.excludedFamilies;
+  return out?.length ? pool.filter(r => !out.includes(r.family)) : pool;
+}
+
 /**
  * Sets the preset and the overrides. Overrides, when given, replace the old ones (`{}` restores the preset's values);
  * a new preset starts without the old preset's overrides unless the call gives some.
@@ -95,6 +101,14 @@ export async function changeSettings(ctx: MutationCtx, room: Doc<"v2Rooms">, a: 
   if (a.preset !== undefined && !isPreset(a.preset)) throw new OpFailure(`No preset ${a.preset}.`, "Pick one of the deployed presets.");
   if (room.bidding) throw new OpFailure("The bid phase is open: the settings change once it closes.");
   const presetChanged = a.preset !== undefined && a.preset !== room.preset;
+  // The families never dealt must be the preset's and leave something to deal.
+  const out = a.overrides?.excludedFamilies;
+  if (out?.length) {
+    const preset = presetOf(a.preset ?? room.preset), families = new Set(dealablePool(preset).map(r => r.family));
+    const unknown = out.filter(f => !families.has(f));
+    if (unknown.length) throw new OpFailure(`${preset.title} deals no rule ${unknown.join(", ")}.`, "Exclude only families the setup deals.");
+    if (roomPool({ preset: preset.id, overrides: { excludedFamilies: out } }).length === 0) throw new OpFailure("Every rule would be excluded: nothing could be dealt.", "Leave at least one family.");
+  }
   await ctx.db.patch(room._id, {
     ...(a.preset !== undefined ? { preset: a.preset } : {}),
     overrides: a.overrides ?? (presetChanged ? {} : room.overrides),
@@ -150,7 +164,7 @@ async function dealHistory(ctx: QueryCtx, roomId: Id<"v2Rooms">): Promise<PastDe
 
 /** The rotated deal the next game would get, or null when it would be dealt fresh. */
 export async function rotationFor(ctx: QueryCtx, room: Doc<"v2Rooms">, seats: readonly Doc<"v2Members">[]) {
-  const preset = presetOf(room.preset), pool = dealablePool(preset), dealKey = dealKeyOf(preset, pool);
+  const preset = presetOf(room.preset), pool = roomPool(room), dealKey = dealKeyOf(preset, pool);
   // Rules rotate round the same seats in every room, a practice room too (v1's rotation; playtest round 9): its first
   // game is the practice deal (practiceDeal), and the games after pass those rules on.
   const rotated = rotatedDeal(seats.map(s => s._id), dealKey, await dealHistory(ctx, room._id));
@@ -180,11 +194,13 @@ export async function openBidding(ctx: MutationCtx, room: Doc<"v2Rooms">) {
   if (room.bidding) throw new OpFailure("The bid phase is already open.");
   const seats = (await membersOf(ctx, room._id)).filter(m => !m.spectator);
   if (seats.length < preset.minPlayers) throw new OpFailure(`Needs ${preset.minPlayers} players; ${seats.length} seated.`, "seats.fillPracticePartners");
-  const pool = dealablePool(preset);
+  const pool = roomPool(room);
   if (pool.length === 0) throw new OpFailure("This preset has no rule with a converged valuation yet, so nothing can be dealt.");
   for (const row of await ctx.db.query("v2RoomBids").withIndex("by_room_member", q => q.eq("roomId", room._id)).take(MAX_MEMBERS)) await ctx.db.delete(row._id);
   const deadline = Date.now() + bid.seconds * 1000 / timeScaleOf(room.overrides);
-  await ctx.db.patch(room._id, { bidding: { deadline, pricing: bid.pricing, families: offers(pool) }, revision: room.revision + 1 });
+  // v1's bid price and visibility, as the room sets them (else the preset's pricing, sealed).
+  const pricing = room.overrides.bidPricing ?? bid.pricing, visibility = room.overrides.bidVisibility ?? "sealed";
+  await ctx.db.patch(room._id, { bidding: { deadline, pricing, families: offers(pool), ...(visibility === "open" ? { visibility } : {}) }, revision: room.revision + 1 });
   await ctx.scheduler.runAt(deadline, CLOSE_BIDDING, { roomId: room._id, deadline });
 }
 
@@ -294,7 +310,7 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
   let wins: BidWin[] = [];
   if (auction && auction.bids.length) {
     // A won bid voids the rotation (the auction is the fairness instrument); with no counted bid this is the plain deal.
-    const pool = dealablePool(preset);
+    const pool = roomPool(room);
     const dealt = dealWithBids(seats.map(s => s._id), [...new Set(pool.map(r => r.family))], auction.bids, dealRng(seed), bidDealer(pool, preset.variant), auction.pricing);
     wins = dealt.wins;
     if (wins.length) { rules = dealt.deal; rotation = null; }
@@ -344,7 +360,7 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     // The dealing trial, step 2 (logging only): what the spec lead's policy would have dealt this table, beside the
     // real deal, for fresh and practice deals (a rotation, a rematch or a won bid deals what it must).
     ...(!again && !rotation && wins.length === 0
-      ? { unopposedPolicy: policyDeal(dealablePool(preset), seats.map(m => m.kind as SeatKind), seed, preset.variant) } : {}),
+      ? { unopposedPolicy: policyDeal(roomPool(room), seats.map(m => m.kind as SeatKind), seed, preset.variant) } : {}),
     // The seating rule's pairs this deal left (grids; deal.ts): forbidden ones (none unless the pool is too small) and aligned ones.
     ...(hasSeatingRule(preset.variant) ? { seating: { clashes: seatingClashes(preset.variant, rules), aligned: seatingAligned(preset.variant, rules) } } : {}),
     ...(rotation ? { rotation } : {}),
@@ -366,7 +382,7 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
   }
   if (auction) {
     await ctx.db.insert("v2Auctions", {
-      gameId, pricing: auction.pricing, disclosure: preset.bid?.disclosure ?? "none",
+      gameId, pricing: auction.pricing, disclosure: room.overrides.bidDisclosure ?? preset.bid?.disclosure ?? "none",
       bids: auction.bids.map(b => ({ memberId: b.playerId as Id<"v2Members">, family: b.familyId, percent: b.percent })),
       wins: wins.map(w => ({ memberId: w.playerId as Id<"v2Members">, family: w.familyId, percent: w.percent, handicap: w.handicap })),
     });

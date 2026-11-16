@@ -43,6 +43,10 @@ export const { op: state, as: stateAs } = defineOp("bid.state", "query", async e
     families: phase.families.map(f => ({ family: f.family, card: f.card, measuredTo: f.top })),
     mine: mine?.bids ?? [],
     done: rows.filter(r => r.done).map(r => ({ memberId: r.memberId, name: members.find(m => m._id === r.memberId)?.name ?? "" })),
+    // v1's open bidding: every other player's bids as they are placed; sealed (the default) shows none.
+    visibility: phase.visibility ?? "sealed",
+    others: (phase.visibility === "open" ? rows.filter(r => r.memberId !== member._id && r.bids.length > 0) : [])
+      .map(r => ({ memberId: r.memberId, name: members.find(m => m._id === r.memberId)?.name ?? "", bids: r.bids })),
   };
 });
 
