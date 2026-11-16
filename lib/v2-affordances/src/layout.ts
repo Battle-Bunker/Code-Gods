@@ -45,6 +45,9 @@ export interface ViewState {
  */
 export type ReplayCursor = { seq: number } | { worldSeconds: number; plus: number };
 
+/** The glossary's page for "How scoring works" (view.showScoring): not a term, so no request for a term opens it. */
+export const SCORING_PAGE = "@scoring";
+
 export const EMPTY_VIEW: ViewState = {
   version: 0, panes: [], dock: {}, pins: {}, objects: { sort: "points", filter: {} }, focus: null, glossary: null, replay: null,
 };
@@ -153,6 +156,7 @@ export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
   "view.sortObjects": (v, a) => ({ ...v, objects: { ...v.objects, sort: a.sort } }),
   "view.filterObjects": (v, a) => ({ ...v, objects: { ...v.objects, filter: { ...(a.mine !== undefined ? { mine: a.mine } : {}), ...(a.minBits !== undefined ? { minBits: a.minBits } : {}), ...(a.show !== undefined && a.show !== "all" ? { show: a.show } : {}) } } }),
   "view.showGlossary": (v, a) => ({ ...v, glossary: a.term ?? "" }),
+  "view.showScoring": v => ({ ...v, glossary: SCORING_PAGE }),
   "view.closeGlossary": v => ({ ...v, glossary: null }),
   "replay.open": (v, a) => ({ ...v, replay: { gameId: a.gameId, cursor: { seq: 0 }, playing: false, speed: 1 }, panes: openPane(v, "replay") }),
   "replay.play": v => ({ ...v, replay: { ...replayOf(v), playing: true } }),

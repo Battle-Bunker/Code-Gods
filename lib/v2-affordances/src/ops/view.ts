@@ -98,6 +98,13 @@ export const viewOps = [
     contexts: CONTEXTS, caller: "anyone", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({
+    id: "view.showScoring", title: "How scoring works", group: "help", scope: "none",
+    description: "Opens the explanation of how a score is made (v1's 'How scoring works' sheet): the rule's score, rarity in bits, points as your bits times the others', and why +1 on a rule is not +1 point. Closed with view.closeGlossary.",
+    tooltip: "Your rule's score, rarity in bits, and why what the others want decides your points.", keywords: ["points", "bits", "payoff", "score", "scoring", "rarity"],
+    params: obj({}), result: done,
+    contexts: CONTEXTS, caller: "anyone", effect: "write", confirm: "none", runs: "client",
+  }),
+  affordance({
     id: "view.closeGlossary", title: "Close the glossary", group: "help", scope: "none",
     description: "Closes the glossary, so it stays closed on every screen until a term is asked for again.",
     tooltip: "Close the glossary.", keywords: ["close glossary", "hide glossary"],
