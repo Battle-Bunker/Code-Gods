@@ -23,12 +23,8 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { quadrantOf } from "./disclose.ts";
 import { decode, typeOf, variantOf } from "./world.ts";
 
-/** The weight on the read price of a look (decision 35); absent (games stored before it): 0, free. */
-export const readPriceWeightOf = (game: { settings: { readPriceWeight?: number } }) => Math.max(0, game.settings.readPriceWeight ?? 0);
-/** Whether the game pays to read: its weight is above 0. Fixed for the game's lifetime. */
-export const paysToRead = (game: { settings: { readPriceWeight?: number } }) => readPriceWeightOf(game) > 0;
-/** Whether a seated player's reads go through their knowledge (a game that pays to read, not yet ended). */
-export const paidLive = (game: { phase: string; settings: { readPriceWeight?: number } }) => paysToRead(game) && game.phase !== "ended";
+import { paidLive, paysToRead, readPriceWeightOf } from "./readPrice.ts";
+export { paidLive, paysToRead, readPriceWeightOf };
 
 /** Bits to read the whole object (φ): what an act must read to tell its owner, and what a look costs at the read price. */
 export const fullReadBits = (variantId: string, wire: string) => typeOf(variantId).readLength(decode(wire, variantId) as never, variantOf(variantId));

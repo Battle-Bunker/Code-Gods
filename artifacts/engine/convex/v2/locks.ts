@@ -26,12 +26,8 @@ const SWEEP = 32;
 /** A lock keeps its last this many additions and withdrawals (its totals, and each member's, are kept whole). */
 export const LOCK_HISTORY = 48;
 
-export const locksOn = (game: { settings: object }): boolean => (game.settings as { locks?: boolean }).locks === true;
-/** The game's lock prices (resolved at start; a game started before they were resolved takes the §3 defaults). */
-export function ratesOf(game: Doc<"v2Games">): LockRates {
-  const s = game.settings as { lockRates?: LockRates; economy: { powerPerSecond: number; fullChargeSeconds: number } };
-  return s.lockRates ?? defaultLockRates(s.economy);
-}
+export { locksOn, ratesOf } from "./lockSettings.ts";
+import { locksOn, ratesOf } from "./lockSettings.ts";
 
 /**
  * An object's lock documents, by number: at most LOCKS_PER_OBJECT live ones, plus any that decayed since the last sweep

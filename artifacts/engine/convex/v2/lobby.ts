@@ -10,13 +10,15 @@ import { bidDealer, playable, dealDefence, defencePool, isGridVariant, dealableP
 import { dealWithBids, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
 import { isPreset, presetOf, TURNOVER_DEFAULTS, type Preset, type PresetBid, type Turnover } from "./presets.ts";
 import { DEFAULT_PENALTY_WEIGHT, typeOf } from "./world.ts";
-import { valueHead } from "./values.ts";
+import { valueHead } from "./valuesHead.ts";
 import { bidders } from "./bids.ts";
 import { summonPracticePartners } from "./agents.ts";
 import { makeFunctionReference } from "convex/server";
 import { newNoiseKey } from "./disclose.ts";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, drawEnd, timeScaleOf } from "./duration.ts";
 import { ensureWarm } from "./readiness.ts";
+import { dealHistory, membersOf, roomPool, rotationFor } from "./roomDeal.ts";
+export { membersOf, roomPool, rotationFor };
 import { bornAtStart, DEFAULT_PAUSE_SECONDS, endGame } from "./loop.ts";
 import { unopposedDirections } from "@workspace/v2-agents/pure";
 
@@ -65,9 +67,6 @@ export async function joinRoom(ctx: MutationCtx, userId: string, rawCode: string
 
 // ---------------------------------------------------------------- seats and settings (W3-3)
 
-export async function membersOf(ctx: QueryCtx, roomId: Id<"v2Rooms">) {
-  return await ctx.db.query("v2Members").withIndex("by_room", q => q.eq("roomId", roomId)).take(MAX_MEMBERS);
-}
 
 /**
  * Leaves the room. An owner who leaves hands the room to the human who joined next; with none left, to the next human
@@ -90,11 +89,6 @@ export async function setSpectator(ctx: MutationCtx, room: Doc<"v2Rooms">, membe
   await closeIfAllDone(ctx, room._id);
 }
 
-/** The rules a room deals: its preset's dealable pool less the families the room never deals (v1's excludedFamilies). */
-export function roomPool(room: Pick<Doc<"v2Rooms">, "preset" | "overrides">) {
-  const pool = dealablePool(presetOf(room.preset)), out = room.overrides.excludedFamilies;
-  return out?.length ? pool.filter(r => !out.includes(r.family)) : pool;
-}
 
 /**
  * Refuses a fresh deal that the room's exclusions would leave with a family on two seats when the setup itself has one
@@ -185,28 +179,7 @@ export async function removeSeat(ctx: MutationCtx, room: Doc<"v2Rooms">, memberI
 
 // ---------------------------------------------------------------- the start and the deal (W3-3)
 
-/**
- * The room's last games (newest first) as rotation history: roster order and each seat's rule key, from the headers
- * alone. As many games as a room has seats at most, which is the longest a rotation can run.
- */
-async function dealHistory(ctx: QueryCtx, roomId: Id<"v2Rooms">): Promise<PastDeal[]> {
-  const games = await ctx.db.query("v2Games").withIndex("by_room", q => q.eq("roomId", roomId)).order("desc").take(MAX_MEMBERS);
-  return games.map(g => {
-    const keys = new Map(g.artefacts.map(a => [a.memberId, a.ruleKey]));
-    return { members: g.roster.map(s => s.memberId), rules: g.roster.map(s => keys.get(s.memberId) ?? ""), dealKey: g.dealKey, bid: !g.rotates };
-  });
-}
 
-/** The rotated deal the next game would get, or null when it would be dealt fresh. */
-export async function rotationFor(ctx: QueryCtx, room: Doc<"v2Rooms">, seats: readonly Doc<"v2Members">[]) {
-  const preset = presetOf(room.preset), pool = roomPool(room), dealKey = dealKeyOf(preset, pool);
-  // Rules rotate round the same seats in every room, a practice room too (v1's rotation; playtest round 9): its first
-  // game is the practice deal (practiceDeal), and the games after pass those rules on.
-  const rotated = rotatedDeal(seats.map(s => s._id), dealKey, await dealHistory(ctx, room._id));
-  const byKey = new Map(pool.map(r => [r.ruleKey, r]));
-  const rules = rotated?.rules.map(k => byKey.get(k));
-  return { pool, dealKey, rotated: rules && rules.every(r => r) ? { rules: rules as DealtRule[], round: rotated!.round, of: rotated!.of } : null };
-}
 
 /** The deal the next game gets: rotated when the room is mid-rotation, else fresh from `seed`. */
 export async function nextDeal(ctx: QueryCtx, room: Doc<"v2Rooms">, seats: readonly Doc<"v2Members">[], seed: string): Promise<{ rules: DealtRule[]; dealKey: string; rotation: { round: number; of: number } | null }> {

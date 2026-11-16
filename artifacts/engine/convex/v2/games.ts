@@ -2,7 +2,7 @@
 import { standingsFor } from "./disclose";
 import { durationModeOf, scoreIntervalOf, timeScaleOf } from "./duration";
 import { peerNoiseSigmaOf, peerNoiseVarianceOf } from "./disclose";
-import { readPriceWeightOf } from "./knowledge";
+import { readPriceWeightOf } from "./readPrice.ts";
 import { priceScaleOf } from "./pricing";
 import { driftSecondsOf } from "./drift";
 import { v } from "convex/values";
@@ -10,7 +10,7 @@ import type { Doc } from "../_generated/dataModel";
 import { query } from "../_generated/server";
 import { requireGameMember, ruleOf } from "./access";
 import { gameDetailsV, headerV, standingsHistoryV, standingsV } from "./validators";
-import { locksOn, ratesOf } from "./locks.ts";
+import { locksOn, ratesOf } from "./lockSettings.ts";
 
 export function headerView(game: Doc<"v2Games">, me: Doc<"v2Members">["_id"] | null) {
   return {
