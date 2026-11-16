@@ -69,3 +69,26 @@ export const twoPairGap = (a: number, b: number, c: number, d: number): number =
   const g = Math.min(Math.abs(a - b) + Math.abs(c - d), Math.abs(a - c) + Math.abs(b - d), Math.abs(a - d) + Math.abs(b - c));
   return g + (a === b && b === c && c === d ? 2 : 0);
 };
+
+/** A cell's distance from the edge: 0 on the outer ring, 1 one ring in (v1's rings). */
+export const depth = (n: number, i: number): number => {
+  const r = Math.floor(i / n), c = i % n;
+  return Math.min(r, c, n - 1 - r, n - 1 - c);
+};
+/** The board's rings, outermost first (a 4×4 board: the outer twelve cells, then the centre four). */
+export const rings = (n: number): number[][] =>
+  Array.from({ length: Math.floor((n + 1) / 2) }, (_, d) => Array.from({ length: n * n }, (_, i) => i).filter(i => depth(n, i) === d));
+/** The rings' names and people's words, in the order `rings` lists them. */
+export const RING_NAMES = ["outer", "centre"] as const;
+export const RING_WORDS: Readonly<Record<string, string>> = { outer: "the outer ring", centre: "the centre (the four middle cells)" };
+
+/** The k×k squares (k smaller than the board), by top-left cell in reading order, each in reading order: v1's 3×3 blocks. */
+export const bigSquares = (n: number, k = 3): number[][] => {
+  const out: number[][] = [];
+  for (let r = 0; r + k <= n && k < n; r++) for (let c = 0; c + k <= n; c++) {
+    const sq: number[] = [];
+    for (let i = 0; i < k; i++) for (let j = 0; j < k; j++) sq.push(at(n, r + i, c + j));
+    out.push(sq);
+  }
+  return out;
+};

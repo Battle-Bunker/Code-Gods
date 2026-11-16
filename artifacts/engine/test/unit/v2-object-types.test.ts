@@ -38,7 +38,7 @@ test("a grid variant is read and written as a grid; it is valued only once it ha
 
 test("a grid representation's mutators name their arguments, with choices for cells and lines", () => {
   const ms = mutatorsOf("cells", "grid-4-d10");
-  assert.deepEqual(ms.map(m => m.id), ["cells.add", "cells.swap"]);
+  assert.deepEqual(ms.map(m => m.id), ["cells.add", "cells.swap", "cells.trade"]);
   assert.deepEqual(ms[0]!.args.map(a => [a.name, a.code]), [["cell", "choice"], ["k", "integer"]]);
   // Said for a person, as What if says it (playtest round 23): a label, a hint, an example, words for each choice.
   const cell = ms[0]!.args[0]!;

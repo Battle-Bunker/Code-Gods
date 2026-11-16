@@ -19,10 +19,10 @@ the v2 rules cannot be (§6).
   **exact** value at every rung, by convolving the units' laws: no simulation, about a second a rule. Any other rule
   (overlapping windows, rows with columns, regions, histograms) is **sampled** directly from π, with importance
   sampling for the rare rungs (owner decision 22, §5.2); the sampler is validated against every exact rule.
-- **Nine representations**, each a way a 12-year-old can read the board: the cells, the row and column totals, the
+- **Representations**, each a way a 12-year-old can read the board: the cells, the row and column totals, the
   opposite pairs, the rows read backwards, the steps along each row, the four corner boxes, the nine 2×2 squares, the
-  leaps two cells along a row, the board folded on its other diagonal. Nine mutators, each tied to one of them; those
-  that only rearrange numbers cost no energy.
+  leaps two cells along a row, the board folded on its other diagonal, the outer ring round the centre. Thirteen
+  mutators (nine, and four of v1's restored), each tied to one of them; those that only rearrange numbers cost no energy.
 - **The beginner pool is the old beginner grid's eight rules, regraded** (owner decision 22): each one main layer
   (school arithmetic) and three alternative tie-breakers. Seven are exact; Spread of Three is sampled. Three new
   families (Steady Steps, Box Totals, Prime Cells) form a second pool.
@@ -99,30 +99,47 @@ cross-highlighting work by meaning (`cellValue(r, c)`, `rowTotal(r)`).
 | `windows` | every 2×2 square (nine, overlapping) and its spread | — | `w0` … `w8`: biggest minus smallest in the square, by top-left cell in reading order |
 | `leaps` | each number and the number two cells along its row | — | `leap0` … `leap7`: the far cell minus the near one |
 | `fold` | the board folded along the diagonal from the top-right corner | — | `fold0` … `fold5`: a cell minus the cell it folds onto; `line`: the fold line's total |
+| `rings` | the board as an outer ring (the twelve edge cells) round a centre (the four middle cells) | — | `outer`, `centre`: the ring's total; `total` |
 
 The tallies are the required "row/column tallies"; the others are the representations rules anchor to. A priced query of a representation returns its static elements (spec §3.1); a
 read of `tally` costs the bits of its eight totals, capped (as for lines) at the board's read length.
 
 ## 4. Mutators and their handling fees
 
-Nine mutators, so "which" is log2 9 = 3.17 bits, as on the line. Positions are choices (their log2 is the handling fee
-of the move: it is the same in both directions). Amounts are priced in proportion to their size, against the rest of
-the call (far moves are dear, spec §12.4): with o the bits of which + the call's choices, k costs log2(1 + 2^(o+1))·|k| − o,
-so the call's whole fee is log2(1 + 2^(o+1))·|k| and a move of k costs exactly |k| moves of 1 (cells.add: 8.18 bits a
-unit; tally.add, turn.balance, steps.tilt: 7.18; boxes.add: 6.19). Every call also pays the confining surcharge max(0, φ(after) − φ(before)), which
-here is half the growth of the total. A result past the cap or below 0 is refused, in both directions alike.
+Thirteen mutators, so "which" is log2 13 = 3.70 bits: the nine of the first build and four of v1's moves restored
+(v1's `swap_lines`, `turn_block`, `swap_symbols`, and its `add` over a ring or the whole grid). Positions are choices
+(their log2 is the handling fee of the move: it is the same in both directions). Amounts are priced in proportion to
+their size, against the rest of the call (far moves are dear, spec §12.4): with o the bits of which + the call's
+choices, k costs log2(1 + 2^(o+1))·|k| − o, so the call's whole fee is log2(1 + 2^(o+1))·|k| and a move of k costs
+exactly |k| moves of 1 (cells.add: 8.70 bits a unit; tally.add, turn.balance, steps.tilt: 7.71; boxes.add: 6.71;
+rings.add: 6.30). Every call also pays the confining surcharge max(0, φ(after) − φ(before)), which here is half the
+growth of the total. A result past the cap or below 0 is refused, in both directions alike. Moves that rearrange or
+relabel numbers in another representation (swap, rotate, spin, reverse, turn a square, trade) are shortcuts, priced as
+choices whatever the board holds (owner decision 25).
 
 | Id | Rep | Arguments (bits) | Effect | Inverse | Price of the cheapest call |
 |---|---|---|---|---|---|
-| `cells.add` | cells | cell: choice of 16 (4); k: amount | cell += k | `cells.add(cell, −k)` | 8.18 a unit (+½ when k = 1) |
-| `cells.swap` | cells | a, b: two choices of 16 (8; a = b is refused) | swap them | self | 11.17, no surcharge |
-| `tally.add` | tally | line: choice of 8 rows and columns (3); k: amount | every cell of the line += k | `tally.add(line, −k)` | 7.18 a unit (+2 when k = 1) |
-| `tally.rotate` | tally | line (3); j: choice of 3 (1.58) | the line's cells move j places along, the last coming round to the front | `tally.rotate(line, 4 − j)` (same price; j is a choice, not a size, so that its inverse 4 − j costs the same) | 7.75, no surcharge |
-| `turn.spin` | turn | one of 7 turns and flips (2.81) | the whole board turned a quarter, half or three quarters, or flipped (two axes, two diagonals) | the opposite turn; flips are their own | 5.98, no surcharge |
-| `turn.balance` | turn | pair: choice of 8 (3); k: amount | the pair's top-half cell += k, its opposite −= k (the pair's total is kept) | `turn.balance(pair, −k)` | 7.18 a unit, no surcharge |
-| `mirror.reverse` | mirror | line (3) | a row or column written backwards | self | 6.17, no surcharge |
-| `steps.tilt` | steps | line (3); k: amount | the line's cells += 0, k, 2k, 3k (every step along it grows by k) | `steps.tilt(line, −k)` | 7.18 a unit (+3 when k = 1) |
-| `boxes.add` | boxes | box: choice of 4 (2); k: amount | every cell of the box += k | `boxes.add(box, −k)` | 6.19 a unit (+2 when k = 1) |
+| `cells.add` | cells | cell: choice of 16 (4); k: amount | cell += k | `cells.add(cell, −k)` | 8.70 a unit (+½ when k = 1) |
+| `cells.swap` | cells | a, b: two choices of 16 (8; a = b is refused) | swap them | self | 11.70, no surcharge |
+| `tally.add` | tally | line: choice of 8 rows and columns (3); k: amount | every cell of the line += k | `tally.add(line, −k)` | 7.71 a unit (+2 when k = 1) |
+| `tally.rotate` | tally | line (3); j: choice of 3 (1.58) | the line's cells move j places along, the last coming round to the front | `tally.rotate(line, 4 − j)` (same price; j is a choice, not a size, so that its inverse 4 − j costs the same) | 8.29, no surcharge |
+| `turn.spin` | turn | one of 7 turns and flips (2.81) | the whole board turned a quarter, half or three quarters, or flipped (two axes, two diagonals) | the opposite turn; flips are their own | 6.51, no surcharge |
+| `turn.balance` | turn | pair: choice of 8 (3); k: amount | the pair's top-half cell += k, its opposite −= k (the pair's total is kept) | `turn.balance(pair, −k)` | 7.71 a unit, no surcharge |
+| `mirror.reverse` | mirror | line (3) | a row or column written backwards | self | 6.70, no surcharge |
+| `steps.tilt` | steps | line (3); k: amount | the line's cells += 0, k, 2k, 3k (every step along it grows by k) | `steps.tilt(line, −k)` | 7.71 a unit (+3 when k = 1) |
+| `boxes.add` | boxes | box: choice of 4 (2); k: amount | every cell of the box += k | `boxes.add(box, −k)` | 6.71 a unit (+2 when k = 1) |
+| `tally.swap` | tally | a, b: two choices of 8 lines (6; both rows or both columns, a ≠ b) | two rows, or two columns, trade places (v1 `swap_lines`) | self | 9.70, no surcharge |
+| `windows.turn` | windows | square: choice of 9 (3.17), by top-left cell; how: one of 7 turns and flips (2.81) | a 2×2 square anywhere turned or flipped, like a tile (v1 `turn_block`) | the opposite turn; flips are their own | 9.68, no surcharge |
+| `cells.trade` | cells | area: choice of 24 (4.58): 8 rows and columns, 9 2×2 squares, 4 3×3 squares, the outer ring, the centre, the whole board; a, b: two choices of 0 … 9 (6.64; a = b is refused) | inside the area every a becomes b and every b becomes a (v1 `swap_symbols`) | self | 14.93 (+ half the growth of the total) |
+| `rings.add` | rings | ring: the outer ring, the centre or the whole board (1.58); k: amount | every cell of it += k (v1 `add` over a ring or everything) | `rings.add(ring, −k)` | 6.30 a unit (+6, +2 or +8 when k = 1) |
+
+**The energy gate and the trade (16 Nov, open).** With `cells.trade` on the menu, the energy gate's greedy climber
+takes Two Pair / apart to its top, 53.3 bits, from all three births for 101–132⚡ (the nine alone: 31.9). Trading
+small numbers for 9s keeps each box's two pairs and pays only the choice fee and half the growth. A floor on the trade
+like the line's shortcut floor (fee × 2^((Φ − Φ₀)/d), Φ the larger board's read length) does not close it: Φ₀ = 50,
+d = 3.5 still reaches 53.3 bits (on 690–960⚡); Φ₀ = 44, d = 2 reaches 37.7. The tie-breaker "apart" has a maximum
+(9 a box) that the trade reaches in a few steps: reported to the coordinator as a rule question (an optimum found is a
+bug; decision 26: no maxima), not settled here.
 
 The cycle test is the hard gate it is on the line: lib/v2-grid's potential test proposes every call from a corpus of
 boards on every variant and fails on any one-way move or any pair of opposite moves whose weights differ.

@@ -1,13 +1,15 @@
 /**
- * The grid's nine mutators (docs/engine-v2/grids.md §4), each tied to a representation. Positions are choices (their
+ * The grid's thirteen mutators (docs/engine-v2/grids.md §4), each tied to a representation: the nine of the first
+ * build and four of v1's moves restored (swap two lines, turn a 2×2 square, trade two numbers in an area, add to a ring
+ * or the whole board). Positions are choices (their
  * log2 is the move's handling fee, the same both ways); amounts are priced in proportion to their size (the call's
- * whole fee is rate·|k|: v2-core codes.ts, "far moves are dear"); v2-core adds "which" (log2 9) and the confining
+ * whole fee is rate·|k|: v2-core codes.ts, "far moves are dear"); v2-core adds "which" (log2 13) and the confining
  * surcharge (half the growth of the board's total). Every move's inverse is proposed with the same weight, so the
  * price list is an exact potential (owner decision 19; test/potential.test.ts).
  */
 import { amountCode, choiceBits, sampleAmount, whichBits, type ArgCode, type Invalid, type ArgHelp, type Mutator, type Rng, type Variant } from "@workspace/v2-core";
 import { at, cellLabel, cellName, gridParams, inDomain, type GridState } from "./grid.ts";
-import { BOX_NAMES, boxes, lines, pairs } from "./units.ts";
+import { BOX_NAMES, RING_NAMES, RING_WORDS, bigSquares, boxes, lines, pairs, rings, windows } from "./units.ts";
 
 export type GridArgs = Readonly<Record<string, string | number>>;
 
@@ -133,7 +135,7 @@ const lineChoices = (n: number) => Object.fromEntries(lines(n).map(l => [l.name,
 const amountHelp = (what: string) => help("How much", `a whole number such as 1 or −2: ${what}`, "1");
 const lineHelp = (n: number) => help("Which row or column", "rows count from the top, columns from the left", lines(n)[0]!.name, lineChoices(n));
 
-// ---------------------------------------------------------------- the nine
+// ---------------------------------------------------------------- the first nine
 
 export const add: M = {
   id: "cells.add", reps: ["cells"], title: "add to one cell", perSite: false,
@@ -253,5 +255,96 @@ export const boxAdd: M = {
   inverse: { kind: "mutator", id: "boxes.add", args: a => ({ ...a, k: -k(a) }) },
 };
 
-/** The nine, for an N×N board, in the order every grid variant offers them. */
-export const gridMutators = (n: number): readonly M[] => [add, swap, lineAdd, rotateFor(n), spin, balanceFor(n), reverse, tilt, boxAdd];
+// ---------------------------------------------------------------- v1's moves restored (swap_lines, turn_block, swap_symbols, add's ring and whole-board areas)
+
+/** v1 swap_lines: two rows, or two columns, trade places. A shortcut: two line choices, whatever the lines hold (decision 25). */
+export const lineSwap: M = {
+  id: "tally.swap", reps: ["tally"], title: "swap two rows, or two columns", perSite: false,
+  argHelp: v => ({
+    a: help("First row or column", "the two trade places; both rows or both columns", lines(N(v))[0]!.name, lineChoices(N(v))),
+    b: help("Second row or column", "a different row (or column) from the first", lines(N(v))[1]!.name, lineChoices(N(v))),
+  }),
+  describe: a => `swap ${lineWords(a.a)} and ${lineWords(a.b)}`,
+  args: v => fields(base(v, "tally.swap"), { a: oneOf(lines(N(v)).map(l => l.name)), b: oneOf(lines(N(v)).map(l => l.name)) }),
+  apply: (s, _site, a, v) => {
+    const x = a.a as string, y = a.b as string;
+    if (x === y) return { invalid: "swap needs two different rows or columns" };
+    if (x.slice(0, 3) !== y.slice(0, 3)) return { invalid: "swap two rows or two columns, not a row with a column" };
+    const p = lineCells(N(v), x), q = lineCells(N(v), y);
+    return write(s, v, [...p.map((c, t) => [c, s.cells[q[t]!]!] as [number, number]), ...q.map((c, t) => [c, s.cells[p[t]!]!] as [number, number])]);
+  },
+  inverse: { kind: "self" },
+};
+
+/** The 2×2 squares (the windows representation's w0 … w8), named for people by their top-left cell. */
+const squareWords = (n: number, k: number, size = 2): string =>
+  `the ${size}×${size} square whose top-left cell is ${cellLabel(n, (size === 2 ? windows(n) : bigSquares(n, size))[k]![0]!)}`;
+const SQUARE_TURNS: Readonly<Record<string, string>> = {
+  "quarter": "a quarter turn clockwise", "half": "half way round", "three-quarters": "a quarter turn anticlockwise",
+  "flip-rows": "upside down", "flip-columns": "left to right", "flip-diagonal": "over its main diagonal", "flip-antidiagonal": "over its other diagonal",
+};
+const turnVerb = (how: string) => (how.startsWith("flip") ? "flip" : "turn");
+
+/** v1 turn_block: a 2×2 square anywhere on the board turned or flipped, like a tile. A shortcut: square and turn are choices. Built per board size (its words name the square). */
+export const squareTurnFor = (n: number): M => ({
+  id: "windows.turn", reps: ["windows"], title: "turn or flip a 2×2 square", perSite: false,
+  argHelp: v => ({
+    square: help("Which 2×2 square", "named by its top-left cell; the squares overlap", "w0", Object.fromEntries(windows(N(v)).map((_, k) => [`w${k}`, squareWords(N(v), k)]))),
+    how: help("Turn or flip", "the square's four numbers move; none changes", "quarter", SQUARE_TURNS),
+  }),
+  describe: a => `${turnVerb(a.how as string)} ${squareWords(n, Number(String(a.square).slice(1)))} ${SQUARE_TURNS[a.how as string]}`,
+  args: v => fields(base(v, "windows.turn"), { square: oneOf(windows(N(v)).map((_, k) => `w${k}`)), how: oneOf(Object.keys(SPINS)) }),
+  apply: (s, _site, a, v) => {
+    const sq = windows(N(v))[Number((a.square as string).slice(1))]!, f = SPINS[a.how as string]!;
+    return write(s, v, sq.map((c, i) => { const [r, cc] = f(2, Math.floor(i / 2), i % 2); return [c, s.cells[sq[at(2, r, cc)]!]!] as [number, number]; }));
+  },
+  inverse: { kind: "mutator", id: "windows.turn", args: a => ({ ...a, how: a.how === "quarter" ? "three-quarters" : a.how === "three-quarters" ? "quarter" : a.how! }) },
+});
+
+/** v1's ring areas: the outer ring, the centre, the whole board (rings.add; also three of cells.trade's areas). */
+const ringAreas = (n: number): { name: string; words: string; cells: readonly number[] }[] => [
+  ...rings(n).map((cells, d) => ({ name: RING_NAMES[d]!, words: RING_WORDS[RING_NAMES[d]!]!, cells })),
+  { name: "all", words: "the whole board", cells: Array.from({ length: n * n }, (_, i) => i) },
+];
+
+/** The areas v1's swap_symbols trades in: every row and column, every 2×2 and 3×3 square, the rings, the whole board. */
+const tradeAreas = (n: number): { name: string; words: string; cells: readonly number[] }[] => [
+  ...lines(n).map(l => ({ name: l.name, words: lineWords(l.name), cells: l.cells })),
+  ...windows(n).map((cells, k) => ({ name: `w${k}`, words: squareWords(n, k), cells })),
+  ...bigSquares(n).map((cells, k) => ({ name: `big${k}`, words: squareWords(n, k, 3), cells })),
+  ...ringAreas(n),
+];
+const digits = (v: Variant) => Array.from({ length: gridParams(v).cap + 1 }, (_, i) => String(i));
+const digitChoices = (v: Variant) => Object.fromEntries(digits(v).map(d => [d, `every ${d}`]));
+
+/** v1 swap_symbols: inside an area, every a becomes b and every b becomes a. A shortcut: area and both numbers are choices. Built per board size (its words name the area). */
+export const tradeFor = (n: number): M => ({
+  id: "cells.trade", reps: ["cells"], title: "trade two numbers inside an area: every a becomes b and every b becomes a", perSite: false,
+  argHelp: v => ({
+    area: help("Where", "a row or column, a square, a ring or the whole board", "all", Object.fromEntries(tradeAreas(N(v)).map(x => [x.name, x.words]))),
+    a: help("One number", "every one of these in the area becomes the other number", "0", digitChoices(v)),
+    b: help("The other number", "a different number from the first", "1", digitChoices(v)),
+  }),
+  describe: a => `every ${a.a} becomes ${a.b} and every ${a.b} becomes ${a.a} in ${tradeAreas(n).find(x => x.name === a.area)!.words}`,
+  args: v => fields(base(v, "cells.trade"), { area: oneOf(tradeAreas(N(v)).map(x => x.name)), a: oneOf(digits(v)), b: oneOf(digits(v)) }),
+  apply: (s, _site, a, v) => {
+    const x = Number(a.a), y = Number(a.b);
+    if (x === y) return { invalid: "trade needs two different numbers" };
+    const cells = tradeAreas(N(v)).find(t => t.name === a.area)!.cells;
+    return write(s, v, cells.filter(i => s.cells[i] === x || s.cells[i] === y).map(i => [i, s.cells[i] === x ? y : x] as [number, number]));
+  },
+  inverse: { kind: "self" },
+});
+
+const RING_SAY: Readonly<Record<string, string>> = { outer: "the outer ring", centre: "the centre", all: "the board" };
+export const ringAdd: M = {
+  id: "rings.add", reps: ["rings"], title: "add to every cell of the outer ring, the centre, or the whole board", perSite: false,
+  argHelp: v => ({ ring: help("Where", "the outer ring of cells, the four middle cells, or every cell", "outer", Object.fromEntries(ringAreas(N(v)).map(x => [x.name, x.words]))), k: amountHelp("added to every cell of it; below 0 takes away") }),
+  describe: a => `${signed(k(a))} in every cell of ${RING_SAY[a.ring as string]}`,
+  args: v => fields(base(v, "rings.add"), { ring: oneOf(ringAreas(N(v)).map(x => x.name)) }, true),
+  apply: (s, _site, a, v) => addTo(s, v, ringAreas(N(v)).find(x => x.name === a.ring)!.cells, () => k(a)),
+  inverse: { kind: "mutator", id: "rings.add", args: a => ({ ...a, k: -k(a) }) },
+};
+
+/** The thirteen, for an N×N board, in the order every grid variant offers them. */
+export const gridMutators = (n: number): readonly M[] => [add, swap, lineAdd, rotateFor(n), spin, balanceFor(n), reverse, tilt, boxAdd, lineSwap, squareTurnFor(n), tradeFor(n), ringAdd];

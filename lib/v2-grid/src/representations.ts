@@ -6,7 +6,7 @@
 import { q, ref, type ElementDecl, type ElementValue, type Representation } from "@workspace/v2-core";
 import { at, cellLabel, cellName, type GridState } from "./grid.ts";
 import { diffName, divisibilityReadings, readingName, type DivisibilityLayout } from "./readings.ts";
-import { BOX_NAMES, boxEdges, boxes, cols, foldLine, folds, leaps, pairs, rows, strangers, twoPairGap, windows } from "./units.ts";
+import { BOX_NAMES, RING_NAMES, boxEdges, boxes, cols, foldLine, folds, leaps, pairs, rings, rows, strangers, twoPairGap, windows } from "./units.ts";
 
 type Decl = ElementDecl<GridState>;
 const num = (x: number): ElementValue => ({ kind: "number", q: q(x) });
@@ -142,5 +142,17 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
     }),
   };
 
-  return [cells, tally, turn, mirror, steps, boxRep, windowRep, leapRep, foldRep, readingRep];
+  // v1's rings (its add's "ring" and "all" areas): the outer ring of cells and the centre, each with its total.
+  const rs = rings(n);
+  const RING_LABELS: Readonly<Record<string, string>> = { outer: "the outer ring's total (the twelve edge cells)", centre: "the centre's total (the four middle cells)" };
+  const ringRep: Representation<GridState> = {
+    id: "rings", title: "the board as an outer ring round a centre, with each one's total", scene: "grid", perSite: false,
+    elements: [
+      ...rs.map((cs, d) => derived(RING_NAMES[d]!, n === 2 ? "the outer ring's total (every cell)" : RING_LABELS[RING_NAMES[d]!]!, s => sum(s, cs), `ringTotal:${d}`)),
+      total,
+    ],
+    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: rs.map((cs, d) => ({ cells: cs, el: ref("rings", RING_NAMES[d]!) })), groupTitle: "ring totals" }),
+  };
+
+  return [cells, tally, turn, mirror, steps, boxRep, windowRep, leapRep, foldRep, readingRep, ringRep];
 }
