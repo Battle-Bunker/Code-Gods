@@ -401,6 +401,8 @@ export const v2Tables = {
   v2AgentPrograms: defineTable({
     agentId: v.id("v2Agents"), version: v.number(), language: languageV, source: v.string(), sourceHash: v.string(),
     price: v.number(), summonedAt: v.number(), acts: v.number(), pointsGained: v.number(),
+    /** v1's estimate: the program's check, run in the background after a human's summon or replace (checkNode.ts estimate). */
+    estimate: v.optional(v.union(v.object({ perAct: v.number(), read: v.number(), change: v.number() }), v.null())),
   }).index("by_agent", ["agentId", "version"]),
 
   /** The scoreboard (≤ 8 rows in one document), ranked by net total (total less the bid handicap). */

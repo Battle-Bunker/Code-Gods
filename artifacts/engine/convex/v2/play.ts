@@ -207,6 +207,8 @@ export const agentEnergy = query({
     return {
       agentId: agent._id, energy: now.balance, acts: e.acts, skips: e.skips, failures: e.failures, spend: e.spend, spendRead: e.spendRead ?? 0, spendChange: e.spendChange ?? 0, lastAct: e.lastAct ?? null, pointsGained: e.pointsGained, lastActAt: e.lastActAt ?? null,
       perSecond, capacity, settledAt: now.settledWorldSeconds, history: e.history ?? [],
+      // The current program's estimate (checkNode.ts estimate): one more document, cold (written once a program).
+      estimate: (await ctx.db.query("v2AgentPrograms").withIndex("by_agent", q => q.eq("agentId", agent._id).eq("version", agent.version)).unique())?.estimate ?? null,
     };
   },
 });
