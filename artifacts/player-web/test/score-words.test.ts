@@ -115,6 +115,15 @@ test("the bar's own total reads as loading until the standings have the viewer's
   assert.equal(myTotalText({ net: 12.5 }), "12.50 points");
 });
 
+test("object words read well for a two-word object (lines-pairs: “See it pair of lines by pair of lines”, “every pairs of line”)", async () => {
+  const { seeEachText, eachEntryText } = await import("../src/core/words.ts");
+  const line = { one: "line", many: "lines", Many: "Lines" }, pair = { one: "pair of lines", many: "pairs of lines", Many: "Pairs of lines" };
+  assert.equal(seeEachText(line), "See it line by line");
+  assert.equal(seeEachText(pair), "See each pair of lines");
+  assert.equal(eachEntryText(line), "Each entry is one line's points; all of them added up make your total.");
+  assert.equal(eachEntryText(pair), "Each entry is the points of one pair of lines; all of them added up make your total.");
+});
+
 test("How scoring works (v1's sheet) in the game's noun: rule score, bits, points as a product, nobody scores alone, +1 is not +1 point", async () => {
   const { howScoringWorks } = await import("../src/core/words.ts");
   const grid = howScoringWorks("grid");

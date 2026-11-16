@@ -132,3 +132,9 @@ export function bidNote(r: { bid: number | null; handicap: number | null; title:
   if (r.bid === null || !r.handicap) return null;
   return `You won ${r.title} in the bid: ${r.handicap}% comes off your total at the end of the game.`;
 }
+
+/** "See it line by line" (or grid by grid); for a two-word object, "See each pair of lines". */
+export const seeEachText = (w: { one: string }): string => (w.one.includes(" ") ? `See each ${w.one}` : `See it ${w.one} by ${w.one}`);
+/** What one entry of the objects list is, without a possessive on a two-word object ("pair of lines's"). */
+export const eachEntryText = (w: { one: string }): string =>
+  `Each entry is ${w.one.includes(" ") ? `the points of one ${w.one}` : `one ${w.one}'s points`}; all of them added up make your total.`;
