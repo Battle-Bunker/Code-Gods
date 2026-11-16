@@ -5,8 +5,13 @@
 import { EMPTY_VIEW, type ViewState } from "@workspace/v2-affordances";
 
 export function storedViewOf(row: { view?: unknown } | null | undefined): ViewState {
-  return (row?.view as ViewState | null | undefined) ?? EMPTY_VIEW;
+  // Loaded with no stored view yet: an empty view of its own, so a screen can tell it from the one drawn while loading.
+  return (row?.view as ViewState | null | undefined) ?? (row === undefined ? EMPTY_VIEW : NO_STORED_VIEW);
 }
+/** The view of a room whose stored view has loaded and is empty (equal to EMPTY_VIEW, but not the same object). */
+export const NO_STORED_VIEW: ViewState = { ...EMPTY_VIEW };
+/** Whether this is the empty view drawn before the stored one has loaded (not a view anyone chose). */
+export const isLoadingView = (v: ViewState) => v === EMPTY_VIEW;
 
 /** What the screen shows: a local change while it is ahead of the stored view, else the stored view. */
 export function shownView(local: ViewState | null, stored: ViewState): ViewState {

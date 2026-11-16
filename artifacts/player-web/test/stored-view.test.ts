@@ -13,3 +13,9 @@ test("the stored view is the row's `view`, so a pane an assistant opens shows on
   assert.deepEqual(storedViewOf(null), EMPTY_VIEW);
   assert.deepEqual(storedViewOf(undefined), EMPTY_VIEW);
 });
+
+test("loading and loaded-but-empty are told apart (the pane history skips only the view drawn while loading)", async () => {
+  const { isLoadingView } = await import("../src/core/stored-view.ts");
+  assert.ok(isLoadingView(storedViewOf(undefined)));
+  assert.ok(!isLoadingView(storedViewOf(null)) && !isLoadingView(storedViewOf({ layout: null, view: null, revision: 1 })));
+});

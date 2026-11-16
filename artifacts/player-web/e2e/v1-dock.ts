@@ -143,6 +143,25 @@ try {
     assert.equal(await page.getByTestId("select-lines-sort").inputValue(), next, "the sort survives a reload");
   });
 
+  // v1's pane history (comp-dock-history, comp-pane-header): a change to a pane's own view can be taken back.
+  await check("Back to the previous view: a pane's view changed, then its menu brings the earlier one back", async () => {
+    const select = page.getByTestId("select-lines-sort");
+    const before = await select.inputValue();
+    const options = await select.locator("option").evaluateAll((os: HTMLOptionElement[]) => os.map(o => o.value));
+    await select.selectOption(options.find((o: string) => o !== before)!);
+    await page.getByTestId("button-pane-menu-objects").click();
+    await page.getByTestId("button-pane-back-objects").click();
+    await page.waitForFunction((v: string) => (document.querySelector("[data-testid=select-lines-sort]") as HTMLSelectElement | null)?.value === v, before, { timeout: 10_000 });
+    await page.getByTestId("button-pane-menu-objects").click();
+    assert.equal(await page.getByTestId("button-pane-back-objects").count(), 0, "going back is not a change to go back from");
+    await page.keyboard.press("Escape");
+    // v1's "Reset this panel to its defaults": the lines sorted by points again.
+    await select.selectOption(options.find((o: string) => o !== "points")!);
+    await page.getByTestId("button-pane-menu-objects").click();
+    await page.getByTestId("button-pane-reset-objects").click();
+    await page.waitForFunction(() => (document.querySelector("[data-testid=select-lines-sort]") as HTMLSelectElement | null)?.value === "points", undefined, { timeout: 10_000 });
+  });
+
   await missing(["e2e-stored-panels-4"], "dragging a pane onto the centre of another replaces it: no tabs, no ghost header left behind", async () => {
     const panes = (await openPanes(page)).filter(id => id !== "assistant");
     assert.ok(panes.length >= 2, "two panes to drag");
