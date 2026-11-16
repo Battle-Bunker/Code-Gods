@@ -20,6 +20,8 @@ export interface V2Budget {
   reads: string;
   /** Its answer does not depend on what a tick writes. */
   cold: boolean;
+  /** Answers an ended game only (it refuses a live one): the live game's measurement leaves it out. */
+  endedOnly?: true;
 }
 
 export const V2_BUDGETS: readonly V2Budget[] = [
@@ -39,7 +41,7 @@ export const V2_BUDGETS: readonly V2Budget[] = [
   { query: "v2/games:details", args: f => ({ gameId: f.gameId }), reads: "1 v2Games (+ after the end v2Rules by_game_member, ≤ 16)", cold: true },
   { query: "v2/play:objectIds", args: f => ({ gameId: f.gameId, sort: "points", ...page }), reads: "v2ObjectValues by_game_member_<sort> page, or by_game_member_quadrant_<sort> with a filter (the index prefix)", cold: false },
   { query: "v2/play:object", args: f => ({ objectId: f.objectId }), reads: "v2Objects + v2ObjectStates + the caller's v2ObjectValues", cold: false },
-  { query: "v2/play:othersAt", args: f => ({ objectId: f.objectId, calls: [{ mutator: "si.shift", site: 0, args: { k: "1" } }, { mutator: "si.tilt", site: 0, args: { k: "1" } }] }), reads: "v2Objects + v2ObjectStates + the caller's seat + the seated players' v2Rules (≤ 16) + ≤ 4 v2ObjectStates by_game_state (+ their v2Objects)", cold: false },
+  { query: "v2/play:othersAt", args: f => ({ objectId: f.objectId, calls: [{ mutator: "si.shift", site: 0, args: { k: "1" } }, { mutator: "si.tilt", site: 0, args: { k: "1" } }] }), reads: "v2Objects + v2ObjectStates + the caller's seat + the seated players' v2Rules (≤ 16) + ≤ 4 v2ObjectStates by_game_state (+ their v2Objects)", cold: true, endedOnly: true },
   { query: "v2/play:objectMoves", args: f => ({ gameId: f.gameId, number: 1 }), reads: "1 v2Objects by_game + the caller's v2Moves by_game_member_object, ≤ 50", cold: false },
   { query: "v2/play:agents", args: f => ({ gameId: f.gameId, ...page }), reads: "the caller's live v2Agents by_game_member_live page (≤ 50 of ≤ 200; no program source on the row)", cold: true },
   { query: "v2/play:agentEnergy", args: f => ({ agentId: f.agentId }), reads: "1 v2Agents + 1 v2AgentEnergy", cold: false },

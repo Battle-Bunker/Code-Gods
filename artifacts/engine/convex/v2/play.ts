@@ -363,6 +363,8 @@ export const othersAt = query({
     const { object, state } = await objectAndState(ctx, objectId);
     if (calls.length > MAX_CANDIDATES) fail("BAD_REQUEST", `Ask for at most ${MAX_CANDIDATES} moves`);
     const { game, member } = await requireSeat(ctx, object.gameId);
+    // Exact sums are the ended game's (W5's #897: a live What if quotes the blurred reading through object.whatIf).
+    if (game.phase !== "ended") fail("BAD_REQUEST", "The others' exact totals are shown once the game has ended");
     return await quoteOthers(ctx, game, member._id, object, state, calls, null);
   },
 });

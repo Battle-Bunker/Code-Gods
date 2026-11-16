@@ -45,11 +45,13 @@ async function measure(queries: readonly (typeof V2_BUDGETS)[number][]) {
 }
 
 test("every v2 page query stays within R8's reads and time in a 1,000-object game", { timeout: 300_000 }, async () => {
-  const first = await measure(V2_BUDGETS);
-  const slow = V2_BUDGETS.filter(b => first.get(b.query)!.ms > LIMITS.ms);
+  // An ended-only query (othersAt) refuses this live game: it is not measured here.
+  const live = V2_BUDGETS.filter(b => !b.endedOnly);
+  const first = await measure(live);
+  const slow = live.filter(b => first.get(b.query)!.ms > LIMITS.ms);
   const again = slow.length ? await measure(slow) : new Map();
   const problems: string[] = [], table: string[] = [];
-  for (const b of V2_BUDGETS) {
+  for (const b of live) {
     const m = first.get(b.query)!, ms = again.get(b.query)?.ms ?? m.ms;
     table.push(`${b.query.padEnd(28)} ${String(m.docs).padStart(4)} docs ${String(Math.round(m.bytes / 1024 * 10) / 10).padStart(6)} KiB ${ms.toFixed(1).padStart(6)} ms`);
     if (m.docs > LIMITS.docs) problems.push(`${b.query} read ${m.docs} documents (limit ${LIMITS.docs})`);
@@ -78,7 +80,7 @@ test("cold queries survive tick commits in a live game", { timeout: 240_000 }, a
   const agentId = (await ada!.query("v2/play:agents", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page[0]?.agentId ?? "none";
   const assistant = await admin.mutation("v2/testing:seedAssistant", { roomId, userId: ada!.userId, turns: 2 });
   const live: V2Fixture = { roomId, gameId, objectId, agentId, ...assistant };
-  const cold = V2_BUDGETS.filter(b => b.cold && (b.query !== "v2/play:agentPrograms" || agentId !== "none"));
+  const cold = V2_BUDGETS.filter(b => b.cold && !b.endedOnly && (b.query !== "v2/play:agentPrograms" || agentId !== "none"));
   const commits = async () => (await admin.query("v2/testing:clock", { gameId })).commits as number;
   const recheck = async (queries: typeof cold) => {
     const log = await executionLog();
