@@ -15,11 +15,11 @@
  * rules game by game, and every row plays the same seeds, so rows differ only in who plays how.
  *
  *   node --experimental-strip-types scripts/competitive.ts --preset lines-beginner --games 12
- *     [--rows naive,naive,naive;mixed,naive,naive;...] [--seconds 600] [--cap 5 --cap-every 30] [--json out.json]
+ *     [--rows naive,naive,naive;mixed,naive,naive;...] [--seconds 600] [--cap 5 --cap-every 30] [--pool rules.json] [--json out.json]
  */
 import { parseArgs } from "node:util";
-import { writeFileSync } from "node:fs";
-import { evaluateSite, type ObjectType, type Variant } from "@workspace/v2-core";
+import { readFileSync, writeFileSync } from "node:fs";
+import { evaluateSite, rng, type ObjectType, type Variant } from "@workspace/v2-core";
 import { gridType, grid4 } from "@workspace/v2-grid";
 import { lineQ, lineType } from "@workspace/v2-linear";
 import { valuer } from "../src/harness.ts";
@@ -33,7 +33,7 @@ type Kind = "naive" | CompetitiveKind;
 const { values: o } = parseArgs({ options: {
   preset: { type: "string", default: "lines-beginner" }, games: { type: "string", default: "12" }, from: { type: "string", default: "0" },
   rows: { type: "string" }, seconds: { type: "string" }, json: { type: "string" },
-  cap: { type: "string" }, "cap-every": { type: "string" },
+  cap: { type: "string" }, "cap-every": { type: "string" }, pool: { type: "string" },
 } });
 
 const preset = presetOf(o.preset!);
@@ -68,8 +68,15 @@ interface RowStat {
 }
 
 /** Each game's seats: the deal's three rules, in the deal's order. */
+// --pool rules.json: [{ family, params, tieBreaker }], seated three distinct families a game (rules no preset deals yet).
+const custom = o.pool ? JSON.parse(readFileSync(o.pool, "utf8")) as { family: string; params: Record<string, unknown>; tieBreaker: string }[] : null;
 const deals = Array.from({ length: Number(o.games) }, (_, k) => {
   const g = Number(o.from) + k;
+  if (custom) {
+    const r = rng("competitive-pool", String(g)), picks: typeof custom = [];
+    while (picks.length < 3) { const x = custom[r.below(custom.length)]!; if (!picks.some(p => p.family === x.family)) picks.push(x); }
+    return picks;
+  }
   return freshDeal(pool, 3, `competitive:${preset.id}:${g}`, preset.variant).map(d => ({ family: d.family, params: d.params as Record<string, unknown>, tieBreaker: d.tieBreaker }));
 });
 
