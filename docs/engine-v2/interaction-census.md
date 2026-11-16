@@ -210,6 +210,95 @@ Seen in a narrow test, under the assumptions above.
 | tree-nt-tower + whole-crossing | rich |
 | tree-rep-step + tree-rep-step | rich |
 
+## Second run: the scoring trial's law, and three splitter families (16 November, evening)
+
+`--law trial` weights each grid line by the trial's chance 2^−H (`trial-rarity.ts` `rarityHeight`), so a rule's bits
+are the law-weighted share at least as good and big numbers are as rare as the trial makes them. Seed census-1 without
+the splitters, then seed census-2 with them (Root Tilt, Surd Intercept, Near Origin: `tree-families/splitters.md`).
+Seen in a narrow test.
+
+| | grid rarity, pairs / triples | trial law, pairs / triples | trial law with splitters, pairs / triples |
+|---|---|---|---|
+| cooperative (PMI > 0.5) | 56 of 90 / 50 of 58 | 85 of 97 / 79 of 85 | see below |
+| best place, median abs c (grid edge 160) | at the edge | 152.5 | 151 |
+| valley depth (median) | 4.0 / 4.9 bits | 1.9 / 2.5 bits | 1.5 / 2.2 bits |
+| cheap moves help / neutral / harm | 5 / 90 / 5% | 9 / 83 / 6% | 6 / 90 / 4% (pairs) |
+
+1. **"Cooperation is one shared direction: bigger" survives the trial's law, and strengthens.** Weighting lines by the
+   law did not move the best joint places off the large intercepts: rules that each reward a big reading agree there,
+   and rarity under the law makes those agreements worth more, not less. How it could be wrong: the grid still stops at
+   abs c 160, and the law's tail above it is not seen; a census over the law's own draws (not a grid) would settle it.
+2. **The splitters split.** Median PMI of draws holding Root Tilt −0.25, Surd Intercept −0.82, Near Origin +0.27, against
+   +3.33 for draws without any of them. They turn a shared climb into a choice.
+3. **But on the grid they are mostly "hopeless"** (Surd Intercept 14 of 16 draws, Near Origin 15 of 19, Root Tilt 6 of
+   13). For the two digit families this is the grid, by construction: its fractions have bottoms of 3 at most, so few
+   digits of a surd can be matched. For Near Origin it is real: a big |m| / |c| needs a small intercept, which every
+   big-intercept rule fights. Conjecture: in the game, with fractions of any bottom, the digit families find joint places
+   (the reachable digits rise with the bottoms the law allows); Near Origin may be too strong an adversary as drawn
+   (hopeless with three rules in 15 of 19 draws).
+
+### By family (trial law, with the splitters)
+
+| family | draws | rich | dull | conflict | hopeless | median help | median harm |
+|---|---|---|---|---|---|---|---|
+| prime-gradient | 15 | 7 | 0 | 0 | 8 | 9% | 7% |
+| prime-landing | 12 | 12 | 0 | 0 | 0 | 9% | 7% |
+| smooth-intercept | 23 | 19 | 0 | 0 | 4 | 6% | 6% |
+| square-area | 13 | 13 | 0 | 0 | 0 | 9% | 6% |
+| whole-crossing | 18 | 15 | 0 | 0 | 3 | 12% | 9% |
+| treasure | 15 | 13 | 0 | 0 | 2 | 6% | 5% |
+| same-on-both-rulers | 26 | 21 | 0 | 0 | 5 | 8% | 6% |
+| ruler | 18 | 18 | 0 | 0 | 0 | 7% | 6% |
+| pythagorean-area | 28 | 22 | 2 | 0 | 4 | 7% | 6% |
+| prime-intercept | 11 | 10 | 0 | 0 | 1 | 5% | 3% |
+| power-area | 13 | 12 | 0 | 0 | 1 | 9% | 6% |
+| landing-tuple | 20 | 13 | 0 | 0 | 7 | 12% | 6% |
+| ruler-tuple | 19 | 13 | 0 | 0 | 6 | 8% | 5% |
+| treasure-tuple | 17 | 13 | 0 | 0 | 4 | 6% | 5% |
+| rulers-tuple | 17 | 14 | 1 | 0 | 2 | 9% | 6% |
+| crossing-tuple | 13 | 12 | 0 | 0 | 1 | 9% | 9% |
+| tree-nt-prime-top | 19 | 15 | 0 | 0 | 4 | 15% | 6% |
+| tree-geo-rings | 25 | 21 | 0 | 0 | 4 | 10% | 5% |
+| tree-nt-smooth-mixed | 20 | 18 | 0 | 0 | 2 | 6% | 5% |
+| tree-nt-tower | 14 | 12 | 0 | 0 | 2 | 8% | 7% |
+| tree-geo-legs | 19 | 15 | 0 | 0 | 4 | 12% | 6% |
+| tree-geo-quadrant | 17 | 13 | 2 | 1 | 1 | 6% | 5% |
+| tree-rep-borrowed | 21 | 15 | 1 | 0 | 5 | 10% | 8% |
+| tree-rep-step | 14 | 12 | 0 | 0 | 2 | 5% | 3% |
+| tree-rep-partway | 15 | 11 | 0 | 0 | 4 | 8% | 6% |
+| tree-split-root-tilt | 13 | 3 | 3 | 1 | 6 | 4% | 3% |
+| tree-split-surd-intercept | 16 | 2 | 0 | 0 | 14 | 5% | 3% |
+| tree-split-near-origin | 19 | 3 | 1 | 0 | 15 | 6% | 6% |
+
+
+## Proposal: the dealt beginner pool (a recommendation to the coordinator; nothing is dealt by this)
+
+The owner's target: 12 families, at least four fraction-native. Chosen for a mixture of cooperation and conflict
+(census), coverage of readings, and the structural cautions. Fraction-native families need worth as a formula of their
+parameters (the scoring trial's seam) before they can be dealt; until then they stay undealt.
+
+| # | family | reads | role in the mixture | census (trial law) | status |
+|---|---|---|---|---|---|
+| 1 | Prime Landing | x-crossing | big crossing; climbs with tilts | 12 of 12 rich | dealt |
+| 2 | Whole Crossing | x-crossing | big crossing by 5s; Prime Landing's class adversary | 15 of 18 rich, help 12% | dealt |
+| 3 | Smooth Intercept | y-intercept | smooth against prime (Prime Landing's adversary on c) | 19 of 23 rich | dealt |
+| 4 | Square Area | area | big area, from 2² up (redesigned 16 Nov) | 13 of 13 rich | dealt |
+| 5 | Pythagorean Area | area | prime area, against Square Area on one number | 22 of 28 rich | dealt |
+| 6 | Ruler | distance² | big distance | 18 of 18 rich | dealt |
+| 7 | Same on Both Rulers | meeting with y = ±x | palindromes | 21 of 26 rich | dealt |
+| 8 | Prime Gradient | gradient | **the coupled adversary**: a steep line shrinks crossings, areas, distances | 7 of 15 rich, 8 hopeless (long suffixes) | dealt (1, 9) |
+| 9 | Prime Top | x-crossing, p/d | fraction-native; the best interaction measured (help 15%, harm 6%) | 15 of 19 rich | to deal |
+| 10 | Leg Ratio | base + height | fraction-native sizes; a shape pin with a sign ally | 15 of 19 rich, help 12% | to deal |
+| 11 | Borrowed Bottom | y-intercept on the gradient's ruler | fraction-native; couples the gradient's bottom to the intercept | 15 of 21 rich, help 10%, harm 8% | to deal |
+| 12 | Root Tilt | gradient | fraction-native **splitter**: pins the gradient to √D against steepen and flatten climbs | splits (median PMI −0.25); grid-limited | to deal |
+
+Out of the current pool: **Treasure** and **Prime Staircase** (both "size of a ladder number from a coefficient", the
+form five families already share; Prime Staircase was not in the census's candidate list, an omission of this script).
+Alternates: Tangent Rings (21 of 25 rich) in place of Ruler if distance should read fraction-natively; Surd Intercept
+in place of Root Tilt if the pin should sit on the y-intercept; Near Origin only after softening (as drawn it leaves
+most triples with no joint place). How this could be wrong: grid rarity and the trial law are both narrow models; one
+seed per run; the "rich" verdict is generous (two places and PMI not near zero); and nothing here is play.
+
 ## Not covered
 
 - Grid Snap's secondary "snap-reach" (a grid family, reported by the app session): already at its top on most newborn

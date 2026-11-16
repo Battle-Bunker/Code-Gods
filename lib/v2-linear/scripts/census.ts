@@ -245,7 +245,7 @@ const median = (v: number[]) => { const s = [...v].sort((a, b) => a - b); return
 for (const size of [2, 3]) {
   const rs = results.filter(r => r.size === size);
   const by = (v: string) => rs.filter(r => r.verdict === v).length;
-  console.log(`\n## Draws of ${size} rules (${rs.length}; threshold ${T} bits each, grid rarity)\n`);
+  console.log(`\n## Draws of ${size} rules (${rs.length}; threshold ${T} bits each, ${LAW === "trial" ? "the trial's law" : "grid rarity"})\n`);
   console.log(`- rich ${by("rich")}, dull ${by("dull")}, conflict ${by("conflict")}, hopeless ${by("hopeless")}`);
   console.log(`- jointly good places per draw: median ${median(rs.map(r => r.places))}, share with 2 or more ${(rs.filter(r => r.places >= 2).length / rs.length * 100).toFixed(0)}%`);
   console.log(`- of draws with 2 or more places, share where every route between some two passes through a worse state: ${(rs.filter(r => r.places >= 2 && r.valleys.length).length / Math.max(1, rs.filter(r => r.places >= 2).length) * 100).toFixed(0)}%; median valley depth ${median(rs.flatMap(r => r.valleys)).toFixed(1)} bits`);
