@@ -32,7 +32,7 @@ export interface ViewState {
    * The object whose expanded face is open, and the representations it shows side by side (one when switched; none:
    * every representation the viewer's rule depends on, the expanded face's default).
    */
-  focus: { objectId: string; reps: string[] } | null;
+  focus: { objectId: string; reps: string[]; from?: string } | null;
   /** The glossary open at a term ("" for its index), or closed. */
   glossary: string | null;
   /** The replay open on screen; `as`: the player whose eyes it is watched through (absent: the human's own seat). */
@@ -44,6 +44,9 @@ export interface ViewState {
  * the events, resolves a time to the first event at or after it and then moves `plus` events (clamped to the game).
  */
 export type ReplayCursor = { seq: number } | { worldSeconds: number; plus: number };
+
+/** The glossary's page for "How scoring works" (view.showScoring): not a term, so no request for a term opens it. */
+export const SCORING_PAGE = "@scoring";
 
 export const EMPTY_VIEW: ViewState = {
   version: 0, panes: [], dock: {}, pins: {}, objects: { sort: "points", filter: {} }, focus: null, glossary: null, replay: null,
@@ -149,10 +152,11 @@ export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
   "view.pinRepresentation": (v, a) => ({ ...v, pins: { ...v.pins, [a.family ?? "*"]: a.rep } }),
   "view.showRepresentation": (v, a, ctx) => ({ ...opened(v, "object", undefined, ctx), focus: { objectId: a.objectId, reps: [a.rep] } }),
   "view.compareRepresentations": (v, a, ctx) => ({ ...opened(v, "object", undefined, ctx), focus: { objectId: a.objectId, reps: [...new Set(a.reps)] } }),
-  "view.openObject": (v, a, ctx) => ({ ...opened(v, "object", undefined, ctx), focus: { objectId: a.objectId, reps: v.focus?.objectId === a.objectId ? v.focus.reps : [] } }),
+  "view.openObject": (v, a, ctx) => ({ ...opened(v, "object", undefined, ctx), focus: { objectId: a.objectId, reps: v.focus?.objectId === a.objectId ? v.focus.reps : [], ...(a.from ? { from: a.from } : {}) } }),
   "view.sortObjects": (v, a) => ({ ...v, objects: { ...v.objects, sort: a.sort } }),
   "view.filterObjects": (v, a) => ({ ...v, objects: { ...v.objects, filter: { ...(a.mine !== undefined ? { mine: a.mine } : {}), ...(a.minBits !== undefined ? { minBits: a.minBits } : {}), ...(a.show !== undefined && a.show !== "all" ? { show: a.show } : {}) } } }),
   "view.showGlossary": (v, a) => ({ ...v, glossary: a.term ?? "" }),
+  "view.showScoring": v => ({ ...v, glossary: SCORING_PAGE }),
   "view.closeGlossary": v => ({ ...v, glossary: null }),
   "replay.open": (v, a) => ({ ...v, replay: { gameId: a.gameId, cursor: { seq: 0 }, playing: false, speed: 1 }, panes: openPane(v, "replay") }),
   "replay.play": v => ({ ...v, replay: { ...replayOf(v), playing: true } }),

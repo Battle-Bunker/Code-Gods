@@ -22,6 +22,7 @@ import { endNote, resultsHeadline, rotationSummary } from "./results-headline";
 import { MyPointsChart } from "./points-over-time";
 import { seriesOf } from "./chart-model";
 import { mergeTugs, tugsFromServer } from "./summary-tugs";
+import { RetiredLines } from "./retired";
 
 export function ResultsPane() {
   const header = useGame();
@@ -97,6 +98,8 @@ export function ResultsPane() {
         </div>
       )}
       {ended && header.me && <ResultsWhy ref={whyRef} />}
+      {/* Line turnover: the lines that retired, each with what it banked (the totals above include them when banked). */}
+      {header.me && <RetiredLines />}
     </div>
   );
 }
@@ -107,6 +110,7 @@ function Rotation({ summary }: { summary: ReturnType<typeof rotationSummary> }) 
   return (
     <section className="space-y-1" data-testid="results-rotation">
       <p className="text-muted-foreground">{summary.heading}</p>
+      {summary.next && <p data-testid="text-rotation-line">{summary.next}</p>}
       {summary.rows.length > 0 && <ol className="divide-y border-y">
         {summary.rows.map(r => (
           <li key={r.memberId} className={`flex items-center gap-3 py-1.5 ${r.mine ? "font-medium" : ""}`}>

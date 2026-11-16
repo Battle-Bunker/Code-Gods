@@ -525,6 +525,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     const seen = key ? e.state.receipts[key] : undefined;
     return seen?.ok ? { applied: true, operation: key!.split("|").at(-2)!, result: seen.result ?? null } : { applied: false, operation: null, result: null };
   },
+  "server.info": () => ({ builds: { app: null, functions: null }, sandboxes: [{ language: "typescript", runtime: "fake", state: "ready", reason: null }], engine: { tickMs: 1500, maxSecondsPerTick: 3 } }),
   "account.whoami": e => ({ userId: e.userId, name: nameOf(e.state, e.userId), roomId: e.roomId, grant: e.grant ?? null }),
   "account.connections": e => ({ connections: Object.entries(e.state.connections).filter(([, c]) => c.userId === e.userId).map(([connectionId, c]) => ({ connectionId, client: c.client, roomId: c.roomId, grant: c.grant, lastUsedAt: null })) }),
   "account.revokeConnection": (e, a) => {
@@ -543,6 +544,12 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     e.state.connections[a.request] = { userId: e.userId, client: "remote assistant", roomId: a.room ?? e.roomId, grant: a.grant };
     return ok;
   },
+  // The fake server has no script sandbox: a run is refused, and there are no runs to read.
+  "code.run": () => { throw new OpFailure("The offline server does not run code."); },
+  "code.get": () => { throw new OpFailure("No such run of yours."); },
+  "code.list": () => ({ page: [], nextCursor: null }),
+  "code.scripts": () => ({ scripts: [] }),
+  "code.deleteScript": () => ({ deleted: false }),
   "panel.list": e => ({
     panels: Object.values(e.state.panels ?? {}).filter(p => p.userId === e.userId).map(p => ({
       panelId: p.panelId, slug: p.slug, title: p.title, placement: p.placement, size: p.size, currentVersion: p.versions.at(-1)!.version,

@@ -182,10 +182,19 @@ async function endedGame(page: Page, preset: string, noun: string) {
       await s.getByTestId("possible-gods").locator("summary").click();
       assert.ok(await s.getByTestId("row-possible-god").count() >= 2, `${label}: the rules anyone could hold`);
     }
+    if (pane === "overview") {
+      // v1's "Who is here": every seat of the game, the partners marked (no ✓ after planning).
+      await s.getByTestId("who-is-here").waitFor({ timeout: 15_000 });
+      assert.equal(await s.locator("[data-testid^=row-member-]").count(), 3, `${label}: every seat in Who is here`);
+    }
     if (pane === "rules") {
       // v1's game details: after the end, who held which rule.
       await s.getByTestId("dealt-rules").waitFor({ timeout: 15_000 });
       assert.equal(await s.getByTestId("row-dealt-rule").count(), 3, `${label}: every seat's rule, after the end`);
+      // v1's game details timings: started, ended (with how long), why, and the world time it ended at.
+      assert.match(await s.getByTestId("text-ended").innerText(), /\(.+\)/, `${label}: when it ended, and how long it ran`);
+      assert.match(await s.getByTestId("text-end-reason").innerText(), /world lifetime expired|ended by owner|retired by server|left for another game/, `${label}: why it ended`);
+      assert.match(await s.getByTestId("text-world-t").innerText(), /\d s$/, `${label}: the world time it ended at`);
       // v1's "Copy game rules for an AI": copied, or (no clipboard here) shown to copy by hand, the primer included.
       await s.getByTestId("button-copy-rules-ai").click();
       await page.getByText("Rules copied").or(s.getByTestId("text-rules-ai")).first().waitFor({ timeout: 5_000 });
@@ -195,6 +204,8 @@ async function endedGame(page: Page, preset: string, noun: string) {
   }
   const results = await open(page, "results");
   await results.getByText(/You finished/).waitFor();
+  // v1's rotation line: game 1 of a rotation with practice partners, so playing again deals you a named player's rule.
+  assert.match(await results.getByTestId("text-rotation-line").innerText(), /^Play again with the same players and you get .+'s rule/, `${label}: whose rule comes next`);
   assert.equal(await results.locator("[data-testid^=row-result-]").count(), 3, `${label}: the final standings, every player`);
   // v1's end page: a "Final standings" table, and "Why: your best and worst lines" (a link down to it, the chart, each line's score).
   await results.getByText("Final standings", { exact: true }).waitFor();

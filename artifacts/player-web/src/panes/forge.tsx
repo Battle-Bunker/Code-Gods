@@ -18,6 +18,7 @@ import { energyText } from "@/core/words";
 import { checkReport } from "./forge-check";
 import { PullBack } from "./pull-back-ui";
 import { LeaveAlone } from "./leave-alone-ui";
+import { CodeBox, LanguageSelect } from "@/components/code-editor";
 import { shortfallOf, shortText } from "./pull-back";
 import {
   affordLine, comparisonText, editLine, editPrice, FIRST_SHARE, openingProgram, otherStartingPoints, primaryAction, replacedText, summonedText, summonPrice, type Language,
@@ -167,10 +168,7 @@ export function ForgePane() {
             {agents.map(a => <option key={a.agentId} value={a.agentId}>{a.name}</option>)}
           </select>
         )}
-        <select value={language} disabled={!!agent} onChange={e => { setLanguage(e.target.value as Language); setDraft(null); }} className="h-8 border bg-background px-2" aria-label="Language" data-testid="select-forge-language">
-          <option value="typescript">TypeScript</option>
-          <option value="python">Python</option>
-        </select>
+        <LanguageSelect value={language} disabled={!!agent} onChange={l => { setLanguage(l); setDraft(null); }} testId="select-forge-language" />
         <span className="text-xs text-muted-foreground">{agent ? `${agent.name}, version ${agent.version}` : opening ? `${opening.title}: ${opening.summary}` : ""}</span>
       </div>
       {count === 0 && (
@@ -183,8 +181,7 @@ export function ForgePane() {
           Show the code (you don't need to read it to play)
         </button>
       ) : (
-        <textarea value={source} onChange={e => { setDraft(e.target.value); setRan(null); }} spellCheck={false} wrap="off" aria-label="Agent code"
-          className="min-h-[160px] h-[40dvh] md:h-auto md:flex-1 w-full resize-y border bg-[hsl(var(--muted))]/40 p-2 font-mono text-xs leading-relaxed" data-testid="input-forge-code" />
+        <CodeBox value={source} onChange={s => { setDraft(s); setRan(null); }} label="Agent code" className="min-h-[160px] h-[40dvh] md:h-auto md:flex-1" testId="input-forge-code" />
       )}
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         {primary === "summonFirst" && (

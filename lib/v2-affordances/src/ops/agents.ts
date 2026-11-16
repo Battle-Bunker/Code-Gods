@@ -16,6 +16,8 @@ const checkReport = z.object({
   verdict: z.enum(["works", "warns", "fails", "rejected"]), summary: z.string(), price: z.number().describe("The summon price in energy."),
   editPrice: z.number().nullable().describe("With agentId: what agent.replace with this program would cost, only the change (the full price if the language changes); else null."),
   sample: z.array(z.object({ objectId: id, outcome: z.enum(["committed", "skipped", "failed"]), reason: z.string().optional() })),
+  estimate: z.object({ perAct: z.number(), read: z.number(), change: z.number() }).nullable().optional()
+    .describe("What it spent a turn on the samples, on average: reading and changing (v1's estimate); null with no sample act."),
 });
 
 export const agentOps = [

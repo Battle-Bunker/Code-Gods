@@ -71,9 +71,9 @@ export const viewOps = [
   }),
   affordance({
     id: "view.openObject", title: "Open an object", group: "view", scope: "room",
-    description: "Opens one object's expanded face: every representation its rule depends on, with the rule's marks.",
+    description: "Opens one object's expanded face: every representation its rule depends on, with the rule's marks. `from`: the words of the move it was opened from (the act log), said on the face as v1's 'Opened from:'.",
     tooltip: "Look closely at one object.", keywords: ["open", "inspect", "details", "expand"],
-    params: obj({ objectId: id }), result: done,
+    params: obj({ objectId: id, from: z.string().max(300).optional() }), result: done,
     contexts: GAME, caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({
@@ -95,6 +95,13 @@ export const viewOps = [
     description: "Opens the glossary at a term (points, rarity in bits, energy, power, representation, mutator), or its index.",
     tooltip: "What does this word mean?", keywords: ["glossary", "help", "what is", "define"],
     params: obj({ term: z.string().max(40).optional() }), result: done,
+    contexts: CONTEXTS, caller: "anyone", effect: "write", confirm: "none", runs: "client",
+  }),
+  affordance({
+    id: "view.showScoring", title: "How scoring works", group: "help", scope: "none",
+    description: "Opens the explanation of how a score is made (v1's 'How scoring works' sheet): the rule's score, rarity in bits, points as your bits times the others', and why +1 on a rule is not +1 point. Closed with view.closeGlossary.",
+    tooltip: "Your rule's score, rarity in bits, and why what the others want decides your points.", keywords: ["points", "bits", "payoff", "score", "scoring", "rarity"],
+    params: obj({}), result: done,
     contexts: CONTEXTS, caller: "anyone", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({

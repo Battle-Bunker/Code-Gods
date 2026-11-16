@@ -1,7 +1,7 @@
 /** View operations: the layout reducer, its checks, the fake's stored view, and useAffordance's handle. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DIRECTORY, EMPTY_VIEW, PRINCIPALS, VIEW_REDUCERS, applyView, pinnedRep, type AffordanceContext } from "../src/index.ts";
+import { DIRECTORY, EMPTY_VIEW, PRINCIPALS, VIEW_REDUCERS, applyView, pinnedRep, SCORING_PAGE, type AffordanceContext } from "../src/index.ts";
 import { createFake } from "../src/fake.ts";
 import { AffordanceError, affordanceHandle } from "../src/react.ts";
 
@@ -121,4 +121,18 @@ test("the glossary stays closed once closed: closing it is stored in the view, n
   v = r.view;
   assert.equal(v.glossary, null);
   assert.equal(applyView(v, "view.showGlossary", {}, live).view.glossary, "");
+});
+
+test("How scoring works (v1's sheet) opens the glossary at its scoring page, for anyone, and closes like it", () => {
+  let v = applyView(EMPTY_VIEW, "view.showScoring", {}, live).view;
+  assert.equal(v.glossary, SCORING_PAGE);
+  v = applyView(v, "view.closeGlossary", {}, live).view;
+  assert.equal(v.glossary, null);
+});
+
+test("opening an object from a move keeps the move's words, as v1's 'Opened from:'; opening it otherwise drops them", () => {
+  let v = applyView(EMPTY_VIEW, "view.openObject", { objectId: "o1", from: "Your agent Tally-1 added 4 to row 1, column 1" }, live).view;
+  assert.equal(v.focus?.from, "Your agent Tally-1 added 4 to row 1, column 1");
+  v = applyView(v, "view.openObject", { objectId: "o1" }, live).view;
+  assert.equal(v.focus?.from, undefined);
 });

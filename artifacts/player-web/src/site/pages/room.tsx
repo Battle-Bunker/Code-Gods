@@ -30,10 +30,7 @@ import { affordanceContext } from "@/core/affordance-context";
 import { toast } from "@/hooks/use-toast";
 import type { Room } from "@/sdk/types";
 
-function copyInvite(code: string) {
-  const url = `${window.location.origin}${roomPath(code)}`;
-  navigator.clipboard.writeText(url).then(() => toast({ title: "Invite link copied", description: url }), () => toast({ title: "Could not copy the invite link", description: url, variant: "destructive" }));
-}
+import { copyInvite } from "@/site/lib/invite";
 
 /**
  * "Play a practice game": one press fills the empty seats with practice partners and starts (ux-lessons 1.1). Two

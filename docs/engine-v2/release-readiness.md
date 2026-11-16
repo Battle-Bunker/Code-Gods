@@ -36,6 +36,22 @@ Accounts are kept and players stay signed in. Old room and game links show "not 
 Room-bound device and MCP credentials stop working; account-wide ones keep working. AI spend counters start again at
 zero (the code's ceilings still apply). Details: §4.
 
+## Changes landing on 16 November (kept current)
+
+Every schema change below is checked three ways: `production-schema.test.ts` passes (production's v1 rows still
+validate), rows stored on dev before it still load (new fields optional, indexes queried with `undefined` for old
+rows), and a game in progress across the deploy keeps playing. Production holds no v2 rows, so v2-table changes can
+only affect dev.
+
+| Change | Schema | Checked | What players see after promotion |
+|---|---|---|---|
+| Line turnover (#972, #984, #1072) | optional `retired`, `retiredAt`, `quadrant`, `endReason`, turnover settings; value indexes gain `retired` (queries use `retired = undefined` for live rows) | production-schema test green on 1b7b92c2; dev deploys green with it | nothing unless an owner turns it on in room settings (on no preset): at most N live lines, the oldest retiring with its points banked |
+| Locks (state and events) | pending | asked the locks session | pending |
+| Number law (surcharge-weight setting, regenerated line values) | pending | asked the number-law session | pending |
+
+Dev deployment status (the queue, #966): at 01:57 UTC the last successful dev deploy was 7ee39f4c, 11 merges
+(about 6 minutes) behind develop 1b7b92c2; each run deploys the newest commit when the one ahead finishes.
+
 ## 1. Schema against stored production data
 
 Convex validates every stored document of every table **listed** in the pushed schema and fails the push on a

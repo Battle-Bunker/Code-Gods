@@ -11,7 +11,7 @@
  * changed the panes' names (lines, not objects; the forge is Agent code) and their ids are `pane-<id>`.
  */
 import assert from "node:assert/strict";
-import { DESKTOP, SITE, chromium, check, convexRun, deploy, missing, report, shot, signIn, watch, type Page, type Player } from "./v1-harness.ts";
+import { DESKTOP, PHONE, SITE, noHorizontalScroll, chromium, check, convexRun, deploy, missing, report, shot, signIn, watch, type Page, type Player } from "./v1-harness.ts";
 
 deploy();
 
@@ -96,13 +96,18 @@ try {
     } finally { await second.close(); }
   });
 
-  await missing(["e2e-stored-panels-6"], "the panel menu is a combobox: it opens focused, Esc closes it, typing \"chat\" then Enter switches the pane to Public chat", async () => {
+  await check("the panel menu is a combobox: it opens focused, Esc closes it, typing \"chat\" then Enter switches the pane to Public chat", async () => {
     const pane = (await openPanes(page)).find(id => id !== "assistant" && id !== "public-chat")!;
+    await page.getByTestId(`button-pane-menu-${pane}`).click();
+    const input = page.getByTestId(`input-pane-menu-${pane}`);
+    await page.waitForFunction((id: string) => document.activeElement?.getAttribute("data-testid") === id, `input-pane-menu-${pane}`, { timeout: 3_000 });
+    await page.keyboard.press("Escape");
+    await input.waitFor({ state: "detached", timeout: 3_000 });
     await page.getByTestId(`button-pane-menu-${pane}`).click();
     await page.keyboard.type("chat");
     await page.keyboard.press("Enter");
     await page.getByTestId("pane-public-chat").waitFor({ timeout: 3_000 });
-  }, () => escapeAll(page));
+  });
 
   await check("the lines list pages itself: scrolling to its end loads the next page (\"N of M\" footer)", async () => {
     const lines = page.getByTestId("pane-objects");
@@ -138,6 +143,25 @@ try {
     assert.equal(await page.getByTestId("select-lines-sort").inputValue(), next, "the sort survives a reload");
   });
 
+  // v1's pane history (comp-dock-history, comp-pane-header): a change to a pane's own view can be taken back.
+  await check("Back to the previous view: a pane's view changed, then its menu brings the earlier one back", async () => {
+    const select = page.getByTestId("select-lines-sort");
+    const before = await select.inputValue();
+    const options = await select.locator("option").evaluateAll((os: HTMLOptionElement[]) => os.map(o => o.value));
+    await select.selectOption(options.find((o: string) => o !== before)!);
+    await page.getByTestId("button-pane-menu-objects").click();
+    await page.getByTestId("button-pane-back-objects").click();
+    await page.waitForFunction((v: string) => (document.querySelector("[data-testid=select-lines-sort]") as HTMLSelectElement | null)?.value === v, before, { timeout: 10_000 });
+    await page.getByTestId("button-pane-menu-objects").click();
+    assert.equal(await page.getByTestId("button-pane-back-objects").count(), 0, "going back is not a change to go back from");
+    await page.keyboard.press("Escape");
+    // v1's "Reset this panel to its defaults": the lines sorted by points again.
+    await select.selectOption(options.find((o: string) => o !== "points")!);
+    await page.getByTestId("button-pane-menu-objects").click();
+    await page.getByTestId("button-pane-reset-objects").click();
+    await page.waitForFunction(() => (document.querySelector("[data-testid=select-lines-sort]") as HTMLSelectElement | null)?.value === "points", undefined, { timeout: 10_000 });
+  });
+
   await missing(["e2e-stored-panels-4"], "dragging a pane onto the centre of another replaces it: no tabs, no ghost header left behind", async () => {
     const panes = (await openPanes(page)).filter(id => id !== "assistant");
     assert.ok(panes.length >= 2, "two panes to drag");
@@ -156,6 +180,35 @@ try {
     await page.goto(`${gameUrl}?panels=off`);
     await page.getByTestId("dock-desktop").waitFor({ timeout: 60_000 });
     await page.getByTestId("text-safe-mode").waitFor({ timeout: 5_000 });
+  });
+
+  await check("phone (390×844): the same game is stacked, the desktop dock (dockview) is never downloaded, no sideways scroll; the assistant is a sheet that opens", async () => {
+    const context = await browser.newContext({ viewport: PHONE, hasTouch: true, isMobile: true });
+    const phone = await context.newPage();
+    phone.setDefaultTimeout(15_000);
+    watch(phone);
+    const scripts: string[] = [];
+    phone.on("request", (r: any) => { if (r.resourceType() === "script" || r.resourceType() === "stylesheet") scripts.push(r.url()); });
+    phone.on("pageerror", (e: Error) => me.errors.push(`phone: ${e.message}`));
+    await context.addCookies(await me.context.cookies(SITE));
+    await phone.goto(gameUrl);
+    await phone.getByTestId("dock-stacked").waitFor({ timeout: 60_000 });
+    await phone.locator('[data-testid="dock-stacked"] [data-testid^="pane-"]').first().waitFor({ timeout: 30_000 });
+    assert.equal(await phone.locator(".dv-dockview").count(), 0, "dockview rendered on a phone");
+    assert.equal(await phone.getByTestId("dock-desktop").count(), 0, "the desktop dock on a phone");
+    assert.ok(!scripts.some(url => /\/desktop-[^/]*\.(js|css)$/.test(url)), `the desktop dock was downloaded: ${scripts.filter(u => /desktop/.test(u)).join(", ")}`);
+    await noHorizontalScroll(phone, "phone dock");
+    assert.match(await phone.getByTestId("button-avatar").getAttribute("aria-label") ?? "", /Ada Admin/, "identity on the phone");
+    await missing(["e2e-multi-client-21"], "BUG: phone: one press on the assistant's sheet opens it (v2: the first press on a settled page is lost; the second opens it)", async () => {
+      await phone.waitForLoadState("networkidle").catch(() => {});
+      await phone.waitForTimeout(2_000);
+      await phone.getByTestId("button-assistant-sheet").click();
+      await phone.locator('[data-testid="assistant-sheet"][data-open] [data-testid="pane-assistant"]').waitFor({ timeout: 5_000 });
+    });
+    if (!await phone.locator('[data-testid="assistant-sheet"][data-open]').count()) await phone.getByTestId("button-assistant-sheet").click();
+    await phone.locator('[data-testid="assistant-sheet"][data-open] [data-testid="pane-assistant"]').waitFor({ timeout: 10_000 });
+    await shot(phone, "dock-phone-sheet");
+    await context.close();
   });
 
   await check("no uncaught page errors", () => assert.deepEqual(me.errors, []));

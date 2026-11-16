@@ -1,31 +1,41 @@
 /**
  * The glossary, shown when the view asks for it ("Explain a term", view.showGlossary): one term with its explanation,
  * or the index of every term. Closing it performs view.closeGlossary, so the stored view says closed and a reload, a
- * new pane or another screen does not open it again; it hides at once, before the stored view answers.
+ * new pane or another screen does not open it again; it hides at once, before the stored view answers. "How scoring works"
+ * (view.showScoring, v1's sheet) is its page SCORING_PAGE, in the game's noun.
  */
 import { useState } from "react";
 import { GLOSSARY, GLOSSARY_IDS, type GlossaryId } from "@workspace/ui-kit/core";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { SCORING_PAGE } from "@workspace/v2-affordances";
 import { useRuntime, useView } from "@/core/affordance-runtime";
+import { howScoringWorks } from "@/core/words";
 import { glossaryEntry } from "@/site/lib/glossary-entry";
 
-export function GlossaryDialog() {
+export function GlossaryDialog({ noun }: { noun?: { one: string; many: string } }) {
   const view = useView();
   const rt = useRuntime();
   const [closedAt, setClosedAt] = useState<number | null>(null);
   const request = view.glossary;
   const open = request !== null && closedAt !== view.version;
   const [picked, setPicked] = useState<GlossaryId | null>(null);
-  const shown = picked ?? (request !== null ? glossaryEntry(request) : null);
+  const scoring = request === SCORING_PAGE && !picked;
+  const shown = picked ?? (request !== null && !scoring ? glossaryEntry(request) : null);
   const close = () => { setClosedAt(view.version); setPicked(null); void rt.perform("view.closeGlossary", {}); };
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) close(); }}>
       <DialogContent className="max-h-[80dvh] overflow-y-auto" data-testid="glossary">
         <DialogHeader>
-          <DialogTitle>{shown ? GLOSSARY[shown].term : "Glossary"}</DialogTitle>
-          <DialogDescription>{shown ? GLOSSARY[shown].gloss : "Every word the game uses, each with one name."}</DialogDescription>
+          <DialogTitle>{scoring ? "How scoring works" : shown ? GLOSSARY[shown].term : "Glossary"}</DialogTitle>
+          <DialogDescription>{scoring ? `Points come from ${noun?.many ?? "lines"} that are rare for you and for the other players.` : shown ? GLOSSARY[shown].gloss : "Every word the game uses, each with one name."}</DialogDescription>
         </DialogHeader>
-        {shown
+        {scoring
+          ? (
+            <div className="space-y-2 text-sm text-muted-foreground" data-testid="how-scoring-works">
+              {howScoringWorks(noun?.one, noun?.many).map(p => <p key={p.title}><b className="text-foreground">{p.title}</b> {p.body}</p>)}
+            </div>
+          )
+          : shown
           ? <button type="button" className="text-left text-sm underline underline-offset-4" onClick={() => setPicked(null)} data-testid="button-glossary-index">All terms</button>
           : (
             <dl className="space-y-2 text-sm" data-testid="glossary-index">

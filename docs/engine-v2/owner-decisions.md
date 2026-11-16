@@ -288,6 +288,12 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     fractional values." So the beginner line pool's target is 12 families: the recast families, the owner's two
     examples, and four fraction-native families from the rule sessions.
 
+47. On locks' upkeep (relayed by the coordinator, 16 November; about a lock draining its own energy over time at a rate
+    proportional to its predicate's complexity, and vanishing at zero): "Ok happy with this mechanic for making more complex locks more expensive".
+48. On locks' predicates (relayed by the coordinator, 16 November; it replaces the predicate language of
+    docs/engine-v2/locks.md §2–§3): "I don't think we already have a predicate DSL and I don't want to add complexity to build one just for this use case. Predicates should just be programs with the same degrees of freedom as agents and the same complexity scoring rules in terms of information read and program description length. The upkeep rate should be a config param proportional to predicate complexity that we will find the balanced level for with experience of playing the game." Lock implementation is paused with the scoring and costing design
+    (the owner, about 02:00 UTC); the design is docs/engine-v2/locks.md §0.
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact

@@ -56,7 +56,7 @@ test("the game's settings carry the turnover, and the header shows the cap", asy
   assert.deepEqual(s.turnover, { liveCap: CAP, retiredPoints: "banked", retiredHolds: true });
   assert.equal(s.regularBirths, true);
   assert.equal(s.economy.birthsPerSecond, 1 / BIRTH);
-  assert.equal((await ada.query("v2/games:header", { gameId })).liveCap, CAP);
+  assert.deepEqual((await ada.query("v2/games:header", { gameId })).turnover, { liveCap: CAP, banked: true, birthSeconds: BIRTH });
 });
 
 test("never more live lines than the cap; the oldest live line retires, before the birth that would pass the cap", () => {
@@ -69,7 +69,7 @@ test("never more live lines than the cap; the oldest live line retires, before t
       live.splice(live.indexOf(e.data.number), 1);
       // In the commit of the birth it makes room for; or at the start, when there are more starting lines than the cap.
       const next = events.slice(i + 1).find((x: any) => ["objectBorn", "act", "tick", "phase"].includes(x.kind));
-      assert.ok(next?.kind === "objectBorn" || (!started && next?.kind === "phase"), `seq ${e.seq}: followed by ${next?.kind}`);
+      assert.ok(next?.kind === "objectBorn" || (!started && (next?.kind === "phase" || next?.kind === "tick")), `seq ${e.seq}: followed by ${next?.kind}`);
     }
     if (e.kind === "objectBorn") live.push(e.data.number);
     if (e.kind === "phase" && e.data.phase === "live") started = true;
@@ -132,3 +132,29 @@ test("with retiredPoints \"dropped\" and retiredHolds false, a retired line leav
     assert.ok(Math.abs(total - sum) < 1e-6, `${memberId}: total ${total}, live lines ${sum}`);
   }
 });
+
+test("the objects list shows the live lines; the retired list shows the retired ones, each with its banked points", async () => {
+  const page = { numItems: 50, cursor: null };
+  const t = await admin.query("v2/testing:turnoverOf", { gameId });
+  const liveNumbers = t.lines.filter((l: any) => l.retiredAt === undefined).map((l: any) => l.number).sort((a: number, b: number) => a - b);
+  const listed = (await ada.query("v2/play:objectIds", { gameId, sort: "born", paginationOpts: page })).page.map((r: any) => r.number);
+  assert.deepEqual([...listed].sort((a, b) => a - b), liveNumbers, "the list is the live lines");
+  const banked = (await ada.query("v2/play:banked", { gameId, paginationOpts: page })).page;
+  assert.deepEqual(banked.map((r: any) => r.number).sort((a: number, b: number) => a - b), t.retired.map((l: any) => l.number).sort((a: number, b: number) => a - b), "the retired list is the retired lines");
+  assert.ok(banked[0].number > banked.at(-1).number, "the latest retired first");
+  const me = (await ada.query("v2/games:header", { gameId })).me;
+  for (const r of banked.slice(0, 5)) {
+    const o = await ada.query("v2/play:object", { objectId: r.objectId });
+    const line = t.retired.find((l: any) => l.number === r.number);
+    assert.equal(o.retiredAt, line.retiredAt);
+    // Ended: exact; the points it banked for Ada.
+    assert.equal(o.value.points, line.points[me], `line ${r.number}: banked points`);
+    assert.equal(o.lookPrice, undefined, "no look on a retired line");
+    // Its final state (the game is over: everything is open).
+    assert.equal(o.state, events.find(e => e.kind === "retired" && e.data.number === r.number).data.state);
+  }
+  // A live line's object has no retirement.
+  const first = (await ada.query("v2/play:objectIds", { gameId, sort: "born", paginationOpts: page })).page[0];
+  assert.equal((await ada.query("v2/play:object", { objectId: first.objectId })).retiredAt, undefined);
+});
+

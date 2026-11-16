@@ -4,12 +4,13 @@
  */
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import type { FunctionReference } from "convex/server";
-import { MoreHorizontal, X } from "lucide-react";
+import { ChevronLeft, MoreHorizontal, X } from "lucide-react";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { PANES, PANE_IDS, isPaneId, paneTitle, storedSlugOf, type GamePhase, type OpenPane } from "@workspace/v2-client";
 import type { Place, ViewState } from "@workspace/v2-affordances";
 import { ErrorBoundary, type ErrorFallbackProps } from "@/components/error-boundary";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { api, useLive } from "@/site/lib/convex";
 import { objectWord, useGame } from "@/sdk";
 import { useRuntime } from "@/core/affordance-runtime";
@@ -26,6 +27,14 @@ export type StoredPaneComponent = (props: { slug: string }) => ReactNode;
  */
 export interface DockScope { phase: GamePhase; view: ViewState; open: OpenPane[]; body(pane: string): ReactNode }
 export const DockScopeContext = createContext<DockScope | null>(null);
+
+/** "Back to the previous view" (v1's pane history; dock/history.ts): whether a pane has one, and going back to it. */
+export interface PaneBack {
+  can(pane: string): boolean; back(pane: string): void;
+  /** v1's "Reset this panel to its defaults": a pane whose own view differs from its defaults (the objects' sort and filter). */
+  canReset(pane: string): boolean; reset(pane: string): void;
+}
+export const PaneBackContext = createContext<PaneBack | null>(null);
 export function useDockScope(): DockScope {
   const scope = useContext(DockScopeContext);
   if (!scope) throw new Error("A pane is drawn outside the dock.");
@@ -108,20 +117,38 @@ export function PaneMenu({ pane }: { pane: string }) {
   const name = usePaneName();
   const aiOff = !!useRuntime().context.room?.aiOff;
   const maximise = useContext(MaximiseContext);
+  const paneBack = useContext(PaneBackContext);
+  const [shown, setShown] = useState(false);
   const others = PANE_IDS.filter(id => !open.some(p => p.pane === id) && PANES[id].phases.includes(phase) && id !== "object" && !(aiOff && id === "assistant"));
+  // v1's panel menu was a combobox (stored-panels): it opens with the filter focused, typing narrows it, Enter takes
+  // the first match, Esc closes it.
+  const pick = (run: () => unknown) => () => { setShown(false); void run(); };
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+    <Popover open={shown} onOpenChange={setShown}>
+      <PopoverTrigger asChild>
         <button type="button" className="p-1 text-muted-foreground hover:text-foreground" aria-label={`Options for ${name(pane)}`} data-testid={`button-pane-menu-${pane}`} onPointerDown={own}><MoreHorizontal className="h-4 w-4" /></button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-[14rem]">
-        {PLACES.map(p => <DropdownMenuItem key={p.place} disabled={!move.available} onSelect={() => void ops.open(pane, p.place)}>{p.label}</DropdownMenuItem>)}
-        {maximise && <DropdownMenuItem onSelect={() => maximise.toggle(pane)} data-testid={`button-maximise-pane-${pane}`}>{maximise.isMaximised(pane) ? "Restore the other panes" : "Maximise"}</DropdownMenuItem>}
-        <DropdownMenuItem disabled={!close.available} onSelect={() => void ops.close(pane)} data-testid={`button-close-pane-${pane}`}>Close</DropdownMenuItem>
-        {others.length > 0 && <><DropdownMenuSeparator /><DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Open another pane</DropdownMenuLabel></>}
-        {others.map(id => <DropdownMenuItem key={id} onSelect={() => void ops.open(id)} data-testid={`button-open-pane-${id}`}>{name(id)}</DropdownMenuItem>)}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[16rem] p-0" onPointerDown={own}>
+        <Command>
+          <CommandInput placeholder="Type a pane or an action…" data-testid={`input-pane-menu-${pane}`} autoFocus />
+          <CommandList>
+            <CommandEmpty>Nothing matches.</CommandEmpty>
+            <CommandGroup heading={name(pane)}>
+              {PLACES.map(p => <CommandItem key={p.place} value={p.label} disabled={!move.available} onSelect={pick(() => ops.open(pane, p.place))}>{p.label}</CommandItem>)}
+              {maximise && <CommandItem value={maximise.isMaximised(pane) ? "Restore the other panes" : "Maximise"} onSelect={pick(() => maximise.toggle(pane))} data-testid={`button-maximise-pane-${pane}`}>{maximise.isMaximised(pane) ? "Restore the other panes" : "Maximise"}</CommandItem>}
+              {paneBack?.can(pane) && <CommandItem value="Back to the previous view" onSelect={pick(() => paneBack.back(pane))} data-testid={`button-pane-back-${pane}`}>Back to the previous view</CommandItem>}
+              {paneBack?.canReset(pane) && <CommandItem value="Reset this pane to its defaults" onSelect={pick(() => paneBack.reset(pane))} data-testid={`button-pane-reset-${pane}`}>Reset this pane to its defaults</CommandItem>}
+              <CommandItem value="Close" disabled={!close.available} onSelect={pick(() => ops.close(pane))} data-testid={`button-close-pane-${pane}`}>Close</CommandItem>
+            </CommandGroup>
+            {others.length > 0 && (
+              <CommandGroup heading="Open another pane">
+                {others.map(id => <CommandItem key={id} value={`open ${name(id)} ${id}`} onSelect={pick(() => ops.open(id))} data-testid={`button-open-pane-${id}`}>{name(id)}</CommandItem>)}
+              </CommandGroup>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -132,8 +159,13 @@ export function PaneHeader({ pane, className = "" }: { pane: string; className?:
   const close = useAffordance("view.closePane");
   const ops = usePaneOps(phase);
   const name = usePaneName();
+  const paneBack = useContext(PaneBackContext);
   return (
     <header className={`flex items-center gap-2 px-3 py-1.5 ${className}`}>
+      {paneBack?.can(pane) && (
+        <button type="button" aria-label="Back to the previous view" title="Back to the previous view" className="p-1 text-muted-foreground hover:text-foreground"
+          onPointerDown={own} onClick={() => paneBack.back(pane)} data-testid={`button-pane-back-header-${pane}`}><ChevronLeft className="h-4 w-4" /></button>
+      )}
       <h2 className="min-w-0 flex-1 truncate text-sm font-semibold" title={def?.blurb}>{name(pane)}</h2>
       <PaneMenu pane={pane} />
       {pane === "object" && close.available && <button type="button" aria-label="Close" className="p-1 text-muted-foreground hover:text-foreground" onPointerDown={own} onClick={() => void ops.close(pane)}><X className="h-4 w-4" /></button>}

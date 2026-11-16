@@ -10,9 +10,13 @@
  * v2 holds no data worth keeping yet, so these tables change shape freely (CLAUDE.md "Engine v2").
  */
 import { defineTable } from "convex/server";
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import { assistantTables } from "./assistantTables.ts";
 import { authorV, diagnosticV, manifestV, placementV, sizeV } from "./panelShapes.ts";
+
+/** Why a game ended (v1's end reasons, plus a practice game its player left for another). */
+export const endReasonV = v.union(v.literal("lifetime"), v.literal("owner"), v.literal("abandoned"), v.literal("retired"));
+export type EndReason = Infer<typeof endReasonV>;
 
 // ---------------------------------------------------------------- shared shapes
 
@@ -210,6 +214,8 @@ export const v2Tables = {
     /** Wall-clock deadlines: planning's end, and the world's end (null while paused; recomputed on resume). */
     planningEndsAt: v.optional(v.number()), endsAt: v.optional(v.number()),
     startedAt: v.optional(v.number()), endedAt: v.optional(v.number()), pausedBy: v.optional(v.id("v2Members")),
+    /** Why the game ended (v1's endReason): its world ran out, its owner ended it, a practice game its player left, or the server retired it. */
+    endReason: v.optional(endReasonV),
     /** When a player's pause ends by itself (v1: pauseSeconds after it began); absent unless a player paused. */
     pauseEndsAt: v.optional(v.number()),
     /** Each dealt rule's artefact content hash, by member (the header of spec §9.1). */
@@ -243,20 +249,22 @@ export const v2Tables = {
     gameId: v.id("v2Games"), memberId: v.id("v2Members"), objectId: v.id("v2Objects"), number: v.number(),
     state: v.string(), version: v.number(), learnedAt: v.number(), score: scoreWireV, rarityBits: v.number(), want: v.number(), points: v.number(),
     quadrant: v.optional(quadrantV),
+    /** The line retired (turnover); absent: live. Every per-player sort lists live and retired apart. */
+    retired: v.optional(v.literal(true)),
   }).index("by_object_member", ["objectId", "memberId"])
-    .index("by_game_member_points", ["gameId", "memberId", "points"])
-    .index("by_game_member_rarity", ["gameId", "memberId", "rarityBits"])
-    .index("by_game_member_want", ["gameId", "memberId", "want"])
-    .index("by_game_member_born", ["gameId", "memberId", "number"])
-    .index("by_game_member_learned", ["gameId", "memberId", "learnedAt"])
-    .index("by_game_member_version", ["gameId", "memberId", "version"])
+    .index("by_game_member_points", ["gameId", "memberId", "retired", "points"])
+    .index("by_game_member_rarity", ["gameId", "memberId", "retired", "rarityBits"])
+    .index("by_game_member_want", ["gameId", "memberId", "retired", "want"])
+    .index("by_game_member_born", ["gameId", "memberId", "retired", "number"])
+    .index("by_game_member_learned", ["gameId", "memberId", "retired", "learnedAt"])
+    .index("by_game_member_version", ["gameId", "memberId", "retired", "version"])
     // The filtered sorts (v1's positive, contested, chips): the same orders within one quadrant.
-    .index("by_game_member_quadrant_points", ["gameId", "memberId", "quadrant", "points"])
-    .index("by_game_member_quadrant_rarity", ["gameId", "memberId", "quadrant", "rarityBits"])
-    .index("by_game_member_quadrant_want", ["gameId", "memberId", "quadrant", "want"])
-    .index("by_game_member_quadrant_version", ["gameId", "memberId", "quadrant", "version"])
-    .index("by_game_member_quadrant_born", ["gameId", "memberId", "quadrant", "number"])
-    .index("by_game_member_quadrant_learned", ["gameId", "memberId", "quadrant", "learnedAt"]),
+    .index("by_game_member_quadrant_points", ["gameId", "memberId", "retired", "quadrant", "points"])
+    .index("by_game_member_quadrant_rarity", ["gameId", "memberId", "retired", "quadrant", "rarityBits"])
+    .index("by_game_member_quadrant_want", ["gameId", "memberId", "retired", "quadrant", "want"])
+    .index("by_game_member_quadrant_version", ["gameId", "memberId", "retired", "quadrant", "version"])
+    .index("by_game_member_quadrant_born", ["gameId", "memberId", "retired", "quadrant", "number"])
+    .index("by_game_member_quadrant_learned", ["gameId", "memberId", "retired", "quadrant", "learnedAt"]),
 
   /** When a human last acted (activity.ts: idle parking); one row, key "global". */
   v2Activity: defineTable({ key: v.string(), lastHumanActivityAt: v.number() }).index("by_key", ["key"]),
@@ -317,7 +325,9 @@ export const v2Tables = {
     /** Line turnover: the world second it retired (no agent is offered it again; its points as the settings say). */
     retiredAt: v.optional(v.number()),
   })
-    .index("by_game", ["gameId", "number"]),
+    .index("by_game", ["gameId", "number"])
+    /** The live lines (retiredAt absent) apart from the retired ones (turnover): the spectator's list. */
+    .index("by_game_live", ["gameId", "retiredAt", "number"]),
   /** An object's hot part, shared by every viewer: the state on the wire. */
   v2ObjectStates: defineTable({
     objectId: v.id("v2Objects"), gameId: v.id("v2Games"), state: v.string(), version: v.number(), changedAt: v.number(),
@@ -336,24 +346,26 @@ export const v2Tables = {
     version: v.number(), changedAt: v.number(), quadrant: v.optional(quadrantV),
     /** The last moves on it that concerned this player (at most HISTORY, oldest first): their agents' `history`. */
     recent: v.optional(v.array(v.object({ mine: v.boolean(), pointsBefore: v.number(), pointsAfter: v.number() }))),
+    /** The line retired (turnover, retirement-design.md); absent: live. The sorts below list live and retired apart. */
+    retired: v.optional(v.literal(true)),
   }).index("by_object_member", ["objectId", "memberId"])
-    .index("by_game_member_points", ["gameId", "memberId", "points"])
-    .index("by_game_member_rarity", ["gameId", "memberId", "rarityBits"])
-    .index("by_game_member_want", ["gameId", "memberId", "want"])
+    .index("by_game_member_points", ["gameId", "memberId", "retired", "points"])
+    .index("by_game_member_rarity", ["gameId", "memberId", "retired", "rarityBits"])
+    .index("by_game_member_want", ["gameId", "memberId", "retired", "want"])
     // The live sorts read the disclosed values (a sort on the exact ones would leak their order).
-    .index("by_game_member_shownPoints", ["gameId", "memberId", "shownPoints"])
-    .index("by_game_member_shownWant", ["gameId", "memberId", "shownWant"])
-    .index("by_game_member_born", ["gameId", "memberId", "number"])
-    .index("by_game_member_changed", ["gameId", "memberId", "changedAt"])
+    .index("by_game_member_shownPoints", ["gameId", "memberId", "retired", "shownPoints"])
+    .index("by_game_member_shownWant", ["gameId", "memberId", "retired", "shownWant"])
+    .index("by_game_member_born", ["gameId", "memberId", "retired", "number"])
+    .index("by_game_member_changed", ["gameId", "memberId", "retired", "changedAt"])
     // v1's "most mutated": the row's version counts the object's changes (1 at birth).
-    .index("by_game_member_version", ["gameId", "memberId", "version"])
+    .index("by_game_member_version", ["gameId", "memberId", "retired", "version"])
     // The filtered sorts (v1's positive, contested, chips) on the disclosed values: the same orders within one quadrant.
-    .index("by_game_member_quadrant_shownPoints", ["gameId", "memberId", "quadrant", "shownPoints"])
-    .index("by_game_member_quadrant_rarity", ["gameId", "memberId", "quadrant", "rarityBits"])
-    .index("by_game_member_quadrant_shownWant", ["gameId", "memberId", "quadrant", "shownWant"])
-    .index("by_game_member_quadrant_version", ["gameId", "memberId", "quadrant", "version"])
-    .index("by_game_member_quadrant_born", ["gameId", "memberId", "quadrant", "number"])
-    .index("by_game_member_quadrant_changed", ["gameId", "memberId", "quadrant", "changedAt"]),
+    .index("by_game_member_quadrant_shownPoints", ["gameId", "memberId", "retired", "quadrant", "shownPoints"])
+    .index("by_game_member_quadrant_rarity", ["gameId", "memberId", "retired", "quadrant", "rarityBits"])
+    .index("by_game_member_quadrant_shownWant", ["gameId", "memberId", "retired", "quadrant", "shownWant"])
+    .index("by_game_member_quadrant_version", ["gameId", "memberId", "retired", "quadrant", "version"])
+    .index("by_game_member_quadrant_born", ["gameId", "memberId", "retired", "quadrant", "number"])
+    .index("by_game_member_quadrant_changed", ["gameId", "memberId", "retired", "quadrant", "changedAt"]),
 
   /** An agent's cold part. */
   v2Agents: defineTable({
@@ -389,6 +401,8 @@ export const v2Tables = {
   v2AgentPrograms: defineTable({
     agentId: v.id("v2Agents"), version: v.number(), language: languageV, source: v.string(), sourceHash: v.string(),
     price: v.number(), summonedAt: v.number(), acts: v.number(), pointsGained: v.number(),
+    /** v1's estimate: the program's check, run in the background after a human's summon or replace (checkNode.ts estimate). */
+    estimate: v.optional(v.union(v.object({ perAct: v.number(), read: v.number(), change: v.number() }), v.null())),
   }).index("by_agent", ["agentId", "version"]),
 
   /** The scoreboard (≤ 8 rows in one document), ranked by net total (total less the bid handicap). */
@@ -530,4 +544,16 @@ export const v2Tables = {
   }).index("by_panel_version", ["panelId", "version"]),
   /** Recent save times per human (rolling-minute rate limit; at most LIMITS.savesPerMinute entries). */
   v2PanelQuotas: defineTable({ userId: v.string(), saves: v.array(v.number()) }).index("by_user", ["userId"]),
+  /**
+   * A human's code runs (v1's run_code, A15; codeRun.ts): a script's `main(data)` over one dataset of a game, read-only.
+   * One row per run, the caller's own: its source, outcome, the result as JSON text (bounded) and the console output.
+   */
+  v2CodeRuns: defineTable({
+    userId: v.string(), gameId: v.optional(v.id("v2Games")), title: v.string(), language: v.string(), source: v.string(),
+    dataset: v.string(), status: v.union(v.literal("ok"), v.literal("error")), resultJson: v.optional(v.string()),
+    output: v.string(), error: v.optional(v.string()), ms: v.number(), at: v.number(),
+  }).index("by_user_at", ["userId", "at"]),
+  /** A human's saved scripts (v1's run_code saveAs, scripts/<name>): run again by name with code.run's `script`. */
+  v2CodeScripts: defineTable({ userId: v.string(), name: v.string(), language: v.string(), source: v.string(), title: v.string(), updatedAt: v.number() })
+    .index("by_user_name", ["userId", "name"]),
 };
