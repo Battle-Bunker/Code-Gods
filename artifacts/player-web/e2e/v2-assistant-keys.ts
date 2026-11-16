@@ -121,6 +121,16 @@ try {
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => document.activeElement?.getAttribute("data-testid") === "select-assistant-thread", null, { timeout: 10_000 });
   console.log("ok   the palette starts a new conversation and opens the conversation picker");
+  // v1's "Who am I" from the palette: who you are signed in as and what you are in this room.
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+K");
+  await page.getByTestId("input-palette").fill("Show who I am");
+  await page.keyboard.press("Enter");
+  const info = page.getByTestId("panel-palette-info");
+  await info.waitFor({ timeout: 10_000 });
+  assert.match(await info.innerText(), /You are .+, the owner and a player in room [A-Z0-9]+/);
+  await page.keyboard.press("Escape");
+  console.log("ok   Show who I am names you and your place in the room");
   assert.deepEqual(errors, [], "no page errors");
 } finally {
   await browser.close();
