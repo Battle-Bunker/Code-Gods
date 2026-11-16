@@ -119,11 +119,11 @@ is [narrow]: Z is unbuilt.
 trophy lies below an object can pull it down onto that trophy cheaply, and the players above must pay lift to undo it
 **[built]**. A floor lock is the exact counter **[built]**. Toppler against floor-keeper is Z's central relationship.
 
-**Niches [guess].** Pioneer (lifts newborn objects: cheap, low pay). Joiner (nudges a lifted object toward its own
-trophy nearby). Toppler. Floor-keeper. Free-rider on a partner's lock.
+**Niches [guess].** Pioneer (lifts newborn objects), joiner (nudges a lifted object toward its own trophy), toppler,
+floor-keeper, free-rider on a partner's lock.
 
-**What a player decides each minute [guess].** Which of the live objects gets scarce lift; whether to lift toward
-their own trophy or toward where the others' total is rising; lift or fund a floor; which ageing object to abandon.
+**Each minute a player decides [guess]:** which object gets scarce lift; toward their own trophy or toward where
+the others' total is rising; lift or fund a floor; which ageing object to abandon.
 
 **Coalitions.** They form where two players' trophies sit close on one object: shared lift, shared floor **[built]**.
 They break when a third player's trophy is cheaper below, when one partner stops paying the lock, and at the known end
@@ -136,9 +136,9 @@ score is roughly the height, all rules say "up", and nothing opposes **[guess]**
 rules reading different numbers, or opposite signs of the same number.
 
 **Product or square root.** With linear lift cost the product pays more the more is piled on one object **[built]**:
-one tower, one big fight, and one object may be enough to do well, which the owner calls a bug. The square root gives
+one tower, and one object may be enough to do well, which the owner calls a bug. The square root gives
 no bonus for piling on, and pays most steeply for a first small stake **[built]**, which pulls outsiders in to join.
-I would take the square root **[guess]**. It also compresses leads, so standings stay close.
+I would take the square root **[guess]**.
 
 **Objects per player.** Two conditions, not a number: at least one object per pair of players plus one (four for
 three players), so each partnership can have a home; and more objects than one income can lift, so choosing and
@@ -146,16 +146,15 @@ abandoning are real **[guess]**.
 
 **Lifetimes.** Staggered births give overlapping generations, which is good. Under flow, a known end only makes late
 lift worth smoothly less **[built]**. The harm is to coalitions: everyone knows when paying for a floor stops being
-worthwhile, so partnerships unravel on schedule **[guess]**. If a bell rhythm appears, make the lifetime random with
-the same average, as the old game's hidden end was.
+worthwhile, so partnerships unravel on schedule **[guess]**. If that shows, make the lifetime random with the same average.
 
 **The two choices that matter most [guess].** (1) Trophy geometry: how far apart different players' trophies sit on
 a shared reading, against the reach worth ÷ k. Too close and all agree; too far and objects are private. (2) The
 combining rule, product or root.
 
-**What would make it dull.** The "everyone up" case above. And transparency: prices and scores are smooth and known,
-so one's own best move is computable; surprise can only come from the others' hidden trophies.
+**Also dull:** prices and scores are smooth and known, so one's own best move is computable; surprise can only come
+from the others' hidden trophies **[built]**.
 
 **How I could be wrong.** I have not traced Z3 through real mutators: shortcuts may make the cheapest route to a
 trophy tiny everywhere, flattening scores. The toppler may be too strong for one-for-one floors, or irrelevant if
-trophies are sparse. I assume players play for rank. I have reasoned about three players only.
+trophies are sparse. I assume three players who play for rank.
