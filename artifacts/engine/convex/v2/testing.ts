@@ -22,7 +22,7 @@ import { presetOf } from "./presets";
 import { RUNTIME_VERSION } from "./readiness";
 import { valueRecord as valueRecordOf } from "./values";
 import { seatRules as seatRulesOf } from "./loop";
-import { decode as decodeState, scopeOf as scopeOfGame, valuesOf as valuesOfState } from "./world";
+import { birthDraws as birthDrawsOf, decode as decodeState, scopeOf as scopeOfGame, valuesOf as valuesOfState } from "./world";
 import { fullReadBits as fullReadBitsOf } from "./knowledge";
 import { newNoiseKey, objectReading, quadrantOf, readingNoise, shownAt } from "./disclose";
 
@@ -382,6 +382,12 @@ export const agentsOf = internalQuery({
 export const header = internalQuery({
   args: { gameId: v.id("v2Games") },
   handler: async (ctx, { gameId }) => { fixtures(); return await ctx.db.get(gameId); },
+});
+
+/** The birth walk as this runtime draws it (v2-birth-fidelity.test.ts compares it with Node's, where the table runs). */
+export const birthWalk = internalQuery({
+  args: { variant: v.string(), seed: v.string(), draws: v.number() },
+  handler: async (_ctx, a) => { fixtures(); return birthDrawsOf(a.variant, a.seed, a.draws); },
 });
 
 /** An account-scope credential: the human everywhere, as an OAuth account grant is. */
