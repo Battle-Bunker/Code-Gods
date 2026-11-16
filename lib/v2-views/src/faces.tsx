@@ -251,7 +251,7 @@ export function MovesList<S>({ list, noun, bits, others }: MovesListProps<S>): R
         ))}
       </ol>
       <p className="v2v-moves-hint">{others
-        ? "Points = your bits × the others' bits together. Climb a step at a time: a move marked “good for both” raises them for you and for the others, so nobody has a reason to undo it."
+        ? "Points = your bits × the others' bits together. Climb a step at a time: a move marked “good for both” raises them for you and for the others at once. Their agents keep moving too, so the best next step keeps changing."
         : "The first is drawn dashed in the views that can show it. Tell your assistant the words, or let your agent find it."}</p>
     </div>
   );
