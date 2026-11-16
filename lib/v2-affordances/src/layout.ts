@@ -208,6 +208,8 @@ export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
   "replay.open": (v, a) => ({ ...v, replay: { gameId: a.gameId, cursor: REPLAY_END, playing: false, speed: 1 }, panes: openPane(v, "replay") }),
   "replay.play": v => ({ ...v, replay: { ...replayOf(v), playing: true } }),
   "replay.pause": v => ({ ...v, replay: { ...replayOf(v), playing: false } }),
+  "replay.start": v => ({ ...v, replay: { ...replayOf(v), playing: false, cursor: { seq: 0 } } }),
+  "replay.end": v => ({ ...v, replay: { ...replayOf(v), playing: false, cursor: REPLAY_END } }),
   "replay.seek": (v, a) => {
     const r = replayOf(v);
     if ((a.seq === undefined) === (a.worldSeconds === undefined)) throw new OpFailure("Give an event number or a world time, not both.");

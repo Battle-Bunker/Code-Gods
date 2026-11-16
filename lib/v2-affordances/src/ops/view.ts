@@ -152,6 +152,18 @@ export const viewOps = [
     params: obj({}), result: done, contexts: ["replay"], caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({
+    id: "replay.start", title: "Jump to the start of the replay", group: "replay", scope: "game",
+    description: "Moves the replay's cursor to the start, before the first event, and stops it (v1's \"Replay: jump to the start\").",
+    tooltip: "To the start.", keywords: ["start", "beginning", "rewind", "first", "home"],
+    params: obj({}), result: done, contexts: ["replay"], caller: "member", effect: "write", confirm: "none", runs: "client",
+  }),
+  affordance({
+    id: "replay.end", title: "Jump to the end of the replay", group: "replay", scope: "game",
+    description: "Moves the replay's cursor to the end, the final board, and stops it.",
+    tooltip: "To the end.", keywords: ["end", "final", "last", "finish"],
+    params: obj({}), result: done, contexts: ["replay"], caller: "member", effect: "write", confirm: "none", runs: "client",
+  }),
+  affordance({
     id: "replay.seek", title: "Jump to a moment in the replay", group: "replay", scope: "game",
     description: "Moves the replay's cursor to an event number (0 = the start) or a world time in seconds.",
     tooltip: "Jump to a point in time.", keywords: ["seek", "jump", "go to time"],

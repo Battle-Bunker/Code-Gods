@@ -230,6 +230,8 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `replay.open` | Watch a replay | gameId | client · room | member | room, ended, replay | write |
 | `replay.play` | Play the replay | — | client · game | member | replay | write |
 | `replay.pause` | Pause the replay | — | client · game | member | replay | write |
+| `replay.start` | Jump to the start of the replay | — | client · game | member | replay | write |
+| `replay.end` | Jump to the end of the replay | — | client · game | member | replay | write |
 | `replay.seek` | Jump to a moment in the replay | seq, worldSeconds | client · game | member | replay | write |
 | `replay.step` | Step the replay | by | client · game | member | replay | write |
 | `replay.watchAs` | Watch the replay as a player | memberId | client · game | member | replay | write |
