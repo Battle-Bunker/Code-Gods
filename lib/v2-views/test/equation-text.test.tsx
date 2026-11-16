@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { q, type Q } from "@workspace/v2-core";
-import { fromMC, lineType, normalise, type LineState } from "@workspace/v2-linear";
+import { fromMC, lineType, normalise, type LineState, lineQ } from "@workspace/v2-linear";
 import { chipRep, ObjectChip, repText, RepView } from "../src/index.ts";
 
 const mc = (m: Q, c: Q): LineState => ({ lines: [fromMC(m, c)] });
@@ -52,11 +52,11 @@ test("a vertical line's chip says what it is: x = 3, never x − 3 = 0", () => {
 test("a vertical line in a view that cannot show it: the view names it (x = 3) before saying why, and the compact face says what would make it score", async () => {
   const { CompactFace } = await import("../src/index.ts");
   // Prime Gradient reads only the gradient, which a vertical line lacks (Prime Landing now reads its x-axis landing).
-  const { primeGradient, lineQ } = await import("@workspace/v2-linear");
+  const { primeHug, lineQ } = await import("@workspace/v2-linear");
   const v = abc(1n, 0n, -3n);
   const si = text(renderToStaticMarkup(<RepView type={lineType} state={v} rep="si" size="compact" />));
   assert.match(si, /^x = 3\b.*a vertical line has no gradient or y-intercept/, si);
-  const rule = { type: lineType, family: primeGradient, params: primeGradient.dealable(lineQ)[0], variant: lineQ, tieBreaker: "shared-factor" } as never;
+  const rule = { type: lineType, family: primeHug, params: primeHug.dealable(lineQ)[0], variant: lineQ, tieBreaker: null } as never;
   const face = text(renderToStaticMarkup(<CompactFace rule={rule} state={v} toScore />));
   assert.match(face, /x = 3/, face);
   assert.match(face, /not scoring/, face);
@@ -65,8 +65,8 @@ test("a vertical line in a view that cannot show it: the view names it (x = 3) b
 
 test("the act log names a vertical line too: x = 3 → y = 3, never its reason sentence", async () => {
   const { MoveLine } = await import("../src/index.ts");
-  const { primeLanding, lineQ } = await import("@workspace/v2-linear");
-  const rule = { type: lineType, family: primeLanding, params: primeLanding.dealable(lineQ)[0], variant: lineQ, tieBreaker: "shared-factor" } as never;
+  const { powerHug, lineQ } = await import("@workspace/v2-linear");
+  const rule = { type: lineType, family: powerHug, params: powerHug.dealable(lineQ)[0], variant: lineQ, tieBreaker: null } as never;
   const t = text(renderToStaticMarkup(<MoveLine rule={rule} before={abc(1n, 0n, -3n)} after={mc(q(0), q(3))} who="Your agent" what="reflect in y = x" />));
   assert.match(t, /x = 3 → y = 3/, t);
   assert.doesNotMatch(t, /vertical line has no gradient or y-intercept →/, t);

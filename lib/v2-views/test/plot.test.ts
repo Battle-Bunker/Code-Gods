@@ -7,10 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { q, type Q, type RuleFamily } from "@workspace/v2-core";
-import {
-  divisibilityLadder, fromMC, lineQ, lineZ, lineType, normalise, primeGradient, primeLanding, primeStaircase, sameOnBothRulers,
-  squareArea, treasure, wholeCrossing, type Line, type LineState,
-} from "@workspace/v2-linear";
+import { multiples, fromMC, lineQ, lineZ, lineType, normalise, primeHug, powerHug, primeSliver, unitFraction, squareTriangle, steppingCoefficients, crossingSliver, type Line, type LineState,  } from "@workspace/v2-linear";
 import { annotate, meaningKey, projectRef, type RuleRef } from "../src/index.ts";
 import { fitViewport } from "../src/plot/viewport.ts";
 import { placeLabels, overlap } from "../src/plot/labels.ts";
@@ -53,25 +50,21 @@ test("placeLabels: deterministic, inside the box, no overlaps, avoids the line",
 
 type Case = { name: string; family: RuleFamily<LineState, any>; params?: unknown; tb?: string; state: LineState; variant?: typeof lineQ };
 const CASES: Case[] = [
-  { name: "y = 290x + 59, Square Area", family: squareArea, state: mc(290, 59), variant: lineZ },
-  { name: "y = 290x + 59, Prime Landing", family: primeLanding, state: mc(290, 59), variant: lineZ },
-  { name: "near-horizontal y = x/6 + 7/6, Whole Crossing", family: wholeCrossing, state: mc(q(1, 6), q(7, 6)) },
-  { name: "far from the origin, c = 27,720, Divisibility Ladder", family: divisibilityLadder, state: mc(27720, 27720), variant: lineZ },
-  { name: "far from the origin, c = 27,720, Prime Landing", family: primeLanding, state: mc(5, 27720), variant: lineZ },
-  { name: "through the origin, Square Area (no triangle)", family: squareArea, state: mc(3, 0) },
-  { name: "through the origin, Whole Crossing", family: wholeCrossing, state: mc(3, 0) },
-  { name: "near-vertical, huge x-intercept", family: wholeCrossing, state: abc(1000, -1, -90001) },
-  { name: "near-vertical, Prime Gradient", family: primeGradient, state: mc(997, 3), variant: lineZ },
+  { name: "y = 290x + 59, Square Area", family: squareTriangle, state: mc(290, 59), variant: lineZ },
+  { name: "y = 290x + 59, Prime Landing", family: powerHug, state: mc(290, 59), variant: lineZ },
+  { name: "near-horizontal y = x/6 + 7/6, Whole Crossing", family: crossingSliver, state: mc(q(1, 6), q(7, 6)) },
+  { name: "far from the origin, c = 27,720, Divisibility Ladder", family: multiples, state: mc(27720, 27720), variant: lineZ },
+  { name: "far from the origin, c = 27,720, Prime Landing", family: powerHug, state: mc(5, 27720), variant: lineZ },
+  { name: "through the origin, Square Area (no triangle)", family: squareTriangle, state: mc(3, 0) },
+  { name: "through the origin, Whole Crossing", family: crossingSliver, state: mc(3, 0) },
+  { name: "near-vertical, huge x-intercept", family: crossingSliver, state: abc(1000, -1, -90001) },
+  { name: "near-vertical, Prime Gradient", family: primeHug, state: mc(997, 3), variant: lineZ },
   // Each pool rule's typical top state.
-  { name: "Prime Landing top", family: primeLanding, state: mc(6, 31), variant: lineZ },
-  { name: "Square Area top", family: squareArea, state: mc(-1, 46) /* area 1058 = not square */, variant: lineZ },
-  { name: "Square Area exact", family: squareArea, state: mc(-2, 14), variant: lineZ },
-  { name: "Whole Crossing top", family: wholeCrossing, state: mc(1, -37), variant: lineZ },
-  { name: "Divisibility Ladder top", family: divisibilityLadder, state: mc(27720, 27720), variant: lineZ },
-  { name: "Treasure top", family: treasure, state: mc(17, 3), variant: lineZ },
-  { name: "Same on Both Rulers top", family: sameOnBothRulers, state: mc(-1, 2442), variant: lineZ },
-  { name: "Prime Gradient top", family: primeGradient, state: mc(31, 7), variant: lineZ },
-  { name: "Prime Staircase", family: primeStaircase, state: mc(6, 5), variant: lineZ },
+  { name: "Prime Landing top", family: powerHug, state: mc(6, 31), variant: lineZ },
+  { name: "Square Area top", family: squareTriangle, state: mc(-1, 46) /* area 1058 = not square */, variant: lineZ },
+  { name: "Square Area exact", family: squareTriangle, state: mc(-2, 14), variant: lineZ },
+  { name: "Divisibility Ladder top", family: multiples, state: mc(27720, 27720), variant: lineZ },
+  { name: "Prime Gradient top", family: primeHug, state: mc(31, 7), variant: lineZ },
 ];
 /**
  * The boxes the renderer lays out in: the compact face and the expanded drawing (the SVG then scales to the card at
@@ -112,7 +105,7 @@ for (const c of CASES) {
 }
 
 test("an area rule's triangle labels both legs at rest", () => {
-  const rule: RuleRef<LineState, unknown> = { type: lineType, family: squareArea, params: { ends: 9 }, variant: lineZ };
+  const rule: RuleRef<LineState, unknown> = { type: lineType, family: squareTriangle, params: { ends: 9 }, variant: lineZ };
   const s = mc(-1, 7);
   const e = annotate(rule, s).sites[0]!.evaluation;
   const scene = lineType.representations.find(r => r.id === "tri")!.layout(s, 0);
@@ -122,16 +115,3 @@ test("an area rule's triangle labels both legs at rest", () => {
   assert.ok(legs.every(l => l.priority === 1));
 });
 
-test("Square Area draws the nearest square beside the triangle on equal scales, and not on unequal ones", () => {
-  const rule: RuleRef<LineState, unknown> = { type: lineType, family: squareArea, params: { ends: 9 }, variant: lineZ };
-  const layout = (s: LineState) => {
-    const e = annotate(rule, s).sites[0]!.evaluation;
-    const scene = lineType.representations.find(r => r.id === "tri")!.layout(s, 0);
-    return planeLayout({ rep: "tri", scene: scene as never, values: valuesOf(lineType, s, 0), marks: e.marks, terms: new Map(e.terms.map(t => [t.id, t])), size: "expanded", box: planeRenderer.box.expanded, project: (r, reps) => projectRef(lineType, r, reps), meaningOf: r => meaningKey(lineType, r) })!;
-  };
-  const L = layout(mc(-2, 14)); // legs 7 and 14, area 49 = 7 × 7, a rung of squares ending in 9
-  assert.ok(L.square, "the square is drawn");
-  assert.equal(L.square!.label, "7 × 7 = 49");
-  assert.ok(L.square!.x >= 0 && L.square!.y >= 0 && L.square!.x + L.square!.side <= L.view.box.w && L.square!.y + L.square!.side <= L.view.box.h, "inside the drawing");
-  assert.equal(layout(mc(290, 59)).square, null, "unequal scales: no square");
-});

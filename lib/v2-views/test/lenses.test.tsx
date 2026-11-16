@@ -8,7 +8,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { q, type Mark, type Q, type RuleFamily } from "@workspace/v2-core";
-import { divisibilityLadder, fromMC, lineQ, lineType, normalise, wholeCrossing, type Line, type LineState } from "@workspace/v2-linear";
+import { multiples, fromMC, lineQ, lineType, normalise, crossingSliver, type Line, type LineState } from "@workspace/v2-linear";
 import { annotate, ExpandedFace, ObjectChip, RepView, repText, type RuleRef } from "../src/index.ts";
 
 const mc = (m: number | Q, c: number | Q): LineState =>
@@ -41,7 +41,7 @@ test("crossing scene: every step's numbers and both readouts are element nodes; 
 });
 
 test("crossing: marks land on its elements and x0 lights with the plane's x-intercept", () => {
-  const e = evaluation(wholeCrossing, mc(3, -7));
+  const e = evaluation(crossingSliver, mc(3, -7));
   const html = view(mc(3, -7), "crossing", "expanded", e.marks);
   assert.match(node(html, "crossing.x0"), /data-focus=""/);
   const near: Mark[] = [{ kind: "candidate", ref: { rep: "crossing", name: "near" } }];
@@ -55,35 +55,3 @@ test("crossing: marks land on its elements and x0 lights with the plane's x-inte
   assert.ok(node(vertical, "crossing.x0") && !node(vertical, "crossing.m"));
 });
 
-test("table: the y ÷ x row is drawn only when a rule cites it, ticks the run and marks the first miss", () => {
-  const s = mc(6, 6); // 12, 18, 24 are multiples of 1, 2, 3; 30 is not a multiple of 4
-  assert.doesNotMatch(view(s, "table", "expanded"), /y ÷ x/);
-  const e = evaluation(divisibilityLadder, s);
-  const html = view(s, "table", "expanded", e.marks);
-  assert.match(html, /<th scope="row">y ÷ x<\/th>/);
-  for (const x of [1, 2, 3]) {
-    assert.match(node(html, `table.q(x=${x})`), /data-focus=""/);
-    assert.match(html, new RegExp(`<td[^>]*data-run=""[^>]*>(?:(?!</td>).)*data-ref="table\\.q\\(x=${x}\\)"(?:(?!</td>).)*>whole<`), `x = ${x} ticked and in the run`);
-  }
-  assert.match(html, /<td[^>]*data-miss=""[^>]*>(?:(?!<\/td>).)*data-ref="table\.q\(x=4\)"(?:(?!<\/td>).)*>not whole</, "x = 4 is the miss");
-  assert.equal((html.match(/>not whole</g) ?? []).length, 1, "only the first miss is crossed");
-  assert.equal((html.match(/data-run=""/g) ?? []).length, 9, "the run's three columns: header, y and y ÷ x");
-  assert.match(html, /data-ref="table\.q\(x=6\)"(?:(?!<\/td>).)*>whole</, "a later whole quotient is still ticked");
-  assert.match(html, /4 does not divide y\(4\): the run stops here/);
-  // The compact table starts at x = 1, where the row has cells, and keeps the run's focus.
-  const compact = view(s, "table", "compact", e.marks);
-  assert.ok(node(compact, "table.q(x=1)") && !node(compact, "table.y(x=0)"));
-});
-
-test("table: a line through (0, 0) has no run to count, and its table draws no y ÷ x row", () => {
-  const e = evaluation(divisibilityLadder, mc(3, 0));
-  assert.ok("undefined" in e.terms.find(t => t.id === "ladder")!.value);
-  assert.doesNotMatch(view(mc(3, 0), "table", "expanded", e.marks), /y ÷ x/);
-});
-
-test("the expanded faces of both families draw their lenses", () => {
-  const face = (family: RuleFamily<LineState, any>, s: LineState) =>
-    renderToStaticMarkup(<ExpandedFace rule={{ type: lineType, family, params: family.dealable(lineQ)[0], variant: lineQ }} state={s} />);
-  assert.match(face(wholeCrossing, mc(3, -7)), /data-rep="crossing"/);
-  assert.match(face(divisibilityLadder, mc(6, 6)), /data-rep="table"[\s\S]*y ÷ x/);
-});

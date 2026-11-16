@@ -6,7 +6,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { compareScores, q, rng, scoreToWire, type Q, type RuleFamily, type Score } from "@workspace/v2-core";
-import { lineZ, wholeCrossing } from "@workspace/v2-linear";
 import { findVariant, knotsFrom, ladderCaps, layerMeasures, lineValueFunction, massOracle, sampledOracle, tailOf, TAIL_CEILING, TAIL_FLOOR, valueLookup, VALUE_CONFIG } from "../src/index.ts";
 import { pairTail } from "../src/value-pair.ts";
 import { tieBreakerBits, tieBreakerLevels } from "../src/value.ts";
@@ -61,23 +60,6 @@ test("mass outside an enumeration widens the interval: a knot is certified only 
   const { knots } = knotsFrom([massOracle("all", states, 1e-3)], { ...tight, delta: 0 });
   for (const k of knots) assert.ok(k.hi - k.lo <= Math.max(0.02 * k.bits, VALUE_CONFIG.absFloor) + 1e-9);
   assert.ok(knots.every(k => k.bits < 9), "nothing rarer than the outside mass is certified");
-});
-
-test("direct draws agree with the exact sums (Whole Crossing r = 2 + shared-factor on line-z)", () => {
-  const p = wholeCrossing.dealable(lineZ)[1]!;
-  const exact = lineValueFunction(wholeCrossing, p, lineZ, { tieBreaker: "shared-factor", config: { drawsPerTilt: 0 } });
-  const draws = lineValueFunction(wholeCrossing, p, lineZ, { tieBreaker: "shared-factor", exact: false, config: { drawsPerTilt: 30_000 } });
-  const look = valueLookup(exact);
-  let compared = 0;
-  for (const k of draws.knots) {
-    if (k.u === null) continue;
-    const e = look(scoreFromKnot(k.u));
-    if (e.at !== "knot") continue;
-    const sigma = (k.hi - k.lo) / 4;
-    assert.ok(Math.abs(k.bits - e.bits) <= 4 * sigma + 0.05, `${JSON.stringify(k.u)}: drawn ${k.bits} ± ${sigma.toFixed(3)}, exact ${e.bits}`);
-    compared++;
-  }
-  assert.ok(compared >= 5, `compared ${compared} knots`);
 });
 
 const scoreFromKnot = (u: (string | null)[]): Score => u.map(x => (x === null ? null : parse(x)));

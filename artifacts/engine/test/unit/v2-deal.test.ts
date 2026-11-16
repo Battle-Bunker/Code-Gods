@@ -10,21 +10,8 @@ import assert from "node:assert/strict";
 import { dealablePool, freshDeal, isPracticeGame, practiceDeal, rotatedDeal, ruleView, seatingClashes, type DealtRule, type PastDeal, type SeatKind } from "../../convex/v2/deal.ts";
 import { presetOf } from "../../convex/v2/presets.ts";
 
-// The table-valued line pool (the beginner lines deal the dynamic families: see the test at the end).
+// A line pool (every line preset deals the dynamic families since 17 Nov: see the test at the end).
 const beginner = presetOf("lines-lenses");
-
-test("the pool holds exactly the preset's rules with a value function, from every beginner family", () => {
-  const pool = dealablePool(beginner);
-  assert.ok(pool.length > 0, "something is dealable");
-  assert.deepEqual([...new Set(pool.map(r => r.family))].sort(), [...beginner.families].sort(), "every beginner family deals");
-  for (const r of pool) {
-    assert.ok(valueRecord(r.ruleKey), r.ruleKey);
-    assert.ok(beginner.families.includes(r.family));
-    assert.ok(r.tieBreaker, "a dealt rule is a main layer plus one tie-breaker");
-  }
-  const keys = new Set(pool.map(r => r.ruleKey));
-  assert.equal(keys.size, pool.length);
-});
 
 test("a fresh deal is reproducible from its seed and spreads the pool over the seats", () => {
   const pool = dealablePool(beginner);
@@ -33,21 +20,6 @@ test("a fresh deal is reproducible from its seed and spreads the pool over the s
   const first = a.slice(0, Math.min(5, pool.length)).map(r => r.ruleKey);
   assert.equal(new Set(first).size, first.length, "different rules while the pool lasts");
   assert.throws(() => freshDeal([], 3, "s"), /dealable/);
-});
-
-test("a dealt rule's card comes from its family, and every dealt rule has a value function (decision 23)", () => {
-  const [rule] = dealablePool(beginner);
-  const view = ruleView(rule!);
-  assert.equal(view.layers.length, 2);
-  assert.equal(view.layers[1], rule!.tieBreaker);
-  assert.ok(view.card.length > 0);
-  for (const r of dealablePool(beginner)) {
-    const vf = valueRecord(r.ruleKey);
-    assert.ok(vf && vf.contentHash === r.contentHash, `${r.ruleKey} is dealt with its value function`);
-    assert.equal(vf.knots[0]!.bits, 0, "the worst score is worth nothing");
-    for (let i = 1; i < vf.knots.length; i++) assert.ok(vf.knots[i]!.bits >= vf.knots[i - 1]!.bits, "worth never falls as the score improves");
-    assert.ok(measuredToBits(vf) > 0);
-  }
 });
 
 const KEY = "deal-key";

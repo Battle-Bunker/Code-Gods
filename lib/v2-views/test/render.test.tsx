@@ -8,7 +8,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Qn, q, rng, walkStep, type Q, type RuleFamily } from "@workspace/v2-core";
-import { families, fromMC, lineQ, lineType, normalise, type Line, type LineState } from "@workspace/v2-linear";
+import { dynamicFamilies as families, fromMC, lineQ, lineType, normalise, type Line, type LineState } from "@workspace/v2-linear";
 import { annotate, fmtQ, markRefs, ObjectChip, RepView, repText, type RuleRef } from "../src/index.ts";
 import { emptyTank } from "../src/demo.ts";
 import { key as refNodeKey } from "../src/render/common.tsx";

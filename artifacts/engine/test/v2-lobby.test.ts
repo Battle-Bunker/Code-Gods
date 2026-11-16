@@ -92,10 +92,11 @@ test("the setup picker: the server's own presets, and nothing else; a family's v
   const changed = await perform(plain!, "room.settings", { preset: "test-anything" }, { roomId: room }).catch((e: any) => e.data);
   assert.match(changed.error.message, /No preset/);
 
-  const rules = await plain!.query("v2/gallery:family", { preset: "lines-beginner", family: "prime-landing" });
+  const rules = await plain!.query("v2/gallery:family", { preset: "lines-beginner", family: "power-hug" });
   assert.ok(rules.length > 0, "the family's dealable rules");
-  for (const r of rules) assert.ok(r.points.length > 1 && r.points.every((p: any) => p.bits >= 0) && r.points.at(-1).bits > 0, JSON.stringify(r.points.slice(-3)));
-  assert.deepEqual(await plain!.query("v2/gallery:family", { preset: "nope", family: "prime-landing" }), []);
+  // A dynamic rule has no value curve (energy.md): its card says what it wants.
+  for (const r of rules) assert.ok(r.points.length === 0 && /power of/.test(r.card), r.card);
+  assert.deepEqual(await plain!.query("v2/gallery:family", { preset: "nope", family: "power-hug" }), []);
 });
 
 test("at most eight players can play (v1's cap); the rest of the room watches", { timeout: 60_000 }, async () => {

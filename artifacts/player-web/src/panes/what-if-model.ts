@@ -7,7 +7,7 @@
  * move is unknowable. Both sides of a move read the same value function (bits at any score), so before and after compare.
  */
 import { EngineHost } from "@workspace/v2-agents/pure";
-import { evaluateObject, Qn, representation, variantMutators, type Q, type Score, type Variant } from "@workspace/v2-core";
+import { energyOf, evaluateObject, Qn, representation, variantMutators, type Q, type Score, type Variant } from "@workspace/v2-core";
 import { objectTypeOf } from "../sdk/object-types.ts";
 import { typesetNumbers } from "@workspace/v2-views/format";
 import type { GameRule } from "../sdk/rule.ts";
@@ -106,7 +106,10 @@ export function formError(fields: readonly ArgField[], typed: Readonly<Record<st
 export interface Standing {
   /** The rule's score of the line (its utility). */
   score: Score;
-  /** rarity in bits at that score, from the rule's value function (null without one). */
+  /**
+   * What the line is worth to the rule: for a rule scored by the dynamic measure (docs/engine-v2/energy.md), its energy,
+   * estimated afresh (it jitters); otherwise rarity in bits at the score, from the value function (null without one).
+   */
   rarity: number | null;
   /** rarity × the others' want (null without a want). */
   points: number | null;
@@ -135,7 +138,7 @@ const hostOn = (rule: GameRule, state: unknown) =>
 /** The rule's verdict on a line: its score, rarity in bits and points (the "before" of every move tried on it). */
 export function standing(rule: GameRule, state: unknown, value: ((u: Score) => number) | null, want: number | null): Standing {
   const score = evaluateObject(rule.type, rule.family, rule.params, state, rule.variant, rule.tieBreaker ?? undefined).score;
-  const rarity = value ? value(score) : null;
+  const rarity = rule.family.dynamic ? energyOf(rule.type, rule.family, rule.params, state, rule.variant).energy : value ? value(score) : null;
   return { score, rarity, points: rarity !== null && want !== null ? rarity * want : null };
 }
 

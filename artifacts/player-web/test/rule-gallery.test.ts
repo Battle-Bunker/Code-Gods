@@ -16,16 +16,12 @@ test("the gallery lists every family the board deals, the beginner pool first, a
   assert.deepEqual(g.beginner.map(e => e.id), dynamicFamilies.filter(f => f.dealable(lineQ).length).map(f => f.id));
   const all = [...g.beginner, ...g.more].map(e => e.id).sort();
   assert.deepEqual(all, lineType.families.filter(f => f.dealable(lineQ).length).map(f => f.id).sort());
-  const tri = g.more.find(e => e.id === "triangle-area")!;
-  assert.equal(tri.title, "Triangle Area");
-  assert.match(tri.sentence, /triangle/);
-  assert.equal(tri.choices, 5, "five areas to deal: 4, 6, 8, 12, 18");
+  assert.deepEqual(g.more, [], "every line family is dealt (decision 50)");
 });
 
 test("a beginner family says which presets deal it on that board", () => {
   const e = galleryFamilies("line-q").beginner[0]!;
   assert.ok(e.presets.includes("Lines · beginner"), e.presets.join(", "));
-  assert.deepEqual(galleryFamilies("line-z").beginner[0]!.presets, [], "no setup deals whole-number lines");
 });
 
 test("every board the gallery offers is a variant of a type the app draws, the grid's included", () => {
@@ -45,31 +41,24 @@ test("the grid board lists the grid's families (the beginner grid pool first), n
   assert.equal(p.rule.type, gridType);
   assert.equal(p.rule.variant.id, grid4.id);
   assert.match(p.main.sentence, /18/);
-  assert.equal(familyPage("triangle-area", setupFromSearch(`?board=${grid4.id}`)), null, "a line family has no page on the grid board");
+  assert.equal(familyPage("square-triangle", setupFromSearch(`?board=${grid4.id}`)), null, "a line family has no page on the grid board");
 });
 
-test("a family page offers the family's dealable parameters and tie-breakers, and its card follows the choice", () => {
-  const p = familyPage("triangle-area", setupFromSearch("?board=line-z&params=2&tb=even"))!;
-  assert.deepEqual(p.params.map(c => c.label), ["A = 4", "A = 6", "A = 8", "A = 12", "A = 18"]);
-  assert.equal(p.setup.params, 2);
-  assert.deepEqual(p.rule.params, { A: 8 });
-  assert.equal(p.rule.tieBreaker, "even");
-  assert.deepEqual(p.tieBreakers.map(t => t.id), ["legs", "even"]);
-  assert.match(p.card, /area as close as possible to 8\. Secondary: Make the two legs as close to equal/);
-  assert.deepEqual(p.reads, ["the triangle with the axes", "the line on the plane", "slope-intercept"]);
+test("a family page offers the family's dealable parameters, and its card follows the choice", () => {
+  const p = familyPage("square-triangle", setupFromSearch("?board=line-z&params=1"))!;
+  assert.deepEqual(p.params.map(c => c.label), ["k = 3", "k = 7"]);
+  assert.equal(p.setup.params, 1);
+  assert.deepEqual(p.rule.params, { k: 7 });
+  assert.equal(p.rule.tieBreaker, null);
+  assert.deepEqual(p.tieBreakers, []);
+  assert.match(p.card, /multiple of 7/);
 });
 
-test("a family without parameters says so; one with none to deal on this board has no page", () => {
-  const p = familyPage("m-meets-c", setupFromSearch(""))!;
-  assert.deepEqual(p.params, [{ index: 0, label: "Nothing to choose: this rule has no numbers of its own." }]);
+test("an unknown family has no page; an unknown board or a parameter past the end falls back to the first", () => {
   assert.equal(familyPage("no-such-family", setupFromSearch("")), null);
-});
-
-test("an unknown board, a parameter past the end or an unknown tie-breaker falls back to the first", () => {
-  const p = familyPage("triangle-area", setupFromSearch("?board=grid&params=99&tb=zzz"))!;
+  const p = familyPage("square-triangle", setupFromSearch("?board=grid&params=99"))!;
   assert.equal(p.setup.board, "line-q", "fraction lines are the default board (decision 2)");
   assert.equal(p.setup.params, 0);
-  assert.equal(p.rule.tieBreaker, "legs");
 });
 
 test("the URL of a choice opens the same rule again", () => {
