@@ -44,6 +44,13 @@ function powerRatio(s: PairState, k: number): string {
   const n = Math.round(Math.log(K) / Math.log(k)), off = Math.abs(Math.log2(K) - n * Math.log2(k));
   return `(${k}^${n}, ${r2(off)} doublings away, gap ${r2(offShare(c1! - c2!, k ** n))} of ${k ** n} from a multiple)`;
 }
+/** Power Crossing (k): the crossing's height (size); the nearest power of k in doublings; the crossing's x near a multiple of it. */
+function powerCrossing(s: PairState, k: number): string {
+  const c = crossing(s);
+  if (!c || c.y === 0) return "parallel, or crossing on the x-axis: no score";
+  const h = Math.abs(c.y), n = Math.round(Math.log(h) / Math.log(k)), off = Math.abs(Math.log2(h) - n * Math.log2(k));
+  return `(${k}^${n}, ${r2(off)} doublings away, x ${r2(offShare(c.x, k ** n))} of ${k ** n} from a multiple)`;
+}
 const moves = [
   { label: "shift line 1 by 1", m: "si.shift", a: { line: "1", k: "1" } },
   { label: "tilt line 1 by 1", m: "si.tilt", a: { line: "1", k: "1" } },
@@ -54,6 +61,7 @@ const moves = [
   { label: "stretch line 1 by 2", m: "mach.stretch", a: { line: "1", f: "2" } },
 ];
 const systems: [string, string][] = [
+  ["y = 2x + 8 and y = −2x + 24 (crossing (4, 16))", "-2,1,-8;2,1,-24"],
   ["y = 2x − 7 and y = −x + 32 (crossing (13, 19))", "-2,1,7;1,1,-32"],
   ["y = x/2 + 30 and y = −3x/2 − 31 (crossing (−30.5, 14.75))", "-1,2,-60;3,2,62"],
   ["y = 8x + 41 and y = x + 41 (crossing (0, 41))", "-8,1,-41;-1,1,-41"],
@@ -62,10 +70,10 @@ const systems: [string, string][] = [
 for (const [name, enc] of systems) {
   const s = pairType.decode(enc) as PairState;
   console.log(`\n${name}: ${pairType.encode(s)}`);
-  console.log(`  Prime Crossing (1): ${primeCrossing(s, 1)}   Power Ratio (2): ${powerRatio(s, 2)}`);
+  console.log(`  Prime Crossing (1): ${primeCrossing(s, 1)}   Power Ratio (2): ${powerRatio(s, 2)}   Power Crossing (2): ${powerCrossing(s, 2)}`);
   for (const mv of moves) {
     const a = applyCall(pairType, pairQ, s, { mutator: mv.m, site: 0, args: mv.a });
     if (isInvalid(a)) { console.log(`  ${mv.label}: refused`); continue; }
-    console.log(`  ${mv.label} (${a.price.total.toFixed(1)}⚡): PC ${primeCrossing(a.result, 1)}   PR ${powerRatio(a.result, 2)}`);
+    console.log(`  ${mv.label} (${a.price.total.toFixed(1)}⚡): PC ${primeCrossing(a.result, 1)}   PR ${powerRatio(a.result, 2)}   PW ${powerCrossing(a.result, 2)}`);
   }
 }

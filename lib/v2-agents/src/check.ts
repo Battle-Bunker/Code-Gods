@@ -45,7 +45,8 @@ export async function check<S>(sandbox: Sandbox, input: CheckInput<S>): Promise<
   const sample = acts.map((a, i) => ({ objectId: input.samples[i]!.objectId, outcome: a.outcome, ...(a.reason ? { reason: a.reason } : {}) }));
   const n = acts.length, committed = acts.filter(a => a.outcome === "committed").length, failed = acts.filter(a => a.outcome === "failed");
   const p = (x: number) => `${Math.round(x * 10) / 10} energy`;
-  const many = input.type.id === "grid" ? "boards" : "lines", one = input.type.id === "grid" ? "board" : "line";
+  const board = input.type.id === "grid" || input.type.id.startsWith("board");   // the digit grid or a coloured board
+  const many = board ? "boards" : "lines", one = board ? "board" : "line";
   if (n === 0) return { verdict: "warns", summary: `There were no sample ${many} to try it on. Summoning it costs ${p(price)}.`, price, sample, acts };
   if (acts[0]?.code === "COMPILE") return { verdict: "rejected", summary: `The program does not run: ${acts[0].reason}`, price, sample, acts };
   if (failed.length === n) return { verdict: "fails", summary: `It failed on every sample: ${failed[0]!.reason}`, price, sample, acts };

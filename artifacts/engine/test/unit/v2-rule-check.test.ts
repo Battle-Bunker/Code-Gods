@@ -37,6 +37,26 @@ const PMI_ALIGNED = 2, PMI_ALIGNED_SHARE = 0.2, PMI_MAX = 4, PMI_MEAN = 1;
  * (3a, 4, 13:<layer>), "<preset> <row>" for a pool's (5, 7-kind:<kind>, 7-form:<form>).
  */
 const EXEMPT: Readonly<Record<string, string>> = {
+  // The coloured boards' original-rules baseline (lib/v2-grid-boards, "Grids · original colours"; coordinator's call 37):
+  // v1's colour families as v1 had them, with v1's secondaries (one or none) and v1's parameters. To be redesigned with
+  // the owner later, not by a session.
+  "chessmaster 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "chessmaster 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "parity-painter 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "colour-mirror 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "colour-mirror 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "picture-frame 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "picture-frame 4": "16 Nov, boards worker: grid baseline (call 37); one symbol dealt for equal opportunity, 0–2 fail the energy gate",
+  "colour-bonds 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "colour-bonds 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "honest-minesweeper 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "honest-minesweeper 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "kingdom 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "kingdom 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "set-spotter 3a": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "set-spotter 4": "16 Nov, boards worker: grid baseline: ported as v1 (call 37)",
+  "grids-original-colours 5-unmeasured": "16 Nov, boards worker: no PMI table for board-4-base10-rgb yet (baseline, call 37)",
+
   // Row 3a: one or two dealt secondaries. The owner's instruction (15 Nov): at least three per family. Lines: the spec
   // lead's repertoire work; grids-arithmetic withdrawn 16 Nov (pairs: three or more since trial 37).
   "prime-landing 3a": "15 Nov, spec lead: repertoire in progress",
