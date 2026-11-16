@@ -138,6 +138,9 @@ export const agentRowV = v.object({
 export const agentsPageV = paginationResultValidator(agentRowV);
 export const agentEnergyV = v.object({
   agentId: v.id("v2Agents"), energy: v.number(), acts: v.number(), skips: v.number(), failures: v.number(), spend: v.number(),
+  /** `spend` split as v1's My agents showed it: reading and changing; and the last act's two parts and outcome. */
+  spendRead: v.number(), spendChange: v.number(),
+  lastAct: v.union(v.object({ at: v.number(), read: v.number(), change: v.number(), outcome: v.string() }), v.null()),
   pointsGained: v.number(), lastActAt: v.union(v.number(), v.null()),
   /** As the own store's: the agent's income and capacity, and `energy` settled to the world second `settledAt`. */
   perSecond: v.number(), capacity: v.number(), settledAt: v.number(),

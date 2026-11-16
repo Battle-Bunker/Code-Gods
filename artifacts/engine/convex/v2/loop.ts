@@ -673,12 +673,16 @@ export const commit = internalMutation({
       const outcome = holder ? "failed" : verdict === "committed" && !committed ? "stale" : verdict;
       const charge = committed || outcome === "skipped" || (outcome === "failed" && !holder) ? record.charge : readCharge(record.readBits);
       const charged = chargeAct(account, charge);
+      // v1's split of the spend: what the reads cost (paid whatever happened) and the rest, the change (committed acts only).
+      const readPart = Math.min(charge, readCharge(record.readBits)), changePart = charge - readPart;
       const n = act.n;
       // The sparkline's sample: the balance after this act (a later act in the same tick replaces it).
       const kept = (energy.history ?? []).filter(h => h.at < world);
       const history = [...kept, { at: world, energy: charged.balance }].slice(-AGENT_HISTORY);
       await ctx.db.patch(energy._id, {
         energy: charged.balance, settledAt: charged.settledWorldSeconds, acts: energy.acts + 1, spend: energy.spend + charge, lastActAt: world, history,
+        spendRead: (energy.spendRead ?? 0) + readPart, spendChange: (energy.spendChange ?? 0) + changePart,
+        lastAct: { at: world, read: readPart, change: changePart, outcome },
         ...(outcome === "skipped" ? { skips: energy.skips + 1 } : outcome === "failed" ? { failures: energy.failures + 1 } : {}),
       });
       const actSeq = await appendEvent(ctx, game._id, "act", {
