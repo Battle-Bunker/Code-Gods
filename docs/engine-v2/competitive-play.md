@@ -33,7 +33,7 @@ what they do. They are measurement agents, never shipped or shown to players.
    down (naive points −37% on lines, −38% on grids), so it is a spoiler, not a strategy.
 6. **Levers.** The turnover board (a new object every 30 s, 5 live) softens the exploit: one mixed player's wins fall
    to 50% on both presets, and holds and objects-changed rise. It does not end the dilemma: all-mixed tables still lose
-   about half their points. Pricing (c′): see §5.2. Tree-shape rules: not measurable yet (no starters exist for them).
+   about half their points. Pricing: (c′) was superseded by size-only gravity, which is measured next (§5.2). Tree-shape rules: not measurable yet (no starters exist for them).
    Locks: waiting for the table option.
 7. **Hold rarity.** The measurements are not a reason to bring it back. The defender plays the closest thing to it
    (it prefers states a single step cannot knock far), and it gains nothing against naive players. Against mixed
@@ -67,7 +67,7 @@ took it to 14.
 |---|---|---|
 | naive | the shipped Simple starter | acts only when a move raises its own points now |
 | mixed | OWN 1, RIVAL 1 | builds, and knocks when a rival's loss per energy beats building |
-| vandal | OWN 0, RIVAL 1, TARGET 8 bits, KNOCK 25% | only knocks: the cheapest large damage on objects the others hold many bits on |
+| vandal | OWN 0, RIVAL 1, TARGET 8 bits, KNOCK 25% | only knocks: the cheapest large damage on objects the others hold many bits on (the rows here probed up to 20 steps an act, 4 more than its PROBE 16; fixed after) |
 | defender | OWN 1, FRAGILE 0.5 | the starter, preferring states one step cannot knock far down |
 | rank | mixed; the player reads the public standings every 10 s | RIVAL 0.25 when 10% ahead, 2 when behind, 1 otherwise; each change is an edit paid at the edit price (table `playerTurns`) |
 | lookahead | the agents session's two-move climber (`pool-dynamics.ts --look dip:0.5`) | lines only |
@@ -257,12 +257,12 @@ Turnover is good for dynamics and blunts the exploit somewhat:
 - **A new risk on grids:** a vandal reaches 42% there, because knocking an object about to retire costs its owner
   points it cannot climb back.
 
-### 5.2 Pricing (c′): Ψ(φ) = φ up to par = 24 bits, then par + 3·(φ − par)
+### 5.2 Pricing (c′) and size-only gravity
 
-The spec lead's env-gated patch to `lib/v2-core/src/walk.ts`, applied locally and never committed. *Results pending:
-the rows (naive ×3, mixed + 2 naive, mixed ×3, vandal + 2 naive) are running.* Expectation from §4: (c′) makes growth
-past the band dearer, but sideways knocks keep φ and are untouched. So it should not change the knock economy on grids
-at all, and on lines only for knocks that raise φ.
+(c′) is superseded: the owner ordered size-only gravity instead (branch `claude/gravity-measure`). The (c′) rows were
+stopped unfinished. The same rows (all naive, one mixed, all mixed, best replies) and the knock breakdown of §4 run on
+the gravity branch next. The question is whether "mixed" still dominates on lines once high scores are high energy, and
+what share of knocks stay sideways.
 
 ### 5.3 Rules in the owner's tree shape (Prime Intercept, Power Area)
 

@@ -73,7 +73,7 @@ function compete(offer, options, now, tries, around) {
   const pick = OWN > 0 ? idx.slice(0, QUOTES) : [];
   if (RIVAL > 0 && S >= TARGET && PROBE > 0) {
     const rest = idx.filter(i => !pick.includes(i)), step = Math.max(1, rest.length / PROBE);
-    for (let j = 0; j < rest.length && pick.length < QUOTES + PROBE; j += step) pick.push(rest[Math.floor(j)]);
+    for (let j = 0; j < rest.length && pick.length < (OWN > 0 ? QUOTES : 0) + PROBE; j += step) pick.push(rest[Math.floor(j)]);
   }
   let left = calls - 12;
   const ranked = [];

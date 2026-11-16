@@ -33,7 +33,7 @@ const mean = (x: number[]) => (x.length ? x.reduce((a, b) => a + b, 0) / x.lengt
 const f = (x: number, d = 1) => (Number.isFinite(x) ? x.toFixed(d) : "-");
 
 const neg = (v: string) => (v.startsWith("-") ? v.slice(1) : v === "0" ? v : `-${v}`);
-const inv = (v: string) => { const [n, d] = v.split("/"); return d ? `${d}/${n}` : `1/${n}`; };
+const inv = (v: string) => { const sign = v.startsWith("-") ? "-" : "", [n, d] = v.replace(/^-/, "").split("/"); return d ? `${sign}${d}/${n}` : `${sign}1/${n}`; };
 /** The inverse of one call at a state: the candidate whose result is `back`, with its price (bits). */
 function undo(c: Call, at: unknown, back: string): { calls: Call[]; w: number } | null {
   const cands: Record<string, string>[] = [
