@@ -56,6 +56,8 @@ export const overridesV = v.object({
   bidVisibility: v.optional(v.union(v.literal("sealed"), v.literal("open"))),
   /** v1's bid results shown, during the game (absent: the preset's; after the end everything is shown). */
   bidDisclosure: v.optional(v.union(v.literal("none"), v.literal("handicaps"), v.literal("all"))),
+  /** v1's bidSeconds: the bid phase's length; 0 is none, above 0 opens one on any setup (absent: the preset's). */
+  bidSeconds: v.optional(v.number()),
   /** Line turnover (retirement-design.md): at most this many live lines; a birth past it retires the oldest. Absent: none. */
   liveCap: v.optional(v.number()),
   /** Regular births, one every this many world seconds, in place of the preset's birth rate. */

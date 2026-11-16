@@ -16,3 +16,12 @@ test("every bid per family, highest first, yours as you, families in the offer's
   ]);
   assert.deepEqual(everyonesBids(families, [], []), []);
 });
+
+test("v1's words on the bid screen: Pass or Done bidding, and who is still bidding", async () => {
+  const { primaryLabel, doneLine } = await import("../src/site/lib/open-bids.ts");
+  assert.equal(primaryLabel([]), "Pass");
+  assert.equal(primaryLabel([{}]), "Done bidding");
+  assert.equal(doneLine([], 1), "You passed. Waiting for 1 more player…");
+  assert.equal(doneLine([{}], 2), "You are done. Waiting for 2 more players…");
+  assert.equal(doneLine([], 0), "You passed. Everyone is done: dealing the rules…");
+});

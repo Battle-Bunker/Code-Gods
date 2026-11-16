@@ -203,6 +203,9 @@ export const bidStateV = v.object({
   /** v1's open bidding: "open" shows every other player's bids as they are placed; sealed shows none. */
   visibility: v.union(v.literal("sealed"), v.literal("open")),
   others: v.array(v.object({ memberId: v.id("v2Members"), name: v.string(), bids: v.array(bidV) })),
+  pricing: v.union(v.literal("first"), v.literal("second")),
+  /** Whether the caller bids: a seated human (spectators watch the clock; the owner may cancel). */
+  bidder: v.boolean(),
 });
 
 /**

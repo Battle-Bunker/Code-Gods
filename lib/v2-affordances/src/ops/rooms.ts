@@ -84,7 +84,7 @@ export const roomOps = [
   // The owner's lobby and game controls.
   affordance({
     id: "room.settings", title: "Change the room's settings", group: "owner", scope: "room",
-    description: "Sets the preset and the next game's overrides (unset: the preset's): planningSeconds, worldSeconds, startingEnergy; durationMode; scoreIntervalSeconds; peerNoiseVariance 0/4/16/64/256; readPriceWeight 0-4; driftSeconds; pauseSeconds; commitClause; startingObjects; birthsPerSecond; opportunitiesPerSecond; powerPerSecond; fullChargeSeconds; stepBudget; interactionComputeMs; excludedFamilies; bidPricing; bidVisibility; bidDisclosure; defenceGoals (grids), penaltyWeight; turnover: liveCap (a birth past it retires the oldest line), birthSeconds, retiredPoints banked/dropped, retiredHolds.",
+    description: "Sets the preset and the next game's overrides (unset: the preset's): planningSeconds, worldSeconds, startingEnergy; durationMode; scoreIntervalSeconds; peerNoiseVariance; readPriceWeight; driftSeconds; pauseSeconds; commitClause; startingObjects; birthsPerSecond; opportunitiesPerSecond; powerPerSecond; fullChargeSeconds; stepBudget; interactionComputeMs; excludedFamilies; bidPricing; bidVisibility; bidDisclosure; bidSeconds (0 no bid phase); defenceGoals (grids), penaltyWeight; turnover: liveCap (oldest line retires past it), birthSeconds, retiredPoints banked/dropped, retiredHolds.",
     tooltip: "Pick the preset and adjust its length.", keywords: ["settings", "configure", "preset", "length"],
     params: obj({
       preset: z.string().max(64).optional(),
@@ -103,7 +103,7 @@ export const roomOps = [
         powerPerSecond: z.number().min(0).max(1_000_000), fullChargeSeconds: z.number().min(1).max(1_000_000),
         stepBudget: z.number().int().min(1).max(10_000_000), interactionComputeMs: z.number().int().min(1).max(60_000),
         excludedFamilies: z.array(z.string().max(64)).max(64),
-        bidPricing: z.enum(["first", "second"]), bidVisibility: z.enum(["sealed", "open"]), bidDisclosure: z.enum(["none", "handicaps", "all"]),
+        bidPricing: z.enum(["first", "second"]), bidVisibility: z.enum(["sealed", "open"]), bidDisclosure: z.enum(["none", "handicaps", "all"]), bidSeconds: z.number().int().min(0).max(600),
         // Line turnover (engine docs/engine-v2/retirement-design.md).
         liveCap: z.number().int().min(0).max(50),
         birthSeconds: z.number().int().min(0).max(3600),

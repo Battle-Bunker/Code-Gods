@@ -21,7 +21,7 @@ export interface Draft {
   defenceGoals: boolean; penaltyWeight: number;
   startingObjects: number; birthsPerSecond: number; opportunitiesPerSecond: number;
   powerPerSecond: number; fullChargeSeconds: number; stepBudget: number; interactionComputeMs: number;
-  excludedFamilies: string[]; bidPricing: "first" | "second"; bidVisibility: "sealed" | "open"; bidDisclosure: "none" | "handicaps" | "all";
+  excludedFamilies: string[]; bidPricing: "first" | "second"; bidVisibility: "sealed" | "open"; bidDisclosure: "none" | "handicaps" | "all"; bidSeconds: number;
   /** Line turnover (engine docs/engine-v2/retirement-design.md): 0 is off, and 0 births-every is the setup's births. */
   liveCap: number; birthSeconds: number; retiredPoints: "banked" | "dropped"; retiredHolds: boolean;
 }
@@ -61,6 +61,12 @@ export const FIELDS: Readonly<Record<FieldKey, FieldSpec>> = {
     question: "Which rules are never dealt?",
     meaning: "Families of rules the setup deals that are never dealt in this room.",
     consequence: "Excluding more families makes goals more predictable, and at least one family per player must stay.",
+  },
+  bidSeconds: {
+    label: "Bidding time", section: "goals", tier: "ask", control: "number", suggested: [0, 20, 30, 45, 60, 120], unit: "s", limit: { min: 0, max: 600, int: true },
+    question: "How long may players bid for rules before the game is dealt?",
+    meaning: "Before rules are dealt, each player may bid a share of their own score for the rules they want: the highest bid wins a rule for that player alone, the rest are dealt at random, and zero is no bidding.",
+    consequence: "Bidding lets players pay for the rule they want, so a strong rule costs its holder part of their score, and it adds up to this many seconds before planning.",
   },
   bidPricing: {
     label: "Bid price", section: "goals", tier: "more", control: "segmented", suggested: ["first", "second"], onlyWithBid: true,
@@ -248,7 +254,7 @@ export function presetDraft(p: Preset): Draft {
     startingObjects: p.startingObjects, birthsPerSecond: p.economy.birthsPerSecond, opportunitiesPerSecond: p.economy.opportunitiesPerSecond,
     powerPerSecond: p.economy.powerPerSecond, fullChargeSeconds: p.economy.fullChargeSeconds,
     stepBudget: DEFAULT_STEP_BUDGET, interactionComputeMs: DEFAULT_COMPUTE_MS,
-    excludedFamilies: [], bidPricing: p.bid?.pricing ?? "first", bidVisibility: "sealed", bidDisclosure: p.bid?.disclosure ?? "none",
+    excludedFamilies: [], bidPricing: p.bid?.pricing ?? "first", bidVisibility: "sealed", bidDisclosure: p.bid?.disclosure ?? "none", bidSeconds: p.bid?.seconds ?? 0,
     liveCap: p.turnover?.liveCap ?? 0, birthSeconds: 0, retiredPoints: p.turnover?.retiredPoints ?? "banked", retiredHolds: p.turnover?.retiredHolds ?? true,
   };
 }
@@ -267,8 +273,9 @@ export function overridesFor(d: Draft, p: Preset): Overrides {
 const sameValue = (a: unknown, b: unknown) => (typeof a === "number" && typeof b === "number" ? Math.abs(a - b) < 1e-9
   : Array.isArray(a) && Array.isArray(b) ? JSON.stringify([...a].sort()) === JSON.stringify([...b].sort()) : a === b);
 /** A field with no effect on this setup (the bid questions without a bid phase; defence goals off grids). */
-export const isHidden = (key: FieldKey, p: Pick<Preset, "bid" | "variant">) =>
-  (!!FIELDS[key].onlyWithBid && !p.bid) || (FIELDS[key].only ? !FIELDS[key].only!(p) : false);
+/** A field with no effect: the bid questions while there is no bid phase (v1: hidden while bidSeconds is 0). */
+export const isHidden = (key: FieldKey, p: Pick<Preset, "bid" | "variant">, d?: Pick<Draft, "bidSeconds">) =>
+  (!!FIELDS[key].onlyWithBid && !(d ? d.bidSeconds > 0 : p.bid)) || (FIELDS[key].only ? !FIELDS[key].only!(p) : false);
 
 const n = (v: number) => v.toLocaleString("en-US");
 const unitText = (u?: string) => (u ? ` ${u === "s" ? "seconds" : u}` : "");
@@ -323,6 +330,7 @@ export function choiceLabel(key: FieldKey, v: number | string | boolean): string
     if (key === "planningSeconds" || key === "pauseSeconds") return duration(v);
     if (key === "scoreIntervalSeconds") return `every ${duration(v)}`;
     if (key === "driftSeconds") return v === 0 ? "Never" : `every ${duration(v)}`;
+    if (key === "bidSeconds") return v === 0 ? "No bidding" : duration(v);
     if (key === "peerNoiseVariance") return v === 0 ? "Exact" : `±${Math.round(Math.sqrt(v) * 10) / 10} bits`;
     if (key === "readPriceWeight") return v === 0 ? "Free" : `${weightText(v)}×`;
     if (key === "penaltyWeight") return v === 0.5 ? "½" : n(v);

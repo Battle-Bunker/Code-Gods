@@ -109,9 +109,10 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
     if (!editable || id === presetId) return;
     // The families never dealt are the old setup's: keep only those the new one deals too.
     const next = presetOf(id), kept = overridesFor(draft, preset);
-    // A setup without a bid phase takes none of the bid settings (they would be saved where nothing shows them).
+    // Without a bid phase there (the new setup's, or a bidding time set by hand) the bid settings go: nothing would show them.
     const { bidPricing: _p, bidVisibility: _v, bidDisclosure: _d, ...unbid } = kept;
-    setDraft(draftOf(next, { ...(next.bid ? kept : unbid), excludedFamilies: draft.excludedFamilies.filter(f => next.families.includes(f)) }));
+    const bids = (kept.bidSeconds ?? next.bid?.seconds ?? 0) > 0;
+    setDraft(draftOf(next, { ...(bids ? kept : unbid), excludedFamilies: draft.excludedFamilies.filter(f => next.families.includes(f)) }));
     setPresetId(id);
   };
   const saveBlocker = !owner ? "Only the room's owner changes its setup." : locked ? locked : !editable ? "Settings cannot change here." : invalid ? "Fix the settings marked in red first." : !changes.length ? "Nothing has changed yet." : null;
@@ -155,10 +156,10 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
 
           {(["goals", "agents", "energy", "population", "time"] as const).filter(s => SECTIONS.some(x => x.id === s)).map(section => (
             <FormSection key={section} id={section}>
-              {fieldsOf(section).filter(k => FIELDS[k].tier === "ask" && !isHidden(k, preset)).map(k => <Field key={k} k={k} draft={draft} editable={editable} change={change} error={errors[k]} preset={preset} />)}
+              {fieldsOf(section).filter(k => FIELDS[k].tier === "ask" && !isHidden(k, preset, draft)).map(k => <Field key={k} k={k} draft={draft} editable={editable} change={change} error={errors[k]} preset={preset} />)}
               {fieldsOf(section).some(k => FIELDS[k].tier === "more") && (
-                <More section={section} preset={preset}>
-                  {fieldsOf(section).filter(k => FIELDS[k].tier === "more" && !isHidden(k, preset)).map(k => <Field key={k} k={k} draft={draft} editable={editable} change={change} error={errors[k]} preset={preset} />)}
+                <More section={section} preset={preset} draft={draft}>
+                  {fieldsOf(section).filter(k => FIELDS[k].tier === "more" && !isHidden(k, preset, draft)).map(k => <Field key={k} k={k} draft={draft} editable={editable} change={change} error={errors[k]} preset={preset} />)}
                 </More>
               )}
             </FormSection>
@@ -360,8 +361,8 @@ function NumberQuestion({ k, value, editable, onSet, error }: { k: FieldKey; val
   );
 }
 
-function More({ section, preset, children }: { section: SectionId; preset: Preset; children: ReactNode }) {
-  const count = fieldsOf(section).filter(k => FIELDS[k].tier === "more" && !isHidden(k, preset)).length;
+function More({ section, preset, draft, children }: { section: SectionId; preset: Preset; draft: Draft; children: ReactNode }) {
+  const count = fieldsOf(section).filter(k => FIELDS[k].tier === "more" && !isHidden(k, preset, draft)).length;
   return (
     <details className="border-l-2 pl-4 space-y-4" data-testid={`more-${section}`}>
       <summary className="cursor-pointer text-sm">More {SECTIONS.find(s => s.id === section)?.title.toLowerCase()} options ({count})</summary>

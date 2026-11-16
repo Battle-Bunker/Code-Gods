@@ -258,27 +258,27 @@ try {
       await b.getByTestId(`button-bid-${family}-10`).click();
       await b.getByTestId(`text-my-bid-${family}`).filter({ hasText: "10%" }).waitFor();
       await shot(b, "game2-bidding-bob");
-      await missing(["e2e-site-smoke-9"], "bidding: the old words: title \"Bid for your rule\", the button reads \"Done bidding\" once a bid is placed, your bids listed", async () => {
+      { // bidding: the old words: title "Bid for your rule", the button reads "Done bidding" once a bid is placed, your bids listed (v1, restored)
         assert.equal(await b.getByTestId("text-bidding-title").innerText({ timeout: 3_000 }), "Bid for your rule");
         await b.getByTestId("button-bidding-done").filter({ hasText: /^Done bidding$/ }).waitFor({ timeout: 3_000 });
         assert.match(await b.getByTestId("text-your-bids").innerText({ timeout: 3_000 }), /10%/);
-      });
-      await missing(["e2e-site-smoke-9"], "bidding: the spectating owner watches the clock and may Cancel; she has nothing to bid on; no second Start", async () => {
+      }
+      { // bidding: the spectating owner watches the clock and may Cancel; she has nothing to bid on; no second Start (v1, restored)
         await a.getByTestId("panel-bidding").waitFor({ timeout: 5_000 });
         assert.equal(await a.locator('[data-testid^="bid-family-"]').count(), 0, "a spectator has nothing to bid on");
         assert.equal(await a.getByTestId("button-start-game").count(), 0, "no second start while the players bid");
         await a.getByTestId("bidding-countdown").waitFor({ timeout: 3_000 });
         await a.getByTestId("button-cancel-bidding").waitFor({ timeout: 3_000 });
-      });
+      }
       await noHorizontalScroll(b, "phone bidding");
       await b.getByTestId(`button-withdraw-${family}`).click();
       await b.getByTestId(`text-my-bid-${family}`).waitFor({ state: "detached" });
       await b.getByTestId("button-bidding-done").click();
-      await b.getByTestId("text-bidding-waiting").filter({ hasText: /done bidding/ }).waitFor();
-      await missing(["e2e-site-smoke-9"], "bidding: after passing bob reads \"You passed. Waiting for 1 more player…\" and may Change", async () => {
+      await b.getByTestId("text-bidding-waiting").filter({ hasText: /You passed\./ }).waitFor();
+      { // bidding: after passing bob reads "You passed. Waiting for 1 more player…" and may Change (v1, restored)
         await b.getByText("You passed. Waiting for 1 more player…").waitFor({ timeout: 3_000 });
         await b.getByTestId("button-bidding-change").waitFor({ timeout: 2_000 });
-      });
+      }
       await c.getByTestId("button-bidding-done").click();
       for (const p of [b, c]) await p.waitForURL(GAME_URL, { timeout: 120_000 });
     });
