@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { applyCall, evaluateSite, isInvalid, Qn, scoreToWire, type RuleFamily } from "@workspace/v2-core";
-import { fromMC, landingTuple, lineQ, lineType, powerArea, primeIntercept, tupleFamilies, type LineState } from "../src/index.ts";
+import { fromMC, landingTuple, lineQ, lineType, powerArea, primeIntercept, rulersTuple, tupleFamilies, type LineState } from "../src/index.ts";
 
 const mc = (m: string, c: string): LineState => ({ lines: [fromMC(Qn.parse(m), Qn.parse(c))] });
 const tuple = <P,>(f: RuleFamily<LineState, P>, p: P, s: LineState) =>
@@ -52,4 +52,21 @@ test("each tuple family's card says every part, and Prime Landing's reads the cr
 test("Prime Landing (tuple): a flat line reads its height, so a tilt to flat is not a knock to nothing", () => {
   assert.deepEqual(tuple(landingTuple, { ends: 1 }, mc("0", "31"))?.slice(0, 2), ["31", "0"]);
   assert.equal(tuple(landingTuple, { ends: 1 }, mc("0", "0")), null);   // the x-axis itself has no reading
+});
+
+test("Same on Both Rulers (tuple): a line parallel to y = x reads its y-intercept, so a tilt onto the parallel is not a knock to nothing", () => {
+  const p = { digits: "odd", meets: 1 } as const;
+  assert.deepEqual(tuple(rulersTuple, p, mc("1", "-88"))?.slice(0, 2), ["101", "-13"]);
+  assert.equal(tuple(rulersTuple, p, mc("1", "0")), null);
+});
+
+test("tuple marks on the plane are drawn, not read (#1022): Landing does not depend on the plane, and a flat line is marked on the y-axis", () => {
+  assert.ok(!landingTuple.depends.includes("cart"));
+  const tilted = evaluateSite(lineType, landingTuple, { ends: 1 }, mc("-1", "30"), lineQ, 0, null);
+  assert.ok(tilted.reads.every(r => r.rep !== "cart"), "the plane is not read");
+  assert.ok(tilted.marks.some(m => m.kind === "candidate" && m.ref.name === "xAxisMark" && m.ref.args?.x === "31"));
+  const flat = evaluateSite(lineType, landingTuple, { ends: 1 }, mc("0", "-30"), lineQ, 0, null);
+  assert.ok(flat.marks.some(m => m.kind === "candidate" && m.ref.name === "yAxisMark" && m.ref.args?.y === "-31"));
+  assert.ok(flat.marks.some(m => m.kind === "measure" && m.from.name === "yInt"));
+  assert.ok(!flat.marks.some(m => (m.kind === "measure" ? m.from : m.ref).name === "xInt"));
 });

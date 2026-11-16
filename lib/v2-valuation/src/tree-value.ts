@@ -13,7 +13,8 @@
  * - a cell for each u0 value with at least MIN_CELL draws: closeness knots (the weighted share of the cell at least
  *   this close), and for the third, one table per closeness bucket (the cell's draws at least as close as the bucket's
  *   edge). A u0 value with fewer draws reads the measured cell nearest below it (`borrowed` in the lookup's parts).
- * - nothing beyond the best measured u0: the level term stops growing there (no extrapolation).
+ * - nothing beyond the best measured u0: the level term stops growing there (no extrapolation yet; a level tail waits for
+ *   the size-only number code, the coordinator, 16 Nov).
  */
 import { Qn, type Q, type Score } from "@workspace/v2-core";
 
@@ -35,16 +36,21 @@ export const TREE_INNER_BITS = 2;
 
 const num = (x: Q | null | undefined): number => (x === null || x === undefined ? -Infinity : Qn.toNumber(x));
 
-/** Knots of −log2 P(V ≥ v) over weighted values (best last), thinned to at most `max`. */
+/**
+ * Knots of −log2 P(V ≥ v) over weighted values (best last), thinned to at most `max`. The mass at or above v is summed
+ * from the top down: subtracting the mass below v from the total cancels to 0 under heavy importance weights, which read
+ * as ~1,000 bits at the top levels (fraction rules B's Matching Bottoms, 16 Nov).
+ */
 function tailKnots(vs: readonly { v: number; w: number }[], max = 60): Knot[] {
-  const s = vs.slice().sort((a, b) => a.v - b.v), W = s.reduce((t, x) => t + x.w, 0);
+  const s = vs.slice().sort((a, b) => b.v - a.v), W = s.reduce((t, x) => t + x.w, 0);
   const out: Knot[] = [];
-  let above = W;
+  let atLeast = 0;
   for (let i = 0; i < s.length; ) {
     const v = s[i]!.v;
-    out.push({ u: v, bits: -Math.log2(Math.max(above, 1e-300) / W) });
-    while (i < s.length && s[i]!.v === v) above -= s[i++]!.w;
+    while (i < s.length && s[i]!.v === v) atLeast += s[i++]!.w;
+    out.push({ u: v, bits: Math.max(0, -Math.log2(Math.min(atLeast, W) / W)) });
   }
+  out.reverse();
   if (out.length <= max) return out;
   // Thin by bits, not by count: keep a knot when its bits rose by at least the step since the last kept one.
   const step = 0.02, kept: Knot[] = [out[0]!];

@@ -8,7 +8,7 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { clock, pointsText } from "@/core/words";
 import {
-  axisNumber, CARE_KINDS, careTitle, scale, ticks, timeDomain, timeTicks, valueDomain, valuesAt, type CareKind, type CarePoint, type Series,
+  axisNumber, CARE_KINDS, careTitle, drawable, scale, ticks, timeDomain, timeTicks, valueDomain, valuesAt, type CareKind, type CarePoint, type Series,
 } from "@/panes/chart-model";
 import type { ObjectWord } from "@/sdk";
 
@@ -65,7 +65,7 @@ function Legend({ items }: { items: { key: string; label: string; colour: string
  * Points over world time, one line per series (the viewer's drawn last, on top). Two or more series get a legend;
  * a single series is named by the pane's title.
  */
-export function LineChart({ series, height = 180, label, testId, marker, marks, onPick }: {
+export function LineChart({ series: given, height = 180, label, testId, marker, marks, onPick }: {
   series: readonly Series[]; height?: number; label: string; testId?: string;
   /** A vertical line at this x (the replay's playhead). */
   marker?: number;
@@ -76,6 +76,8 @@ export function LineChart({ series, height = 180, label, testId, marker, marks, 
 }) {
   const { ref, width } = useWidth();
   const [hover, setHover] = useState<number | null>(null);
+  // Only series with points: one of your best lines may have no moves loaded yet (the end page read its last point).
+  const series = useMemo(() => drawable(given), [given]);
   const all = useMemo(() => series.flatMap(s => s.points), [series]);
   const y = valueDomain(all.map(p => p.y)), x = timeDomain(all.map(p => p.x));
   const yTicks = ticks(y, height < 150 ? 3 : 4);

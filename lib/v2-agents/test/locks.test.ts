@@ -93,3 +93,24 @@ test("quotes and othersAfter see the act's queued drains; a game without locks s
   const none = new EngineHost({ type: lineType, variant: lineZ, state, rule, energy: 100 }).handle({ op: "locks" }, ctx);
   assert.deepEqual(none, { ok: false, error: "this game has no locks" });
 });
+
+test("the shipped starters never propose a move a lock forbids: on a locked line each skips or keeps the predicate, in both languages", async () => {
+  // y = −2x + 13 under "si.c is prime": the starters' own climb prices every plan, and a quote refuses a lock-breaking one.
+  const { startersFor } = await import("../src/index.ts");
+  let committed = 0;
+  for (const language of ["typescript", "python"] as const) for (const a of startersFor("prime-gradient", language)) {
+    for (const seed of ["1", "2", "3"]) {
+      const { record, state: after } = await runAct(await boxes.get(language), {
+        type: lineType, variant: lineZ, state, rule, program: { language, source: a.source }, seed, energy: 500, locks: locks(),
+      });
+      assert.notEqual(record.outcome, "failed", `${a.kind} (${language}): ${record.reason}`);
+      if (record.outcome === "committed") {
+        committed++;
+        const l = (after as typeof state).lines[0]!;
+        const c = Qn.div(Qn.q(-l.c), Qn.q(l.b));
+        assert.ok(c.d === 1n && c.n > 1n && [...Array(Number(c.n) - 2)].every((_, i) => c.n % BigInt(i + 2) !== 0n), `${a.kind} (${language}) moved to c = ${Qn.toWire(c)}`);
+      }
+    }
+  }
+  assert.ok(committed > 0, "some starter still moves (a tilt keeps c)");
+});

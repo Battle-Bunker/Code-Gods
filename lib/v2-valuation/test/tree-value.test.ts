@@ -48,3 +48,28 @@ test("a tree-valued family's value function carries its tree, and valueLookup re
   assert.equal(l.parts!.length, 3);
   assert.ok(Math.abs(l.parts!.reduce((a, b) => a + b, 0) - l.bits) < 1e-9);
 });
+
+test("tail masses are summed from the top: heavy importance weights below never cancel the top level into ~1,000 bits", () => {
+  // One very heavy draw low down and a light one on top: W − (weight below) cancels to 0 in floating point.
+  const ds: { u: Score; w: number }[] = [{ u: [q(1), q(0)], w: 1e20 }, { u: [q(2), q(0)], w: 1 }];
+  const look = treeLookup(buildTree(ds));
+  const top = look([q(2), q(0)]).parts[0]!;
+  assert.ok(Math.abs(top - Math.log2(1e20 + 1)) < 1e-6, `top level ${top} bits`);
+});
+
+test("a tree family's value past its measured levels never exceeds the state's code length (bits ≤ φ)", async () => {
+  const { evaluateSite, Qn } = await import("@workspace/v2-core");
+  const { fromMC, lineQ, lineType, primeIntercept } = await import("@workspace/v2-linear");
+  const { lineValueFunction, valueLookup } = await import("../src/index.ts");
+  const tb = "closeness>gradient-log";
+  const vf = lineValueFunction(primeIntercept, { ends: 1 }, lineQ, { tieBreaker: tb, config: { drawsPerTilt: 4000 } });
+  const look = valueLookup(vf);
+  for (const c of ["2^64", "10^30", "3^90", "2^200 + 1", "7^300", "10^1000"]) {
+    const v = c.split(" + ").reduce((a, t) => { const [b, e] = t.split("^"); return a + (e ? BigInt(b!) ** BigInt(e) : BigInt(t)); }, 0n);
+    for (const m of ["0", "1", "1/31"]) {
+      const s = { lines: [fromMC(Qn.parse(m), Qn.parse(String(v)))] };
+      const bits = look(evaluateSite(lineType, primeIntercept, { ends: 1 }, s, lineQ, 0, tb).score).bits, phi = lineType.readLength(s, lineQ);
+      assert.ok(bits <= phi, `y = ${m}x + ${c}: ${bits.toFixed(1)} bits > φ ${phi.toFixed(1)}`);
+    }
+  }
+});
