@@ -16,8 +16,9 @@
  *   the measure subtracts out).
  * - direct (the ceiling): the cheapest solved move, or pair of moves (tilt then shift, shift then tilt), onto s itself.
  * - floor (shared by all families): every single move with a solved amount putting one reading on s's value of it
- *   (either sign): tilt, shift, cross.shift, area.shift, stretch by the exact ratio; and the shortcuts (the four mirrors,
- *   stretch by 2, 3, 1/2, 1/3, −1). A move counts when the line it reaches has u ≥ u(s).
+ *   (either sign): tilt, shift, cross.shift, area.shift, stretch by the exact ratio; the shortcuts (the four mirrors,
+ *   stretch by 2, 3, 1/2, 1/3, −1); and each shortcut followed by one such solved move. A route counts when the line it
+ *   reaches has u ≥ u(s).
  * - heuristics: each proposes targets (values for the readings it names); a target is reached by the solved moves onto
  *   each named reading (one, or two in either order). Every proposal is tried, so adding a heuristic can only lower the
  *   energy for the same starts (built; tested). Heuristics draw from their own random stream.
@@ -213,6 +214,13 @@ function floorMoves(x: Line, s: Line): [number, Line, string][] {
     }
   }
   for (const mv of SHORTCUTS) one(mv);
+  // A shortcut, then a solved move onto one of s's readings (the pattern the deeper search found, #1157).
+  for (const mv of SHORTCUTS) {
+    const l1 = applyMv(mv, x);
+    if (!l1) continue;
+    const p1 = priceOf(mv, x, l1);
+    for (const on of ["m", "c"] as const) for (const v of on === "m" ? [m, Qn.neg(m)] : [c, Qn.neg(c)]) for (const [p2, l2, id] of solved(l1, on, v)) if (p2 > 0) out.push([p1 + p2, l2, `${mv.id}+${id}`]);
+  }
   return out;
 }
 /** The ceiling: the direct route onto s itself. */
