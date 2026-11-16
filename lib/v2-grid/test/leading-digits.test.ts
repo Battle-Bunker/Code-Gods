@@ -73,11 +73,8 @@ test("cards: one sentence each, at most four numbers, no \"line\", with the guar
     assert.ok((c.match(/\d+/g) ?? []).length <= 4, c);
     assert.match(c, /no two rows or two columns may hold the same numbers/);
   }
-  // The arithmetic playtest preset deals the four, each with its tie-breaker; no other preset deals the family.
-  for (const pr of gridPresets) for (const r of pr.rules) if (r.family === "leading-digits") assert.equal(pr.id, "grids-arithmetic");
-  const pool = gridPresets.find(p => p.id === "grids-arithmetic")!.rules;
-  assert.deepEqual(pool.filter(r => r.family === "leading-digits").map(r => [r.params, r.tieBreakers]), LEADING_DIGITS_DEALT.map(p => [p, ["exponent-digits"]]));
-  assert.deepEqual([...new Set(pool.map(r => r.family))], ["divisibility", "leading-digits"]);
+  // Undealt since Grids · arithmetic was withdrawn (16 Nov): no preset deals the family.
+  for (const pr of gridPresets) assert.ok(!pr.rules.some(r => r.family === "leading-digits"), pr.id);
 });
 
 test("the view: the four readings are cited, the ones with the most digits focused, a note on each", () => {

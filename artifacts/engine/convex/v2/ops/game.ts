@@ -1,6 +1,6 @@
 /** `game.*`: the game in view, its standings, the owner's lobby and game controls, ready and pause. */
 import { standingsFor } from "../disclose";
-import { membersOf, openBidding, rematchDeal, rotationFor, startGame } from "../lobby";
+import { membersOf, openBidding, bidOf, rematchDeal, rotationFor, startGame } from "../lobby";
 import { presetOf } from "../presets";
 import { touchActivity } from "../activity";
 import { OpFailure } from "@workspace/v2-affordances";
@@ -40,7 +40,7 @@ export const { op: rotation, as: rotationAs } = defineOp("game.rotation", "query
 export const { op: start, as: startAs } = defineOp("game.start", "mutation", async env => {
   const { room } = inRoom(env);
   await touchActivity(env.ctx);   // human activity: keeps the engine awake (activity.ts)
-  if (presetOf(room.preset).bid) {
+  if (bidOf(room)) {
     await openBidding(env.ctx, room);
     return { gameId: null, bidPhase: true };
   }
@@ -66,7 +66,7 @@ export const { op: resume, as: resumeAs } = defineOp("game.resume", "mutation", 
 });
 
 export const { op: end, as: endAs } = defineOp("game.end", "mutation", async env => {
-  await endGame(env.ctx, inGame(env).game);
+  await endGame(env.ctx, inGame(env).game, "owner");
   return { ok: true as const };
 });
 

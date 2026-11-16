@@ -24,7 +24,7 @@
  *
  *   node --experimental-strip-types scripts/pool-dynamics.ts [--type lines|grids|pairs] [--games 12] [--seconds 600]
  *     [--drift 120] [--kind simple] [--objects 3] [--births 0.0041667] [--variant line-q] [--only prime-landing,treasure]
- *     [--from 0] [--json out.json] [--preset grids-arithmetic] [--instances] [--focus prime-landing]
+ *     [--from 0] [--json out.json] [--preset grids-more-rules] [--instances] [--focus prime-landing]
  *
  * --focus seats the family in every game (seat 0, its dealt parameters in turn, game by game; the other two seats from
  * the rest of the pool) and reports it per parameter set. Valleys crossed: its main-part steps from a rung (a main part

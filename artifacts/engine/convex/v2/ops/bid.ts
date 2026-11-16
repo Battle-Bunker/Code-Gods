@@ -7,7 +7,8 @@ import { OpFailure } from "@workspace/v2-affordances";
 import { BID_MAX_PERCENT, BID_MIN_PERCENT } from "@workspace/v2-economy";
 import type { Doc } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
-import { bidders, closeIfAllDone, openBids } from "../lobby";
+import { closeIfAllDone } from "../lobby";
+import { bidders, openBids } from "../bids";
 import { MAX_MEMBERS } from "../access";
 import { defineOp, inRoom } from "./define";
 
@@ -67,11 +68,12 @@ export const { op: withdraw, as: withdrawAs } = defineOp("bid.withdraw", "mutati
   return { ok: true as const };
 });
 
-export const { op: done, as: doneAs } = defineOp("bid.done", "mutation", async env => {
+export const { op: done, as: doneAs } = defineOp("bid.done", "mutation", async (env, a) => {
   const { room, member } = inRoom(env);
   openPhase(room);
   bidder(member);
-  await save(env.ctx, room, member, r => ({ ...r, done: true }));
+  // v1's "Change my bids": done false reopens the caller's bidding until they are done again.
+  await save(env.ctx, room, member, r => ({ ...r, done: a.done ?? true }));
   return { ok: true as const };
 });
 

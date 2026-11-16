@@ -9,6 +9,7 @@
 import { agentIncome, chargeAct, energyCapacity, readCharge, settle, type Account } from "@workspace/v2-economy";
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
+import type { EndReason } from "./tables.ts";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { decode, distinctBirths, heldReason, penaltyWeightOf, scopeOf, valuesOf, type SeatRule, type Value as ExactValue } from "./world.ts";
@@ -354,17 +355,16 @@ async function scoreboard(ctx: MutationCtx, game: Doc<"v2Games">, world: number)
 
 // ---------------------------------------------------------------- phases
 
-/** Planning ends (its deadline, everyone ready, or the owner): births, values, the lease, the first tick. */
-export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
-  if (game.phase !== "planning") return;
-  // Planning holds past its deadline until every language's sandbox is ready (readiness.ts, v1): world time then
-  // starts for everyone at once, and no agent waits for a boot.
-  if (!await allReady(ctx)) {
-    await ensureWarm(ctx);
-    await ctx.scheduler.runAfter(HOLD_MS, PLANNING_ENDS, { gameId: game._id });
-    return;
-  }
-  const now = Date.now(), seats = await seatRules(ctx, game);
+/**
+ * The starting board, at world 0: the starting objects born, valued and scored, and the first standings published.
+ * Done when the game starts (lobby.ts startGame), so planning shows the board each player plans against (v1; baseline-1
+ * item 3); world time starts later (startWorld). Idempotent: a game whose board exists already is left alone.
+ * Returns whether it published the first standings.
+ */
+export async function bornAtStart(ctx: MutationCtx, game: Doc<"v2Games">): Promise<boolean> {
+  const engine = await engineOf(ctx, game._id);
+  if (engine.objects > 0) return false;
+  const seats = await seatRules(ctx, game);
   const states = distinctBirths(game.variant, game.seed, game.settings.startingObjects);
   const changes = [];
   for (const [i, wire] of states.entries()) {
@@ -379,14 +379,35 @@ export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
   const cap = capOf(game.settings), live = states.map((_, i) => i + 1), drops: Drops = new Map();
   while (cap !== null && live.length > cap) await retireLine(ctx, game, live.shift()!, 0, drops);
   await applyDrops(ctx, game._id, drops);
+  const clock = await clockOf(ctx, game._id);
+  await ctx.db.patch(engine._id, { objects: states.length, ...(cap !== null ? { live } : {}) });
+  await ctx.db.patch(clock._id, { objects: states.length });
+  await scoreboard(ctx, game, 0);
+  return true;
+}
+
+/**
+ * Planning ends (its deadline, everyone ready, or the owner): the lease, world time and the first tick. The board was
+ * born when the game started (bornAtStart); a game started before that (or a fixture) gets it here.
+ */
+export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
+  if (game.phase !== "planning") return;
+  // Planning holds past its deadline until every language's sandbox is ready (readiness.ts, v1): world time then
+  // starts for everyone at once, and no agent waits for a boot.
+  if (!await allReady(ctx)) {
+    await ensureWarm(ctx);
+    await ctx.scheduler.runAfter(HOLD_MS, PLANNING_ENDS, { gameId: game._id });
+    return;
+  }
+  const now = Date.now();
+  await bornAtStart(ctx, game);
   const leaseId = crypto.randomUUID();
   const engine = await engineOf(ctx, game._id), clock = await clockOf(ctx, game._id);
-  await ctx.db.patch(engine._id, { leaseId, objects: states.length, ...(cap !== null ? { live } : {}) });
-  await ctx.db.patch(clock._id, { lastTickAt: now, worldSeconds: 0, objects: states.length });
+  await ctx.db.patch(engine._id, { leaseId });
+  await ctx.db.patch(clock._id, { lastTickAt: now, worldSeconds: 0 });
   // A dilated game's world runs timeScale times faster than the wall (decision 37): it ends that much sooner.
   await ctx.db.patch(game._id, { phase: "live", startedAt: now, endsAt: now + endWorldOf(game) * 1000 / timeScaleOf(game.settings) });
   await appendEvent(ctx, game._id, "phase", { phase: "live", worldSeconds: 0 });
-  await scoreboard(ctx, { ...game, phase: "live" }, 0);
   await ctx.scheduler.runAfter(0, TICK, { gameId: game._id, leaseId });
   await ctx.scheduler.runAfter(WATCHDOG_MS, WATCHDOG, { gameId: game._id, leaseId });
 }
@@ -395,21 +416,21 @@ export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
 const withoutTranscript = ({ transcript: _, ...rest }: { transcript?: unknown; [k: string]: unknown }) => rest;
 
 /** The game ends: the lease goes, the final scoreboard and `gameEnded`, the room is free for the next game. */
-export async function endGame(ctx: MutationCtx, game: Doc<"v2Games">) {
+export async function endGame(ctx: MutationCtx, game: Doc<"v2Games">, reason: EndReason) {
   if (game.phase === "ended") return;
   const engine = await ctx.db.query("v2Engine").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
   const clock = await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
   if (engine && clock) {
     await ctx.db.patch(engine._id, { leaseId: "" });
     const rows = await scoreboard(ctx, game, clock.worldSeconds);
-    await ctx.db.patch(game._id, { phase: "ended", endedAt: Date.now(), summary: { winner: rows[0]?.memberId ?? null, objects: engine.objects, acts: engine.acts } });
+    await ctx.db.patch(game._id, { phase: "ended", endedAt: Date.now(), endReason: reason, summary: { winner: rows[0]?.memberId ?? null, objects: engine.objects, acts: engine.acts } });
     await appendEvent(ctx, game._id, "gameEnded", { worldSeconds: clock.worldSeconds, standings: rows.map(r => ({ memberId: r.memberId, total: r.total, net: r.net, rank: r.rank })) });
     await ctx.scheduler.runAfter(0, BUILD_REPLAY, { gameId: game._id });
     // An ended game is fully transparent: each player's values, sorts, scatter and (paid) knowledge become exact.
     for (const s of game.roster) await ctx.scheduler.runAfter(0, EXACT_VALUES, { gameId: game._id, memberId: s.memberId });
   } else {
     // A game with no engine or clock (a seeded fixture: v2/testing seedGame) has no world to score or record: it just ends.
-    await ctx.db.patch(game._id, { phase: "ended", endedAt: Date.now(), summary: { winner: null, objects: 0, acts: 0 } });
+    await ctx.db.patch(game._id, { phase: "ended", endedAt: Date.now(), endReason: reason, summary: { winner: null, objects: 0, acts: 0 } });
   }
   const room = (await ctx.db.get(game.roomId))!;
   if (room.gameId === game._id) await ctx.db.patch(room._id, { gameId: undefined, revision: room.revision + 1 });
@@ -480,7 +501,7 @@ export const watchdog = internalMutation({
       await ctx.db.patch(engine._id, { leaseId: lease, failures: engine.failures + 1 });
       await ctx.db.patch(clock._id, { lastTickAt: now });
       await ctx.scheduler.runAfter(0, TICK, { gameId, leaseId: lease });
-      if (engine.failures + 1 >= MAX_FAILURES) { await endGame(ctx, game); return; }
+      if (engine.failures + 1 >= MAX_FAILURES) { await endGame(ctx, game, "retired"); return; }
     }
     await ctx.scheduler.runAfter(WATCHDOG_MS, WATCHDOG, { gameId, leaseId: lease });
   },
@@ -747,7 +768,7 @@ export const commit = internalMutation({
     await ctx.db.patch(engine._id, { tick: engine.tick + 1, objects, acts, moves, ...(live !== null ? { live } : {}) });
     await ctx.db.patch(clock._id, { tick: clock.tick + 1, worldSeconds: world, lastTickAt: a.now, objects, commits: clock.commits + 1 });
     const fresh = (await ctx.db.get(game._id))!;
-    if (world >= endWorldOf(game)) { await endGame(ctx, fresh); return { committed: true, ended: true }; }
+    if (world >= endWorldOf(game)) { await endGame(ctx, fresh, "lifetime"); return { committed: true, ended: true }; }
     if (world - engine.scoreboardAt >= scoreIntervalOf(game)) await scoreboard(ctx, fresh, world);
     // Nobody has acted for 30 minutes (activity.ts, v1's idle parking): park, so ticks cost nothing until someone returns.
     if (await shouldPark(ctx, fresh)) { await parkGame(ctx, fresh); return { committed: true, ended: false }; }
@@ -767,7 +788,7 @@ export const tickFailed = internalMutation({
     // A game whose ticks keep failing is ended rather than left spinning (the failures are in the logs).
     if (engine.failures + 1 >= MAX_FAILURES) {
       const game = await ctx.db.get(gameId);
-      if (game) await endGame(ctx, game);
+      if (game) await endGame(ctx, game, "retired");
       return;
     }
     await ctx.scheduler.runAfter(TICK_MS, TICK, { gameId, leaseId });

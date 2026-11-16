@@ -221,7 +221,10 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
     if (!reference || (src && Math.abs(v - N(src)) < Math.abs(reference.value - N(src)))) reference = { ref: c.ref, value: v, text: readableN(v) };
   }
   // The rule's own notes on this layer (a third preference's working: "31 × ¹⁄₃₁ = 1").
-  const layerNotes = e.marks.filter((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && m.term === term.id && i > 0).map(m => typesetNote(m.text));
+  // Only a working on one element: notes on several elements are per-unit notes (a grid's "2 apart" on each pair), which
+  // the board says beside each unit; joined into the card's sentence they made a paragraph.
+  const layerMarks = e.marks.filter((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && m.term === term.id && i > 0);
+  const layerNotes = new Set(layerMarks.map(m => refKey({ ...m.ref, site: undefined }))).size === 1 ? layerMarks.map(m => typesetNote(m.text)) : [];
 
   let distance: string | null = null;
   let brief: string | undefined;
@@ -308,10 +311,12 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
   const units = from.length > 1
     ? from.flatMap(r => {
       const k = refKey({ ...r, site: undefined });
-      const note = e.marks.find((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && refKey({ ...m.ref, site: undefined }) === k);
+      // Only this part's own marks: a note or focus another layer put on the same element is not this part's unit.
+      const own = (m: Mark) => (i === 0 ? m.term === undefined || m.term === term.id : m.term === term.id);
+      const note = e.marks.find((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && own(m) && refKey({ ...m.ref, site: undefined }) === k);
       if (note) return [{ label: labelOf(rule as RuleRef<S, unknown>, r), text: typesetNote(note.text) }];
       // A unit at its target carries the rule's focus mark instead of a note.
-      const onTarget = e.marks.some(m => m.kind === "focus" && refKey({ ...m.ref, site: undefined }) === k);
+      const onTarget = e.marks.some(m => m.kind === "focus" && own(m) && refKey({ ...m.ref, site: undefined }) === k);
       return onTarget ? [{ label: labelOf(rule as RuleRef<S, unknown>, r), text: "on target" }] : [];
     })
     : [];

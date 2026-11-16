@@ -29,6 +29,9 @@ async function escapeAll(page: Page) { for (let i = 0; i < 3; i++) await page.ke
 
 /** Shows a dock pane: on a phone its tab, on a desktop the pane if it is open, else through a pane's menu. */
 async function openPane(page: Page, id: string) {
+  // A phone's stacked dock: the jump row scrolls to a pane that is in the stack.
+  const jump = page.getByTestId(`button-jump-${id}`);
+  if (await jump.count()) { await jump.first().click(); return page.getByTestId(`pane-${id}`); }
   const tab = page.getByTestId(`tab-${id}`);
   if (await tab.count()) { await tab.first().click({ position: { x: 6, y: 10 } }); return page.getByTestId(`pane-${id}`); }
   const pane = page.getByTestId(`pane-${id}`);
@@ -145,13 +148,10 @@ try {
       }
     });
 
-    await missing(["page-game-owner-menu"], "three humans: the owner ends the game from the ⋯ owner menu (End game, confirm)", async () => {
+    await check("three humans: the owner ends the game from the ⋯ owner menu (End game, confirm); every page shows the ended game on the same URL", async () => {
       await a.getByTestId("button-owner-menu").click({ timeout: 3_000 });
       await a.getByTestId("button-end-game").click();
-    }, () => escapeAll(a));
-
-    await check("three humans: the owner ends the game (palette in v2); every page shows the ended game on the same URL", async () => {
-      await paletteRun(a, "end the game", "game.end");
+      await a.getByTestId("button-end-game-yes").click();
       for (const p of players) {
         await p.page.getByTestId("text-phase").filter({ hasText: /ended/i }).waitFor({ timeout: 90_000 });
         assert.equal(p.page.url().replace(/[?#].*$/, ""), gameUrl, `${p.who} left the game's page`);
@@ -174,6 +174,21 @@ try {
       await shot(a, "game1-results-alice");
       await noHorizontalScroll(a, "results");
     });
+
+    await check("three humans: the results show the rotation: game 1 of 3, a different rule each game, totals over the round", async () => {
+      for (const p of players) {
+        const rot = p.page.getByTestId("results-rotation");
+        await rot.waitFor({ timeout: 30_000 });
+        assert.match(await rot.innerText(), /^Game 1 of 3/);
+      }
+    });
+
+    await missing(["e2e-rotation-shot"], "three humans: the room page's rotation line says whose rule each player gets if they play again (\"Game 1 of 3 in this rotation. Play again with the same players and you get X's rule\")", async () => {
+      await b.goto(`${SITE}/rooms/${code}`);
+      const line = b.getByTestId("text-rotation-line");
+      await line.waitFor({ timeout: 5_000 });
+      assert.match(await line.innerText(), /^Game 1 of 3 in this rotation\. Play again with the same players and you get .+'s rule/);
+    }, async () => { await b.goto(gameUrl); await b.locator('[data-testid="replay-bar"], [data-testid="results"]').first().waitFor({ timeout: 30_000 }).catch(() => {}); });
 
     await check("three humans: the replay's header leads back to the room page without a reload; its past games list the game", async () => {
       for (const p of players) {
@@ -202,6 +217,36 @@ try {
       const gameId = gameUrl.split("/").at(-1)!;
       await a.goto(`${SITE}/games/${gameId}`);
       await a.getByTestId("text-not-found").waitFor({ timeout: 5_000 });
+    });
+
+    await check("signed out: a visit to the game's page shows the sign-in screen there, which reaches the provider; no CSP reports", async () => {
+      const fresh = await browser.newContext();
+      await fresh.route(/^https:\/\/accounts\.google\.com\//, (route: any) => route.fulfill({ status: 200, contentType: "text/html", body: "google" }));
+      const out = await fresh.newPage();
+      const reports: string[] = [];
+      out.on("console", (m: any) => { if (/Content Security Policy/i.test(m.text())) reports.push(m.text()); });
+      const path = new URL(gameUrl).pathname;
+      await out.goto(gameUrl);
+      await out.getByTestId("button-login").waitFor({ timeout: 60_000 });
+      assert.equal(new URL(out.url()).pathname, path, `the signed-out page moved: ${out.url()}`);
+      const google = out.waitForRequest(/^https:\/\/accounts\.google\.com\//, { timeout: 30_000 });
+      await out.getByTestId("button-login").click();
+      await google;
+      assert.deepEqual(reports, []);
+      await fresh.close();
+    });
+
+    await check("three humans: the owner deals the same game again (Rematch) from the room; every player is taken to the new game", async () => {
+      await a.goto(`${SITE}/rooms/${code}`);
+      for (const p of [b, c]) { await p.goto(`${SITE}/rooms/${code}`); await p.getByTestId("text-room-code").waitFor(); }
+      await a.getByTestId("button-rematch").click({ timeout: 30_000 });
+      const ok = a.getByTestId("button-rematch-confirm-ok");
+      if (await ok.waitFor({ timeout: 3_000 }).then(() => true, () => false)) await ok.click();
+      for (const p of players) {
+        await p.page.waitForURL((u: URL) => GAME_URL.test(u.pathname) && u.toString().replace(/[?#].*$/, "") !== gameUrl, { timeout: 60_000 });
+        await p.page.getByTestId("text-phase").filter({ hasText: /plan|run/i }).waitFor({ timeout: 60_000 });
+      }
+      await paletteRun(a, "end the game", "game.end");
     });
 
     for (const p of players) await p.context.close();
@@ -261,34 +306,46 @@ try {
       await b.getByTestId(`button-bid-${family}-10`).click();
       await b.getByTestId(`text-my-bid-${family}`).filter({ hasText: "10%" }).waitFor();
       await shot(b, "game2-bidding-bob");
-      await missing(["e2e-site-smoke-9"], "bidding: the old words: title \"Bid for your rule\", the button reads \"Done bidding\" once a bid is placed, your bids listed", async () => {
+      { // bidding: the old words: title "Bid for your rule", the button reads "Done bidding" once a bid is placed, your bids listed (v1, restored)
         assert.equal(await b.getByTestId("text-bidding-title").innerText({ timeout: 3_000 }), "Bid for your rule");
         await b.getByTestId("button-bidding-done").filter({ hasText: /^Done bidding$/ }).waitFor({ timeout: 3_000 });
         assert.match(await b.getByTestId("text-your-bids").innerText({ timeout: 3_000 }), /10%/);
-      });
-      await missing(["e2e-site-smoke-9"], "bidding: the spectating owner watches the clock and may Cancel; she has nothing to bid on; no second Start", async () => {
+      }
+      { // bidding: the spectating owner watches the clock and may Cancel; she has nothing to bid on; no second Start (v1, restored)
         await a.getByTestId("panel-bidding").waitFor({ timeout: 5_000 });
         assert.equal(await a.locator('[data-testid^="bid-family-"]').count(), 0, "a spectator has nothing to bid on");
         assert.equal(await a.getByTestId("button-start-game").count(), 0, "no second start while the players bid");
         await a.getByTestId("bidding-countdown").waitFor({ timeout: 3_000 });
         await a.getByTestId("button-cancel-bidding").waitFor({ timeout: 3_000 });
-      });
+      }
       await noHorizontalScroll(b, "phone bidding");
       await b.getByTestId(`button-withdraw-${family}`).click();
       await b.getByTestId(`text-my-bid-${family}`).waitFor({ state: "detached" });
       await b.getByTestId("button-bidding-done").click();
-      await b.getByTestId("text-bidding-waiting").filter({ hasText: /done bidding/ }).waitFor();
-      await missing(["e2e-site-smoke-9"], "bidding: after passing bob reads \"You passed. Waiting for 1 more player…\" and may Change", async () => {
+      await b.getByTestId("text-bidding-waiting").filter({ hasText: /You passed\./ }).waitFor();
+      { // bidding: after passing bob reads "You passed. Waiting for 1 more player…" and may Change (v1, restored)
         await b.getByText("You passed. Waiting for 1 more player…").waitFor({ timeout: 3_000 });
         await b.getByTestId("button-bidding-change").waitFor({ timeout: 2_000 });
-      });
+      }
+      // Carol keeps a bid (bidding-shots: the outcome shows on the winner's card), then is done.
+      const carolFamily = (await c.locator('[data-testid^="bid-family-"]').first().getAttribute("data-testid"))!.replace("bid-family-", "");
+      await c.getByTestId(`button-bid-${carolFamily}-10`).click();
+      await c.getByTestId(`text-my-bid-${carolFamily}`).filter({ hasText: "10%" }).waitFor();
       await c.getByTestId("button-bidding-done").click();
       for (const p of [b, c]) await p.waitForURL(GAME_URL, { timeout: 120_000 });
     });
 
+    await check("bidding: the bid's outcome is on the winner's card: carol won her rule for 10% off her final total", async () => {
+      // "Where am I" is in the phone's default stack.
+      const note = c.getByTestId("text-overview-bid");
+      await note.waitFor({ timeout: 30_000 });
+      assert.match(await note.innerText(), /^You won .+ in the bid: 10% comes off your total/);
+      await shot(c, "game2-bid-outcome-carol");
+    });
+
     await check("bidding: the spectating owner watches the clock and is taken to the game, with the spectator view", async () => {
       await a.waitForURL(GAME_URL, { timeout: 120_000 });
-      await a.getByTestId("text-watching").waitFor({ timeout: 60_000 });
+      await a.getByTestId("game-bar").getByTestId("text-watching").waitFor({ timeout: 60_000 });
       assert.equal(await a.getByTestId("button-summon-first").count(), 0, "a spectator has nothing to summon");
       await shot(a, "game2-spectator-alice");
       await noHorizontalScroll(a, "phone spectator");

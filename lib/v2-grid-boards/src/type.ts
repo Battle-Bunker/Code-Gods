@@ -3,6 +3,8 @@ import type { ObjectType, Variant } from "@workspace/v2-core";
 import { boardParams, cellBits, decodeBoard, encodeBoard, inDomain, isCard, paletteOf, type BoardState, type ColourSet, type SymbolSet, colourSet } from "./board.ts";
 import { boardRepresentations } from "./representations.ts";
 import { boardMutators } from "./mutators.ts";
+import { chessmaster } from "./families/chessmaster.ts";
+import { colourBonds, colourMirror, honestMinesweeper, kingdom, parityPainter, pictureFrame, setSpotter } from "./families/annotated-colours.ts";
 
 export function boardVariant(size: number, symbols: SymbolSet, colours: ColourSet): Variant {
   return {
@@ -40,11 +42,14 @@ export function makeBoardType(v: Variant): ObjectType<BoardState> {
       const n2 = n * n, c = paletteOf(v)[0]!;
       return isCard(boardParams(v).symbols) ? { sym: Array(n2).fill(0), col: Array(n2).fill(c), cards: true } : { sym: Array(n2).fill(0), col: Array(n2).fill(c) };
     },
-    representations: boardRepresentations(n),
+    representations: boardRepresentations(n, isCard(boardParams(v).symbols)),
     mutators: boardMutators(n, paletteOf(v).length, isCard(boardParams(v).symbols)),
-    families: [],
+    families: BOARD_FAMILIES,
   };
 }
+
+/** The board families, shared by every board size (one object each, so the deal finds one family per id; (each family's own params say which of them the variant can deal). */
+export const BOARD_FAMILIES = [chessmaster(), parityPainter(), colourMirror(), pictureFrame(), colourBonds(), honestMinesweeper(), kingdom(), setSpotter()];
 
 export const board4Type = makeBoardType(board4rgb);
 export const board5Type = makeBoardType(board5rgby);

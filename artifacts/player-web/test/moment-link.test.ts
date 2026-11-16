@@ -29,3 +29,15 @@ test("Shift+← and Shift+→ jump to the previous and next key moment (v1)", ()
   assert.equal(replayKey({ key: "ArrowRight", shift: true }), "nextMoment");
   assert.equal(replayKey({ key: "ArrowRight", shift: true, target: "INPUT" }), null);
 });
+
+test("[ and ] slow the replay down and speed it up (v1)", async () => {
+  const { nextSpeed } = await import("../src/replay/moment-link.ts");
+  assert.equal(replayKey({ key: "[" }), "slower");
+  assert.equal(replayKey({ key: "]" }), "faster");
+  assert.equal(replayKey({ key: "]", target: "SELECT" }), null);
+  const speeds = [0.25, 0.5, 1, 2, 4] as const;
+  assert.equal(nextSpeed(speeds, 1, 1), 2);
+  assert.equal(nextSpeed(speeds, 1, -1), 0.5);
+  assert.equal(nextSpeed(speeds, 4, 1), null, "no faster than the fastest");
+  assert.equal(nextSpeed(speeds, 0.25, -1), null);
+});

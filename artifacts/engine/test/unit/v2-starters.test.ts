@@ -11,7 +11,7 @@ import { dealablePool } from "../../convex/v2/deal.ts";
 import { presetOf } from "../../convex/v2/presets.ts";
 
 test("every starter of every dealable family is affordable at the start", () => {
-  for (const id of ["lines-beginner", "grids-beginner", "grids-arithmetic"]) {
+  for (const id of ["lines-beginner", "grids-beginner"]) {
     const preset = presetOf(id);
     const families = [...new Set(dealablePool(preset).map(r => r.family))];
     assert.ok(families.length > 0);

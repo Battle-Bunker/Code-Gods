@@ -398,7 +398,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
         };
         case "game.standings": {
           const rows = seats.map((s, j) => ({ memberId: memberId(j), name: s.name, points: totalOf(j), handicap: 0, net: totalOf(j) })).sort((x, y) => y.net - x.net);
-          return { rows: rows.map((row, k) => ({ ...row, rank: k + 1 })) };
+          return { rows: rows.map((row, k) => ({ ...row, rank: k + 1 })), handicapsHidden: false };   // the table deals no bids
         }
         case "rule.explain": return {
           family: family.id, params: seat.rule.params, layers: ruleLayers(family, seat.rule.tieBreaker).map(l => l.title),

@@ -135,6 +135,38 @@ async function driveReplay(page: Page, label: string, final: Record<string, stri
     // Back to where the steps left it, for the playing checks below.
     await page.keyboard.press("Home");
     await waitApplied(page, n => n === 0, "Home returns to the start");
+    // v1's slider keys: ↑/↓ step one event, PageUp/PageDown a tenth of the game; [ and ] change the speed.
+    const slider = page.getByTestId("input-replay-seek");
+    await slider.focus();
+    await page.keyboard.press("ArrowUp");
+    await waitApplied(page, n => n === 1, "↑ on the slider steps one event");
+    await page.keyboard.press("PageUp");
+    const tenth = await waitApplied(page, n => n > 1, "PageUp on the slider seeks further");
+    assert.ok(tenth >= Math.floor(end / 10), `${label}: PageUp moves about a tenth of the game (${tenth} of ${end})`);
+    await page.keyboard.press("ArrowDown");
+    await waitApplied(page, n => n === tenth - 1, "↓ on the slider steps back one event");
+    await slider.blur();
+    const speedBefore = await page.getByTestId("select-replay-speed").inputValue();
+    await page.keyboard.press("]");
+    await page.waitForFunction((was: string) => (document.querySelector("[data-testid=select-replay-speed]") as HTMLSelectElement | null)?.value !== was, speedBefore, { timeout: 10_000 });
+    await page.keyboard.press("[");
+    await page.waitForFunction((was: string) => (document.querySelector("[data-testid=select-replay-speed]") as HTMLSelectElement | null)?.value === was, speedBefore, { timeout: 10_000 });
+    await page.keyboard.press("Home");
+    await waitApplied(page, n => n === 0, "Home returns to the start");
+    // v1's event list: opened, each row a moment; a click goes there.
+    await page.getByTestId("replay-events").locator("summary").click();
+    const row = page.getByTestId("replay-events").locator("[data-testid^=replay-event-]").nth(3);
+    const at = Number((await row.getAttribute("data-testid"))!.slice("replay-event-".length));
+    await row.click();
+    await waitApplied(page, n => n === at, "a click on an event goes there");
+    assert.match(await page.getByTestId("replay-events").textContent() ?? "", /(Line|Grid) \d+ is born|summoned /);
+    await page.getByTestId("replay-events").locator("summary").click();
+    // Back where the steps above left it (one step from the start), for the playing checks below.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press("Home");
+    await waitApplied(page, n => n === 0, "Home returns to the start");
+    await page.getByTestId("button-replay-forward").click();
+    await waitApplied(page, n => n === first, "one step from the start, as before");
   }
   await shot(page, `replay-${label}-step`);
 

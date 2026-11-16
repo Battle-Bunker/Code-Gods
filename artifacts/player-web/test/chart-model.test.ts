@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  axisNumber, careCounts, careKind, carePoints, careTitle, raceSeries, riseAndFall, scale, seriesOf, ticks, timeDomain,
+  axisNumber, careCounts, careKind, carePoints, careTitle, drawable, raceSeries, riseAndFall, scale, seriesOf, ticks, timeDomain,
   timeTicks, valueDomain, valuesAt,
 } from "../src/panes/chart-model.ts";
 import { duration, rulesFacts, rulesParagraphs, type RulesInput } from "../src/panes/rules-words.ts";
@@ -141,4 +141,12 @@ test("lead changes: the world times the leader changed, for the replay's race (v
   assert.deepEqual(leadChanges([s("a", [1, 5, 5, 2]), s("b", [0, 3, 6, 9])]), [20]);
   assert.deepEqual(leadChanges([s("a", [1, 1]), s("b", [1, 1])]), [], "a tie is no change of leader");
   assert.deepEqual(leadChanges([]), []);
+});
+
+test("a chart draws only series with points: an empty one is left out, not read (the end page's crash)", () => {
+  // Catches: "How the game went" failing with "reading 'x'" when one of your best lines had no moves loaded yet (the
+  // chart read the last point of an empty series).
+  const one = { key: "a", label: "#1", you: true, slot: 0, points: [{ x: 0, y: 1 }, { x: 5, y: 2 }] };
+  const none = { key: "b", label: "#2", you: false, slot: 1, points: [] };
+  assert.deepEqual(drawable([one, none]).map(s => s.key), ["a"]);
 });

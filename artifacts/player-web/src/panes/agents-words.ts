@@ -98,3 +98,34 @@ export function morePower(share: number, free: number): number | null {
 export function lessPower(share: number): number | null {
   return share < 0.01 ? null : Math.round((share / 2) * 1e6) / 1e6;
 }
+
+const moves = (n: number) => `${n.toLocaleString("en-US")} ${n === 1 ? "move" : "moves"}`;
+
+/** v1's spent line: "Spent 30.00 energy on 4 moves: 12.00 reading, 18.00 changing" (agentEnergy's spendRead/spendChange). */
+export function spentText(e: { spend: number; spendRead: number; spendChange: number; acts: number }): string {
+  if (!(e.spend > 0)) return "Spent nothing yet";
+  return `Spent ${energyText(e.spend)} on ${moves(e.acts)}: ${num(e.spendRead)} reading, ${num(e.spendChange)} changing`;
+}
+
+/** v1's actual cost: "Actual average 7.50 energy per move" (null before its first move). */
+export function actualText(e: { spend: number; acts: number }): string | null {
+  return e.acts > 0 ? `Actual average ${energyText(e.spend / e.acts)} per move` : null;
+}
+
+const clockText = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+/** Its last move's own cost: "Last move at 0:12: 1.50 reading + 2.00 changing (moved)". */
+export function lastActText(a: { at: number; read: number; change: number; outcome: string } | null): string | null {
+  return a ? `Last move at ${clockText(a.at)}: ${num(a.read)} reading + ${num(a.change)} changing (${a.outcome})` : null;
+}
+
+/**
+ * v1's agent state (the My agents rule): above zero it can act now; overdrawn by at most 2 s of its income it is
+ * working (spending as fast as it earns, routine); past 10 s, or with no income, it is stuck; between, it waits.
+ */
+export function actState(e: { energy: number; perSecond: number }): string {
+  if (e.energy > 0) return "can act now";
+  if (!(e.perSecond > 0)) return "stuck: it has no income";
+  if (-e.energy <= 2 * e.perSecond) return "working: it spends energy as fast as it earns it";
+  if (-e.energy > 10 * e.perSecond) return "stuck: it owes more than 10 s of its income";
+  return "waiting for income";
+}
