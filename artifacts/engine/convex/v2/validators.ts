@@ -74,8 +74,8 @@ export const headerV = v.object({
   priceScale: v.number(),
   /** Parameter drift's interval in world seconds (drift.ts; 0: off): drift k happens at world second k × it. */
   driftSeconds: v.number(),
-  /** Line turnover (retirement-design.md): at most this many live lines, the oldest retiring; null: every line stays. */
-  liveCap: v.union(v.number(), v.null()),
+  /** Line turnover (retirement-design.md): at most `liveCap` live lines, a birth every `birthSeconds` (null: at random), the oldest retiring with its points kept in the totals (`banked`) or not; null: every line stays live. */
+  turnover: v.union(v.object({ liveCap: v.number(), banked: v.boolean(), birthSeconds: v.union(v.number(), v.null()) }), v.null()),
   /** The game's time dilation (decision 37): 1 unless a simulation or local playtest sped it up. */
   timeScale: v.number(),
   /** Paused because nobody acted for 30 minutes: any human activity (`account.touch`) resumes it. */
@@ -128,6 +128,8 @@ export const objectIdsV = paginationResultValidator(v.object({ objectId: v.id("v
 /** `v2/play:object`: one object's shared state and the caller's value of it. */
 export const playObjectV = v.object({
   objectId: v.id("v2Objects"), number: v.number(), bornAt: v.number(),
+  /** Line turnover: the world second it retired (its points banked as the game's settings say); absent: live. */
+  retiredAt: v.optional(v.number()),
   state: v.string(), version: v.number(), changedAt: v.number(),
   value: v.union(v.object({
     score: scoreWireV, rarityBits: v.number(), want: v.number(), points: v.number(), version: v.number(),

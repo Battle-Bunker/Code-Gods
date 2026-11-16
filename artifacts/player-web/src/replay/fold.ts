@@ -26,7 +26,11 @@ type Score = (string | null)[] | null;
 interface Snap { score: Score; rarityBits: number; want: number; points: number }
 interface ValueAt extends Snap { at: number }
 interface StateAt { at: number; state: string; changedAt: number }
-interface Timeline { objectId: string; number: number; bornAt: number; born: number; states: StateAt[]; values: Map<string, ValueAt[]> }
+interface Timeline {
+  objectId: string; number: number; bornAt: number; born: number; states: StateAt[]; values: Map<string, ValueAt[]>;
+  /** Turnover: the position of its `retired` event, and the world second (absent: never retired). */
+  retired?: number; retiredAt?: number;
+}
 interface Tick { at: number; standings: Standings; point: StandingsPoint }
 interface Command { at: number; kind: string; agentId: string; name?: string; language?: string; version?: number; share?: number; shares?: Record<string, number>; worldSeconds: number }
 type RawEvent = { seq: number; kind: string; data: Record<string, unknown> };
@@ -145,6 +149,12 @@ export function indexReplay(file: unknown): ReplayIndex {
         ix.byId.set(t.objectId, t);
         break;
       }
+      case "retired": {
+        // Turnover (engine retirement-design.md): the line leaves the board; its values stay as banked.
+        const t = ix.byId.get(String(d.objectId));
+        if (t) { t.retired = at; t.retiredAt = world; }
+        break;
+      }
       case "act": {
         // Only a committed act changes its line, and its values follow in the next `values` event.
         pending = d.outcome === "committed" ? {
@@ -237,6 +247,8 @@ export interface ReplayFrame {
   /** A line as it stood, with `member`'s value of it (none for null); null before its birth. */
   object(objectId: string, member: string | null): PlayObject | null;
   objectIds(member: string, sort: ObjectSort, show?: ObjectShow): { objectId: string; number: number }[];
+  /** The retired lines (turnover), the latest first, as `v2/play:banked` pages them. */
+  banked(member: string): { objectId: string; number: number }[];
   /** The moves that concerned `member`, newest first. */
   moves(member: string): Move[];
   digest(member: string): Digest | null;
@@ -248,6 +260,8 @@ export interface ReplayFrame {
 export function frameAt(ix: ReplayIndex, applied: number): ReplayFrame {
   const a = Math.max(0, Math.min(ix.end, applied));
   const born = ix.objects.filter(t => t.born <= a);
+  const isRetired = (t: Timeline) => t.retired !== undefined && t.retired <= a;
+  const live = born.filter(t => !isRetired(t));
   const valueOf = (t: Timeline, m: string) => {
     const list = t.values.get(m);
     const i = list ? lastAt(list, a) : -1;
@@ -269,11 +283,11 @@ export function frameAt(ix: ReplayIndex, applied: number): ReplayFrame {
       const v = member ? valueOf(t, member) : null;
       // One answer per (state, value) a line ever had: a line the playhead did not change keeps its identity, so its row
       // does not draw again.
-      const key = `${objectId}|${member ?? ""}|${i}|${v?.version ?? 0}`;
+      const key = `${objectId}|${member ?? ""}|${i}|${v?.version ?? 0}|${isRetired(t) ? "r" : ""}`;
       let out = ix.answers.get(key);
       if (!out) {
         out = {
-          objectId: t.objectId, number: t.number, bornAt: t.bornAt, state: s.state, version: i + 1, changedAt: s.changedAt,
+          objectId: t.objectId, number: t.number, bornAt: t.bornAt, ...(isRetired(t) ? { retiredAt: t.retiredAt } : {}), state: s.state, version: i + 1, changedAt: s.changedAt,
           value: v ? { score: v.score, rarityBits: v.rarityBits, want: v.want, points: v.points, version: v.version } : null,
         } as unknown as PlayObject;
         ix.answers.set(key, out);
@@ -293,8 +307,9 @@ export function frameAt(ix: ReplayIndex, applied: number): ReplayFrame {
       // The server pages its indexes in descending order, ties newest first.
       // v1's filters, as the server's: earning you points (and contested is the same here); chips need the server.
       const keep = (t: Timeline) => show === "all" || show === "chips" || (valueOf(t, member)?.points ?? 0) > 0;
-      return born.filter(keep).map(t => ({ t, k: key(t) })).sort((x, y) => y.k - x.k || y.t.number - x.t.number).map(({ t }) => ({ objectId: t.objectId, number: t.number }));
+      return live.filter(keep).map(t => ({ t, k: key(t) })).sort((x, y) => y.k - x.k || y.t.number - x.t.number).map(({ t }) => ({ objectId: t.objectId, number: t.number }));
     },
+    banked: () => born.filter(isRetired).sort((x, y) => y.number - x.number).map(t => ({ objectId: t.objectId, number: t.number })),
     moves(member) {
       const list = ix.moves.get(member) ?? [];
       return list.slice(0, lastAt(list, a) + 1).map(m => m.move).reverse();

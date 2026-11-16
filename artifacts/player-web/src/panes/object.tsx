@@ -5,6 +5,7 @@
  * `view.compareRepresentations`), so an assistant can switch them for them; "Draw every line in Lines this way" pins the
  * representation for the rule's family (`view.pinRepresentation`).
  */
+import { bankedWords } from "./turnover-words";
 import { isPaid, lookLabel, quotePrice, seenWords } from "./seen";
 import { FreshMark, useWorldNow } from "./fresh-mark";
 import { AffordanceButton } from "@/site/components/action";
@@ -110,6 +111,8 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
           )}
         </p>
         {view.focus?.objectId === objectId && view.focus.from && <p className="text-xs text-muted-foreground" data-testid="text-object-from">Opened from: {view.focus.from}</p>}
+        {/* Line turnover: a retired line keeps its final state and the points it banked; no agent acts on it again. */}
+        {o.retiredAt !== undefined && v && <p className="text-xs font-medium" data-testid="text-line-retired">{bankedWords({ retiredAt: o.retiredAt, points: v.points }, header?.turnover?.banked ?? true, header?.phase !== "ended")}: no agent acts on it again.</p>}
         {v && <p className="text-xs text-muted-foreground" data-testid="text-line-formula">{whyLine({ rarity: v.rarityBits, want: v.want }, {}, word.one, blurred)}</p>}
         {/* v1's why?: how rare the object is for your rule, as a share of random ones (the bits' meaning in one line). */}
         {v && v.rarityBits > 0 && <p className="text-xs text-muted-foreground" data-testid="text-line-rarer">For your rule this {word.one} is {rarerThanText(v.rarityBits, word.many)} ({chanceText(v.rarityBits)} by chance).</p>}
@@ -126,7 +129,7 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
         parts={v && "parts" in v ? (v.parts as readonly ValuePart[] | null | undefined) ?? null : null}
         moves={candidates} others={othersAt} climb={<ClimbHistory climb={climb} noun={word.one} approx={blurred} />}
         onActive={rep => void run(activeOp(objectId, rep, compared))} onCompare={rep => void run(compareOp(objectId, active, rep))} />
-      {!ended && !replaying && candidates.length > 0 && (
+      {!ended && !replaying && o.retiredAt === undefined && candidates.length > 0 && (
         <p className="flex flex-wrap items-baseline gap-x-2 text-xs text-muted-foreground" data-testid="what-if-quote">
           <button type="button" className="underline underline-offset-4 disabled:opacity-50" disabled={quoting || !whatIf.available} onClick={askQuote} data-testid="button-quote-what-if">
             {quoting ? "Quoting…" : `${myQuote ? "Quote again" : "Quote what these moves do for the others"} (${quotePrice(o.lookPrice, candidates.length)})`}
@@ -144,7 +147,7 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
         Try a change on this {word.one}
       </button>
       {/* A deal, one press from the line it is about: the forge opens with the leave-alone control filled in. */}
-      {(agents?.length ?? 0) > 0 && !replaying && header?.phase !== "ended" && (
+      {(agents?.length ?? 0) > 0 && !replaying && header?.phase !== "ended" && o.retiredAt === undefined && (
         <button type="button" className="mr-4 text-xs underline underline-offset-4" data-testid="button-leave-here"
           onClick={() => void requestForge({ kind: "leave", numbers: [o.number] }, openPane)}>Leave this {word.one} alone</button>
       )}
