@@ -26,6 +26,8 @@ export const roomV = v.object({
     deadline: v.number(), pricing: v.union(v.literal("first"), v.literal("second")), families: v.array(offerV),
     visibility: v.optional(v.union(v.literal("sealed"), v.literal("open"))),
   }), v.null()),
+  /** The saved setup last applied, as named then; null after a change by hand. */
+  setup: v.union(v.object({ setupId: v.id("v2Setups"), name: v.string() }), v.null()),
 });
 export const roomListV = paginationResultValidator(v.object({ roomId: v.id("v2Rooms"), memberId: v.id("v2Members"), joinedAt: v.number() }));
 export const chatPageV = paginationResultValidator(v.object({ id: v.id("v2Chat"), from: v.string(), memberId: v.union(v.id("v2Members"), v.null()), text: v.string(), at: v.number() }));
