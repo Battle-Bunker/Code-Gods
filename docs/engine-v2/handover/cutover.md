@@ -2,6 +2,42 @@
 
 Labels: **built** (in the code and tested), **seen narrowly** (measured under the stated assumptions), **guess**.
 
+## Update, 17 Nov (Melbourne, mid-morning): steps 6 and 7 done; step 8's measurements
+
+- **Step 6, grids (#1165).** Nine pure-utility grid rules (`lib/v2-grid/src/dynamic-families.ts`; table and check table
+  in `energy.md`, "Grids"), dealt on every grid setup; grid estimator `lib/v2-grid/src/energy.ts` (law-board starts;
+  per-group anchor rewrites merged exactly on a Pareto front; the rule's own searches; single-move floor). Commit in
+  the Convex runtime: median 229 ms, max 296 ms (seen narrowly). Old grid families, grid seating, grid valuation code
+  deleted (`old-rule-ideas.md`). Defence goals are refused by the room (they valued badness through tables).
+- **Step 7, tables (#1166).** Value files, generator, lookups, tails, tree valuation, uniqueness correction, defence net,
+  W/PMI/tension/compat/unopposed tables, the dealing trial's log and table-era scripts deleted. **Withheld:** two-line
+  systems (`lines-pairs`) and the coloured boards (`grids-original-colours`): only energy-scored families are dealable.
+  `spec.md` §7 marked superseded. Agents: `myRule.energy`, `othersAfter.mine`; `climb` no longer calls `rarity` on
+  energy rules (a decimal utility crashed it once `worth` answered). `worth` is not answered on energy rules, so
+  starters still climb their own utility and weigh nobody else (fault 2 is still open, by choice: with `worth` the
+  starters weighed points on near-zero newborn energies and skipped every act).
+- **Drift is inert:** every dealt family keeps its parameters (ladders). Its live test went with the boards.
+- **Step 8 (seen narrowly).**
+  - *Noise of a standing at K = 8* (three random tables of four seats, three newborn objects each, twelve estimates):
+    lines: sd of a seat's total 1–5 energy, gaps between neighbouring seats 0–11; grids: sd 1–25, gaps 0–129. So close
+    seats swap places on noise; clear leads hold. Raising K to 16 halves the variance but (guess) about doubles a
+    commit (some 460 ms median on grids against the 600 ms gate): K stays 8. Guess: the standing is a sum over many commits per
+    object over a game, which averages some of it.
+  - *Fraction-native rules and fees:* stating a fraction is priced like its denominator's size (si.shift by 1/97 costs
+    about 11,650 energy against 6 for 1; 1/7 costs 92), so Unit Fraction, Prime Sliver, Crossing Sliver, Fine Bottom and
+    Next-door Bottom are reachable only through shortcuts (stretch by ½, ⅓, 1/10; rounding; mirrors). Proposal (not
+    built): price an amount's denominator by its digits (as decision 25 prices shortcuts) rather than by its size.
+- **Pair utility ideas (for later; two-line systems are withheld):** (1) *Crossing Prime*: the two lines' crossing x as
+  a fraction p/q, utility log2 p − 4|x − p| for the nearest prime p (big crossings, precise); (2) *Right Angle*: m₁·m₂
+  close to −1 with the gradients' bottoms big, utility log2(q₁q₂) − 8|m₁m₂ + 1|; (3) *Parallel Gap*: equal gradients
+  and the vertical gap a power of k, utility √log2 P − |gap − P|³ − 4|m₁ − m₂|; (4) *Triangle Area*: the triangle the two
+  lines cut with the y-axis has area n² for n a multiple of k (big n).
+- **Pre-existing, not chased:** in `v2-play.test.ts`, "reads: …" depends on an earlier test and "pause once …" compares
+  the agent's othersAfter with the server's want, which disagree under disclosure noise; both pass or fail with order.
+- **Next:** the views still say "bits"/rarity for energy (faces, summary, the Lines pane's Why?); give the agents the
+  others' weighting in a way that survives newborn near-zero energies (fault 2); restate pairs and coloured boards as
+  utilities if the owner wants them back.
+
 ## Update, 17 Nov (Melbourne morning): steps 1–5 done; what is next
 
 - **Step 5 (#1164):** `test/v2-energy-cost.test.ts` reads a commit's and a look's time from the backend's execution
