@@ -381,6 +381,37 @@ weakness: Prime Gradient (one jumpy instance) and Root Tilt are its only members
 splits hardest but is a combined reading of |m| / |c| that fails a unit-shift bump, so it needs softening before it is
 a candidate (guess: read 1 over the crossing rounded to a whole number, or draw dense targets).
 
+## Fourth run: per part, for the combined readings (16 November, late)
+
+Script: `lib/v2-linear/scripts/sideways-parts.ts` (`--starts 16`). The third run matched starts on the whole line's
+height with additions only; here, as the trial's per-part mode (#1140), starts are matched on the READING's own size
+(within a factor of √2: the gradient from the law, the y-intercept solved for the reading), lift is the reading's
+(g·log2(1 + x)), and one of the trial's shortcuts may precede the finishing additions. One instance a family, twelve
+states each (built; seen narrowly).
+
+| family | instance | ρ(energy, bits) | ρ(lift, bits) | ρ(sideways, bits) | lift share | dominant |
+|---|---|---|---|---|---|---|
+| square-area | {"ends":9} [shared-factor] | 0.38 | 0.09 | 0.63 | 0.80 | lift |
+| tree-nt-tower | {"g":"2","u":1,"v":0} [closeness] | 1.00 | 1.00 | 0.34 | 0.93 | lift |
+| tree-geo-rings | {"d":2,"u":3,"v":4} [closeness] | 1.00 | 1.00 | 0.05 | 0.95 | lift |
+| tree-geo-legs | {"p":3,"q":2,"d":2} [closeness] | 0.94 | 1.00 | -0.68 | 0.93 | lift |
+| tree-geo-quadrant | {"p":3,"q":2} [closeness] | 1.00 | 1.00 | -0.27 | 0.95 | lift |
+| tree-rep-partway | {"reads":"area","ladder":"square","u":2,"v":5} [closeness] | 1.00 | 1.00 | -0.66 | 0.95 | lift |
+
+1. **Matched on the reading, energy ranks like rarity for all five combined-reading tree families** (ρ 0.94 to 1.00,
+   seen), where the third run gave about 0. The failure was the matching, not the families.
+2. **But it is lift that ranks, and that is built in.** Lift is 93 to 95% of the energy and alone gives ρ = 1.00; for a
+   "size of the nearest target" primary the reading's lift is monotone in the primary, so the agreement is mostly true
+   by construction. Sideways adds little and ranks against rarity for three of the five (Leg Ratio −0.68, Part Way on
+   area −0.66, Quadrant Square −0.27): within a size band, the states rarity values most are not the ones far from
+   random starts. Plainly: on these families, sideways measures something other than rarity.
+3. **Square Area is the exception** (ρ 0.38): its main part is a ladder of squares, not the reading's size, so lift of
+   the area ranks poorly (0.09) and sideways carries the agreement (0.63). Its "jump" (one tilt moves the area a lot) is
+   what sideways sees.
+
+How it could be wrong: one instance a family; 16 starts; routes are bounded (one shortcut, two additions); the grid
+stops at |m| ≤ 20, |c| ≤ 80, where the class's members are found.
+
 ## Not covered
 
 - Grid Snap's secondary "snap-reach" (a grid family, reported by the app session): already at its top on most newborn
