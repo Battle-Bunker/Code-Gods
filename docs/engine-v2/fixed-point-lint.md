@@ -1,4 +1,10 @@
-# Fixed-point wording lint (15 November)
+# Fixed-point wording lint (15 November; narrowed 16 November)
+
+> **16 November.** The owner narrowed the rule: locks, and players agreeing on states and strategies, are wanted. What
+> stays a bug is a high-value state reachable in one step, or one state being enough to do well. The lint now flags only
+> that: copying one state, the same state on every object, settle-every-line, "one state is enough", "jump straight to",
+> and "in one step". Agreeing on, holding, defending and locking states are no longer flagged. The rewordings below stay:
+> they are accurate. LEAVE's comment now says only what it does (#1023).
 
 The owner's standing rule is: never build features, prompts or advice that help players reach or hold a fixed point.
 It had no test until now; the 14 November failure was advice of exactly that kind. The test is

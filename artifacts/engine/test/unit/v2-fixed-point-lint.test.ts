@@ -1,11 +1,11 @@
 /**
- * The owner's standing rule (CLAUDE.md, 14 November): never build features, prompts or advice that help players reach or
- * hold a fixed point (agreed destination states, settle-and-hold, copying one state). This lint reads what players and
+ * The owner's rule on fixed points (CLAUDE.md; narrowed 16 November): advice must never make one state enough to do well,
+ * or a high state reachable in one step (settle-and-hold everything, copying one state). This lint reads what players and
  * their AIs are told: the affordances' ids, titles and descriptions; the agent primer; the assistant's and AI seats'
  * prompts; every shipped starter's source and comments; and the app's end-of-game and tug-of-war texts. Wording that
  * proposes a destination or a hold fails, unless an allowlisted sentence says the opposite or means something else.
  *
- * What would break: a prompt or starter that tells players to settle lines, hold them, defend them or park them, as the
+ * What would break: a prompt or starter that tells players to settle every line and hold it, or to copy one state, as the
  * settle-everything guidance did on 14 November.
  */
 import { test } from "node:test";
@@ -19,39 +19,24 @@ import { lineType } from "@workspace/v2-linear";
 
 const root = fileURLToPath(new URL("../../../../", import.meta.url));
 
-/** Wording that proposes a destination state or holding one. */
+/**
+ * Wording that tells players one state is enough, or that a high state is one step away: the two bugs the owner's rule
+ * keeps (CLAUDE.md, 16 November: "locks, and players agreeing on states and strategies, are wanted"; "what stays a bug:
+ * a high-value state reachable in one step, or one state being enough to do well"). Agreeing on, defending and locking
+ * states are not flagged.
+ */
 const FIXED_POINT = [
-  /\bsettl(e|es|ed|ing)\b/i,
-  /\bhold(s|ing)? (it|them|the line|the lines|the state|that state|this state|there|at)\b/i,
-  /\bagreed[- ](state|destination|target|line|point)s?\b/i,
-  /\bcopy (this|that|the|a) state\b/i,
-  /\bstay(s)? on\b/i,
-  /\block(s|ed)? (it |them )?in\b/i,
-  /\bpark(s|ed|ing)? (the|a|your|it|them)\b/i,
-  /\bfixed point\b/i,
-  /\bleave (it|them) (there|where)\b/i,
-  /\bdestination\b/i,
-  /\bfreez(e|es) (the|a|it|them) /i,
-  /\bkeep (it|them|the line) (there|as it is|where it is|unchanged)\b/i,
-  /\b(end|target|final) state\b/i,
-  /\ba state to reach\b/i,
-  /\btowards? (its |their |a |the )?(own )?states?\b/i,
-  /\bdefend(s|ed|ing)? (it|them|the line|lines)?\b/i,
-  /\b(line|board|pair|object)s? [\d, and]+ (is|are) (yours|mine|theirs)\b/i,
-  /\bagreed to leave\b/i,
+  /\bcopy (this|that|the|a|one) state\b/i,
+  /\bsame state (on|for|to) (every|all|each)\b/i,
+  /\bsettle(-and-hold| every| all)\b/i,
+  /\b(one|a single) (state|line|board|object) is (enough|all you need)\b/i,
+  /\b(only|just) (need|needs) (one|a single) (state|line|board)\b/i,
+  /\b(jump|go|leap) (straight|directly) to\b/i,
+  /\b(in|with) (one|a single) (step|move|jump|act)\b/i,
 ];
 
 /** Sentences that match a pattern but say the opposite, or mean something else; each says why. */
 const ALLOWED: readonly { readonly text: string; readonly why: string }[] = [
-  { text: "An agent holds at most its share", why: "energy an agent holds, not a line" },
-  { text: "a player holding it reads", why: "a player holding a dealt rule" },
-  { text: "Standings freeze as they are", why: "the game ending, not a line held" },
-  { text: "says which object holds it", why: "uniqueness: another object is in that state" },
-  { text: "never a final state to reach and keep", why: "says the opposite" },
-  { text: "never a final state to hold", why: "says the opposite" },
-  { text: "there is no final state to reach", why: "says the opposite" },
-  { text: "not a state to reach", why: "says the opposite" },
-  { text: "climbs step by step towards states that pay both sides", why: "a code comment in climb.tsx about hill climbing upward, not text a player reads" },
 ];
 
 /** Every text the lint reads, with where it came from. */
@@ -72,7 +57,7 @@ function texts(): { where: string; text: string }[] {
   return out;
 }
 
-test("nothing players or their AIs are told proposes a destination state or holding one (the owner's fixed-point rule)", () => {
+test("nothing players or their AIs are told makes one state enough, or a high state one step away (the owner's fixed-point rule)", () => {
   const found: string[] = [];
   const all = texts();
   assert.ok(all.length > 100, `${all.length} texts read`);
@@ -86,5 +71,5 @@ test("nothing players or their AIs are told proposes a destination state or hold
       }
     }
   }
-  assert.deepEqual([...new Set(found)], [], "wording that proposes a destination or a hold");
+  assert.deepEqual([...new Set(found)], [], "wording that makes one state enough or a high state one step away");
 });
