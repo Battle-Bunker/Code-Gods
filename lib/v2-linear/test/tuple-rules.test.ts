@@ -59,3 +59,14 @@ test("Same on Both Rulers (tuple): a line parallel to y = x reads its y-intercep
   assert.deepEqual(tuple(rulersTuple, p, mc("1", "-88"))?.slice(0, 2), ["101", "-13"]);
   assert.equal(tuple(rulersTuple, p, mc("1", "0")), null);
 });
+
+test("tuple marks on the plane are drawn, not read (#1022): Landing does not depend on the plane, and a flat line is marked on the y-axis", () => {
+  assert.ok(!landingTuple.depends.includes("cart"));
+  const tilted = evaluateSite(lineType, landingTuple, { ends: 1 }, mc("-1", "30"), lineQ, 0, null);
+  assert.ok(tilted.reads.every(r => r.rep !== "cart"), "the plane is not read");
+  assert.ok(tilted.marks.some(m => m.kind === "candidate" && m.ref.name === "xAxisMark" && m.ref.args?.x === "31"));
+  const flat = evaluateSite(lineType, landingTuple, { ends: 1 }, mc("0", "-30"), lineQ, 0, null);
+  assert.ok(flat.marks.some(m => m.kind === "candidate" && m.ref.name === "yAxisMark" && m.ref.args?.y === "-31"));
+  assert.ok(flat.marks.some(m => m.kind === "measure" && m.from.name === "yInt"));
+  assert.ok(!flat.marks.some(m => (m.kind === "measure" ? m.from : m.ref).name === "xInt"));
+});

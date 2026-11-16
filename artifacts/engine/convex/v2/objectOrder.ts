@@ -58,14 +58,14 @@ export async function objectPage(ctx: QueryCtx, game: Doc<"v2Games">, memberId: 
   const key = keyOf(sort), quadrant = quadrantFor(filter), order = sort === "oldest" || sort === "least" ? "asc" : "desc";
   if (listsKnowledge(game, memberId)) {
     const q = quadrant
-      ? ctx.db.query("v2Knowledge").withIndex(KNOWLEDGE_FILTERED[key], q => q.eq("gameId", game._id).eq("memberId", memberId).eq("quadrant", quadrant))
-      : ctx.db.query("v2Knowledge").withIndex(KNOWLEDGE[key], q => q.eq("gameId", game._id).eq("memberId", memberId));
+      ? ctx.db.query("v2Knowledge").withIndex(KNOWLEDGE_FILTERED[key], q => q.eq("gameId", game._id).eq("memberId", memberId).eq("retired", undefined).eq("quadrant", quadrant))
+      : ctx.db.query("v2Knowledge").withIndex(KNOWLEDGE[key], q => q.eq("gameId", game._id).eq("memberId", memberId).eq("retired", undefined));
     const p = await q.order(order).paginate(page);
     return { ...p, page: p.page as OrderRow[], knowledge: true };
   }
   const q = quadrant
-    ? ctx.db.query("v2ObjectValues").withIndex(VALUES_FILTERED[key], q => q.eq("gameId", game._id).eq("memberId", memberId).eq("quadrant", quadrant))
-    : ctx.db.query("v2ObjectValues").withIndex((game.noiseKey ? SHOWN : VALUES)[key], q => q.eq("gameId", game._id).eq("memberId", memberId));
+    ? ctx.db.query("v2ObjectValues").withIndex(VALUES_FILTERED[key], q => q.eq("gameId", game._id).eq("memberId", memberId).eq("retired", undefined).eq("quadrant", quadrant))
+    : ctx.db.query("v2ObjectValues").withIndex((game.noiseKey ? SHOWN : VALUES)[key], q => q.eq("gameId", game._id).eq("memberId", memberId).eq("retired", undefined));
   const p = await q.order(order).paginate(page);
   return { ...p, page: p.page as OrderRow[], knowledge: false };
 }

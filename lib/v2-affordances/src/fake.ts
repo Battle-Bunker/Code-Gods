@@ -525,6 +525,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     const seen = key ? e.state.receipts[key] : undefined;
     return seen?.ok ? { applied: true, operation: key!.split("|").at(-2)!, result: seen.result ?? null } : { applied: false, operation: null, result: null };
   },
+  "server.info": () => ({ builds: { app: null, functions: null }, sandboxes: [{ language: "typescript", runtime: "fake", state: "ready", reason: null }], engine: { tickMs: 1500, maxSecondsPerTick: 3 } }),
   "account.whoami": e => ({ userId: e.userId, name: nameOf(e.state, e.userId), roomId: e.roomId, grant: e.grant ?? null }),
   "account.connections": e => ({ connections: Object.entries(e.state.connections).filter(([, c]) => c.userId === e.userId).map(([connectionId, c]) => ({ connectionId, client: c.client, roomId: c.roomId, grant: c.grant, lastUsedAt: null })) }),
   "account.revokeConnection": (e, a) => {
