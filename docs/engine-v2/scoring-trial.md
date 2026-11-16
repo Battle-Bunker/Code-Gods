@@ -212,3 +212,77 @@ primes: gaps grow like log p, so log-spacing shrinks like log(p)/p].
   The owner wants repair dearer than damage; how much leverage is wanted is open.
 - **The area trophy's best is its cap** (n ≤ 400 in the example), because a high line sits a cheap trim of shape away
   from big areas; the cap is a parameter, not a property [seen].
+
+# Scale-free rarity (third trial mode, 16 November, late)
+
+The owner, on what the number should mean: "energy level of a state [is] the conversion of a subjective value/utility
+map into something meaningfully related to how objectively difficult it is to reach from a random place given our
+available mutators and their cost functions", with height "a universal map over object states that keeps parameters
+softly bounded". Built in `lib/v2-linear/src/trial-rarity.ts` (tests `test/trial-rarity.test.ts`; checks
+`scripts/trial-rarity-check.ts`; example `scripts/trial-rarity-example.ts`); the mirror panel's third button.
+
+## The design as built
+
+- **Law** [built]: m = p₁/q₁ and c = p₂/q₂ are two independent reduced fractions, not the stored triple. Each top |p| and
+  each bottom q is an independent discrete power law with exact survival P(|p| ≥ n) = (n+1)^−(g−1), P(q ≥ k) = k^−(g−1)
+  (g = 2); a top's sign is a coin; a pair with a common factor is redrawn. I chose two fractions because the triple's
+  common bottom couples m and c, which would spoil both independence and closed forms. H = −log2 P is a function of the
+  line, so "fee + rise in H" is an exact potential. One doubling of a top costs about g = 2 bits.
+- **Bits** [built]: with T the nearest target, lo, hi its cell's edges (midpoints to its neighbours) and S the
+  reading's survival P(r ≥ x):
+  `bits = −log2( S(hi) + [S(T − δ) − S(T + δ)]·2^−third )`, δ = |r − T| + res/2 (res = 1).
+  The three parts are LEVEL = −log2 S(lo); CLOSE = −log2([S(T − δ) − S(T + δ)] / [S(lo) − S(hi)]); THIRD = CLOSE of
+  the second reading against its tied targets. This is exact given S, up to treating the third part as independent.
+  The coordinator's flat form log2(gap/(2·distance + res)) was off by 1 to 4 bits against samples (the density is
+  not flat in a cell, and integers carry most of a coefficient's mass), so closeness reads S instead.
+- **S per reading, not per rule** [built]: a reading's survival does not depend on the rule's parameters, which only
+  place targets. A coefficient's S is a sum over bottoms (analytic). Any other reading's S is two numbers (slope, offset)
+  fitted once from 400,000 direct draws, about 0.3 s. Nothing is tabled per instance.
+
+## Checked against direct samples (2,000,000 draws; `scripts/trial-rarity-check.ts`) [seen]
+
+| Reading | S | Slope (bits a doubling) | Level error, targets ≥ 16 | Level error, small targets | Closeness error |
+|---|---|---|---|---|---|
+| coefficient c | summed | 0.95 measured (→ 1 = g − 1) | ≤ 0.22 | 0 | ≤ 0.1 where a cell holds ≥ 5,000 draws; ~1 bit on sparse cells (noise) |
+| area c²/2m | fitted | 0.452 (½ predicted) | ≤ 0.15 | 0.4–0.5 | **1–4 bits**: exact areas are atoms the fit cannot see |
+| crossing c/m | fitted | 0.760 (1 with a log correction: two equal tails) | ≤ 0.3 | 0.5–0.9 | ≤ 0.5 large, 1–2 small |
+| y at x = 3 | fitted | 0.910 | ≤ 0.3 | up to 1.0 (powers of 2 at 2) | ≤ 1.3 |
+| distance² c²/(1+m²) | fitted | 0.469 (½ predicted) | ≤ 0.12 | 0.5–1.2 | **up to 5 bits**: perfect squares are atoms (m = 0 gives c²) |
+
+The coordinator's Python figures are confirmed in shape: 1 per doubling for a coefficient, about ½ for area, 0.76
+for the crossing.
+
+## The example (bits; A gradient prime ending 1, B 3s and 17s with third part |m| near a divisor, C area square)
+
+| Line | A (level, close) | B (level, close, third) | C (level, close) | H |
+|---|---|---|---|---|
+| y = 101x + 867 | 7.00 (6.59, 4.95) | 10.28 (9.79, 8.09, 0.27) | 7.25 (7.23, 6.38) | 36.9 |
+| one unit off, y = 101x + 866 | 7.00 | 10.28 (close 6.50) | 7.25 (close 2.79) | 36.9 |
+| one doubling up, y = 202x + 1734 | 7.85 (target 211) | 10.48 (1377) | 7.69 | 40.9 |
+| ten times, y = 1010x + 8670 | 10.13 (1021) | 13.31 (7803) | 8.75 | 50.1 |
+
+## What it does to the earlier modes' failures
+
+- **An exact hit is worth at most one level step** [built: bits lie between −log2 S(lo) and −log2 S(hi); tested].
+  The step is slope × log2(hi/lo). That is about 0.4 bits for A at 101 (7.00 against a level of 6.59), and up to a
+  whole slope where targets are sparse, as with powers of 2. "Exact only modestly above near" holds by construction.
+- **Cards still flatten into "be big on my reading"** [built]: the level depends only on the size of the cell edge
+  through S, so any two target sets give nearly the same bits at the same size; a target set decides only where the
+  steps are. Rarity does not escape the staircase; it makes the stair treads explicit and small.
+- **Small-is-better rules work if read as reciprocals** [seen]: 1/|m| has a fitted slope of 0.998 bits a doubling,
+  driven by bottom numbers, as many bits as a coefficient. A rule "the gradient small" written as "1/|m| big" earns
+  real bits. Read as closeness to 0 with res = 1, it earns none [built].
+- **Layered bonuses are small** [built]: the third part multiplies only the within-cell mass, so it can add at most
+  the level step (B's third added 0.27 to 1.25 bits). This is the opposite of the log mode's problem.
+- **Rarity is not cost** [built]: no by-construction bound ties bits gained to energy spent. Bits do grow about
+  (g−1)/g per bit of lift on the reading (a doubling of c: 2 bits of H, about 1 bit of B's level).
+
+## Where the formula fails or needs the fallback
+
+- **Composite readings with atoms** (area, distance², and anything that takes exact whole values on a lattice): the
+  fitted continuous S cannot price exact hits (1 to 5 bits wrong). The fallback is direct sampling of the point mass
+  in the target's cell for each drawn rule, a few seconds per rule draw. That is not built.
+- **Small sizes** (below about 16) for fitted readings: up to 1.2 bits wrong. A one-time per-reading table of S
+  would fix it (parameter-free, so still nothing per instance).
+- **Crossing**: two equal tails give a log correction, so a straight line in log-log is only an approximation (0.76
+  fitted against an asymptotic 1).

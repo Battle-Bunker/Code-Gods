@@ -10,7 +10,7 @@ import { StrictMode, useEffect, useMemo, useRef, useState, type ReactElement, ty
 import { createRoot } from "react-dom/client";
 import { q, ruleLayers, type Q, type Score } from "@workspace/v2-core";
 import { describeLine, encodeLine, fromMC, intercept, isVertical, lineQ, lineType, normalise, shift, slope, tilt, type Line, type LineState } from "@workspace/v2-linear";
-import { areaSquare, gradientPrime, height as trialHeight, interceptSmooth, isPrimeN, TRIAL, TRIAL_LOG, trialScore, type TrialRule } from "@workspace/v2-linear";
+import { areaSquare, gradientPrime, height as trialHeight, interceptSmooth, isPrimeN, mcOf, rarityHeight, rarityOfLine, rarityRules, TRIAL, TRIAL_LOG, trialScore, type TrialRule } from "@workspace/v2-linear";
 import { valueLookup, type Lookup, type ValueFunction } from "@workspace/v2-valuation";
 import { annotate, ExpandedFace, ObjectChip, partName, type RuleRef, type ValuePart } from "@workspace/v2-views";
 import { chanceText, exactOrDecimal, fmtBits, fmtQ, isApprox, rarerThanText } from "@workspace/v2-views/format";
@@ -293,7 +293,7 @@ function Rule({ f, line, onLine }: { f: MirrorFamily; line: Line; onLine: (l: Li
  * family chosen above has no trial form yet.
  */
 function TrialPanel({ line }: { line: Line }) {
-  const [suffix, setSuffix] = useState("1"), [primes, setPrimes] = useState("3, 17"), [mode, setMode] = useState<"linear" | "log">("log");
+  const [suffix, setSuffix] = useState("1"), [primes, setPrimes] = useState("3, 17"), [mode, setMode] = useState<"linear" | "log" | "rarity">("log");
   const D = mode === "log" ? TRIAL_LOG : TRIAL;
   const rules = useMemo<TrialRule[]>(() => {
     const out: TrialRule[] = [];
@@ -304,20 +304,34 @@ function TrialPanel({ line }: { line: Line }) {
     return out;
   }, [suffix, primes]);
   const H = trialHeight(line, D);
-  const rows = useMemo(() => rules.map(r => ({ r, s: trialScore(r, line, D) })), [rules, line, D]);
+  const rows = useMemo(() => (mode === "rarity" ? [] : rules.map(r => ({ r, s: trialScore(r, line, D) }))), [rules, line, D, mode]);
+  const rarity = useMemo(() => {
+    if (mode !== "rarity") return null;
+    const ps = primes.split(/[ ,]+/).filter(Boolean).map(Number);
+    if (!/^[0-9]{0,3}[1379]$/.test(suffix.trim()) || !ps.length || !ps.every(isPrimeN)) return [];
+    return rarityRules(suffix.trim(), ps).map(r => ({ r, b: rarityOfLine(r, line) }));
+  }, [mode, suffix, primes, line]);
+  const mc = mcOf(line);
   return (
     <div className="rm-verdict" data-testid="trial">
-      <div className="rm-verdict-head"><span>Scoring trial</span> <span className="rm-muted">height {Number.isFinite(H) ? `${H.toFixed(2)}${mode === "log" ? `⚡ (${(H / D.g).toFixed(2)} doublings)` : " bits"}` : "off the trial board"}</span></div>
+      <div className="rm-verdict-head"><span>Scoring trial</span> <span className="rm-muted">height {mode === "rarity" ? (mc ? `${rarityHeight(mc).toFixed(2)} bits (the law's −log2 chance)` : "off the trial board") : Number.isFinite(H) ? `${H.toFixed(2)}${mode === "log" ? `⚡ (${(H / D.g).toFixed(2)} doublings)` : " bits"}` : "off the trial board"}</span></div>
       <div className="rm-buttons" data-testid="trial-mode">
         <Pill on={mode === "log"} onClick={() => setMode("log")}>log height (g a doubling)</Pill>
         <Pill on={mode === "linear"} onClick={() => setMode("linear")}>linear height (g a unit)</Pill>
+        <Pill on={mode === "rarity"} onClick={() => setMode("rarity")}>scale-free rarity (bits)</Pill>
       </div>
-      <p className="rm-muted">Worth of the best trophy less {D.k} × the cheapest price to reach it ({mode === "log"
+      <p className="rm-muted">{mode === "rarity" ? "Bits: the rarity, under the law with chance 2^−H, of doing at least this well; parts: level, closeness, third. " : ""}Worth of the best trophy less {D.k} × the cheapest price to reach it ({mode === "log"
         ? `g = ${D.g}⚡ a doubling; friction ${D.alphaS} along the size direction, ${D.alphaD} across it; prices are the game's fees`
         : `g = ${D.g} a unit, α = ${D.alpha.toFixed(4)}, ${D.w}⚡ a bit`}).
         Suffix <input className="rm-num" value={suffix} onChange={e => setSuffix(e.target.value)} size={4} aria-label="trial gradient suffix" />{" "}
         primes <input className="rm-num" value={primes} onChange={e => setPrimes(e.target.value)} size={8} aria-label="trial intercept primes" /></p>
       <table className="rm-trial"><tbody>
+        {rarity?.map(({ r, b }) => (
+          <tr key={r.label} data-testid="trial-row" data-family={r.label.slice(0, 1)} data-score={b.bits.toFixed(4)}>
+            <td title={r.label}>{r.label.split(":")[0]}</td><td><b>{b.bits.toFixed(2)}</b></td>
+            <td className="rm-muted">{b.T === null ? "no reading" : `target ${b.T}: level ${b.level.toFixed(2)}, closeness ${b.close.toFixed(2)}${r.third ? `, third ${b.third.toFixed(2)}` : ""}`}</td>
+          </tr>
+        ))}
         {rows.map(({ r, s }) => (
           <tr key={r.family} data-testid="trial-row" data-family={r.family} data-score={s.score.toFixed(4)}>
             <td title={r.card}>{r.family.replace("trial-", "")}</td><td><b>{s.score.toFixed(2)}</b></td>
