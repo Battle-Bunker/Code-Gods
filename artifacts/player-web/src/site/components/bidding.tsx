@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import { useLive } from "@/site/lib/convex";
+import { everyonesBids } from "@/site/lib/open-bids";
 import { AffordanceButton, failureText } from "@/site/components/action";
 import { useNow } from "@/core/game-timer";
 import { bitsText, chanceText, clock } from "@/core/words";
@@ -40,6 +41,27 @@ function FamilyRow({ family, title, card, top, mine, busy, onBid, onWithdraw }: 
   );
 }
 
+/** Open bidding (the room's bid visibility; v1's EveryonesBids): every player's bids per rule, live, highest first. */
+function EveryonesBids({ rules }: { rules: ReturnType<typeof everyonesBids> }) {
+  return (
+    <div className="space-y-2 border-t px-4 py-3 text-sm" data-testid="panel-everyones-bids" aria-live="polite">
+      <h3 className="font-semibold">Everyone's bids</h3>
+      {rules.length === 0 ? <p className="text-muted-foreground">Nobody has bid yet.</p> : (
+        <ul className="space-y-1">
+          {rules.map(r => (
+            <li key={r.family} className="flex flex-wrap gap-x-2" data-testid={`row-everyones-bids-${r.family}`}>
+              <span>{r.title}:</span>
+              <span>{r.bids.map((b, i) => (
+                <span key={`${b.who}-${i}`}>{i > 0 && ", "}<span className={`whitespace-nowrap ${b.mine ? "font-semibold text-primary" : ""}`}>{b.who} <span className="font-mono tabular-nums">{b.percent}%</span></span></span>
+              ))}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 /** The bid phase's clock, re-rendered alone twice a second. */
 function Countdown({ deadline }: { deadline: number }) {
   const now = useNow(500);
@@ -64,7 +86,7 @@ export function Bidding({ roomId }: { roomId: string }) {
       <header className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
         <div className="min-w-0 flex-1">
           <h2 className="font-semibold">Bid for the rule you want</h2>
-          <p className="text-sm text-muted-foreground">Bid a share of your own final total on a rule family; the highest bid wins that family for its bidder alone. Bids are secret: the other players do not see yours. Or pass, and you are dealt a rule as usual.</p>
+          <p className="text-sm text-muted-foreground">Bid a share of your own final total on a rule family; the highest bid wins that family for its bidder alone. {s.visibility === "open" ? "Bids are open: everyone sees every bid as it is placed." : "Bids are secret: the other players do not see yours."} Or pass, and you are dealt a rule as usual.</p>
         </div>
         {s.deadline && <Countdown deadline={s.deadline} />}
       </header>
@@ -79,6 +101,7 @@ export function Bidding({ roomId }: { roomId: string }) {
       ) : (
         <p className="px-4 py-3 text-sm" data-testid="text-bidding-waiting">{s.done ? "You're done bidding. The rules are dealt when everyone is done or the clock runs out." : place.reason ?? "The players are bidding for their rules."}</p>
       )}
+      {s.visibility === "open" && <EveryonesBids rules={everyonesBids(s.families, s.others, s.mine)} />}
       {error && <p className="px-4 pb-2 text-sm text-destructive" role="alert">{error}</p>}
       <footer className="flex flex-wrap items-center gap-3 border-t px-4 py-3 text-sm">
         {canBid && (

@@ -28,8 +28,10 @@ import { roomPath } from "@/site/lib/routes";
 import { affordanceContext } from "@/core/affordance-context";
 import { toast } from "@/hooks/use-toast";
 import { setupBlurb, setupGroups } from "@/site/lib/setup-picker";
+import { galleryFamilies } from "@/site/lib/rule-gallery";
+import type { Preset } from "@workspace/engine/convex/v2/presets.ts";
 import {
-  FIELDS, SECTIONS, choiceLabel, draftErrors, draftOf, fieldsOf, formatValue, lengthLine, overridesFor, reviewDiff, stepChoices,
+  FIELDS, SECTIONS, choiceLabel, draftErrors, isHidden, draftOf, fieldsOf, formatValue, lengthLine, overridesFor, reviewDiff, stepChoices,
   type Draft, type FieldKey, type SectionId,
 } from "@/site/lib/configure-form";
 import type { Room } from "@/sdk/types";
@@ -84,7 +86,7 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
   const next = { preset: presetId, draft };
   const changes = reviewDiff(saved, next);
   const dirty = !same(next, base);
-  const errors = draftErrors(draft);
+  const errors = draftErrors(draft, preset);
   const invalid = Object.keys(errors).length > 0;
 
   // Keep the draft across reloads; clear it once nothing differs.
@@ -105,7 +107,11 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
   /** A new setup keeps the values the owner set by hand; everything else follows the new setup (as the server does). */
   const pickPreset = (id: string) => {
     if (!editable || id === presetId) return;
-    setDraft(draftOf(presetOf(id), overridesFor(draft, preset)));
+    // The families never dealt are the old setup's: keep only those the new one deals too.
+    const next = presetOf(id), kept = overridesFor(draft, preset);
+    // A setup without a bid phase takes none of the bid settings (they would be saved where nothing shows them).
+    const { bidPricing: _p, bidVisibility: _v, bidDisclosure: _d, ...unbid } = kept;
+    setDraft(draftOf(next, { ...(next.bid ? kept : unbid), excludedFamilies: draft.excludedFamilies.filter(f => next.families.includes(f)) }));
     setPresetId(id);
   };
   const saveBlocker = !owner ? "Only the room's owner changes its setup." : locked ? locked : !editable ? "Settings cannot change here." : invalid ? "Fix the settings marked in red first." : !changes.length ? "Nothing has changed yet." : null;
@@ -149,10 +155,10 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
 
           {(["goals", "agents", "energy", "population", "time"] as const).filter(s => SECTIONS.some(x => x.id === s)).map(section => (
             <FormSection key={section} id={section}>
-              {fieldsOf(section).filter(k => FIELDS[k].tier === "ask").map(k => <Field key={k} k={k} draft={draft} editable={editable} change={change} error={errors[k]} />)}
+              {fieldsOf(section).filter(k => FIELDS[k].tier === "ask" && !isHidden(k, preset)).map(k => <Field key={k} k={k} draft={draft} editable={editable} change={change} error={errors[k]} preset={preset} />)}
               {fieldsOf(section).some(k => FIELDS[k].tier === "more") && (
-                <More section={section}>
-                  {fieldsOf(section).filter(k => FIELDS[k].tier === "more").map(k => <Field key={k} k={k} draft={draft} editable={editable} change={change} error={errors[k]} />)}
+                <More section={section} preset={preset}>
+                  {fieldsOf(section).filter(k => FIELDS[k].tier === "more" && !isHidden(k, preset)).map(k => <Field key={k} k={k} draft={draft} editable={editable} change={change} error={errors[k]} preset={preset} />)}
                 </More>
               )}
             </FormSection>
@@ -266,16 +272,42 @@ function Question({ k, children, error }: { k: FieldKey; children?: ReactNode; e
   );
 }
 
-type FieldProps = { k: FieldKey; draft: Draft; editable: boolean; change: (patch: Partial<Draft>) => void; error?: string };
+type FieldProps = { k: FieldKey; draft: Draft; editable: boolean; change: (patch: Partial<Draft>) => void; error?: string; preset: Preset };
 
-function Field({ k, draft, editable, change, error }: FieldProps) {
+function Field({ k, draft, editable, change, error, preset }: FieldProps) {
   const doc = FIELDS[k];
+  if (doc.control === "checklist") return <Question k={k} error={error}><RuleChecklist preset={preset} excluded={draft.excludedFamilies} editable={editable} onChange={excludedFamilies => change({ excludedFamilies })} /></Question>;
   if (doc.control === "number") return <NumberQuestion k={k} value={draft[k] as number} editable={editable} onSet={v => change({ [k]: v })} error={error} />;
   if (doc.control === "switch") return <Question k={k} error={error}><Switch k={k} value={draft[k] as boolean} editable={editable} onChange={v => change({ [k]: v })} /></Question>;
   return (
     <Question k={k} error={error}>
       <Segmented k={k} value={draft[k] as number | string} choices={stepChoices(k, draft[k])} editable={editable} onPick={v => change({ [k]: v })} />
     </Question>
+  );
+}
+
+/** The setup's rule families, a box each (ticked: may be dealt; v1's "Rules that can be dealt" shelf). */
+function RuleChecklist({ preset, excluded, editable, onChange }: { preset: Preset; excluded: readonly string[]; editable: boolean; onChange: (excluded: string[]) => void }) {
+  const titles = useMemo(() => { const g = galleryFamilies(preset.variant); return new Map([...g.beginner, ...g.more].map(f => [f.id, f.title])); }, [preset.variant]);
+  const allowed = preset.families.filter(f => !excluded.includes(f)).length;
+  return (
+    <div className="space-y-2" data-testid="checklist-families">
+      <p className="text-sm"><span data-testid="text-families-allowed">{allowed} of {preset.families.length}</span> rule families can be dealt</p>
+      <ul className="grid gap-1.5 sm:grid-cols-2">
+        {preset.families.map(f => {
+          const out = excluded.includes(f);
+          return (
+            <li key={f}>
+              <label className={`flex items-start gap-2 border px-2 py-1.5 text-sm ${out ? "text-muted-foreground" : ""}`} data-testid={`row-family-${f}`}>
+                <input type="checkbox" checked={!out} disabled={!editable} data-testid={`check-family-${f}`} className="mt-1 accent-[hsl(var(--primary))]"
+                  onChange={e => onChange(e.target.checked ? excluded.filter(x => x !== f) : [...excluded, f])} />
+                <span className="font-medium">{titles.get(f) ?? f}</span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -328,8 +360,8 @@ function NumberQuestion({ k, value, editable, onSet, error }: { k: FieldKey; val
   );
 }
 
-function More({ section, children }: { section: SectionId; children: ReactNode }) {
-  const count = fieldsOf(section).filter(k => FIELDS[k].tier === "more").length;
+function More({ section, preset, children }: { section: SectionId; preset: Preset; children: ReactNode }) {
+  const count = fieldsOf(section).filter(k => FIELDS[k].tier === "more" && !isHidden(k, preset)).length;
   return (
     <details className="border-l-2 pl-4 space-y-4" data-testid={`more-${section}`}>
       <summary className="cursor-pointer text-sm">More {SECTIONS.find(s => s.id === section)?.title.toLowerCase()} options ({count})</summary>

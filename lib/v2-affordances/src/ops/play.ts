@@ -100,9 +100,13 @@ export const playOps = [
   }),
   affordance({
     id: "objects.list", title: "List objects", group: "objects", scope: "game",
-    description: "Pages through the game's objects for the viewer, sorted by the viewer's points, rarity (bits) or most recent change, with each object's bits and points.",
-    tooltip: "Objects in this game.", keywords: ["objects", "lines", "list", "browse"],
-    params: obj({ sort: z.enum(["points", "rarity", "recent"]).default("points"), ...paging }),
+    description: "Pages through the game's objects for the viewer, with each object's bits and points. Sorts: points (payoff), rarity (the viewer's own bits), want (the others' care), mutations (most changed), born (newest), oldest, recent (most recently changed). Filters: all, positive or contested (the viewer's bits and the others' care both positive: points above 0), chips (the others care, the viewer's bits are 0).",
+    tooltip: "Objects in this game.", keywords: ["objects", "lines", "list", "browse", "sort", "filter", "contested", "chips", "most mutated", "newest", "oldest"],
+    params: obj({
+      sort: z.enum(["points", "rarity", "want", "mutations", "born", "oldest", "recent"]).default("points"),
+      filter: z.enum(["all", "positive", "contested", "chips"]).default("all"),
+      ...paging,
+    }),
     result: page(z.object({ objectId: id, number: z.number().int().describe("The line's number: what the app shows and an agent's offer.object."), bits: z.number().describe("Its value under the caller's rule."), points: z.number() })),
     contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
   }),
@@ -124,7 +128,7 @@ export const playOps = [
     contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
-    id: "rep.mutators", title: "List a representation's mutators", group: "objects", scope: "game",
+    id: "rep.mutators", title: "List a view's moves", group: "objects", scope: "game",
     description: "The mutators that belong to a representation (e.g. si: si.shift, si.tilt), each with its arguments (their codes, and in plain words what each is, what may be typed, an example and the words a choice takes) and its base price in bits.",
     tooltip: "The moves you can make through this view.", keywords: ["mutators", "moves", "changes", "price list"],
     params: obj({ rep }),

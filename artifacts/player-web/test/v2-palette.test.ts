@@ -36,10 +36,10 @@ test("joining by code asks for the code (a minimum length is not mistaken for no
 
 test("every read the palette offers in a game opens where the app shows it live (playtest: 'Show the auction's result' failed)", async () => {
   const { AFFORDANCES } = await import("@workspace/v2-affordances");
-  const { READ_PANES, ROOM_READS, ACCOUNT_READS } = await import("../src/core/palette-commands.ts");
+  const { READ_PANES, ROOM_READS, ACCOUNT_READS, NOTICE_READS } = await import("../src/core/palette-commands.ts");
   for (const a of Object.values(AFFORDANCES) as { id: string; effect: string; runs: string; kind?: string; contexts: readonly string[] }[]) {
     if (a.effect !== "read" || a.runs === "client" || a.id === "agent.check" || a.id === "room.list") continue;
-    const shown = a.id in READ_PANES || ROOM_READS.has(a.id) || ACCOUNT_READS.has(a.id);
+    const shown = a.id in READ_PANES || ROOM_READS.has(a.id) || ACCOUNT_READS.has(a.id) || NOTICE_READS.has(a.id);
     assert.ok(shown, `${a.id}: the palette has nowhere to show it`);
   }
 });
@@ -129,4 +129,10 @@ test("a room code typed in the palette offers “Open room CODE”, which goes t
   assert.deepEqual(row!.performer, { kind: "navigate", to: "/rooms/K7QX2" });
   assert.deepEqual(codeCommands("summon an agent"), [], "a phrase is not a code");
   assert.deepEqual(codeCommands("ab"), [], "too short");
+});
+
+test("a command's status reads as words: applied, or safe to send again (v1's 'Check a command's status…')", async () => {
+  const { receiptWords } = await import("../src/core/palette-commands.ts");
+  assert.equal(receiptWords({ applied: true, operation: "chat.send", result: null }), "That command (chat.send) went through.");
+  assert.match(receiptWords({ applied: false, operation: null, result: null }), /safe to send it again/);
 });

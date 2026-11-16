@@ -158,3 +158,7 @@ test("an assistant in front in planning is in front when the world starts (re-wa
   const behind = { ...front, dock: { planning: parseDock("row(overview 25, my-card 40, *forge|assistant 35)") } };
   assert.notEqual(groupOf(behind).active, "assistant");
 });
+
+test("pane blurbs fit every game: none says “a line” (the palette showed it in a grid game)", () => {
+  for (const id of PANE_IDS) assert.doesNotMatch(PANES[id].blurb ?? "", /\ba line\b/, id);
+});
