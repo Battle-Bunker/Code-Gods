@@ -125,7 +125,9 @@ export function paletteRows(commands: readonly Command[], ctx: PaletteContext, o
     const sections = group(rest, r => sectionOf(r.command), SECTION_ORDER);
     return top.length ? [{ section: "suggested", rows: top }, ...sections] : sections;
   }
-  const dynamic = (opts.dynamic?.(opts.query.trim(), ctx) ?? []).map((command, i) => ({ command, availability: command.available(ctx), score: 200 - i }) as PaletteRow);
+  // Rows made from the query rank below every command it names (a room code is also a word: "Lines" + Enter must open
+  // the Lines pane, not room LINES), in the order given; with no other match they come first.
+  const dynamic = (opts.dynamic?.(opts.query.trim(), ctx) ?? []).map((command, i) => ({ command, availability: command.available(ctx), score: 0.5 - i / 100 }) as PaletteRow);
   const matched = all.map(r => {
     const m = scoreCommand(r.command, q);
     return { ...r, score: m.score + (m.score && suggested.includes(r.command.id) ? 10 : 0), ...(m.alias ? { alias: m.alias } : {}) };

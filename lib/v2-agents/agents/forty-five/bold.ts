@@ -1,5 +1,5 @@
 // Forty-Five · Bold
-// Main part: 45° at whole x and y, |x| + |y| on your pattern. Secondary preference: whichever you were dealt (that |x| + |y| has many prime factors; that |x| + |y| shares a factor with the y-intercepts' gap).
+// Main part: 45° at whole x and y, |x| + |y| on your pattern. Secondary preference: whichever you were dealt (that |x| + |y| shares a factor with the number you divide by; the y-intercepts' gap near a multiple of that |x| + |y|; that |x| + |y| has many prime factors).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -10,17 +10,19 @@
 function score(L, p, tie) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
+  const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1
   if (Q.isZero(f.D)) return null;   // parallel lines never cross: no score
   const { score: main, n: S } = ladder(Q.add(Q.abs(f.x), Q.abs(f.y)), p.q, p.r, Q.add(f.off45, dist(f.x)));   // 45 degrees at a grid point, |x| + |y| on your ladder
   // main: the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better)
+  if (tie === "corner-divisor") return [main, common(S, f.D)];   // a corner whose |x| + |y| shares a big factor with the number you divide by is better
+  if (tie === "corner-gap") return [main, f.ygap === null ? null : Q.neg(offMultiple(f.ygap, mod1(S)))];   // a y-intercepts' gap near a multiple of the corner's |x| + |y| (not 0) is better
   if (tie === "corner-smooth") return [main, omega(S)];   // a corner whose |x| + |y| has many prime factors is better
-  if (tie === "corner-gap") return [main, f.ygap === null ? null : common(S, whole(f.ygap))];   // a corner whose |x| + |y| shares a big factor with the y-intercepts' gap is better
   return [main];
 }
 
 const FAR = 4;      // how far one move may go
 const QUOTES = 12;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["turn","slide","translate"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
+const KINDS = ["turn","slide","translate"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
 const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 

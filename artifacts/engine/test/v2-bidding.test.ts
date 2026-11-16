@@ -154,3 +154,35 @@ async function waitForGame(h: Human, roomId: string) {
   for (let i = 0; i < 100; i++) { const g = (await h.query("v2/rooms:get", { roomId })).game; if (g) return g; await new Promise(r => setTimeout(r, 300)); }
   throw new Error("timed out: the deal");
 }
+
+test("v1's private bid results: while live nobody sees another player's handicap or raw total, only their net; after the end everything (archive docs/bid-phase.md)", { timeout: 120_000 }, async () => {
+  const preset = presetOf("lines-beginner-bidding");
+  const [ada, bo, cy] = await humans("Private Ada", "Private Bo", "Private Cy");
+  const created = await perform(ada!, "room.create", { name: "Private bid room", preset: preset.id });
+  const roomId = created.result.roomId;
+  for (const h of [bo!, cy!]) await perform(h, "room.join", { code: created.result.code });
+  await perform(ada!, "room.settings", { overrides: { planningSeconds: 30, bidDisclosure: "none" } }, { roomId });
+  await perform(ada!, "game.start", {}, { roomId });
+  const family = (await perform(bo!, "bid.state", {}, { roomId }, "query")).result.families[0].family;
+  await perform(bo!, "bid.place", { family, percent: 30 }, { roomId });
+  for (const h of [ada!, bo!, cy!]) await perform(h, "bid.done", {}, { roomId });
+  const gameId = (await waitForGame(ada!, roomId)).gameId;
+  await perform(ada!, "game.startWorldNow", {}, { gameId });
+  const standings = async (h: Human) => {
+    for (let i = 0; i < 60; i++) { const s = await h.query("v2/games:standings", { gameId }); if (s) return s; await new Promise(r => setTimeout(r, 500)); }
+    throw new Error("no standings");
+  };
+  const seenByCy = await standings(cy!);
+  const boId = seenByCy.rows.find((r: any) => r.name === "Private Bo").memberId;
+  const boRow = seenByCy.rows.find((r: any) => r.memberId === boId);
+  assert.equal(seenByCy.handicapsHidden, true);
+  assert.deepEqual([boRow.handicap, boRow.total], [0, boRow.net], "Cy sees only Bo's net");
+  const op = (await perform(cy!, "game.standings", {}, { gameId }, "query")).result.rows.find((r: any) => r.memberId === boId);
+  assert.deepEqual([op.handicap, op.points], [0, op.net], "the operation tells the same");
+  const own = (await standings(bo!)).rows.find((r: any) => r.memberId === boId);
+  assert.equal(own.handicap, 30, "Bo sees his own handicap");
+  await perform(ada!, "game.end", {}, { gameId });
+  const after = await standings(cy!);
+  assert.equal(after.handicapsHidden, false);
+  assert.equal(after.rows.find((r: any) => r.memberId === boId).handicap, 30, "after the end everything is shown");
+});

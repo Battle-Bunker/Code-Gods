@@ -1,5 +1,5 @@
 // Divide By · Naive (for learning)
-// Main part: the number you divide by on your powers. Secondary preference: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor).
+// Main part: the number you divide by on your powers. Secondary preference: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor; the answer's numerators small).
 // What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 // pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 // player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -14,12 +14,13 @@ function score(L, p, tie) {
   // main: the level of the number you divide by on k, k³, k⁶, … (higher is better)
   if (tie === "numerator-smooth") return [main, omega(Q.add(Q.abs(nx), Q.abs(ny)))];   // numerators adding up to a number with many prime factors are better
   if (tie === "numerator-shared") return [main, common(nx, ny)];   // numerators sharing a big factor are better
+  if (tie === "numerator-small") return [main, Q.neg(Q.add(Q.abs(nx), Q.abs(ny)))];   // small numerators are better
   return [main];
 }
 
 const FAR = 2;      // how far one move may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["combine","turn","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
+const KINDS = ["combine","turn","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
 
 function agent(offer) {
   const L = pairOf(offer);          // the two lines, a·x + b·y + c = 0 each

@@ -47,13 +47,15 @@ if (!process.env.SKIP_DEPLOY) {
 }
 
 // A beacon server: any request reaching it is a leak. /nav is a page a panel may navigate its own frame to: it speaks
-// the v2 bridge with the nonce it was handed (a second `ready`, a watch) and reports anything it hears back to /got.
+// the v2 bridge with the nonce it was handed (a second `ready`, a watch, a chat as the player) and reports anything it
+// hears back to /got.
 const hits: string[] = [];
 const NAV_PAGE = `<!doctype html><script>
 const nonce = new URLSearchParams(location.hash.slice(1)).get("n");
 addEventListener("message", e => { fetch("/got?" + encodeURIComponent(JSON.stringify(e.data).slice(0, 200))); });
 parent.postMessage({ type: "ready", sdk: 2, nonce }, "*");
 parent.postMessage({ type: "watch", id: "x", hook: "useMe", args: [], nonce }, "*");
+parent.postMessage({ type: "act", id: "c", op: "chat.send", args: { text: "FORGED-BY-NAVIGATED-PAGE" }, nonce }, "*");
 </script>`;
 const beacon = createServer((req, res) => {
   hits.push(req.url ?? "");
@@ -314,6 +316,111 @@ await check("the palette opens a panel of yours by its title, and turns safe mod
   await other.close();
 });
 
+const ROOM_CODE = GAME.split("/")[2]!;
+const chatTexts = async () => {
+  const { roomId } = await carol.query("v2/rooms:byCode" as never, { code: ROOM_CODE } as never) as { roomId: string };
+  const out = await carol.query("v2/ops/chat:list" as never, { args: { limit: 50 }, roomId } as never) as Out;
+  assert(out.ok, `chat.list: ${out.error?.message}`);
+  return (out.result.page as { text: string }[]).map(m => m.text);
+};
+
+await check("a navigated frame's forged action did nothing", async () => {
+  assert(!(await chatTexts()).includes("FORGED-BY-NAVIGATED-PAGE"), "the navigated page chatted as the player");
+});
+
+await check("a chat from a panel shows the app's confirmation with exactly what it sends; nothing is sent until confirmed", async () => {
+  const TEXT = `hello from a stored panel ${Date.now()}`;
+  await save("sec-chat", `import { useState } from "react";
+import { definePanel, useActions } from "@sdk";
+export default definePanel({ title: "Chatty", Component() {
+  const actions = useActions();
+  const [r, setR] = useState("idle");
+  const show = (x: { ok: boolean; error?: { code: string; message: string } }) => setR(x.ok ? "accepted" : x.error!.code + " " + x.error!.message);
+  return <div>
+    <button data-testid="sp-chat" onClick={() => { setR("waiting"); actions.chat(${JSON.stringify(TEXT)}).then(show); }}>chat</button>
+    <span data-testid="sp-chat-result">{r}</span>
+  </div>;
+} });
+`);
+  await openPanel(page, "sec-chat");
+  const chatted = async () => (await chatTexts()).includes(TEXT);
+  const fr = frame(page, "sec-chat");
+  await fr.getByTestId("sp-chat").click({ timeout: 30_000 });
+  const dialog = page.getByTestId("dialog-panel-action");
+  await dialog.waitFor({ timeout: 15_000 });
+  const payload = await page.getByTestId("text-panel-action-payload").textContent();
+  assert(payload?.includes(TEXT) && payload.includes('"operation": "chat.send"'), `payload: ${payload}`);
+  await sleep(1500);
+  assert(!(await chatted()), "the chat was sent before the player confirmed");
+  await page.getByTestId("button-panel-action-cancel").click();
+  await frameShows(page, "sec-chat", "sp-chat-result", /^declined The player declined/);
+  assert(!(await chatted()), "a cancelled chat was sent");
+
+  await fr.getByTestId("sp-chat").click();
+  await dialog.waitFor({ timeout: 15_000 });
+  await page.waitForSelector("[data-testid=dialog-panel-action][data-armed=true]", { timeout: 5_000 });
+  await page.getByTestId("button-panel-action-always").click();
+  await frameShows(page, "sec-chat", "sp-chat-result", /^accepted$/);
+  assert(await chatted(), "the confirmed chat did not arrive");
+
+  // Let to act without asking: the next one runs at once, with no dialog.
+  await fr.getByTestId("sp-chat").click();
+  await frameShows(page, "sec-chat", "sp-chat-result", /^(accepted|refused .*)$/);
+  assert(await dialog.count() === 0, "a granted panel was asked again");
+
+  // "Ask before it acts" in Your panels takes the grant back: the next one asks again.
+  const mine = page.getByTestId("pane-my-panels");
+  if (!await mine.count() && await page.getByTestId("tab-my-panels").count()) { await page.getByTestId("tab-my-panels").click(); await mine.waitFor(); }
+  await mine.getByTestId("button-panel-revoke-sec-chat").click();
+  await fr.getByTestId("sp-chat").click();
+  await dialog.waitFor({ timeout: 15_000 });
+  await page.getByTestId("button-panel-action-cancel").click();
+  await frameShows(page, "sec-chat", "sp-chat-result", /^declined/);
+});
+
+await check("a panel that grabs its bridge port and sends raw actions is checked by the app: off-list and extra arguments refused", async () => {
+  await save("sec-overreach", `import { useEffect, useState } from "react";
+import { definePanel, useActions } from "@sdk";
+export default definePanel({ title: "Overreach", Component() {
+  const actions = useActions();
+  const [r, setR] = useState<Record<string, string>>({});
+  useEffect(() => {
+    // Capture the bridge's port as the SDK uses it (the one an act goes out on: React's scheduler posts on a port too),
+    // then speak the protocol directly.
+    const nonce = new URLSearchParams(location.hash.slice(1)).get("n");
+    const original = MessagePort.prototype.postMessage;
+    let port: MessagePort | null = null;
+    MessagePort.prototype.postMessage = function (this: MessagePort, ...a: any[]) { if (a[0]?.type === "act") port = this; return (original as any).apply(this, a); };
+    setR({ started: "yes" });
+    void actions.check("typescript", "export default {}").then(o => {
+      setR(x => ({ ...x, checked: o.ok ? "ok" : o.error.code }));
+      MessagePort.prototype.postMessage = original;
+      if (!port) { setR({ port: "none" }); return; }
+      const p: MessagePort = port;
+      const prev = p.onmessage;
+      p.onmessage = e => { (prev as any)?.call(p, e); const m = e.data as any; if (m.type === "acted" && String(m.id).startsWith("x")) setR(x => ({ ...x, [m.id]: m.outcome.ok ? "RAN" : m.outcome.error.code })); };
+      const raw = (id: string, op: string, args: unknown) => p.postMessage({ type: "act", id, op, args, nonce });
+      raw("x-save", "panel.save", { slug: "sec-planted", source: "export default 1" });
+      raw("x-leave", "room.leave", {});
+      raw("x-scope", "chat.send", { text: "scoped", roomId: "elsewhere" });
+      raw("x-proto", "__proto__", {});
+    });
+  }, []);
+  return <pre data-testid="sp-overreach">{JSON.stringify(r)}</pre>;
+} });
+`);
+  await openPanel(page, "sec-overreach");
+  const text = await frameShows(page, "sec-overreach", "sp-overreach", /"x-proto"/).catch(async (e: Error) => {
+    throw new Error(`${e.message}; frame state ${await page.getAttribute('[data-testid="panel-frame-sec-overreach"]', "data-frame-state").catch(() => "?")}; failed ${await page.getByTestId("panel-failed-sec-overreach").textContent().catch(() => "")}`);
+  });
+  const r = JSON.parse(text) as Record<string, string>;
+  for (const id of ["x-save", "x-leave", "x-scope", "x-proto"]) assert(r[id] === "refused", `${id}: ${r[id]} (${text})`);
+  assert(r.checked === "ok", `actions.check, an allowed read, works from a panel: ${r.checked}`);
+  const listed = (await carol.query("v2/ops/panel:list" as never, { args: {} } as never) as Out).result.panels as { slug: string }[];
+  assert(!listed.some(p => p.slug === "sec-planted"), "the panel saved a panel");
+  assert(await page.getByTestId("dialog-panel-action").count() === 0, "an off-list action reached the player's confirmation");
+});
+
 await check("the page runs under its CSP without violations of its own", async () => {
   const csp = await page.getAttribute('meta[http-equiv="Content-Security-Policy"]', "content");
   assert(csp?.includes("frame-src 'self'"), `page CSP: ${csp}`);
@@ -324,7 +431,7 @@ await check("the page runs under its CSP without violations of its own", async (
 
 await check("no uncaught page errors in the host", async () => assert(pageErrors.length === 0, pageErrors.slice(0, 3).join(" | ")));
 
-for (const slug of ["sec-live", "sec-hostile", "sec-navigates"]) await op("mutation", "v2/ops/panel:remove", { slug }).catch(() => {});
+for (const slug of ["sec-live", "sec-hostile", "sec-navigates", "sec-chat", "sec-overreach", "sec-planted"]) await op("mutation", "v2/ops/panel:remove", { slug }).catch(() => {});
 await browser.close();
 beacon.close();
 const failed = results.filter(r => !r.ok);
