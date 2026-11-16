@@ -5,7 +5,8 @@
  * taller than the screen allows (ux-lessons 5.1), with a row of the panes' names that jumps to any of them.
  */
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { fileIdOf, readingOrder, shownPanes, storedSlugOf, type GamePhase } from "@workspace/v2-client";
+import { fileIdOf, readingOrder, shownPanes, storedSlugOf, viewerView, type GamePhase } from "@workspace/v2-client";
+import { useIsSeated } from "@/sdk";
 import { useRuntime, useView } from "@/core/affordance-runtime";
 import { useWide } from "@/core/use-wide";
 import { onReveal } from "./open-pane";
@@ -114,7 +115,9 @@ export function Dock({ phase, panes: components, stored: Stored, file: File }: {
   const wide = useWide();
   // A room without AI shows no assistant, even one opened before AI was turned off.
   const aiOff = !!useRuntime().context.room?.aiOff;
-  const view = useMemo(() => (aiOff ? { ...stored, panes: stored.panes.filter(p => p.pane !== "assistant") } : stored), [stored, aiOff]);
+  const seated = useIsSeated();
+  // A spectator who has arranged nothing sees v1's spectator panes (viewerView), and plans their changes from the same.
+  const view = useMemo(() => viewerView(aiOff ? { ...stored, panes: stored.panes.filter(p => p.pane !== "assistant") } : stored, phase, seated), [stored, aiOff, phase, seated]);
   const open = useMemo(() => shownPanes(view, phase), [view, phase]);
   const scope = useMemo(() => ({
     phase, view, open,

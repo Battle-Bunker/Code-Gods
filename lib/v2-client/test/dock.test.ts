@@ -105,3 +105,20 @@ test("opening a pane does not bring the screen's other panes in front of the tab
   const after = run(v, openPlan(v, "live", "rules"), "live");
   assert.ok(visible(after, "live").includes("feed") && visible(after, "live").includes("rules"), formatDock(dockFor(after, "live")!));
 });
+
+test("a spectator's default is v1's: the leaderboard, the lines and public chat, side by side and usable (page-game-spectator)", async () => {
+  const { viewerView, spectatorArrange } = await import("../src/panels.ts");
+  for (const [phase, want] of [["live", ["objects", "public-chat", "race"]], ["paused", ["objects", "public-chat", "race"]], ["planning", ["objects", "public-chat", "rules"]], ["ended", ["public-chat", "race", "results"]]] as const) {
+    const v = viewerView(EMPTY_VIEW, phase, false);
+    assert.deepEqual(visible(v, phase).sort(), [...want], phase);
+    for (const l of dockGroups(dockFor(v, phase)!)) assert.ok(l.rect.w >= 0.25 && l.rect.h >= 0.4, `${phase} ${l.group.active}`);
+  }
+  assert.equal(viewerView(EMPTY_VIEW, "live", true), EMPTY_VIEW, "a seated player keeps the player's defaults");
+  const own = { ...EMPTY_VIEW, panes: [{ pane: "rules", place: "main" as const }] };
+  assert.equal(viewerView(own, "live", false), own, "a spectator's own arrangement is kept");
+  // Opening a pane keeps what the spectator sees (the ops are planned from the same view).
+  const shown = viewerView(EMPTY_VIEW, "live", false);
+  const opened = run(EMPTY_VIEW, [...spectatorArrange(EMPTY_VIEW, "live", false), ...openPlan(shown, "live", "rules")], "live");
+  assert.equal(formatDock(dockFor(opened, "live")!), "row(race 28, objects|*rules 44, public-chat 28)", "the spectator's screen kept; the pane opened in front at its home");
+  assert.deepEqual(spectatorArrange(opened, "live", false), [], "stored once");
+});
