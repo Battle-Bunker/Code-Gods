@@ -12,12 +12,12 @@
 // How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   const level = r => { const D = Q.toString(r).length; let L = 0; while (((L + 1) * (L + 2)) / 2 <= D) L++; return Q.add(L, Q.div(Q.add(D - (L * (L + 1)) / 2, Q.div(r, Q.of(10n ** BigInt(D)))), L + 1)); };   // levels of digits: level L needs L(L + 1)/2
-  const s = p.side ?? 1, x = Q.mul(s, m);          // the gradient, or minus it on the mirror
-  const rung = near(x, prime, p.ends);             // the prime ending in p.ends nearest: the rung
+  const x = Q.abs(m);                              // the gradient's size: its sign is free
+  const rung = near(x, t => prime(t) && String(t).endsWith(p.suffix));   // the prime ending in p.suffix nearest: the rung
   if (rung === null) return null;                 // none within 10,000: hopeless
   const gap = Q.abs(Q.sub(x, rung));               // on the rung when it rounds there (within 1/2, ties up)
   const main = Q.cmp(Q.mul(2, gap), 1) < 0 || Q.eq(Q.sub(rung, x), Q.div(1, 2)) ? level(rung) : Q.neg(Q.sub(gap, Q.div(1, 2)));
-  // main: the prime ending in the rule's digit the gradient rounds to, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one
+  // main: the prime ending in the rule's digits the gradient's size rounds to, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one
   return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     if (t === "shared-factor") {   // take the number just after that prime: a bigger number dividing both it and the y-intercept's whole part is better
       const wc = whole(Q.sub(Q.abs(c), Q.div(1, 2)));   // the y-intercept's whole part, ignoring sign
@@ -55,9 +55,9 @@ function agent(offer) {
     const den = Q.sub(1, Q.mul(m, k));
     if (!Q.isZero(den)) tries.push([move("rot.turn", { centre: 0, turn: k }), Q.div(Q.add(m, k), den), c]);   // turn the line about its y-intercept by the angle of a gradient k (the y-intercept stays put)
   }
-  // The next rung up (the ladder has no top): the next prime ending in p.ends above the gradient, by a tilt.
-  { const s = p.side ?? 1, x = Q.mul(s, m);
-    for (let t = Q.add(near(x, prime, p.ends) ?? p.ends, 10), i = 0; i < 100; t = Q.add(t, 10), i++) if (prime(t)) { tries.push([move("si.tilt", { k: Q.sub(Q.mul(s, t), m) }), Q.mul(s, t), c]); break; } }
+  // The next rung up (the ladder has no top): the next prime ending in p.suffix above the gradient's size, by a tilt that keeps its sign.
+  { const s = Q.cmp(m, 0) < 0 ? -1 : 1, step = 10 ** p.suffix.length, ok = t => prime(t) && String(t).endsWith(p.suffix);
+    for (let t = Q.add(near(Q.abs(m), ok) ?? Number(p.suffix), step), i = 0; i < 100; t = Q.add(t, step), i++) if (ok(t)) { tries.push([move("si.tilt", { k: Q.sub(Q.mul(s, t), m) }), Q.mul(s, t), c]); break; } }
   tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
   tries.push(...shortcuts(m, c, rule.mutators));   // other views the game offers: mirrors, a slide, turns, one intercept moved
   let options = scoreEach(tries, ([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches (fewer on a big line)

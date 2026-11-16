@@ -300,6 +300,28 @@ export interface RuleFamily<S, P> {
    * empty for a unit the ladder has no cheap witness for.
    */
   witness?(params: P, n: number): readonly S[];
+  /**
+   * A large parameter space (design-principles.md principle 14; the owner, 16 Nov: "large sets as parameters not a
+   * finite number of discrete options"). `dealable` then returns a short showcase drawn from it, so every consumer of
+   * concrete instances works unchanged; a dealer, a page or a server that takes typed or stored parameters uses this.
+   */
+  readonly space?: ParamSpace<P>;
+}
+
+/** A family's parameter space: drawable, checkable and typeable (RuleFamily.space). */
+export interface ParamSpace<P> {
+  /** How many parameter sets it holds (Infinity when unbounded). */
+  readonly size: number;
+  /** One parameter set, drawn by the family's own law over the space. */
+  draw(rng: Rng): P;
+  /** Whether a value (stored, sent or typed) is a parameter set of the space. */
+  has(params: unknown): params is P;
+  /** From the text a person types (label's inverse), or why not. */
+  parse(text: string): P | { invalid: string };
+  /** The parameter set as a person types it. */
+  label(params: P): string;
+  /** What to type, with an example ("a suffix of 1 to 3 digits ending in 1, 3, 7 or 9, e.g. 13"). */
+  readonly hint: string;
 }
 
 /**

@@ -138,7 +138,7 @@ test("unique objects: a plan onto a state another object holds is not allowed, s
 });
 
 test("disclosure noise: othersAfter reports the others' sum plus the noise at each state, unclamped as v1 disclosed it", () => {
-  const other = { family: "prime-gradient", params: { ends: 1 }, tieBreaker: "shared-factor" };
+  const other = { family: "prime-gradient", params: { suffix: "1" }, tieBreaker: "shared-factor" };
   const others = [{ rule: other, values: findValues("line-q", other)!   /* the dealt ending is valued on line-q only */ }];
   const at = { lines: [fromMC(q(11), q(3))] }, next = lineType.encode({ lines: [fromMC(q(11), q(4))] });
   const ask = (disclosed?: (e: string) => number) => {

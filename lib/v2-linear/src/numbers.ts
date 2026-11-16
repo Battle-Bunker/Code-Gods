@@ -170,6 +170,62 @@ export const distanceToPrimeEnding = (x: Q, k: number): Q => Qn.abs(Qn.sub(x, q(
 /** Whether n is a prime ending in k. */
 export const isPrimeEnding = (n: bigint, k: number): boolean => endsIn(n, k) && isPrime(n);
 
+/**
+ * A dealt prime suffix (the owner, 16 Nov: "a prime's final digits can be any drawable suffix whose last digit is 1, 3,
+ * 7 or 9"): 1 to 3 decimal digits, the last one 1, 3, 7 or 9. Such a suffix read as a residue is coprime to 10^L, so by
+ * Dirichlet's theorem infinitely many primes end in it: every draw has targets. A suffix is read as written digits: a
+ * target is a prime whose decimal digits end with the string, so "007" is met by 4007, not by 7.
+ */
+export const isSuffix = (s: unknown): s is string => typeof s === "string" && /^[0-9]{0,2}[1379]$/.test(s);
+/** Whether n is a prime whose decimal digits end with the suffix s. */
+export const isPrimeWithSuffix = (n: bigint, s: string): boolean => n > 1n && n.toString().endsWith(s) && isPrime(n);
+/** The numbers whose digits end with s, in order: v + k·10^L for k ≥ k0 (k0 = 1 when s has a leading zero). */
+const suffixLadder = (s: string) => {
+  const step = 10n ** BigInt(s.length), v = BigInt(s);
+  return { step, v, k0: s.length > 1 && s[0] === "0" ? 1n : 0n };
+};
+/**
+ * The prime ending in the suffix s nearest x (on a tie, the smaller): the candidates v + k·10^L searched outward from x,
+ * nearer first, so the first prime found is the answer.
+ */
+export function nearestPrimeWithSuffix(x: Q, s: string): bigint {
+  const { step, v, k0 } = suffixLadder(s);
+  // The candidate at or below x, and the one above.
+  let klo = Qn.floor(Qn.div(Qn.sub(x, q(v)), q(step)));
+  if (klo < k0) klo = k0 - 1n;
+  let khi = klo + 1n;
+  for (;;) {
+    const lo = v + klo * step, hi = v + khi * step;
+    const below = klo >= k0 && Qn.cmp(Qn.sub(x, q(lo)), Qn.sub(q(hi), x)) <= 0;
+    const n = below ? lo : hi;
+    if (isPrimeWithSuffix(n, s)) return n;
+    if (below) klo--; else khi++;
+  }
+}
+/** The first `count` primes ending in the suffix s, smallest first (the card's examples). */
+export function primesWithSuffix(s: string, count: number): bigint[] {
+  const { step, v, k0 } = suffixLadder(s), out: bigint[] = [];
+  for (let k = k0; out.length < count; k++) { const n = v + k * step; if (isPrimeWithSuffix(n, s)) out.push(n); }
+  return out;
+}
+/** The smallest prime with exactly `digits` digits ending in s, or null (none shorter than s; the witnesses). */
+export function firstPrimeWithSuffix(s: string, digits: number): bigint | null {
+  if (digits < s.length) return null;
+  const { step, v } = suffixLadder(s), lo = digits === 1 ? 0n : 10n ** BigInt(digits - 1), hi = 10n ** BigInt(digits);
+  for (let n = v + (lo > v ? (lo - v + step - 1n) / step : 0n) * step; n < hi; n += step) if (isPrimeWithSuffix(n, s)) return n;
+  return null;
+}
+/**
+ * A suffix drawn from the space (444 of them): its length 1, 2 or 3 with chance 3/10, 1/2, 1/5 (a longer suffix has
+ * sparser targets: its first target is at least 10^(L−1)), the earlier digits uniform, the last uniform on 1, 3, 7, 9.
+ */
+export function drawSuffix(r: { below(k: number): number }): string {
+  const u = r.below(10), L = u < 3 ? 1 : u < 8 ? 2 : 3;
+  let s = "";
+  for (let i = 1; i < L; i++) s += String(r.below(10));
+  return s + String(PRIME_ENDINGS[r.below(4)]);
+}
+
 /** Distance from x to the nearest whole number. */
 export const distanceToWhole = (x: Q): Q => Qn.abs(Qn.sub(x, q(nearestInteger(x))));
 

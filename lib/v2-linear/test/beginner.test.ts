@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateSite, Qn, q, rng, walkStep, type Evaluation, type Q, type RuleFamily } from "@workspace/v2-core";
 import { nearestPalindrome } from "../src/beginner-rulers.ts";
+import { digitLevel } from "../src/numbers.ts";
 import { LINE_Q_CODES, primeGradient, beginnerFamilies, beginnerPool, presets, divisibilityLadder, exactChange, lineQ, lineType, lineZ, primeLanding, primeStaircase, ruler, sameOnBothRulers, squareArea, treasure, wholeCrossing, type LineState } from "../src/index.ts";
 import { mc } from "./helpers.ts";
 
@@ -191,16 +192,40 @@ test("Treasure's mirror is an exact peer: it scores the reflected line y → −
   assert.deepEqual(treasure.dealable(lineQ), [{ k: 3 }, { k: 3, side: -1 }, { k: 4 }, { k: 4, side: -1 }]);
 });
 
-test("Prime Gradient's mirror (side −1) is an exact peer: it scores the reflected line y → −y as side 1 scores the line", () => {
-  const x = (a: bigint, c: bigint): LineState => ({ lines: [{ a, b: 0n, c }] });
-  for (const [f, p] of [[primeGradient, { ends: 1 }]] as const) {
-    for (const mm of [-7, -2, 0, 1, 3, 10, 14]) for (const cc of [-40, -17, -3, 0, 3, 5, 13, 23, 97]) {
-      assert.deepEqual(terms(f as never, { ...p, side: -1 }, mc(-mm, -cc), lineQ), terms(f as never, p, mc(mm, cc), lineQ), `${f.id}: y = ${mm}x + ${cc}`);
-    }
-    for (const [a, c] of [[2n, -25n], [1n, 13n]] as const) assert.deepEqual(terms(f as never, { ...p, side: -1 }, x(a, c), lineQ), terms(f as never, p, x(a, c), lineQ));
-    assert.deepEqual(f.dealable(lineQ), [1, 9].flatMap(ends => [{ ends }, { ends, side: -1 }]));
+test("Prime Gradient reads a drawn suffix and ignores the gradient's sign (owner, 16 Nov)", () => {
+  const p = { suffix: "13" };
+  const t = (m: number | Q, c: number) => terms(primeGradient, p, mc(m, c), lineQ);
+  // On a rung: |m| rounds (halves up) to a prime ending in 13; its level is digitLevel(p).
+  assert.equal(t(113, 0).gradient, Qn.toWire(digitLevel(113n)));
+  assert.equal(t(Qn.q(225, 2), 0).gradient, Qn.toWire(digitLevel(113n)));   // 112.5 rounds up to 113
+  // Off the rungs: minus (the distance to the nearest such prime − ½); 200 is 87 from 113 (313 is 113 away).
+  assert.equal(t(200, 0).gradient, "-173/2");
+  assert.equal(t(13, 0).gradient, Qn.toWire(digitLevel(13n)));
+  assert.equal(t(3, 0).gradient, "-19/2");                                      // 3 is 10 from 13
+  // The tie-breaker: the factor 113 + 1 = 114 = 2·3·19 shares with the y-intercept's whole part.
+  assert.equal(t(113, 57)["shared-factor"], "57");
+  // The sign is unconstrained: a reflection of the gradient, of the intercept, or of both, scores the same.
+  for (const mm of [-200, -113, -13, -2, 0, 3, 13, 113, Qn.q(-339, 3)]) for (const cc of [-40, -19, 0, 5, 57, 114]) {
+    const neg = (x: number | Q) => (typeof x === "number" ? -x : Qn.neg(x));
+    assert.deepEqual(t(neg(mm), cc), t(mm, cc));
+    assert.deepEqual(t(mm, -cc), t(mm, cc));
   }
-  assert.match(primeGradient.card({ ends: 1, side: -1 }, "shared-factor"), /round to minus a prime ending in 1\. Bigger primes are better, though each extra digit counts for less/);
+  // Leading zeros are written digits: "007" is met by 4007, not by 7.
+  assert.equal(terms(primeGradient, { suffix: "007" }, mc(7, 0), lineQ).gradient, Qn.toWire(Qn.neg(q(4000 * 2 - 1, 2))));
+  assert.match(primeGradient.card(p, "shared-factor"), /ignoring its sign, should round to a prime whose last digits are 13 \(13, 113, 313, 613, …\)/);
+  assert.doesNotMatch(primeGradient.card(p, null), /minus/);
+  // A large space: dealable is the dealt peers within it, and the space checks, parses and labels.
+  assert.deepEqual(primeGradient.dealable(lineQ), [{ suffix: "1" }, { suffix: "9" }]);
+  const sp = primeGradient.space!;
+  assert.equal(sp.size, 444);
+  for (const x of primeGradient.dealable(lineQ)) assert.ok(sp.has(x), JSON.stringify(x));
+  assert.deepEqual(sp.parse(" 013 "), { suffix: "013" });
+  assert.ok("invalid" in (sp.parse("12") as object));
+  assert.equal(sp.has({ suffix: "5" }), false);
+  assert.equal(sp.has({ ends: 1 }), false);
+  assert.equal(sp.label({ suffix: "07" }), "07");
+  assert.ok(sp.has(sp.draw(rng("pg"))));
+  assert.deepEqual(primeGradient.dealable(lineZ), primeGradient.dealable(lineQ));
 });
 
 test("Whole Crossing's residues r and 5 − r are exact peers: r scores the line reflected x → −x as 5 − r scores the line", () => {
@@ -245,7 +270,7 @@ test("every dealt line card is one a child can act on: the main sentence at most
 test("a ladder's reading on a rung says where it stands and the next big step (the Why line; the card keeps only 'bigger is better')", () => {
   const label = (f: typeof primeLanding, p: object, s: LineState, id: string) => evaluateSite(lineType, f as never, p as never, s, lineQ, 0, null).terms.find(t => t.id === id)!.label;
   assert.equal(label(primeLanding, { ends: 1 }, mc(-1, 41), "landing"), "lands at 41, which rounds to the prime 41: 2 digits; the next big step is 3 digits");
-  assert.equal(label(primeGradient as never, { ends: 1 }, mc(11, 0), "gradient"), "the gradient 11 rounds to the prime 11: 2 digits; the next big step is 3 digits");
+  assert.equal(label(primeGradient as never, { suffix: "1" }, mc(11, 0), "gradient"), "the gradient 11 rounds to the prime 11: 2 digits; the next big step is 3 digits");
   assert.match(label(wholeCrossing as never, { q: 5, r: 2 }, mc(-1, 50), "ladder"), /: 2 fives; the next big step is 3 fives$/);
 });
 
