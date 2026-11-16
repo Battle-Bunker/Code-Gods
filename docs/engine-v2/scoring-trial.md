@@ -534,3 +534,36 @@ is a single shift from 0, not a defined operation.
 For the owner's wish (sideways alone gives energy, rising faster for some rules than others), the level must be the
 rule's basin, not its exact hit, and the mutator set must give each representation its own additions; otherwise one
 representation is privileged by price.
+
+## Neighbourhood, pooled (V2; the coordinator's correction of the brief)
+
+Script: `lib/v2-linear/scripts/neighbourhood-pooled.ts` (`--pairs 200`). Built: the level at size T is every trophy of
+the rule's set within 0.5 doublings of T (if none, the nearest trophy), all members; the neighbourhood is log2|c|
+Gaussian matched to the members (spread at least 0.5 doublings), the gradient from the law; energy is the mean cheapest
+price to the NEAREST member (a solved shift either side and either sign, or the stretch by the exact ratio). "Basin":
+each member's basin, reached at its nearest edge. On the y-intercept; one seed. Seen narrowly:
+
+| target set | T ≈ 100 exact / basin (members) | T ≈ 1,000 exact / basin (members) | T ≈ 10,000 exact / basin (members) | T ≈ 100,000 exact / basin (members) |
+|---|---|---|---|---|
+| whole numbers ending in 7 | 130 / 73 (7) | 258 / 195 (70) | 333 / 371 (707) | 496 / 397 (7071) |
+| primes ending in 1 | 119 / 68 (3) | 259 / 197 (24) | 467 / 273 (182) | 559 / 460 (1536) |
+| primes ending in 101 | 239 / 0 (1) | 251 / 0 (1) | 1089 / 393 (2) | 1376 / 404 (19) |
+| squares | 138 / 120 (3) | 338 / 186 (11) | 592 / 377 (34) | 965 / 467 (111) |
+| powers of 2 | 249 / 101 (1) | 670 / 212 (1) | 1018 / 290 (1) | 1335 / 404 (1) |
+| retype price (a shift from 0 to T) | 1104 | 5382 | 45183 | 440201 |
+
+1. **Pooled, the sets separate, and the rates differ.** From T ≈ 100 to 100,000 (exact): ending in 7 rises 130 → 496,
+   primes ending 1 119 → 559, squares 138 → 965, powers of 2 249 → 1,335, primes ending 101 239 → 1,376. Dense sets rise
+   slowest, sparse ones fastest: the direction rarity asks for. The guess "ending in 7 flat and tiny" is half right: it
+   is the lowest, but it still rises, because the shift to the nearest member costs more lift at a larger height.
+2. **All stay far below the retype price** (440,201 at 100,000): no saturation in this range. Energy grows about with
+   the number of digits (logarithmically), not with T.
+3. **Basins compress the differences** (all about 400 to 470 at 100,000): a sparse set's wide basins catch more
+   neighbourhood draws, cancelling its sparsity. Exact pooled levels separate better.
+4. **Neutrality with each representation's own additions at the same fee: equal, by construction.** The computation
+   above then runs on that representation's own number unchanged, so the x-intercept and the signed area give the same
+   table. The non-neutrality of the previous section was the mutator menu (shift and tilt act on m and c), not the measure.
+
+How it could be wrong: one seed; a band of 0.5 doublings fixes how many trophies pool (seven at T = 100 for ending in 7,
+one for powers of 2), so the comparison depends on it; routes are one shift or one stretch; prices are the trial's log
+mode only.
