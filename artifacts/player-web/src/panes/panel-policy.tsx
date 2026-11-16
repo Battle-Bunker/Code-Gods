@@ -10,7 +10,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { useMyPanels } from "@/sdk";
 import { decide, initialPolicy, PENDING_MAX, policyReducer, type ConfirmRequest, type Grant, type PanelCommand, type PanelInfo, type PolicyEvent, type PolicyState } from "@/frame/action-policy";
 
-const KEY = "cg.panelGrants.v2";
+const KEY = "cg.panelGrants.v3";
 function readGrants(): Record<string, Grant> {
   try {
     const parsed = JSON.parse(localStorage.getItem(KEY) ?? "{}") as Record<string, Grant>;
@@ -34,7 +34,9 @@ function dispatch(event: PolicyEvent) {
   for (const listener of listeners) listener();
 }
 
-export const panelKey = (slug: string) => `stored:${slug}`;
+/** A grant's key: the panel's server id, so a panel removed and saved again, or another account's, never inherits one. */
+export const panelKey = (panelId: string) => `stored:${panelId}`;
+export const useGrants = () => usePolicy().grants;
 
 export const policyStore = {
   subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
@@ -66,7 +68,7 @@ export function PanelConfirmations() {
   const { pending } = usePolicy();
   const panels = useMyPanels();
   useEffect(() => {
-    if (panels) dispatch({ type: "panels", panels: panels.map(p => ({ key: panelKey(p.slug), currentVersion: p.currentVersion, lastForeignVersion: p.lastForeignVersion })) });
+    if (panels) dispatch({ type: "panels", panels: panels.map(p => ({ key: panelKey(p.panelId), currentVersion: p.currentVersion, lastForeignVersion: p.lastForeignVersion })) });
   }, [panels]);
   const request: ConfirmRequest | undefined = pending[0];
   const [armed, setArmed] = useState<string>();
@@ -77,8 +79,8 @@ export function PanelConfirmations() {
   }, [request?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!request) return null;
   const ready = armed === request.id;
-  const slug = request.panel.key.slice("stored:".length);
-  const name = panels?.find(p => p.slug === slug)?.title ?? slug;
+  const asking = panels?.find(p => panelKey(p.panelId) === request.panel.key);
+  const name = asking?.title ?? asking?.slug ?? "a panel";
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="panel-confirm-title" data-testid="dialog-panel-action" data-armed={ready}
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">

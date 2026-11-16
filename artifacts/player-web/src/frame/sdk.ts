@@ -84,7 +84,8 @@ export const useMyRule: Hook<"useMyRule"> = () => {
  */
 export function useActions(): PanelActions {
   const game = useGame();
-  return useMemo(() => actionsOver((op, args) => bridge().act(op, args), !!game?.me && game.phase !== "ended"), [game?.me, game?.phase]);
+  const seated = !!game?.me, phase = game?.phase;
+  return useMemo(() => actionsOver((op, args) => bridge().act(op, args), seated && phase !== "ended"), [seated, phase]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 export const useObjectIds: Hook<"useObjectIds"> = (sort, pageSize = 30) => usePaged("useObjectIds", [sort, pageSize]) as never;

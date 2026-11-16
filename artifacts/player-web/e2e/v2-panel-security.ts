@@ -367,6 +367,15 @@ export default definePanel({ title: "Chatty", Component() {
   await fr.getByTestId("sp-chat").click();
   await frameShows(page, "sec-chat", "sp-chat-result", /^(accepted|refused .*)$/);
   assert(await dialog.count() === 0, "a granted panel was asked again");
+
+  // "Ask before it acts" in Your panels takes the grant back: the next one asks again.
+  const mine = page.getByTestId("pane-my-panels");
+  if (!await mine.count() && await page.getByTestId("tab-my-panels").count()) { await page.getByTestId("tab-my-panels").click(); await mine.waitFor(); }
+  await mine.getByTestId("button-panel-revoke-sec-chat").click();
+  await fr.getByTestId("sp-chat").click();
+  await dialog.waitFor({ timeout: 15_000 });
+  await page.getByTestId("button-panel-action-cancel").click();
+  await frameShows(page, "sec-chat", "sp-chat-result", /^declined/);
 });
 
 await check("a panel that grabs its bridge port and sends raw actions is checked by the app: off-list and extra arguments refused", async () => {
@@ -376,11 +385,12 @@ export default definePanel({ title: "Overreach", Component() {
   const actions = useActions();
   const [r, setR] = useState<Record<string, string>>({});
   useEffect(() => {
-    // Capture the bridge's port as the SDK uses it, then speak the protocol directly.
+    // Capture the bridge's port as the SDK uses it (the one an act goes out on: React's scheduler posts on a port too),
+    // then speak the protocol directly.
     const nonce = new URLSearchParams(location.hash.slice(1)).get("n");
     const original = MessagePort.prototype.postMessage;
     let port: MessagePort | null = null;
-    MessagePort.prototype.postMessage = function (this: MessagePort, ...a: any[]) { port = this; return (original as any).apply(this, a); };
+    MessagePort.prototype.postMessage = function (this: MessagePort, ...a: any[]) { if (a[0]?.type === "act") port = this; return (original as any).apply(this, a); };
     setR({ started: "yes" });
     void actions.check("typescript", "export default {}").then(o => {
       setR(x => ({ ...x, checked: o.ok ? "ok" : o.error.code }));
@@ -405,6 +415,7 @@ export default definePanel({ title: "Overreach", Component() {
   });
   const r = JSON.parse(text) as Record<string, string>;
   for (const id of ["x-save", "x-leave", "x-scope", "x-proto"]) assert(r[id] === "refused", `${id}: ${r[id]} (${text})`);
+  assert(r.checked === "ok", `actions.check, an allowed read, works from a panel: ${r.checked}`);
   const listed = (await carol.query("v2/ops/panel:list" as never, { args: {} } as never) as Out).result.panels as { slug: string }[];
   assert(!listed.some(p => p.slug === "sec-planted"), "the panel saved a panel");
   assert(await page.getByTestId("dialog-panel-action").count() === 0, "an off-list action reached the player's confirmation");

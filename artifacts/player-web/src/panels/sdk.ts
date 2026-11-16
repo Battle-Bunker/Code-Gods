@@ -8,7 +8,7 @@ import { useMemo } from "react";
 import { useRuntime } from "../core/affordance-runtime";
 import { useGame } from "../sdk/hooks";
 import { actionsOver, type PanelActions } from "../sdk/panel-actions-sdk";
-import type { AffordanceId } from "@workspace/v2-affordances";
+import { checkAct, performPanelAction } from "../panes/panel-actions";
 export * from "../sdk/panel-kit";
 export {
   useRoomInfo, useGame, useMe, useMyRule, useMyAgents, useAgentCount, useLeaderboard, useStandingsHistory, useDigest,
@@ -20,8 +20,9 @@ export {
 export function useActions(): PanelActions {
   const rt = useRuntime();
   const game = useGame();
+  const seated = !!game?.me, phase = game?.phase;
   return useMemo(() => actionsOver(async (op, args) => {
-    const out = await rt.perform(op as AffordanceId, { ...args, requestId: crypto.randomUUID() });
-    return out.ok ? { ok: true, result: out.result } : { ok: false, error: { code: out.error.code, message: out.error.message } };
-  }, !!game?.me && game.phase !== "ended"), [rt, game?.me, game?.phase]);
+    const command = checkAct(op, args);
+    return "error" in command ? { ok: false, error: { code: "refused", message: command.error } } : performPanelAction(rt.perform, command);
+  }, seated && phase !== "ended"), [rt, seated, phase]);
 }

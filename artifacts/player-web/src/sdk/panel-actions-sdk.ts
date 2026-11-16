@@ -7,7 +7,7 @@ import type { ActOutcome } from "../frame/protocol.ts";
 
 export type Language = "python" | "typescript";
 export interface PanelActions {
-  /** False for a spectator or after the game: every action would be refused. */
+  /** False for a spectator or after the game: the game's actions would be refused (the chat stays open after the end). */
   canAct: boolean;
   /** Measure an agent's code without paying: its price, cost per act and diagnostics (agent.check). */
   check(language: Language, source: string, agentId?: string): Promise<ActOutcome>;

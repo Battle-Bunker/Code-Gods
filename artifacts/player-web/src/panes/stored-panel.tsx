@@ -16,15 +16,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useGameScope, useMyPanels, usePanelCode } from "@/sdk";
 import { acceptMessage, checkCall, frameVersionProblem, isFrameMessage, MORE_MAX, WATCHES_MAX, type BridgePanel, type HostMessage } from "@/frame/protocol";
 import { HostWatches, type HostLink, type HostWatch } from "./panel-host";
-import type { AffordanceId } from "@workspace/v2-affordances";
 import { useRuntime } from "@/core/affordance-runtime";
 import type { PanelInfo } from "@/frame/action-policy";
-import { checkAct } from "./panel-actions";
+import { checkAct, performPanelAction } from "./panel-actions";
 import { panelKey, policyStore } from "./panel-policy";
 
 export const frameUrl = (nonce: string) => `${import.meta.env.BASE_URL}panel-frame.html#n=${nonce}`;
 type FrameState = { kind: "booting" | "ready" | "failed" | "crashed" | "stopped"; message?: string };
 
+/** A panel's actions running at once (not waiting for the player). */
+const RUNNING_MAX = 2;
 const note = (text: string, testId: string) => <p className="p-4 text-sm text-muted-foreground" data-testid={testId}>{text}</p>;
 
 /** The pane: the panel's metadata from the viewer's panel list, then its current version's code. */
@@ -38,7 +39,7 @@ export function StoredPanelPane({ slug }: { slug: string }) {
   if (!meta) return note(`There is no panel "${slug}" any more. Close this pane, or open "Your panels" to write it again.`, "stored-panel-missing");
   if (!meta.enabled) return note(`"${meta.title}" is turned off. Turn it on in "Your panels" to see it here.`, "stored-panel-off");
   if (code === null) return note(`"${meta.title}" has no code to show.`, "stored-panel-missing");
-  return <PanelFrame slug={slug} title={meta.title} panel={panel} info={{ key: panelKey(slug), currentVersion: meta.currentVersion, lastForeignVersion: meta.lastForeignVersion }} />;
+  return <PanelFrame slug={slug} title={meta.title} panel={panel} info={{ key: panelKey(meta.panelId), currentVersion: meta.currentVersion, lastForeignVersion: meta.lastForeignVersion }} />;
 }
 
 const dark = () => document.documentElement.classList.contains("dark");
@@ -57,8 +58,8 @@ function PanelFrame({ slug, title, panel, info }: { slug: string; title: string;
   latest.current = { panel, scope, info, rt };
   // `more` holds each paged watch's loadMore; `pending`, a `more` that came before its watch had mounted.
   const bridge = useRef<{ port?: MessagePort; sent?: string; ready: boolean; stop: (why?: string) => void; boot: () => void;
-    more: Map<string, (n: number) => void>; pending: Map<string, number>; watching: Set<string> }>(
-    { ready: false, stop: () => {}, boot: () => {}, more: new Map(), pending: new Map(), watching: new Set() });
+    more: Map<string, (n: number) => void>; pending: Map<string, number>; watching: Set<string>; running: number }>(
+    { ready: false, stop: () => {}, boot: () => {}, more: new Map(), pending: new Map(), watching: new Set(), running: 0 });
 
   const link = useMemo<HostLink>(() => ({
     post: (message: HostMessage) => bridge.current.port?.postMessage(message),
@@ -118,13 +119,15 @@ function PanelFrame({ slug, title, panel, info }: { slug: string; title: string;
             const reply = (outcome: Extract<HostMessage, { type: "acted" }>["outcome"]) => { if (!stopped) b.port?.postMessage({ type: "acted", id: message.id, outcome } satisfies HostMessage); };
             const command = checkAct(message.op, message.args);
             if ("error" in command) { reply({ ok: false, error: { code: "refused", message: command.error } }); return; }
+            // Allowed actions run at once: at most RUNNING_MAX at a time per frame (a loop of them is refused, not queued).
+            if (b.running >= RUNNING_MAX) { reply({ ok: false, error: { code: "busy", message: `A panel can have at most ${RUNNING_MAX} actions running at once.` } }); return; }
             const { info: asking } = latest.current;
             void policyStore.ask(asking, command).then(async decision => {
               if (stopped) return;
               if (decision === "declined") { reply({ ok: false, error: { code: "declined", message: "The player declined." } }); return; }
               if (decision === "busy") { reply({ ok: false, error: { code: "busy", message: "This panel already has actions waiting for the player." } }); return; }
-              const out = await latest.current.rt.perform(command.op as AffordanceId, { ...command.args, requestId: crypto.randomUUID() });
-              reply(out.ok ? { ok: true, result: out.result } : { ok: false, error: { code: out.error.code, message: out.error.message } });
+              b.running++;
+              try { reply(await performPanelAction(latest.current.rt.perform, command)); } finally { b.running--; }
             });
             return;
           }
