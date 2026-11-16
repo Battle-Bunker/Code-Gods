@@ -17,6 +17,7 @@ import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { ConvexHttpClient } from "convex/browser";
+import { chooseSetup } from "./setup-choice.ts";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
@@ -115,15 +116,14 @@ try {
     await page.getByTestId("button-create-room").first().click();
     await page.waitForURL(/\/rooms\/[A-Z0-9]+$/);
     const next = page.getByTestId("section-next-game");
-    await next.getByTestId("radio-setup-lines-beginner").waitFor();
-    assert.ok(await next.getByTestId("radio-setup-lines-beginner").isChecked(), "a new room plays the beginner setup");
-    const lab = await next.getByTestId("setup-group-lab").count();
+    await next.getByTestId("text-current-setup").filter({ hasText: /^Lines · beginner$/ }).waitFor();   // a new room plays the beginner setup
+    await next.getByTestId("select-setup").click();
+    await page.getByTestId("popover-setups").waitFor();
+    const lab = await page.locator('[data-testid^="text-setup-lab-"]').count();
     if (who !== "admin") assert.equal(lab, 0, "a player is never offered the Lab");
-    else console.log(`${label}: Lab group ${lab ? "shown" : "absent (no Lab preset deployed)"} for an admin`);
-    await next.getByTestId("setup-lines-beginner-bidding").click();
-    await page.waitForFunction(() => (document.querySelector("[data-testid=radio-setup-lines-beginner-bidding]") as HTMLInputElement | null)?.checked === true);
-    await next.getByTestId("setup-lines-beginner").click();
-    await page.waitForFunction(() => (document.querySelector("[data-testid=radio-setup-lines-beginner]") as HTMLInputElement | null)?.checked === true);
+    else console.log(`${label}: Lab setups ${lab ? "shown" : "absent (no Lab preset deployed)"} for an admin`);
+    await chooseSetup(page, "lines-beginner-bidding", "Lines · beginner with bidding");
+    await chooseSetup(page, "lines-beginner", "Lines · beginner");
     // A number the server would refuse is explained, and nothing is sent.
     await next.getByTestId("input-setting-planningSeconds").fill("2");
     await next.getByTestId("error-setting-planningSeconds").waitFor();

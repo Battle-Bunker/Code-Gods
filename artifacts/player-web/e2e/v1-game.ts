@@ -20,6 +20,7 @@
  */
 import assert from "node:assert/strict";
 import { DESKTOP, PHONE, SITE, chromium, check, deploy, missing, noHorizontalScroll, report, roomOp, roomSettings, shot, signIn, watch, type Page, type Player } from "./v1-harness.ts";
+import { chooseSetup } from "./setup-choice.ts";
 
 deploy();
 
@@ -267,8 +268,7 @@ try {
       await a.getByTestId("button-create-room").first().click();
       await a.waitForURL(/\/rooms\/[0-9A-Z]+$/);
       code = (await a.getByTestId("text-room-code").innerText()).trim();
-      await a.locator('label[data-testid^="setup-"]', { hasText: /with bidding/ }).first().locator('input[type="radio"]').click();
-      await a.locator('label[data-testid^="setup-"]:has(input:checked)', { hasText: /with bidding/ }).waitFor({ timeout: 15_000 });
+      await chooseSetup(a, "lines-beginner-bidding", "Lines · beginner with bidding");
       await roomSettings(a, code, { planningSeconds: 120, worldSeconds: 600 });
       for (const p of [b, c]) {
         await p.goto(`${SITE}/rooms/${code}`);

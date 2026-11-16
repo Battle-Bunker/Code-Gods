@@ -63,6 +63,7 @@ export const V2_BUDGETS: readonly V2Budget[] = [
   { query: "v2/setups:mine", args: () => page, reads: "the caller's v2Setups by_owner_name page (≤ 50 exist)", cold: true },
   { query: "v2/setups:shared", args: () => page, reads: "one v2Setups by_name page (everyone's, by name)", cold: true },
   // The fixture has no saved setup: measured on an id that names none (the lookup is one document either way).
+  { query: "v2/setups:search", args: () => ({ q: "slow", ...page }), reads: "one v2Setups search_name page (everyone's, best match first)", cold: true },
   { query: "v2/setups:get", args: () => ({ setupId: "no-such-setup" }), reads: "1 v2Setups (anyone's) + the caller's user row", cold: true },
   { query: "v2/gallery:family", args: () => ({ preset: "lines-beginner", family: "prime-landing" }), reads: "none (the bundled artefacts) + the caller's user row", cold: true },
   { query: "v2/rooms:aiQuotas", args: f => ({ roomId: f.roomId }), reads: "member + 1 v2RoomQuotas", cold: true },

@@ -166,3 +166,22 @@ test("each human keeps at most 50 setups", { timeout: 120_000 }, async () => {
   // Overwriting one by name still works at the cap.
   assert.equal((await perform(eve, "setups.save", { name: "Setup 0", preset: "lines-beginner", overrides: { planningSeconds: 30 } })).result.created, false);
 });
+
+test("the setup picker's search (v1's combobox): everyone's setups whose name matches, a page at a time", async () => {
+  const tag = `Zebra${Date.now() % 100000}`;
+  await perform(ada!, "setups.save", { name: `${tag} slow lines`, preset: "lines-beginner", overrides: { planningSeconds: 120 } });
+  await perform(bo!, "setups.save", { name: `${tag} quick grids`, preset: "grids-beginner" });
+  const found = async (q: string) => {
+    for (let i = 0; i < 20; i++) {
+      const r = await ada!.query("v2/setups:search", { q, paginationOpts: { numItems: 20, cursor: null } });
+      if (r.page.length) return r.page;
+      await new Promise(res => setTimeout(res, 250));   // the search index catches up
+    }
+    return [];
+  };
+  const both = await found(tag);
+  assert.deepEqual(both.map((r: any) => r.name).sort(), [`${tag} quick grids`, `${tag} slow lines`]);
+  const bos = both.find((r: any) => r.name === `${tag} quick grids`);
+  assert.deepEqual([bos.ownerName, bos.mine], ["Setups Bo", false]);
+  assert.deepEqual((await found(`${tag} quick`)).map((r: any) => r.name)[0], `${tag} quick grids`, "best match first");
+});

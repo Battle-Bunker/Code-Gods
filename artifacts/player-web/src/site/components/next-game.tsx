@@ -1,17 +1,18 @@
 /**
- * The room's Next game section (integration plan §1.2): the setup picker (the deployed presets, the Lab group for
- * admins only) and the few settings the owner may change for the next game, both through the `room.settings`
+ * The room's Next game section (integration plan §1.2): v1's searchable setup combobox (setup-combobox.tsx: the deployed
+ * presets, the Lab for admins, everyone's saved setups) and the few settings the owner may change for the next game, through the `room.settings`
  * affordance; everyone else reads the setup and its summary. A running game keeps the settings it started with (the
  * server freezes them in the game), so the owner may set up the next one meanwhile.
  */
 import { useState } from "react";
 import { Link } from "wouter";
 import { useAffordance } from "@workspace/v2-affordances/react";
-import { PRESETS, presetOf, type Preset } from "@workspace/engine/convex/v2/presets.ts";
+import { presetOf, type Preset } from "@workspace/engine/convex/v2/presets.ts";
 import { Section } from "@/site/components/page-parts";
+import { SetupCombobox } from "@/site/components/setup-combobox";
 import { failureText } from "@/site/components/action";
 import { useAuth } from "@/site/hooks/use-auth";
-import { weightText, formOf, nextGameSummary, noiseWords, overridesOf, PEER_NOISE_VARIANCE_OPTIONS, setupBlurb, setupGroups, type FormField, type SettingsForm } from "@/site/lib/setup-picker";
+import { weightText, formOf, nextGameSummary, noiseWords, overridesOf, PEER_NOISE_VARIANCE_OPTIONS, setupBlurb, type FormField, type SettingsForm } from "@/site/lib/setup-picker";
 import { SCORE_INTERVAL_OPTIONS } from "@workspace/engine/convex/v2/duration.ts";
 import { gallerySearch } from "@/site/lib/rule-gallery";
 import { configurePath, ruleGalleryPath } from "@/site/lib/routes";
@@ -20,39 +21,6 @@ import type { Room } from "@/sdk/types";
 
 const rulesLink = (p: Preset) => ruleGalleryPath(gallerySearch({ board: p.variant, params: 0, tb: null }));
 
-function SetupPicker({ room, admin, locked }: { room: Room; admin: boolean; locked: string | null }) {
-  const settings = useAffordance("room.settings");
-  const [busy, setBusy] = useState<string | null>(null);
-  const choose = async (id: string) => {
-    if (busy || locked || id === room.preset) return;
-    setBusy(id);
-    try { await settings.run({ preset: id }); toast({ title: `Next game: ${presetOf(id).title}` }); } catch (e) { toast({ title: "The setup did not change", description: failureText(e), variant: "destructive" }); } finally { setBusy(null); }
-  };
-  return (
-    <div className="space-y-4">
-      {setupGroups(PRESETS, { admin, current: room.preset }).map(g => (
-        <fieldset key={g.label} className="space-y-2" data-testid={`setup-group-${g.label.startsWith("Lab") ? "lab" : "main"}`}>
-          <legend className="label-mono mb-1">{g.label}</legend>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {g.presets.map(p => {
-              const on = p.id === room.preset;
-              return (
-                <label key={p.id} className={`flex items-start gap-3 border p-3 ${on ? "border-primary bg-primary/5" : "hover:bg-muted/60"} ${locked ? "opacity-70" : "cursor-pointer"}`} data-testid={`setup-${p.id}`}>
-                  <input type="radio" name="setup" className="mt-1" checked={on} disabled={!!locked || !!busy} onChange={() => void choose(p.id)} data-testid={`radio-setup-${p.id}`} />
-                  <span className="min-w-0 space-y-0.5 text-sm">
-                    <span className="block font-medium">{p.title}{busy === p.id ? " · saving…" : ""}</span>
-                    <span className="block text-muted-foreground">{setupBlurb(p)}</span>
-                    <Link href={rulesLink(p)} className="text-xs underline underline-offset-4" data-testid={`link-setup-rules-${p.id}`}>See its rules</Link>
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        </fieldset>
-      ))}
-    </div>
-  );
-}
 
 type TextField = Exclude<FormField, "durationMode" | "peerNoiseVariance">;
 const fields = (mode: SettingsForm["durationMode"]): { key: TextField; label: string; hint: string; list?: string }[] => [
@@ -145,7 +113,11 @@ export function NextGame({ room }: { room: Room }) {
     <Section title="Next game" testId="section-next-game">
       <div className="p-4 space-y-4 text-sm">
         {owner && !settings.hidden ? (<>
-          <SetupPicker room={room} admin={!!user?.isAdmin} locked={locked} />
+          <div className="space-y-1" data-testid="field-setup">
+            <p className="label-mono">Setup</p>
+            <SetupCombobox room={room} admin={!!user?.isAdmin} locked={locked} />
+            <p className="text-muted-foreground">{setupBlurb(preset)} <Link href={rulesLink(preset)} className="text-xs underline underline-offset-4" data-testid="link-setup-rules">See its rules</Link></p>
+          </div>
           <SettingsEditor room={room} preset={preset} locked={locked} />
         </>) : (
           <div className="space-y-1">

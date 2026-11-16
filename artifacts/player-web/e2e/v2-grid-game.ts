@@ -25,6 +25,8 @@ import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { ConvexHttpClient } from "convex/browser";
+import { chooseSetup } from "./setup-choice.ts";
+import { presetOf } from "../../engine/convex/v2/presets.ts";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
@@ -97,13 +99,12 @@ try {
     await page.waitForURL(/\/rooms\/[A-Z0-9]+$/);
     const code = page.url().split("/").at(-1)!;
     await page.screenshot({ path: path.join(shots, `grid-${label}-room-before.png`), fullPage: true });
-    // The owner picks the grid setup in the room (a radio in "Next game").
+    // The owner picks the grid setup in the room (the setup combobox in "Next game").
     const t1 = Date.now();
-    await page.getByTestId(`radio-setup-${SETUP}`).click();
-    await page.waitForFunction((id: string) => (document.querySelector(`[data-testid="radio-setup-${id}"]`) as HTMLInputElement | null)?.checked === true, SETUP, { timeout: 15_000 });
+    await chooseSetup(page, SETUP, presetOf(SETUP).title);
     console.log(`${label}: the grid setup chosen in ${clock(t1)}`);
     await page.getByTestId("text-next-game-summary").waitFor();
-    await page.getByTestId(`setup-${SETUP}`).getByText(/grid of digits/).waitFor({ timeout: 10_000 });
+    await page.getByTestId("field-setup").getByText(/grid of digits/).waitFor({ timeout: 10_000 });
     await shot(page, `grid-${label}-room`);
     await shorten(page, code);   // after the setup: choosing a setup resets the room's settings to its own
     await page.getByTestId("button-practice-game").click();
