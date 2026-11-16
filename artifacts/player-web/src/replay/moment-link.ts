@@ -23,7 +23,7 @@ export function parseMoment(search: string): Moment {
   return { worldSeconds: Number.isFinite(n) && n >= 0 ? n : null, as: q.get("as") || null };
 }
 
-export type ReplayKey = "toggle" | "back" | "forward" | "start" | "end" | "prevMoment" | "nextMoment";
+export type ReplayKey = "toggle" | "back" | "forward" | "start" | "end" | "prevMoment" | "nextMoment" | "slower" | "faster";
 
 /** What a key press does in a replay, or null: never while typing or with a modifier (the palette's Ctrl+K stays its own). */
 export function replayKey(e: { key: string; target?: string; ctrl?: boolean; meta?: boolean; alt?: boolean; shift?: boolean }): ReplayKey | null {
@@ -38,6 +38,15 @@ export function replayKey(e: { key: string; target?: string; ctrl?: boolean; met
     case "ArrowRight": return "forward";
     case "Home": return "start";
     case "End": return "end";
+    case "[": return "slower";
+    case "]": return "faster";
     default: return null;
   }
+}
+
+/** The speed one step slower or faster in the list (v1's [ and ]), or null past either end. */
+export function nextSpeed<T extends number>(speeds: readonly T[], now: number, direction: 1 | -1): T | null {
+  const i = speeds.indexOf(now as T);
+  const j = i < 0 ? speeds.findIndex(s => s >= now) : i + direction;
+  return j >= 0 && j < speeds.length ? speeds[j]! : null;
 }

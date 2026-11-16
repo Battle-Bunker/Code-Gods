@@ -58,3 +58,13 @@ test("Opposite Nines says how far each pair is from 9; Strangers names the touch
   assert.ok(st.length > 0 && st.every(t => /^\d of 4: /.test(t)), st.join(" | "));
   assert.ok(st.some(t => /share|next-door|1|0/.test(t)), st.join(" | "));
 });
+
+test("Magic Eighteen and Two Pair show each unit's working: the sum or the pairs, ✓ when on target", () => {
+  const s = gridType.decode("9117/4311/3224/4446");
+  const notesOf = (id: string, tb: string) => evaluateObject(gridType, gridType.families.find(f => f.id === id)!, id === "magic-eighteen" ? { T: 18 } : {}, s, grid4, tb)
+    .sites[0]!.marks.flatMap(m => (m.kind === "note" && m.term === undefined ? [m.text] : []));
+  assert.deepEqual(notesOf("magic-eighteen", "columns"), ["✓ 9+1+1+7 = 18", "4+3+1+1 = 9: 9 short", "3+2+2+4 = 11: 7 short", "✓ 4+4+4+6 = 18"]);
+  const tp = notesOf("two-pair", "apart");
+  assert.equal(tp.length, 4);
+  assert.match(tp[0]!, /^off by \d+: /);
+});

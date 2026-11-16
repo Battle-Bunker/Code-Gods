@@ -21,16 +21,16 @@ test("Lab presets are the ones under trial (test- and lab- ids)", () => {
 
 test("a player sees the setups; an admin also sees the Lab group", () => {
   const player = setupGroups(presets, { admin: false, current: beginner.id });
-  assert.deepEqual(player.map(g => g.label), ["Setups"]);
+  assert.deepEqual(player.map(g => g.label), ["System setups"]);
   assert.ok(!player[0]!.presets.some(isLab));
   const admin = setupGroups(presets, { admin: true, current: beginner.id });
-  assert.deepEqual(admin.map(g => g.label), ["Setups", "Lab (admins only)"]);
+  assert.deepEqual(admin.map(g => g.label), ["System setups", "Lab (admins only)"]);
   assert.deepEqual(admin[1]!.presets.map(p => p.id), [lab.id]);
 });
 
 test("a room already on a Lab preset still shows it to a player, so the picker never hides what the room plays", () => {
   const g = setupGroups(presets, { admin: false, current: lab.id });
-  assert.deepEqual(g.map(x => x.label), ["Setups", "Lab (admins only)"]);
+  assert.deepEqual(g.map(x => x.label), ["System setups", "Lab (admins only)"]);
   assert.deepEqual(g[1]!.presets.map(p => p.id), [lab.id]);
 });
 

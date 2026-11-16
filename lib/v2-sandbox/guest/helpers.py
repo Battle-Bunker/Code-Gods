@@ -194,6 +194,11 @@ def price(offer, plan):
     return q.charge if q.valid else None
 
 
+def allowed(offer, plan):
+    """Whether the plan may be made now: every move valid and no lock on the object broken (games with locks)."""
+    return offer.quote(_as_plan(plan)).valid is True
+
+
 def cheapest(offer, plans):
     best, best_price = None, float("inf")
     for plan in plans:
