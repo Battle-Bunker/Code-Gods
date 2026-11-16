@@ -13,7 +13,7 @@ import {
   elementDecl, elementValue, evaluateObject, Qn, q, refKey, ruleLayers, type ElementRef, type Evaluation, type Layer, type Mark, type Q, type Score, type Undef,
 } from "@workspace/v2-core";
 import { partName, type RuleRef } from "./annotate.ts";
-import { fmtQ, isUndef, readable, typesetNote } from "./format.ts";
+import { EXACT_DENOMINATOR, fmtQ, isUndef, readable, readingDecimal, typesetNote } from "./format.ts";
 
 export type Role = "main" | "tb";
 /** A part's symbol by its depth, always beside its name: ● main part, ◆ secondary, ▲ third, ■ fourth preference. */
@@ -79,8 +79,8 @@ const N = (x: Q) => Number(x.n) / Number(x.d);
 const cap = (s: string) => (!s || /^[a-z](?![a-z])/.test(s) ? s : s[0]!.toUpperCase() + s.slice(1));
 
 const readableN = (v: number) => {
-  for (let d = 1; d <= 100; d++) { const n = Math.round(v * d); if (Math.abs(n - v * d) < 1e-9) return readable(q(n, d)); }
-  return `≈ ${(Math.round(v * 100) / 100).toFixed(2).replace("-", "−")}`;
+  for (let d = 1; d <= Number(EXACT_DENOMINATOR); d++) { const n = Math.round(v * d); if (Math.abs(n - v * d) < 1e-9) return readable(q(n, d)); }
+  return `≈ ${readingDecimal(v)}`;
 };
 
 /** Replace a rule's parameter letters by their dealt values ("y(k) close to T" → "y(2) close to 37"). */
