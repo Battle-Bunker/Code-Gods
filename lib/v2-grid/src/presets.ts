@@ -17,6 +17,10 @@ const BEGINNER = new Set(beginnerGridFamilies(gridParams(grid4).size).map(f => f
  */
 const V1_PORTS = ["round-numbers", "column-addition"];
 const MORE = new Set([...moreGridFamilies(gridParams(grid4).size).map(f => f.id), ...V1_PORTS]);
+// v1's Full House, Seesaw and Snap!, ported as v1 had them (the grid baseline, 16 Nov). Twenty-One is ported but
+// UNDEALT: a cheap peak, the energy gate's climber took T 16 + bust-by-little to 35.8 bits for 230⚡ (every row and
+// column exactly T is a reachable top; T 15, 16 and 20 measured 25–36 bits on every tie-breaker).
+for (const id of ["full-house", "seesaw", "snap"]) MORE.add(id);
 
 /**
  * The tie-breakers the beginner pool deals: only those tied to what the main part singles out (owner decision 29; the
@@ -37,7 +41,8 @@ export const BEGINNER_DEALT: Readonly<Record<string, readonly string[]>> = {
 };
 
 /** The parameters the more-rules pool deals, for its families that have several. */
-const MORE_PARAMS: Readonly<Record<string, unknown>> = { uphill: { corner: "BR" }, staircase: { direction: "right" }, "magic-accountant": { axis: "rows", T: 18 }, "round-numbers": { axis: "rows" }, "column-addition": { top: 0 } };
+const MORE_PARAMS: Readonly<Record<string, unknown>> = { uphill: { corner: "BR" }, staircase: { direction: "right" }, "magic-accountant": { axis: "rows", T: 18 },
+  "round-numbers": { axis: "rows" }, "column-addition": { top: 0 }, "full-house": { axis: "rows" }, seesaw: { axis: "rows" } };
 
 const poolOf = (ids: Set<string>, dealt?: Readonly<Record<string, readonly string[]>>): readonly GridPoolRule[] =>
   gridType.families.filter(f => ids.has(f.id)).flatMap(f => f.dealable(grid4).map(params => ({
