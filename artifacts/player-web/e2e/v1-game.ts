@@ -172,6 +172,21 @@ try {
       await noHorizontalScroll(a, "results");
     });
 
+    await check("three humans: the results show the rotation: game 1 of 3, a different rule each game, totals over the round", async () => {
+      for (const p of players) {
+        const rot = p.page.getByTestId("results-rotation");
+        await rot.waitFor({ timeout: 30_000 });
+        assert.match(await rot.innerText(), /^Game 1 of 3/);
+      }
+    });
+
+    await missing(["e2e-rotation-shot"], "three humans: the room page's rotation line says whose rule each player gets if they play again (\"Game 1 of 3 in this rotation. Play again with the same players and you get X's rule\")", async () => {
+      await b.goto(`${SITE}/rooms/${code}`);
+      const line = b.getByTestId("text-rotation-line");
+      await line.waitFor({ timeout: 5_000 });
+      assert.match(await line.innerText(), /^Game 1 of 3 in this rotation\. Play again with the same players and you get .+'s rule/);
+    }, async () => { await b.goto(gameUrl); await b.locator('[data-testid="replay-bar"], [data-testid="results"]').first().waitFor({ timeout: 30_000 }).catch(() => {}); });
+
     await check("three humans: the replay's header leads back to the room page without a reload; its past games list the game", async () => {
       for (const p of players) {
         await p.page.evaluate(() => { (window as unknown as { sameDoc: boolean }).sameDoc = true; });
@@ -199,6 +214,36 @@ try {
       const gameId = gameUrl.split("/").at(-1)!;
       await a.goto(`${SITE}/games/${gameId}`);
       await a.getByTestId("text-not-found").waitFor({ timeout: 5_000 });
+    });
+
+    await check("signed out: a visit to the game's page shows the sign-in screen there, which reaches the provider; no CSP reports", async () => {
+      const fresh = await browser.newContext();
+      await fresh.route(/^https:\/\/accounts\.google\.com\//, (route: any) => route.fulfill({ status: 200, contentType: "text/html", body: "google" }));
+      const out = await fresh.newPage();
+      const reports: string[] = [];
+      out.on("console", (m: any) => { if (/Content Security Policy/i.test(m.text())) reports.push(m.text()); });
+      const path = new URL(gameUrl).pathname;
+      await out.goto(gameUrl);
+      await out.getByTestId("button-login").waitFor({ timeout: 60_000 });
+      assert.equal(new URL(out.url()).pathname, path, `the signed-out page moved: ${out.url()}`);
+      const google = out.waitForRequest(/^https:\/\/accounts\.google\.com\//, { timeout: 30_000 });
+      await out.getByTestId("button-login").click();
+      await google;
+      assert.deepEqual(reports, []);
+      await fresh.close();
+    });
+
+    await check("three humans: the owner deals the same game again (Rematch) from the room; every player is taken to the new game", async () => {
+      await a.goto(`${SITE}/rooms/${code}`);
+      for (const p of [b, c]) { await p.goto(`${SITE}/rooms/${code}`); await p.getByTestId("text-room-code").waitFor(); }
+      await a.getByTestId("button-rematch").click({ timeout: 30_000 });
+      const ok = a.getByTestId("button-rematch-confirm-ok");
+      if (await ok.waitFor({ timeout: 3_000 }).then(() => true, () => false)) await ok.click();
+      for (const p of players) {
+        await p.page.waitForURL((u: URL) => GAME_URL.test(u.pathname) && u.toString().replace(/[?#].*$/, "") !== gameUrl, { timeout: 60_000 });
+        await p.page.getByTestId("text-phase").filter({ hasText: /plan|run/i }).waitFor({ timeout: 60_000 });
+      }
+      await paletteRun(a, "end the game", "game.end");
     });
 
     for (const p of players) await p.context.close();
