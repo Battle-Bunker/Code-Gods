@@ -12,6 +12,7 @@
  * (true by construction); only the third cares which quarter the triangle is in.
  */
 import { gcd, Qn, q, readFields, ref, writeFields, type ParamSpace, type Q } from "@workspace/v2-core";
+import { isqrt } from "./numbers.ts";
 import { crossingOf, further, mixed, nearestOn, siReading, treeFamily, wholeField, type Further, type Target } from "./tree-nt-shared.ts";
 
 const coprime = (a: number, b: number) => gcd(BigInt(a), BigInt(b)) === 1n;
@@ -83,7 +84,7 @@ export type Quadrant = { p: number; q: number };
 type QT = Target & { n: bigint };
 export function quadrantNear(x: Q, p: Quadrant): QT {
   const f = q(p.p, p.q), r = nearestOn(x, n => Qn.mul(f, q(n * n)));
-  const n = Qn.div(r.at, f), root = BigInt(Math.round(Math.sqrt(Qn.toNumber(n))));
+  const root = isqrt(Qn.div(r.at, f).n);
   return { n: root, level: q(root), at: r.at, near: [r.up, ...(r.down ? [r.down] : [])], why: `${p.p}/${p.q} of the square of side ${root} is ${mixed(r.at)}, the nearest to the area ${mixed(x)}` };
 }
 const QMAX = 24, QFIELDS = ["p", "q"] as const;

@@ -31,15 +31,34 @@ export function smoothNumbersUpTo(primes: readonly number[], max: bigint): bigin
   return out.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 type SM = Target & { w: bigint };
+/**
+ * The smooth numbers next to X: the biggest at or below it (null below 1) and the smallest above it. Bounded work at
+ * any size: every product of the other primes up to X × p is completed by the right power of the last prime, about
+ * (log X)^(r − 1) products for r primes.
+ */
+export function smoothAround(primes: readonly number[], X: Q): { lo: bigint | null; hi: bigint } {
+  const ps = primes.map(BigInt), last = ps[ps.length - 1]!, rest = ps.slice(0, -1), top = (Qn.floor(X) > 0n ? Qn.floor(X) + 1n : 1n) * last;   // at least last: below 1 the answer is 1 above
+  let lo: bigint | null = null, hi: bigint | null = null;
+  const visit = (i: number, prod: bigint) => {
+    if (i === rest.length) {
+      let v = prod;
+      while (Qn.cmp(q(v * last), X) <= 0) v *= last;   // the biggest prod × last^e at or below X (or prod itself, above X)
+      if (Qn.cmp(q(v), X) <= 0) { if (lo === null || v > lo) lo = v; v *= last; }
+      if (hi === null || v < hi) hi = v;
+      return;
+    }
+    for (let p = prod; p <= top; p *= rest[i]!) visit(i + 1, p);
+  };
+  visit(0, 1n);
+  return { lo, hi: hi! };
+}
 export function smoothNear(x: Q, p: Smooth): SM {
-  const f = q(p.top, p.bottom), min = BigInt(Math.min(...p.primes));
-  // Up to the smooth number past the one above x (the next smooth number after w is at most w × the smallest prime).
-  const list = smoothNumbersUpTo(p.primes, ((Qn.floor(x) + 2n) * min + min) * min), last = list[list.length - 1]!;
-  // Past the list the ladder only needs to keep rising (the search never picks there).
-  const w = (n: bigint) => (n <= BigInt(list.length) ? list[Number(n) - 1]! : last * 2n ** (n - BigInt(list.length)));
-  const r = nearestOn(x, n => Qn.add(q(w(n)), f));
-  const wh = Qn.floor(r.at);
-  return { w: wh, level: q(wh), at: r.at, near: [r.up, ...(r.down ? [r.down] : [])], why: `the target nearest ${mixed(x)} is ${mixed(r.at)}: its whole part ${wh}${wh === 1n ? "" : ` = ${factorText(wh)}`}` };
+  const f = q(p.top, p.bottom), X = Qn.sub(x, f);
+  const { lo, hi } = smoothAround(p.primes, X);
+  const w = lo !== null && Qn.cmp(Qn.sub(X, q(lo)), Qn.sub(q(hi), X)) < 0 ? lo : hi;   // a tie goes to the bigger
+  const up = smoothAround(p.primes, q(w)).hi, down = w > 1n ? smoothAround(p.primes, q(w - 1n)).lo : null;
+  const at = Qn.add(q(w), f);
+  return { w, level: q(w), at, near: [Qn.add(q(up), f), ...(down === null ? [] : [Qn.add(q(down), f)])], why: `the target nearest ${mixed(x)} is ${mixed(at)}: its whole part ${w}${w === 1n ? "" : ` = ${factorText(w)}`}` };
 }
 const factorText = (w: bigint): string => { const out: string[] = []; let n = w; for (let p = 2n; n > 1n; p++) while (n % p === 0n) { out.push(String(p)); n /= p; } return out.join(" × "); };
 const SFIELDS = ["k", "primes", "part"] as const;
@@ -89,13 +108,20 @@ export const smoothMixed = treeFamily<Smooth, SM>({
     {
       layer: { id: "divisor", title: "the x-crossing's size near a divisor of the target's whole part", rep: "crossing", sense: "min",
         sentence: () => "Where the line crosses the x-axis (ignoring a minus sign) should be as close as possible to a number that divides the target's whole part exactly." },
-      evaluate: (ctx, r, t) => {
+      evaluate: (ctx, r, t, p) => {
         const xr = ref("crossing", "x0"); ctx.read(xr);
         const X = crossingOf(r.m!, r.c!);
         if (X === null) return further(ctx, "divisor", null, "a flat line never crosses the x-axis", xr, r.from);
         const a = Qn.abs(X);
-        let best = Qn.abs(Qn.sub(a, Qn.ONE));
-        for (let e = 1n; e * e <= t.w; e++) if (t.w % e === 0n) for (const dv of [e, t.w / e]) { const d = Qn.abs(Qn.sub(a, q(dv))); if (Qn.cmp(d, best) < 0) best = d; }
+        // The divisors of a smooth w are smooth; at most 20,000 are tried (huge w), so the answer is bounded in time.
+        let best = Qn.abs(Qn.sub(a, Qn.ONE)), tried = 0;
+        const exps = p.primes.map(pr => { let e = 0, n = t.w; while (n % BigInt(pr) === 0n) { n /= BigInt(pr); e++; } return e; });
+        const walk = (i: number, d: bigint) => {
+          if (tried > 20_000) return;
+          if (i === exps.length) { tried++; const dd = Qn.abs(Qn.sub(a, q(d))); if (Qn.cmp(dd, best) < 0) best = dd; return; }
+          for (let e = 0, v = d; e <= exps[i]!; e++, v *= BigInt(p.primes[i]!)) walk(i + 1, v);
+        };
+        walk(0, 1n);
         further(ctx, "divisor", best, `the crossing's size ${mixed(a)} is ${mixed(best)} from a divisor of ${t.w}`, xr, [xr, ...r.from]);
       },
     },

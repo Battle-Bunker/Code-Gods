@@ -70,3 +70,12 @@ test("each is on the line type, tree-valued, in no preset, with a space whose la
     for (const p of fam.dealable(lineQ)) assert.ok(fam.card(p as never, fam.chains.at(-1)!).includes("Third: "), fam.id);
   }
 });
+
+test("Smooth Mixed's smooth numbers either side of a reading, at any size", async () => {
+  const { smoothAround } = await import("../src/index.ts");
+  assert.deepEqual(smoothAround([2, 3], f(13)), { lo: 12n, hi: 16n });
+  assert.deepEqual(smoothAround([2, 3], f(1, 2)), { lo: null, hi: 1n });
+  assert.deepEqual(smoothAround([3, 17], f(152)), { lo: 81n, hi: 153n });
+  const big = smoothAround([2, 5, 7], Qn.q(10n ** 200n + 1n));
+  assert.ok(big.lo! <= 10n ** 200n + 1n && big.hi > 10n ** 200n + 1n);
+});
