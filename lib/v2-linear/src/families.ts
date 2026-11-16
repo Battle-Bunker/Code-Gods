@@ -13,9 +13,8 @@ import { gradientWitness } from "./witnesses.ts";
 import { rationalFamilies } from "./rational.ts";
 import { rational2Families } from "./rational2.ts";
 import { twinFractions } from "./frac-twin-fractions.ts";
-import { repeatingBottom } from "./frac-repeating-bottom.ts";
-import { nearlyWhole } from "./frac-nearly-whole.ts";
-import { polygonBottom } from "./frac-polygon-bottom.ts";
+import { fractionGradient } from "./frac-fraction-gradient.ts";
+import { squareIntercept } from "./frac-square-intercept.ts";
 
 type Ctx = EvalContext<LineState>;
 type L<P> = Layer<P>;
@@ -187,4 +186,4 @@ export const ownerFamilies = [primeGradient, triangleArea, mMeetsC, crossingChec
 /** Every line family (the line type's list): the owner's, the beginner pool's, and the rational-native ones (undealt). */
 /** Close Landing, Close Intercept and Close Gradient (close-landing.ts, close-readings.ts) are prototypes: valued and measured, in no pool.
  * The fraction-native families (frac-*.ts, docs/engine-v2/fraction-families.md) are undealt until the coordinator reads their walk-through. */
-export const families = [...ownerFamilies, ...beginnerFamilies, ...rationalFamilies, ...rational2Families, closeLanding, closeIntercept, closeGradient, twinFractions, repeatingBottom, nearlyWhole, polygonBottom] as const;
+export const families = [...ownerFamilies, ...beginnerFamilies, ...rationalFamilies, ...rational2Families, closeLanding, closeIntercept, closeGradient, twinFractions, fractionGradient, squareIntercept] as const;
