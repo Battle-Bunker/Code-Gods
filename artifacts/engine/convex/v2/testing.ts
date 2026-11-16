@@ -663,3 +663,20 @@ export const setObjectState = internalMutation({
     await ctx.db.patch(row._id, { state, version: row.version + 1 });
   },
 });
+
+/** Line turnover's check (retirement-design.md): every line's points by member, the retired ones, the live list, totals. */
+export const turnoverOf = internalQuery({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => {
+    fixtures();
+    const engine = (await ctx.db.query("v2Engine").withIndex("by_game", q => q.eq("gameId", gameId)).unique())!;
+    const lines = [];
+    for (const o of await ctx.db.query("v2Objects").withIndex("by_game", q => q.eq("gameId", gameId)).collect()) {
+      const points: Record<string, number> = {};
+      for (const r of await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", o._id)).collect()) points[r.memberId] = r.points;
+      const st = await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", o._id)).unique();
+      lines.push({ number: o.number, retiredAt: o.retiredAt, released: !!st?.released, points });
+    }
+    return { lines, retired: lines.filter(l => l.retiredAt !== undefined), live: engine.live ?? null, totals: engine.totals };
+  },
+});
