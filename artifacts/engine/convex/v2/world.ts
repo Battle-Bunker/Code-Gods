@@ -3,7 +3,7 @@
  * plain lexicographic score), the utility's rarity worth n_i in bits from the rule's value function, and
  * π_i = n_i · Σ_{j≠i} n_j. Used by the commit (loop.ts) and the read affordances, so a value has one definition.
  */
-import { evaluateObject, familyById, scoreToWire, type ObjectType } from "@workspace/v2-core";
+import { evaluateObject, familyById, ruleLayers, scoreToWire, type ObjectType } from "@workspace/v2-core";
 import { defenceNet } from "@workspace/v2-valuation";
 import { findVariant } from "@workspace/v2-valuation";
 import { familyOf, type DealtRule } from "./deal.ts";
@@ -31,16 +31,41 @@ export const encode = (state: unknown, variantId: string): string => typeOf(vari
  * n = s⁺ − w·(η(h) − E_π η(h)) (lib/v2-valuation defence.ts), and `badnessBits` is h.
  */
 export function valueOf(state: unknown, variantId: string, rule: DealtRule, objects: number, defence?: DefenceRule, weight = DEFAULT_PENALTY_WEIGHT) {
+  return valueWithParts(state, variantId, rule, objects, defence, weight).value;
+}
+
+/** A layer's share of a player's own bits (a tree-valued rule's points tree), or a correction on them. */
+export interface ValuePart { layer: string; bits: number }
+
+/**
+ * The parts of a player's own bits under a tree-valued rule (lib/v2-valuation treeLookup, owner's choice of valuation):
+ * each dealt layer's bits in rule order (the layer ids as ruleLayers gives them), then the game's uniqueness correction
+ * and a defence goal's net as parts of their own when they change anything, so the parts sum to the bits. Null for a rule
+ * that is not tree-valued (today's lexicographic rules).
+ */
+export function partsOf(look: { parts?: readonly number[] }, layers: readonly string[], corrected: number, final: number): ValuePart[] | null {
+  if (!look.parts) return null;
+  const out = look.parts.map((bits, i) => ({ layer: layers[i] ?? `layer-${i + 1}`, bits }));
+  const uniqueness = corrected - look.parts.reduce((t, b) => t + b, 0), defence = final - corrected;
+  if (Math.abs(uniqueness) > 1e-12) out.push({ layer: "uniqueness", bits: uniqueness });
+  if (Math.abs(defence) > 1e-12) out.push({ layer: "defence", bits: defence });
+  return out;
+}
+
+/** valueOf, and the parts of the bits for a tree-valued rule (null otherwise): what a player's own object read shows. */
+export function valueWithParts(state: unknown, variantId: string, rule: DealtRule, objects: number, defence?: DefenceRule, weight = DEFAULT_PENALTY_WEIGHT) {
   const family = familyOf(rule.family);
   // One-site variants only: a multi-site object has no score yet (per-line bits summed comes next; none is dealt).
   const utility = evaluateObject(typeOf(variantId), family as never, rule.params, state, variantOf(variantId), rule.tieBreaker).score;
-  const reward = worthOf(rule.ruleKey, utility, { variant: variantId, objects }).bits;
-  if (!defence) return { score: scoreToWire(utility), rarityBits: reward };
+  const worth = worthOf(rule.ruleKey, utility, { variant: variantId, objects }), reward = worth.bits;
+  const layers = () => ruleLayers(family as never, rule.tieBreaker).map(l => l.id);
+  if (!defence) return { value: { score: scoreToWire(utility), rarityBits: reward }, parts: worth.parts ? partsOf(worth, layers(), reward, reward) : null };
   const pf = familyById(typeOf(variantId), defence.family);
   if (!pf) throw new Error(`Unknown defence goal ${defence.family}`);
   const badness = evaluateObject(typeOf(variantId), pf as never, defence.params, state, variantOf(variantId), null).score;
   const h = penaltyBitsOf(defence.ruleKey, badness);
-  return { score: scoreToWire(utility), rarityBits: defenceNet(reward, h, weight, penaltyMean(defence.ruleKey)), badnessBits: h };
+  const net = defenceNet(reward, h, weight, penaltyMean(defence.ruleKey));
+  return { value: { score: scoreToWire(utility), rarityBits: net, badnessBits: h }, parts: worth.parts ? partsOf(worth, layers(), reward, net) : null };
 }
 
 /** Every seated player's value of a state, with want (the others' rarity) and points. */
