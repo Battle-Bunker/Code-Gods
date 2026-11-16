@@ -60,8 +60,8 @@ function Card({ rule, parts, value }: { rule: GameRule; parts: number; value: ((
   const tools = (
     <div className="space-y-1.5" data-testid="example-tools">
       <div className="flex gap-2 text-xs">
-        <button type="button" className="border px-2 py-0.5 hover:bg-muted" data-testid="button-randomise-example" onClick={() => setOwn(randomExample(rule, Math.floor(Math.random() * 2 ** 31)))}>🎲 Randomise</button>
-        <button type="button" className="border px-2 py-0.5 hover:bg-muted" aria-expanded={editing} data-testid="button-edit-example" onClick={() => setEditing(e => !e)}>{editing ? "Done editing" : "✏️ Edit"}</button>
+        <button type="button" className="border px-2 py-0.5 hover:bg-muted" data-testid="button-randomise-example" onClick={() => setOwn(randomExample(rule, Math.floor(Math.random() * 2 ** 31)))}>Randomise</button>
+        <button type="button" className="border px-2 py-0.5 hover:bg-muted" aria-expanded={editing} data-testid="button-edit-example" onClick={() => setEditing(e => !e)}>{editing ? "Done editing" : "Edit"}</button>
         {own !== null && <button type="button" className="px-1 underline underline-offset-4" onClick={() => setOwn(null)} data-testid="button-reset-example">Back to the worked example</button>}
       </div>
       {editing && <ExampleEditor rule={rule} onChange={setOwn} />}

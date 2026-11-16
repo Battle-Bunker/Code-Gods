@@ -18,6 +18,8 @@ export interface Draft {
   planningSeconds: number; worldSeconds: number; startingEnergy: number;
   durationMode: DurationMode; scoreIntervalSeconds: number; peerNoiseVariance: number;
   readPriceWeight: number; driftSeconds: number; pauseSeconds: number; commitClause: boolean;
+  startingObjects: number; birthsPerSecond: number; opportunitiesPerSecond: number;
+  powerPerSecond: number; fullChargeSeconds: number; stepBudget: number; interactionComputeMs: number;
 }
 export type FieldKey = keyof Draft;
 export type Overrides = Partial<Draft>;
@@ -36,6 +38,9 @@ export interface FieldSpec {
   limit?: { min: number; max?: number; int?: boolean };
 }
 
+/** The sandbox's per-act limits when the room sets none (lib/v2-sandbox limits.ts DEFAULT_LIMITS). */
+export const DEFAULT_STEP_BUDGET = 500_000;
+export const DEFAULT_COMPUTE_MS = 2000;
 /** v1's pause length when the room sets none (convex/v2/loop.ts DEFAULT_PAUSE_SECONDS). */
 export const DEFAULT_PAUSE_SECONDS = 180;
 export const READ_PRICE_WEIGHTS: readonly number[] = [0, 0.5, 1, 2, 3, 4];
@@ -58,6 +63,48 @@ export const FIELDS: Readonly<Record<FieldKey, FieldSpec>> = {
     question: "May agents make their moves conditional?",
     meaning: "Whether agents may wrap moves in only_if_better, so that the moves apply only if they raise their owner's payoff on that object.",
     consequence: "Offering it makes agents safer and accidents rarer, at a few extra summon bits for each agent that uses it.",
+  },
+  stepBudget: {
+    label: "Steps per act", section: "agents", tier: "more", control: "number", suggested: [100_000, 500_000, 2_000_000], unit: "steps", limit: { min: 1, max: 10_000_000, int: true },
+    question: "How much may an agent compute per act?",
+    meaning: "The fixed number of computation steps an agent may use per act, so the same agent and input always fit or never do.",
+    consequence: "Lowering it allows only simple agents, and raising it allows cleverer agents at the cost of a slower world.",
+  },
+  interactionComputeMs: {
+    label: "CPU limit per act", section: "agents", tier: "more", control: "number", suggested: [500, 1000, 2000], unit: "ms", limit: { min: 1, max: 60_000, int: true },
+    question: "What is the CPU safety limit per act?",
+    meaning: "A CPU-time safety limit per act behind the step budget, excluding compilation and startup.",
+    consequence: "It rarely binds, so changing it seldom matters.",
+  },
+  powerPerSecond: {
+    label: "Power per player", section: "energy", tier: "ask", control: "number", suggested: [4, 8, 16, 32, 64, 128], unit: "energy per second", limit: { min: 0, max: 1_000_000 },
+    question: "How much power does each player have?",
+    meaning: "Each player's fixed energy income per second of world time, shared between their agents as they choose; the unshared rest refills their own energy for summoning.",
+    consequence: "Raising it makes every player's agents act more often, so objects change faster; summons and changes are priced in proportion to it.",
+  },
+  fullChargeSeconds: {
+    label: "Energy fills in", section: "energy", tier: "ask", control: "number", suggested: [10, 30, 60, 120, 240, 300], unit: "s", limit: { min: 1, max: 1_000_000 },
+    question: "How long does an empty energy store take to fill?",
+    meaning: "Every agent, and each player's own energy, stores at most this many seconds of its power, and income past a full store is lost.",
+    consequence: "Shortening it stops energy piling up, so players must spend or re-allocate it, and big agents and big changes need more power kept for them.",
+  },
+  startingObjects: {
+    label: "Starting objects", section: "population", tier: "ask", control: "number", suggested: [3, 10, 40, 80, 160], unit: "objects", limit: { min: 0, max: 1000, int: true },
+    question: "How many objects does the world start with?",
+    meaning: "How many objects the world holds when it starts running.",
+    consequence: "Raising it spreads scores across more objects, and each object changes less often.",
+  },
+  birthsPerSecond: {
+    label: "New objects per second", section: "population", tier: "ask", control: "number", suggested: [0, 1 / 240, 0.1, 0.5, 1], unit: "per second", limit: { min: 0, max: 10 },
+    question: "How often does a new object appear?",
+    meaning: "How many new random objects appear per second of world time.",
+    consequence: "Raising it brings more fresh objects to claim, and totals grow faster.",
+  },
+  opportunitiesPerSecond: {
+    label: "World speed", section: "time", tier: "ask", control: "number", suggested: [3, 25, 100, 300, 1000], unit: "acts per second", limit: { min: 0, max: 1000 },
+    question: "How fast does the world move?",
+    meaning: "The maximum number of acts per second across all agents.",
+    consequence: "Lowering it makes each score easier to follow, and raising it makes the world busier and harder to read.",
   },
   startingEnergy: {
     label: "Starting energy", section: "energy", tier: "ask", control: "number", suggested: [50, 100, 200, 400, 600], unit: "energy", limit: { min: 0 },
@@ -128,6 +175,9 @@ export function presetDraft(p: Preset): Draft {
     planningSeconds: p.planningSeconds, worldSeconds: p.worldSeconds, startingEnergy: p.startingEnergy, durationMode: p.durationMode,
     scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS, peerNoiseVariance: p.peerNoiseVariance, readPriceWeight: p.readPriceWeight,
     driftSeconds: p.driftSeconds, pauseSeconds: DEFAULT_PAUSE_SECONDS, commitClause: false,
+    startingObjects: p.startingObjects, birthsPerSecond: p.economy.birthsPerSecond, opportunitiesPerSecond: p.economy.opportunitiesPerSecond,
+    powerPerSecond: p.economy.powerPerSecond, fullChargeSeconds: p.economy.fullChargeSeconds,
+    stepBudget: DEFAULT_STEP_BUDGET, interactionComputeMs: DEFAULT_COMPUTE_MS,
   };
 }
 /** The room's next game: the preset with the room's overrides on top (a stored field the page does not know is ignored). */
@@ -178,6 +228,7 @@ const duration = (s: number) => (s >= 60 && s % 60 === 0 ? `${s / 60} min` : `${
 const weightText = (w: number) => (Number.isInteger(w * 4) ? String(w) : w.toFixed(2));
 const NAMED: Partial<Record<FieldKey, Record<string, string>>> = {
   worldSeconds: { 120: "Short", 300: "Normal", 600: "Long", 1200: "Marathon" },
+  opportunitiesPerSecond: { 25: "Slow", 100: "Normal", 300: "Fast", 1000: "Max" },
 };
 /** A stepped choice's label: "Normal (5 min)", "every 10 s", "Exact", "2×". */
 export function choiceLabel(key: FieldKey, v: number | string | boolean): string {
@@ -191,6 +242,10 @@ export function choiceLabel(key: FieldKey, v: number | string | boolean): string
     if (key === "driftSeconds") return v === 0 ? "Never" : `every ${duration(v)}`;
     if (key === "peerNoiseVariance") return v === 0 ? "Exact" : `±${Math.round(Math.sqrt(v) * 10) / 10} bits`;
     if (key === "readPriceWeight") return v === 0 ? "Free" : `${weightText(v)}×`;
+    if (key === "opportunitiesPerSecond") return named ? `${named} (${n(v)}/s)` : `${n(v)}/s`;
+    if (key === "birthsPerSecond") return v === 0 ? "None" : v < 1 ? `1 every ${n(Math.round(1 / v))} s` : `${n(v)}/s`;
+    if (key === "fullChargeSeconds") return duration(v);
+    if (key === "powerPerSecond") return `${n(v)}/s`;
     return n(v);
   }
   return named ?? v;

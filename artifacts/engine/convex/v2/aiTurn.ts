@@ -13,7 +13,7 @@ import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, internalQuery, type ActionCtx } from "../_generated/server";
-import { AI_PRINCIPAL } from "./access";
+import { AI_PRINCIPAL, ownAccountNow } from "./access";
 import { OpFailure } from "@workspace/v2-affordances";
 import { providerFor, spendWithin } from "./ai";
 import { performAs } from "./perform";
@@ -39,7 +39,7 @@ export const info = internalQuery({
     const rule = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).unique();
     const player = await ctx.db.query("v2Players").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).unique();
     const clock = await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", gameId)).unique();
-    return { phase: game.phase, timeScale: timeScaleOf(game.settings), parked: !!game.parked, roomId: game.roomId, name: member.name, card: rule?.card ?? "", family: rule?.family ?? null, tieBreaker: rule?.tieBreaker ?? null, energy: player?.energy ?? 0, agents: player?.agents ?? 0, worldSeconds: clock?.worldSeconds ?? 0 };
+    return { phase: game.phase, timeScale: timeScaleOf(game.settings), parked: !!game.parked, roomId: game.roomId, name: member.name, card: rule?.card ?? "", family: rule?.family ?? null, tieBreaker: rule?.tieBreaker ?? null, energy: player ? (await ownAccountNow(ctx, game, player)).balance : 0, agents: player?.agents ?? 0, worldSeconds: clock?.worldSeconds ?? 0 };
   },
 });
 
@@ -82,11 +82,23 @@ export const deals = internalQuery({
 export const turn = internalAction({
   args: { gameId: v.id("v2Games"), memberId: v.id("v2Members"), n: v.number() },
   handler: async (ctx, { gameId, memberId, n }) => {
+    // The seat's next turn is always scheduled unless the game is over: a read that fails (a timeout under load) costs
+    // this turn, never the rest of the game. A failed turn counts, so a seat whose reads keep failing still stops at
+    // MAX_TURNS.
+    let seat: Info | null = null, next: number | null = n + 1;
+    try { next = await takeTurn(ctx, gameId, memberId, n, s => { seat = s; }); }
+    catch (e) { console.error(`v2 AI turn failed (${memberId}): ${(e as Error).message}`); }
+    if (next !== null && next < MAX_TURNS) await ctx.scheduler.runAfter(AI_TURN_MS / ((seat as Info | null)?.timeScale ?? 1), TURN, { gameId, memberId, n: next });
+  },
+});
+
+/** One AI turn; returns the number of the turn to schedule next, or null when the seat takes no more turns. */
+async function takeTurn(ctx: ActionCtx, gameId: Id<"v2Games">, memberId: Id<"v2Members">, n: number, seen: (seat: Info) => void): Promise<number | null> {
     const seat = await ctx.runQuery(INFO, { gameId, memberId });
     // An idle-parked game takes no AI turns (activity.ts); the next human activity starts them again.
-    if (!seat || seat.phase === "ended" || seat.parked) return;
-    const schedule = (k: number) => k < MAX_TURNS ? ctx.scheduler.runAfter(AI_TURN_MS / seat.timeScale, TURN, { gameId, memberId, n: k }) : null;
-    if (seat.phase === "paused") { await schedule(n); return; }   // a paused turn does not count
+    if (!seat || seat.phase === "ended" || seat.parked) return null;
+    seen(seat);
+    if (seat.phase === "paused") return n;   // a paused turn does not count
     const delegate: Delegate = { userId: `${AI_PRINCIPAL}${memberId}`, roomId: seat.roomId, grant: "act", via: "assistant" };
     const caller = await ctx.runQuery(RESOLVE, { who: { delegate }, scope: { gameId } });
     // Server operations only, and nothing that spends the AI budget itself.
@@ -107,9 +119,8 @@ export const turn = internalAction({
     } catch (e) {
       // Refused before any call (a quota, a ceiling, the rate limit, no model, not an administrator's room): the seat
       // waits and asks again next turn, uncounted, since the owner may raise a quota mid-game. A failure is logged.
-      if (e instanceof OpFailure) { console.warn(`v2 AI player ${memberId} waits: ${e.message}`); await schedule(n); return; }
+      if (e instanceof OpFailure) { console.warn(`v2 AI player ${memberId} waits: ${e.message}`); return n; }
       console.error(`v2 AI turn failed (${memberId}): ${(e as Error).message}`);
     }
-    await schedule(n + 1);
-  },
-});
+    return n + 1;
+}

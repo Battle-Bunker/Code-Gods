@@ -96,3 +96,28 @@ test("game.boardAt: every object as the caller's log shows it at a time; nothing
   assert.ok(bos.objects.some((o: any, k: number) => o.own !== now.objects[k].own), "each player's own bits");
   await perform(ada!, "game.end", {}, { gameId });
 });
+
+// Fitting the others' rules (v1's fit_utility_mixture; owner-decisions call 36): refused where it would find them too
+// easily (no noise), offered on a lines game at noise σ 8, where it reads the caller's own log and keeps their own
+// family out of every guess.
+test("rule.fit: refused without noise; on lines at σ 8 a posterior over the others' rules", { timeout: 240_000 }, async () => {
+  const [ada] = await humans("Fit Ada");
+  const quiet = (await perform(ada!, "room.create", { name: "Fit quiet" })).result.roomId;
+  await perform(ada!, "seats.fillPracticePartners", {}, { roomId: quiet });
+  const g0 = (await perform(ada!, "game.start", {}, { roomId: quiet })).result.gameId;
+  const refused = await perform(ada!, "rule.fit", {}, { gameId: g0 }, "action");
+  assert.equal(refused.ok, false);
+  assert.match(refused.error.message, /±8 bits/);
+  await perform(ada!, "game.end", {}, { gameId: g0 });
+  const roomId = (await perform(ada!, "room.create", { name: "Fit noisy", preset: "lines-lenses" })).result.roomId;
+  await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
+  const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
+  await perform(ada!, "game.startWorldNow", {}, { gameId });
+  await new Promise(r => setTimeout(r, 6_000));
+  const fit = (await perform(ada!, "rule.fit", { top: 3 }, { gameId }, "action")).result;
+  const mine = (await perform(ada!, "rule.explain", {}, { gameId }, "query")).result.family;
+  assert.equal(fit.sigma, 8);
+  assert.ok(fit.observations > 0 && fit.hypotheses.length > 0 && fit.hypotheses.length <= 3);
+  assert.ok(fit.hypotheses.every((h: any) => h.rules.every((r: any) => r.family !== mine)), "never the caller's own family");
+  await perform(ada!, "game.end", {}, { gameId });
+});

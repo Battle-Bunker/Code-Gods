@@ -16,7 +16,7 @@ test("what is offered follows the context and the caller", () => {
   assert.ok(!ids(ctx("ended", "seated")).includes("agent.summon"), "nobody summons after the end");
   assert.ok(ids(ctx("room", "owner")).includes("game.start"));
   assert.ok(!ids(ctx("room", "seated")).includes("game.start"));
-  assert.deepEqual(ids(ctx("signedOut", "visitor")).sort(), ["account.signIn", "view.showGlossary"]);
+  assert.deepEqual(ids(ctx("signedOut", "visitor")).sort(), ["account.signIn", "view.closeGlossary", "view.showGlossary"]);
   assert.ok(ids(ctx("replay", "member")).includes("replay.step"));
   assert.ok(!ids(ctx("live", "member")).includes("replay.step"));
 });
