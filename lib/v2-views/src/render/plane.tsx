@@ -601,6 +601,22 @@ function Scene({ p }: { p: P }) {
     }
   }
 
+  // A circle round (0, 0) a rule compares a distance² with (Ruler: the prime window the line should reach), drawn true to
+  // the scales (an ellipse when they differ); the line touches it when its distance² equals the circle's.
+  for (const m of marks) {
+    if (m.kind !== "candidate" || !(p.meaningOf(m.ref) ?? "").startsWith("circleOfRadius2")) continue;
+    const r2 = m.ref.args?.r2;
+    if (r2 === undefined) continue;
+    const r = Math.sqrt(N(Qn.parse(r2)));
+    placed.add(key(m.ref));
+    back.push(
+      <g key={`circle${key(m.ref)}`} className="target-circle" data-circle="" {...elAttrs(q, m.ref)} {...hover(q, m.ref)}>
+        <ellipse cx={v.sx(0)} cy={v.sy(0)} rx={Math.abs(v.sx(r) - v.sx(0))} ry={Math.abs(v.sy(r) - v.sy(0))} />
+        <title>{`The circle round (0, 0) at distance² ${readable(Qn.parse(r2))}: the line touches it at that distance`}</title>
+      </g>,
+    );
+  }
+
   const caption = p.size === "expanded" && !v.equal
     ? `Scales differ: across, one square is ${tickText(v.xStep)}; up, one square is ${tickText(v.yStep)}.`
     : null;
