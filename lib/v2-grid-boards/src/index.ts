@@ -6,3 +6,6 @@ export * from "./type.ts";
 export * from "./families/chessmaster.ts";
 export * from "./families/annotated-colours.ts";
 export * from "./presets.ts";
+export * from "./families/v1-numbers-a.ts";
+export * from "./families/v1-numbers-b.ts";
+export * from "./families/v1-numbers-c.ts";

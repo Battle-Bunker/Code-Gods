@@ -32,7 +32,13 @@ export const UNDEALT: Readonly<Record<string, (params: Record<string, unknown>) 
   "picture-frame": p => String(p.symbol) !== "7",
 };
 
-export const ANNOTATED_COLOURS = ["chessmaster", "parity-painter", "colour-mirror", "picture-frame", "colour-bonds", "honest-minesweeper", "kingdom", "set-spotter"] as const;
+export const ANNOTATED_COLOURS = [
+  "chessmaster", "parity-painter", "colour-mirror", "picture-frame", "colour-bonds", "honest-minesweeper", "kingdom", "set-spotter",
+  // v1's Annotated colours also dealt the beginner pool and four more number families (ported as v1 had them).
+  "original-mirrormancer", "original-magic-eighteen", "original-opposite-nines", "original-two-pair",
+  "original-spread-three", "original-strangers", "original-leapfrog", "original-crosswise-threes",
+  "original-magic-accountant", "original-number-bonds", "original-stepping-stones", "original-kings-and-subjects",
+] as const;
 
 export const boardPresets = [
   {
