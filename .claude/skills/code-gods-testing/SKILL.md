@@ -39,6 +39,7 @@ and turn the call into `check`. Never weaken an assertion to get green. With the
 | `e2e/v1-lobby.ts` | sign-in and out, home, create and join a room, settings, setups, palette, device page, admin (site-smoke) | `pnpm --filter @workspace/player-web e2e:v1-lobby` | ~3 min |
 | `e2e/v1-game.ts` | three humans through a whole game in three browsers (start, summon, moves, chat, end, results, back to the room), then a bid phase with the owner watching (three-humans-walk, multi-client, site-smoke) | `pnpm --filter @workspace/player-web e2e:v1-game` (`ONLY=three` or `ONLY=bidding` for one game) | ~4 min |
 | `e2e/v1-dock.ts` | the dock: default panes, pane menu, stored layout across reload and across a second tab, assistant as a pane, drag, `?panels=off`, the lines list's paging and sort (multi-client, stored-panels, objects-scroll) | `pnpm --filter @workspace/player-web e2e:v1-dock` | ~1 min |
+| `e2e/v1-replay.ts` | a practice game played to its end, then its replay from the room's past games: the bar, drag, play, steps and keys, palette, moment link, watch as, phone (replay-shot) | `pnpm --filter @workspace/player-web e2e:v1-replay` | ~2 min |
 
 `SKIP_DEPLOY=1` reuses the build already uploaded; `LIST_XFAIL=1` lists the expected failures at the end; failure
 screenshots go to `e2e/shots/v1/FAIL-*.png`. A session that changes a behaviour one of these suites covers runs that
