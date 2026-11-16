@@ -22,8 +22,8 @@ better), the readings it `reads`, and its own `searches` (heuristics that propos
   divide-then-solve). A route counts when it reaches u ≥ u(s).
 - **Descent** (built 16 Nov): `si.round` rounds the gradient or the y-intercept to the nearest whole number, ten or
   tenth, priced as two choices. It has no inverse. The dynamic measure needs no exact potential (energy is re-estimated
-  from starts, not read from a stationary law), so a one-way move is allowed; the old tables' law π ∝ 2^−φ no longer
-  holds on a variant that offers it, and those tables are being deleted.
+  from starts, not read from a stationary law), so a one-way move is allowed. The birth walk never takes a one-way move (v2-core `walkStep`
+  stays put when it draws one, and `cycleDiagnostic` skips them), so births keep the law π ∝ 2^−φ.
 - **Padding does not pay** (`test/energy.test.ts`, seen narrowly: one test rule u = −|c − 867|, K = 400, line-q
   prices). E(867) = 549, E(8,670,001/10,000) = 573: the padded state scores the plain one plus about three roundings
   (8.4 each), because its starts round to numbers within a binary digit of 867's starts. The cheapest padding found

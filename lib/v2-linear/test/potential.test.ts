@@ -23,11 +23,8 @@ for (const v of lineType.variants) {
     const states: LineState[] = per === 1 ? lines.map(l => ({ lines: [l] }))
       : Array.from({ length: 6 }, (_, i) => ({ lines: Array.from({ length: per }, (_, j) => lines[(i * 7 + j * 5) % lines.length]!) }));
     const r = cycleDiagnostic(lineType, v, states, per === 1 ? 14 : 13, per === 1 ? 6 : 4);
-    // si.round is one-way by design (16 Nov): the dynamic energy measure needs no exact potential (energy.md). This gate
-    // guards the value tables, which are being deleted.
-    const oneWay = Object.fromEntries(Object.entries(r.oneWay).filter(([id]) => id !== "si.round"));
-    assert.deepEqual(oneWay, {}, "one-way moves");
-    for (const [id, s] of Object.entries(r.perMutator)) if (id !== "si.round") assert.equal(s.asymmetric, 0, `${id}: ${s.asymmetric} asymmetric pairs, worst ${s.worst} bits`);
+    assert.deepEqual(r.oneWay, {}, "one-way moves");
+    for (const [id, s] of Object.entries(r.perMutator)) assert.equal(s.asymmetric, 0, `${id}: ${s.asymmetric} asymmetric pairs, worst ${s.worst} bits`);
     assert.ok(r.worstEdge < 1e-9 && r.worstCycle < 1e-9, `edge ${r.worstEdge}, loop ${r.worstCycle}`);
     assert.ok(r.edges > 100, "the diagnostic saw moves");
   });

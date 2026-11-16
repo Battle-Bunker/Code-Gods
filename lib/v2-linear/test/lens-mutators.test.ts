@@ -32,10 +32,10 @@ test("the weighted which code is a complete prefix code; the walk draws each mut
   const w = v.which!;
   assert.deepEqual(Object.keys(w).sort(), [...v.mutators].sort());
   near(Object.values(w).reduce((a, b) => a + 2 ** -b, 0), 1, "Kraft");
-  // line-q's eleven keep their proportions in 3/4 of the mass; the three trial lenses share 1/4.
-  near(w["si.shift"]!, Math.log2(12 / 0.95) + Math.log2(4 / 3)); near(w["rot.turn"]!, Math.log2(80 / 3)); near(w["coef.swap"]!, Math.log2(16)); near(w["basis.zoom"]!, Math.log2(16));
+  // line-q's thirteen keep their proportions in 3/4 of the mass; the three trial lenses share 1/4.
+  near(w["si.shift"]!, Math.log2(13 / 0.95) + Math.log2(4 / 3)); near(w["rot.turn"]!, Math.log2(80 / 3)); near(w["coef.swap"]!, Math.log2(16)); near(w["basis.zoom"]!, Math.log2(16));
   // A unit shift costs which + its size code at o = which.
-  near(fee(mc(1, 1), "si.shift", { k: "1" }), amountCode(Math.log2(12 / 0.95) + Math.log2(4 / 3), 1, true).rate);
+  near(fee(mc(1, 1), "si.shift", { k: "1" }), amountCode(Math.log2(13 / 0.95) + Math.log2(4 / 3), 1, true).rate);
   // The walk's draw: each mutator with probability 2^−which.
   const r = rng("which-draws"), n = 200_000, ms = variantMutators(lineType, v), count = new Map<string, number>();
   for (let i = 0; i < n; i++) { const m = drawMutator(ms, v, r); count.set(m.id, (count.get(m.id) ?? 0) + 1); }

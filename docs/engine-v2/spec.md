@@ -455,14 +455,14 @@ On an unbounded domain a walk whose moves cost the same both ways never comes to
 With the surcharge, the walk accepts a move away from short states only with probability 2^−(growth), which confines it.
 **Every price list is an exact potential** (owner decision 19, which withdraws call (a)). *Superseded for the dynamic
 energy measure (16 Nov, [energy.md](energy.md)): energy is estimated from random starts, not read from a stationary
-law, so a one-way move is allowed; `si.round` is the first. What follows describes the value tables, which are being
-deleted.* Each mutator may carry a
+law, so a one-way move is allowed; `si.round` is the first. The walk (births) never takes a one-way move, so the law
+below still holds for births.* Each mutator may carry a
 handling fee and argument prices, but a move and its inverse pay the same; the only asymmetric part is the surcharge,
 which comes from one energy function of the line, the read length φ. The walk is then Metropolis on φ, detailed balance
 holds, and the stationary law is exactly π ∝ 2^−φ, so a rule's value is an exact sum over lines
 ([analytic-calibration.md](analytic-calibration.md)). The price list still matters to play (what an agent pays for a
 move), but not to value. The cycle test is a hard gate: lib/v2-linear's potential test proposes every move from a set of
-lines on every variant, and fails on any one-way move or any pair whose weights differ. gen.nudge refuses a result with a
+lines on every variant, and fails on any one-way move (other than one marked `inverse: none`, which the walk never takes) or any pair whose weights differ. gen.nudge refuses a result with a
 common factor for that reason (dividing it through had no inverse).
 
 ### 5.4 The walk
