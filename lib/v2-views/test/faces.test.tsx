@@ -172,6 +172,8 @@ test("the climb: each move's points with the others' total and the change from n
   assert.match(html, /data-both=""/, "a candidate raising both is marked");
   assert.match(t, /The climb from here: “.+” takes your points from [\d.,]+ points? to [\d.,]+ points/);
   assert.doesNotMatch(html, /button-propose|button-hold/, "no destination: no propose, no hold");
+  // The hint proposes no state to settle on and hold (CLAUDE.md: settle-and-hold is the bug the game avoids).
+  assert.doesNotMatch(t, /reason to undo|nobody has/, "no settle-and-hold");
   // Another line already holds the best candidate's state: it is not available, with the reason, and drops to the end.
   const bestKey = [...others.entries()].sort((a, b) => b[1] - a[1])[0]![0];
   const taken = (x: LineState) => (lineType.encode(x) === bestKey ? 5 : null);

@@ -19,11 +19,12 @@ import { applyCall, isInvalid } from "@workspace/v2-core";
 import { agentIncome, energyCapacity, ownIncome, settle } from "@workspace/v2-economy";
 import { fail, ownAccountNow, playerOf, requireGameMember, requireSeat, requireUser, worldNow } from "./access";
 import {
-  agentEnergyV, agentProgramsV, agentsPageV, digestV, logPageV, tugsV, meV, movesPageV, myRuleV, objectIdsV, objectSortV, playObjectV,
+  agentEnergyV, agentProgramsV, agentsPageV, digestV, logPageV, tugsV, meV, movesPageV, myRuleV, objectFilterV, objectIdsV, objectSortV, playObjectV,
 } from "./validators";
 import { pageOpts } from "./pages";
 import { attributed, disclosed, disclosesNoise, objectReading, readingNoise } from "./disclose";
-import { KNOWLEDGE_SORT, knownOf, listsKnowledge, lookPrice, readPriceWeightOf, readsKnowledge } from "./knowledge";
+import { knownOf, lookPrice, readPriceWeightOf, readsKnowledge } from "./knowledge";
+import { objectPage } from "./objectOrder";
 
 /**
  * At most 200 live agents per player per game (v1's MAX_AGENTS_PER_GOD, restored by the coordinator's call 35). Every
@@ -86,31 +87,14 @@ export const me = query({
   },
 });
 
-const SORT_INDEX = {
-  points: "by_game_member_points", rarity: "by_game_member_rarity", want: "by_game_member_want",
-  born: "by_game_member_born", recent: "by_game_member_changed",
-} as const;
-/** The sorts on the others' sum and on points read the disclosed values (the exact order would leak while live). */
-const SHOWN_SORT_INDEX = { ...SORT_INDEX, points: "by_game_member_shownPoints", want: "by_game_member_shownWant" } as const;
-/**
- * The index a sort reads, fixed for the game's lifetime: a paginated list re-runs its loaded pages with their cursors
- * when the game ends, and a cursor is only valid on the index it came from. At the end the disclosed fields become the
- * exact ones (loop.ts exactValues), so the same index gives the exact order. Games stored before the noise have no key
- * and no disclosed fields: they read the exact ones.
- */
-export const sortIndexOf = (game: { noiseKey?: string }, sort: keyof typeof SORT_INDEX) => (game.noiseKey ? SHOWN_SORT_INDEX : SORT_INDEX)[sort];
-
 /** The objects skeleton: a page of object ids in the caller's order; each row subscribes to `object`. */
 export const objectIds = query({
-  args: { gameId: v.string(), sort: objectSortV, paginationOpts: paginationOptsValidator },
+  args: { gameId: v.string(), sort: objectSortV, filter: v.optional(objectFilterV), paginationOpts: paginationOptsValidator },
   returns: objectIdsV,
-  handler: async (ctx, { gameId, sort, paginationOpts }) => {
+  handler: async (ctx, { gameId, sort, filter, paginationOpts }) => {
     const { game, member } = await requireSeat(ctx, gameId);
-    // Paid observation: the same sorts, over what the player was told (knowledge.ts), for the game's lifetime.
-    const page = listsKnowledge(game, member._id)
-      ? await ctx.db.query("v2Knowledge").withIndex(KNOWLEDGE_SORT[sort], q => q.eq("gameId", game._id).eq("memberId", member._id)).order("desc").paginate(pageOpts(paginationOpts))
-      : await ctx.db.query("v2ObjectValues").withIndex(sortIndexOf(game, sort), q => q.eq("gameId", game._id).eq("memberId", member._id))
-        .order("desc").paginate(pageOpts(paginationOpts));
+    // v1's sorts and filters (objectOrder.ts); paid observation reads what the player was told (knowledge.ts).
+    const { knowledge: _, ...page } = await objectPage(ctx, game, member._id, sort, filter ?? "all", pageOpts(paginationOpts));
     return { ...page, page: page.page.map(r => ({ objectId: r.objectId, number: r.number })) };
   },
 });
@@ -192,7 +176,7 @@ export const agentEnergy = query({
     const now = world === null ? { balance: e.energy, settledWorldSeconds: e.settledAt } : settle({ balance: e.energy, settledWorldSeconds: e.settledAt }, Math.max(e.settledAt, world), perSecond, capacity);
     return {
       agentId: agent._id, energy: now.balance, acts: e.acts, skips: e.skips, failures: e.failures, spend: e.spend, pointsGained: e.pointsGained, lastActAt: e.lastActAt ?? null,
-      perSecond, capacity, settledAt: now.settledWorldSeconds,
+      perSecond, capacity, settledAt: now.settledWorldSeconds, history: e.history ?? [],
     };
   },
 });

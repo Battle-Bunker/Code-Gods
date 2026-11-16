@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { AFFORDANCES } from "@workspace/v2-affordances";
 import { presetOf } from "@workspace/engine/convex/v2/presets.ts";
-import { DEFAULT_COMPUTE_MS, DEFAULT_PAUSE_SECONDS, DEFAULT_STEP_BUDGET, FIELDS, SECTIONS, draftErrors, draftOf, fieldsOf, overridesFor, reviewDiff, choiceLabel, formatValue, stepChoices, lengthLine } from "../src/site/lib/configure-form.ts";
+import { isHidden, DEFAULT_COMPUTE_MS, DEFAULT_PAUSE_SECONDS, DEFAULT_STEP_BUDGET, FIELDS, SECTIONS, draftErrors, draftOf, fieldsOf, overridesFor, reviewDiff, choiceLabel, formatValue, stepChoices, lengthLine } from "../src/site/lib/configure-form.ts";
 
 const beginner = presetOf("lines-beginner");
 
@@ -107,4 +107,22 @@ test("defence goals are asked on grid setups only, and never sent for a lines se
   const on = { ...draftOf(beginner, {}), defenceGoals: true, penaltyWeight: 2 };
   assert.deepEqual(overridesFor(on, beginner), {});
   assert.deepEqual(overridesFor({ ...draftOf(grids, {}), defenceGoals: true, penaltyWeight: 2 }, grids), { defenceGoals: true, penaltyWeight: 2 });
+});
+
+test("rules never dealt: a set (order does not matter), never all of the setup's, and the bid questions only where there is bidding", () => {
+  const bidding = presetOf("lines-beginner-bidding");
+  const d = draftOf(bidding, {});
+  assert.deepEqual(overridesFor({ ...d, excludedFamilies: [] }, bidding), {});
+  assert.deepEqual(overridesFor({ ...d, excludedFamilies: [bidding.families[1]!, bidding.families[0]!] }, bidding), { excludedFamilies: [bidding.families[1], bidding.families[0]] });
+  const saved = { preset: bidding.id, draft: { ...d, excludedFamilies: [bidding.families[0]!, bidding.families[1]!] } };
+  assert.deepEqual(reviewDiff(saved, { preset: bidding.id, draft: { ...d, excludedFamilies: [bidding.families[1]!, bidding.families[0]!] } }), [], "the same set is no change");
+  assert.equal(draftErrors({ ...d, excludedFamilies: [...bidding.families] }, bidding).excludedFamilies, `Leave at least ${bidding.minPlayers} rule families to deal, one for each player.`);
+  assert.equal(draftErrors({ ...d, excludedFamilies: bidding.families.slice(bidding.minPlayers) }, bidding).excludedFamilies, undefined, "one per player is enough");
+  assert.equal(formatValue("excludedFamilies", ["x", "y"]), "2 rules");
+  assert.equal(choiceLabel("bidPricing", "second"), "Second price");
+  assert.equal(choiceLabel("bidDisclosure", "none"), "Own result only");
+  assert.equal(isHidden("bidPricing", beginner), true);
+  assert.equal(isHidden("bidPricing", bidding), false);
+  assert.equal(isHidden("excludedFamilies", beginner), false);
+  assert.equal(d.bidPricing, bidding.bid!.pricing);
 });

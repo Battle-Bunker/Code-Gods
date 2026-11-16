@@ -20,6 +20,7 @@
 import { readCharge } from "@workspace/v2-economy";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { quadrantOf } from "./disclose.ts";
 import { decode, typeOf, variantOf } from "./world.ts";
 
 /** The weight on the read price of a look (decision 35); absent (games stored before it): 0, free. */
@@ -40,7 +41,7 @@ export interface Telling { objectId: Id<"v2Objects">; number: number; state: str
 /** Tells a player an object (writes their knowledge row and their scatter's entry for it). */
 export async function tell(ctx: MutationCtx, game: Doc<"v2Games">, memberId: Id<"v2Members">, t: Telling, world: number) {
   const row = await ctx.db.query("v2Knowledge").withIndex("by_object_member", q => q.eq("objectId", t.objectId).eq("memberId", memberId)).unique();
-  const next = { state: t.state, version: t.version, learnedAt: world, score: t.score, rarityBits: t.rarityBits, want: t.want, points: t.points };
+  const next = { state: t.state, version: t.version, learnedAt: world, score: t.score, rarityBits: t.rarityBits, want: t.want, points: t.points, quadrant: quadrantOf(t.rarityBits, t.want) };
   if (row) { if (row.version <= t.version) await ctx.db.patch(row._id, next); }
   else await ctx.db.insert("v2Knowledge", { gameId: game._id, memberId, objectId: t.objectId, number: t.number, ...next });
   // The others-care scatter shows what the player knows (applyToPlayers leaves a paid game's scatters to the tellings).
@@ -69,8 +70,3 @@ export const readsKnowledge = (game: Doc<"v2Games">, memberId: Id<"v2Members"> |
 export const listsKnowledge = (game: Doc<"v2Games">, memberId: Id<"v2Members"> | string) =>
   paysToRead(game) && game.roster.some(r => r.memberId === memberId);
 
-/** The knowledge index a sort reads in a paid game (the same sorts, over what the player was told). */
-export const KNOWLEDGE_SORT = {
-  points: "by_game_member_points", rarity: "by_game_member_rarity", want: "by_game_member_want",
-  born: "by_game_member_born", recent: "by_game_member_learned",
-} as const;

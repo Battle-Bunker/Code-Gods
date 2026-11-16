@@ -129,6 +129,20 @@ async function driveReplay(page: Page, label: string, final: Record<string, stri
   await page.waitForTimeout(800);
   assert.equal(await applied(page), paused, `${label}: a paused replay stays put`);
   assert.ok(paused > second, `${label}: the pause kept the playhead (${paused})`);
+  // v1's score chart: the whole game's race with the playhead on it; a click on the chart goes there.
+  const race = page.getByTestId("replay-race");
+  if (await race.count()) {
+    await race.getByTestId("chart-playhead").waitFor({ state: "attached", timeout: 10_000 });
+    // Behind a tab in the replay's arrangement (feed | race): bring it to the front.
+    if (!await race.isVisible() && await page.getByTestId("tab-race").count()) await page.getByTestId("tab-race").click({ position: { x: 6, y: 10 } });
+    if (!await race.isVisible() && await page.getByTestId("button-jump-race").count()) await page.getByTestId("button-jump-race").click();
+    // (A vertical line has no width, so Playwright never calls it visible: the chart is what must show.)
+    await race.locator("svg").first().waitFor({ timeout: 10_000 });
+    const before = await applied(page);
+    const box = (await race.locator("svg").first().boundingBox())!;
+    await race.locator("svg").first().click({ position: { x: box.width * 0.9, y: box.height / 2 } });
+    await waitApplied(page, n => n !== before, "a click on the race chart seeks");
+  } else console.log(`${label}: the race pane is not in this replay's arrangement`);
   // v1's keys (focus off the speed menu first: keys never act inside a field): → steps, Home goes to the start, space plays.
   await page.getByTestId("text-replay-clock").click();
   await page.keyboard.press("ArrowRight");

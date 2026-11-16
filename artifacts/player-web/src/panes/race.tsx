@@ -8,16 +8,25 @@ import { objectWord, useGame, useLeaderboard, useReplaySource, useStandingsHisto
 import { isTied, ordinal, pointsText, TIE_NOTE, totalNote, totalsSumNote } from "@/core/words";
 import { LineByLine, TiedMark } from "@/core/score-help";
 import { LineChart, slotColour } from "@/components/charts";
-import { raceSeries } from "./chart-model";
+import { leadChanges, raceSeries } from "./chart-model";
+import { useReplayControls } from "@/replay/controller";
+import { useAffordance } from "@workspace/v2-affordances/react";
 
 function RaceChart() {
   const header = useGame();
   const history = useStandingsHistory();
-  const series = useMemo(() => (header ? raceSeries(history, header.roster, header.me) : []), [history, header?.roster, header?.me]); // eslint-disable-line react-hooks/exhaustive-deps
+  // In a replay, v1's score chart: the whole game's race, the playhead on it, the lead changes marked; a click goes there.
+  const replay = useReplayControls();
+  const seek = useAffordance("replay.seek");
+  const whole = useMemo(() => replay?.index?.ticks.map(t => t.point), [replay?.index]);
+  const series = useMemo(() => (header ? raceSeries(whole ?? history, header.roster, replay?.member ?? header.me) : []), [whole, history, header?.roster, header?.me, replay?.member]); // eslint-disable-line react-hooks/exhaustive-deps
+  const leads = useMemo(() => (replay ? leadChanges(series) : undefined), [replay ? series : null]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!series.some(s => s.points.length > 1)) return null;
   return (
     <div className="px-4 pt-3" data-testid="race-chart">
-      <LineChart series={series} height={170} label="Every player's points over time" />
+      <LineChart series={series} height={170} label="Every player's points over time" testId={replay ? "replay-race" : undefined}
+        {...(replay ? { marker: replay.world, marks: leads, onPick: (w: number) => void seek.run({ worldSeconds: Math.max(0, w) }).catch(() => {}) } : {})} />
+      {replay && <p className="mt-1 text-xs text-muted-foreground">The line is where the replay is; dashed lines are where the lead changed. Click the chart to go there.</p>}
       <p className="mt-1 text-xs text-muted-foreground">Points rise and fall as agents change {objectWord(header?.variant).many} and the others' wants change.</p>
     </div>
   );

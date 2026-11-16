@@ -7,7 +7,7 @@
  * Player words only: points, rarity in bits (each bit = twice as rare) with "1 in N by chance", energy, "main part",
  * "tie-breaker", and the game's own noun ("line", "grid"), never "object". No steps and no thresholds.
  */
-import type { Contributor } from "./contributors.ts";
+import { partGlyph, type Contributor } from "./contributors.ts";
 import { useMemo, useState, type ReactElement, type ReactNode } from "react";
 import { representation, type ElementRef, type Mark, type ObjectType, type Score } from "@workspace/v2-core";
 import { annotate, type Annotation, type Part, type RuleRef } from "./annotate.ts";
@@ -34,7 +34,7 @@ export function bitsLine(a: Annotation): string {
 
 /** One part in one line: "● main part: y-intercept 25 · 2 above 23" / "◆ tie-breaker: that prime 23". */
 export function partLine(p: Contributor): string {
-  const g = `${GLYPH[p.role]} ${PART_NAME[p.role]}:`;
+  const g = `${partGlyph(p.depth)} ${p.name}:`;
   const said = p.source.filter(x => x.text);
   if (p.distance && said.length) return `${g} ${p.source.length > 3 ? p.title : said.map(x => `${x.label} ${x.text}`).join(", ")} · ${p.distance}`;
   return `${g} ${p.title}: ${p.valueText}`;
@@ -106,7 +106,7 @@ export function RulerView({ part, width = 300 }: { part: Part; width?: number })
   lo -= span * 0.08; hi += span * 0.08;
   const W = width, H = 50, pad = 12, Y = 26;
   const X = (v: number) => pad + ((v - lo) / (hi - lo)) * (W - 2 * pad);
-  const label = `${GLYPH[part.role]} ${r.valueText}`, lw = label.length * 6.2;
+  const label = `${partGlyph(part.depth)} ${r.valueText}`, lw = label.length * 6.2;
   // Labels of the references, thinned where they would collide (the strong one always kept).
   const shown: { at: number; label: string; strong?: boolean }[] = [];
   for (const ref of [...r.refs].sort((a, b) => Number(!!b.strong) - Number(!!a.strong))) {
@@ -120,7 +120,7 @@ export function RulerView({ part, width = 300 }: { part: Part; width?: number })
       {r.refs.map(ref => <line key={ref.at} className="v2v-ruler-ref" data-strong={ref.strong ? "" : undefined} x1={X(ref.at)} x2={X(ref.at)} y1={Y - 7} y2={Y + 7} />)}
       {shown.map(ref => <text key={ref.at} className="v2v-ruler-label" data-strong={ref.strong ? "" : undefined} x={X(ref.at)} y={Y + 19} textAnchor="middle">{ref.label}</text>)}
       <circle className="v2v-ruler-value" cx={X(r.value)} cy={Y} r={4.5} />
-      <text className="v2v-ruler-label" data-value="" x={Math.min(W - lw / 2 - 2, Math.max(lw / 2 + 2, X(r.value)))} y={Y - 10} textAnchor="middle" aria-label={`${PART_NAME[part.role]}: ${r.valueText}`}><title>{`${PART_NAME[part.role]}: ${r.valueText}`}</title>{label}</text>
+      <text className="v2v-ruler-label" data-value="" x={Math.min(W - lw / 2 - 2, Math.max(lw / 2 + 2, X(r.value)))} y={Y - 10} textAnchor="middle" aria-label={`${part.name}: ${r.valueText}`}><title>{`${part.name}: ${r.valueText}`}</title>{label}</text>
     </svg>
   );
 }
@@ -148,7 +148,7 @@ export function PartsList({ parts, active, onActive, onSelect, selected }: Parts
           onClick={() => onSelect?.(selected === i ? null : i)}
           onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect?.(selected === i ? null : i); } else if (e.key === "Escape") onSelect?.(null); }}>
           <div className="v2v-part-head">
-            <span className="v2v-part-name">{GLYPH[p.role]} {p.name[0]!.toUpperCase() + p.name.slice(1)}: {p.title}</span>
+            <span className="v2v-part-name">{partGlyph(p.depth)} {p.name[0]!.toUpperCase() + p.name.slice(1)}: {p.title}</span>
             <span className="v2v-part-aim">{p.aim}</span>
           </div>
           <div className="v2v-part-sentence">{p.sentence}</div>
@@ -251,7 +251,7 @@ export function MovesList<S>({ list, noun, bits, others }: MovesListProps<S>): R
         ))}
       </ol>
       <p className="v2v-moves-hint">{others
-        ? "Points = your bits × the others' bits together. Climb a step at a time: a move marked “good for both” raises them for you and for the others, so nobody has a reason to undo it."
+        ? "Points = your bits × the others' bits together. Climb a step at a time: a move marked “good for both” raises them for you and for the others at once. Their agents keep moving too, so the best next step keeps changing."
         : "The first is drawn dashed in the views that can show it. Tell your assistant the words, or let your agent find it."}</p>
     </div>
   );
@@ -400,7 +400,7 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
       )}
       {sel !== null && (
         <p className="v2v-selchip" data-role={sa.parts[sel]!.role}>
-          {GLYPH[sa.parts[sel]!.role]} {sa.parts[sel]!.name} selected: only its marks are drawn{" "}
+          {partGlyph(sa.parts[sel]!.depth)} {sa.parts[sel]!.name} selected: only its marks are drawn{" "}
           <button type="button" aria-label="Clear the selection" onClick={() => setSelected(null)}>Clear</button>
         </p>
       )}
