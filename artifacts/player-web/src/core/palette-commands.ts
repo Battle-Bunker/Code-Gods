@@ -35,7 +35,7 @@ export const SETUP_READS: ReadonlySet<string> = new Set(["setups.page", "setups.
 /** Reads the avatar menu shows (who you are, your connected apps). */
 export const ACCOUNT_READS: ReadonlySet<string> = new Set(["account.whoami", "account.connections"]);
 /** Reads the palette answers itself, in a notice (a command's status). */
-export const NOTICE_READS: ReadonlySet<string> = new Set(["receipt.get", "server.info"]);
+export const NOTICE_READS: ReadonlySet<string> = new Set(["code.get", "code.list", "receipt.get", "server.info"]);
 
 export interface PaletteHost {
   perform(id: AffordanceId, args: unknown): Promise<OpOutcome>;
