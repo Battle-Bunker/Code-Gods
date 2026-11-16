@@ -14,6 +14,9 @@
  * so its distance² is c²/2, the area of the triangle it cuts off the axes. With one ending every such line on the one's
  * rung is on the other's, and a shift climbs both: an aligned pair, forbidden. With two endings the number rounds down to
  * one prime only, so on those lines each excludes the other.
+ *
+ * Square Area with one ending, rounded down and rounded to the nearest: every exact square (y = −2x + 2r has area r²) is a rung of
+ * both, and a shift climbs both: an aligned pair, forbidden.
  */
 /** A seated rule as the seating rule reads it: its family and, where known, its dealt parameters. */
 export interface SeatedRule { readonly family: string; readonly params?: unknown }
@@ -38,6 +41,10 @@ export function lineClash(a: SeatedRule, b: SeatedRule): boolean {
   if (b.family === "prime-landing" && a.family === "whole-crossing") return landingAligned(b.params, a.params);
   const pair = new Set([a.family, b.family]);
   if (pair.has("ruler") && pair.has("pythagorean-area") && a.family !== b.family) return sameEnding(a.params, b.params);
+  if (a.family === "square-area" && b.family === "square-area") {
+    const x = a.params as { ends?: number; round?: string } | undefined, y = b.params as { ends?: number; round?: string } | undefined;
+    return x?.ends !== undefined && x.ends === y?.ends && (x.round ?? "down") !== (y?.round ?? "down");
+  }
   return false;
 }
 

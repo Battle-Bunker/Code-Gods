@@ -42,20 +42,19 @@ test("Prime Landing (primes ending in 1) on y = −x + 33: lands at 33, off the 
 });
 
 test("a tiny area is written as itself, never \"≈ 0.00\" (a played game's lines all read \"area ≈ 0.00 · ≈ 0.00 above 0\")", () => {
-  // y = −288x + 1: the triangle's area is 1²/(2·288) = 1/576, nearest square 0.
-  const exact = contributors(rule(squareArea, "spf"), mc(-288, 1)).parts[0]!;
+  // y = −288x + 1: the triangle's area is 1²/(2·288) = 1/576 (since 16 Nov far below Square Area's first rung, 3² = 9).
+  const exact = contributors(rule(squareArea, "shared-factor", { ends: 9 }), mc(-288, 1)).parts[0]!;
   assert.equal(exact.source[0]!.text, "¹⁄₅₇₆");
-  assert.equal(exact.distance, "¹⁄₅₇₆ above 0");
-  // y = −1152x + 1: 1/2304, past the exact limit, written to two significant figures.
-  const tiny = contributors(rule(squareArea, "spf"), mc(-1152, 1)).parts[0]!;
-  assert.equal(tiny.distance, "≈ 0.00043 above 0");
+  // y = −1152x + 1: 1/2304, past the exact limit, written to two significant figures, never as 0.00.
+  const tiny = contributors(rule(squareArea, "shared-factor", { ends: 9 }), mc(-1152, 1)).parts[0]!;
+  assert.doesNotMatch(tiny.source[0]!.text, /0\.00$/);
+  assert.doesNotMatch(tiny.distance ?? "", /≈ 0\.00 /);
 });
 
-test("Square Area on y = −x + 7: the area 24½ against the square 25 = 5 × 5; Whole Crossing and Treasure name their references", () => {
-  const sa = contributors(rule(squareArea, "spf"), mc(-1, 7)).parts[0]!;
-  assert.equal(sa.source[0]!.text, "24½");
-  assert.equal(sa.reference?.value, 25);
-  assert.equal(sa.distance, "½ below 25");
+test("Square Area on y = −2x + 14: the area 49 on the square 49 = 7 × 7; Whole Crossing and Treasure name their references", () => {
+  const sa = contributors(rule(squareArea, "shared-factor", { ends: 9 }), mc(-2, 14)).parts[0]!;
+  assert.equal(sa.source[0]!.text, "49");
+  assert.equal(sa.reference?.value, 49);
   const wc = contributors(rule(wholeCrossing, "shared-factor", { q: 5, r: 3 }), mc(3, 7)).parts[0]!;
   assert.equal(wc.reference?.value, -2);
   assert.equal(wc.distance, "⅓ below −2");
@@ -75,7 +74,7 @@ test("Square Area on y = −x + 7: the area 24½ against the square 25 = 5 × 5;
 test("wording: no parameter letters, no 'distance …: 0', no steps or thresholds, in any generated sentence", () => {
   const cases: [RuleRef<LineState, unknown>, LineState][] = [
     [rule(primeLanding, "shared-factor", { ends: 1 }), mc(6, 25)], [rule(primeLanding, "shared-factor", { ends: 9, side: -1 }), mc(290, 59)],
-    [rule(squareArea, "spf"), mc(-1, 7)], [rule(squareArea, "lpf"), mc(290, 59)],
+    [rule(squareArea, "shared-factor", { ends: 9 }), mc(-1, 7)], [rule(squareArea, "shared-factor", { ends: 1 }), mc(290, 59)],
     [rule(wholeCrossing, "shared-factor", { q: 5, r: 3 }), mc(3, 7)], [rule(treasure, "shared-factor"), mc(15, 6)], [rule(treasure, "shared-factor"), mc(15, 10)],
     [rule(divisibilityLadder, "next-rung"), mc(12, 12)],
   ];
@@ -131,7 +130,7 @@ test("a change from or to an undefined quantity says 'none', not the reason sent
   const { changesBetween, contributors } = await import("../src/index.ts");
   // Square Area has no reading of a vertical line (no triangle with the axes); some families do (they score it).
   const { squareArea, normalise } = await import("@workspace/v2-linear");
-  const rule = { type: lineType, family: squareArea, params: squareArea.dealable(lineQ)[0], variant: lineQ, tieBreaker: "spf" } as never;
+  const rule = { type: lineType, family: squareArea, params: squareArea.dealable(lineQ)[0], variant: lineQ, tieBreaker: "shared-factor" } as never;
   const vertical = { lines: [normalise(1n, 0n, -1n) as never] } as LineState, sloped = mc(q(2, 3), q(7, 4));
   const up = changesBetween(contributors(rule, vertical).parts, contributors(rule, sloped).parts);
   assert.ok(up.length > 0, "the parts changed");

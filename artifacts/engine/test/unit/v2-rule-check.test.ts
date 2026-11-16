@@ -96,7 +96,6 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "constellation 4": "16 Nov, grids session: grid baseline: ported as v1 (one star dealt: the stars are not peers on v2's law)",
   "bingo-caller 4": "16 Nov, grids session: grid baseline: ported as v1",
   // Row 7: forms repeated within a family, kinds and forms shared by more than three families.
-  "square-area 7-repeat": "15 Nov, grids session: spf and lpf are both prime-factor sizes (Square Area redesign)",
   "far-crossing 7-repeat": "15 Nov, pairs session: both secondaries are near-multiples",
   "high-start 7-repeat": "15 Nov, pairs session: both secondaries are near-multiples",
   "lines-beginner 7-kind:large-prime": "15 Nov, spec lead: proposal #28 (two of the prime-ending families change kind)",
@@ -228,6 +227,8 @@ const ROW10_EXEMPT: Readonly<Record<string, string>> = {
   "prime-staircase": "16 Nov, spec lead: the shoulder remedy (pool-plan.md)",
   "ruler": "16 Nov, spec lead: the shoulder remedy (pool-plan.md)",
   "pythagorean-area": "16 Nov, spec lead: the shoulder remedy (pool-plan.md)",
+  // Redesigned 16 Nov (the area-near-0 sink closed): median 7% kept after a cheap move, the same shoulder as the ladders above.
+  "square-area": "16 Nov, rules-interaction worker: the shoulder remedy (pool-plan.md), as the other ladders",
 };
 
 test("row 10: a cheap move from a rung keeps most of a line rule's bits, or the family is listed in ROW10_EXEMPT", () => {

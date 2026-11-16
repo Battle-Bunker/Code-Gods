@@ -21,14 +21,11 @@ test("Ruler: the circle round (0, 0) at the prime the distance² should round do
   assert.match(html, /distance² 23/);
 });
 
-test("Square Area: the preferences read the nearest square (its root), so the drawn square is theirs too", async () => {
+test("Square Area: the drawn square is the rung's (its root), the one the main part and the preference read", async () => {
   const { evaluateSite } = await import("@workspace/v2-core");
   const { squareArea } = await import("@workspace/v2-linear");
-  const e = evaluateSite(lineType, squareArea, {}, mc(-1, 7), lineQ, 0, null);   // area 24½: nearest square 25 = 5²
-  for (const id of ["spf", "lpf"]) {
-    const t = e.terms.find(x => x.id === id)!;
-    assert.ok(t.from.some(r => r.rep === "tri" && r.name === "square" && r.args?.s === "5"), `${id} cites the square`);
-  }
+  const e = evaluateSite(lineType, squareArea, { ends: 9 }, mc(-2, 14), lineQ, 0, null);   // area 49 = 7²
+  assert.ok(e.marks.some(m => m.kind === "candidate" && "ref" in m && m.ref.rep === "tri" && m.ref.name === "square" && m.ref.args?.s === "7"), "the square 7 × 7 is drawn")
 });
 
 test("Same on Both Rulers: the meeting point is the reading, the palindrome it should round to the target", () => {

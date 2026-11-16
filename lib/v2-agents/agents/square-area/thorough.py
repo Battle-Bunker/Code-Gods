@@ -1,5 +1,5 @@
 # Square Area · Thorough
-# Main part: area close to a square number. Secondary preference: whichever you were dealt (that square's root's smallest prime factor; that square's root's largest prime factor; prime factors of that square's root).
+# Main part: the triangle's area on as big a square ending in d as possible. Secondary preference: whichever you were dealt (the factor that square's root plus 1 shares with the x-crossing's whole part).
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -14,20 +14,20 @@ def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m == 0 or c == 0:                            # no triangle: the worst score
         return None
-    area = c * c / (2 * abs(m))
-    sq = near(area, square)                         # the square number nearest the area
-    if sq is None:                                  # none within 10,000: hopeless
-        return None
-    main = -abs(area - sq)
-    f = factors(root(sq))                           # the prime factors of that square's root
-    # main: how far the triangle's area is from a square number (closer is better)
+    legX = abs(c / m)                               # the triangle's base
+    area = legX * abs(c) / 2
+    a = Fraction(-1, 2) if p.get("round") else 0   # the window of r² is [r² + a, r² + a + 1)
+    fl = whole(area - a - Fraction(1, 2))           # the area, rounded down (or off)
+    s = root(fl)                                    # its whole square root
+    r = near(s, lambda n: n > 1 and n * n % 10 == p["ends"])   # the nearest root above 1 whose square ends in p["ends"]
+    level = lambda p: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(p, 10 ** D)) / (L + 1))(len(str(p)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(p))))   # levels of digits: level L needs L(L + 1)/2
+    w = r * r + a                                   # its window [w, w + 1)
+    main = level(fl) if r == s and s * s == fl else -(w - area if area < w else area - w - 1)
+    # main: the square above 1 ending in the rule's digit that the triangle's area rounds down (or off) to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far the area is from the window of the nearest such square's root
     def tier(t):   # each secondary, in order (None: ranks last)
-        if t == "spf":   # a root whose smallest prime factor is big is better
-            return f[0] if f else 1
-        if t == "lpf":   # a root whose largest prime factor is big is better
-            return f[-1] if f else 1
-        if t == "omega":   # more prime factors in the root are better
-            return len(f)
+        if t == "shared-factor":   # that square's root plus 1 and the x-crossing's whole part: a bigger factor shared is better
+            wx = whole((2 * legX - 1) / 2)               # the x-crossing's whole part, ignoring its sign
+            return common(r + 1, wx)
     return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
@@ -61,6 +61,14 @@ def agent(offer):
         tries.append((move("cart.pivot", x0=-1, k=k), m + k, c + k))   # turn the line about its point at x = -1 (m and c both change by k)
         f = k + 1 if k > 0 else k - 1
         tries.append((move("mach.stretch", f=f), m * f, c * f))   # multiply every output by f (m and c both)
+    # The next rung up (the ladder has no top): the next root above √area whose square ends in p["ends"], by a shift that
+    # keeps the gradient and puts the area in the middle of its window (c² = 2|m|·area, to the nearest half).
+    if m != 0 and c != 0:
+        r = root(whole(c * c / (2 * abs(m)))) + 1
+        while r * r % 10 != p["ends"]:
+            r += 1
+        c2 = (-1 if c < 0 else 1) * Fraction(root(whole(8 * abs(m) * (r * r + (0 if p.get("round") else Fraction(1, 2))))), 2)
+        tries.append((move("si.shift", k=c2 - c), m, c2))
     tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
     tries += shortcuts(m, c, rule.mutators)   # other views the game offers: mirrors, a slide, turns, one intercept moved
     options = score_each(tries, lambda t: (t[0], score(t[1], t[2], p, tie)))   # each step and the score it reaches (fewer on a big line)

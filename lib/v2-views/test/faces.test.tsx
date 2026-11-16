@@ -142,7 +142,7 @@ test("identity badges: the elements a part reads carry its role in every view, p
 test("a triangle too thin to see is drawn stretched in a labelled inset: its legs and its area, in both sizes", async () => {
   const { squareArea, lineZ: z } = await import("@workspace/v2-linear");
   const { RepView, annotate } = await import("../src/index.ts");
-  const rule: RuleRef<LineState, unknown> = { type: lineType, family: squareArea as never, params: {}, variant: z, tieBreaker: squareArea.tieBreakers[0]!.id };
+  const rule: RuleRef<LineState, unknown> = { type: lineType, family: squareArea as never, params: squareArea.dealable(z)[0], variant: z, tieBreaker: squareArea.tieBreakers[0]!.id };
   const s: LineState = { lines: [fromMC(q(-1512), q(-1))] };   // from a real game: a steep line, a sliver of a triangle
   const e = annotate(rule, s).sites[0]!.evaluation;
   for (const size of ["compact", "expanded"] as const) {

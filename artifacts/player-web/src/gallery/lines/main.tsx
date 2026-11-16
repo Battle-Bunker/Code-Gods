@@ -12,7 +12,7 @@ import { StrictMode, useMemo, type ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 import { q, type Q } from "@workspace/v2-core";
 import { beginnerPool, divisibilityLadder, fromMC, lineQ, normalise, lineType, lineZ, primeLanding, squareArea, treasure, wholeCrossing, type LineState } from "@workspace/v2-linear";
-import { tieBreakersOn } from "@workspace/v2-core";
+import { tieBreakersOn, type RuleFamily } from "@workspace/v2-core";
 import { CompactFace, ExpandedFace, GoalCard, MoveLine, moves, ObjectChip, type RuleRef } from "@workspace/v2-views";
 import "@workspace/v2-views/styles.css";
 import "./style.css";
@@ -38,7 +38,7 @@ const STORIES: Record<string, Story> = {
  */
 const RATIONAL_LINE: Record<string, LineState> = { "exact-change": mc(q(-3, 4), q(9, 2)), "pythagorean-area": mc(q(-5, 3), q(11, 4)), ruler: mc(q(3, 4), q(-7, 3)) };
 const rationalStory = (family: string): Story | undefined => {
-  const f = beginnerPool.find(x => x.id === family);
+  const f = (beginnerPool as readonly RuleFamily<LineState, unknown>[]).find(x => x.id === family);
   if (!f) return undefined;
   const tb = tieBreakersOn(f, lineQ)[0]?.id ?? null;
   const r = { type: lineType, family: f, params: f.dealable(lineQ)[0], variant: lineQ, tieBreaker: tb } as RuleRef<LineState, unknown>;
