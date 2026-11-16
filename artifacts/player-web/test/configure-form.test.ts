@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { AFFORDANCES } from "@workspace/v2-affordances";
 import { presetOf } from "@workspace/engine/convex/v2/presets.ts";
-import { DEFAULT_PAUSE_SECONDS, FIELDS, SECTIONS, draftErrors, draftOf, fieldsOf, overridesFor, reviewDiff, choiceLabel, formatValue, stepChoices, lengthLine } from "../src/site/lib/configure-form.ts";
+import { DEFAULT_COMPUTE_MS, DEFAULT_PAUSE_SECONDS, DEFAULT_STEP_BUDGET, FIELDS, SECTIONS, draftErrors, draftOf, fieldsOf, overridesFor, reviewDiff, choiceLabel, formatValue, stepChoices, lengthLine } from "../src/site/lib/configure-form.ts";
 
 const beginner = presetOf("lines-beginner");
 
@@ -36,6 +36,9 @@ test("the draft is the setup's values with the room's overrides on top; unchange
   assert.equal(d.worldSeconds, beginner.worldSeconds);
   assert.equal(d.pauseSeconds, 180);
   assert.equal(d.commitClause, false);
+  assert.equal(d.startingObjects, beginner.startingObjects);
+  assert.equal(d.powerPerSecond, beginner.economy.powerPerSecond);
+  assert.equal(d.stepBudget, 500_000, "the sandbox's default");
   assert.deepEqual(overridesFor(d, beginner), { planningSeconds: 120 });
   assert.deepEqual(overridesFor(draftOf(beginner, {}), beginner), {});
   assert.deepEqual(overridesFor({ ...d, planningSeconds: beginner.planningSeconds, worldSeconds: beginner.worldSeconds + 60 }, beginner), { worldSeconds: beginner.worldSeconds + 60 });
@@ -64,6 +67,10 @@ test("values and choices read as v1 wrote them", () => {
   assert.equal(choiceLabel("commitClause", true), "Offered");
   assert.equal(formatValue("startingEnergy", 600), "600 energy");
   assert.equal(formatValue("driftSeconds", 0), "never");
+  assert.equal(choiceLabel("opportunitiesPerSecond", 100), "Normal (100/s)");
+  assert.equal(choiceLabel("birthsPerSecond", 1 / 240), "1 every 240 s");
+  assert.equal(choiceLabel("birthsPerSecond", 0), "None");
+  assert.equal(choiceLabel("fullChargeSeconds", 240), "4 min");
 });
 
 test("the length line never adds planning to the game", () => {
@@ -87,4 +94,9 @@ test("Review lists each change in page order as label: before → after, the set
 test("the page's pause default is the server's (a room left on it records no override)", () => {
   const loop = readFileSync(new URL("../../engine/convex/v2/loop.ts", import.meta.url), "utf8");
   assert.equal(Number(loop.match(/export const DEFAULT_PAUSE_SECONDS = (\d+);/)?.[1]), DEFAULT_PAUSE_SECONDS);
+});
+
+test("the page's compute defaults are the sandbox's (a room left on them records no override)", () => {
+  const limits = readFileSync(new URL("../../../lib/v2-sandbox/src/limits.ts", import.meta.url), "utf8");
+  assert.match(limits, new RegExp(`DEFAULT_LIMITS = Object\\.freeze\\(\\{ stepBudget: ${DEFAULT_STEP_BUDGET.toLocaleString("en-US").replace(/,/g, "_")}, hostCallCap: \\d+, wallMs: ${DEFAULT_COMPUTE_MS} \\}`));
 });
