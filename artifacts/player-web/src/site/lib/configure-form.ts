@@ -11,6 +11,7 @@
  * The World section of v1 (object type and shape) is v2's preset choice, the "Setup" section.
  */
 import { presetOf, type Preset } from "@workspace/engine/convex/v2/presets.ts";
+import { SETUP_NAME_MAX } from "@workspace/v2-affordances";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, PEER_NOISE_VARIANCE_OPTIONS, SCORE_INTERVAL_OPTIONS, type DurationMode } from "@workspace/engine/convex/v2/duration.ts";
 
 /** Every value a room's next game can be given, as the page edits it (all present; the overrides are the differences). */
@@ -377,4 +378,25 @@ export function reviewDiff(saved: { preset: string; draft: Draft }, next: { pres
     if (!sameValue(saved.draft[k], next.draft[k])) out.push({ key: k, label: FIELDS[k].label, from: formatValue(k, saved.draft[k]), to: formatValue(k, next.draft[k]) });
   }
   return out;
+}
+
+/** A saved setup as `setups.get` returns it (the caller's own; v1's user setups). */
+export interface SavedSetup { setupId: string; name: string; preset: string; overrides: Record<string, unknown> }
+
+/**
+ * What Save sends to `room.settings`: the saved setup's id while the page holds exactly that setup (the room then
+ * shows its name, v1's owner.settings({setupId})); otherwise the preset (when it changes) and the overrides that
+ * differ from it (a change by hand: the room shows no setup).
+ */
+export function saveArgs(next: { preset: string; draft: Draft }, roomPreset: string, loaded: SavedSetup | null): { setupId: string } | { preset?: string; overrides: Overrides } {
+  if (loaded && loaded.preset === next.preset && sameValue(JSON.stringify(sortKeys(overridesFor(next.draft, presetOf(next.preset)))), JSON.stringify(sortKeys(overridesFor(draftOf(presetOf(loaded.preset), loaded.overrides), presetOf(loaded.preset))))))
+    return { setupId: loaded.setupId };
+  return { ...(next.preset !== roomPreset ? { preset: next.preset } : {}), overrides: overridesFor(next.draft, presetOf(next.preset)) };
+}
+const sortKeys = (o: object) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b)));
+
+/** Why a setup name is refused (v1's words), or null. */
+export function setupNameProblem(raw: string): string | null {
+  const name = raw.trim().replace(/\s+/g, " ");
+  return !name ? "Give the setup a name." : name.length > SETUP_NAME_MAX ? `At most ${SETUP_NAME_MAX} characters.` : null;
 }

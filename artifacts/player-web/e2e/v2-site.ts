@@ -10,6 +10,7 @@
  *  - home: the empty state offers Create room and Join with a code; Create room seats you and opens the room;
  *  - room: a lone owner is offered a practice game against practice partners (ux-lessons 1.1–1.2), never "not available";
  *  - configure: the palette opens the room's settings page; a change shows in Review, is checked, saved and reaches the room;
+ *  - your setups: one saved, duplicated, applied to the room by name, and the copy deleted;
  *  - a seeded live line game: your points and energy in the game bar (ux 2.5); the default panes; Lines rows with a
  *    compact face; opening a line shows every representation the rule depends on, and the Lines pane stays;
  *    the act log speaks in points and bits (yours × others' = points), 2 decimal places; no horizontal page scroll;
@@ -143,6 +144,36 @@ try {
       await page.getByTestId("link-configure").click();
       await page.getByTestId("text-no-changes").waitFor({ timeout: 10_000 });
       assert.equal(await page.getByTestId("switch-commitClause").getAttribute("aria-checked"), "true");
+      await page.goto(roomUrl);
+    });
+
+    await check(`${label}: your setups: save one, duplicate it, apply it to the room, delete the copy (v1 site-smoke 3)`, async () => {
+      const roomUrl = page.url();
+      await page.goto(`${roomUrl}/configure`);
+      await page.getByTestId("group-your-setups").waitFor();
+      const name = `Slow ${label}`;
+      await page.getByTestId("choice-planningSeconds-300").click();
+      await page.getByTestId("input-setup-name").fill(name);
+      await page.getByTestId("button-save-setup").click();
+      await page.getByTestId(`row-setup-${name}`).waitFor({ timeout: 15_000 });
+      await page.getByTestId(`button-duplicate-setup-${name}`).click();
+      await page.getByTestId(`row-setup-${name}'s copy`).waitFor({ timeout: 15_000 });
+      // Apply the original: the page holds exactly it, so Save applies it by name.
+      await page.getByTestId(`choice-setup-${name}`).click();
+      await page.getByTestId("text-applies-setup").getByText(`Applies your setup “${name}”.`).waitFor();
+      await page.getByTestId("button-save-settings").click();
+      await page.getByTestId("button-save-settings-confirm-ok").click();
+      await page.waitForURL(roomUrl, { timeout: 15_000 });
+      await page.getByTestId("text-next-game-summary").getByText(/300 s to plan/).waitFor({ timeout: 15_000 });
+      await page.goto(`${roomUrl}/configure`);
+      await page.getByTestId("text-room-runs-setup").getByText(`runs your setup “${name}”`).waitFor({ timeout: 15_000 });
+      // Delete the copy (press again to confirm); the original stays.
+      await page.getByTestId(`button-delete-setup-${name}'s copy`).click();
+      await page.getByTestId(`button-delete-setup-${name}'s copy`).click();
+      await page.getByTestId(`row-setup-${name}'s copy`).waitFor({ state: "detached", timeout: 15_000 });
+      await page.getByTestId(`row-setup-${name}`).waitFor();
+      await noHorizontalScroll(page, `${label} your setups`);
+      await shot(page, `v2-setups-${label}`);
       await page.goto(roomUrl);
     });
 
