@@ -464,3 +464,11 @@
 .v2v-sketch .dot.old { fill: var(--v2v-faint); }
 .v2v-sketch .label { font-size: 11px; fill: var(--v2v-ink); paint-order: stroke; stroke: var(--v2v-card); stroke-width: 3px; }
 .v2v-sketch-words { margin: 0; font-size: 13px; line-height: 1.4; color: var(--v2v-ink); }
+
+/* The points tree (a tree-valued rule's bits, part by part). */
+.v2v-points-tree { font-size: 12.5px; color: var(--v2v-id); }
+.v2v-points-tree h5 { margin: 0 0 4px; font-size: 12px; font-weight: 600; }
+.v2v-points-tree ul { list-style: none; margin: 0; padding: 0; }
+.v2v-points-tree li { display: flex; justify-content: space-between; gap: 12px; padding: 1px 0; overflow-wrap: anywhere; }
+.v2v-points-tree .v2v-pt-bits { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.v2v-points-tree .v2v-pt-total { margin: 4px 0 0; padding-top: 3px; border-top: 1px solid currentColor; text-align: right; font-weight: 600; }
