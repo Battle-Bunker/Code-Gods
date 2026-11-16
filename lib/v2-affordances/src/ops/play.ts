@@ -128,7 +128,7 @@ export const playOps = [
     contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
-    id: "rep.mutators", title: "List a representation's mutators", group: "objects", scope: "game",
+    id: "rep.mutators", title: "List a view's moves", group: "objects", scope: "game",
     description: "The mutators that belong to a representation (e.g. si: si.shift, si.tilt), each with its arguments (their codes, and in plain words what each is, what may be typed, an example and the words a choice takes) and its base price in bits.",
     tooltip: "The moves you can make through this view.", keywords: ["mutators", "moves", "changes", "price list"],
     params: obj({ rep }),

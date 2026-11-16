@@ -182,7 +182,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `objects.list` | List objects | sort, filter, cursor, limit | server · game | member | planning, live, paused, ended, replay | read |
 | `object.read` | Read an object in one representation | objectId, rep, site | server · game | member | planning, live, paused, ended, replay | read |
 | `object.element` | Read one element of an object | objectId, rep, name, args, site | server · game | member | planning, live, paused, ended, replay | read |
-| `rep.mutators` | List a representation's mutators | rep | server · game | member | planning, live, paused, ended, replay | read |
+| `rep.mutators` | List a view's moves | rep | server · game | member | planning, live, paused, ended, replay | read |
 | `object.quote` | Price a change to an object | objectId, calls | server · game | seated | planning, live, paused, ended, replay | read |
 | `object.score` | Score an object under my rule | objectId | server · game | seated | planning, live, paused, ended, replay | read |
 | `object.look` | Look at objects | objectId | server · game | seated | live, paused | write; confirm inline |
