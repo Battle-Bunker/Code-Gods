@@ -13,14 +13,13 @@
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     level = lambda r: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(r, 10 ** D)) / (L + 1))(len(str(r)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(r))))   # levels of digits: level L needs L(L + 1)/2
-    s = p.get("side", 1)
-    x = s * m                                       # the gradient, or minus it on the mirror
-    rung = near(x, prime, p["ends"])                # the prime ending in p["ends"] nearest: the rung
+    x = abs(m)                                      # the gradient's size: its sign is free
+    rung = near(x, lambda t: prime(t) and str(t).endswith(p["suffix"]))   # the prime ending in p["suffix"] nearest: the rung
     if rung is None:                                # none within 10,000: hopeless
         return None
     gap = abs(x - rung)                             # on the rung when it rounds there (within 1/2, ties up)
     main = level(rung) if 2 * gap < 1 or rung - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
-    # main: the prime ending in the rule's digit the gradient rounds to, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one
+    # main: the prime ending in the rule's digits the gradient's size rounds to, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one
     def tier(t):   # each secondary, in order (None: ranks last)
         if t == "shared-factor":   # take the number just after that prime: a bigger number dividing both it and the y-intercept's whole part is better
             wc = whole(abs(c) - Fraction(1, 2))           # the y-intercept's whole part, ignoring sign
@@ -60,14 +59,16 @@ def agent(offer):
         tries.append((move("mach.stretch", f=f), m * f, c * f))   # multiply every output by f (m and c both)
         den = 1 - m * k
         if den != 0: tries.append((move("rot.turn", centre=0, turn=k), (m + k) / den, c))   # turn the line about its y-intercept by the angle of a gradient k (the y-intercept stays put)
-    # The next rung up (the ladder has no top): the next prime ending in p["ends"] above the gradient, by a tilt.
-    s = p.get("side", 1)
-    t = (near(s * m, prime, p["ends"]) or p["ends"]) + 10
+    # The next rung up (the ladder has no top): the next prime ending in p["suffix"] above the gradient's size, by a tilt that keeps its sign.
+    s = -1 if m < 0 else 1
+    step = 10 ** len(p["suffix"])
+    ok = lambda t: prime(t) and str(t).endswith(p["suffix"])
+    t = (near(abs(m), ok) or int(p["suffix"])) + step
     for _ in range(100):
-        if prime(t):
+        if ok(t):
             tries.append((move("si.tilt", k=s * t - m), s * t, c))
             break
-        t += 10
+        t += step
     tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
     tries += shortcuts(m, c, rule.mutators)   # other views the game offers: mirrors, a slide, turns, one intercept moved
     options = score_each(tries, lambda t: (t[0], score(t[1], t[2], p, tie)))   # each step and the score it reaches (fewer on a big line)

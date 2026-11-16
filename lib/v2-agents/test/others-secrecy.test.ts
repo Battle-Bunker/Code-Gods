@@ -29,7 +29,7 @@ const requests: HostRequest[] = [
 ] as never;
 
 test("agent code cannot tell apart two opponents whose rules differ but whose totals agree", () => {
-  const a = host({ family: "prime-gradient", params: { ends: 1 } }), b = host({ family: "m-meets-c", params: {}, tieBreaker: "meetPrime" });
+  const a = host({ family: "prime-gradient", params: { suffix: "1" } }), b = host({ family: "m-meets-c", params: {}, tieBreaker: "meetPrime" });
   for (const r of requests) {
     const ra = a.handle(r, { hostCallsLeft: 64 }), rb = b.handle(r, { hostCallsLeft: 64 });
     assert.deepEqual(ra, rb, `${JSON.stringify(r)} answers the same`);

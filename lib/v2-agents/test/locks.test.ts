@@ -17,7 +17,7 @@ const boxes = sandboxes();
 after(() => boxes.close());
 const line = (m: number, c: number) => ({ lines: [fromMC(Qn.q(m), Qn.q(c))] });
 type Line = ReturnType<typeof line>;
-const rule = { family: "prime-gradient", params: { ends: 1 }, tieBreaker: "shared-factor" };
+const rule = { family: "prime-gradient", params: { suffix: "1" }, tieBreaker: "shared-factor" };
 const run = predicateRunner<Line>(lineType, lineZ, await predicateBoxes(["typescript", "python"]));
 const rates = { createPerBit: 0.05, upkeepPerBit: 0.0002 };
 const ready = (id: string, language: "typescript" | "python", args: Record<string, string> = {}) => READY_PREDICATES.find(p => p.id === id)!.make(language, args);
