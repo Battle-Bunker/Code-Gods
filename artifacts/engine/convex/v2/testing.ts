@@ -680,3 +680,14 @@ export const turnoverOf = internalQuery({
     return { lines, retired: lines.filter(l => l.retiredAt !== undefined), live: engine.live ?? null, totals: engine.totals };
   },
 });
+
+/** Sets a room's overrides by its code (the site e2e's turnover game: a short game, its births fast, at most 2 live). */
+export const setRoomOverrides = internalMutation({
+  args: { code: v.string(), overrides: v.any(), timeScale: v.optional(v.number()) },
+  handler: async (ctx, { code, overrides, timeScale }) => {
+    fixtures();
+    const room = (await ctx.db.query("v2Rooms").withIndex("by_code", q => q.eq("code", code)).unique())!;
+    await ctx.db.patch(room._id, { overrides: { ...room.overrides, ...overrides, ...(timeScale ? { timeScale } : {}) }, revision: room.revision + 1 });
+    return { roomId: room._id };
+  },
+});

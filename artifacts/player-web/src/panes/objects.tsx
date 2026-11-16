@@ -29,6 +29,7 @@ import { contestedLines, foldTugs } from "./tug-of-war";
 import { toast } from "@/hooks/use-toast";
 import { AffordanceButton } from "@/site/components/action";
 import { digestScale, listFooter, payoffRect, serverSort, SHOWS, SORTS, whyLine, widen, type PayoffScale } from "./lines";
+import { NewMark, RetiredLines, TurnoverNote } from "./retired";
 
 /** The rectangle's box: the side the largest value fills, and room for its two edge labels. */
 const SIDE = 44, LABEL_W = 42, LABEL_H = 13;
@@ -134,6 +135,7 @@ function LineRow({ objectId, number, rule, value, rep, scale, focused, contested
     <div className="min-w-0 flex-1 space-y-1.5 text-xs">
       <p className="flex flex-wrap items-baseline gap-x-2">
         <span className="font-semibold">{word.One} {number}</span>
+        <NewMark bornAt={o.bornAt} number={number} />
         {contested && <span className="border border-destructive/60 px-1 text-[10px] font-medium uppercase text-destructive" data-testid={`badge-contested-line-${number}`}
           title={`Your agent and another player's keep moving this ${word.one} back and forth: both of you burn energy. Talk to them.`}>tug-of-war</span>}
         {v && <span data-testid={`text-points-line-${number}`}>{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
@@ -228,10 +230,12 @@ function SeatedLines() {
         <SortControl />
         <PointsKey />
       </div>
+      <TurnoverNote />
       <LookAll ids={loadedIds} many={objectWord(header?.variant).many} variant={header?.variant ?? ""} />
       <VirtualRows rows={results} rowHeight={ROW_H} maxHeight={maxHeight} keyOf={r => r.objectId} onNearEnd={onNearEnd} testId="lines-list"
         render={r => <LineRow objectId={r.objectId} number={r.number} rule={rule} value={my?.bits ?? null} rep={rep} scale={scale} focused={view.focus?.objectId === r.objectId} contested={contested.has(r.objectId)} onOpen={onOpen} variant={header?.variant ?? ""} />} />
       <ListFooter text={listFooter({ shown: results.length, packed: digest?.packed, show: view.objects.filter.show ?? "all", more: status !== "Exhausted", many: objectWord(header?.variant).many })} />
+      <RetiredLines />
     </div>
   );
 }

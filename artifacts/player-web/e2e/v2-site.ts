@@ -254,6 +254,39 @@ try {
       assert.equal(await timer.getByText(/nobody was here/).count(), 0, "resumed");
     });
 
+    if (label === "desktop") await check(`${label}: line turnover: lines arrive, the oldest retires with its points banked, and the end page and replay show it`, async () => {
+      // A practice game with turnover on (room settings liveCap 2, a birth every 5 s), 40 world seconds, dilated 2×.
+      await page.goto(`${SITE}/`);
+      await page.getByTestId("button-create-room").first().click();
+      await page.waitForURL(/\/rooms\/[A-Z0-9]+$/);
+      const roomCode = page.url().split("/").at(-1)!;
+      convexRun("v2/testing:setRoomOverrides", { code: roomCode, overrides: { planningSeconds: 5, worldSeconds: 40, liveCap: 2, birthSeconds: 5 }, timeScale: 2 });
+      await page.getByTestId("button-practice-game").click();
+      await page.waitForURL(/\/games\//, { timeout: 30_000 });
+      await page.getByTestId("button-start-world").click({ timeout: 30_000 });
+      await page.getByTestId("text-phase").getByText("Running").waitFor({ timeout: 60_000 });
+      const lines = page.getByTestId("pane-objects");
+      assert.match(await lines.getByTestId("text-turnover-note").innerText(), /At most 2 lines are live\. A new line arrives every 5 s, and the oldest retires: its points stay in your total\./);
+      await lines.locator("[data-testid^=badge-new-line-]").first().waitFor({ timeout: 30_000 });   // a line arrived
+      const retired = lines.getByTestId("retired-lines");
+      await retired.locator("[data-testid^=text-retired-line-]").first().waitFor({ timeout: 30_000 });
+      assert.match(await retired.innerText(), /retired at \d+:\d\d · banked [\d.,−-]+ points?/);
+      assert.ok(await lines.locator("[data-testid^=row-line-]").count() <= 2, "at most 2 live lines listed");
+      await shot(page, `v2-turnover-${label}`);
+      // The end page: the retired lines with what each banked.
+      await page.getByTestId("results").waitFor({ timeout: 90_000 });
+      const end = page.getByTestId("results").getByTestId("retired-lines");
+      await end.locator("[data-testid^=text-retired-line-]").first().waitFor({ timeout: 30_000 });
+      const banked = await end.locator("[data-testid^=row-retired-]").count();
+      assert.ok(banked >= 3, `${banked} retired lines on the end page`);
+      await shot(page, `v2-turnover-end-${label}`);
+      // The replay: at its end the same retired lines.
+      await page.getByTestId("button-watch-replay").click();
+      const replayRetired = page.getByTestId("pane-objects").getByTestId("retired-lines");
+      await replayRetired.locator("[data-testid^=row-retired-]").first().waitFor({ timeout: 60_000 });
+      assert.equal(await replayRetired.locator("[data-testid^=row-retired-]").count(), banked, "the replay's end shows the same retired lines");
+    });
+
     await check(`${label}: the goal card's view controls stay inside the card (round 11: Grids · more rules, Uphill, at 390)`, async () => {
       const width = page.viewportSize()!.width;
       for (let i = 0; i < 2; i++) {   // two deals: the rules vary
