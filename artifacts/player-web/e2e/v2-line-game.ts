@@ -142,7 +142,7 @@ try {
     // The act log's times read as the countdown does ("3:39 left"), not elapsed (persona walk: 0:13 beside 3:39 left).
     await feed.locator("[data-testid^=row-move-] p:visible").getByText(/^\d+:\d\d left/).first().waitFor({ timeout: 60_000 });
     // Its own row, or inside a tug-of-war entry (contested lines fold their moves under "Show the N moves").
-    const mine = feed.locator("[data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed a line.*Your rarity/ }).first();
+    const mine = feed.locator("[data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed (a line|line \d+).*Your rarity/ }).first();
     await mine.waitFor({ state: "attached", timeout: 60_000 });
     const folded = mine.locator("xpath=ancestor::details[1]");
     if (await folded.count() && (await folded.getAttribute("open")) === null) await folded.locator("summary").click();
