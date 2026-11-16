@@ -201,6 +201,8 @@ function ConfigureForm({ room, admin }: { room: Room; admin: boolean }) {
             <p data-testid="text-summary-setup">{preset.title}</p>
             <p className="text-muted-foreground">{setupBlurb(preset)}</p>
             <p>{lengthLine(draft)}</p>
+            <p data-testid="text-summary-population">{draft.startingObjects} objects, new ones: {formatValue("birthsPerSecond", draft.birthsPerSecond).toLowerCase()} · world speed {formatValue("opportunitiesPerSecond", draft.opportunitiesPerSecond)}</p>
+            <p>Power {formatValue("powerPerSecond", draft.powerPerSecond)} each, stores fill in {formatValue("fullChargeSeconds", draft.fullChargeSeconds)}</p>
             <p>{formatValue("startingEnergy", draft.startingEnergy)} to start · looks {formatValue("readPriceWeight", draft.readPriceWeight).toLowerCase()}</p>
             <p>Others' interest: {formatValue("peerNoiseVariance", draft.peerNoiseVariance).toLowerCase()} · scores {formatValue("scoreIntervalSeconds", draft.scoreIntervalSeconds)}</p>
             <p>{(n => `${n} ${n === 1 ? "player" : "players"} in the room`)(room.members.filter(m => !m.spectator).length)}, {preset.minPlayers} or more to start</p>

@@ -40,6 +40,10 @@ export const overridesV = v.object({
   pauseSeconds: v.optional(v.number()),
   /** Offer the commit clause (v1, off by default): agents may mark acts only-if-better. */
   commitClause: v.optional(v.boolean()),
+  /** v1's world, energy and compute settings (absent: the preset's economy; the sandbox's 500,000 steps and 2,000 ms). */
+  startingObjects: v.optional(v.number()), birthsPerSecond: v.optional(v.number()), opportunitiesPerSecond: v.optional(v.number()),
+  powerPerSecond: v.optional(v.number()), fullChargeSeconds: v.optional(v.number()),
+  stepBudget: v.optional(v.number()), interactionComputeMs: v.optional(v.number()),
   /**
    * Time dilation (owner decision 37): every rate × this, every duration ÷ it (v2-economy dilate), so the room's games
    * run this many times faster with the same per-act quantities. For simulations and local playtests only: set by the
@@ -131,6 +135,8 @@ export const v2Tables = {
       pauseSeconds: v.optional(v.number()),
       /** The commit clause is offered (v1, off by default): an only-if-better act commits only if its owner gains. */
       commitClause: v.optional(v.boolean()),
+      /** Per-act compute limits the room set (v1's stepBudget and interactionComputeMs); absent: the sandbox's defaults. */
+      stepBudget: v.optional(v.number()), interactionComputeMs: v.optional(v.number()),
       /** Births on a regular schedule, birth j at j / rate (decision 31; duration.ts regularBirths); absent: stochastic. */
       regularBirths: v.optional(v.boolean()),
       /** The game's time dilation (decision 37): its settings are already dilated by it; wall-clock pacing divides by it. */

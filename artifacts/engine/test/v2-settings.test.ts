@@ -99,3 +99,35 @@ test("a room dilated by 10 plays the same game ten times faster: 600 world secon
   assert.ok(worlds.every((w: number, i: number) => i === 0 || w - worlds[i - 1] >= 10 - 1e-9), `ten world seconds apart at least: ${worlds.join(", ")}`);
   assert.ok(history.length >= 25, `published through the whole world: ${history.length} rows to ${worlds.at(-1)}`);
 });
+
+test("v1's world, energy and compute settings are room settings: objects, births, world speed, power, fill time, steps and CPU per act", { timeout: 180_000 }, async () => {
+  const [ada] = await humans("World Ada");
+  const { roomId } = (await perform(ada!, "room.create", { name: "World room" })).result;
+  await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
+  for (const bad of [{ startingObjects: 1001 }, { startingObjects: 2.5 }, { birthsPerSecond: 11 }, { opportunitiesPerSecond: -1 }, { powerPerSecond: 2e6 }, { fullChargeSeconds: 0 }, { stepBudget: 0 }, { interactionComputeMs: 0 }]) {
+    const out = await perform(ada!, "room.settings", { overrides: bad }, { roomId }).catch((e: any) => e.data);
+    assert.equal(out.ok, false, `refused: ${JSON.stringify(bad)}`);
+  }
+  const overrides = { startingEnergy: 5000, startingObjects: 5, birthsPerSecond: 0, opportunitiesPerSecond: 10, powerPerSecond: 16, fullChargeSeconds: 60, stepBudget: 1, interactionComputeMs: 500 };
+  assert.equal((await perform(ada!, "room.settings", { overrides }, { roomId })).ok, true);
+  const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
+  const s = await admin.query("v2/testing:settingsOf", { gameId });
+  assert.deepEqual([s.startingObjects, s.economy.birthsPerSecond, s.economy.opportunitiesPerSecond, s.economy.powerPerSecond, s.economy.fullChargeSeconds, s.stepBudget, s.interactionComputeMs],
+    [5, 0, 10, 16, 60, 1, 500]);
+  const h = await ada!.query("v2/games:header", { gameId });
+  assert.equal(h.priceScale, 16 / 64, "prices follow the room's power");
+  await perform(ada!, "game.startWorldNow", {}, { gameId });
+  const ids = (await ada!.query("v2/spectate:objectIds", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page;
+  assert.equal(ids.length, 5, "the room's starting objects");
+  // One step per act: every agent's act runs out of steps (the budget reaches the sandbox).
+  let limited: any = null;
+  for (let i = 0, after = -1; !limited && i < 60; i++) {
+    const events = await admin.query("v2/testing:events", { gameId, after });
+    if (events.length) after = events.at(-1).seq;
+    limited = events.find((e: any) => e.kind === "act" && e.data.code === "LIMIT");
+    if (!limited) await new Promise(r => setTimeout(r, 1000));
+  }
+  assert.ok(limited, "an act stopped at the room's step budget");
+  assert.match(limited.data.reason, /Step limit exceeded: the agent took more than 1 steps/);
+  await perform(ada!, "game.end", {}, { gameId });
+});
