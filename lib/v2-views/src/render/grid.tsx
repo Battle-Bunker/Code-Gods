@@ -87,16 +87,18 @@ function Scene({ p }: { p: P }): ReactElement {
   const listedBy = new Map<string, { label: string; texts: string[] }>();
   const drawnNotes = new Set<string>();
   const rightKeys = new Set(right.map(key));
-  const cellKeys = new Set(s.cells.map(key));
   for (const m of expanded ? marks : []) {
-    if (m.kind !== "note" || (m.ref.rep !== p.rep && !cellKeys.has(key(m.ref)))) continue;
+    if (m.kind !== "note" || m.ref.rep !== p.rep) continue;
     const k = key(m.ref);
     drawnNotes.add(m.text);
     if (m.text === shown(m.ref)) continue; // the note only repeats the value drawn
     if (rightKeys.has(k) && m.text.length <= NOTE_MAX && !besideNote.has(k)) besideNote.set(k, m.text);
     else {
       const e = listedBy.get(k) ?? { label: p.labelOf(m.ref), texts: [] };
-      if (!e.texts.includes(m.text)) e.texts.push(m.text);
+      // Each note says which part of the rule it is about when the parts are known (● main part, ◆ secondary).
+      const role = p.markRole?.(m);
+      const text = role ? `${role === "main" ? "●" : "◆"} ${m.text}` : m.text;
+      if (!e.texts.includes(text)) e.texts.push(text);
       listedBy.set(k, e);
     }
   }
@@ -124,6 +126,13 @@ function Scene({ p }: { p: P }): ReactElement {
   bottom.forEach((r, col) => { if (lit(r)) for (let row = 0; row < s.rows; row++) members.add(row * s.cols + col); });
   for (const gr of s.groups ?? []) if (lit(gr.el)) for (const c of gr.cells) members.add(c);
 
+  // Each focus is drawn with its part's glyph (● main part, ◆ secondary), so a mark never relies on colour alone.
+  const glyphs = (r: ElementRef): string => {
+    if (!p.markRole) return "";
+    const k = key(r);
+    const roles = new Set(marks.filter(m => m.kind === "focus" && key(m.ref) === k).map(m => p.markRole!(m)));
+    return (roles.has("main") ? "●" : "") + (roles.has("tb") ? "◆" : "");
+  };
   const title = (r: ElementRef, extra = "") => <title>{`${p.labelOf(r)}: ${shown(r)}${extra}`}</title>;
 
   // ---------------------------------------------------------------- layers
@@ -232,6 +241,7 @@ function Scene({ p }: { p: P }): ReactElement {
         <rect className="cell-bg" x={x + 1} y={y + 1} width={C - 2} height={C - 2} rx={expanded ? 4 : 2} />
         <text className="digit" x={x + C / 2} y={y + C / 2 + g.digit * 0.36} fontSize={g.digit}>{shown(r)}</text>
         {was !== null && <text className="was" x={x + 4} y={y + 11}>{was}</text>}
+        {expanded && glyphs(r) && <text className="mark-glyph" x={x + C - 4} y={y + 11}>{glyphs(r)}</text>}
         {title(r)}
       </g>
     );
@@ -243,6 +253,7 @@ function Scene({ p }: { p: P }): ReactElement {
       <g key={key(r)} className="margin" {...elAttrs(q, r)} {...hover(q, r)}>
         <rect className="margin-bg" x={x} y={y} width={w} height={h} rx={4} />
         <text className="margin-val" x={x + w / 2} y={y + h / 2 + (expanded ? 5 : 3.5)} fontSize={expanded ? 15 : 10}>{shown(r)}</text>
+        {expanded && glyphs(r) && <text className="mark-glyph" x={x + w - 2} y={y + 9}>{glyphs(r)}</text>}
         {title(r, note ? ` (${note})` : "")}
       </g>
     );

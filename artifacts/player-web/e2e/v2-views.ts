@@ -30,6 +30,8 @@ try {
   for (const width of [390, 1440]) {
     for (const scheme of ["light", "dark"] as const) {
       const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
+      // The whole gallery computes every family's examples on load (about 40 s on a CI-sized machine).
+      page.setDefaultTimeout(180_000);
       const errors: string[] = [];
       page.on("pageerror", e => errors.push(e.message));
       page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });

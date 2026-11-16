@@ -57,8 +57,16 @@ test("a grid representation draws the marks a rule puts on the board's cells", (
   assert.match(html, /data-ref="cells\.r0c0"[^>]*data-focus=""/, "the focused cell is marked in the mirror view");
 });
 
-test("a note on a cell is said under the picture of any grid representation", () => {
+test("a note on a cell is said under the board, not repeated under every other view of it", () => {
   const e = annotate(rule("last"), B).sites[0]!.evaluation;
-  const html = renderToStaticMarkup(<RepView type={gridType} state={B} rep="mirror" size="expanded" marks={e.marks} terms={e.terms} />);
-  assert.match(html, /last note/);
+  const at = (rep: string) => renderToStaticMarkup(<RepView type={gridType} state={B} rep={rep} size="expanded" marks={e.marks} terms={e.terms} />);
+  assert.match(at("cells"), /last note/);
+  assert.doesNotMatch(at("mirror"), /last note/);
+});
+
+test("a focused cell carries its part's glyph (● main part, ◆ secondary), so a mark never relies on colour alone", () => {
+  const a = annotate(rule("corner"), B);
+  const sa = a.sites[0]!;
+  const html = renderToStaticMarkup(<RepView type={gridType} state={B} rep="cells" size="expanded" marks={sa.marks} terms={sa.evaluation.terms} parts={sa.parts} />);
+  assert.match(html, /data-ref="cells\.r0c0"[^]*?class="mark-glyph"[^>]*>◆</, "the secondary's focus on row 1, column 1 has ◆");
 });
