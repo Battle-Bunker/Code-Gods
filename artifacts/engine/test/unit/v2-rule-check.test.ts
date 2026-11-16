@@ -74,6 +74,9 @@ const EXEMPT: Readonly<Record<string, string>> = {
   // Row 1 (not checked here for grids): every beginner grid main part has a global top on the 0–9 board, as v1's did.
   // Leapfrog and Two Pair reached theirs in real games within 10 minutes (round 34, baseline 2); kept dealt as the v1
   // baseline by the coordinator (16 Nov). See docs/engine-v2/grid-v1-v2-compare.md, "Known reachable tops".
+  "looking-glass 3a": "16 Nov, grids session: grid baseline: ported as v1",
+  "pinwheel 3a": "16 Nov, grids session: grid baseline: ported as v1",
+  "constellation 3a": "16 Nov, grids session: grid baseline: ported as v1",
   // Row 4: one dealt parameter set.
   "square-area 4": "15 Nov, grids session: Square Area redesign",
   "mirrormancer 4": "15 Nov, grids session", "magic-eighteen 4": "15 Nov, grids session", "opposite-nines 4": "15 Nov, grids session",
@@ -85,6 +88,9 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "round-numbers 4": "16 Nov, grids session: grid baseline: ported as v1",
   "column-addition 4": "16 Nov, grids session: grid baseline: ported as v1",
   "full-house 4": "16 Nov, grids session: grid baseline: ported as v1", "seesaw 4": "16 Nov, grids session: grid baseline: ported as v1", "snap 4": "16 Nov, grids session: grid baseline: ported as v1",
+  "looking-glass 4": "16 Nov, grids session: grid baseline: ported as v1",
+  "pinwheel 4": "16 Nov, grids session: grid baseline: ported as v1",
+  "constellation 4": "16 Nov, grids session: grid baseline: ported as v1 (one star dealt: the stars are not peers on v2's law)",
   // Row 7: forms repeated within a family, kinds and forms shared by more than three families.
   "square-area 7-repeat": "15 Nov, grids session: spf and lpf are both prime-factor sizes (Square Area redesign)",
   "far-crossing 7-repeat": "15 Nov, pairs session: both secondaries are near-multiples",
