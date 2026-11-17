@@ -64,9 +64,11 @@ test("the estimator's work budget: past it each start costs its upper bound (exa
   const ring = dynamicFamilies.find(f => f.id === "ring")!;
   const rule = lineRule(ring.dynamic!, ring.dealable(lineQ)[0]);
   const s = fromMC(q(3n, 2n), q(-41n, 6n));
-  const full = estimateLine(s, rule, lineQ, { seed: "w" });
+  // A generous budget: nothing is cut (the beginner budget cuts Ring's own search on most starts since 17 Nov, and says so).
+  const roomy = withPhysics(lineQ, { ...LINES_BEGINNER_PHYSICS, estimatorWork: 1_000_000 });
+  const full = estimateLine(s, rule, roomy, { seed: "w" });
   assert.equal(full.bound, false);
-  assert.ok(full.work <= LINES_BEGINNER_PHYSICS.estimatorWork);
+  assert.ok(estimateLine(s, rule, lineQ, { seed: "w" }).work <= LINES_BEGINNER_PHYSICS.estimatorWork + 1e-9);
   // A budget of one: only the state itself is scored; every start costs the price of reaching exactly it.
   const tiny = withPhysics(lineQ, { ...LINES_BEGINNER_PHYSICS, estimatorWork: 1 });
   const cut = estimateLine(s, rule, tiny, { seed: "w" });
@@ -76,4 +78,23 @@ test("the estimator's work budget: past it each start costs its upper bound (exa
   const direct = cut.samples.map(x => routePrice(lambda, x.from, s).total);
   assert.ok(Math.abs(cut.energy - direct.reduce((a, b) => a + b, 0) / direct.length) < 1e-9);
   assert.ok(cut.energy >= full.energy - 1e-9, "the bound is never below the found energy");
+});
+
+test("a start whose search runs out of work keeps the routes it found; each start gets its share of the budget", async () => {
+  const { dynamicFamilies, lineRule } = await import("../src/index.ts");
+  const ring = dynamicFamilies.find(f => f.id === "ring")!;
+  const rule = lineRule(ring.dynamic!, { u: 2, v: 1, rho: 7 });
+  // A 40-bit newborn line (scripts/estimator-accuracy.ts): before this fix the budget ran out on 7 of 12 starts, each
+  // then cost the price of reaching exactly this line, and the estimate read 165 bits where a larger search finds 9.
+  const s = { a: -25010251428701900041527n, b: 27674200679298411284156n, c: -39294336813435755596445n };
+  const e = estimateLine(s, rule, lineQ, { seed: `acc:${s.a},${s.b},${s.c}` });
+  const lambda = LINES_BEGINNER_PHYSICS.gravity;
+  for (const x of e.samples) assert.ok(x.cost <= routePrice(lambda, x.from, s).total + 1e-9, "never dearer than the direct turn");
+  assert.ok(e.work <= LINES_BEGINNER_PHYSICS.estimatorWork + 2, "within the budget, up to one state's cost");
+  assert.ok(e.energy < 30, `energy ${e.energy.toFixed(1)}: the routes found before the budget ran out count`);
+  // On a smaller budget the climbs are cut: the estimate says so, and each start still keeps what it found.
+  const { withPhysics } = await import("@workspace/v2-core");
+  const cut = estimateLine(s, rule, withPhysics(lineQ, { ...LINES_BEGINNER_PHYSICS, estimatorWork: 600 }), { seed: `acc:${s.a},${s.b},${s.c}` });
+  assert.equal(cut.bound, true, "a cut climb still says the estimate is a bound");
+  for (const x of cut.samples) assert.ok(x.cost <= routePrice(lambda, x.from, s).total + 1e-9);
 });

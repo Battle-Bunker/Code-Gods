@@ -5,9 +5,9 @@
  * parts named "(main part, tie-breaker)" (ux-lessons 2.6).
  */
 import { RuleCode } from "@/components/rule-code";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DriftOnCard } from "./drift";
-import { GoalCard, randomExample, rarityScale, workedExample } from "@workspace/v2-views";
+import { GoalCard, ladderRow, ladderRungs, randomExample, workedExample, type LadderRow } from "@workspace/v2-views";
 import { lineFromInputs, stateFromWire } from "./example-edit";
 import type { Score } from "@workspace/v2-core";
 import { decodeState, objectWord, useGame, useGameScope, useMyObject, useMyRule, type GameRule } from "@/sdk";
@@ -51,13 +51,36 @@ function ExampleEditor({ rule, onChange }: { rule: GameRule; onChange: (s: unkno
   );
 }
 
+/**
+ * "What is each level worth?": the rule's ladder from the worked example, each rung's energy measured one at a time
+ * after the card has drawn (an estimate takes tens of milliseconds), so the card never waits for it.
+ */
+function useLadder(rule: GameRule, from: unknown): LadderRow[] {
+  const [rows, setRows] = useState<LadderRow[]>([]);
+  useEffect(() => {
+    let alive = true, i = 0, timer: ReturnType<typeof setTimeout>;
+    const rungs = ladderRungs(rule, from), out: LadderRow[] = [];
+    setRows([]);
+    const next = () => {
+      if (!alive || i >= rungs.length) return;
+      try { out.push(ladderRow(rule, rungs[i]!)); } catch { /* a rung the estimator cannot price is left out */ }
+      i++;
+      setRows([...out]);
+      timer = setTimeout(next, 0);
+    };
+    timer = setTimeout(next, 50);
+    return () => { alive = false; clearTimeout(timer); };
+  }, [rule, from]);
+  return rows;
+}
+
 function Card({ rule, parts, value }: { rule: GameRule; parts: number; value: ((u: Score) => number) | null }) {
   const worked = useMemo(() => workedExample(rule, value), [rule, value]);
   // v1's example: randomised or edited by the player, the worked one until then.
   const [own, setOwn] = useState<unknown>(null);
   const [editing, setEditing] = useState(false);
   const example = own ?? worked;
-  const scale = useMemo(() => rarityScale(rule, value, 6), [rule, value]);
+  const ladder = useLadder(rule, worked);
   const tools = (
     <div className="space-y-1.5" data-testid="example-tools">
       <div className="flex gap-2 text-xs">
@@ -73,7 +96,7 @@ function Card({ rule, parts, value }: { rule: GameRule; parts: number; value: ((
   const note = partsNote(parts, word.one, word.many);
   return (
     <div className="space-y-2 p-3" data-testid="goal-card">
-      <GoalCard rule={rule} example={example} mine={mine} value={value ?? undefined} exampleOpen={false} exampleTools={tools} scale={scale} />
+      <GoalCard rule={rule} example={example} mine={mine} value={value ?? undefined} exampleOpen={false} exampleTools={tools} ladder={ladder} />
       <RuleCode familyId={rule.family.id} params={rule.params} />
       {/* How the parts rank, behind "more" (round 27: the card read 52 words before anything else). */}
       {note && (

@@ -16,8 +16,9 @@ export interface Physics {
   readonly newbornBitRate: number;
   /**
    * The estimator's work budget per estimate: how many distinct states it may score (the utility's evaluations) across
-   * all its starts. Past it, each remaining start costs its upper bound, the price of reaching exactly this state, and
-   * the estimate is flagged "bound, not found".
+   * all its starts, shared out evenly over the starts still to run. Past its share a start's climb stops and the routes
+   * it found count; a start that could not even price its candidates costs its upper bound, the price of reaching
+   * exactly this state. Either way the estimate is flagged "bound, not found".
    */
   readonly estimatorWork: number;
 }

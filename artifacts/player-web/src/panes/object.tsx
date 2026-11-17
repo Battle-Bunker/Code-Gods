@@ -21,7 +21,7 @@ import { useRuntime } from "@/core/affordance-runtime";
 import { useOpenPane } from "@/dock/open-pane";
 import { bitsText, chanceText, pointsText } from "@/core/words";
 import { rarerThanText } from "@workspace/v2-views/format";
-import { BitsHelp } from "@/core/score-help";
+import { BitsHelp, BoundMark } from "@/core/score-help";
 import { toast } from "@/hooks/use-toast";
 import { activeOp, compareOp, switcherOf, whyLine, type SwitchOp } from "./lines";
 import { requestForge } from "./forge-request";
@@ -112,7 +112,7 @@ function FocusedLine({ objectId, reps, onReps }: { objectId: string; reps: reado
       <div className="space-y-1 text-sm">
         <p className="flex flex-wrap items-baseline gap-x-2">
           <span className="font-semibold">{word.One} {o.number}</span>
-          {v && <span data-testid="text-line-points">{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
+          {v && <span data-testid="text-line-points">{"bound" in v && v.bound && <><BoundMark testId="mark-bound-line" /> </>}{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
           {v && <BitsHelp testId="button-bits-help-line" />}
           {/* v1's AskAboutObject: the line in a message to your assistant, to finish and send. */}
           {!aiOff && (

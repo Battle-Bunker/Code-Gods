@@ -8,7 +8,8 @@
  *
  * v2 changed: the slider is input-replay-seek with data-applied/data-end on replay-bar (v1: input-replay-scrub,
  * replay-transport's data-cursor/data-events); the deep link is ?replay&t=<world seconds>&as=<member> (v1: ?e=<event>);
- * the ended page leads with the results and opens the replay from "Watch the replay".
+ * an ended game is its replay (v1 again): the game's page becomes it at the end, and the bar is the Timeline pane in the
+ * assistant's place.
  */
 import assert from "node:assert/strict";
 import { DESKTOP, PHONE, SITE, chromium, check, deploy, missing, noHorizontalScroll, report, roomSettings, shot, signIn, watch, type Page, type Player } from "./v1-harness.ts";
@@ -20,12 +21,10 @@ const endOf = async (page: Page) => Number(await page.getByTestId("replay-bar").
 const playing = async (page: Page) => (await page.getByTestId("replay-bar").getAttribute("data-playing")) === "true";
 const frames = (page: Page) => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
 
-/** Opens the ended game's replay on its page (v2: from the results' "Watch the replay" when the bar is not up). */
+/** Opens the ended game's page, which is its replay (the Timeline in the assistant's place). */
 async function openReplay(page: Page, url: string) {
   await page.goto(url);
-  await page.locator('[data-testid="replay-bar"], [data-testid="button-watch-replay"]').first().waitFor({ timeout: 60_000 });
-  if (!await page.getByTestId("replay-bar").count()) await page.getByTestId("button-watch-replay").first().click();
-  await page.locator('[data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 60_000 });
+  await page.locator('[data-testid="pane-timeline"] [data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 60_000 });
 }
 
 const browser = await chromium.launch();
@@ -48,16 +47,16 @@ try {
     await page.getByTestId("button-summon-first").click({ timeout: 60_000 });
     await page.getByTestId("text-forge-status").getByText(/is summoned/).waitFor({ timeout: 90_000 });
     if (await page.getByTestId("button-start-world").count()) await page.getByTestId("button-start-world").click().catch(() => {});
-    await page.getByTestId("text-phase").filter({ hasText: /ended/i }).waitFor({ timeout: 180_000 });
+    // At the end the page becomes the replay, in this document.
+    await page.locator('[data-testid="pane-timeline"] [data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 180_000 });
   });
 
   await check("from the room page after the game is over, its past games open the game's replay (no typed URL)", async () => {
-    await page.getByTestId("link-back-to-room").first().click();
-    await page.waitForURL(new RegExp(`/rooms/${code}$`));
-    const gameId = gameUrl.split("/").at(-1)!;
-    await page.getByTestId(`link-past-game-${gameId}`).waitFor({ timeout: 60_000 });
+    await page.goto(`${SITE}/rooms/${code}`);
+    const game = gameUrl.split("/").at(-1)!;   // its number in the room (short links)
+    await page.getByTestId(`link-past-game-${game}`).waitFor({ timeout: 60_000 });
     assert.equal(await page.getByTestId("link-active-game").count(), 0, "the room has no active game");
-    await page.getByTestId(`button-replay-${gameId}`).click();
+    await page.getByTestId(`link-past-game-${game}`).click();
     await page.waitForURL((url: URL) => url.toString().startsWith(gameUrl), { timeout: 30_000 });
     await page.locator('[data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 60_000 });
     assert.equal(page.url().replace(/[?#].*$/, ""), gameUrl, "the replay is the game's page");

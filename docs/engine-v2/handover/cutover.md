@@ -38,6 +38,17 @@ an estimate alone; fine inside a commit so far). (5) Golden Path's continued-fra
 parameter; deeper fractions cannot be pinned in it. (6) The design-principles table in energy.md still describes the
 retired line pool's opponents row; rewrite it for the dealt twelve.
 
+## Update, 17 Nov (Melbourne evening): the cap that came and went; a gap under locks
+
+- **#1198, then #1205:** a cap on a line's a, b, c (`largestNumber`) was added and then removed at the owner's word ("a
+  hidden bug bomb"); gravity as the uphill toll (#1203, beginner λ 20) and exact rules (#1206, #1210) took its place.
+  Balance results: `docs/engine-v2/balance.md`.
+- **Open, only with the locks setting on:** `lockedAct` (v2-core locks.ts) applies calls one by one and never adds the
+  turn's surprise (`type.turnSurprise`), so under locks an act pays naming bits only. Locks are a room override
+  (`room.overrides.locks`); no preset turns them on, so ordinary play is unaffected. Fix before locks are offered:
+  charge `turnSurprise(state, result, calls)` in `lockedAct` as `applyCalls` does, with a test that a locked act's
+  charge equals the unlocked one's.
+
 ## Update, 17 Nov (Melbourne, mid-morning): steps 6 and 7 done; step 8's measurements
 
 - **Step 6, grids (#1165).** Nine pure-utility grid rules (`lib/v2-grid/src/dynamic-families.ts`; table and check table

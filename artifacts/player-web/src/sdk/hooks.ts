@@ -189,11 +189,13 @@ export function useTugs(): Tug[] | null | undefined {
   return replay ? null : live;
 }
 
-/** The public log (v1's): every move in the game, newest first, for room members; none in a replay (its frame has the moves). */
+/**
+ * The public log (v1's): every move in the game, newest first, for room members. In a replay too: the game has ended, so
+ * the log is exact and attributed; the pane shows the part up to the playhead.
+ */
 export function usePublicLog(pageSize = 50) {
   const { gameId } = useGameScope();
-  const replay = useReplaySource();
-  return useLivePaged(api.v2.playState.log, gameId && !replay ? { gameId } : "skip", pageSize);
+  return useLivePaged(api.v2.playState.log, gameId ? { gameId } : "skip", pageSize);
 }
 
 /** The first page of `v2/playState:agents` (the server's page is at most 50). */
@@ -221,10 +223,17 @@ export function useAgentEnergy(agentId: string | null | undefined) {
   const replay = useReplaySource();
   return useLiveValue(api.v2.playState.agentEnergy, agentId && !replay ? { agentId } : "skip");
 }
-/** An agent's programs; not in the record, so none in a replay. */
+/**
+ * An agent's programs, newest first. In a replay, the versions the record keeps (its `programs`: every player's, open
+ * after the end), without the live counts: `acts` and `pointsGained` are 0 there, and `recorded` says so.
+ */
 export function useAgentPrograms(agentId: string | null | undefined) {
   const replay = useReplaySource();
-  return useLiveValue(api.v2.playState.agentPrograms, agentId && !replay ? { agentId } : "skip");
+  const live = useLiveValue(api.v2.playState.agentPrograms, agentId && !replay ? { agentId } : "skip");
+  const index = replay?.index;
+  const recorded = useMemo(() => (index && agentId ? [...index.programs.values()].filter(p => p.agentId === agentId).sort((a, b) => b.version - a.version)
+    .map(p => ({ version: p.version, language: p.language as "typescript" | "python", source: p.source, price: 0, summonedAt: p.summonedAt, acts: 0, pointsGained: 0, recorded: true as const })) : null), [index, agentId]);
+  return recorded ?? live;
 }
 
 /** The published scoreboard (null before the first). */

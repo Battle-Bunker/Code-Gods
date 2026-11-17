@@ -32,12 +32,12 @@ export const fullReadBits = (variantId: string, wire: string) => typeOf(variantI
 export const lookPrice = (variantId: string, wire: string, weight: number) => weight * readCharge(fullReadBits(variantId, wire));
 
 /** What a player is told of an object: the state at a version, and their value of it as disclosed then. */
-export interface Telling { objectId: Id<"v2Objects">; number: number; state: string; version: number; score: (string | null)[] | null; rarityBits: number; want: number; points: number }
+export interface Telling { objectId: Id<"v2Objects">; number: number; state: string; version: number; score: (string | null)[] | null; rarityBits: number; want: number; points: number; /** rarityBits is an upper bound (world.ts Value.bound). */ bound?: boolean }
 
 /** Tells a player an object (writes their knowledge row and their scatter's entry for it). */
 export async function tell(ctx: MutationCtx, game: Doc<"v2Games">, memberId: Id<"v2Members">, t: Telling, world: number) {
   const row = await ctx.db.query("v2Knowledge").withIndex("by_object_member", q => q.eq("objectId", t.objectId).eq("memberId", memberId)).unique();
-  const next = { state: t.state, version: t.version, learnedAt: world, score: t.score, rarityBits: t.rarityBits, want: t.want, points: t.points, quadrant: quadrantOf(t.rarityBits, t.want) };
+  const next = { state: t.state, version: t.version, learnedAt: world, score: t.score, rarityBits: t.rarityBits, want: t.want, points: t.points, quadrant: quadrantOf(t.rarityBits, t.want), bound: t.bound || undefined };
   if (row) { if (row.version <= t.version) await ctx.db.patch(row._id, next); }
   else await ctx.db.insert("v2Knowledge", { gameId: game._id, memberId, objectId: t.objectId, number: t.number, ...next });
   // The others-care scatter shows what the player knows (applyToPlayers leaves a paid game's scatters to the tellings).
