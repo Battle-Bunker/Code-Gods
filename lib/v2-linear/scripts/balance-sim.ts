@@ -22,7 +22,7 @@ export type Kind = "greedy" | "hopper" | "saver" | "knocker";
 export interface SimOpts {
   gravity?: number; power?: number; store?: number; K?: number; band?: number; seed?: string; seats?: number;
   worldSeconds?: number; startLines?: number; birthEvery?: number; opsPerSecond?: number; share?: number;
-  kinds?: Kind[]; saveTo?: number; quiet?: boolean; rot?: number;
+  kinds?: Kind[]; saveTo?: number; quiet?: boolean; rot?: number; cap?: number;
 }
 
 const READ_BITS = 16;
@@ -82,7 +82,7 @@ function callsTo(V: Variant, l: Line, t: Line, lensId: string): Option | null {
 }
 
 export function simulate(o: SimOpts = {}) {
-  const physics = { ...LINES_BEGINNER_PHYSICS, ...(o.gravity === undefined ? {} : { gravity: o.gravity }), ...(o.K === undefined ? {} : { estimatorStarts: o.K }), ...(o.band === undefined ? {} : { sameSizeBand: o.band }) };
+  const physics = { ...LINES_BEGINNER_PHYSICS, ...(o.gravity === undefined ? {} : { gravity: o.gravity }), ...(o.K === undefined ? {} : { estimatorStarts: o.K }), ...(o.band === undefined ? {} : { sameSizeBand: o.band }), ...(o.cap === undefined ? {} : { largestNumber: o.cap }) };
   const V = withPhysics(lineQ, physics);
   const power = o.power ?? LINES_BEGINNER_ECONOMY.powerPerSecond, store = o.store ?? LINES_BEGINNER_ECONOMY.fullChargeSeconds;
   const seed = o.seed ?? "s", R: Rng = makeRng("balance", seed);
@@ -206,7 +206,7 @@ export function simulate(o: SimOpts = {}) {
       const Eb = L.E, lb = L.line === x.to ? null : null;
       L.E = seats.map(z => est(L.line, z));
       if (process.env.TRACE && L.E[s.i]! - Eb[s.i]! > Math.max(100, 3 * x.bits)) console.error(JSON.stringify({ t, fam: s.fam, params: s.params, bits: x.bits, calls: x.calls, from: prev, to: key(x.to), Eb: Eb[s.i], Ea: L.E[s.i], uB: s.rule.u(prevLine), uA: s.rule.u(x.to) }));
-      log.push([t, s.i, lines.indexOf(L), Math.round(x.bits * 10) / 10, x.calls.length, Math.round((L.E[s.i]! - Eb[s.i]!) * 10) / 10, Math.round(L.E.reduce((a, e, j) => a + (j === s.i ? 0 : e - Eb[j]!), 0) * 10) / 10]);
+      log.push([t, s.i, lines.indexOf(L), Math.round(x.bits * 10) / 10, x.calls.length, Math.round((L.E[s.i]! - Eb[s.i]!) * 10) / 10, Math.round(L.E.reduce((a, e, j) => a + (j === s.i ? 0 : e - Eb[j]!), 0) * 10) / 10, sizeBits(L.line) - sizeBits(prevLine)]);
     }
     if ((t + 1) % 30 === 0) snaps.push({ t: t + 1, points: totals(), energy: energies(), balance: seats.map(s => s.balance), turns: seats.map(s => s.turns) });
   }
@@ -220,6 +220,7 @@ export function simulate(o: SimOpts = {}) {
     lineStates: lines.map(L => L.line),
   };
 }
+const sizeBits = (l: Line) => [l.a, l.b, l.c].map(v => (v < 0n ? -v : v)).reduce((t, v) => (v > t ? v : t), 0n).toString(2).length;
 export const median = (xs: number[]) => { if (!xs.length) return 0; const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]!; };
 
 if (import.meta.url === `file://${process.argv[1]}`) {

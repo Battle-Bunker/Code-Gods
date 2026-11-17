@@ -3,9 +3,8 @@
 // A turn pins one lens (a list of whole numbers) and makes a list of mutations on those numbers. It costs
 //   - the naming bits of each mutation: which mutation (log2 of the menu), which number (log2 of the lens's count),
 //     its argument (a self-delimiting whole-number code, plus a sign bit where relevant), and one "continue" bit;
-//   - plus the turn's surprise: for each whole number of the lens, (s + g)² / (2 ln 2), with s = H(after) − H(before)
-//     its rise in information size and g = λ·ln 2 / 2 the drift of a passive jiggle one bit wide whose resting law is
-//     ∝ 2^(−λH). Rises cost more than equal falls by λ·|s|; an unchanged number pays g² / (2 ln 2) (holding).
+//   - plus the turn's surprise: for each whole number of the lens, s² / (2 ln 2) + (λ/2)·s, with s = H(after) − H(before)
+//     its change in information size; the turn's total never goes below zero (owner, 17 Nov: gravity λ is the uphill toll).
 
 /** The passive downward drift per turn, in bits, at gravity λ (the game's physics setting `gravity`). */
 export const driftOf = (lambda: number): number => (lambda * Math.LN2) / 2;
@@ -56,22 +55,27 @@ export function namingBits(m: { menuSize: number; lensSize: number; argBits: num
 }
 
 /**
- * Surprise of a turn's overall change, in bits. `crossed[i]` marks a number that an additive change carried through
- * zero: its path runs down to zero and up again, so the square uses that path's length (the drift term keeps the net
- * rise, so the cost stays the surprise of a reversible jiggle and is never negative).
+ * One number's part of a turn's surprise, in bits (unfloored: a fall is negative): path² / (2 ln 2) + (λ/2)·s, with s the
+ * net change in size (bits; negative going down) and path |s|, or, for a number an additive change carried through zero,
+ * the length of its path down to zero and up again (hb + ha). Gravity λ is the uphill toll: a rise of s bits costs λ·s/2
+ * more than its stride, a fall λ·s/2 less (owner, 17 Nov: "make big numbers genuinely expensive to reach").
+ */
+export function numberSurprise(lambda: number, before: bigint | number, after: bigint | number, crossed = false): number {
+  const hb = infoSize(before), ha = infoSize(after), s = ha - hb, path = crossed ? hb + ha : Math.abs(s);
+  return (path * path) / (2 * Math.LN2) + (lambda / 2) * s;
+}
+
+/**
+ * Surprise of a turn's overall change, in bits: the sum of its numbers' parts (numberSurprise), and never below zero (a
+ * turn never costs less than its naming bits: going down can cancel its own stride but never pays out). An unchanged
+ * number costs nothing. `crossed[i]` marks a number an additive change carried through zero.
  */
 export function turnSurprise(lambda: number, before: readonly (bigint | number)[], after: readonly (bigint | number)[], crossed?: readonly boolean[]): number {
   if (before.length !== after.length) throw new Error("turnSurprise: lens lengths differ");
   if (!Number.isFinite(lambda) || lambda < 0) throw new Error("turnSurprise: gravity must be a finite number ≥ 0");
-  const g = driftOf(lambda);
   let total = 0;
-  for (let i = 0; i < before.length; i++) {
-    const hb = infoSize(before[i]), ha = infoSize(after[i]);
-    const s = ha - hb;
-    const path = crossed?.[i] ? hb + ha : Math.abs(s);
-    total += (path * path + 2 * g * s + g * g) / (2 * Math.LN2);
-  }
-  return total;
+  for (let i = 0; i < before.length; i++) total += numberSurprise(lambda, before[i]!, after[i]!, crossed?.[i] ?? false);
+  return Math.max(0, total);
 }
 
 export type TurnPrice = { naming: number; surprise: number; total: number };

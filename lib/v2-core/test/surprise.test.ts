@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { driftOf, argBits, universalBits, infoSize, namingBits, turnCost, turnSurprise } from "../src/surprise.ts";
+import { argBits, universalBits, infoSize, namingBits, turnCost, turnSurprise } from "../src/surprise.ts";
 
 test("information size and codes", () => {
   assert.equal(infoSize(0), 0);
@@ -16,11 +16,15 @@ test("information size and codes", () => {
   assert.equal(namingBits({ menuSize: 8, lensSize: 4, argBits: 3 }), 3 + 2 + 3 + 1);
 });
 
-test("holding costs the small constant; up costs more than down by λ·|s|", () => {
-  const hold = turnSurprise(1, [5], [5]);
-  assert.ok(Math.abs(hold - driftOf(1) ** 2 / (2 * Math.LN2)) < 1e-12);
-  const up = turnSurprise(1, [7], [15]), down = turnSurprise(1, [15], [7]);
-  assert.ok(Math.abs(up - down - 1 * 1) < 1e-12); // s = 1 bit, λ = 1
+test("holding costs nothing; up costs the stride plus λ·s/2, down the stride less λ·s/2, never below zero", () => {
+  assert.equal(turnSurprise(1, [5], [5]), 0);
+  const stride = 1 / (2 * Math.LN2);   // s = 1 bit (7 → 15)
+  assert.ok(Math.abs(turnSurprise(1, [7], [15]) - (stride + 0.5)) < 1e-12);
+  assert.ok(Math.abs(turnSurprise(1, [15], [7]) - (stride - 0.5)) < 1e-12);
+  assert.equal(turnSurprise(4, [15], [7]), 0, "λ/2 past the stride: the fall is free, never paid out");
+  assert.ok(Math.abs(turnSurprise(10, [7], [15]) - (stride + 5)) < 1e-12, "the toll grows with gravity");
+  // A rise and a fall in one turn: the fall's credit offsets the rise's toll within the turn.
+  assert.ok(Math.abs(turnSurprise(1, [7, 15], [15, 7]) - 2 * stride) < 1e-12);
 });
 
 test("a rise in one turn costs more than the same rise in several (big steps are super-linear)", () => {
@@ -31,7 +35,7 @@ test("a rise in one turn costs more than the same rise in several (big steps are
 });
 
 test("crossing zero pays the path down and up", () => {
-  const plain = turnSurprise(1, [7], [7]);
+  const plain = turnSurprise(1, [7], [-7]);
   const crossed = turnSurprise(1, [7], [-7], [true]);
   assert.ok(crossed > plain + 10);
 });
