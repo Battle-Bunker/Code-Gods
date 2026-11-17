@@ -33,6 +33,7 @@
 {"item": "§2.2", "title": "Births: Poisson", "status": "call", "refs": ["call 4", "owner 31"], "evidence": "world.ts; tick.ts", "tests": []},
 {"item": "§2.2", "title": "Integer and string objects", "status": "owner", "refs": ["owner 15"], "evidence": "—", "tests": []},
 {"item": "§2.2", "title": "Grid object boards", "status": "partly", "refs": ["call 13", "call 37", "call 39", "#925", "#1045"], "evidence": "presets.ts PRESETS (grids-beginner, grids-more-rules, grids-original-colours); lib/v2-grid-boards type.ts BOARD_VARIANTS", "tests": []},
+{"item": "§2.2", "title": "Two-line systems (a pair of lines as one object; v2's own, Lines · two-line systems)", "status": "missing", "refs": [], "evidence": "— (archive: git history before this PR)", "tests": []},
 {"item": "§2.2", "title": "Opportunity targeting: uniform or shelter", "status": "call", "refs": ["call 32"], "evidence": "tick.ts header comment (an object uniformly)", "tests": []},
 {"item": "§2.3", "title": "Payoff", "status": "kept", "refs": [], "evidence": "world.ts valueOf, valuesOf; disclose.ts standingsFor", "tests": ["artifacts/engine/test/v2-log.test.ts", "artifacts/engine/test/v2-noise.test.ts", "artifacts/engine/test/v2-game.test.ts"]},
 {"item": "§2.3", "title": "Bits are rarity", "status": "owner", "refs": ["owner 10", "owner 4", "owner 19", "owner 20", "owner 22", "owner 23"], "evidence": "values.ts worthOf", "tests": []},
