@@ -11,7 +11,6 @@ import assert from "node:assert/strict";
 import { Qn, type ObjectType, type Variant } from "@workspace/v2-core";
 import { gridPresets, gridType } from "@workspace/v2-grid";
 import { fromMC, lineType, presets } from "@workspace/v2-linear";
-import { pairPresets, pairQ, pairType } from "@workspace/v2-pair";
 import { DEFAULT_LIMITS } from "@workspace/v2-sandbox";
 import { births } from "../src/births.ts";
 import { CATALOGUE, runAct, sandboxes, startersFor } from "../src/index.ts";
@@ -33,7 +32,6 @@ const cases: Case[] = [
     return f && params ? [{ family: f.id, params, tieBreakers: f.tieBreakers.map(t => t.id).filter(id => e.tieBreakers[id]) }] : [];
   }) },
   { type: gridType as ObjectType<any>, variant: grid4, rules: gridPresets.flatMap(p => p.rules), states: births(gridType as ObjectType<any>, grid4, "budget", 3) },
-  { type: pairType as ObjectType<any>, variant: pairQ, rules: pairPresets.flatMap(p => p.rules), states: births(pairType as ObjectType<any>, pairQ, "budget", 2) },
 ];
 
 test("every shipped starter stays within 60% of the step limit on big objects, in both languages", { timeout: 900_000 }, async () => {

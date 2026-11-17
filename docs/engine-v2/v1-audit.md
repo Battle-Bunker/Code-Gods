@@ -80,6 +80,7 @@ delegation"; a call number below means the one whose subject is named.
 | §2.2 Births: Poisson | call 4; owner 31 (beginner) | world.ts; tick.ts |
 | §2.2 Integer and string objects | owner 15 | — |
 | §2.2 Grid object boards | partly: call 13 (grids-more-rules on the 4×4 digit board); call 37 and #925 (v1's coloured 4×4 board, Grids · original colours); Grids · arithmetic withdrawn (#1045, call 39); the 5×5, 6×6 and 7×7 card boards are in lib/v2-grid-boards but in no preset, **STILL MISSING** as setups | presets.ts PRESETS (grids-beginner, grids-more-rules, grids-original-colours); lib/v2-grid-boards type.ts BOARD_VARIANTS |
+| §2.2 Two-line systems (a pair of lines as one object; v2's own, Lines · two-line systems) | **STILL MISSING**: lib/v2-pair, its preset, starters and gallery deleted 17 Nov (the coordinator, relaying the owner: "Throw out old junk that no longer applies"); it priced moves with the old line mutators and codes. To be rebuilt on the turn law (lenses, naming + surprise) and the energy estimator; size: a new object type | — (archive: git history before this PR) |
 | §2.2 Opportunity targeting: uniform or shelter | call 32 (shelter not restored) | tick.ts header comment (an object uniformly) |
 | §2.3 Payoff | kept | world.ts valueOf, valuesOf; disclose.ts standingsFor |
 | §2.3 Bits are rarity | owner 10 (4, 19, 20, 22, 23) | values.ts worthOf |

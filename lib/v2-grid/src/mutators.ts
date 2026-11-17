@@ -7,7 +7,7 @@
  * surcharge (half the growth of the board's total). Every move's inverse is proposed with the same weight, so the
  * price list is an exact potential (owner decision 19; test/potential.test.ts).
  */
-import { amountCode, choiceBits, sampleAmount, whichBits, type ArgCode, type Invalid, type ArgHelp, type Mutator, type Rng, type Variant } from "@workspace/v2-core";
+import { argBits, choiceBits, whichBits, type ArgCode, type Invalid, type ArgHelp, type Mutator, type Rng, type Variant } from "@workspace/v2-core";
 import { at, cellLabel, cellName, gridParams, inDomain, type GridState } from "./grid.ts";
 import { BOX_NAMES, RING_NAMES, RING_WORDS, bigSquares, boxes, lines, pairs, rings, windows } from "./units.ts";
 
@@ -31,12 +31,12 @@ const oneOf = (names: readonly string[]): Field => ({
   decode: w => { if (typeof w !== "string" || !names.includes(w)) throw new RangeError(`must be one of ${names.join(", ")}`); return w; },
 });
 
-/**
- * The amount part of a call: a nonzero whole number, priced against the rest of the call (v2-core codes.ts, "far moves
- * are dear"): with o the bits of which + the call's choices, k costs rate(o)·|k| − o, so the call's whole fee is
- * rate(o)·|k| and a move of k costs exactly |k| moves of 1.
- */
-const amountBits = (k: number, o: number): number => amountCode(o, 1, false).bits(Math.abs(k));
+/** The amount part of a call: a nonzero whole number, named by the turn law's code (Rissanen with a sign bit). */
+const amountBits = (k: number, _o: number): number => argBits(k, true);
+/** Amounts beyond this are not listed (a board holds small digits; the code grows only like log k, so listing by price never ends). */
+const MAX_LISTED_AMOUNT = 20;
+/** A nonzero amount drawn with each extra binary digit half as likely, and a random sign (for births' walk). */
+const sampleK = (rng: Rng): number => { let L = 1; while (L < 30 && rng.below(2) === 1) L++; const lo = 2 ** (L - 1); const m = lo + rng.below(lo); return rng.below(2) ? m : -m; };
 function decodeAmount(w: unknown): number {
   const s = typeof w === "number" ? String(w) : w;
   if (typeof s !== "string" || !/^-?\d+$/.test(s)) throw new RangeError("must be a whole number");
@@ -63,7 +63,7 @@ function fields(base: number, spec: Readonly<Record<string, Field>>, amount = fa
       if (amount) {
         partial = partial.flatMap(p => {
           const o = base + p.bits, out: typeof partial = [];
-          for (let k = 1; p.bits + amountBits(k, o) <= maxBits + 1e-9; k++) for (const x of [k, -k]) out.push({ a: { ...p.a, k: x }, bits: p.bits + amountBits(x, o) });
+          for (let k = 1; k <= MAX_LISTED_AMOUNT && p.bits + amountBits(k, o) <= maxBits + 1e-9; k++) for (const x of [k, -k]) out.push({ a: { ...p.a, k: x }, bits: p.bits + amountBits(x, o) });
           return out;
         });
       }
@@ -73,7 +73,7 @@ function fields(base: number, spec: Readonly<Record<string, Field>>, amount = fa
     sample: rng => {
       const out: Record<string, string | number> = {};
       for (const k of choiceNames) { const v = spec[k]!.sample(rng); if (v === null) return null; out[k] = v; }
-      if (amount) out.k = Number(sampleAmount(rng, base + choiceBitsOf(out), false)!.n);
+      if (amount) out.k = sampleK(rng);
       return out;
     },
     encode: a => Object.fromEntries(names.map(k => [k, String(a[k])])),

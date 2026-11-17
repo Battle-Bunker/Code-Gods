@@ -6,10 +6,9 @@ import { withPhysics, type ObjectType, type Variant } from "@workspace/v2-core";
 import { physicsForVariant } from "@workspace/v2-economy";
 import { lineType } from "@workspace/v2-linear";
 import { gridType } from "@workspace/v2-grid";
-import { pairType } from "@workspace/v2-pair";
 import { BOARD_TYPES } from "@workspace/v2-grid-boards";
 
-export const OBJECT_TYPES: readonly ObjectType<any>[] = [lineType, gridType, pairType, ...BOARD_TYPES];
+export const OBJECT_TYPES: readonly ObjectType<any>[] = [lineType, gridType, ...BOARD_TYPES];
 
 /** The type a variant belongs to (lines when this build does not know the variant). */
 export function objectTypeOf(variantId?: string | null): ObjectType<any> {
@@ -42,7 +41,6 @@ const WORDS: Readonly<Record<string, ObjectWord>> = {
   board5: { one: "grid", One: "Grid", many: "grids", Many: "Grids" },
   board6: { one: "grid", One: "Grid", many: "grids", Many: "Grids" },
   board7: { one: "grid", One: "Grid", many: "grids", Many: "Grids" },
-  pair: { one: "pair of lines", One: "Pair of lines", many: "pairs of lines", Many: "Pairs of lines" },
 };
 /** What a game of this variant calls its objects. */
 export const objectWord = (variantId?: string | null): ObjectWord => WORDS[objectTypeOf(variantId).id] ?? WORDS.line!;

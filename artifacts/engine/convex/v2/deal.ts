@@ -22,7 +22,6 @@ import { canonicalJson, hashHex, rng, ruleLayers, type Rng, type RuleFamily } fr
 import type { BidDealer } from "@workspace/v2-economy";
 import { hasStarters } from "@workspace/v2-agents/pure";
 import { findVariant, objectTypes, ruleKey } from "@workspace/v2-valuation";
-import { pairClashes, pairSeatingCost } from "@workspace/v2-pair";
 import type { Preset } from "./presets.ts";
 
 /** A rule as dealt: enough to evaluate it (family, params, tie-breaker). */
@@ -92,16 +91,17 @@ export function freshDeal(pool: readonly DealtRule[], seats: number, seed: strin
 /**
  * Whether a variant has a seating rule (pairs: lib/v2-pair seating.ts, by family and dealt parameters).
  */
-export const hasSeatingRule = (variant: string): boolean => findVariant(variant).type.id === "pair";
+export const hasSeatingRule = (_variant: string): boolean => false;
 export const isGridVariant = (variant: string) => findVariant(variant).type.id === "grid";
-const isPair = (variant: string) => findVariant(variant).type.id === "pair";
 /** The pairs of seated rules a variant's seating rule forbids; none where it has none. */
 export function seatingClashes(variant: string, rules: readonly SeatedRule[]): string[] {
-  return !hasSeatingRule(variant) ? [] : pairClashes(rules);
+  void variant; void rules;
+  return [];
 }
 /** A table's seating cost (forbidden pairs, then aligned ones); 0 where the variant has no seating rule. */
 export function seatingCost(variant: string, rules: readonly SeatedRule[]): number {
-  return !hasSeatingRule(variant) ? 0 : pairSeatingCost(rules);
+  void variant; void rules;
+  return 0;
 }
 const familySet = (pool: readonly { family: string }[]) => new Set(pool.map(r => r.family));
 /** Shuffles a seating rule may draw before it settles for the deal with the fewest clashes. */
@@ -114,7 +114,8 @@ const SEATING_TRIES = 200;
  * draw uniform. Lines and grids keep one draw per shuffle, so their seeded deals are unchanged.
  */
 const PAIR_ENTRY_TRIES = 12;
-const entryTriesOf = (variant: string | undefined): number => (variant && isPair(variant) ? PAIR_ENTRY_TRIES : 1);
+const entryTriesOf = (_variant: string | undefined): number => 1;
+void PAIR_ENTRY_TRIES;
 /** The deal's random stream for a game seed: the fresh deal and the bid dealer draw from the same one. */
 export const dealRng = (seed: string): Rng => rng(seed, "deal");
 /**

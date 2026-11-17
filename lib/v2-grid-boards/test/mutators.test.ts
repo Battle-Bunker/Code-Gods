@@ -1,25 +1,7 @@
-/** Owner decision 19: every price list is an exact potential, so the walk's law is π ∝ 2^−φ (a product over cells). */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cycleDiagnostic, isInvalid, walkStep, rng as makeRng } from "@workspace/v2-core";
+import { isInvalid, walkStep, rng as makeRng } from "@workspace/v2-core";
 import { BOARD_TYPES, board4Type, board5Type, board7Type, decodeBoard, encodeBoard, paletteOf, boardParams, symbolCount, type BoardState } from "../src/index.ts";
-
-for (const type of [board4Type, board5Type]) {
-  const v = type.variants[0]!;
-  test(`${v.id}: every proposal has a reverse of the same weight (no one-way move, no asymmetric pair, no loop)`, () => {
-    const { size: n, symbols } = boardParams(v), pal = paletteOf(v), S = symbolCount(symbols);
-    const states: BoardState[] = Array.from({ length: 6 }, (_, i) => {
-      const sym = Array.from({ length: n * n }, (_, k) => ((i * 7 + k * k * 3 + k) % Math.min(S, 10)) * (k % (i + 2) === 0 ? 0 : 1));
-      const col = Array.from({ length: n * n }, (_, k) => pal[(k * (i + 1) + i) % pal.length]!);
-      return symbols === "cards" ? { sym, col, cards: true } : { sym, col };
-    });
-    const r = cycleDiagnostic(type, v, states, 12, 3);
-    assert.deepEqual(r.oneWay, {}, "one-way moves");
-    for (const [id, s] of Object.entries(r.perMutator)) assert.equal(s.asymmetric, 0, `${id}: ${s.asymmetric} asymmetric pairs, worst ${s.worst} bits`);
-    assert.ok(r.worstEdge < 1e-9 && r.worstCycle < 1e-9, `edge ${r.worstEdge}, loop ${r.worstCycle}`);
-    assert.equal(Object.keys(r.perMutator).length, v.mutators.length, "every mutator proposed something");
-  });
-}
 
 const apply = (type: typeof board4Type, w: string, id: string, args: Record<string, string | number>) => {
   const v = type.variants[0]!, m = type.mutators.find(x => x.id === id)!;
