@@ -312,6 +312,29 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     families are the only line rules (energy.md); the old line families, tie-breakers, tree rules, trial modes and the
     line seating and opponent tables are deleted, one line per old family in old-rule-ideas.md. Grids and pairs follow.
 
+51. On the cost of a move (relayed by the coordinator, 17 November), on the pricing then built (a size, times a solved
+    rate, then W + 0.05 W²): "a completely dysfunctional Frankenstein mess ... We want one principled mutator costing
+    paradigm not a mess of different things arbitrarily multiplied together ... I don't even understand why the raw
+    number is involved in energy cost of a move ... Information size of an action is a core principle. Pushing against
+    gravity being harder than with it is a mechanic we want to fall out elegantly too ... I want a cost function that will
+    appear mathematically beautiful to a physicist and an information theorist ... a metaphor for cost that *naturally*
+    makes big steps cost a super-linear amount relative to small steps." "Relinquish attachment to old ideas and
+    intentions and start over." On the proposal of cost as the surprise of a passive jiggle: "The energy cost as
+    improbability proposal is looking promising." "I thought we were defining energy in terms of surprise in bits?
+    That's the unit. I would think we should be changing energy income levels to produce game balance with respect to
+    energy as a measure of bits rather than adding yet another arbitrary factor." "Ok good execute this."
+
+52. On rationals and lenses (relayed by the coordinator, 17 November): "let's more cleanly try to make every parameter a
+    pair of integers that we interact with separately. You can't add 1/2 to 1/3 but you can first multiply the
+    denominator by 3 and then add 4 to the numerator." "I still don't want any privileged lenses/representations. That's
+    super important." "we could pin one representation per turn/act. We charge each mutation within the act for its
+    information content and then charge the turn as a whole for the surprise its overall parameter changes produce
+    within its chosen representation." "Damage needs to be clever to be hard to repair cheaply via a different lens."
+    On the energy estimate: "I don't like the need for a horizon dial. Can we estimate the cheapest route using
+    heuristic aided random search without a horizon dial?" Built 17 November: lib/v2-core surprise.ts (the turn's
+    price), lib/v2-linear lens-moves.ts (four lenses, six whole-number mutations, newborns from lens draws), energy is
+    bits (no W + 0.05 W²); see spec.md §5.
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact
