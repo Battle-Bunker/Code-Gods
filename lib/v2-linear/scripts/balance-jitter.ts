@@ -15,13 +15,13 @@ const Ks = [4, 8, 12, 16, 24], READS = 12;
 const rows: Record<number, { pairs: number; swaps: number; closePairs: number; closeSwaps: number; relSd: number[]; ms: number[] }> = {};
 for (const K of Ks) rows[K] = { pairs: 0, swaps: 0, closePairs: 0, closeSwaps: 0, relSd: [], ms: [] };
 for (const seed of ["j0", "j1", "j2", "j3"]) {
-  const g = simulate({ seed, rot: Number(seed[1]), worldSeconds: 600 });
+  const g = simulate({ seed, rot: Number(seed[1]), worldSeconds: Number(process.env.JITTER_SECONDS ?? 600) });
   const rules = g.seats.map(s => lineRule((dynamicFamilies.find(f => f.id === s.fam) as any).dynamic, s.params));
   const standing = (K: number, r: number) => {
     const E = g.lineStates.map((l, li) => rules.map((rule, i) => {
       const t0 = performance.now();
       const e = estimateLine(l, rule, V, { K, seed: `${seed}:${K}:${r}:${li}:${i}` }).energy;
-      rows[K]!.ms.push(performance.now() - t0);
+      rows[K]?.ms.push(performance.now() - t0);
       return e;
     }));
     return rules.map((_, i) => E.reduce((t, e) => { const sum = e.reduce((a, b) => a + b, 0); return t + e[i]! * Math.max(0, sum - e[i]!); }, 0));
