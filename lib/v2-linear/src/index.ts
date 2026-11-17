@@ -8,3 +8,4 @@ export * from "./law.ts";
 export * from "./energy.ts";
 export * from "./dynamic-families.ts";
 export * from "./lens-routes.ts";
+export * from "./fractal-lenses.ts";

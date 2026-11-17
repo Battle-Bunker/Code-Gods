@@ -155,9 +155,9 @@ test("summon price: comments are free, names cost once, the Q. prefix is JavaScr
 test("check: works, warns, fails and rejected, with the summon price and every act", async () => {
   const samples = births(lineType, lineZ, "check", 3).map((state, i) => ({ objectId: `o${i}`, state }));
   const run = (language: Language, source: string, s = samples) => boxes.get(language).then(box => check(box, {
-    type: lineType, variant: lineZ, rule: { family: "power-hug", params: { k: 3 } }, program: { language, source }, samples: s, energy: 100,
+    type: lineType, variant: lineZ, rule: { family: "multiples", params: { k: 3 } }, program: { language, source }, samples: s, energy: 100,
   }));
-  const simple = all.find(a => a.family === "power-hug" && a.kind === "simple" && a.language === "python")!;
+  const simple = all.find(a => a.family === "multiples" && a.kind === "simple" && a.language === "python")!;
   const works = await run("python", simple.source);
   assert.equal(works.verdict, "works", works.summary);
   assert.equal(works.price, summonBits("python", simple.source).energy);
@@ -181,15 +181,15 @@ test("after a first summon at the first-agent share, the player's store can stil
   assert.ok((1 - share) * e.powerPerSecond * e.fullChargeSeconds >= dearest, "the store's capacity holds the dearest agent");
 });
 
-test("on a rational line the starters clear a fraction their rule cares about: y = 2x + 7/3 goes to a whole intercept (Power Hug, powers of 3)", async () => {
+test("on a rational line the starters clear a fraction their rule cares about: y = 2x + 7/3 goes to a whole intercept (Multiples, powers of 3)", async () => {
   const at = { lines: [fromMC(q(2), q(7, 3))] };
   for (const language of ["typescript", "python"] as const) {
-    const simple = startersFor("power-hug", language).find(a => a.kind === "simple")!;
+    const simple = startersFor("multiples", language).find(a => a.kind === "simple")!;
     const { record, state } = await runAct(await boxes.get(language), {
-      type: lineType, variant: lineQ, state: at, rule: { family: "power-hug", params: { k: 3 }, tieBreaker: null }, program: program(simple), seed: "1", energy: 500,
+      type: lineType, variant: lineQ, state: at, rule: { family: "multiples", params: { k: 3 }, tieBreaker: null }, program: program(simple), seed: "1", energy: 500,
     });
     assert.equal(record.outcome, "committed", `${language}: ${record.reason}`);
-    const v = new EngineHost({ type: lineType, variant: lineQ, state, rule: { family: "power-hug", params: { k: 3 } }, energy: 0 }).handle({ op: "view", rep: "si" } as never, { hostCallsLeft: 5 }) as { result: { elements: { c: { q: string } } } };
+    const v = new EngineHost({ type: lineType, variant: lineQ, state, rule: { family: "multiples", params: { k: 3 } }, energy: 0 }).handle({ op: "view", rep: "si" } as never, { hostCallsLeft: 5 }) as { result: { elements: { c: { q: string } } } };
     assert.ok(!v.result.elements.c.q.includes("/"), `${language}: the intercept is whole now (${v.result.elements.c.q})`);
   }
 });

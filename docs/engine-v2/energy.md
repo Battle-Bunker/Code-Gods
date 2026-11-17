@@ -24,8 +24,8 @@ from a random object of the same 'size'". This replaces the value tables (decisi
   ±4^j, ×/÷ 2, 3, 10, negate, swap, round; at most six steps; given up 16 bits past the best route), and the rule's
   `candidates` (its old searches' targets).
 - **Time and spread** (seen narrowly: one good line per rule from its candidates, its first dealt parameters, six seeds,
-  Node on this machine): 0–60 ms an estimate; repeat sd 2–9% for most rules, 16–25% for Power Hug and Circle Kiss.
-  The Convex runtime's figure is not measured (the local backend would not start here). The lenses and their prices are the game's own (lens-moves.ts: each mutation which + where + argument + continue bit, the lens named once a turn).
+  Node on this machine): 0–60 ms an estimate; repeat sd 2–9% for most rules, 16% for Circle Kiss (25% for Power Hug, deleted 17 Nov).
+  In the Convex runtime (seen narrowly: artifacts/engine test/v2-energy-cost.test.ts, one Lines · beginner game, the local backend on this machine, 17 Nov): a commit (every seat's energy on the changed line) took a median 155 ms and at most 207 ms over 20 commits; a look at every object a median 107 ms and at most 162 ms. The test fails past 600 ms; Convex stops a mutation at 1 s. The lenses and their prices are the game's own (lens-moves.ts: each mutation which + where + argument + continue bit, the lens named once a turn).
 
 ### Spot check: does the universal climb alone match the best route found with candidates? (seen narrowly)
 
@@ -56,6 +56,17 @@ Energy against depth (seen narrowly: one line per depth, K = 12, mean of three s
 |---|---|
 | Prime Sliver 3: m = 1/3, 1/3², 1/3⁴, 1/3⁶, 1/3⁹, 1/3¹² | 6, 9, 16, 22, 31, 41 bits |
 | Crossing Pattern 1: X = 5/3, 13/8, 55/34, 233/144, 1597/987 (4–16 ones) | 6, 14, 24, 33, 46 bits |
+
+Two more fine-structure rules (the coordinator's order, 17 Nov; new families, dealt on every fraction board):
+
+| Rule | Reads | Utility (bigger better) | Space |
+|---|---|---|---|
+| Prime Balance | c | 2·min(p's in the top, q's in the bottom) − \|their difference\| − log2 (the rest of the top) − log2 (the rest of the bottom) | p ≠ q from 2, 3, 5, 7, 11, 13 (30) |
+| Recurrence Pair | m | n − 2 log2(1 + \|bottom − x(n)\|) − 2 log2(1 + \|top − x(n+1)\|), x(n) the term of 1, a, a·x + x′, … nearest the bottom | a 1–6 |
+
+| Prime Balance 2 3: c = 2/3, 2²/3², 2⁴/3⁴, 2⁶/3⁶, 2⁹/3⁹, 2¹²/3¹² | 6, 16, 27, 35, 47, 56 bits |
+|---|---|
+| Recurrence Pair 1: m = 3/2, 8/5, 21/13, 144/89, 1597/987, 17711/10946 | 4, 16, 22, 31, 43, 52 bits |
 
 Built and tested (test/dynamic-families.test.ts): energy rises with depth for each, and at most one of 12 same-size
 starts already qualifies at the deepest state tested. The agents' scores follow (lib/v2-agents dynamic-catalogue.ts,
@@ -131,7 +142,6 @@ better), the readings it `reads`, and its own `searches` (heuristics that propos
 
 | Family | Reads | Utility (bigger better) | Pulls | Space |
 |---|---|---|---|---|
-| Power Hug | c | √(log2 P) − \|c − P\|³, P the nearest power of k (the owner's example) | up, precise | k 2–40 |
 | Prime Hug | m | √(log2 p) − \|m − p\|³, p the nearest prime ending in the suffix | up, precise | 444 suffixes |
 | Multiples | c | (log2\|n\| − √\|c − n\|) × (k's in n − other factors): the owner's example | up | k 2–12 |
 | Fine Bottom | c | log2 (k-part of c's bottom) − 2 log2 (rest of the bottom) | fractions | k 2–9 |
@@ -139,6 +149,8 @@ better), the readings it `reads`, and its own `searches` (heuristics that propos
 | Unit Fraction | c | the bottom's last digits matching the suffix repeated − (\|top\| − 1)³ (fine structure, 17 Nov) | finer bottoms | 99 suffixes |
 | Prime Sliver | m | e·log2 p for p^e dividing the bottom − log2 (rest of the bottom) − log2 \|top\| (17 Nov) | deeper powers of p | 46 primes |
 | Crossing Pattern | X | leading continued-fraction whole parts of \|X\| following the pattern − ¼ per whole part after the first miss (17 Nov) | longer patterns | 84 patterns |
+| Prime Balance | c | 2·min(p's in the top, q's in the bottom) − their difference − log2 of what is left of each (17 Nov) | deeper balanced powers | 30 prime pairs |
+| Recurrence Pair | m | the place n of the dealt sequence's term nearest the bottom − 2 log2 of how far bottom and top are from x(n), x(n+1) (17 Nov) | later neighbours | a 1–6 |
 | Stepping Coefficients | a, b, c | log2 max(\|a\|, \|b\|, \|c\|) − 2(\|b − a − d\| + \|c − b − d\|), ax + by + c = 0 in lowest whole numbers, b > 0 | up, in steps | d ±1–30 |
 | Circle Kiss | m, c | ½ log2(p² + q²) − 4 \|c²/(1 + m²) − R²\|, m = p/q: touch the circle of radius R (Pythagorean tilts) | finer tilts | R 1–60 |
 | Square Triangle | m, c (the area c²/2\|m\|) | log2 n − 2√\|area − n²\|, n the multiple of k with n² nearest | area up | k 2–30 |
@@ -166,8 +178,8 @@ Labels as above. Several rows assumed tables or tie-breakers, and the adaptation
 | 3, 3a Tie-breaker tied to the main part | Adapted: no tie-breakers. Precision is a term of the utility (cubed or ×4 distance to the anchor the main part chose), so a step to a new anchor restarts the precision climb. |
 | 4 Dealable instances | Built: large spaces (RuleFamily.space); two peers listed per family. |
 | 5 Perpendicular | Not measured: the PMI table is computed from value tables (exempt in v2-rule-check). |
-| 6 Opponents | By construction: on c, Power Hug and Multiples pull the y-intercept up while Unit Fraction wants its top 1 and a long digit tail on its bottom (Fine Bottom wants a bottom of k's: the two bottoms disagree); on m, Prime Hug pulls up, Prime Sliver wants a bottom that is a power of p, Next-door Bottom a bottom dividing top + t; on the x-crossing, Crossing Pattern wants a continued fraction of small dealt whole parts against Square Triangle's big area (area = \|c·X\|/2); Stepping Coefficients' big a, b, c oppose every rule that wants a simple gradient or intercept; Circle Kiss ties c to m (c² = R²(1 + m²)). |
-| 7 Kinds | Powers, large primes, k-multiples, denominators of a base, divisibility of top + t by bottom, digit tails of a bottom, prime-power bottoms, continued-fraction patterns, arithmetic steps, Pythagorean tilts, square areas: no kind shared by more than two. |
+| 6 Opponents | By construction: on c, Multiples pulls the y-intercept up while Unit Fraction wants its top 1 and a long digit tail on its bottom (Fine Bottom wants a bottom of k's: the two bottoms disagree); on m, Prime Hug pulls up, Prime Sliver wants a bottom that is a power of p, Next-door Bottom a bottom dividing top + t; on the x-crossing, Crossing Pattern wants a continued fraction of small dealt whole parts against Square Triangle's big area (area = \|c·X\|/2); Stepping Coefficients' big a, b, c oppose every rule that wants a simple gradient or intercept; Circle Kiss ties c to m (c² = R²(1 + m²)). |
+| 7 Kinds | Powers, large primes, k-multiples, denominators of a base, divisibility of top + t by bottom, digit tails of a bottom, prime-power bottoms, balanced prime powers over a fraction, neighbours in a recurrence, continued-fraction patterns, arithmetic steps, Pythagorean tilts, square areas: no kind shared by more than two. |
 | 10 Small bump | Not measured. Guess: the cubed terms make every off-anchor bump expensive in utility, but energy, not utility, is paid, so the loss is the energy of a slightly worse state. |
 | 12 Writable from the card | Each card states the formula in words. Not tested with a reader. |
 | 13 Lives on the rationals | Fine Bottom, Next-door Bottom, Unit Fraction and Prime Sliver need fractions by construction (their bottoms carry the score), Crossing Pattern a fractional crossing past its first whole part; Circle Kiss's tangent lines have fractional gradients (p/q from a triple) and intercepts (R·h/q); Stepping Coefficients' lines have gradient −a/(a + d). |
@@ -204,7 +216,9 @@ to those particular heuristics".
 - **A candidate only lowers c(x)** (built, tested: test/energy.test.ts): the soft minimum over a larger set of routes.
 - **Spread and time** (seen narrowly: one climbed board per rule, its first dealt parameters, 8 seeds, Node on this
   machine): repeat sd 2–7% of the energy, mean 3.3%; 12–36 ms an estimate. `Estimate.spread` reports the standard
-  error of the mean over the starts.
+  error of the mean over the starts. In the Convex runtime (seen narrowly: test/v2-energy-cost.test.ts, one Grids ·
+  beginner game, the local backend, 17 Nov): a commit took a median 155 ms and at most 200 ms; a look at every object a
+  median 140 ms and at most 172 ms.
 - **Which route wins** (seen narrowly, same boards, K = 20, six seeds): the universal climb is the cheapest route on
   70–100% of starts for six rules (Census and Snake: all), on 52% for Adding Rows, and on about 30% for Row Multiples
   and Power Diagonals, where the anchors (whole rows or diagonals onto multiples or powers) win. Climbed boards cost 40–95 bits; random boards 0–10.

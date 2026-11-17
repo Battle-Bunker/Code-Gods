@@ -912,6 +912,10 @@ back) or TRIAL (a declared experiment, measured and reported).
       matching whole parts); at most 1 of 12 same-size starts qualifies at the deepest state tested. Not yet measured:
       how the rules play against the others in a game.
 
+41. **DELETED** (the owner, 17 Nov): **Power Hug** leaves the line rules (code, deal, agents, mirror): "Power hug seems
+    like a bad interpretation of one of my off hand ideas and it sucks ... I said at the time that was a throw away
+    idea." Not replaced; fresh rules come from the brainstorm sessions.
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.

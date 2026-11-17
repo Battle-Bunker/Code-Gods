@@ -1,10 +1,13 @@
-# Power Hug · Naive (for learning)
-# Main part: the y-intercept right on a power of k. Secondary preference: whichever you were dealt ().
-# What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
-# rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
-# fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
-# It is here to learn from; the other starters fix this.
-# Try this: summon it beside a friend's agent on the same lines and watch your points: then switch to Simple.
+# Recurrence Pair · Simple
+# Main part: the gradient's top and bottom two neighbours in the dealt sequence. Secondary preference: whichever you were dealt ().
+# What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
+# no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
+# the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
+# back again and again) burns energy on both sides: when it finds one it leaves you a note, so you can make a deal
+# with that player and put the line in LEAVE to keep it.
+# Changing it later costs only what you change. To summon another agent, first move power from your agents to your
+# own store (energy moves with it), pay, then share the power out again.
+# Try this: add the seq.step line from the Thorough starter: a third way to change the line.
 
 
 # Number helpers for the rule's utility (decimal numbers; past 10^10 the rule gives no score).
@@ -70,31 +73,41 @@ def factors_n(n):
 
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
-    x = abs(num(c))                                 # the y-intercept's size
-    if x >= LIMIT:
-        return None
-    P, t = p["k"], p["k"]                           # the power of k nearest it
-    while t <= max(p["k"], 2 * x + p["k"]):
-        if abs(t - x) < abs(P - x):
-            P = t
-        t *= p["k"]
-    main = math.sqrt(math.log2(P)) - cube(x - P)
-    # main: the square root of the nearest power's binary digits, less the distance to it cubed (bigger is better)
+    t, d, xs = abs(m.numerator), m.denominator, [1, p["k"]]   # the sequence 1, a, …
+    while xs[-1] <= 2 * d + 2 and len(xs) < 400:
+        xs.append(p["k"] * xs[-1] + xs[-2])
+    n = 0                                             # the term nearest the bottom
+    for i in range(1, len(xs) - 1):
+        if abs(xs[i] - d) < abs(xs[n] - d):
+            n = i
+    main = n - 2 * math.log2(1 + abs(d - xs[n])) - 2 * math.log2(1 + abs(t - xs[n + 1]))
+    # main: the place in the dealt sequence of the term nearest the gradient's bottom, less twice the binary digits of how far bottom and top are from it and the next
     def tier(t):   # each secondary, in order (None: ranks last)
         return None   # none described (a family with no tie-breakers)
     return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
-FAR = 3      # how far one change may go
+FAR = 2      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
+LEAVE = []      # lines your agent skips, e.g. [19] or [4, 9]: others may still move them
+PROTECT = []    # lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
 
 def agent(offer):
+    if offer.object in LEAVE:   # a deal: leave this line alone
+        return None
+    if saving(offer):   # under 10 s of your income in hand: save up for a move
+        return None
+    # A tug-of-war (another player taking back your gains on this line, 3 times lately): tell your owner.
+    contested(offer, 3)
     v = look(offer, "si")      # the line as y = mx + c
     rule = goal(offer)         # your rule (free)
     m, c, p, tie = v.m, v.c, rule.params, rule.tie_breaker
     # (plan, m after, c after): whole-number steps on one lens, tried in the agent's own head
     tries = lens_steps(m, c, FAR)
     options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
+    # A promise: on these lines, only steps that leave the other players at least as well off.
+    if offer.object in PROTECT:
+        options = [(plan, s) for plan, s in options if fair(offer, plan)]
     # The step that raises your points most for its price, weighing the QUOTES best; or None.
     return climb(offer, options, score(m, c, p, tie), QUOTES)

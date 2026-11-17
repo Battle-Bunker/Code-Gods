@@ -1,5 +1,5 @@
-# Power Hug · Thorough
-# Main part: the y-intercept right on a power of k. Secondary preference: whichever you were dealt ().
+# Prime Balance · Thorough
+# Main part: the y-intercept a power of p over the same power of q. Secondary preference: whichever you were dealt ().
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -73,16 +73,17 @@ def factors_n(n):
 
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
-    x = abs(num(c))                                 # the y-intercept's size
-    if x >= LIMIT:
-        return None
-    P, t = p["k"], p["k"]                           # the power of k nearest it
-    while t <= max(p["k"], 2 * x + p["k"]):
-        if abs(t - x) < abs(P - x):
-            P = t
-        t *= p["k"]
-    main = math.sqrt(math.log2(P)) - cube(x - P)
-    # main: the square root of the nearest power's binary digits, less the distance to it cubed (bigger is better)
+    if c == 0:
+        return None                                   # no top to count p's in
+    t, d, ep, eq = abs(c.numerator), c.denominator, 0, 0
+    while t % p["p"] == 0:                             # the p's in the top
+        t //= p["p"]
+        ep += 1
+    while d % p["q"] == 0:                             # the q's in the bottom
+        d //= p["q"]
+        eq += 1
+    main = 2 * min(ep, eq) - abs(ep - eq) - math.log2(t) - math.log2(d)
+    # main: twice the smaller of the p's in the y-intercept's top and the q's in its bottom, less their gap and the binary digits of what is left (bigger is better)
     def tier(t):   # each secondary, in order (None: ranks last)
         return None   # none described (a family with no tie-breakers)
     return [main] + [tier(t) for t in (tie.split(">") if tie else [])]

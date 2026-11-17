@@ -8,3 +8,9 @@ show("Unit Fraction 3", [1, 2, 3, 4, 6, 8].map(L => [`c = 1/${"1" + "3".repeat(L
 show("Prime Sliver 3", [1, 2, 4, 6, 9, 12].map(e => [`m = 1/3^${e}`, est(primeSliver, { p: 3 }, fromMC(q(1n, 3n ** BigInt(e)), q(5)))]));
 show("Crossing Pattern 1", [2, 4, 6, 9, 12, 16].map(k => { const X = fromContinued(Array(k).fill(1n)); return [`X = ${Qn.toWire(X)} (${k} ones)`, est(crossingSliver, { pattern: "1" }, fromMC(q(-2), Qn.mul(q(2), X)))]; }));
 console.log(`ms per estimate ${((performance.now() - t0) / 54).toFixed(1)}`);
+import { primeBalance, recurrencePair } from "../src/index.ts";
+t0 = performance.now();
+show("Prime Balance 2 3", [1, 2, 4, 6, 9, 12].map(e => [`c = 2^${e}/3^${e}`, est(primeBalance, { p: 2, q: 3 }, fromMC(q(5, 7), q(2n ** BigInt(e), 3n ** BigInt(e))))]));
+const fib = [1n, 1n]; while (fib.length < 40) fib.push(fib[fib.length - 1]! + fib[fib.length - 2]!);
+show("Recurrence Pair 1", [2, 4, 6, 10, 15, 20].map(n => [`m = ${fib[n + 1]}/${fib[n]}`, est(recurrencePair, { k: 1 }, fromMC(q(fib[n + 1]!, fib[n]!), q(7)))]));
+console.log(`ms per estimate ${((performance.now() - t0) / 36).toFixed(1)}`);

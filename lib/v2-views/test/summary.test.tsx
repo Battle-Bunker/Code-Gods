@@ -8,12 +8,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { q } from "@workspace/v2-core";
-import { fromMC, lineType, lineZ, powerHug, type LineState, lineQ } from "@workspace/v2-linear";
+import { fromMC, lineType, lineZ, multiples, type LineState, lineQ } from "@workspace/v2-linear";
 import { grid4, gridType } from "@workspace/v2-grid";
 import { GameSummary, summarise, type RuleRef, type SummaryInput } from "../src/index.ts";
 
 const mc = (m: number, c: number): LineState => ({ lines: [fromMC(q(m), q(c))] });
-const rule: RuleRef<LineState, unknown> = { type: lineType, family: powerHug as never, params: powerHug.dealable(lineQ)[0], variant: lineZ, tieBreaker: null };
+const rule: RuleRef<LineState, unknown> = { type: lineType, family: multiples as never, params: multiples.dealable(lineQ)[0], variant: lineZ, tieBreaker: null };
 const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ");
 
 const base: SummaryInput<LineState> = {

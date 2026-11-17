@@ -4,8 +4,8 @@
  * precision is the utility's job ("If utility were sqrt of size of nearest power of k minus distance to that power
  * cubed then it really pays to be closer to the target power").
  *
- * The pool pulls in different directions on shared anchors (CLAUDE.md, decision 30). On the y-intercept c: Power Hug and
- * Multiples (bigger) against Unit Fraction (smaller) and Fine Bottom (fractions). On the gradient m: Prime Hug (bigger)
+ * The pool pulls in different directions on shared anchors (CLAUDE.md, decision 30). On the y-intercept c: Multiples
+ * (bigger) against Unit Fraction (smaller) and Fine Bottom (fractions). On the gradient m: Prime Hug (bigger)
  * against Prime Sliver (smaller) and Next-door Bottom (fractions). On the x-crossing −c/m: Crossing Sliver (towards 0)
  * against Square Triangle (the area |c·X|/2 big). On a, b, c: Stepping Coefficients (big, in steps) against everything
  * that wants a small or simple gradient or intercept. Circle Kiss ties c to m (c² = R²(1 + m²)) and wants fine tilts.
@@ -132,22 +132,6 @@ const suffixSpace: ParamSpace<{ suffix: string }> = {
   parse(text) { const s = text.trim().replace(/^suffix\s*=\s*/, ""); return isSuffix(s) ? { suffix: s } : { invalid: "1 to 3 digits, the last one 1, 3, 7 or 9" }; },
   label: p => p.suffix,
 };
-
-// ------------------------------------------------------------------ 1. Power Hug (the owner's precision example), on c
-
-/** The powers of k from k up to top. */
-const powers = (k: number, top: number) => { const out: number[] = []; for (let p = k; p <= top; p *= k) out.push(p); return out; };
-const nearestPower = (k: number, x: number) => powers(k, Math.max(k, 2 * x + k)).reduce((b, p) => (abs(p - x) < abs(b - x) ? p : b), k);
-const ph = intRange(2, 40, "k, a whole number from 2 to 40", [3, 5]);
-export const powerHug = dynamicLine<{ k: number }>({
-  id: "power-hug", whole: true, title: "Power Hug", goal: "the y-intercept right on a power of k", reads: ["c"], focus: ["si", "c"], ...ph,
-  card: ({ k }) => `The y-intercept (ignoring its sign) should sit exactly on a power of ${k}: ${k}, ${k ** 2}, ${k ** 3}, … A bigger power scores a little more (the square root of its number of binary digits), and every bit off costs a lot: the distance, cubed.`,
-  u(_m, c, { k }) { const x = abs(toNum(c)); if (x >= LIMIT) return NaN; const P = nearestPower(k, x); return Math.sqrt(log2(P)) - cube(x - P); },
-  searches: [{ id: "big-enough-powers", propose: (_m, c, uStar, { k }) => {
-    const x = abs(toNum(c)), ok = powers(k, Math.min(LIMIT, Math.max(k, 8 * x))).filter(P => Math.sqrt(log2(P)) >= uStar - 1e-9);
-    return ok.sort((a, b) => abs(a - x) - abs(b - x)).slice(0, 2).map(P => ({ c: signedQ(P, c) }));
-  } }],
-});
 
 // ------------------------------------------------------------------ 2. Prime Hug, on m
 
@@ -450,5 +434,76 @@ export const squareTriangle = dynamicLine<{ k: number }>({
   } }],
 });
 
+// ------------------------------------------------------------------ 13. Prime Balance (fine structure), on c
+
+const BALANCE_PRIMES = [2, 3, 5, 7, 11, 13];
+const balanceSpace: ParamSpace<{ p: number; q: number }> = {
+  size: 30, hint: "two different primes from 2, 3, 5, 7, 11, 13: p for the top, q for the bottom (e.g. 2 3)",
+  draw: r => { const p = BALANCE_PRIMES[r.below(6)]!; let q = p; while (q === p) q = BALANCE_PRIMES[r.below(6)]!; return { p, q }; },
+  parse(text) {
+    const m = /^\s*(\d+)[\s,]+(\d+)\s*$/.exec(text), p = Number(m?.[1]), q = Number(m?.[2]);
+    return m && BALANCE_PRIMES.includes(p) && BALANCE_PRIMES.includes(q) && p !== q ? { p, q } : { invalid: "two different primes from 2, 3, 5, 7, 11, 13" };
+  },
+  label: x => `${x.p} ${x.q}`,
+};
+/** How many times prime p divides n (n > 0), and what is left. */
+function depth(n: bigint, p: number): [number, bigint] {
+  const P = BigInt(p);
+  let e = 0;
+  while (n % P === 0n) { n /= P; e++; }
+  return [e, n];
+}
+/** Twice the shallower depth, less the gap between the depths and the binary digits of what is left of top and bottom. */
+export function primeBalanceU(c: Q, p: number, q: number): number {
+  if (c.n === 0n) return NaN;
+  const [ep, restT] = depth(babsQ(c.n), p), [eq, restB] = depth(c.d, q);
+  return 2 * Math.min(ep, eq) - abs(ep - eq) - log2Big(restT) - log2Big(restB);
+}
+export const primeBalance = dynamicLine<{ p: number; q: number }>({
+  id: "prime-balance", title: "Prime Balance", goal: "the y-intercept a power of p over the same power of q", reads: ["c"], focus: ["si", "c"],
+  space: balanceSpace, peers: [{ p: 2, q: 3 }, { p: 5, q: 7 }],
+  card: ({ p, q }) => `Write the y-intercept as a fraction top/bottom in lowest terms (ignore its sign). The top should be made of ${p}'s and the bottom of ${q}'s, the same number of each: ${p}/${q}, ${p * p}/${q * q}, ${p ** 3}/${q ** 3}, … Count the ${p}'s in the top and the ${q}'s in the bottom: you score twice the smaller count, lose 1 for each one the counts differ, and lose the binary digits of anything else left in the top or the bottom.`,
+  u: (_m, c, { p, q }) => primeBalanceU(c, p, q),
+  searches: [{ id: "balanced-powers", propose: (_m, c, uStar, { p, q: qq }) => {
+    const need = Math.max(1, Math.ceil(uStar / 2 - 1e-9)), sign = c.n < 0n ? -1n : 1n;
+    return [need, need + 1].map(e => ({ c: q(sign * BigInt(p) ** BigInt(e), BigInt(qq) ** BigInt(e)) }));
+  } }],
+});
+
+// ------------------------------------------------------------------ 14. Recurrence Pair (fine structure), on m
+
+/** The dealt recurrence x0 = 1, x1 = a, x(n+1) = a·x(n) + x(n−1), up to past `top`. */
+function recurrence(a: number, top: bigint): bigint[] {
+  const xs = [1n, BigInt(a)];
+  while (xs[xs.length - 1]! <= top && xs.length < 400) xs.push(BigInt(a) * xs[xs.length - 1]! + xs[xs.length - 2]!);
+  return xs;
+}
+/** The index n of the term nearest the gradient's bottom, less how far the bottom and the top are from x(n) and x(n+1). */
+export function recurrenceU(m: Q, a: number): number {
+  const t = babsQ(m.n), d = m.d, xs = recurrence(a, d * 2n + 2n);
+  let n = 0;
+  for (let i = 1; i < xs.length - 1; i++) if (babsQ(xs[i]! - d) < babsQ(xs[n]! - d)) n = i;
+  return n - 2 * log2Big(1n + babsQ(d - xs[n]!)) - 2 * log2Big(1n + babsQ(t - xs[n + 1]!));
+}
+const recurrenceSpace: ParamSpace<{ k: number }> = {
+  size: 6, hint: "a, a whole number from 1 to 6 (1: 1, 1, 2, 3, 5, 8, …; 2: 1, 2, 5, 12, 29, …)",
+  draw: r => ({ k: 1 + r.below(6) }),
+  parse(text) { const k = Number(text.trim().replace(/^a\s*=\s*/, "")); return Number.isInteger(k) && k >= 1 && k <= 6 ? { k } : { invalid: "a whole number from 1 to 6" }; },
+  label: p => String(p.k),
+};
+export const recurrencePair = dynamicLine<{ k: number }>({
+  id: "recurrence-pair", title: "Recurrence Pair", goal: "the gradient's top and bottom two neighbours in the dealt sequence", reads: ["m"], focus: ["si", "m"],
+  space: recurrenceSpace, peers: [{ k: 1 }, { k: 2 }],
+  card: ({ k }) => { const xs = recurrence(k, 10n ** 6n).slice(0, 7).join(", "); return `Make a list: start with 1 and ${k}, and each next number is ${k} times the last one plus the one before (${xs}, …). Write the gradient as a fraction top/bottom in lowest terms (ignore its sign): the bottom should be a number in the list and the top the next one. You score the bottom's place in the list (1 for ${k}, 2 for the next, …) and lose twice the binary digits of how far the bottom and the top are from those two numbers.`; },
+  u: (m, _c, { k }) => recurrenceU(m, k),
+  searches: [{ id: "neighbours", propose: (m, _c, uStar, { k }) => {
+    const need = Math.max(1, Math.ceil(uStar - 1e-9)), sign = m.n < 0n ? -1n : 1n, out: LineTarget[] = [];
+    let xs = [1n, BigInt(k)];
+    while (xs.length < need + 3) xs = [...xs, BigInt(k) * xs[xs.length - 1]! + xs[xs.length - 2]!];
+    for (const n of [need, need + 1]) out.push({ m: q(sign * xs[n + 1]!, xs[n]!) });
+    return out;
+  } }],
+});
+
 /** The families dealt with the dynamic measure: four that want small or fine numbers against six that want big ones. */
-export const dynamicFamilies = [powerHug, primeHug, multiples, fineBottom, nextDoorBottom, unitFraction, primeSliver, crossingSliver, steppingCoefficients, circleKiss, squareTriangle] as const;
+export const dynamicFamilies = [primeHug, multiples, fineBottom, nextDoorBottom, unitFraction, primeSliver, crossingSliver, steppingCoefficients, circleKiss, squareTriangle, primeBalance, recurrencePair] as const;

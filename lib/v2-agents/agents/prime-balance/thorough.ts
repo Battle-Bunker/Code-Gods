@@ -1,5 +1,5 @@
-// Power Hug · Thorough
-// Main part: the y-intercept right on a power of k. Secondary preference: whichever you were dealt ().
+// Prime Balance · Thorough
+// Main part: the y-intercept a power of p over the same power of q. Secondary preference: whichever you were dealt ().
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -35,12 +35,12 @@ function gcdB(a, b) { while (b !== 0n) [a, b] = [b, a % b]; return a; }
 
 // How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
-  const x = Math.abs(num(c));                      // the y-intercept's size
-  if (x >= LIMIT) return null;
-  let P = p.k;                                     // the power of k nearest it
-  for (let t = p.k; t <= Math.max(p.k, 2 * x + p.k); t *= p.k) if (Math.abs(t - x) < Math.abs(P - x)) P = t;
-  const main = Math.sqrt(Math.log2(P)) - cube(x - P);
-  // main: the square root of the nearest power's binary digits, less the distance to it cubed (bigger is better)
+  if (c.n === 0n) return null;                      // no top to count p's in
+  let t = c.n < 0n ? -c.n : c.n, d = c.d, ep = 0, eq = 0;
+  while (t % BigInt(p.p) === 0n) { t /= BigInt(p.p); ep++; }   // the p's in the top
+  while (d % BigInt(p.q) === 0n) { d /= BigInt(p.q); eq++; }   // the q's in the bottom
+  const main = 2 * Math.min(ep, eq) - Math.abs(ep - eq) - Math.log2(Number(t)) - Math.log2(Number(d));
+  // main: twice the smaller of the p's in the y-intercept's top and the q's in its bottom, less their gap and the binary digits of what is left (bigger is better)
   return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     return null;
   })];

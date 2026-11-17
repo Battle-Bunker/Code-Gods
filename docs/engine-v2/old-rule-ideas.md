@@ -9,6 +9,7 @@ tuple scores. An idea worth reviving is rewritten as one pure utility (dynamic-f
 
 | Family | id | Main goal (as the card said it) |
 |---|---|---|
+| Power Hug | `power-hug` | The y-intercept should sit exactly on a power of 3 (3, 9, 27, …); a bigger power scores a little more, every bit off costs the distance cubed. Deleted 17 Nov, the owner: "Power hug seems like a bad interpretation of one of my off hand ideas and it sucks ... I said at the time that was a throw away idea." Not to be replaced. |
 | Prime Gradient | `prime-gradient` | The gradient, ignoring its sign, should round to a prime whose last digits are 1 (11, 31, 41, 61, …). Bigger is better; failing that, nearer is better. |
 | Triangle Area | `triangle-area` | The line and the two axes make a triangle; make its area as close as possible to 4. |
 | m Meets c | `m-meets-c` | Make the gradient and the y-intercept as close as possible to each other. |

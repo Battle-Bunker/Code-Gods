@@ -12,7 +12,7 @@ import type { HostRequest } from "@workspace/v2-sandbox";
 import { EngineHost, type RuleRef } from "../src/index.ts";
 
 const state = { lines: [fromMC(q(2), q(3))] };
-const mine: RuleRef = { family: "power-hug", params: { k: 3 }, tieBreaker: null };
+const mine: RuleRef = { family: "multiples", params: { k: 3 }, tieBreaker: null };
 // The same two opponents in either seat order: each seat's rule differs, and the totals agree on every state.
 const host = (first: RuleRef, second: RuleRef) => new EngineHost({ type: lineType, variant: lineZ, state, rule: mine, energy: 50, energySeed: "s", others: [{ rule: first }, { rule: second }] });
 

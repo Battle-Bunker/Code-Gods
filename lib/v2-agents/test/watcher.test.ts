@@ -14,8 +14,8 @@ const boxes = sandboxes();
 after(() => boxes.close());
 
 const CASES = [
-  { type: "lines" as WatcherType, objectType: lineType, variant: lineQ, rule: { family: "power-hug", params: { k: 3 } } },
-  { type: "lines" as WatcherType, objectType: lineType, variant: lineZ, rule: { family: "power-hug", params: { k: 3 } } },
+  { type: "lines" as WatcherType, objectType: lineType, variant: lineQ, rule: { family: "multiples", params: { k: 3 } } },
+  { type: "lines" as WatcherType, objectType: lineType, variant: lineZ, rule: { family: "multiples", params: { k: 3 } } },
   { type: "grids" as WatcherType, objectType: gridType, variant: grid4, rule: { family: gridType.families[0]!.id, params: {} } },
   { type: "pairs" as WatcherType, objectType: pairType, variant: pairQ, rule: { family: "whole-answer", params: {} } },
 ];

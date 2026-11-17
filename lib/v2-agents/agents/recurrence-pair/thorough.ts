@@ -1,5 +1,5 @@
-// Power Hug · Simple
-// Main part: the y-intercept right on a power of k. Secondary preference: whichever you were dealt ().
+// Recurrence Pair · Thorough
+// Main part: the gradient's top and bottom two neighbours in the dealt sequence. Secondary preference: whichever you were dealt ().
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -7,7 +7,7 @@
 // with that player and put the line in LEAVE to keep it.
 // Changing it later costs only what you change. To summon another agent, first move power from your agents to your
 // own store (energy moves with it), pay, then share the power out again.
-// Try this: add the seq.step line from the Thorough starter: a third way to change the line.
+// Try this: change QUOTES = 20 to 6: fewer prices asked, but it may miss a cheaper plan.
 
 // Number helpers for the rule's utility (decimal numbers; past 10^10 the rule gives no score).
 const LIMIT = 1e10, num = v => Number(v.n) / Number(v.d), cube = d => Math.abs(d) * Math.abs(d) * Math.abs(d);
@@ -35,19 +35,19 @@ function gcdB(a, b) { while (b !== 0n) [a, b] = [b, a % b]; return a; }
 
 // How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
-  const x = Math.abs(num(c));                      // the y-intercept's size
-  if (x >= LIMIT) return null;
-  let P = p.k;                                     // the power of k nearest it
-  for (let t = p.k; t <= Math.max(p.k, 2 * x + p.k); t *= p.k) if (Math.abs(t - x) < Math.abs(P - x)) P = t;
-  const main = Math.sqrt(Math.log2(P)) - cube(x - P);
-  // main: the square root of the nearest power's binary digits, less the distance to it cubed (bigger is better)
+  const ab = x => (x < 0n ? -x : x), t = ab(m.n), d = m.d, xs = [1n, BigInt(p.k)];   // the sequence 1, a, …
+  while (xs[xs.length - 1] <= d * 2n + 2n && xs.length < 400) xs.push(BigInt(p.k) * xs[xs.length - 1] + xs[xs.length - 2]);
+  let n = 0;                                        // the term nearest the bottom
+  for (let i = 1; i < xs.length - 1; i++) if (ab(xs[i] - d) < ab(xs[n] - d)) n = i;
+  const main = n - 2 * Math.log2(Number(1n + ab(d - xs[n]))) - 2 * Math.log2(Number(1n + ab(t - xs[n + 1])));
+  // main: the place in the dealt sequence of the term nearest the gradient's bottom, less twice the binary digits of how far bottom and top are from it and the next
   return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     return null;
   })];
 }
 
-const FAR = 2;      // how far one change may go
-const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
+const FAR = 3;      // how far one change may go
+const QUOTES = 20;  // at most this many plans are priced (each price is a host call)
 const LEAVE = [];      // lines your agent skips, e.g. [19] or [4, 9]: others may still move them
 const PROTECT = [];    // lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
