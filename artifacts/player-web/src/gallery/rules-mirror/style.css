@@ -44,3 +44,6 @@ body { margin: 0; background: var(--rm-bg); color: var(--rm-ink); }
 .rm-facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 14px 0 0; }
 .rm-facts dt { color: var(--rm-muted); }
 .rm-facts dd { margin: 0; overflow-wrap: anywhere; }
+.rm-turns { border-collapse: collapse; font-size: 0.9em; }
+.rm-turns th, .rm-turns td { text-align: left; padding: 2px 8px 2px 0; vertical-align: top; }
+.rm-turns td:nth-child(n + 3) { text-align: right; font-variant-numeric: tabular-nums; }

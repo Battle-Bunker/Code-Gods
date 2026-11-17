@@ -20,16 +20,16 @@ test("worked utilities of the four added rules", () => {
   near(u(squareTriangle, { k: 3 }, q(-1, 8), q(21)), Math.log2(42), "area 42²");
 });
 
-test("every dealt family's heuristics only lower its energy on the same starts, and keep it finite", () => {
+test("every dealt family's candidates only lower its energy on the same starts, and keep it finite", () => {
   const lines = [fromMC(q(3), q(5)), fromMC(q(-2, 7), q(729)), fromMC(q(3, 4), q(25, 4))];
   for (const F of dynamicFamilies) for (const p of F.dealable(lineQ)) for (const l of lines) {
     const r = lineRule(F.dynamic!, p), opts = { K: 6, seed: `${F.id}` };
-    const bare = estimateLine(l, r, lineQ, { ...opts, heuristics: false }), own = estimateLine(l, r, lineQ, opts);
+    const bare = estimateLine(l, r, lineQ, { ...opts, candidates: false }), own = estimateLine(l, r, lineQ, opts);
     assert.ok(own.energy <= bare.energy + 1e-9 && Number.isFinite(own.energy), `${F.id}: ${own.energy} against ${bare.energy}`);
   }
 });
 
-test("the pool reads every part of the line: the gradient, the y-intercept, the x-crossing and a, b, c", () => {
+test("the pool reads every lens: the gradient and y-intercept, the x-crossing, a, b, c and the area", () => {
   const reads = new Set(dynamicFamilies.flatMap(f => f.dynamic!.reads));
-  for (const r of ["m", "c", "X", "gen"]) assert.ok(reads.has(r), r);
+  for (const r of ["m", "c", "X", "gen", "area"]) assert.ok(reads.has(r), r);
 });

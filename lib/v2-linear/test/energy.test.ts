@@ -1,61 +1,56 @@
 /**
- * The line energy measure's descent and size (src/energy.ts): rounding is a move, starts match the state's information
- * content (top and bottom digits), and padding a number with digits does not pay.
+ * A line's energy (src/energy.ts on src/lens-routes.ts and v2-core free-energy.ts): routes priced as turns (naming plus
+ * surprise), starts of the state's size, and what holds by construction.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applyCall, isInvalid, q, Qn, rng, type Q } from "@workspace/v2-core";
-import { changeCharge } from "@workspace/v2-economy";
-import { describeLine, estimateLine, fromMC, lineQ, lineType, sameSize, type LineRule, type LineState } from "../src/index.ts";
-import { mc } from "./helpers.ts";
+import { argBits, q, Qn, turnSurprise } from "@workspace/v2-core";
+import { estimateLine, fromMC, lensById, lensPrice, lineStarts, LENSES, mutationBits, routePrice, type LineRule } from "../src/index.ts";
 
-const call = (s: LineState, mutator: string, args: Record<string, string>) => applyCall(lineType, lineQ, s, { mutator, site: 0, args });
-
-test("si.round rounds the gradient or the y-intercept, priced as choices whatever the distance; rounding in place is refused", () => {
-  const r = call(mc(q(7, 3), q(8670001, 10000)), "si.round", { which: "c", to: "whole" });
-  assert.ok(!isInvalid(r));
-  assert.equal(describeLine(r.result.lines[0]!), "y = 7/3x + 867");
-  const m = call(mc(q(7, 3), 5), "si.round", { which: "m", to: "tenths" });
-  assert.ok(!isInvalid(m));
-  assert.equal(describeLine(m.result.lines[0]!), "y = 23/10x + 5");
-  assert.equal(describeLine((call(mc(1, q(-35, 2)), "si.round", { which: "c", to: "whole" }) as { result: LineState }).result.lines[0]!), "y = x - 18");   // halves away from 0
-  const far = call(mc(1, q(123456789, 1000)), "si.round", { which: "c", to: "tens" });
-  assert.ok(!isInvalid(far) && far.price.total === (r as { price: { total: number } }).price.total, "the same price however far it moves");
-  assert.ok(isInvalid(call(mc(1, 867), "si.round", { which: "c", to: "whole" })));
-});
-
-test("starts have the state's information content: as many top and bottom digits", () => {
-  const r = rng("t", "size");
-  for (let i = 0; i < 200; i++) {
-    const v = sameSize(q(8670001, 10000), 0.5, r), top = Number(v.n < 0n ? -v.n : v.n);
-    assert.ok(Math.log2(top) >= Math.log2(8670001) - 0.5 && Math.log2(top) < Math.log2(8670001) + 1, `${Qn.toWire(v)}`);
-    assert.ok(Math.log2(Number(v.d)) >= Math.log2(10000) - 1 && Math.log2(Number(v.d)) < Math.log2(10000) + 1, `${Qn.toWire(v)}`);
-    assert.equal(sameSize(q(867), 0.5, r).d, 1n);
+test("every lens reads a line and names it back", () => {
+  const lines = [fromMC(q(3, 4), q(25, 4)), fromMC(q(-2, 7), q(-729)), fromMC(q(5), q(0))];
+  for (const l of lines) for (const lens of LENSES) {
+    const ns = lens.numbers(l);
+    if (!ns) continue;
+    const back = lens.line(ns, l);
+    if (lens.id === "ma" && !back) continue;   // an area whose root is not rational
+    assert.ok(back && back.a === l.a && back.b === l.b && back.c === l.c, `${lens.id}: ${ns.join(" ")}`);
   }
 });
 
-/** A test rule: the y-intercept near 867 (u = −|c − 867|). */
-const near867: LineRule = { u: l => -Math.abs(Qn.toNumber(q(-l.c, l.b)) - 867), reads: ["c"], propose: () => [] };
-
-test("padding 867 to 8,670,001/10,000 gains less energy than the padding costs (REPORTED ratio)", () => {
-  const plain = fromMC(q(2), q(867)), padded = fromMC(q(2), q(8670001, 10000)), K = 400;
-  const e0 = estimateLine(plain, near867, lineQ, { K, seed: "pad" }).energy, e1 = estimateLine(padded, near867, lineQ, { K, seed: "pad" }).energy;
-  // The cheapest single move that pads: a shift by 1/10,000 or a stretch by 8,670,001/8,670,000.
-  // The cheapest padding found: a shift by 1/10,000, a stretch by 8,670,001/8,670,000, or a stretch up to 8,670,001
-  // then one by 1/10,000 (each act charged on its own).
-  const cost = (s: LineState, steps: [string, Record<string, string>][]): number => {
-    let total = 0;
-    for (const [m, a] of steps) { const r = call(s, m, a); if (isInvalid(r)) return Infinity; total += changeCharge([r.price.total]); s = r.result; }
-    return total;
-  };
-  const st = { lines: [plain] };
-  const padCost = Math.min(cost(st, [["si.shift", { k: "1/10000" }]]), cost(st, [["mach.stretch", { f: "8670001/8670000" }]]),
-    cost(st, [["mach.stretch", { f: "8670001/867" }], ["mach.stretch", { f: "1/10000" }]]));
-  const roundCost = changeCharge([(call({ lines: [padded] }, "si.round", { which: "c", to: "whole" }) as { price: { total: number } }).price.total]);
-  const ratio = (e1 - e0) / padCost;
-  console.log(`padding: E(867) = ${e0.toFixed(2)}, E(8670001/10000) = ${e1.toFixed(2)}, gain ${(e1 - e0).toFixed(2)}, pad cost ${padCost.toFixed(2)}, one rounding ${roundCost.toFixed(2)}, ratio ${ratio.toFixed(3)}`);
-  assert.ok(ratio < 1, `ratio ${ratio}`);
-  // About the plain state plus a rounding: the padded starts round to numbers within a binary digit of 867's starts.
-  assert.ok(e1 <= e0 + 4 * roundCost, `the padded state scores about the plain one plus a rounding: ${e1} against ${e0} + ${roundCost}`);
+test("a route's price is its mutations' naming bits plus the turn's surprise", () => {
+  const mc = lensById("mc"), x = fromMC(q(3), q(5)), t = fromMC(q(3), q(9));
+  const p = routePrice(x, t);
+  // Add 4 to c's top: one mutation; the surprise of 3/1 → 3/1 and 5/1 → 9/1.
+  const naming = mutationBits(mc, argBits(4n, true)), surprise = turnSurprise([3n, 1n, 5n, 1n], [3n, 1n, 9n, 1n]);
+  assert.ok(Math.abs(lensPrice(mc, [3n, 1n, 5n, 1n], [3n, 1n, 9n, 1n]).naming - naming) < 1e-9);
+  assert.ok(p.total <= naming + surprise + 1e-9, `${p.total} > ${naming + surprise}`);
+  // Multiplying is a shortcut: 5 → 5·2^20 names a factor, not the path.
+  const far = fromMC(q(3), q(5 * 2 ** 20));
+  assert.ok(lensPrice(mc, [3n, 1n, 5n, 1n], [3n, 1n, 5n * 2n ** 20n, 1n]).naming < mutationBits(mc, argBits(5n * 2n ** 20n - 5n, true)));
+  // Crossing zero by an add is dear (the long path's surprise); negating first is the cheaper list.
+  assert.ok(routePrice(fromMC(q(3), q(1000)), fromMC(q(3), q(-1003))).total < 80);
+  void far;
 });
-void (null as unknown as Q);
+
+test("starts have the state's size in the rule's lens, stratified", () => {
+  const s = fromMC(q(7, 3), q(8670001, 10000)), starts = lineStarts(s, "mc", 20, "size");
+  assert.equal(starts.length, 20);
+  for (const x of starts) {
+    const c = q(-x.c, x.b), top = Number(c.n < 0n ? -c.n : c.n);
+    assert.ok(Math.log2(top) >= Math.log2(8670001) - 1 && Math.log2(top) < Math.log2(8670001) + 1.5, Qn.toWire(c));
+  }
+});
+
+/** A test rule: the y-intercept near 867. */
+const near867: LineRule = { u: l => -Math.abs(Qn.toNumber(q(-l.c, l.b)) - 867), lens: "mc", candidates: () => [fromMC(q(1), q(867))] };
+
+test("energy: 0 at the start's own level, more for a better state; a candidate only lowers it; seeded estimates repeat", () => {
+  const good = fromMC(q(2), q(867)), poor = fromMC(q(2), q(500));
+  const e = estimateLine(good, near867, undefined, { K: 8, seed: "a" });
+  assert.deepEqual(e, estimateLine(good, near867, undefined, { K: 8, seed: "a" }));
+  assert.ok(e.energy > 0 && e.energy > estimateLine(poor, near867, undefined, { K: 8, seed: "a" }).energy - 1e-9);
+  const bare = estimateLine(good, near867, undefined, { K: 8, seed: "a", candidates: false });
+  assert.ok(e.energy <= bare.energy + 1e-9, `${e.energy} > ${bare.energy}`);
+  for (const x of e.samples) assert.ok(x.cost <= x.best + 1e-9 && x.best <= x.universal + 1e-9);
+});

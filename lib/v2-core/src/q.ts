@@ -4,10 +4,16 @@ export interface Q {
   readonly d: bigint;
 }
 
+const SAFE = 2n ** 53n;
 export function gcd(a: bigint, b: bigint): bigint {
   if (a < 0n) a = -a;
   if (b < 0n) b = -b;
-  while (b !== 0n) [a, b] = [b, a % b];
+  if (a < SAFE && b < SAFE) {   // the common case, in floats (exact below 2^53): many times faster than bigint steps
+    let x = Number(a), y = Number(b);
+    while (y !== 0) { const t = x % y; x = y; y = t; }
+    return BigInt(x);
+  }
+  while (b !== 0n) { const t = a % b; a = b; b = t; }
   return a;
 }
 

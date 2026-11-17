@@ -4,7 +4,51 @@ Owner decision 49 (16 November): "energy of an object is the expected energy cos
 from a random object of the same 'size'". This replaces the value tables (decision 23), levels and the lift. Labels:
 **built** (in the code, tested), **seen narrowly** (measured under the stated assumptions), **guess**.
 
-## How it is computed (built)
+## Lines on the owner's definition of 17 Nov (built: lib/v2-linear energy.ts, lens-routes.ts; v2-core free-energy.ts)
+
+    energy(s) = mean over K = 12 starts x of c(x),   c(x) = −log2 Σ over distinct one-turn routes 2^−bits(route)
+
+- **Lenses** (built, lens-routes.ts, a stand-in until session A's lenses land): gradient and y-intercept (m top, m
+  bottom, c top, c bottom); x- and y-intercepts; a, b, c; gradient and signed area (c's sign kept from the line before).
+  Every fraction is a pair of whole numbers in lowest terms, bottom > 0.
+- **A route's bits** (built): the cheapest turn in any lens that names the target: its mutations' naming bits
+  (v2-core surprise.ts `namingBits`, menu of six: add, multiply, divide exactly, negate, swap, round) plus the turn's
+  surprise (`turnSurprise` over the lens's numbers before and after). Per number the cheapest list is one add, one
+  multiply or divide (with a negate), a negate, or a negate then an add (across zero an add's long path is dear); per
+  pair a swap or a round may come first, and the target may be written unreduced (25/4 → 26/4 names 13/2 with one add).
+- **Starts** (built): each whole number of the rule's lens (`reads`: c or m → gradient and y-intercept, X → the
+  intercepts, gen → a, b, c, area → gradient and area, its starts drawn in the gradient-and-y-intercept lens) with log2 |n|
+  uniform in [log2 |n|, log2 |n| + ½), a Latin hypercube across the starts, tops either sign; a pair sharing a factor
+  is drawn again.
+- **Routes** (built): the direct turn onto s, a greedy climb in each lens (the rule's own lens first; steps of ±1, ±2,
+  ±4^j, ×/÷ 2, 3, 10, negate, swap, round; at most six steps; given up 16 bits past the best route), and the rule's
+  `candidates` (its old searches' targets).
+- **Time and spread** (seen narrowly: one good line per rule from its candidates, its first dealt parameters, six seeds,
+  Node on this machine): 0–60 ms an estimate; repeat sd 2–9% for most rules, 16–25% for Power Hug and Circle Kiss.
+  The Convex runtime's figure is not measured (the local backend would not start here).
+
+### Spot check: does the universal climb alone match the best route found with candidates? (seen narrowly)
+
+Same lines, K = 12, six seeds (72 starts each, starts already as good left out): the universal routes (climb and
+direct) were the cheapest route on 56 of 72 starts for **Multiples**, 17 of 72 for **Fine Bottom** and 12 of 72 for
+**Square Triangle** (Circle Kiss 72 of 72; Stepping Coefficients 10, Next-door Bottom 4, Prime Hug 23 of 69). So the
+candidates set the energy for the fraction and area rules, which is what the definition guards against; how much they
+lower it is not measured. How this could be wrong: one line per rule; the climb's six steps and coarse amounts are this
+build's choice, and a longer climb would match more often.
+
+### Seen narrowly: the slivers' good lines cost about 0
+
+Unit Fraction, Prime Sliver and Crossing Sliver at u ≈ 12 (c, m or X about 1/5000): 69–72 of 72 same-size starts are
+already as good, so the energy is 0–0.3 bits. A start of the same size as 1/5003 is ±1/n with n near 5000, and the
+rule's utility barely tells 1/4999 from 1/5003. This is the definition working as written (same size gives away the
+precision these rules ask for); whether these rules or the start's size should change is the owner's call.
+
+## The estimator before 17 Nov (deleted)
+
+What follows described the estimator that the section above replaces (act charges, `LINE_K`, floor and heuristics);
+it is kept for the record of measurements made with it.
+
+### How it was computed
 
 A rule family with `dynamic` (lib/v2-core contracts.ts) has a utility `u` (any real function of the state, bigger
 better), the readings it `reads`, and its own `searches` (heuristics that propose target states). The object type's
