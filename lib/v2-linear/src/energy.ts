@@ -80,7 +80,17 @@ export interface LineEstimateOpts extends EstimateOpts {
   readonly candidates?: boolean;
 }
 export interface LineSample { readonly from: Line; readonly cost: number; readonly best: number; readonly universal: number; readonly by: string }
-export interface LineEstimate extends Estimate { readonly spread: number; readonly samples: readonly LineSample[] }
+export interface LineEstimate extends Estimate {
+  readonly spread: number;
+  readonly samples: readonly LineSample[];
+  /** The distinct states scored (the work spent, against physics estimatorWork). */
+  readonly work: number;
+  /** True when the work budget ran out and some starts cost their upper bound ("bound, not found"). */
+  readonly bound: boolean;
+}
+
+/** Thrown inside a start's search when the estimate's work budget is spent. */
+class OutOfWork extends Error {}
 
 const keyOf = (l: Line) => `${l.a},${l.b},${l.c}`;
 /** One lens's route space (the climb's moves, naming and surprise). */
@@ -102,15 +112,21 @@ let fresh = 0;
 export function estimateLine(s: Line, rule: LineRule, variant: Variant, o: LineEstimateOpts = {}): LineEstimate {
   const physics = physicsOf(variant), lambda = physics.gravity;
   const K = o.K ?? physics.estimatorStarts, band = o.band ?? physics.sameSizeBand, seed = o.seed ?? `fresh:${Date.now()}:${fresh++}:${Math.random()}`;
-  const memo = new Map<string, number>();
+  // Work: each distinct state scored. Past the budget a start's search stops (OutOfWork) and it costs its upper bound.
+  const memo = new Map<string, number>(), budget = physics.estimatorWork;
+  let work = 0, bound = false;
   const u = (l: Line) => {
     const k = keyOf(l);
     let v = memo.get(k);
-    if (v === undefined) { v = isVertical(l) ? NaN : rule.u(l); if (Number.isNaN(v)) v = -Infinity; memo.set(k, v); }
+    if (v === undefined) {
+      if (work >= budget) throw new OutOfWork();
+      work++;
+      v = isVertical(l) ? NaN : rule.u(l); if (Number.isNaN(v)) v = -Infinity; memo.set(k, v);
+    }
     return v;
   };
   const uStar = u(s);
-  if (uStar === -Infinity) return { energy: 0, spread: 0, u: uStar, K: 0, samples: [] };
+  if (uStar === -Infinity) return { energy: 0, spread: 0, u: uStar, K: 0, samples: [], work, bound };
   // The climb runs in the rule's own lens first (its cost bounds the others'), then gradient-and-intercept and the two
   // fine-structure lenses (continued fractions, prime exponents). The intercept, equation and area lenses join the
   // routes' prices (every candidate and the direct turn are priced in all six) but not the climb: their climbs found
@@ -127,11 +143,20 @@ export function estimateLine(s: Line, rule: LineRule, variant: Variant, o: LineE
     return best;
   };
   const samples: LineSample[] = lineStarts(s, rule.lens, K, seed, band).map(x => {
-    const cands = o.candidates === false ? [] : rule.candidates(x, uStar).filter(t => !isVertical(t));
-    const c = startCost(x, s, uStar, all, cands, climb);
-    return { from: x, cost: c.cost, best: c.best, universal: c.universal, by: c.by };
+    try {
+      const cands = o.candidates === false ? [] : rule.candidates(x, uStar).filter(t => !isVertical(t));
+      const c = startCost(x, s, uStar, all, cands, climb);
+      return { from: x, cost: c.cost, best: c.best, universal: c.universal, by: c.by };
+    } catch (e) {
+      if (!(e instanceof OutOfWork)) throw e;
+      // The upper bound: the price of reaching exactly this state (a start already as good would cost 0, but telling
+      // needs the work that ran out).
+      bound = true;
+      const direct = routePrice(lambda, x, s).total;
+      return { from: x, cost: direct, best: direct, universal: direct, by: "bound" };
+    }
   });
   const finite = samples.filter(x => Number.isFinite(x.cost));
   const { energy, spread } = finite.length ? meanAndSpread(finite.map(x => x.cost)) : { energy: 0, spread: 0 };
-  return { energy, spread, u: uStar, K: samples.length, samples };
+  return { energy, spread, u: uStar, K: samples.length, samples, work, bound };
 }

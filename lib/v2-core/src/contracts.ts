@@ -376,6 +376,11 @@ export interface Estimate {
   readonly K: number;
   /** The standard error of the mean over the starts (in the energy's units), when the estimator reports it. */
   readonly spread?: number;
+  /**
+   * "Bound, not found": the estimator ran out of its work budget (physics estimatorWork), so some starts cost their upper
+   * bound (the price of reaching exactly this state) and the energy is an upper bound, not a found value.
+   */
+  readonly bound?: boolean;
 }
 
 /** A family's parameter space: drawable and typeable (RuleFamily.space). */
