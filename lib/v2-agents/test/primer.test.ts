@@ -20,7 +20,8 @@ test("the primer lists every view and every move of the beginner board, uses the
   for (const r of lineType.representations) assert.ok(AGENT_PRIMER.includes(`- ${r.id}: `), r.id);
   for (const m of lineZ.mutators) assert.match(AGENT_PRIMER, new RegExp(`^- ${m.replace(".", "\\.")}\\([a-z0-9]`, "m"), `${m} with its arguments`);
   assert.match(AGENT_PRIMER, /^- add\(lens: mc \| xy \| abc \| mA/m);
-  assert.match(AGENT_PRIMER, /rarity in bits \(each bit = twice as rare\)/, "bits are the unit of rarity, said with what a bit means");
+  assert.match(AGENT_PRIMER, /energy in bits/, "a line's worth is its energy, in bits");
+  for (const word of [/tie-breaker/i, /main part/i, /\brarity in bits\b/i]) assert.doesNotMatch(AGENT_PRIMER, word, "the old game's words (goal().tieBreaker is a field name)");
   assert.ok(AGENT_PRIMER.length < 11000, `${AGENT_PRIMER.length} characters`);
 });
 

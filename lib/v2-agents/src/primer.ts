@@ -25,15 +25,15 @@ export const HELPERS: readonly { readonly name: string; readonly ts: string; rea
   { name: "whole", ts: "whole(x)", py: "whole(x)", says: "the nearest whole number (a half rounds up)" },
   { name: "root", ts: "root(n)", py: "root(n)", says: "the whole square root, rounded down" },
   { name: "factors", ts: "factors(n)", py: "factors(n)", says: "the prime factors, smallest first, with repeats ([2, 2, 3] for 12)" },
-  { name: "worth", ts: "worth(offer)", py: "worth(offer)", says: "this line's worth to you: .mine (your rarity), .others (the others' rarity added up: your blurred estimate, not the server's count: say so in notes), .points (mine × others); null / None if unknown" },
-  { name: "rarity", ts: "rarity(offer, score)", py: "rarity(offer, score)", says: "the rarity your rule gives a score your own score function computed (so: what a move would be worth to you). Free" },
+  { name: "worth", ts: "worth(offer)", py: "worth(offer)", says: "this line's worth to you: .mine (your energy in bits), .others (the others' energy added up: what you read, which a room with noise blurs: say so in notes), .points (mine × others); null / None if unknown" },
+  { name: "rarity", ts: "rarity(offer, score)", py: "rarity(offer, score)", says: "the energy in bits your rule gives a score your own score function computed (so: what a move would be worth to you). Free" },
   { name: "pushback", ts: "pushback(offer)", py: "pushback(offer)", says: "how many times lately another player's move took back points your agent had just won on this line" },
   { name: "recent", ts: "recent(offer)", py: "recent(offer)", says: "the latest moves on this line you may see, newest last: mine, points before and after" },
   { name: "contested", ts: "contested(offer, 3)", py: "contested(offer, 3)", says: "true / True once pushback(offer) reaches the number; it then leaves the owner a note naming the tug-of-war" },
   { name: "fractions", ts: "rounding(m, c), fractions(m, c)", py: "rounding(m, c), fractions(m, c)", says: "steps out of and into fractions ([plan, m, c] each)" },
   { name: "tips", ts: "tips(offer)", py: "tips(offer)", says: "on a vertical line, the steps that tip it" },
-  { name: "climb", ts: "climb(offer, options, now, most)", py: "climb(offer, options, now, most)", says: "of [plan, score it reaches] options, the step that raises your points here most (your rarity × the others'), weighing the `most` best for your rule; null / None when none does" },
-  { name: "fair", ts: "fair(offer, plan)", py: "fair(offer, plan)", says: "true / True when the plan would not lower the other players' rarity here, added up (a small read)" },
+  { name: "climb", ts: "climb(offer, options, now, most)", py: "climb(offer, options, now, most)", says: "of [plan, score it reaches] options, the step that raises your points here most (your energy × the others'), weighing the `most` best for your rule; null / None when none does" },
+  { name: "fair", ts: "fair(offer, plan)", py: "fair(offer, plan)", says: "true / True when the plan would not lower the other players' energy here, added up (a small read)" },
   { name: "note", ts: "note(offer, text)", py: "note(offer, text)", says: "leave your owner a short note in the act log (at most 3 a turn), e.g. why the agent stopped" },
 ];
 
@@ -162,9 +162,9 @@ export function agentPrimer<S>(type: ObjectType<S> = lineType as unknown as Obje
   const ex = withoutKnobs(src?.replace(/^(#[^\n]*\n)+\n*/, ""));
   return `WRITING AGENTS (engine v2: ${w.title})
 
-THE GAME. ${w.game} A ${one}'s score on a rule is its rarity: ${many} that random play rarely makes that good are worth more points. The player understands their rule, negotiates with the others and tells you what their agent should do; you write that agent and explain it in plain words.
+THE GAME. ${w.game} A rule is one utility, a single number (bigger is better, no top). A ${one}'s energy for a rule, in bits, is the cheapest single turn that does at least as well, on average over random ${many} of its size: ${many} that are expensive to reach are worth more points. The player understands their rule, negotiates with the others and tells you what their agent should do; you write that agent and explain it in plain words.
 
-WORDS. To the player say points, rarity in bits (each bit = twice as rare), energy, power, main part, secondary preference, ${one}, view. Never "object" or "representation". A ${one} scores the player's bits × the other players' bits on it added together; a total adds up all the ${many}.
+WORDS. To the player say points, energy in bits, power, ${one}, view. Never "object" or "representation". A ${one} scores the player's bits × the other players' bits on it added together; a total adds up all the ${many}.
 
 AN AGENT. A program in Python or TypeScript that defines agent(offer). Each turn it is offered one ${one}, may look at it and price changes, and returns a plan (a list of moves) or None / null to skip. If any move in a plan is not allowed, the whole turn fails and nothing changes.
 
@@ -185,7 +185,7 @@ HELPERS (the same names in both languages):
 ${HELPERS.map(h => ({ ...h, says: h.says.replace(/\bline\b/g, one), ...w.helpers?.[h.name] })).map(h => `- ${h.ts}${h.py !== h.ts ? `  /  Python: ${h.py}` : ""}: ${h.says}`).join("\n")}
 Lower level, if needed: offer.view / element / quote / budget, Q (TypeScript rationals: Q.add, Q.sub, Q.mul, Q.div, Q.abs, Q.cmp, Q.eq) and Python's Fraction.
 
-PLAYING FOR POINTS. A player's points on a ${one} are their rarity there times the other players' rarity there, added up: a ${one} only they like scores nothing, a move that spoils a ${one} for the others lowers their points too, and a tug-of-war burns energy on both sides. The starters take the step that raises their points most (climb), so they improve a ${one} for several rules at once, note tug-of-wars to their owner (contested(offer, 3)), and keep two lists a player sets after a deal in chat (${w.deal}): PROTECT (${many} where they only make moves that keep the others as well off; fair(offer, plan) checks) and LEAVE (${many} they never touch). No two ${many} may be in the same state and long moves are expensive, so points come from climbing step by step in directions good for everyone. offer.object is the ${one}'s number.
+PLAYING FOR POINTS. A player's points on a ${one} are their energy there times the other players' energy there, added up: a ${one} only they like scores nothing, a move that spoils a ${one} for the others lowers their points too, and a tug-of-war burns energy on both sides. The starters take the step that raises their points most (climb), so they improve a ${one} for several rules at once, note tug-of-wars to their owner (contested(offer, 3)), and keep two lists a player sets after a deal in chat (${w.deal}): PROTECT (${many} where they only make moves that keep the others as well off; fair(offer, plan) checks) and LEAVE (${many} they never touch). No two ${many} may be in the same state and long moves are expensive, so points come from climbing step by step in directions good for everyone. offer.object is the ${one}'s number.
 
 LOCKS (rooms with locks on). offer.locks() lists a ${one}'s locks (program, words, energy, upkeep). A move that breaks one fails until it is drained: offer.drain(n, x), offer.fund(n, x). offer.lock(source, x, words) locks the state your moves reach with a program defining predicate(offer) that returns true or false; its fee and upkeep scale with its bits.
 
