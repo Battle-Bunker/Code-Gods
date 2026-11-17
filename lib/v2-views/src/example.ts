@@ -9,10 +9,11 @@
  * - and, among the most legible, the middling bits: typical, neither hopeless nor the best on offer.
  * A seeded walk from the type's origin supplies the candidates, so the same rule always gets the same example.
  */
-import { evaluateObject, rng, walkStep, type ObjectType, type Score } from "@workspace/v2-core";
+import { energyOf, evaluateObject, rng, walkStep, type ObjectType, type Score } from "@workspace/v2-core";
 import type { RuleRef } from "./annotate.ts";
 import { contributors } from "./contributors.ts";
-import { chanceText, fmtBits, fmtQ } from "./format.ts";
+import { fmtBits, fmtNum } from "./format.ts";
+import { chipRep, repText } from "./rep-view.tsx";
 
 const WALK = 4000;
 /** Distinct scoring states the walk collects before it stops. */
@@ -67,36 +68,43 @@ export function workedExample<S, P>(rule: RuleRef<S, P>, value?: ((u: Score) => 
   return pool[Math.floor(pool.length / 2)]!.state;
 }
 
-/** One row of "How rare is each rule score?": a main-part value, the lowest score with it, and what that is worth. */
-export interface ScaleRow { readonly main: string; readonly bits: number; readonly text: string }
+/** One row of "What is each level worth?": a level of the rule's utility, a state at it, and that state's energy. */
+export interface LadderRow { readonly u: number; readonly text: string; readonly bits: number }
+/** A rung of the ladder before its energy is measured. */
+export interface Rung<S> { readonly state: S; readonly u: number }
+
+/** The utility steps above the example's at which the ladder looks for a rung. */
+const STEPS = [2, 4, 8, 16, 32];
 
 /**
- * v1's "How rare is each rule score?" (owner, 15 November: a card tells a player their precise incentives, and points
- * are rarity): main-part values met on a walk through random states of the board, each the lowest score with that
- * value, spread from the everyday to the rarest found, rarer going down. Rarer scores than these are worth more still:
- * the value curves have no top.
+ * The goal card's ladder (coordinator, 17 Nov: the old "How rare is each rule score?" said "rare" of a table the energy
+ * measure no longer has): the worked example, then, for each step above its utility, the rule's own candidate with the
+ * least utility at or above it. Each rung's energy is measured separately (`ladderRow`): it is the real estimate, so a
+ * row is true of that state, not of every state at that level (energy depends on size too).
  */
-export function rarityScale<S, P>(rule: RuleRef<S, P>, value: ((u: Score) => number) | null | undefined, rows = 6): ScaleRow[] {
-  if (!value) return [];
-  const { type, family, params, variant, tieBreaker } = rule;
-  const r = rng("rarity-scale", family.id, JSON.stringify(params), tieBreaker ?? "");
-  const lowest = new Map<string, number>();
-  let s = (type as ObjectType<S>).origin(variant);
-  for (let i = 0; i < WALK; i++) {
-    s = walkStep(type, variant, s, r);
-    const score = evaluateObject(type, family, params, s, variant, tieBreaker).score;
-    const main = score?.[0];
-    if (!score || !main) continue;
-    const bits = value(score);
-    if (!Number.isFinite(bits)) continue;
-    const key = fmtQ(main);
-    const was = lowest.get(key);
-    if (was === undefined || bits < was) lowest.set(key, bits);
+export function ladderRungs<S, P>(rule: RuleRef<S, P>, from: S): Rung<S>[] {
+  const dyn = rule.family.dynamic;
+  if (!dyn) return [];
+  const u = (s: S) => { const v = dyn.u(s, rule.params); return Number.isFinite(v) ? v : -Infinity; };
+  const u0 = u(from), base = Number.isFinite(u0) ? u0 : 0, seen = new Set<string>([rule.type.encode(from)]);
+  const out: Rung<S>[] = Number.isFinite(u0) ? [{ state: from, u: u0 }] : [];
+  for (const step of STEPS) {
+    const level = base + step;
+    const cands = (dyn.candidates?.(from, level, rule.params) ?? []).filter(t => u(t) >= level - 1e-9);
+    const t = cands.sort((a, b) => u(a) - u(b))[0];
+    if (t === undefined || seen.has(rule.type.encode(t))) continue;
+    seen.add(rule.type.encode(t));
+    out.push({ state: t, u: u(t) });
   }
-  // One row per distinct worth (two values worth the same say nothing new), then spread over the range found.
-  const byBits = [...lowest].sort((a, b) => a[1] - b[1]).filter((x, i, all) => i === 0 || x[1] - all[i - 1]![1] > 1e-9);
-  const pick = byBits.length <= rows ? byBits : Array.from({ length: rows }, (_, i) => byBits[Math.round((i * (byBits.length - 1)) / (rows - 1))]!);
-  return [...new Map(pick.map(p => [p[0], p])).values()].map(([main, bits]) => ({ main, bits, text: `${main}: ${chanceText(bits)} by chance (${fmtBits(bits)})` }));
+  return out;
+}
+
+/** One rung's row: its utility, the state as a player writes it, and its energy (the live estimator, a fixed seed). */
+export function ladderRow<S, P>(rule: RuleRef<S, P>, rung: Rung<S>): LadderRow {
+  const { type, family, params, variant } = rule;
+  const bits = energyOf(type, family, params, rung.state, variant, { seed: `ladder:${type.encode(rung.state)}` }).energy;
+  const written = repText(type, rung.state, chipRep(type, rung.state));
+  return { u: rung.u, bits, text: `${fmtNum(rung.u)}: ${written} is worth ${fmtBits(bits)}` };
 }
 
 /** v1's 🎲 Randomise: a state a short random walk from the origin away, one per seed. */
