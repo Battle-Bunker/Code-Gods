@@ -3,8 +3,8 @@
  * 1440×900 and 1280×720, in a practice game:
  *   planning, live and ended: every pane of the default arrangement has a body at least 300 px wide and 220 px tall and
  *   its key elements (the goal card's rule, the lines' sort, the act log, the agent's stats line,
- *   the leaderboard's chart, the results' headline and "Watch the replay") lie wholly inside the pane, inside the window → opening One line keeps What just
- *   changed and the lines in view → a dragged gutter is stored and comes back after a reload.
+ *   the leaderboard's chart, the results' headline and "Watch the replay") lie wholly inside the pane, inside the window → pointing at a line shows its detail over the list (the dock unchanged)
+ *   → a dragged gutter is stored and comes back after a reload.
  * At 390×844 the phone stays stacked, and the forge's "Open My agents" adds My agents to the stack (every other pane
  * stays in the jump row) and scrolls to it (a persona walk saw it replace the stack with Lines).
  *
@@ -159,12 +159,33 @@ try {
     await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-live.png`) });
     console.log(`${label}: planning and live defaults usable: ${await dockText(page)}`);
 
-    // One line opens below the lines; nothing leaves the screen.
+    // A line's detail is an overlay (production's hover view): pointing at its face opens it over the list, leaving
+    // closes it, a click pins it; the dock does not change and no One line pane opens.
     const liveDock = await dockText(page);
-    await page.locator("[data-testid^=row-line-]").first().click();
-    await usable(page, ["object", "objects", "feed", "my-card", "agents", "race"], `${label} one line`);
-    noneClosed(liveDock, await dockText(page), `${label} one line`);
-    await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-one-line.png`) });
+    const face = page.locator("[data-testid^=marks-line-]").first();
+    await face.hover();
+    const detail = page.getByTestId("object-hover-detail");
+    await detail.getByTestId("line-expanded").waitFor({ timeout: 10_000 });
+    await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-hover.png`) });
+    await page.mouse.move(2, 2);
+    await detail.waitFor({ state: "detached", timeout: 5_000 });
+    await face.click();
+    await detail.getByTestId("line-expanded").waitFor({ timeout: 10_000 });
+    await page.mouse.move(2, 2);
+    await page.waitForTimeout(400);
+    assert.ok(await detail.isVisible(), `${label}: a click pins the detail`);
+    await page.keyboard.press("Escape");
+    await detail.waitFor({ state: "detached", timeout: 5_000 });
+    assert.equal(await page.getByTestId("pane-object").count(), 0, `${label}: no One line pane`);
+    assert.equal(await dockText(page), liveDock, `${label}: the dock is unchanged`);
+    // The act log's "This line now" opens the same overlay.
+    const moveLink = page.locator("[data-testid^=button-open-move-]").first();
+    if (await moveLink.count()) {
+      await moveLink.hover();
+      await detail.getByTestId("line-expanded").waitFor({ timeout: 10_000 });
+      await page.mouse.move(2, 2);
+      await detail.waitFor({ state: "detached", timeout: 5_000 });
+    }
 
     // A dragged gutter is the human's arrangement: stored for the room, and back after a reload.
     const before = await dockText(page);
@@ -179,7 +200,7 @@ try {
     assert.ok(leftColumn(dragged) > leftColumn(before) + 2, `the left column grew: ${before} → ${dragged}`);
     await page.waitForTimeout(1500);
     await page.reload();
-    await page.getByTestId("pane-object").waitFor({ timeout: 30_000 });
+    await page.getByTestId("pane-objects").waitFor({ timeout: 30_000 });
     const after = await dockText(page);
     assert.equal(after, dragged, "the arrangement is stored and comes back after a reload");
     console.log(`${label}: dragged and kept across a reload: ${after}`);
@@ -206,14 +227,11 @@ try {
     console.log(`${label}: ended dock: ${await dockText(page)}`);
     await usable(page, ["results", "my-card", "race"], `${label} ended`);
     await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-ended.png`) });
-    // Opening a pane never hides the one acted from (One line opened from Results' summary became a tab over Results):
-    // from Results, open the line-by-line list, then one line from it; Results stays in view throughout.
+    // Opening a pane never hides the one acted from: from Results, open the line-by-line list; Results stays in view.
     const endedDock = await dockText(page);
     await page.getByTestId("pane-results").getByTestId("button-line-by-line-results").click();
     await page.getByTestId("pane-objects").waitFor({ timeout: 15_000 });
-    await page.locator("[data-testid^=row-line-]").first().click();
-    await page.getByTestId("pane-object").waitFor({ timeout: 15_000 });
-    for (const p of ["results", "objects", "object"]) {
+    for (const p of ["results", "objects"]) {
       assert.ok(await page.getByTestId(`pane-${p}`).isVisible(), `${label}: ${p} in view after opening from Results: ${await dockText(page)}`);
     }
     assert.ok(await page.getByTestId("pane-results").getByText(/You finished/).first().isVisible(), `${label}: Results' headline still in view`);

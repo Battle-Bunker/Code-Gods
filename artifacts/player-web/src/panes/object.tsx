@@ -34,7 +34,11 @@ const CLIMB_SHOWN = 5;
 
 const failed = (title: string) => (e: unknown) => toast({ title, description: e instanceof Error ? e.message : String(e), variant: "destructive" });
 
-function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly string[] }) {
+/**
+ * The object's detail: the One line content. `onReps` given (the hover overlay), switching and comparing
+ * representations stay in the overlay; without it they are the human's view state.
+ */
+function FocusedLine({ objectId, reps, onReps }: { objectId: string; reps: readonly string[]; onReps?: (reps: string[]) => void }) {
   const { seated } = useGameScope();
   const view = useView();
   const o = useMyObject(objectId);
@@ -92,7 +96,10 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
   }
   const primary = my!.row.primary;
   const { active, compare: compared } = switcherOf(reps, primary);
-  const run = (op: SwitchOp) => (op.id === "view.showRepresentation" ? show.run(op.args) : compare.run(op.args)).catch(failed("The view did not change"));
+  const run = (op: SwitchOp) => {
+    if (onReps) { onReps(op.id === "view.showRepresentation" ? [(op.args as { rep: string }).rep] : [...(op.args as { reps: string[] }).reps]); return Promise.resolve(); }
+    return (op.id === "view.showRepresentation" ? show.run(op.args) : compare.run(op.args)).catch(failed("The view did not change"));
+  };
   const pinned = pinnedRep(view, rule.family.id, primary);
   const v = o.value;
   const othersAt = others && v
@@ -161,6 +168,12 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
       )}
     </div>
   );
+}
+
+/** An object's detail with its own representation choice (the hover overlay, components/object-hover.tsx). */
+export function ObjectDetail({ objectId }: { objectId: string }) {
+  const [reps, setReps] = useState<string[]>([]);
+  return <FocusedLine objectId={objectId} reps={reps} onReps={setReps} />;
 }
 
 export function LinePane() {

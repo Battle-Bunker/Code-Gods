@@ -4,12 +4,10 @@
  * your lines by points, the worst the first page by fewest points ("least"), without the best; each best line's history
  * is its own small read of the moves on it (play.objectMoves), never the act log.
  */
+import { ObjectHover } from "@/components/object-hover";
 import { forwardRef, useMemo } from "react";
-import { useAffordance } from "@workspace/v2-affordances/react";
 import { LineChart } from "@/components/charts";
 import { scoreFormula } from "@/core/words";
-import { usePaneOps } from "@/dock/open-pane";
-import { toast } from "@/hooks/use-toast";
 import { objectWord, useGame, useMyObjects, useObjectIds, useObjectMovesOf, useStandingsHistory } from "@/sdk";
 import type { Series } from "./chart-model";
 import { pointsOverGame, worstWithout } from "./results-why-model";
@@ -26,18 +24,11 @@ export const ResultsWhy = forwardRef<HTMLDivElement>(function ResultsWhy(_props,
   const objects = useMyObjects(useMemo(() => best.map(o => o.objectId), [best]));
   const moves = useObjectMovesOf(useMemo(() => best.map(o => o.number), [best]));
   const endWorld = useStandingsHistory().at(-1)?.worldSeconds;
-  const openObject = useAffordance("view.openObject");
-  const panes = usePaneOps(header?.phase ?? "ended");
   const word = objectWord(header?.variant);
   if (!header || best.length === 0) return null;
   const series: Series[] = best.map((o, i) => ({
     key: o.objectId, label: `#${o.number}`, you: i === 0, slot: i, points: pointsOverGame(moves[i], objects[i]?.value?.points, endWorld),
   }));
-  const open = async (objectId: string) => {
-    if (!await panes.open("object")) return;
-    try { await openObject.run({ objectId }); }
-    catch (e) { toast({ title: `The ${word.one} did not open`, description: e instanceof Error ? e.message : String(e), variant: "destructive" }); }
-  };
   return (
     <section ref={ref} className="scroll-mt-2 space-y-2" data-testid="section-results-why">
       <h3 className="font-medium">Why: your best and worst {word.many}</h3>
@@ -50,7 +41,7 @@ export const ResultsWhy = forwardRef<HTMLDivElement>(function ResultsWhy(_props,
           const v = objects[i]?.value;
           return (
             <li key={o.objectId} className="flex items-center gap-2" data-testid={`row-results-why-${o.number}`}>
-              <button type="button" className="w-10 text-left font-mono text-muted-foreground hover:text-foreground" onClick={() => void open(o.objectId)}>#{o.number}</button>
+              <ObjectHover objectId={o.objectId} label={`${word.One} ${o.number}`} className="w-10 font-mono text-muted-foreground hover:text-foreground">#{o.number}</ObjectHover>
               <span className="tabular-nums">{v ? scoreFormula(v.rarityBits, v.want) : "…"}</span>
             </li>
           );
@@ -64,7 +55,7 @@ export const ResultsWhy = forwardRef<HTMLDivElement>(function ResultsWhy(_props,
               const v = worstObjects[i]?.value;
               return (
                 <li key={o.objectId} className="flex items-center gap-2" data-testid={`row-results-worst-${o.number}`}>
-                  <button type="button" className="w-10 text-left font-mono text-muted-foreground hover:text-foreground" onClick={() => void open(o.objectId)}>#{o.number}</button>
+                  <ObjectHover objectId={o.objectId} label={`${word.One} ${o.number}`} className="w-10 font-mono text-muted-foreground hover:text-foreground">#{o.number}</ObjectHover>
                   <span className="tabular-nums">{v ? scoreFormula(v.rarityBits, v.want) : "…"}</span>
                 </li>
               );
