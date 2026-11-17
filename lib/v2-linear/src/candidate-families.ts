@@ -283,7 +283,7 @@ export const hensel = dynamicLine<HenselP>({
     return out;
   } }, { id: "one-number", propose: (m, c, uStar, h) =>
     // One number of a lens moved near a lift (the routes a larger search found; 17 Nov), screened by the closed form.
-    screenedScan(m, c, uStar, henselModel(h), t => henselU(t.m ?? m, h) >= uStar - 1e-9, J_SCREEN, 6, 1) }],
+    [...henselOneNumber(m, c, uStar, h), ...screenedScan(m, c, uStar, henselModel(h), t => henselU(t.m ?? m, h) >= uStar - 1e-9, J_SCREEN, 6, 1)] }],
 });
 
 // ------------------------------------------------------------------ 6. Whole Stair (exactness): rise² + run² = n × a square
@@ -593,6 +593,45 @@ const henselModel = (h: HenselP) => (one: OneNumber, z0: bigint, sg: bigint): ((
   if (top1 === top2 && bot2 - bot1 > 0n && bot1 === (bot2 - bot1) * (z0 + 1n)) { const a = bot2 - bot1; return z => henselOf(top1, a * z, h); }
   return null;
 };
+/**
+ * Graded Hensel, one number at a time, by modular arithmetic (17 Nov): when the moved number z scales the top (top = α·z,
+ * bottom β) the tops at level e are α·z ≡ ±r_e·β (mod p^e), so z runs in two progressions of step p^e (α a unit mod p);
+ * when it scales the bottom (bottom = α·z, top τ), τ² ≡ D·α²·z² gives z ≡ ±τ·(r_e·α)⁻¹. For each level that can reach u*
+ * the z nearest z0 in each progression, and the z short of it by the level's slack (e·log2 p − log2(1 + d) ≥ u* for d
+ * up to 2^(e·log2 p − u*) − 1, applied to the top, so d/α on z).
+ */
+function henselOneNumber(m: Q, c: Q, uStar: number, h: HenselP): LineTarget[] {
+  const P = BigInt(h.p), L = log2(h.p), need = Math.max(1, Math.ceil(uStar / L - 1e-9)), out: { t: LineTarget; d: bigint }[] = [];
+  for (const one of oneNumbers(m, c)) {
+    if (!one.movesM || one.z0 === 0n || searchMeter.left <= 0) continue;
+    const z0 = babs(one.z0), sg = one.z0 < 0n ? -1n : 1n;
+    const t1 = one.at(sg * (z0 + 1n)), t2 = one.at(sg * (z0 + 2n));
+    if (!t1?.m || !t2?.m || !searchTick()) continue;
+    const top1 = babs(t1.m.n), top2 = babs(t2.m.n), bot1 = t1.m.d, bot2 = t2.m.d;
+    const scalesTop = bot1 === bot2 && top2 > top1 && top1 === (top2 - top1) * (z0 + 1n);
+    const scalesBot = top1 === top2 && bot2 > bot1 && bot1 === (bot2 - bot1) * (z0 + 1n);
+    if (!scalesTop && !scalesBot) continue;
+    const alpha = scalesTop ? top2 - top1 : bot2 - bot1;
+    for (let e = need; e <= need + 3; e++) {
+      const r = henselRoot(h.k, h.p, e), mod = P ** BigInt(e);
+      if (r === null || alpha % P === 0n) break;
+      const ai = modInverse(alpha, mod);
+      const slack = BigInt(Math.max(0, Math.floor(2 ** Math.min(1000, e * L - uStar) - 1 + 1e-9))) / (scalesTop ? alpha : 1n);
+      for (const root of [r, mod - r]) {
+        // z ≡ root·β·α⁻¹ (top scaled) or z ≡ τ·(root·α)⁻¹ (bottom scaled), mod p^e.
+        const want = scalesTop ? (((root * bot1) % mod) * ai) % mod : (top1 % mod) * modInverse((root * alpha) % mod, mod) % mod;
+        const dz = (((want - z0) % mod) + mod) % mod, z = z0 + (dz > mod / 2n ? dz - mod : dz);
+        for (const zz of [z, z > z0 ? z - slack : z + slack]) {
+          if (zz <= 0n || zz === z0 || (zz - z0) * (z - z0) < 0n) continue;
+          const t = one.at(sg * zz);
+          if (t && henselU(t.m ?? m, h) >= uStar - 1e-9) out.push({ t, d: babs(zz - z0) });
+        }
+      }
+    }
+  }
+  out.sort((x, y) => (x.d < y.d ? -1 : x.d > y.d ? 1 : 0));
+  return out.slice(0, 8).map(o => o.t);
+}
 const stairModel = (k: number) => (one: OneNumber, z0: bigint, sg: bigint): ((z: bigint) => number) | null => {
   const t1 = one.at(sg * (z0 + 1n)), t2 = one.at(sg * (z0 + 2n));
   if (!t1?.m || !t2?.m) return null;

@@ -198,12 +198,14 @@ The tension with Archimedes stays (built: the same number, top² − D·bottom²
 numbers' size, Hensel wants p^e to divide it, and |top² − D·bottom²| ≥ p^e when it does, so a line good for both needs
 top² − D·bottom² = ±p^e·(small), a narrow set (Archimedes reads 0.0–0.7 on every Hensel rung above).
 
-Estimator accuracy and time, graded (seen narrowly, estimator-accuracy.md method: 6–8 states a size, a larger search's
-energy from the same starts): live over the larger search 4.8 / 9.3 / 5.4 / 0.5 bits at 5 / 10 / 20 / 40 bits (ungraded:
-3.4 / 4.5 / 1.6 / 0.0), 20–60 ms an estimate. The graded landscape has many cheap near-lift targets one number away
-(mostly in the intercepts lens) and the estimator counts fewer of them: a Hensel seat's energy reads 5–9 bits high at
-game sizes. Its search: the exact lifts and the tops short of them by the slack the level allows, at four levels, and a
-screened one-number scan; its utility charges 3 units of work (it loops over every level).
+Estimator accuracy and time, graded (seen in the accuracy harness: estimator-accuracy.md method, 6–8 states a size, 12
+seeded starts each, a larger search's energy from the same starts): live over the larger search 3.3 / 3.6 / −0.4 / −3.1
+bits at 5 / 10 / 20 / 40 bits (ungraded: 3.4 / 4.5 / 1.6 / 0.0), 30–74 ms an estimate. Its search: the exact lifts and
+the tops short of them by the slack the level allows, at four levels; for each number of a lens that scales the top or
+the bottom, the nearest z at each level by modular arithmetic (the tops at level e run in two progressions of step p^e)
+and the z short of it by the slack; and a screened one-number scan. Before the modular candidates it read 4.8 / 9.3 /
+5.4 bits high (the near-lift targets one number away in the intercepts lens were missed). Its utility charges 3 units of
+work (it loops over every level).
 
 The design-principles check for graded Hensel (labels as above):
 
