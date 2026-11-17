@@ -94,6 +94,13 @@ try {
     await assertNoSteps(page, `${label}: a rule's gallery page`);
     await noSideways(page, `${label} rule page`);
     await shot(page, `gallery-${label}-family`);
+    // The rule's code (production's goal card kept its source collapsed): the family's own definition.
+    await page.getByTestId("rule-code").locator("summary").click();
+    const code = await page.getByTestId("rule-code-source").innerText({ timeout: 15_000 });
+    assert.match(code, new RegExp(`id: "${ruleId}"`), `${label}: the code is ${ruleId}'s definition`);
+    await noSideways(page, `${label} rule page, code open`);
+    await page.getByTestId("rule-code").scrollIntoViewIfNeeded();
+    await shot(page, `gallery-${label}-code`);
     // The link opens the same rule again.
     await page.reload();
     await page.getByTestId("text-family-card").waitFor();
