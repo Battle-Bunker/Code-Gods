@@ -74,11 +74,10 @@ test("the middle is never empty, and a phone reads main first", () => {
   assert.deepEqual(readingOrder(defaultPanes("live")), ["my-card", "objects", "agents", "race", "assistant"]);
 });
 
-test("an arrangement made in planning meets the world's defaults when the world starts", () => {
+test("an arrangement made in planning is the player's on the live screen too (one default for both)", () => {
   const planning = { panes: [{ pane: "forge", place: "main" as const }, { pane: "my-card", place: "left" as const }] };
   const live = shownPanes(planning, "live").map(p => p.pane);
-  assert.ok(live.includes("objects") && live.includes("agents") && live.includes("race"), "the lines, the agents and the leaderboard appear");
-  assert.ok(!live.includes("forge"), "the planning screen's agent code stays behind (it came along as a tab inside the live panes)");
+  assert.deepEqual(live, ["forge", "my-card"], "the player's own arrangement wins");
   assert.ok(!shownPanes(planning, "ended").some(p => p.pane === "forge"), "no forge after the end");
 });
 
@@ -98,7 +97,7 @@ test("an arrangement made after a game's end meets the planning defaults when th
   const ended = { panes: [{ pane: "results", place: "main" as const }, { pane: "my-card", place: "left" as const }, { pane: "assistant", place: "right" as const }] };
   const planning = shownPanes(ended, "planning").map(p => p.pane);
   for (const d of defaultPanes("planning")) assert.ok(planning.includes(d.pane), d.pane);
-  assert.ok(!planning.includes("assistant"), "another screen's default stays on its screen (the live screen's assistant)");
+  assert.ok(planning.includes("assistant"), "the assistant is in the one default");
 });
 
 test("every stored pane shows: nothing is dropped to make room", () => {
@@ -180,6 +179,8 @@ test("pane blurbs fit every game: none says “a line” (the palette showed it 
 test("planning shows the board (W3 #931: the starting objects are born, valued and scored at game start)", () => {
   for (const id of ["objects", "object", "what-if"] as const) assert.ok(PANES[id].phases.includes("planning"), id);
   assert.ok(defaultPanes("planning").some(p => p.pane === "objects" && p.place === "main"), "the lines are in the middle in planning");
-  // Still no act log or leaderboard before the world starts: nothing has moved yet.
-  for (const id of ["feed", "race"] as const) assert.ok(!PANES[id].phases.includes("planning"), id);
+  // Still no act log before the world starts: nothing has moved yet. The leaderboard sits in its place, empty (the owner's
+  // layout is the default of every screen).
+  assert.ok(!PANES.feed.phases.includes("planning"));
+  assert.ok(PANES.race.phases.includes("planning") && defaultPanes("planning").some(p => p.pane === "race"));
 });
