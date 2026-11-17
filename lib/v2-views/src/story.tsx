@@ -86,7 +86,7 @@ export function GoalCard<S, P>({ rule, example, value, mine, exampleOpen, exampl
           <p className="v2v-goal-hint">Each row is the lowest score with that main-part value, from random {nounOf(rule.type)}s. Your points on a {nounOf(rule.type)} are your bits × the others' bits, so each bit of yours adds the others' bits to your points. Rarer scores than these are worth more still: there is no top.</p>
         </details>
       )}
-      {!mine && <p className="v2v-goal-hint">{`Open one of your ${noun}s to see it explained here.`}</p>}
+      {!mine && <p className="v2v-goal-hint">{`Hover one of your ${noun}s (or tap it) to see how it scores.`}</p>}
     </article>
   );
 }
