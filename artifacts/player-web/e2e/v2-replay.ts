@@ -80,6 +80,18 @@ async function serverKnowsWatchAs(page: Page, code: string, gameId: string): Pro
   return out.ok;
 }
 
+/** A pane opened from a pane's own menu (or brought to the front of its tabs). */
+async function openPane(page: Page, pane: string) {
+  const section = page.getByTestId(`pane-${pane}`);
+  if (await page.getByTestId(`tab-${pane}`).count()) await page.getByTestId(`tab-${pane}`).click({ position: { x: 6, y: 10 } });
+  else if (!await section.count()) {
+    await page.locator("[data-testid^=button-pane-menu-]").first().click();
+    await page.getByTestId(`button-open-pane-${pane}`).click();
+  }
+  await section.waitFor({ timeout: 15_000 });
+  return section;
+}
+
 const shot = (page: Page, name: string) => page.screenshot({ path: path.join(shots, `${name}.png`) });
 
 /** memberId → points as a list of standings rows shows them. */
@@ -106,7 +118,9 @@ async function driveReplay(page: Page, label: string, final: Record<string, stri
   assert.match(await page.getByTestId("text-phase").innerText(), /replay/i);
   const end = Number(await bar.getAttribute("data-end"));
   assert.ok(end > 10, `${label}: the file holds the game's events (${end})`);
-  await waitApplied(page, n => n === 0, "opens at the start");
+  await waitApplied(page, n => n === end, "opens on the final board (v1)");
+  await page.getByTestId("button-replay-start").click();
+  await waitApplied(page, n => n === 0, "the start");
   await page.getByTestId("race-empty").waitFor();
 
   await page.getByTestId("button-replay-forward").click();
@@ -153,14 +167,12 @@ async function driveReplay(page: Page, label: string, final: Record<string, stri
     await page.waitForFunction((was: string) => (document.querySelector("[data-testid=select-replay-speed]") as HTMLSelectElement | null)?.value === was, speedBefore, { timeout: 10_000 });
     await page.keyboard.press("Home");
     await waitApplied(page, n => n === 0, "Home returns to the start");
-    // v1's event list: opened, each row a moment; a click goes there.
-    await page.getByTestId("replay-events").locator("summary").click();
+    // v1's event list, open in the Timeline: each row a moment; a click goes there.
     const row = page.getByTestId("replay-events").locator("[data-testid^=replay-event-]").nth(3);
     const at = Number((await row.getAttribute("data-testid"))!.slice("replay-event-".length));
     await row.click();
     await waitApplied(page, n => n === at, "a click on an event goes there");
     assert.match(await page.getByTestId("replay-events").textContent() ?? "", /(Line|Grid) \d+ is born|summoned /);
-    await page.getByTestId("replay-events").locator("summary").click();
     // Back where the steps above left it (one step from the start), for the playing checks below.
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await page.keyboard.press("Home");
@@ -250,7 +262,7 @@ async function driveReplay(page: Page, label: string, final: Record<string, stri
 
 const browser = await chromium.launch();
 try {
-  // Desktop: play a short game to its natural end, then "Watch the replay" from the results.
+  // Desktop: play a short game to its natural end; the screen becomes its replay.
   const desk = await signIn(browser, "alice", { width: 1440, height: 900 });
   let page = desk.page;
   await page.getByTestId("button-create-room").first().click();
@@ -259,17 +271,40 @@ try {
   await shorten(page, code);
   await page.getByTestId("button-practice-game").click();
   await page.waitForURL(/\/games\//, { timeout: 30_000 });
-  const gameId = decodeURIComponent(page.url().split("/games/")[1]!.split(/[?#]/)[0]!);
+  // The URL names the game by its number in the room (short links); the engine's calls below take its id.
+  const gameNumber = decodeURIComponent(page.url().split("/games/")[1]!.split(/[?#]/)[0]!);
+  const resolver = new ConvexHttpClient(CLOUD);
+  resolver.setAuth(await page.evaluate(async () => ((await (await fetch("/api/auth/convex/token")).json()) as { token: string }).token));
+  const { gameId } = await resolver.query("v2/games:resolve" as never, { room: code, game: gameNumber } as never) as { gameId: string };
   await page.getByTestId("button-summon-first").click();
   await page.getByTestId("text-forge-status").getByText(/is summoned/).waitFor({ timeout: 60_000 });
   const startNow = page.getByTestId("button-start-world");
   if (await startNow.count()) { await startNow.click(); await startNow.click().catch(() => {}); }
   await page.getByTestId("text-phase").getByText("Running").waitFor({ timeout: 30_000 });
-  await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
-  const results = page.getByTestId("pane-results");
-  await results.getByText(/You finished \S+ of 3 with/).waitFor({ timeout: 20_000 });
+  // The moment the game ends the screen is its replay (v1), in this document: the Timeline in the assistant's place,
+  // the owner's layout around it, and the results a pane away.
+  await page.evaluate(() => { (window as unknown as { sameDoc: boolean }).sameDoc = true; });
+  await page.getByTestId("pane-timeline").getByTestId("replay-bar").waitFor({ timeout: 150_000 });
+  await page.locator('[data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 60_000 });
+  assert.ok(await page.evaluate(() => (window as unknown as { sameDoc?: boolean }).sameDoc), "the replay opened without a reload");
+  const layout = async () => (await page.locator("[data-testid^=pane-]").evaluateAll((els: HTMLElement[]) => els.map(e => e.dataset.testid).filter(t => /^pane-[a-z-]+$/.test(t!)))).sort();
+  const atEnd = await layout();
+  for (const pane of ["my-card", "race", "objects", "agents", "timeline"]) assert.ok(atEnd.includes(`pane-${pane}`), `the replay shows ${pane}: ${atEnd}`);
+  assert.ok(!atEnd.includes("pane-assistant"), `the Timeline replaces the assistant: ${atEnd}`);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await shot(page, "replay-at-the-end-1920");
+  const results = await openPane(page, "results");
+  await results.getByText(/You finished/).waitFor({ timeout: 20_000 });
   const final = await pointsBy(page, "row-result-");
   assert.equal(Object.keys(final).length, 3, "three players in the results");
+  const { roomId } = await resolver.query("v2/rooms:byCode" as never, { code } as never) as { roomId: string };
+  const storedResults = async () => !!(await resolver.query("v2/layout:current" as never, { roomId } as never) as { view: { panes: { pane: string }[] } | null } | null)?.view?.panes.some(p => p.pane === "results");
+  for (let i = 0; !await storedResults(); i++) { assert.ok(i < 50, "opening the results never reached the stored view"); await page.waitForTimeout(200); }
+  await page.getByTestId("button-close-results").click();
+  await page.getByTestId("pane-results").waitFor({ state: "detached", timeout: 10_000 })
+    .catch(async (e: Error) => { await shot(page, "replay-results-close-failed"); console.log("TOASTS", await page.locator("[role=status], li[data-state]").allInnerTexts()); throw e; });
+  // The close reaches the stored view (what a cold open reads) before the page is reloaded below.
+  for (let i = 0; await storedResults(); i++) { assert.ok(i < 50, "the results pane's close never reached the stored view"); await page.waitForTimeout(200); }
   console.log(`desktop: game ${gameId} ended: ${JSON.stringify(final)}`);
   const rules = await page.evaluate(async (id: string) => {
     const { token } = await (await fetch("/api/auth/convex/token")).json() as { token: string };
@@ -284,8 +319,13 @@ try {
   console.log(`desktop: the stored replay holds every player's rule: ${rules.join(", ")}`);
   assert.equal(rules.length, 3, "every player's rule is in the stored replay");
   const distinct = new Set(rules).size === rules.length;
-  await results.getByTestId("button-watch-replay").click().catch(async (e: Error) => { await shot(page, "replay-desktop-failed"); throw e; });
-  await page.locator('[data-testid="replay-bar"]').waitFor({ timeout: 30_000 });
+  // Opened cold, the same ended game is the same screen.
+  await page.reload();
+  await page.locator('[data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 60_000 });
+  const cold = await layout();
+  assert.deepEqual(cold, atEnd, "opened cold, the ended game shows the same replay screen");
+  await shot(page, "replay-cold-1920");
+  await page.setViewportSize({ width: 1440, height: 900 });
   const watchAs = await serverKnowsWatchAs(page, code, gameId);
   await driveReplay(page, "desktop", final, distinct, watchAs);
   assert.deepEqual(desk.errors, [], "desktop: no page errors");
@@ -295,19 +335,16 @@ try {
   const phone = await signIn(browser, "alice", { width: 390, height: 844 });
   page = phone.page;
   await page.goto(`${SITE}/rooms/${code}`);
-  await page.getByTestId(`button-replay-${gameId}`).click();
-  await page.waitForURL(new RegExp(`/games/${gameId}`), { timeout: 15_000 });
+  await page.getByTestId(`link-past-game-${gameNumber}`).click();
+  await page.waitForURL(new RegExp(`/games/${gameNumber}$`), { timeout: 15_000 });
   await driveReplay(page, "phone", final, distinct, watchAs);
-  await page.getByTestId("button-replay-close").click();
-  await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 10_000 });
-  assert.equal(await page.getByTestId("replay-bar").count(), 0, "closing the replay leaves the ended game");
-  // The replay route: ?replay on the game's URL opens it, and leaves the URL.
-  await page.goto(`${SITE}/rooms/${code}/games/${gameId}?replay`);
+  // The old replay route: ?replay on the game's URL leaves the URL.
+  await page.goto(`${SITE}/rooms/${code}/games/${gameNumber}?replay`);
   await page.locator('[data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 30_000 });
   await page.waitForURL(u => !new URL(u).searchParams.has("replay"), { timeout: 10_000 });
   // A moment link ("Copy a link to this moment") opens the replay at that world time, watched as that player.
   const otherId = await page.getByTestId("select-replay-as").locator("option:not(:checked)").first().getAttribute("value");
-  await page.goto(`${SITE}/rooms/${code}/games/${gameId}?replay&t=12&as=${otherId}`);
+  await page.goto(`${SITE}/rooms/${code}/games/${gameNumber}?replay&t=12&as=${otherId}`);
   await page.locator('[data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 30_000 });
   await page.waitForFunction(id => (document.querySelector('[data-testid="select-replay-as"]') as HTMLSelectElement | null)?.value === id, otherId, { timeout: 10_000 })
     .catch(async (e: Error) => { console.log("AS", otherId, await page.getByTestId("select-replay-as").inputValue(), "URL", page.url(), "TOASTS", await page.locator("[role=status], li[data-state]").allInnerTexts(), "CLOCK", await page.getByTestId("text-replay-clock").innerText()); throw e; });

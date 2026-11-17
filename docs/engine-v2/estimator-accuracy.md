@@ -57,6 +57,60 @@ Script: `lib/v2-linear/scripts/estimator-accuracy.ts` (`<rule> <sizes> <expansio
   overstatement is fairly even across states (the worst state is 2–3 times the mean gap), so rankings by one rule hold
   better than comparisons across rules.
 
+## Candidate fixes (17 Nov, after #1218)
+
+The coordinator asked for the four rules not within about 2 bits to be fixed in their candidates. What the larger
+search used that they missed (EXPLAIN=1 in the script prints each start it beat by more than 2 bits): a change to ONE
+number in another lens, mostly the intercepts lens, which the estimator prices but does not climb (climbing it too was
+tried: within the work budget it helped Corner at 5 and 10 bits only).
+
+- **Corner** (`one-number`): the area 2n·top·bottom is proportional to each number of the gradient-and-intercept,
+  intercepts and a, b, c lenses (K·z, K read one step from z, since at z itself shared factors can cancel). For each:
+  z = g·w² with g the squarefree part of K (an exact square), and the z near z0 making K·z nearest a square (every z
+  within ±128, or the z for each s within ±128 of √A where a step of s moves z by more than 1).
+- **Whole Stair** (`one-number`): every number moved by ±128 or multiplied or divided by 2–16, and for n = 1 the exact
+  Pythagorean legs: a number scaling one leg α·z with the other leg β fixed is a whole step exactly when
+  α·z = (β²/d − d)/2 for a divisor d of β².
+- **Stepping Coefficients** (`repair-one`): a's and c's signs kept or flipped, each with one number put back in step
+  (a = b − d, b = a + d or c − d, c = b + d), and the single mutations of the intercepts and area lenses (a swap there
+  reorders a, b, c).
+- **Ring** (`one-number`, candidates only: its utility is the balance session's): every number moved by ±8 or
+  multiplied or divided by 2–16, and the single mutations of the intercepts lens.
+
+Rechecked on the same states (seen narrowly; "live then" is before #1218):
+
+| rule | bits | states | live then | live now | bound now (states) | larger search | now over it: mean (worst state) | ms now |
+|---|---|---|---|---|---|---|---|---|
+| Ring | 5 | 6 | 17.6 | 15.3 | 2/6 | 10.4 | 4.9 (22.4) | 46 |
+| Ring | 10 | 6 | 38.1 | 25.5 | 4/6 | 22.1 | 3.4 (8.2) | 56 |
+| Ring | 20 | 4 | 30.0 | 6.7 | 2/4 | 6.8 | -0.1 (-2.1) | 101 |
+| Ring | 40 | 4 | 127.2 | 9.9 | 4/4 | 7.6 | 2.3 (11.8) | 343 |
+| Whole Stair | 5 | 8 | 16.1 | 11.1 | 1/8 | 9.9 | 1.2 (2.9) | 56 |
+| Whole Stair | 10 | 8 | 29.7 | 19.1 | 4/8 | 12.0 | 7.1 (25.1) | 120 |
+| Whole Stair | 20 | 8 | 49.5 | 25.2 | 5/8 | 24.1 | 1.1 (2.4) | 808 |
+| Whole Stair | 40 | 8 | 57.7 | 27.8 | 4/8 | 26.6 | 1.2 (4.7) | 932 |
+| Corner | 5 | 8 | 15.9 | 10.7 | 0/8 | 9.3 | 1.4 (4.0) | 56 |
+| Corner | 10 | 8 | 19.4 | 9.4 | 2/8 | 8.2 | 1.2 (1.9) | 79 |
+| Corner | 20 | 8 | 35.5 | 14.3 | 4/8 | 11.6 | 2.7 (7.9) | 89 |
+| Corner | 40 | 8 | 63.7 | 24.8 | 5/8 | 27.9 | -3.0 (-12.3) | 145 |
+| Stepping Coefficients | 5 | 8 | 18.8 | 17.1 | 2/8 | 17.0 | 0.1 (0.9) | 28 |
+| Stepping Coefficients | 10 | 8 | 16.8 | 15.1 | 3/8 | 14.7 | 0.5 (2.6) | 35 |
+| Stepping Coefficients | 20 | 8 | 25.1 | 14.2 | 4/8 | 16.0 | -1.8 (-5.7) | 68 |
+| Stepping Coefficients | 40 | 8 | 73.1 | 19.3 | 4/8 | 18.3 | 0.9 (12.6) | 141 |
+
+Corner is within 2.7 bits at every size (below the larger search at 40 bits: its exact squares beat what that search
+found); Ring and Stepping Coefficients within 2.3 from 20 bits; Whole Stair within 1.2 except at 10 bits (7.1: the
+larger search's routes there change two numbers at once, near misses no one-number move reaches; one deep state is 25
+over). Cost: Whole Stair 0.8–0.9 s an estimate at 20 and 40 bits (0.7 s before, its old Pythagorean list), Ring
+0.34 s at 40 bits (0.14 s before), the others under 0.15 s.
+
+**The regression test** (`lib/v2-linear/test/estimator-accuracy.test.ts`, 16 s): the 271 states at 5, 10 and 20 bits
+with the larger search's energies as a fixture; per rule and size the mean of live less larger must stay within 3 bits
+at 20 bits and 2 at 5 and 10, except where a rule was already further over when it was written (held there plus a bit:
+Bearing 10, Golden Path 5, Ring 5 and 10, Archimedes 5, Hensel 5 and 10, Whole Stair 10, Long Run 10). Part of the
+small-line gap is not a missing heuristic: on a small line the larger search finds many distinct cheap targets and the
+soft minimum sums them. Without these fixes the test fails (Corner, Ring, Whole Stair, Stepping Coefficients).
+
 ## Before and after the fix (seen narrowly)
 
 "Live then" is the live estimate as the probe ran it (before #1218); "live now" the same states and starts rechecked

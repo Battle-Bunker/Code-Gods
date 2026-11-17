@@ -3,7 +3,6 @@
  * or "Ada won with N points" for a spectator), then your points over time with the caption that points rise and fall
  * (a peak above the final figure read as a mismatch), then the final standings, your row marked.
  */
-import { Play } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { roomPath } from "@/site/lib/routes";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -15,7 +14,6 @@ import { usePaneOps } from "@/dock/open-pane";
 import { toast } from "@/hooks/use-toast";
 import { decodeState, objectWord, useGame, useObjectMovesOf, useLeaderboard, useMoves, useTugs, useMyObjects, useMyRule, useObjectIds, useRotationRound, blursOthers, useStandingsHistory, useMe } from "@/sdk";
 import { foldTugs } from "./tug-of-war";
-import { AffordanceButton } from "@/site/components/action";
 import { blurredEndedNote, isTied, ordinal, pointsText, TIE_NOTE, totalNote, totalsSumNote } from "@/core/words";
 import { LineByLine, TiedMark } from "@/core/score-help";
 import { endNote, resultsHeadline, rotationSummary } from "./results-headline";
@@ -45,12 +43,7 @@ export function ResultsPane() {
           Back to the room for the next game
         </Link>
       )}
-      {header.phase === "ended" && (
-        <AffordanceButton id="replay.open" args={{ gameId: header.gameId }} label="Watch the replay" busyLabel="Opening the replay…" tone="secondary" testId="button-watch-replay"
-          icon={<Play className="mr-1.5 h-4 w-4" aria-hidden />} />
-      )}
-      {/* The next step under the actions (round 13's dock check: a summary above them pushed "Watch the replay" out of
-          view): what to try, then why. */}
+      {/* No "Watch the replay": an ended game is its replay (v1). The next step under the actions: what to try, then why. */}
       {header.phase === "ended" && header.me && <EndSummary total={rows.find(r => r.memberId === header.me)?.net ?? 0} />}
       <Rotation summary={header.phase === "ended" ? rotationSummary(round, header.me, header.gameId) : null} />
       {header.phase === "ended" && round === null && rows.some(r => r.handicap > 0) && (
