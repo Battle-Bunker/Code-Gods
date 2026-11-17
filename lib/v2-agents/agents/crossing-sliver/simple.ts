@@ -1,5 +1,5 @@
-// Crossing Sliver · Simple
-// Main part: the line crossing the x-axis at one over a big whole number. Secondary preference: whichever you were dealt ().
+// Crossing Pattern · Simple
+// Main part: the x-crossing's continued fraction following the dealt pattern. Secondary preference: whichever you were dealt ().
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -36,12 +36,18 @@ function gcdB(a, b) { while (b !== 0n) [a, b] = [b, a % b]; return a; }
 // How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (m.n === 0n) return null;                      // a flat line never crosses the x-axis
-  const x = Math.abs(num(c) / num(m));               // where it crosses, ignoring the sign
-  if (x === 0 || x < 1 / LIMIT) return null;
-  const step = 10 ** p.suffix.length, n = nearestN(1 / x, t => t % step === Number(p.suffix) % step, suffixFloor(p.suffix, 1 / x), step, 4);
-  if (n === null) return null;
-  const main = Math.log2(n) - 4 * Math.abs(n * x - 1);
-  // main: binary digits of the whole number n with 1/n nearest the x-crossing, less four times how far n × crossing is from 1
+  let n = c.n * m.d, d = c.d * m.n;                 // |x-crossing| = |c / m| as n / d
+  if (n < 0n) n = -n;
+  if (d < 0n) d = -d;
+  let k = 0, len = 0, miss = false;
+  while (d !== 0n && len < 200) {                   // its continued fraction, whole part by whole part
+    const a = n / d;
+    if (!miss && a === BigInt(p.pattern[len % p.pattern.length])) k++; else miss = true;
+    [n, d] = [d, n % d];
+    len++;
+  }
+  const main = k - (len - k) / 4;
+  // main: leading continued-fraction whole parts of the x-crossing following the dealt pattern, less a quarter for each after the first miss
   return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     return null;
   })];

@@ -1,5 +1,5 @@
 // Prime Sliver · Naive (for learning)
-// Main part: the gradient one over a big prime with the dealt last digits. Secondary preference: whichever you were dealt ().
+// Main part: the gradient 1 over a high power of the dealt prime p. Secondary preference: whichever you were dealt ().
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -32,12 +32,11 @@ function gcdB(a, b) { while (b !== 0n) [a, b] = [b, a % b]; return a; }
 
 // How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
-  const x = Math.abs(num(m));
-  if (x === 0 || x < 1 / LIMIT) return null;
-  const P = nearestN(1 / x, primeWith(p.suffix), suffixFloor(p.suffix, 1 / x), 10 ** p.suffix.length, 2000);
-  if (P === null) return null;
-  const main = Math.log2(P) - 4 * Math.abs(P * x - 1);
-  // main: binary digits of the dealt prime p with 1/p nearest the gradient, less four times how far p × gradient is from 1
+  if (m.n === 0n) return null;                       // a flat gradient has no bottom worth scoring
+  let d = m.d, e = 0;
+  while (d % BigInt(p.p) === 0n) { d /= BigInt(p.p); e++; }   // how many p's divide the bottom
+  const main = e * Math.log2(p.p) - Math.log2(Number(d)) - Math.log2(Number(m.n < 0n ? -m.n : m.n));
+  // main: log2 p for each p dividing the gradient's bottom, less the binary digits of the rest of the bottom and of the top (bigger is better)
   return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     return null;
   })];

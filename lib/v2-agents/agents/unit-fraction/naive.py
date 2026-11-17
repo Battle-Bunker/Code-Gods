@@ -1,5 +1,5 @@
 # Unit Fraction · Naive (for learning)
-# Main part: the y-intercept one over a big whole number. Secondary preference: whichever you were dealt ().
+# Main part: the y-intercept 1 over a whole number ending in the dealt digits, repeated. Secondary preference: whichever you were dealt ().
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -70,15 +70,12 @@ def factors_n(n):
 
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
-    x = abs(num(c))
-    if x == 0 or x < 1 / LIMIT:
-        return None
-    step = 10 ** len(p["suffix"])
-    n = nearest_n(1 / x, lambda t: t % step == int(p["suffix"]) % step, suffix_floor(p["suffix"], 1 / x), step, 4)
-    if n is None:
-        return None
-    main = math.log2(n) - 4 * abs(n * x - 1)
-    # main: binary digits of the whole number n with 1/n nearest, less four times how far n × y-intercept is from 1
+    ds, want = str(c.denominator), p["suffix"]           # the bottom's digits, and the dealt ones
+    k = 0                                                # matching last digits, from the right
+    while k < len(ds) and ds[len(ds) - 1 - k] == want[len(want) - 1 - (k % len(want))]:
+        k += 1
+    main = k - cube(abs(c.numerator) - 1)
+    # main: last digits of the y-intercept's bottom matching the dealt digits repeated, less the top's distance from 1 cubed (bigger is better)
     def tier(t):   # each secondary, in order (None: ranks last)
         return None   # none described (a family with no tie-breakers)
     return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
