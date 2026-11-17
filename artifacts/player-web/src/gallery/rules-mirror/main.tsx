@@ -10,7 +10,7 @@ import { StrictMode, useEffect, useMemo, useState, type ReactElement } from "rea
 import { createRoot } from "react-dom/client";
 import { argBits, universalBits, energyOf, physicsOf, Qn, q, rng, type Q, type RuleFamily } from "@workspace/v2-core";
 import { variantOf } from "../../sdk/object-types.ts";
-import { describeLine, dynamicFamilies, fromMC, lensById, lensSurprise, mutationBits, lineType, roundHalfAway, type Line, type LensId, type LineState } from "@workspace/v2-linear";
+import { applySteps, CF_SLOTS, describeLine, expandAdd, dynamicFamilies, fromMC, lensById, lensSurprise, mutationBits, lineType, roundHalfAway, type Line, type LensId, type LineState } from "@workspace/v2-linear";
 import "./style.css";
 /** Lines · beginner's board with its configuration's physics (gravity, estimator starts). */
 const lineQ = variantOf("line-q");
@@ -22,6 +22,8 @@ const ESTIMATES = 3;
 
 // ------------------------------------------------------------------ example turns (lens-routes.ts prices)
 
+/** Short names of the lenses for the table. */
+const LENS_SHORT: Readonly<Record<string, string>> = { mc: "gradient, y-intercept", xy: "x- and y-intercepts", abc: "a, b, c", mA: "gradient, area", cf: "continued fractions", pe: "prime exponents" };
 interface Turn { readonly words: string; readonly to: string; readonly naming: number; readonly surprise: number }
 /** A few one-mutation turns from the line, each in its lens, priced as the game prices a turn: naming bits plus surprise. */
 function exampleTurns(l: Line): Turn[] {
@@ -34,7 +36,7 @@ function exampleTurns(l: Line): Turn[] {
     const ts = edit(xs.slice());
     const t = ts && lens.line(ts, l), back = t && lens.numbers(t);
     if (!t || !back) return;
-    out.push({ words: `${lens.title}: ${words}`, to: describeLine(t), naming: mutationBits(lens, Math.max(0, arg), arg < 0), surprise: lensSurprise(physicsOf(lineQ).gravity, xs, back) });
+    out.push({ words: `${LENS_SHORT[lens.id] ?? lens.id}: ${words}`, to: describeLine(t), naming: mutationBits(lens, Math.max(0, arg), arg < 0), surprise: lensSurprise(physicsOf(lineQ).gravity, xs, back) });
   };
   one("mc", "add 1 to the y-intercept's top", argBits(1n, true), ns => { ns[2] = ns[2]! + 1n; return ns; });
   one("mc", "multiply the y-intercept's top by 10", universalBits(10n), ns => { ns[2] = ns[2]! * 10n; return ns; });
@@ -44,6 +46,24 @@ function exampleTurns(l: Line): Turn[] {
   one("xy", "add 1 to the x-crossing's top", argBits(1n, true), ns => { ns[0] = ns[0]! + 1n; return ns; });
   one("abc", "add 1 to a", argBits(1n, true), ns => { ns[0] = ns[0]! + 1n; return ns; });
   one("mA", "multiply the area's top by 4", universalBits(4n), ns => { ns[2] = ns[2]! * 4n; return ns; });
+  // The fine-structure lenses: a continued fraction grows by adding to its first empty slot; an exponent by 1.
+  const slots = CF_SLOTS;
+  one("cf", "append 2 to the gradient's continued fraction", argBits(2n, true), ns => { const i = ns.findIndex((v, j) => j > 0 && j < slots && v === 0n); if (i < 0) return null; ns[i] = 2n; return ns; });
+  one("cf", "add 1 to the y-intercept's whole part", argBits(1n, true), ns => { ns[slots] = ns[slots]! + 1n; return ns; });
+  one("pe", "one more 3 in the gradient's bottom", argBits(1n, true), ns => { ns[8] = ns[8]! + 1n; return ns; });
+  one("pe", "one more 2 in the y-intercept's top", argBits(1n, true), ns => { ns[14] = ns[14]! + 1n; return ns; });
+  // "Add 1/3 to the gradient": two whole-number mutations in one turn (multiply the bottom, then add to the top).
+  {
+    const mc = lensById("mc"), xs = mc.numbers(l);
+    if (xs) {
+      const steps = expandAdd(xs[0]!, xs[1]!, 1n, 3n), m = applySteps(xs[0]!, xs[1]!, steps), t = mc.line([m.n, m.d, xs[2]!, xs[3]!], l), back = t && mc.numbers(t);
+      if (t && back) out.push({
+        words: `${LENS_SHORT.mc}: add 1/3 to the gradient (${steps.map(s => (s.kind === "mul" ? `multiply its bottom by ${s.k}` : `add ${s.k} to its top`)).join(", then ")})`,
+        to: describeLine(t), naming: steps.reduce((b, s) => b + mutationBits(mc, s.kind === "mul" ? universalBits(s.k) : argBits(s.k, true)), 0),
+        surprise: lensSurprise(physicsOf(lineQ).gravity, xs, back),
+      });
+    }
+  }
   return out;
 }
 

@@ -45,3 +45,23 @@ test("adding p/q expands into whole-number mutations: 1/2 + 1/3 is multiply the 
     assert.ok(Qn.eq(applySteps(t, b, expandAdd(t, b, p, d)), Qn.add(q(t, b), q(p, d))), `${t}/${b} + ${p}/${d}`);
   }
 });
+
+test("in the game: the continued-fraction lens appends by adding to the first empty slot, and the prime-exponent lens multiplies by adding 1", async () => {
+  const { lensMoves, lenses, lineTurnSurprise } = await import("../src/lens-moves.ts");
+  const { lineQ } = await import("./config.ts");
+  const add = lensMoves.find(m => m.id === "add")!, st = { lines: [fromMC(q(3, 2), q(7, 3))] };
+  for (const L of lenses) for (const l of lines) { const n = L.read(l); if (!("invalid" in n)) same(L.build(n, l) as never, l); }
+  const appended = add.apply(st, 0, { lens: "cf", at: 2, k: 4n }, lineQ);   // gradient [1; 2] → [1; 2, 4] = 13/9
+  assert.ok(!("invalid" in appended));
+  same(appended.lines[0]!, fromMC(q(13, 9), q(7, 3)));
+  assert.ok("invalid" in add.apply(st, 0, { lens: "cf", at: 3, k: 4n }, lineQ), "a gap is refused");
+  const dropped = add.apply(appended, 0, { lens: "cf", at: 2, k: -4n }, lineQ);   // and back
+  assert.ok(!("invalid" in dropped));
+  same(dropped.lines[0]!, st.lines[0]!);
+  const times3 = add.apply(st, 0, { lens: "pe", at: 8, k: 1n }, lineQ);   // gradient bottom 2: one more 3 → 6: 3/6 = 1/2
+  assert.ok(!("invalid" in times3));
+  same(times3.lines[0]!, fromMC(q(1, 2), q(7, 3)));
+  // A coefficient that appears rises from 0: the surprise is a whole turn's, priced like any other.
+  const s = lineTurnSurprise(st, appended, [{ mutator: "add", site: 0, args: { lens: "cf", at: "3", k: "4" } }], lineQ);
+  assert.ok(typeof s === "number" && s > 0);
+});

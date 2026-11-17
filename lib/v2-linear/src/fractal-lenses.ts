@@ -1,14 +1,14 @@
 /**
  * Two more lenses on a line (the owner, 17 Nov: "a fractal space of values where there are multiple directions to go
  * towards greater complexity"; no privileged lens). Each is a view of the same line in lowest terms; a case a lens
- * cannot read refuses the pin. Wired into the game's lens list (lens-moves.ts) once its turn law takes lenses whose
- * length changes (the coordinator, 17 Nov); until then these are the lens modules and their tests.
+ * cannot read refuses the pin. Both are in the game's lens list (lens-moves.ts `lenses`).
  *
  * - The CONTINUED-FRACTION lens ("cf"): the gradient and the y-intercept each as [a0; a1, a2, …] (a0 any whole number,
- *   the rest ≥ 1, the last ≥ 2 when there is more than one: the canonical form). Mutations: add k to a coefficient,
- *   append a coefficient, drop the last. A step in the tree of fractions is one small move. Its length changes; a turn's
- *   surprise pads the shorter side with 0 (a coefficient that appears rises from 0; one that disappears falls to 0),
- *   aligned from the front of each parameter.
+ *   the rest ≥ 1, the last ≥ 2 when there is more than one: the canonical form), in CF_SLOTS slots each, 0 marking "no
+ *   coefficient here" after a0. So appending a coefficient is adding k to the first empty slot, and dropping the last is
+ *   adding minus it: the game's own add, with no new moves. A coefficient that appears rises from 0 and one that
+ *   disappears falls to 0 in the turn's surprise, because the slots are always there. A fraction whose continued fraction
+ *   is longer than CF_SLOTS cannot be pinned in this lens.
  * - The PRIME-EXPONENT lens ("pe"): each of the four whole numbers (gradient top and bottom, y-intercept top and bottom)
  *   as its exponents of 2, 3, 5, 7, 11, 13 and a leftover cofactor sharing none of them (the top's sign on its cofactor).
  *   Adding 1 to an exponent multiplies by that prime: multiplying becomes adding. 28 whole numbers, fixed length.
@@ -72,6 +72,42 @@ export function cfAligned(before: CfNumbers, after: CfNumbers): [bigint[], bigin
   return [b, a];
 }
 
+/** Slots per parameter in the continued-fraction lens (its size: part of the lens's definition, like mc's four numbers). */
+export const CF_SLOTS = 16;
+/** A parameter's continued fraction in CF_SLOTS slots (0 after the last), or null when it is longer. */
+function slotsOf(x: Q): bigint[] | null {
+  const cf = continuedOf(x);
+  return cf.length > CF_SLOTS ? null : [...cf, ...Array<bigint>(CF_SLOTS - cf.length).fill(0n)];
+}
+/** The value of CF_SLOTS slots, or why not: after a0 the coefficients run up to the first 0, and every slot after it is 0. */
+function slotsValue(ns: readonly bigint[]): Q | { invalid: string } {
+  let L = 1;
+  while (L < ns.length && ns[L] !== 0n) L++;
+  for (let i = L; i < ns.length; i++) if (ns[i] !== 0n) return { invalid: "a continued fraction has no gaps: a coefficient after a 0 must be 0 too (add to the first empty slot to append one)" };
+  for (let i = 1; i < L; i++) if (ns[i]! < 1n) return { invalid: "a continued fraction's coefficients after the first are 1 or more" };
+  const v = valueOf(ns.slice(0, L));
+  return v ?? { invalid: "that continued fraction is not a number" };
+}
+/** The continued-fraction lens as the game's lens: 2 × CF_SLOTS whole numbers. */
+export const cfGameLens = {
+  id: "cf",
+  title: "continued fractions: gradient [a0; a1, …] and y-intercept [b0; b1, …], 0 for an empty slot",
+  numbers: [...Array.from({ length: CF_SLOTS }, (_, i) => `gradient a${i}`), ...Array.from({ length: CF_SLOTS }, (_, i) => `y-intercept b${i}`)],
+  pairs: [] as const,
+  paramNames: [] as const,
+  read(l: Line): bigint[] | { invalid: string } {
+    if (isVertical(l)) return { invalid: "a vertical line has no gradient" };
+    const m = slotsOf(q(-l.a, l.b)), c = slotsOf(q(-l.c, l.b));
+    return m && c ? [...m, ...c] : { invalid: `a continued fraction longer than ${CF_SLOTS} coefficients does not fit this lens` };
+  },
+  build(ns: readonly bigint[]): Line | { invalid: string } {
+    const m = slotsValue(ns.slice(0, CF_SLOTS)), c = slotsValue(ns.slice(CF_SLOTS));
+    if ("invalid" in m) return m;
+    if ("invalid" in c) return c;
+    return fromMC(m, c);
+  },
+};
+
 // ------------------------------------------------------------------ prime exponents
 
 export const PE_PRIMES = [2n, 3n, 5n, 7n, 11n, 13n] as const;
@@ -92,6 +128,8 @@ export function fromExponents(ns: readonly bigint[]): bigint | null {
 }
 export const peLens = {
   id: "pe" as const,
+  pairs: [] as const,
+  paramNames: [] as const,
   title: "prime exponents: each top and bottom as powers of 2, 3, 5, 7, 11, 13 times what is left",
   numbers: PARTS.flatMap(part => [...PE_PRIMES.map(p => `${part}: exponent of ${p}`), `${part}: what is left`]),
   read(l: Line): bigint[] | null {
@@ -101,6 +139,7 @@ export const peLens = {
   },
   build(ns: readonly bigint[]): Line | null {
     if (ns.length !== 4 * PER) return null;
+    for (const i of [6, 13, 20, 27]) if (ns[i] === 0n && ns.slice(i - 6, i).some(e => e !== 0n)) return null;   // 0 has no exponents
     const v = [0, 1, 2, 3].map(i => fromExponents(ns.slice(i * PER, (i + 1) * PER)));
     if (v.some(x => x === null) || v[1]! <= 0n || v[3]! <= 0n) return null;   // bottoms stay 1 or more
     const l = normalise(-v[0]! * v[3]!, v[1]! * v[3]!, -v[2]! * v[1]!);
