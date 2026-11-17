@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { argBits, q, Qn, turnSurprise } from "@workspace/v2-core";
-import { estimateLine, fromMC, lensById, lensPrice, lineStarts, LENSES, mutationBits, routePrice, type LineRule } from "../src/index.ts";
+import { estimateLine, fromMC, lensById, lensPrice, lineStarts, LENSES, mutationBits, routePrice, TURN_BITS, type LineRule } from "../src/index.ts";
 
 test("every lens reads a line and names it back", () => {
   const lines = [fromMC(q(3, 4), q(25, 4)), fromMC(q(-2, 7), q(-729)), fromMC(q(5), q(0))];
@@ -13,7 +13,7 @@ test("every lens reads a line and names it back", () => {
     const ns = lens.numbers(l);
     if (!ns) continue;
     const back = lens.line(ns, l);
-    if (lens.id === "ma" && !back) continue;   // an area whose root is not rational
+    if (lens.id === "mA" && !back) continue;   // an area whose root is not rational
     assert.ok(back && back.a === l.a && back.b === l.b && back.c === l.c, `${lens.id}: ${ns.join(" ")}`);
   }
 });
@@ -24,7 +24,7 @@ test("a route's price is its mutations' naming bits plus the turn's surprise", (
   // Add 4 to c's top: one mutation; the surprise of 3/1 → 3/1 and 5/1 → 9/1.
   const naming = mutationBits(mc, argBits(4n, true)), surprise = turnSurprise([3n, 1n, 5n, 1n], [3n, 1n, 9n, 1n]);
   assert.ok(Math.abs(lensPrice(mc, [3n, 1n, 5n, 1n], [3n, 1n, 9n, 1n]).naming - naming) < 1e-9);
-  assert.ok(p.total <= naming + surprise + 1e-9, `${p.total} > ${naming + surprise}`);
+  assert.ok(p.total <= naming + surprise + TURN_BITS + 1e-9, `${p.total} > ${naming + surprise}`);
   // Multiplying is a shortcut: 5 → 5·2^20 names a factor, not the path.
   const far = fromMC(q(3), q(5 * 2 ** 20));
   assert.ok(lensPrice(mc, [3n, 1n, 5n, 1n], [3n, 1n, 5n * 2n ** 20n, 1n]).naming < mutationBits(mc, argBits(5n * 2n ** 20n - 5n, true)));

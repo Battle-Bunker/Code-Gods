@@ -28,9 +28,11 @@ const reduce = (t: bigint, b: bigint): [bigint, bigint] => {
 };
 const frac = (t: bigint, b: bigint): [bigint, bigint] => (b < 0n ? reduce(-t, -b) : reduce(t, b));
 
+/** ⌊√n⌋ exactly at any size (Newton's method; a float start alone is off by millions past 2^106). */
 function isqrt(n: bigint): bigint {
   if (n < 2n) return n;
-  let x = BigInt(Math.floor(Math.sqrt(Number(n))));
+  let x = n < 2n ** 52n ? BigInt(Math.floor(Math.sqrt(Number(n)))) + 1n : 1n << BigInt(Math.ceil(n.toString(2).length / 2));
+  for (;;) { const y = (x + n / x) >> 1n; if (y >= x) break; x = y; }
   while (x * x > n) x--;
   while ((x + 1n) * (x + 1n) <= n) x++;
   return x;

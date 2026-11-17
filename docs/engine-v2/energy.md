@@ -8,7 +8,7 @@ from a random object of the same 'size'". This replaces the value tables (decisi
 
     energy(s) = mean over K = 12 starts x of c(x),   c(x) = −log2 Σ over distinct one-turn routes 2^−bits(route)
 
-- **Lenses** (built, lens-routes.ts, a stand-in until session A's lenses land): gradient and y-intercept (m top, m
+- **Lenses** (built: the game's own, lens-moves.ts, seen through lens-routes.ts' `Lens`): gradient and y-intercept (m top, m
   bottom, c top, c bottom); x- and y-intercepts; a, b, c; gradient and signed area (c's sign kept from the line before).
   Every fraction is a pair of whole numbers in lowest terms, bottom > 0.
 - **A route's bits** (built): the cheapest turn in any lens that names the target: its mutations' naming bits
@@ -25,7 +25,7 @@ from a random object of the same 'size'". This replaces the value tables (decisi
   `candidates` (its old searches' targets).
 - **Time and spread** (seen narrowly: one good line per rule from its candidates, its first dealt parameters, six seeds,
   Node on this machine): 0–60 ms an estimate; repeat sd 2–9% for most rules, 16–25% for Power Hug and Circle Kiss.
-  The Convex runtime's figure is not measured (the local backend would not start here).
+  The Convex runtime's figure is not measured (the local backend would not start here). The lenses and their prices are the game's own (lens-moves.ts: each mutation which + where + argument + continue bit, the lens named once a turn).
 
 ### Spot check: does the universal climb alone match the best route found with candidates? (seen narrowly)
 

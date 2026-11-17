@@ -34,7 +34,7 @@ export interface LineRule {
 }
 /** The lens a dynamic rule reads, from its `reads`. */
 export const lensOfReads = (reads: readonly string[]): LensId =>
-  reads.includes("gen") ? "abc" : reads.includes("X") ? "xc" : reads.includes("area") ? "ma" : "mc";
+  reads.includes("gen") ? "abc" : reads.includes("X") ? "xy" : reads.includes("area") ? "mA" : "mc";
 /** A dynamic rule on line states (one line per object) as a LineRule. */
 export function lineRule<P>(rule: DynamicRule<LineState, P>, params: P): LineRule {
   const st = (l: Line): LineState => ({ lines: [l] });
@@ -54,7 +54,7 @@ const sameBits = (v: bigint, t: number, band: number): bigint => {
 };
 /** K starts for s in the rule's lens: each whole number of s's information size, stratified. */
 export function lineStarts(s: Line, lensId: LensId, K: number, seed: string, band = 0.5): Line[] {
-  const lens = lensById(lensId === "ma" ? "mc" : lensId), base = lens.numbers(s);
+  const lens = lensById(lensId === "mA" ? "mc" : lensId), base = lens.numbers(s);
   if (!base) return [];
   const r = makeRng("line-starts", seed), bottoms = new Set(lens.pairs.map(p => p[1]));
   const grid = latinHypercube(K, base.length, () => r.unit(), k => r.below(k)), out: Line[] = [];
