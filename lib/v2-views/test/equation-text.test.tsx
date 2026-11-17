@@ -65,8 +65,8 @@ test("a vertical line in a view that cannot show it: the view names it (x = 3) b
 
 test("the act log names a vertical line too: x = 3 → y = 3, never its reason sentence", async () => {
   const { MoveLine } = await import("../src/index.ts");
-  const { powerHug, lineQ } = await import("@workspace/v2-linear");
-  const rule = { type: lineType, family: powerHug, params: powerHug.dealable(lineQ)[0], variant: lineQ, tieBreaker: null } as never;
+  const { multiples, lineQ } = await import("@workspace/v2-linear");
+  const rule = { type: lineType, family: multiples, params: multiples.dealable(lineQ)[0], variant: lineQ, tieBreaker: null } as never;
   const t = text(renderToStaticMarkup(<MoveLine rule={rule} before={abc(1n, 0n, -3n)} after={mc(q(0), q(3))} who="Your agent" what="reflect in y = x" />));
   assert.match(t, /x = 3 → y = 3/, t);
   assert.doesNotMatch(t, /vertical line has no gradient or y-intercept →/, t);

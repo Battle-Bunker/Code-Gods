@@ -24,7 +24,7 @@ from a random object of the same 'size'". This replaces the value tables (decisi
   ±4^j, ×/÷ 2, 3, 10, negate, swap, round; at most six steps; given up 16 bits past the best route), and the rule's
   `candidates` (its old searches' targets).
 - **Time and spread** (seen narrowly: one good line per rule from its candidates, its first dealt parameters, six seeds,
-  Node on this machine): 0–60 ms an estimate; repeat sd 2–9% for most rules, 16–25% for Power Hug and Circle Kiss.
+  Node on this machine): 0–60 ms an estimate; repeat sd 2–9% for most rules, 16% for Circle Kiss (25% for Power Hug, deleted 17 Nov).
   In the Convex runtime (seen narrowly: artifacts/engine test/v2-energy-cost.test.ts, one Lines · beginner game, the local backend on this machine, 17 Nov): a commit (every seat's energy on the changed line) took a median 155 ms and at most 207 ms over 20 commits; a look at every object a median 107 ms and at most 162 ms. The test fails past 600 ms; Convex stops a mutation at 1 s. The lenses and their prices are the game's own (lens-moves.ts: each mutation which + where + argument + continue bit, the lens named once a turn).
 
 ### Spot check: does the universal climb alone match the best route found with candidates? (seen narrowly)
@@ -142,7 +142,6 @@ better), the readings it `reads`, and its own `searches` (heuristics that propos
 
 | Family | Reads | Utility (bigger better) | Pulls | Space |
 |---|---|---|---|---|
-| Power Hug | c | √(log2 P) − \|c − P\|³, P the nearest power of k (the owner's example) | up, precise | k 2–40 |
 | Prime Hug | m | √(log2 p) − \|m − p\|³, p the nearest prime ending in the suffix | up, precise | 444 suffixes |
 | Multiples | c | (log2\|n\| − √\|c − n\|) × (k's in n − other factors): the owner's example | up | k 2–12 |
 | Fine Bottom | c | log2 (k-part of c's bottom) − 2 log2 (rest of the bottom) | fractions | k 2–9 |
@@ -179,7 +178,7 @@ Labels as above. Several rows assumed tables or tie-breakers, and the adaptation
 | 3, 3a Tie-breaker tied to the main part | Adapted: no tie-breakers. Precision is a term of the utility (cubed or ×4 distance to the anchor the main part chose), so a step to a new anchor restarts the precision climb. |
 | 4 Dealable instances | Built: large spaces (RuleFamily.space); two peers listed per family. |
 | 5 Perpendicular | Not measured: the PMI table is computed from value tables (exempt in v2-rule-check). |
-| 6 Opponents | By construction: on c, Power Hug and Multiples pull the y-intercept up while Unit Fraction wants its top 1 and a long digit tail on its bottom (Fine Bottom wants a bottom of k's: the two bottoms disagree); on m, Prime Hug pulls up, Prime Sliver wants a bottom that is a power of p, Next-door Bottom a bottom dividing top + t; on the x-crossing, Crossing Pattern wants a continued fraction of small dealt whole parts against Square Triangle's big area (area = \|c·X\|/2); Stepping Coefficients' big a, b, c oppose every rule that wants a simple gradient or intercept; Circle Kiss ties c to m (c² = R²(1 + m²)). |
+| 6 Opponents | By construction: on c, Multiples pulls the y-intercept up while Unit Fraction wants its top 1 and a long digit tail on its bottom (Fine Bottom wants a bottom of k's: the two bottoms disagree); on m, Prime Hug pulls up, Prime Sliver wants a bottom that is a power of p, Next-door Bottom a bottom dividing top + t; on the x-crossing, Crossing Pattern wants a continued fraction of small dealt whole parts against Square Triangle's big area (area = \|c·X\|/2); Stepping Coefficients' big a, b, c oppose every rule that wants a simple gradient or intercept; Circle Kiss ties c to m (c² = R²(1 + m²)). |
 | 7 Kinds | Powers, large primes, k-multiples, denominators of a base, divisibility of top + t by bottom, digit tails of a bottom, prime-power bottoms, balanced prime powers over a fraction, neighbours in a recurrence, continued-fraction patterns, arithmetic steps, Pythagorean tilts, square areas: no kind shared by more than two. |
 | 10 Small bump | Not measured. Guess: the cubed terms make every off-anchor bump expensive in utility, but energy, not utility, is paid, so the loss is the energy of a slightly worse state. |
 | 12 Writable from the card | Each card states the formula in words. Not tested with a reader. |

@@ -101,23 +101,6 @@ const entry = (family: string, mainSays: string, ts: string[], py: string[], ext
 });
 
 export const DYNAMIC_CATALOGUE: readonly FamilyEntry[] = [
-  entry("power-hug", "the square root of the nearest power's binary digits, less the distance to it cubed (bigger is better)", [
-    "const x = Math.abs(num(c));                      // the y-intercept's size",
-    "if (x >= LIMIT) return null;",
-    "let P = p.k;                                     // the power of k nearest it",
-    "for (let t = p.k; t <= Math.max(p.k, 2 * x + p.k); t *= p.k) if (Math.abs(t - x) < Math.abs(P - x)) P = t;",
-    "const main = Math.sqrt(Math.log2(P)) - cube(x - P);",
-  ], [
-    "x = abs(num(c))                                 # the y-intercept's size",
-    "if x >= LIMIT:",
-    "    return None",
-    "P, t = p[\"k\"], p[\"k\"]                           # the power of k nearest it",
-    "while t <= max(p[\"k\"], 2 * x + p[\"k\"]):",
-    "    if abs(t - x) < abs(P - x):",
-    "        P = t",
-    "    t *= p[\"k\"]",
-    "main = math.sqrt(math.log2(P)) - cube(x - P)",
-  ]),
   entry("prime-hug", "the square root of the nearest dealt prime's binary digits, less the distance to it cubed (bigger is better)", [
     "const x = Math.abs(num(m));                      // the gradient's size",
     "if (x >= LIMIT) return null;",
