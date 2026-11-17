@@ -59,7 +59,7 @@ test("gravity is the game's setting: λ = 0 makes up and down cost the same; the
   const { physicsOf, withPhysics, assertPhysics } = await import("../src/physics.ts");
   const v = { id: "x", objectType: "line", mutators: [], birthMixSteps: 1, params: {} };
   assert.throws(() => physicsOf(v), /physics settings are missing/);
-  assert.throws(() => withPhysics(v, { gravity: -1, estimatorStarts: 12, sameSizeBand: 0.5, newbornBitRate: 1, largestNumber: 1000 }), /gravity/);
-  assert.throws(() => assertPhysics({ gravity: 1, estimatorStarts: 1.5, sameSizeBand: 0.5, newbornBitRate: 1, largestNumber: 1000 }), /whole/);
-  assert.equal(physicsOf(withPhysics(v, { gravity: 1, estimatorStarts: 12, sameSizeBand: 0.5, newbornBitRate: 1, largestNumber: 1000 })).estimatorStarts, 12);
+  assert.throws(() => withPhysics(v, { gravity: -1, estimatorStarts: 12, sameSizeBand: 0.5, newbornBitRate: 1 }), /gravity/);
+  assert.throws(() => assertPhysics({ gravity: 1, estimatorStarts: 1.5, sameSizeBand: 0.5, newbornBitRate: 1 }), /whole/);
+  assert.equal(physicsOf(withPhysics(v, { gravity: 1, estimatorStarts: 12, sameSizeBand: 0.5, newbornBitRate: 1 })).estimatorStarts, 12);
 });

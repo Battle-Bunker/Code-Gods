@@ -199,29 +199,11 @@ export const lensMoves: readonly Mutator<LineState, MoveArgs>[] = KINDS.map(spec
     if ("invalid" in m) return m;
     const built = inDomain(lens.build(m, l), lineParams(variant));
     if ("invalid" in built) return built;
-    const tooBig = pastLargest(l, built, variant);
-    if (tooBig) return tooBig;
 
     return { lines: state.lines.map((x, i) => (i === site ? built : x)) };
   },
   inverse: { kind: "none", note: "turns are priced as a whole; there is no exact potential" },
 }));
-
-const babsBig = (v: bigint) => (v < 0n ? -v : v);
-/** A line's largest |a|, |b| or |c| (ax + by + c = 0, no common factor). */
-export const largestOf = (l: Line): bigint => [l.a, l.b, l.c].map(babsBig).reduce((t, v) => (v > t ? v : t), 0n);
-
-/**
- * The game's largest number (physics setting largestNumber): a mutation may not take a line's largest |a|, |b| or |c|
- * past it, nor past what the line already had (a line already past it may still shrink). Checked on every mutation, so
- * agents' quotes, What if, locked acts and the server all refuse it. The game configurations always set physics (the
- * server's and the app's variants); a bare variant in a test fixture carries none and is not capped.
- */
-function pastLargest(before: Line, after: Line, variant: Variant): Invalid | null {
-  if (variant.physics === undefined) return null;
-  const cap = BigInt(physicsOf(variant).largestNumber), now = largestOf(after);
-  return now > cap && now > largestOf(before) ? { invalid: `that would make the line's largest number (a, b or c in ax + by + c = 0) ${now}, past ${cap}, the largest number this game allows` } : null;
-}
 
 /** Bits that name the turn's lens. */
 export const LENS_BITS = Math.log2(lenses.length);

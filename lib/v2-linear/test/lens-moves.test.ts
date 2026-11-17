@@ -93,17 +93,3 @@ test("newborns are modest and valid on every line board", () => {
   assert.ok(big < 40, `${big} of 400 newborns over 30 bits`);
   assert.equal(lensById("mc")!.numbers.length, 4);
 });
-
-test("a turn may not make a, b or c past the game's largest number; a line already past it may still shrink", () => {
-  const cap = physicsOf(lineQ).largestNumber;
-  // y = 2x + c with c just under the cap: ×10 would take c past it in every lens (refused, plainly); +1 to the top stays.
-  const s = { lines: [fromMC(q(2n), q(BigInt(cap) - 1n))] };
-  const over = turn(s, [call("mul", { lens: "mc", at: "3", k: "10" })]);
-  assert.ok(isInvalid(over) && /largest number/.test(over.invalid), JSON.stringify(over));
-  assert.ok(!isInvalid(turn(s, [call("add", { lens: "mc", at: "3", k: "1" })])), "c = cap is allowed");
-  assert.ok(isInvalid(turn(s, [call("add", { lens: "mc", at: "3", k: "2" })])), "c = cap + 1 is not");
-  // Through another lens: doubling the x-intercept's bottom halves the crossing and grows a or c past the cap too.
-  const big = { lines: [fromMC(q(BigInt(cap) * 3n), q(5n))] };   // already past the cap
-  assert.ok(isInvalid(turn(big, [call("mul", { lens: "mc", at: "1", k: "2" })])), "growing further is refused");
-  assert.ok(!isInvalid(turn(big, [call("div", { lens: "mc", at: "1", k: "3" })])), "shrinking is allowed");
-});

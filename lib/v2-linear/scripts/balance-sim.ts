@@ -22,7 +22,7 @@ export type Kind = "greedy" | "hopper" | "saver" | "knocker";
 export interface SimOpts {
   gravity?: number; power?: number; store?: number; K?: number; band?: number; seed?: string; seats?: number;
   worldSeconds?: number; startLines?: number; birthEvery?: number; opsPerSecond?: number; share?: number;
-  kinds?: Kind[]; saveTo?: number; quiet?: boolean; rot?: number; cap?: number;
+  kinds?: Kind[]; saveTo?: number; quiet?: boolean; rot?: number;
 }
 
 const READ_BITS = 16;
@@ -82,7 +82,7 @@ function callsTo(V: Variant, l: Line, t: Line, lensId: string): Option | null {
 }
 
 export function simulate(o: SimOpts = {}) {
-  const physics = { ...LINES_BEGINNER_PHYSICS, ...(o.gravity === undefined ? {} : { gravity: o.gravity }), ...(o.K === undefined ? {} : { estimatorStarts: o.K }), ...(o.band === undefined ? {} : { sameSizeBand: o.band }), ...(o.cap === undefined ? {} : { largestNumber: o.cap }) };
+  const physics = { ...LINES_BEGINNER_PHYSICS, ...(o.gravity === undefined ? {} : { gravity: o.gravity }), ...(o.K === undefined ? {} : { estimatorStarts: o.K }), ...(o.band === undefined ? {} : { sameSizeBand: o.band }) };
   const V = withPhysics(lineQ, physics);
   const power = o.power ?? LINES_BEGINNER_ECONOMY.powerPerSecond, store = o.store ?? LINES_BEGINNER_ECONOMY.fullChargeSeconds;
   const seed = o.seed ?? "s", R: Rng = makeRng("balance", seed);
