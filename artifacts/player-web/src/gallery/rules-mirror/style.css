@@ -49,3 +49,4 @@ body { margin: 0; background: var(--rm-bg); color: var(--rm-ink); }
 .rm-turns td:nth-child(n + 3) { text-align: right; font-variant-numeric: tabular-nums; }
 .rm-turns th { white-space: nowrap; }
 .rm-turns td:nth-child(n + 2) { white-space: nowrap; }
+.rm-group { margin: 16px 0 4px; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.04em; color: var(--rm-muted, #6b6b6b); }
