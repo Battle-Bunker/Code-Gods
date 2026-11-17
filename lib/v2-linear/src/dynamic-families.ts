@@ -119,7 +119,7 @@ export const unitFraction = dynamicLine<{ suffix: string }>({
   id: "unit-fraction", title: "Unit Fraction", goal: "the y-intercept 1 over a whole number ending in the dealt digits, repeated", reads: ["c"], focus: ["si", "c"],
   space: endSpace, peers: [{ suffix: "3" }, { suffix: "25" }],
   card: ({ suffix }) => `Write the y-intercept as a fraction top/bottom in lowest terms. The top should be 1 (or −1): being d away costs d × d × d. The bottom's last digits should be ${suffix} repeated (…${repeated(suffix, 6)}): every last digit that matches, counting from the right until the first that does not, scores 1.`,
-  u: (_m, c, { suffix }) => matchedEnd(c.d, suffix) - Number((babsQ(c.n) - 1n) ** 3n),
+  u: (_m, c, { suffix }) => matchedEnd(c.d, suffix) - Number(babsQ(babsQ(c.n) - 1n) ** 3n),
   searches: [{ id: "end-in-the-pattern", propose: (_m, c, uStar, { suffix }) => {
     const need = Math.max(1, Math.ceil(uStar - 1e-9)), out: LineTarget[] = [], sign = c.n < 0n ? -1n : 1n;
     for (const L of [need, need + 1]) {
