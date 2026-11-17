@@ -28,6 +28,7 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@workspace/v2-economy": "workspace:*",
     "@workspace/v2-grid": "workspace:*",
     "@workspace/v2-grid-boards": "workspace:*",
     "@workspace/v2-valuation": "workspace:*",

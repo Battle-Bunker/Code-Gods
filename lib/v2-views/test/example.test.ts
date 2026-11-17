@@ -44,3 +44,24 @@ test("every pool family, line or grid, gets a scoring example with no '≈' and 
     assert.doesNotMatch(c.parts[0]!.sentence, /≈/, `${r.family.id}/${r.tieBreaker}: ${c.parts[0]!.sentence}`);
   }
 });
+
+test("the card's ladder: each dealt line rule's rungs rise from the worked example, each with its real energy", async () => {
+  const { withPhysics } = await import("@workspace/v2-core");
+  const { LINES_BEGINNER_PHYSICS } = await import("@workspace/v2-economy");
+  const { ladderRow, ladderRungs } = await import("../src/index.ts");
+  const variant = withPhysics(lineQ, LINES_BEGINNER_PHYSICS);
+  const short: string[] = [];
+  for (const f of dynamicFamilies) {
+    const rule: RuleRef<LineState, unknown> = { type: lineType, family: f as never, params: f.dealable(variant)[0], variant, tieBreaker: f.tieBreakers[0]?.id };
+    const rungs = ladderRungs(rule, workedExample(rule));
+    if (rungs.length < 3) short.push(`${f.id}: ${rungs.length}`);
+    for (let i = 1; i < rungs.length; i++) assert.ok(rungs[i]!.u > rungs[i - 1]!.u, `${f.id}: utility rises along the ladder`);
+    for (const r of rungs.slice(0, 2)) {
+      const row = ladderRow(rule, r);
+      assert.ok(Number.isFinite(row.bits) && row.bits >= 0, `${f.id}: a real energy`);
+      assert.match(row.text, /^−?[\d,]+\.\d\d: y = .+ is worth [\d,]+\.\d\d bits?$/, `${f.id}: ${row.text}`);
+      assert.doesNotMatch(row.text, /rare|chance/, "energy, never rarity");
+    }
+  }
+  assert.deepEqual(short, [], "every dealt rule has a ladder of at least three rungs");
+});
