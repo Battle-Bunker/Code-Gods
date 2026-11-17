@@ -5,7 +5,8 @@
  *   {base}                               your rooms
  *   {base}rooms/:room                    the room (never a game)
  *   {base}rooms/:room/configure          the next game's setup
- *   {base}rooms/:room/games/:game        one game: player view, spectator view, or replay once it has ended
+ *   {base}rooms/:room/games/:game        one game (its number in the room: v1's short link; an old link by the game's id
+ *                                        is replaced by it): player view, spectator view, or replay once it has ended
  *   {base}connect, {base}device          approving an app or a device
  *   {base}admin/agents[/:id]             the AI player library
  *   {base}rule-gallery                   the rule gallery: every annotated rule family for a board (setup in GET params)
