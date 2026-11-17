@@ -13,3 +13,4 @@ export * from "./drift.ts";
 export * from "./principles.ts";
 export * from "./locks.ts";
 export * from "./free-energy.ts";
+export * from "./surprise.ts";

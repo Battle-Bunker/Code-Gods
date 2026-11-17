@@ -1,7 +1,7 @@
 /** A board's energy (src/energy.ts on v2-core free-energy.ts): what holds by construction, the spread and the time gate. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { rng, softMinBits, startCost } from "@workspace/v2-core";
+import { argBits, rng, softMinBits, startCost } from "@workspace/v2-core";
 import { dynamicGridFamilies, estimateGrid, grid4, gridNaming, gridStarts, type GridDynamicRule, type GridState } from "../src/index.ts";
 
 type F = (typeof dynamicGridFamilies)[number];
@@ -37,8 +37,8 @@ test("naming: a turn costs naming bits only; every move names at least which mov
   const { moves, cellBits } = gridNaming(grid4);
   assert.ok(moves.length > 500, `${moves.length} moves`);
   for (const m of moves) assert.ok(m.bits >= Math.log2(grid4.mutators.length) + 1 - 1e-9, m.m.id);
-  // add to one cell: which (log2 12) + which cell (4) + the amount (sign + one digit) + continue
-  assert.ok(Math.abs(cellBits - (Math.log2(12) + 4 + 1 + Math.log2(10) + 1)) < 1e-9);
+  // add to one cell: which (log2 12) + which cell (4) + the amount (argBits of 1, signed) + continue
+  assert.ok(Math.abs(cellBits - (Math.log2(12) + 4 + argBits(1, true) + 1)) < 1e-9);
 });
 
 test("energy: 0 when a start already qualifies; a climbed board costs more than a random one; seeded estimates repeat", () => {

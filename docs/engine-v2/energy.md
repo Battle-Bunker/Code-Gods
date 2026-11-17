@@ -124,9 +124,9 @@ to those particular heuristics".
     energy(s) = mean over starts x of c(x),   c(x) = −log2 Σ over distinct one-turn routes 2^−bits(route)
 
 - **Bits** (built): energy is bits, no factor. A grid has no size, so a turn costs naming bits only: per mutation,
-  which move (log2 12), which cells or lines (log2 of the choices), the amount's digits (a sign bit and log2 10 a
-  digit) and one "continue" bit. Changing one cell names 12.9 bits. (This naming lives in the estimator,
-  `gridNaming`; it should become the turn pricer's own when that lands.)
+  which move (log2 12), which cells or lines (log2 of the choices), the amount (v2-core surprise.ts `argBits`: a
+  self-delimiting code and a sign bit, 4 bits for ±1, 8 for ±9) and one "continue" bit. Changing one cell by ±1
+  names 12.6 bits. The direct rewrite and the anchors price a changed cell at the ±1 rate (a cheap floor).
 - **Starts** (built): uniformly random boards, stratified: across the K = 20 starts each cell's digit is a
   Latin-hypercube draw (each digit twice).
 - **Routes per start** (built), in order of importance: (1) universal, no rule code: the direct turn onto s (rewrite

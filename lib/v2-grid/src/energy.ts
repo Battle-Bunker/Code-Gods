@@ -5,14 +5,14 @@
  *   energy(s) = mean over K uniformly random boards x of c(x),   c(x) = −log2 Σ_routes 2^−bits(route)
  *
  * Grids have no size, so a turn costs naming bits only: per mutation, which move (log2 of the variant's moves), which
- * cells or lines (log2 of the choices), the amount's digits (a sign bit and log2 10 per digit), and one "continue" bit.
+ * cells or lines (log2 of the choices), the amount (v2-core surprise.ts argBits: a self-delimiting code and a sign bit), and one "continue" bit.
  * The starts are stratified: across the K boards each cell's digit is a Latin-hypercube draw (K = 20: each digit twice).
  * Routes per start: the universal greedy climb over every single mutation, the direct turn onto s (rewrite the cells
  * that differ), the separable rules' cheapest group rewrites onto their anchors (a Pareto front per group, merged), and
  * the rule's own `candidates`. Nothing is computed at import time; move lists and anchors are built per variant and
  * rule on first use.
  */
-import { latinHypercube, meanAndSpread, rng as makeRng, startCost, whichBits, type Estimate, type EstimateOpts, type Mutator, type RouteSpace, type Variant } from "@workspace/v2-core";
+import { argBits, latinHypercube, meanAndSpread, rng as makeRng, startCost, whichBits, type Estimate, type EstimateOpts, type Mutator, type RouteSpace, type Variant } from "@workspace/v2-core";
 import { encodeGrid, gridParams, inDomain, type GridState } from "./grid.ts";
 import type { GridDynamicRule } from "./dynamic-families.ts";
 import { gridMutators, type GridArgs } from "./mutators.ts";
@@ -22,8 +22,8 @@ export const GRID_STARTS = 20;
 /** The "continue" bit each mutation of a turn carries. */
 const CONTINUE = 1;
 
-/** The naming bits of an amount k: its sign and its decimal digits. */
-export const amountNamingBits = (k: number): number => 1 + Math.log2(10) * String(Math.abs(Math.trunc(k))).length;
+/** The naming bits of an amount k: the turn pricer's whole-number argument code with its sign bit (v2-core surprise.ts). */
+export const amountNamingBits = (k: number): number => argBits(k, true);
 
 // ------------------------------------------------------------------ the moves and their naming (per variant)
 
@@ -32,6 +32,7 @@ export const amountNamingBits = (k: number): number => 1 + Math.log2(10) * Strin
  * by applying it to two probe boards on an uncapped copy of the variant). `touched`: the cells it may change.
  */
 interface Move { readonly m: Mutator<GridState, GridArgs>; readonly args: GridArgs; readonly bits: number; readonly src: Int16Array; readonly add: Int16Array; readonly touched: readonly number[] }
+/** cellBits: naming "add 1 to one cell" (a changed cell's cheapest naming). */
 interface Naming { readonly moves: readonly Move[]; readonly cellBits: number }
 function compile(m: Mutator<GridState, GridArgs>, args: GridArgs, v: Variant): Pick<Move, "src" | "add" | "touched"> | null {
   const n2 = gridParams(v).size ** 2, wide: Variant = { ...v, params: { ...v.params, cap: 1e6 } };
@@ -81,12 +82,12 @@ export function gridNaming(v: Variant): Naming {
   return nm;
 }
 
-/** The naming bits of rewriting x into t one cell at a time (each changed cell one "add to one cell"). */
+/** The naming bits of rewriting x into t one cell at a time (each changed cell one "add to one cell" by the difference). */
 export function rewriteBits(x: readonly number[], t: readonly number[], v: Variant): number {
-  const { cellBits } = gridNaming(v);
-  let n = 0;
-  for (let i = 0; i < t.length; i++) if (t[i] !== x[i]) n++;
-  return n === 0 ? 0 : n * cellBits;
+  const { cellBits } = gridNaming(v), base = cellBits - argBits(1, true);
+  let bits = 0;
+  for (let i = 0; i < t.length; i++) if (t[i] !== x[i]) bits += base + argBits(t[i]! - x[i]!, true);
+  return bits;
 }
 
 /**
@@ -204,7 +205,8 @@ function separable<P>(rule: GridDynamicRule<P>, params: P, x: readonly number[],
   let acc: Option[] = [{ c: 0, u: 0, cells: x }];
   for (let gi = 0; gi < groups.length; gi++) {
     const g = groups[gi]!, xs = g.map(i => x[i]!), ss = g.map(i => s[i]!);
-    // Rewriting costs cellBits per changed cell, so a group's front has one best option per count of changed cells.
+    // A changed cell costs about cellBits (the ±1 rate: a floor; startCost prices the chosen boards exactly), so a group's
+    // front has one best option per count of changed cells.
     const bestByCount: ({ u: number; ds: readonly number[] } | null)[] = Array(g.length + 1).fill(null);
     const offer = (ds: readonly number[], u: number) => {
       let d = 0;
