@@ -7,7 +7,7 @@
  * A turn's price (v2-core surprise.ts): each mutation's naming bits, plus the surprise of the lens's numbers' overall
  * change, plus the bits that name the lens.
  */
-import { argBits, eliasBits, gcd, turnSurprise, type ArgCode, type Call, type Invalid, type Mutator, type Rng, type Variant } from "@workspace/v2-core";
+import { argBits, universalBits, gcd, turnSurprise, type ArgCode, type Call, type Invalid, type Mutator, type Rng, type Variant } from "@workspace/v2-core";
 import { inDomain, lineParams, normalise, type Line, type LineState } from "./line.ts";
 
 export interface Lens {
@@ -133,7 +133,7 @@ const KINDS: readonly { kind: MoveKind; title: string; hasK: boolean; signedK: b
 function argCode(spec: (typeof KINDS)[number]): ArgCode<MoveArgs> {
   const count = (lensId: string) => { const l = lensById(lensId); return l ? (spec.onParam ? Math.max(1, l.pairs.length) : l.numbers.length) : 1; };
   return {
-    bits: a => Math.log2(count(a.lens)) + (spec.hasK ? (spec.signedK ? argBits(a.k, true) : eliasBits(a.k)) : 0),
+    bits: a => Math.log2(count(a.lens)) + (spec.hasK ? (spec.signedK ? argBits(a.k, true) : universalBits(a.k)) : 0),
     sample: (r: Rng) => {
       const lens = lenses[r.below(lenses.length)]!;
       const at = r.below(spec.onParam ? Math.max(1, lens.pairs.length) : lens.numbers.length);
