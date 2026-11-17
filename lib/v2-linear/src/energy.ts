@@ -14,6 +14,7 @@
  */
 import { gcd, latinHypercube, physicsOf, meanAndSpread, q, Qn, rng as makeRng, startCost, greedyClimb, type DynamicRule, type Estimate, type EstimateOpts, type Q, type RouteSpace, type Rng, type Variant } from "@workspace/v2-core";
 import { isVertical, type Line, type LineState } from "./line.ts";
+import { searchMeter } from "./dynamic-families.ts";
 import { LENSES, lensById, lensMoves, lensPrice, lensSurprise, routePrice, type Lens, type LensId } from "./lens-routes.ts";
 
 // ------------------------------------------------------------------ readings
@@ -98,6 +99,17 @@ export interface LineEstimate extends Estimate {
   readonly bound: boolean;
 }
 
+/**
+ * What scoring one state costs against the work budget: its largest coefficient's binary length over WORD (at least 1,
+ * not rounded: a rounded cost halved the work at a size threshold and with it the accuracy). A state's moves, its line
+ * and its utility all cost about in proportion to its numbers' size, so the budget bounds time at any size (17 Nov: a
+ * 40-bit line's state cost about three times a 5-bit one's).
+ */
+const WORD = 80;
+const sizeCost = (l: Line): number => {
+  const ab = (x: bigint) => (x < 0n ? -x : x), top = [ab(l.a), ab(l.b), ab(l.c)].reduce((t, x) => (x > t ? x : t), 0n);
+  return Math.max(1, (top.toString(16).length * 4) / WORD);
+};
 /** Thrown inside a start's search when the estimate's work budget is spent. */
 class OutOfWork extends Error {}
 
@@ -131,7 +143,7 @@ export function estimateLine(s: Line, rule: LineRule, variant: Variant, o: LineE
     let v = memo.get(k);
     if (v === undefined) {
       if (work >= limit) throw new OutOfWork();
-      work++;
+      work += sizeCost(l);
       v = isVertical(l) ? NaN : rule.u(l); if (Number.isNaN(v)) v = -Infinity; memo.set(k, v);
     }
     return v;
@@ -144,7 +156,10 @@ export function estimateLine(s: Line, rule: LineRule, variant: Variant, o: LineE
   // the best route on almost no start and doubled the time (seen narrowly, 17 Nov).
   const CLIMB: readonly LensId[] = [rule.lens, "mc", "cf", "pe"];
   const spaces = LENSES.filter(l => CLIMB.includes(l.id)).sort((a, b) => CLIMB.indexOf(a.id) - CLIMB.indexOf(b.id)).map(l => lensSpace(lambda, l, u));
-  const all: RouteSpace<Line> = { key: keyOf, u, moves: function* () {}, surprise: () => 0, name: (x, t) => routePrice(lambda, x, t).total };
+  // The direct turn and the candidates are priced here; past the start's share a candidate reads worst instead of
+  // ending the start (it keeps the direct turn and what was already priced), and the estimate is a bound.
+  const soft = (l: Line) => { try { return u(l); } catch (e) { if (!(e instanceof OutOfWork)) throw e; bound = true; return -Infinity; } };
+  const all: RouteSpace<Line> = { key: keyOf, u: soft, moves: function* () {}, surprise: () => 0, name: (x, t) => routePrice(lambda, x, t).total };
   const climb = (x: Line, uS: number, _sp: RouteSpace<Line>, ceiling = Infinity) => {
     let best: { readonly target: Line; readonly bits: number } | null = null, cap = ceiling;
     try {
@@ -162,7 +177,15 @@ export function estimateLine(s: Line, rule: LineRule, variant: Variant, o: LineE
   const samples: LineSample[] = starts.map((x, i) => {
     limit = work + Math.floor((budget - work) / (starts.length - i));
     try {
-      const cands = o.candidates === false ? [] : rule.candidates(x, uStar).filter(t => !isVertical(t));
+      // The rule's own searches spend from the same budget: at most half the start's share (the rest prices their
+      // targets and runs the climbs). A search cut short keeps what it found; the estimate is then a bound.
+      let cands: Line[] = [];
+      if (o.candidates !== false) {
+        const share = Math.floor((limit - work) / 2);
+        searchMeter.left = share; searchMeter.cut = false; searchMeter.unit = sizeCost(x);
+        try { cands = rule.candidates(x, uStar).filter(t => !isVertical(t)); }
+        finally { work += share - Math.max(0, searchMeter.left); if (searchMeter.cut) bound = true; searchMeter.left = Infinity; searchMeter.cut = false; searchMeter.unit = 1; }
+      }
       const c = startCost(x, s, uStar, all, cands, climb);
       return { from: x, cost: c.cost, best: c.best, universal: c.universal, by: c.by };
     } catch (e) {

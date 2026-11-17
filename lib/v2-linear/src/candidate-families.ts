@@ -13,11 +13,13 @@
 import { gcd, q, Qn, type ParamSpace, type Q, type RuleFamily } from "@workspace/v2-core";
 import type { LineState } from "./line.ts";
 import { isqrt } from "./numbers.ts";
-import { continuedFraction, dynamicLine, fromContinued, lensNeighbours, type LineTarget } from "./dynamic-families.ts";
+import { continuedFraction, dynamicLine, fromContinued, lensNeighbours, searchMeter, searchTick, type LineTarget } from "./dynamic-families.ts";
 
 const log2 = Math.log2, abs = Math.abs;
 const babs = (x: bigint) => (x < 0n ? -x : x);
-const log2Big = (n: bigint): number => { n = babs(n); if (n === 0n) return -Infinity; const L = n.toString(2).length; return L <= 52 ? log2(Number(n)) : log2(Number(n >> BigInt(L - 52))) + (L - 52); };
+/** The binary length of n > 0 (hex digits are four times cheaper to write than binary ones). */
+const bitLength = (n: bigint): number => { const h = n.toString(16); return (h.length - 1) * 4 + (32 - Math.clz32(parseInt(h[0]!, 16))); };
+const log2Big = (n: bigint): number => { n = babs(n); if (n === 0n) return -Infinity; const L = bitLength(n); return L <= 52 ? log2(Number(n)) : log2(Number(n >> BigInt(L - 52))) + (L - 52); };
 const toNum = (v: Q) => Qn.toNumber(v);
 /** Floats carry about 52 bits: an approach utility is capped there. */
 const sign = (v: Q) => (v.n < 0n ? -1n : 1n);
@@ -74,6 +76,7 @@ export function tanFixed(deg: number, P: number): bigint {
  * |m − tan φ| is far above 2^−(2·bits(bottom) + 64) (Roth): tan to that precision decides it.
  */
 export function bearingU(m: Q, deg: number): number {
+  if (!searchTick()) return -Infinity;
   const P = 2 * m.d.toString(2).length + babs(m.n).toString(2).length + 64, T = tanFixed(deg, P);
   const num = babs((m.n << BigInt(P)) - T * m.d);   // |m − tan|·bottom·2^P
   return P + log2Big(m.d) - log2Big(num === 0n ? 1n : num);
@@ -92,6 +95,7 @@ export const bearing = dynamicLine<{ deg: number }>({
 
 const WORDS = ["1", "2", "12", "21", "112", "123", "1122", "13"];
 export function goldenPathU(m: Q, word: string): number {
+  if (!searchTick()) return -Infinity;
   const cf = continuedFraction(Qn.abs(m));
   let k = 0;
   while (k < cf.length && cf[k] === BigInt(word[k % word.length]!)) k++;
@@ -118,11 +122,17 @@ function abcOf(m: Q, c: Q): [bigint, bigint, bigint] {
 }
 export interface RingP { readonly u: number; readonly v: number; readonly rho: number }
 const RINGS: RingP[] = [{ u: 2, v: 1, rho: 7 }, { u: 0, v: 0, rho: 3 }, { u: -1, v: 3, rho: 11 }, { u: 3, v: -2, rho: 6 }, { u: 1, v: 1, rho: 19 }];
-export function ringU(m: Q, c: Q, { u, v, rho }: RingP): number {
+export function ringU(m: Q, c: Q, p: RingP): number {
+  const [a, b, cc] = abcOf(m, c);
+  return ringUabc(a, b, cc, p);
+}
+export function ringUabc(a: bigint, b: bigint, cc: bigint, { u, v, rho }: RingP): number {
+  if (!searchTick()) return -Infinity;
   // Exact at any size: with N = |a·u + b·v + c| and M = a² + b², the distance is N/√M and
   // |N/√M − √ρ| = |N² − ρM| / ((N + √(ρM))·√M), every part a whole number but the last sum's root (a sum, no cancellation).
   // ρ is never a square times a sum of two squares here (every dealt ρ has a prime 3 mod 4 to an odd power), so N² ≠ ρM.
-  const [a, b, cc] = abcOf(m, c), N = babs(a * BigInt(u) + b * BigInt(v) + cc), M = a * a + b * b, R = BigInt(rho);
+  // Scale-free, so any multiple of the line's a, b, c gives the same value.
+  const N = babs(a * BigInt(u) + b * BigInt(v) + cc), M = a * a + b * b, R = BigInt(rho);
   const gap = babs(N * N - R * M);
   return 0.5 * log2Big(M) + log2Big(N + isqrt(R * M) + 1n) - log2Big(gap === 0n ? 1n : gap);
 }
@@ -132,6 +142,7 @@ export const ring = dynamicLine<RingP>({
   peers: [RINGS[0]!, RINGS[1]!],
   card: ({ u, v, rho }) => `A circle is drawn round (${u}, ${v}) with radius √${rho}, a size no straight line with whole-number parts can touch exactly. Your line should just touch it: you score one point for every binary digit to which its distance from the centre matches the radius.`,
   u: (m, c, p) => ringU(m, c, p),
+  uABC: (a, b, c, p) => ringUabc(a, b, c, p),
   searches: [{ id: "tangents", propose: (m, c, uStar, p) => {
     // Keep the start's direction (a, b), scaled up until the rounding of c can be fine enough; c from the tangent formula.
     // In whole numbers at any size: c = −(a·u + b·v) ± √(ρ(a² + b²)), the root rounded to the nearest whole number.
@@ -151,7 +162,7 @@ export const ring = dynamicLine<RingP>({
   } }, { id: "one-number", propose: (m, c, uStar, p) => {
     // One number moved, in any lens (a larger search's cheap routes; 17 Nov, estimator-accuracy.md).
     const ok = (t: LineTarget) => ringU(t.m ?? m, t.c ?? c, p) >= uStar - 1e-9;
-    return [...oneNumberScan(m, c, ok, 8, 6), ...lensNeighbours(m, c, ["xy"], ok, 6)];
+    return oneNumberScan(m, c, ok, 8, 6);
   } }],
 });
 
@@ -159,6 +170,7 @@ export const ring = dynamicLine<RingP>({
 
 const NONSQ = [2, 3, 5, 6, 7, 10, 13, 19, 61];
 export function archimedesU(m: Q, D: number): number {
+  if (!searchTick()) return -Infinity;
   const t = babs(m.n), u = m.d, big = t * t + BigInt(D) * u * u, diff = babs(t * t - BigInt(D) * u * u);
   return diff === 0n ? 0 : log2Big(big) - log2Big(diff);
 }
@@ -184,6 +196,7 @@ export const archimedes = dynamicLine<{ k: number }>({
 export interface HenselP { readonly k: number; readonly p: number }
 const HENSEL: HenselP[] = [{ k: 2, p: 7 }, { k: 3, p: 11 }, { k: 5, p: 11 }, { k: 2, p: 17 }, { k: 7, p: 3 }];
 export function henselU(m: Q, { k: D, p }: HenselP): number {
+  if (!searchTick()) return -Infinity;
   let N = babs(m.n) ** 2n - BigInt(D) * m.d * m.d, e = 0;
   if (N === 0n) return 0;
   const P = BigInt(p);
@@ -226,6 +239,7 @@ export const hensel = dynamicLine<HenselP>({
 
 const SUMS2 = [1, 2, 5, 10, 13];
 export function wholeStairU(m: Q, n: number): number {
+  if (!searchTick()) return -Infinity;
   // Exact at any size (bigint): the distance from rise² + run² to the nearest n × a square.
   const p = babs(m.n), qq = m.d, h2 = p * p + qq * qq, N = BigInt(n);
   if (p === 0n) return NaN;
@@ -233,19 +247,47 @@ export function wholeStairU(m: Q, n: number): number {
   const dist = [c0, c0 + 1n].map(c => babs(h2 - N * c * c)).reduce((x, y) => (y < x ? y : x));
   return 0.5 * log2Big(h2) - log2Big(1n + dist);
 }
-/** Primitive Pythagorean (A, B) with hypotenuse below `top` (at most 400², whatever is asked), both orders. */
-function triples(top: number): [number, number][] {
-  const out: [number, number][] = [];
-  for (let u = 2; u * u < Math.min(top, 160000); u++) for (let v = 1; v < u; v++) {
+/**
+ * Whole Stair's exact steps by ratio (17 Nov). For n = s² + t², every primitive (A, B) = (u² − v², 2uv) with u < 400, both
+ * orders, turned by s + ti: rise = |A·s − B·t|, run = |A·t + B·s|, so rise² + run² = n·(A² + B²)² exactly. Built once per n
+ * and kept sorted by rise/run (the old search rebuilt and scanned the whole list on every call: 70 ms a start).
+ */
+const STAIRS = new Map<number, { r: number; rise: number; run: number; u: number }[]>();
+function stairsFor(k: number) {
+  let list = STAIRS.get(k);
+  if (list) return list;
+  const [s0, t0] = ([[1, 0], [1, 1], [2, 1], [3, 1], [3, 2]] as const).find(([a, b]) => a * a + b * b === k)!;
+  list = [];
+  for (let u = 2; u < 400; u++) for (let v = 1; v < u; v++) {
     if ((u - v) % 2 === 0 || Number(gcd(BigInt(u), BigInt(v))) !== 1) continue;
-    out.push([u * u - v * v, 2 * u * v], [2 * u * v, u * u - v * v]);
+    for (const [A, B] of [[u * u - v * v, 2 * u * v], [2 * u * v, u * u - v * v]]) {
+      const rise = abs(A! * s0 - B! * t0), run = abs(A! * t0 + B! * s0);
+      if (rise > 0 && run > 0) list.push({ r: rise / run, rise, run, u });
+    }
   }
-  return out;
+  list.sort((a, b) => a.r - b.r);
+  STAIRS.set(k, list);
+  return list;
 }
-/** The divisors of n (n below 2^64 or so: trial division to 2^14; past that, n's factors found that far and the rest whole). */
+/** The three exact steps nearest |m| in rise/run (outwards from it, in ratio order) with u below √(2^(u* + 1)). */
+function stairSteps(m: Q, uStar: number, k: number): LineTarget[] {
+  const list = stairsFor(k), x = abs(toNum(m)) || 1, top = Math.max(64, 2 ** (uStar + 1));
+  let lo = 0, hi = list.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (list[mid]!.r < x) lo = mid + 1; else hi = mid; }
+  const found: { t: LineTarget; d: number }[] = [];
+  for (let i = 0; i < 2 * list.length && found.length < 3 && searchMeter.left > 0; i++) {
+    // Alternate outwards from the ratio: lo, lo − 1, lo + 1, lo − 2, …
+    const j = lo + (i % 2 ? -((i + 1) >> 1) : i >> 1), e = list[j];
+    if (!e || e.u * e.u >= top) continue;
+    const v = q(BigInt(e.rise), BigInt(e.run));
+    if (wholeStairU(v, k) >= uStar - 1e-9) found.push({ t: { m: Qn.mul(q(sign(m)), v) }, d: abs(e.r - x) });
+  }
+  return found.sort((a, b) => a.d - b.d).map(f => f.t);
+}
+/** The divisors of n (trial division to 2^10; past that, n's factors found that far and the rest whole). */
 function divisors(n: bigint): bigint[] {
   let ds = [1n];
-  for (let p = 2n; p < 1n << 14n && p * p <= n; p += p === 2n ? 1n : 2n) {
+  for (let p = 2n; p < 1n << 10n && p * p <= n; p += p === 2n ? 1n : 2n) {
     let e = 0;
     while (n % p === 0n) { n /= p; e++; }
     if (e) { const pw = ds.flatMap(d => Array.from({ length: e }, (_, i) => d * p ** BigInt(i + 1))); ds = ds.concat(pw); }
@@ -262,6 +304,9 @@ function divisors(n: bigint): bigint[] {
 function legLines(m: Q, c: Q, ok: (t: LineTarget) => boolean, keep: number): LineTarget[] {
   const found: { t: LineTarget; d: bigint }[] = [];
   for (const one of oneNumbers(m, c)) {
+    // Each number's divisor work is charged as one utility (the meter bounds it with the rest).
+    if (!one.movesM) continue;
+    if (!searchTick()) break;
     const z0 = babs(one.z0), sg = one.z0 < 0n ? -1n : 1n;
     if (z0 === 0n) continue;
     const t1 = one.at(sg * (z0 + 1n)), t2 = one.at(sg * (z0 + 2n));
@@ -289,20 +334,9 @@ export const wholeStair = dynamicLine<{ k: number }>({
   peers: [{ k: 1 }, { k: 5 }],
   card: ({ k }) => `Walk one step along your line: its gradient is rise/run in lowest terms. The slanted edge of that step is √(rise² + run²); it should be a whole number${k === 1 ? "" : ` times √${k}`}. You score half the binary digits of rise² + run², less the binary digits of how far it is from ${k === 1 ? "a square" : `${k} times a square`}.`,
   u: (m, _c, { k }) => wholeStairU(m, k),
-  searches: [{ id: "pythagorean", propose: (m, _c, uStar, { k }) => {
-    // (A + Bi)(s + ti) with s² + t² = n: rise² + run² = n·(A² + B²) exactly.
-    const st = [...Array(4)].flatMap((_, s) => [...Array(4)].map((__, t) => [s, t] as const)).find(([s, t]) => s * s + t * t === k)!;
-    const out: LineTarget[] = [], x = abs(toNum(m)) || 1;
-    for (const [A, B] of triples(Math.max(64, 2 ** (uStar + 1)))) {
-      const p = abs(A * st[0] - B * st[1]), qq = abs(A * st[1] + B * st[0]);
-      if (p === 0 || qq === 0) continue;
-      const v = q(BigInt(p), BigInt(qq));
-      if (wholeStairU(v, k) >= uStar - 1e-9) out.push({ m: Qn.mul(q(sign(m)), v) });
-    }
-    return out.sort((a, b) => abs(toNum(a.m!) - x) - abs(toNum(b.m!) - x)).slice(0, 3);
-  } }, { id: "one-number", propose: (m, c, uStar, { k }) => {
+  searches: [{ id: "pythagorean", propose: (m, _c, uStar, { k }) => stairSteps(m, uStar, k) }, { id: "one-number", propose: (m, c, uStar, { k }) => {
     const ok = (t: LineTarget) => wholeStairU(t.m ?? m, k) >= uStar - 1e-9;
-    return [...oneNumberScan(m, c, ok, 128, 6), ...(k === 1 ? legLines(m, c, ok, 6) : [])];
+    return [...(k === 1 ? legLines(m, c, ok, 6) : []), ...oneNumberScan(m, c, ok, 128, 6, true)];
   } }],
 });
 
@@ -310,6 +344,7 @@ export const wholeStair = dynamicLine<{ k: number }>({
 
 const SQFREE = [1, 2, 3, 5, 6, 7];
 export function cornerU(m: Q, n: number): number {
+  if (!searchTick()) return -Infinity;
   // Exact at any size (bigint): the distance from 2n·top·bottom to the nearest square.
   const A = 2n * BigInt(n) * babs(m.n) * m.d;
   if (A === 0n) return NaN;
@@ -342,19 +377,19 @@ export const corner = dynamicLine<{ k: number }>({
 // ------------------------------------------------------------------ one number at a time, in the lenses a turn pins
 
 /** One whole number of the line in a lens, and the line with it replaced (a single add or multiply on that number). */
-interface OneNumber { readonly z0: bigint; at(z: bigint): LineTarget | null }
+interface OneNumber { readonly z0: bigint; readonly movesM: boolean; at(z: bigint): LineTarget | null }
 /** The whole numbers of the gradient-and-intercept, intercepts and a, b, c lenses, each with its replacement. */
 function oneNumbers(m: Q, c: Q): OneNumber[] {
   const out: OneNumber[] = [];
-  const pairs = (vs: bigint[], build: (v: bigint[]) => LineTarget | null) =>
-    vs.forEach((z0, i) => out.push({ z0, at: z => { if (i % 2 === 1 && z <= 0n) return null; const v = vs.slice(); v[i] = z; return build(v); } }));
-  pairs([m.n, m.d, c.n, c.d], v => ({ m: q(v[0]!, v[1]!), c: q(v[2]!, v[3]!) }));
+  const pairs = (vs: bigint[], movesM: (i: number) => boolean, build: (v: bigint[]) => LineTarget | null) =>
+    vs.forEach((z0, i) => out.push({ z0, movesM: movesM(i), at: z => { if (i % 2 === 1 && z <= 0n) return null; const v = vs.slice(); v[i] = z; return build(v); } }));
+  pairs([m.n, m.d, c.n, c.d], i => i < 2, v => ({ m: q(v[0]!, v[1]!), c: q(v[2]!, v[3]!) }));
   if (m.n !== 0n) {
     const X = Qn.neg(Qn.div(c, m));   // the x-intercept; the y-intercept is c
-    pairs([X.n, X.d, c.n, c.d], v => (v[0] === 0n ? null : { m: Qn.neg(Qn.div(q(v[2]!, v[3]!), q(v[0]!, v[1]!))), c: q(v[2]!, v[3]!) }));
+    pairs([X.n, X.d, c.n, c.d], () => true, v => (v[0] === 0n ? null : { m: Qn.neg(Qn.div(q(v[2]!, v[3]!), q(v[0]!, v[1]!))), c: q(v[2]!, v[3]!) }));
   }
   const abc = abcOf(m, c);
-  abc.forEach((z0, i) => out.push({ z0, at: z => { const v = abc.slice(); v[i] = z; return v[1] === 0n ? null : { m: q(-v[0]!, v[1]!), c: q(-v[2]!, v[1]!) }; } }));
+  abc.forEach((z0, i) => out.push({ z0, movesM: i < 2, at: z => { const v = abc.slice(); v[i] = z; return v[1] === 0n ? null : { m: q(-v[0]!, v[1]!), c: q(-v[2]!, v[1]!) }; } }));
   return out;
 }
 /**
@@ -363,20 +398,29 @@ function oneNumbers(m: Q, c: Q): OneNumber[] {
  * finds the near misses a single small add or multiply reaches (the routes a larger search found that the rules' own
  * candidates missed; 17 Nov).
  */
-export function oneNumberScan(m: Q, c: Q, ok: (t: LineTarget) => boolean, J: number, keep: number): LineTarget[] {
-  const found: { t: LineTarget; d: bigint }[] = [];
+export function oneNumberScan(m: Q, c: Q, ok: (t: LineTarget) => boolean, J: number, keep: number, gradientOnly = false): LineTarget[] {
+  // Every try, cheapest to name first (an add of j costs about 2·log2 j bits, a multiply by f about 2·log2 f), so the
+  // search meter cuts the dear ones. A rule that reads only the gradient skips the numbers that cannot move it.
+  const tries: { one: OneNumber; z: bigint; bits: number }[] = [];
   for (const one of oneNumbers(m, c)) {
-    const z0 = one.z0, zs: bigint[] = [];
-    for (let j = 1; j <= J; j++) zs.push(z0 + BigInt(j), z0 - BigInt(j));
-    for (let f = 2n; f <= 16n; f++) { zs.push(z0 * f); if (z0 % f === 0n) zs.push(z0 / f); }
-    for (const z of zs) {
-      if (z === z0) continue;
-      const t = one.at(z);
-      if (t && ok(t)) found.push({ t, d: babs(z - z0) });
+    if (gradientOnly && !one.movesM) continue;
+    const z0 = one.z0;
+    for (let j = 1; j <= J; j++) for (const z of [z0 + BigInt(j), z0 - BigInt(j)]) tries.push({ one, z, bits: 2 * log2(j + 1) + 1 });
+    for (let f = 2n; f <= 16n; f++) {
+      const b = 2 * log2(Number(f));
+      tries.push({ one, z: z0 * f, bits: b });
+      if (z0 !== 0n && z0 % f === 0n) tries.push({ one, z: z0 / f, bits: b });
     }
   }
-  found.sort((x, y) => (x.d < y.d ? -1 : x.d > y.d ? 1 : 0));
-  return found.slice(0, keep).map(f => f.t);
+  tries.sort((x, y) => x.bits - y.bits);
+  const found: LineTarget[] = [];
+  for (const { one, z } of tries) {
+    if (found.length >= keep || searchMeter.left <= 0) break;
+    if (z === one.z0) continue;
+    const t = one.at(z);
+    if (t && ok(t)) found.push(t);
+  }
+  return found;
 }
 /** The squarefree part of n, up to the primes below 4096 (a cofactor left over counts as squarefree: still exact, maybe not least). */
 function squarefreePart(n: bigint): bigint {
@@ -395,23 +439,33 @@ function squarefreePart(n: bigint): bigint {
  * step is under 1, every z within J of z0.
  */
 function nearSquareLines(m: Q, c: Q, A: (t: LineTarget) => bigint, ok: (t: LineTarget) => boolean, J: number, keep: number): LineTarget[] {
-  const found: { t: LineTarget; d: bigint }[] = [];
-  const tryZ = (one: OneNumber, sg: bigint, z0: bigint, z: bigint) => {
-    if (z <= 0n || z === z0) return;
-    const t = one.at(sg * z);
-    if (t && ok(t)) found.push({ t, d: babs(z - z0) });
-  };
+  // The tries, exact squares first, then by distance (|j|), so the search meter cuts the dear ones.
+  const tries: { one: OneNumber; sg: bigint; z0: bigint; z: bigint; rank: number }[] = [];
   for (const one of oneNumbers(m, c)) {
+    if (searchMeter.left <= 0) break;
+    if (!one.movesM) continue;   // Corner reads only the gradient
     const z0 = babs(one.z0), sg = one.z0 < 0n ? -1n : 1n;
     if (z0 === 0n) continue;
     // K from the next number up: at z0 itself a shared factor can cancel (the intercepts lens), next to it rarely.
-    const t1 = one.at(sg * (z0 + 1n)), A1 = t1 ? A(t1) : 0n;
+    const t1 = one.at(sg * (z0 + 1n));
+    if (!t1 || !searchTick()) continue;
+    const A1 = A(t1);
     if (A1 <= 0n || A1 % (z0 + 1n) !== 0n) continue;
     const K = A1 / (z0 + 1n), g = squarefreePart(K), w = isqrt(z0 / g), r0 = isqrt(K * z0);
-    for (const ww of [w, w + 1n]) tryZ(one, sg, z0, g * ww * ww);
+    for (const ww of [w, w + 1n]) tries.push({ one, sg, z0, z: g * ww * ww, rank: 0 });
     // Where a step of s moves z by less than 1 (4·z < K), every z near z0 is its own try.
-    if (4n * z0 < K) for (let j = -J; j <= J; j++) tryZ(one, sg, z0, z0 + BigInt(j));
-    else for (let j = -J; j <= J; j++) { const s = r0 + BigInt(j); if (s > 0n) tryZ(one, sg, z0, (2n * s * s + K) / (2n * K)); }
+    for (let j = 1; j <= J; j++) for (const jj of [j, -j]) {
+      const s = r0 + BigInt(jj);
+      tries.push({ one, sg, z0, z: 4n * z0 < K ? z0 + BigInt(jj) : s > 0n ? (2n * s * s + K) / (2n * K) : 0n, rank: j });
+    }
+  }
+  tries.sort((x, y) => x.rank - y.rank);
+  const found: { t: LineTarget; d: bigint }[] = [];
+  for (const { one, sg, z0, z } of tries) {
+    if (found.length >= 4 * keep || searchMeter.left <= 0) break;
+    if (z <= 0n || z === z0) continue;
+    const t = one.at(sg * z);
+    if (t && ok(t)) found.push({ t, d: babs(z - z0) });
   }
   found.sort((x, y) => (x.d < y.d ? -1 : x.d > y.d ? 1 : 0));
   return found.slice(0, keep).map(f => f.t);
@@ -462,6 +516,7 @@ export const primePalette = dynamicLine<PaletteP>({
 export interface RunP { readonly b: number; readonly d: number; readonly on: Part }
 const RUNS: RunP[] = [{ b: 7, d: 3, on: "y-intercept top" }, { b: 10, d: 9, on: "gradient top" }, { b: 3, d: 2, on: "gradient bottom" }, { b: 12, d: 5, on: "y-intercept bottom" }];
 export function longRunU(n: bigint, b: number, d: number): number {
+  if (!searchTick()) return -Infinity;
   const B = BigInt(b), D = BigInt(d);
   let best = 0, run = 0;
   for (let x = n; x > 0n; x /= B) { if (x % B === D) { run++; if (run > best) best = run; } else run = 0; }
@@ -488,6 +543,7 @@ export const longRun = dynamicLine<RunP>({
 // ------------------------------------------------------------------ 10. Kin (exactness): gradient and y-intercept Farey neighbours
 
 export function kinU(m: Q, c: Q): number {
+  if (!searchTick()) return -Infinity;
   const det = babs(m.n * c.d - c.n * m.d);
   if (det === 0n) return 0;
   const top = [m.n, m.d, c.n, c.d].reduce((t, x) => (babs(x) > t ? babs(x) : t), 0n);
