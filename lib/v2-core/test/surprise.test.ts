@@ -1,15 +1,18 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { GRAVITY, argBits, eliasBits, infoSize, namingBits, turnCost, turnSurprise } from "../src/surprise.ts";
+import { GRAVITY, argBits, universalBits, infoSize, namingBits, turnCost, turnSurprise } from "../src/surprise.ts";
 
 test("information size and codes", () => {
   assert.equal(infoSize(0), 0);
   assert.equal(infoSize(1), 1);
   assert.equal(infoSize(-3), 2);
   assert.ok(Math.abs(infoSize(10n ** 30n) - 30 * Math.log2(10)) < 1e-9);
-  assert.deepEqual([1, 2, 3, 4, 7, 8].map(eliasBits), [1, 3, 3, 5, 5, 7]);
-  assert.equal(argBits(0, false), 1);
-  assert.equal(argBits(-3, true), 5 + 1);
+  // Rissanen: log2 c + log2 n + log2 log2 n + … (positive terms), c = 2.865064
+  const near = (a: number, b: number) => Math.abs(a - b) < 1e-3;
+  assert.ok([1, 2, 3, 4, 7, 8].map(universalBits).every((v, i) => near(v, [1.5186, 2.5186, 3.7680, 4.5186, 6.3897, 6.7680][i]!)));
+  assert.ok(near(argBits(0, false), 1.5186));
+  assert.ok(near(argBits(-3, true), 4.5186 + 1));
+  assert.ok(universalBits(2n ** 100n) < 2 * 100, "grows like log2 n, not twice it");
   assert.equal(namingBits({ menuSize: 8, lensSize: 4, argBits: 3 }), 3 + 2 + 3 + 1);
 });
 
