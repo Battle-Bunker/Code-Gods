@@ -220,9 +220,13 @@ const modInverse = (a: bigint, n: bigint): bigint => {
  * top t' with p^e dividing t'² − D·bottom²). A top where p divides it e times scores at least e·log2 p (distance 0); one
  * a step away keeps all but a bit, where the ungraded count fell to 0. Exact at any size (bigint).
  */
-export function henselU(m: Q, { k: D, p }: HenselP): number {
+export function henselU(m: Q, h: HenselP): number {
   if (!searchTick()) return -Infinity;
-  const P = BigInt(p), t = babs(m.n), b = m.d, L = log2(p);
+  return henselOf(babs(m.n), m.d, h);
+}
+/** Hensel's value of a top t and bottom b (no search charge: the screened scan's model). */
+function henselOf(t: bigint, b: bigint, { k: D, p }: HenselP): number {
+  const P = BigInt(p), L = log2(p);
   // p dividing the bottom: top² − D·bottom² ≡ top² (mod p), and the top is coprime to the bottom, so no top qualifies.
   if (b % P === 0n) return 0;
   // Levels up to the size of top² + D·bottom² and one more: a deeper level's nearest top lies a whole p^e away.
@@ -258,19 +262,28 @@ export const hensel = dynamicLine<HenselP>({
   peers: [HENSEL[0]!, HENSEL[1]!],
   card: ({ k, p }) => `Write the gradient as top/bottom in lowest terms and work out top × top − ${k} × bottom × bottom. If ${p} divides it e times, you score e × log2 ${p}. A top near such a top scores nearly as much: you score your best over e of e × log2 ${p} less log2(1 + the distance from your top to the nearest top that makes ${p}^e divide it).`,
   u: (m, _c, h) => henselU(m, h),
+  // Graded, its utility loops over every level up to the line's size: about three ordinary evaluations' time.
+  cost: 3,
   searches: [{ id: "lift", propose: (m, _c, uStar, h) => {
-    const need = Math.max(1, Math.ceil(uStar / log2(h.p) - 1e-9)), out: LineTarget[] = [];
-    for (const k of [need, need + 1]) {
-      const r = liftRoot(h.k, h.p, k), mod = BigInt(h.p) ** BigInt(k);
+    // The nearest top with p^e dividing top² − D·bottom², at the levels that reach u*, and (graded) the top short of it
+    // on the start's side by as much as the level allows: e·log2 p − log2(1 + d) ≥ u* for d up to 2^(e·log2 p − u*) − 1.
+    const L = log2(h.p), need = Math.max(1, Math.ceil(uStar / L - 1e-9)), out: LineTarget[] = [];
+    for (const k of [need, need + 1, need + 2, need + 3]) {
+      const r = henselRoot(h.k, h.p, k), mod = BigInt(h.p) ** BigInt(k);
       if (r === null) continue;
       const u = m.d, t0 = babs(m.n), want = (r * u) % mod;
+      const slack = BigInt(Math.max(0, Math.floor(2 ** Math.min(1000, k * L - uStar) - 1 + 1e-9)));
       for (const root of [want, (mod - want) % mod]) {
         const delta = ((root - t0) % mod + mod) % mod, t = t0 + (delta > mod / 2n ? delta - mod : delta);
-        if (t !== 0n) out.push({ m: q(sign(m) * t, u) });
+        for (const tt of k <= need + 1 ? [t, t > t0 ? t - slack : t + slack] : [t > t0 ? t - slack : t + slack]) {
+          if (tt !== 0n && (tt - t0) * (t - t0) >= 0n) out.push({ m: q(sign(m) * tt, u) });
+        }
       }
     }
     return out;
-  } }],
+  } }, { id: "one-number", propose: (m, c, uStar, h) =>
+    // One number of a lens moved near a lift (the routes a larger search found; 17 Nov), screened by the closed form.
+    screenedScan(m, c, uStar, henselModel(h), t => henselU(t.m ?? m, h) >= uStar - 1e-9, J_SCREEN, 6, 1) }],
 });
 
 // ------------------------------------------------------------------ 6. Whole Stair (exactness): rise² + run² = n × a square
@@ -536,10 +549,10 @@ function nearSquareLines(m: Q, c: Q, A: (t: LineTarget) => bigint, ok: (t: LineT
 /**
  * A one-number scan screened by direct arithmetic (17 Nov): for each number z of a lens that moves the gradient, `model`
  * gives the rule's value as a closed form of z (true while no shared factor changes as z moves), so a try costs one
- * isqrt and a tenth of a search unit; only a try that screens at the level asked builds its line and is scored exactly
+ * isqrt and a tenth of a search unit (`screenCost`: a model dearer than an isqrt charges more); only a try that screens at the level asked builds its line and is scored exactly
  * (a full unit). Tries go outwards from z0 (±1, ±2, …, up to J), then the multiples and exact divisions by 2–16.
  */
-function screenedScan(m: Q, c: Q, uStar: number, model: (one: OneNumber, z0: bigint, sg: bigint) => ((z: bigint) => number) | null, ok: (t: LineTarget) => boolean, J: number, keep: number): LineTarget[] {
+function screenedScan(m: Q, c: Q, uStar: number, model: (one: OneNumber, z0: bigint, sg: bigint) => ((z: bigint) => number) | null, ok: (t: LineTarget) => boolean, J: number, keep: number, screenCost = 0.1): LineTarget[] {
   const models: { one: OneNumber; z0: bigint; sg: bigint; f: (z: bigint) => number }[] = [];
   for (const one of oneNumbers(m, c)) {
     if (!one.movesM || one.z0 === 0n) continue;
@@ -548,7 +561,7 @@ function screenedScan(m: Q, c: Q, uStar: number, model: (one: OneNumber, z0: big
     const f = model(one, z0, sg);
     if (f) models.push({ one, z0, sg, f });
   }
-  const found: { t: LineTarget; d: bigint }[] = [], screen = searchMeter.unit / 10;
+  const found: { t: LineTarget; d: bigint }[] = [], screen = searchMeter.unit * screenCost;
   const tryZ = (x: (typeof models)[number], z: bigint) => {
     if (z <= 0n || z === x.z0) return;
     searchMeter.left -= screen;
@@ -571,6 +584,15 @@ const cornerModel = (k: number) => (one: OneNumber, z0: bigint, sg: bigint): ((z
   return z => cornerFromA(K * z);
 };
 /** Whole Stair's model: one leg is α·z and the other β (read at two steps from z0), so H = α²z² + β². */
+/** Hensel's model: the top or the bottom of the gradient is α·z for a number z (the other fixed), read at two steps. */
+const henselModel = (h: HenselP) => (one: OneNumber, z0: bigint, sg: bigint): ((z: bigint) => number) | null => {
+  const t1 = one.at(sg * (z0 + 1n)), t2 = one.at(sg * (z0 + 2n));
+  if (!t1?.m || !t2?.m) return null;
+  const top1 = babs(t1.m.n), top2 = babs(t2.m.n), bot1 = t1.m.d, bot2 = t2.m.d;
+  if (bot1 === bot2 && top2 - top1 > 0n && top1 === (top2 - top1) * (z0 + 1n)) { const a = top2 - top1; return z => henselOf(a * z, bot1, h); }
+  if (top1 === top2 && bot2 - bot1 > 0n && bot1 === (bot2 - bot1) * (z0 + 1n)) { const a = bot2 - bot1; return z => henselOf(top1, a * z, h); }
+  return null;
+};
 const stairModel = (k: number) => (one: OneNumber, z0: bigint, sg: bigint): ((z: bigint) => number) | null => {
   const t1 = one.at(sg * (z0 + 1n)), t2 = one.at(sg * (z0 + 2n));
   if (!t1?.m || !t2?.m) return null;

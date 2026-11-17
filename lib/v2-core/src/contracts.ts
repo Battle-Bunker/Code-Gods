@@ -349,6 +349,9 @@ export interface DynamicRule<S, P> {
   u(state: S, params: P): number;
   /** The readings u depends on, in the type's own names: a start matches the state's size on these only. */
   readonly reads: readonly string[];
+  /** What one evaluation of u costs against an estimate's work budget, in units of an ordinary utility's (default 1;
+   *  a utility that loops over many levels charges more, so the budget bounds time). */
+  readonly cost?: number;
   /** The family's search heuristics ("every rule defines its own intelligent search heuristics"): target states for a start. */
   readonly searches?: readonly Search<S, P>[];
   /**

@@ -53,6 +53,8 @@ export interface DynamicLineSpec<P> {
   /** The same utility from the line's own a, b, c (primitive, b > 0), for a rule that reads them: it skips the round
    *  trip through two fractions (four gcds an evaluation; 17 Nov, estimator time). */
   readonly uABC?: (a: bigint, b: bigint, c: bigint, p: P) => number;
+  /** Work units per evaluation of u against an estimate's budget (1 by default; DynamicRule.cost). */
+  readonly cost?: number;
   /** Where u is read, for the views' focus mark: a representation and its element. */
   readonly focus: readonly [rep: string, el: string];
   readonly space: ParamSpace<P>;
@@ -69,7 +71,7 @@ export function dynamicLine<P>(s: DynamicLineSpec<P>): RuleFamily<LineState, P> 
     return l.b === 0n ? null : [q(-l.a, l.b), q(-l.c, l.b)];
   };
   const dynamic: DynamicRule<LineState, P> = {
-    reads: s.reads,
+    reads: s.reads, ...(s.cost ? { cost: s.cost } : {}),
     u: (st, p) => { const l = st.lines[0]!; if (s.uABC) return l.b === 0n ? NaN : s.uABC(l.a, l.b, l.c, p); const x = mc(st); return x ? s.u(x[0], x[1], p) : NaN; },
     // The rule's candidates (energy.ts): the targets its searches propose, each a line one turn away.
     candidates: (st, uStar, p) => {
