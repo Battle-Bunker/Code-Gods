@@ -134,12 +134,14 @@ export const ring = dynamicLine<RingP>({
   u: (m, c, p) => ringU(m, c, p),
   searches: [{ id: "tangents", propose: (m, c, uStar, p) => {
     // Keep the start's direction (a, b), scaled up until the rounding of c can be fine enough; c from the tangent formula.
-    const [a0, b0] = abcOf(m, c), out: LineTarget[] = [], R = Math.sqrt(p.rho);
+    // In whole numbers at any size: c = −(a·u + b·v) ± √(ρ(a² + b²)), the root rounded to the nearest whole number.
+    const [a0, b0] = abcOf(m, c), out: LineTarget[] = [], R = BigInt(p.rho);
     for (let k = 1n; k < 1n << 40n && out.length < 6; k *= 2n) {
-      const a = a0 * k, b = b0 * k, norm = Math.sqrt(Number(a) ** 2 + Number(b) ** 2);
-      if (norm < 2 ** (uStar - 1)) continue;
-      for (const s of [1, -1]) {
-        const cc = BigInt(Math.round(-Number(a * BigInt(p.u) + b * BigInt(p.v)) + s * R * norm));
+      const a = a0 * k, b = b0 * k, M = a * a + b * b;
+      if (0.5 * log2Big(M) < uStar - 1) continue;
+      const root = (isqrt(4n * R * M) + 1n) / 2n;
+      for (const s of [1n, -1n]) {
+        const cc = -(a * BigInt(p.u) + b * BigInt(p.v)) + s * root;
         if (b === 0n) continue;
         const mm = q(-a, b), c2 = q(-cc, b);
         if (ringU(mm, c2, p) >= uStar - 1e-9) out.push({ m: mm, c: c2 });
@@ -274,11 +276,12 @@ export const corner = dynamicLine<{ k: number }>({
   u: (m, _c, { k }) => cornerU(m, k),
   searches: [{ id: "squares", propose: (m, _c, uStar, { k }) => {
     // top = a², bottom = 2n·b² (or the other way round): 2n·top·bottom = (2n·a·b)².
-    const out: LineTarget[] = [], need = 2 ** uStar;
-    for (let b = 1; b < 200 && out.length < 4; b++) {
-      const a = Math.max(1, Math.ceil(need / (2 * k * b)));
-      for (const [t, d] of [[a * a, 2 * k * b * b], [2 * k * a * a, b * b]] as const) {
-        const v = q(BigInt(t), BigInt(d));
+    // In whole numbers at any size: a ≥ 2^u* / (2n·b).
+    const out: LineTarget[] = [], need = 1n << BigInt(Math.ceil(Math.max(0, uStar))), K = BigInt(k);
+    for (let b = 1n; b < 200n && out.length < 4; b++) {
+      const a = (need + 2n * K * b - 1n) / (2n * K * b) || 1n;
+      for (const [t, d] of [[a * a, 2n * K * b * b], [2n * K * a * a, b * b]] as const) {
+        const v = q(t, d);
         if (cornerU(v, k) >= uStar - 1e-9) out.push({ m: Qn.mul(q(sign(m)), v) });
       }
     }
