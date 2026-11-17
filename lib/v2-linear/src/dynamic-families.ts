@@ -4,8 +4,8 @@
  * precision is the utility's job ("If utility were sqrt of size of nearest power of k minus distance to that power
  * cubed then it really pays to be closer to the target power").
  *
- * The pool pulls in different directions on shared anchors (CLAUDE.md, decision 30). On the y-intercept c: Power Hug and
- * Multiples (bigger) against Unit Fraction (smaller) and Fine Bottom (fractions). On the gradient m: Prime Hug (bigger)
+ * The pool pulls in different directions on shared anchors (CLAUDE.md, decision 30). On the y-intercept c: Multiples
+ * (bigger) against Unit Fraction (smaller) and Fine Bottom (fractions). On the gradient m: Prime Hug (bigger)
  * against Prime Sliver (smaller) and Next-door Bottom (fractions). On the x-crossing −c/m: Crossing Sliver (towards 0)
  * against Square Triangle (the area |c·X|/2 big). On a, b, c: Stepping Coefficients (big, in steps) against everything
  * that wants a small or simple gradient or intercept. Circle Kiss ties c to m (c² = R²(1 + m²)) and wants fine tilts.
@@ -132,22 +132,6 @@ const suffixSpace: ParamSpace<{ suffix: string }> = {
   parse(text) { const s = text.trim().replace(/^suffix\s*=\s*/, ""); return isSuffix(s) ? { suffix: s } : { invalid: "1 to 3 digits, the last one 1, 3, 7 or 9" }; },
   label: p => p.suffix,
 };
-
-// ------------------------------------------------------------------ 1. Power Hug (the owner's precision example), on c
-
-/** The powers of k from k up to top. */
-const powers = (k: number, top: number) => { const out: number[] = []; for (let p = k; p <= top; p *= k) out.push(p); return out; };
-const nearestPower = (k: number, x: number) => powers(k, Math.max(k, 2 * x + k)).reduce((b, p) => (abs(p - x) < abs(b - x) ? p : b), k);
-const ph = intRange(2, 40, "k, a whole number from 2 to 40", [3, 5]);
-export const powerHug = dynamicLine<{ k: number }>({
-  id: "power-hug", whole: true, title: "Power Hug", goal: "the y-intercept right on a power of k", reads: ["c"], focus: ["si", "c"], ...ph,
-  card: ({ k }) => `The y-intercept (ignoring its sign) should sit exactly on a power of ${k}: ${k}, ${k ** 2}, ${k ** 3}, … A bigger power scores a little more (the square root of its number of binary digits), and every bit off costs a lot: the distance, cubed.`,
-  u(_m, c, { k }) { const x = abs(toNum(c)); if (x >= LIMIT) return NaN; const P = nearestPower(k, x); return Math.sqrt(log2(P)) - cube(x - P); },
-  searches: [{ id: "big-enough-powers", propose: (_m, c, uStar, { k }) => {
-    const x = abs(toNum(c)), ok = powers(k, Math.min(LIMIT, Math.max(k, 8 * x))).filter(P => Math.sqrt(log2(P)) >= uStar - 1e-9);
-    return ok.sort((a, b) => abs(a - x) - abs(b - x)).slice(0, 2).map(P => ({ c: signedQ(P, c) }));
-  } }],
-});
 
 // ------------------------------------------------------------------ 2. Prime Hug, on m
 
@@ -522,4 +506,4 @@ export const recurrencePair = dynamicLine<{ k: number }>({
 });
 
 /** The families dealt with the dynamic measure: four that want small or fine numbers against six that want big ones. */
-export const dynamicFamilies = [powerHug, primeHug, multiples, fineBottom, nextDoorBottom, unitFraction, primeSliver, crossingSliver, steppingCoefficients, circleKiss, squareTriangle, primeBalance, recurrencePair] as const;
+export const dynamicFamilies = [primeHug, multiples, fineBottom, nextDoorBottom, unitFraction, primeSliver, crossingSliver, steppingCoefficients, circleKiss, squareTriangle, primeBalance, recurrencePair] as const;

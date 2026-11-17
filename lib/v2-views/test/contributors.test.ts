@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { canonicalJson, hashHex, q, rng, walkStep, type Q, type Score } from "@workspace/v2-core";
-import { dynamicFamilies, multiples, fromMC, lineQ, lineType, lineZ, powerHug, squareTriangle, steppingCoefficients, crossingSliver, type LineState } from "@workspace/v2-linear";
+import { dynamicFamilies, multiples, fromMC, lineQ, lineType, lineZ, squareTriangle, steppingCoefficients, crossingSliver, type LineState } from "@workspace/v2-linear";
 import { contributors, partLine, type RuleRef } from "../src/index.ts";
 import { moves } from "../src/moves.ts";
 
