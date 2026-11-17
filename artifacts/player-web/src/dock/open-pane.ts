@@ -22,7 +22,9 @@ export interface PaneOps {
   close(pane: string): Promise<void>;
 }
 
-export function usePaneOps(phase: GamePhase): PaneOps {
+export function usePaneOps(screen: GamePhase): PaneOps {
+  // An ended game is its replay (v1): a pane that plans from its header's phase plans on the replay's screen.
+  const phase: GamePhase = screen === "ended" ? "replay" : screen;
   const rt = useRuntime();
   const stored = useView();
   const seated = useIsSeated();

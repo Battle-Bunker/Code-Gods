@@ -220,6 +220,9 @@ export const homeOf = (pane: string): Place => (isPaneId(pane) ? PANES[pane].hom
  * moves when given a place.
  */
 export function openPlan(view: Pick<ViewState, "panes">, phase: GamePhase, pane: string, place?: Place): ViewOp[] {
+  // The assistant opened in a replay comes back beside the Timeline standing in for it (v1: "opening it puts it back"):
+  // the Timeline is stored too, so both are the human's own.
+  if (pane === "assistant" && standsIn(view, phase)) return [{ id: "view.openPane", args: { pane: TIMELINE, place: "bottom" } }, { id: "view.openPane", args: { pane } }];
   const shown = shownPanes(view, phase).some(p => p.pane === pane);
   const ops = keepShown(view, phase);
   if (shown && place) return [...ops, { id: "view.movePane", args: { pane, place } }];

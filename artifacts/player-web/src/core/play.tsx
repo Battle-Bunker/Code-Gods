@@ -112,17 +112,19 @@ function ReplayRoute({ header }: { header: Header }) {
   const open = useAffordance("replay.open");
   const seek = useAffordance("replay.seek");
   const watchAs = useAffordance("replay.watchAs");
-  const opening = useRef<string | null>(null);
+  const opening = useRef(false);
   const linked = useRef(false);
   useEffect(() => {
     const q = new URLSearchParams(location.search);
     const leave = () => { q.delete("replay"); q.delete("t"); q.delete("as"); navigate(`${location.pathname}${q.size ? `?${q}` : ""}`, { replace: true }); };
     if (!ended) { if (q.has("replay") && !linked.current) { linked.current = true; leave(); } return; }
     if (!replaying) {
-      // Once per game shown (the stored view may already hold it); never before the room has loaded.
-      if (!open.available || opening.current === gameId) return;
-      opening.current = gameId;
-      void open.run({ gameId }).catch((e: unknown) => toast({ title: "The replay did not open", description: failureText(e), variant: "destructive" }));
+      // Not before the room has loaded, and one request at a time; opened again if the replay is ever closed.
+      if (!open.available || opening.current) return;
+      opening.current = true;
+      void open.run({ gameId })
+        .catch((e: unknown) => toast({ title: "The replay did not open", description: failureText(e), variant: "destructive" }))
+        .finally(() => { opening.current = false; });
       return;
     }
     if (linked.current || !q.has("replay")) return;
@@ -154,10 +156,13 @@ function GameBody({ header, owner }: { header: Header; owner: boolean }) {
   );
 }
 
-/** The dock, once a replay's file is folded (until then the replay bar says where it is). */
-function GameDock({ phase }: { phase: GamePhase }): ReactNode {
-  const waiting = useReplayControls()?.index === null;
-  if (waiting) return null;
+/** The dock, once a replay's file is folded (until then the replay bar says where it is; if it fails, the final state). */
+function GameDock({ phase: screen }: { phase: GamePhase }): ReactNode {
+  const replay = useReplayControls();
+  // A replay that cannot load shows the game's final state instead (v1's fallback), under the bar's Try again.
+  const failed = replay?.load.status === "error";
+  if (replay?.index === null && !failed) return null;
+  const phase: GamePhase = failed ? "ended" : screen;
   return (
     <>
       {SAFE_MODE && <p className="shrink-0 px-3 py-1 text-xs text-muted-foreground" data-testid="text-safe-mode">Safe mode: your panels are off</p>}

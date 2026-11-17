@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dockGroups, EMPTY_VIEW, parseDock } from "@workspace/v2-affordances";
+import { applyView, dockGroups, EMPTY_VIEW, parseDock, type ViewState } from "@workspace/v2-affordances";
 import { closePlan, columns, defaultPanes, keepShown, dockFor, openPlan, PANE_IDS, PANES, paneTitle, readingOrder, shownPanes, storedPane, storedSlugOf, filePane, fileIdOf } from "../src/panels.ts";
 
 test("a stored panel opens as a pane of its own in every phase, and keeps its slug", () => {
@@ -155,6 +155,12 @@ test("in a replay the replay's own entry is never drawn, the replay's defaults s
   const fromLive = { panes: defaultPanes("live") };
   assert.deepEqual(shownPanes(fromLive, "replay"), defaultPanes("replay"));
   assert.deepEqual(keepShown(fromLive, "replay"), []);
+  // Opened in the replay, the assistant comes back beside the Timeline (v1: opening it puts it back).
+  const ctx = { context: "replay", principal: { signedIn: true, member: true, seated: true, owner: false, admin: false } } as const;
+  let both = { ...EMPTY_VIEW, panes: defaultPanes("live") } as ViewState;
+  for (const op of openPlan(both, "replay", "assistant")) both = applyView(both, op.id, op.args, ctx).view;
+  const showing = shownPanes(both, "replay").map(p => p.pane);
+  assert.ok(showing.includes("assistant") && showing.includes("timeline"), showing.join());
   for (const id of ["forge", "overview"] as const) assert.ok(!PANES[id].phases.includes("replay"), `${id} has nothing to show in a replay`);
   assert.deepEqual(PANES.timeline.phases, ["replay"], "the Timeline is the replay's only");
   // The results stay reachable in the replay from the pane menu and the palette, never opened over the playhead.
