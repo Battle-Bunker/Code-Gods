@@ -94,30 +94,18 @@ PROTECT = []    # lines where you promised not to lower the others, e.g. [7]: on
 def agent(offer):
     if offer.object in LEAVE:   # a deal: leave this line alone
         return None
-    if saving(offer):   # under 10 s of your income in hand: save up for a move (the game still tells you the line)
+    if saving(offer):   # under 10 s of your income in hand: save up for a move
         return None
-    # A tug-of-war (another player taking back your gains on this line, 3 times lately) burns energy on both
-    # sides: tell your owner, who can make a deal. (Leaving the line instead gives it away: try it and compare.)
+    # A tug-of-war (another player taking back your gains on this line, 3 times lately): tell your owner.
     contested(offer, 3)
     v = look(offer, "si")      # the line as y = mx + c
     rule = goal(offer)         # your rule (free)
     m, c, p, tie = v.m, v.c, rule.params, rule.tie_breaker
-    # A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.
-    if m == None:
-        return climb(offer, [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tips(offer) if offer.object not in PROTECT or fair(offer, plan)], None, QUOTES)
-    tries = []                 # (plan, m after, c after): changes tried in the agent's own head
-    for k in range(-FAR, FAR + 1):
-        if k == 0:
-            continue
-        tries.append((move("si.shift", k=k), m, c + k))     # move the line up or down
-        tries.append((move("si.tilt", k=k), m + k, c))      # make it steeper or flatter
-        for j in range(-FAR, FAR + 1):                         # both at once
-            if j != 0:
-                tries.append(([move("si.shift", k=k), move("si.tilt", k=j)], m + j, c + k))
-    tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
-    options = score_each(tries, lambda t: (t[0], score(t[1], t[2], p, tie)))   # each step and the score it reaches (fewer on a big line)
+    # (plan, m after, c after): whole-number steps on one lens, tried in the agent's own head
+    tries = lens_steps(m, c, FAR)
+    options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:
         options = [(plan, s) for plan, s in options if fair(offer, plan)]
-    # The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or None.
+    # The step that raises your points most for its price, weighing the QUOTES best; or None.
     return climb(offer, options, score(m, c, p, tie), QUOTES)

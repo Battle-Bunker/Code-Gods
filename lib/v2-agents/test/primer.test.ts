@@ -18,19 +18,8 @@ test("every helper the primer names is defined in both guest libraries", () => {
 test("the primer lists every view and every move of the beginner board, uses the player's words, and is short", () => {
   for (const r of lineType.representations) assert.ok(AGENT_PRIMER.includes(`- ${r.id}: `), r.id);
   for (const m of lineZ.mutators) assert.match(AGENT_PRIMER, new RegExp(`^- ${m.replace(".", "\\.")}\\([a-z0-9]`, "m"), `${m} with its arguments`);
-  assert.match(AGENT_PRIMER, /cart\.pivot\(x0, k\)/);
-  assert.match(AGENT_PRIMER, /cart\.mirror\(axis: x \| y \| origin \| diagonal\)/);
+  assert.match(AGENT_PRIMER, /^- add\(lens: mc \| xy \| abc \| mA/m);
   assert.match(AGENT_PRIMER, /rarity in bits \(each bit = twice as rare\)/, "bits are the unit of rarity, said with what a bit means");
   assert.ok(AGENT_PRIMER.length < 11000, `${AGENT_PRIMER.length} characters`);
 });
 
-test("the primer for the lens trial lists its five moves with their arguments, both shapes of a fold", async () => {
-  const { agentPrimer } = await import("../src/index.ts");
-  const { lineQLenses } = await import("@workspace/v2-linear");
-  const p = agentPrimer(lineType, lineQLenses);
-  assert.match(p, /^- rot\.turn\(centre: origin \| number, turn: left \| right \| number\)/m);
-  assert.match(p, /^- coef\.swap\(pair: m-c \| b-c\)/m);
-  assert.match(p, /^- fold\(x0, s or mirror: text\)/m);
-  for (const id of ["basis.lean", "basis.zoom"]) assert.match(p, new RegExp(`^- ${id.replace(".", "\\.")}\\([a-z]`, "m"));
-  assert.doesNotMatch(agentPrimer(), /rot\.turn/, "line boards without the trial do not list it");
-});

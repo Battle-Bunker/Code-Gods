@@ -2,44 +2,28 @@
 import type { ObjectType, Variant } from "@workspace/v2-core";
 import { decodeLine, encodeLine, inDomain, lineBits, lineParams, normalise, type LineState } from "./line.ts";
 import { representations } from "./representations.ts";
-import { allMutators, lensMutators, mutators } from "./mutators.ts";
+import { lensMoves, lineTurnSurprise, newbornLine } from "./lens-moves.ts";
 import { dynamicFamilies } from "./dynamic-families.ts";
 import { estimateLine, lineRule } from "./energy.ts";
 
-const ALL_MUTATORS = mutators.map(m => m.id);
-/**
- * The lens mutator in the beginner line set: rot.turn, which the owner asked for by name (decisions 25, 27, 28; the
- * coordinator's call 23, after docs/engine-v2/scripts/stretch-lens-pool-dynamics.md). basis.zoom joined with it and was
- * taken out the same day (the coordinator, 15 Nov): thirty zooms by 7 climbed Prime Landing 227 bits, a straight hill.
- * It returns when the "no straight hill" check passes for every dealt family against zoom, stretch and turn.
- */
-const BEGINNER_LENSES = ["rot.turn"];
-/** The others stay in the lines-lenses trial (coef.swap, basis.lean, basis.zoom, fold). */
-const TRIAL_LENSES = lensMutators.map(m => m.id).filter(id => !BEGINNER_LENSES.includes(id));
+/** Every line variant offers the same small menu of whole-number mutations on a pinned lens (owner, 17 Nov). */
+const MOVES = lensMoves.map(m => m.id);
 
 export const lineZ: Variant = {
-  id: "line-z", objectType: "line", mutators: ALL_MUTATORS, birthMixSteps: 64,
+  id: "line-z", objectType: "line", mutators: MOVES, birthMixSteps: 64,
   params: { domain: "Z", linesPerObject: 1, argDomain: "Z" },
 };
 export const lineQ: Variant = {
-  id: "line-q", objectType: "line", mutators: [...ALL_MUTATORS, ...BEGINNER_LENSES], birthMixSteps: 64,
-  // The weighted which code: the turn keeps the price it was measured at (log2 20 = 4.32 bits, as on line-q-lenses),
-  // and the others share the rest (log2 (n / 0.95) bits each, n the number of them).
-  which: Object.fromEntries([...ALL_MUTATORS.map(id => [id, Math.log2(ALL_MUTATORS.length / 0.95)]), ...BEGINNER_LENSES.map(id => [id, Math.log2(20)])]),
+  id: "line-q", objectType: "line", mutators: MOVES, birthMixSteps: 64,
   params: { domain: "Q", linesPerObject: 1, argDomain: "Q" },
 };
-/**
- * line-q with the other four lens mutators (lenses-and-mutators.md §5: a swap, a lean, a zoom, a fold) beside line-q's
- * ten. Dealt only by the lines-lenses preset. Same params, so the same law π ∝ 2^−φ: it reads line-q's values.
- */
+/** Kept for stored rooms; the same menu as line-q since every lens is on every board. */
 export const lineQLenses: Variant = {
-  id: "line-q-lenses", objectType: "line", mutators: [...lineQ.mutators, ...TRIAL_LENSES], birthMixSteps: 64, valuesOf: "line-q",
-  // line-q's ten share 3/4 of the mass in line-q's proportions, the four share 1/4 (log2 16 = 4 bits each).
-  which: Object.fromEntries([...lineQ.mutators.map(id => [id, lineQ.which![id]! + Math.log2(4 / 3)]), ...TRIAL_LENSES.map(id => [id, Math.log2(4 * TRIAL_LENSES.length)])]),
+  id: "line-q-lenses", objectType: "line", mutators: MOVES, birthMixSteps: 64, valuesOf: "line-q",
   params: { domain: "Q", linesPerObject: 1, argDomain: "Q" },
 };
 export const lineZ4: Variant = {
-  id: "line-z4", objectType: "line", mutators: ALL_MUTATORS, birthMixSteps: 64,
+  id: "line-z4", objectType: "line", mutators: MOVES, birthMixSteps: 64,
   params: { domain: "Z", linesPerObject: 4, argDomain: "Z" },
 };
 
@@ -82,7 +66,9 @@ export const lineType: ObjectType<LineState> = {
     }
   },
   representations,
-  mutators: allMutators,
+  mutators: lensMoves,
+  newborn: (v, r) => ({ lines: Array.from({ length: lineParams(v).linesPerObject }, () => newbornLine(r, v)) }),
+  turnSurprise: (before, after, calls, v) => lineTurnSurprise(before, after, calls, v),
   // A rule scores each line; an object's energy is the sum of its lines' (each line's state is reached on its own).
   estimate: (state, variant, rule, params, opts) => {
     const r = lineRule(rule, params), each = state.lines.map((l, i) => estimateLine(l, r, variant, opts?.seed ? { ...opts, seed: `${opts.seed}:${i}` } : opts));

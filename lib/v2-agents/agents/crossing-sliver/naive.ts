@@ -51,18 +51,9 @@ function agent(offer) {
   const v = look(offer, "si");      // the line as y = mx + c
   const rule = goal(offer);         // your rule (free)
   const m = v.m, c = v.c, p = rule.params, tie = rule.tieBreaker;
-  if (!Q.isQ(m)) return null;       // a vertical line has no y = mx + c: skip
-  const tries = [];                 // [plan, m after, c after]: changes tried in the agent's own head
-  for (let k = -FAR; k <= FAR; k++) {
-    if (k === 0) continue;
-    tries.push([move("si.shift", { k }), m, Q.add(c, k)]);   // move the line up or down
-    tries.push([move("si.tilt", { k }), Q.add(m, k), c]);   // make it steeper or flatter
-  }
-  let top = score(m, c, p, tie), plans = [];
-  for (const [plan, m2, c2] of tries) {
-    const s = score(m2, c2, p, tie);
-    if (better(s, top)) { top = s; plans = [plan]; }               // a new best
-    else if (plans.length && !better(top, s)) plans.push(plan);   // as good as the best: the price decides
-  }
-  return plans.length ? cheapest(offer, plans.slice(0, QUOTES)) : null;   // the cheapest of the best, or skip
+  // [plan, m after, c after]: whole-number steps on one lens, tried in the agent's own head
+  const tries = lensSteps(m, c, FAR);
+  let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches
+  // The step that raises your points most for its price, weighing the QUOTES best; or null.
+  return climb(offer, options, score(m, c, p, tie), QUOTES);
 }

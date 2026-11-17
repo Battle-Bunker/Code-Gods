@@ -95,19 +95,8 @@ def agent(offer):
     v = look(offer, "si")      # the line as y = mx + c
     rule = goal(offer)         # your rule (free)
     m, c, p, tie = v.m, v.c, rule.params, rule.tie_breaker
-    if m == None:              # a vertical line has no y = mx + c: skip
-        return None
-    tries = []                 # (plan, m after, c after): changes tried in the agent's own head
-    for k in range(-FAR, FAR + 1):
-        if k == 0:
-            continue
-        tries.append((move("si.shift", k=k), m, c + k))   # move the line up or down
-        tries.append((move("si.tilt", k=k), m + k, c))   # make it steeper or flatter
-    top, plans = score(m, c, p, tie), []
-    for plan, m2, c2 in tries:
-        s = score(m2, c2, p, tie)
-        if better(s, top):
-            top, plans = s, [plan]         # a new best
-        elif plans and not better(top, s):
-            plans.append(plan)             # as good as the best: the price decides
-    return cheapest(offer, plans[:QUOTES]) if plans else None   # the cheapest of the best, or skip
+    # (plan, m after, c after): whole-number steps on one lens, tried in the agent's own head
+    tries = lens_steps(m, c, FAR)
+    options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
+    # The step that raises your points most for its price, weighing the QUOTES best; or None.
+    return climb(offer, options, score(m, c, p, tie), QUOTES)

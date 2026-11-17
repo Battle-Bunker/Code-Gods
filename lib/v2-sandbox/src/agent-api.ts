@@ -79,7 +79,7 @@ export interface ScoreReply {
 }
 /** §6.3: `bits` here are the calls' prices, in order; `charge` what committing them would cost in energy. */
 export interface QuoteReply { valid: boolean; reason?: string; bits: number[]; total: number; charge: number }
-export interface BudgetReply { energy: number; readPrice: number; beta: number; hostCallsLeft: number }
+export interface BudgetReply { energy: number; readPrice: number; hostCallsLeft: number }
 /**
  * What the offered line is worth now, as the player sees it (spec §8): their own rarity n_i, the others' summed rarity
  * Σ n_j and their points π_i = n_i · Σ n_j, in bits.

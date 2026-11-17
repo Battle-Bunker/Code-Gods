@@ -83,22 +83,3 @@ test("representation shortcuts are priced as choices: reflect and quarter cost w
   assert.equal(q(1).n, 1n);
 });
 
-test("a shortcut on a big line pays more (trial 29 for pairs): a stretch, a reflection and a quarter turn floor at fee × 2^((Φ − 21)/3.5)", async () => {
-  const { applyCall, isInvalid } = await import("@workspace/v2-core");
-  const { pairShortcutFactor, pairLineBits } = await import("../src/index.ts");
-  const price = (s: ReturnType<typeof sys>, mutator: string, args: Record<string, string>) => {
-    const a = applyCall(pairType, pairQ, s, { mutator, site: 0, args });
-    assert.ok(!isInvalid(a), mutator);
-    return a.price;
-  };
-  const small = sys(Y(2, 3), Y(-1, 6)), big = sys(Y(2, 300001), Y(-1, 6));
-  for (const [m, args] of [["mach.stretch", { line: "1", f: "3" }], ["pair.quarter", { line: "1" }], ["pair.reflect", { line: "1" }]] as const) {
-    const p0 = price(small, m, args), p1 = price(big, m, args);
-    assert.ok(p1.which + p1.arg > 2 * (p0.which + p0.arg), `${m}: ${p0.which + p0.arg} → ${p1.which + p1.arg}`);
-  }
-  assert.equal(pairShortcutFactor(21), 1);
-  assert.ok(pairLineBits(big.lines.find(l => l.c !== -6n && l.c !== 6n) ?? big.lines[0]!) > 30);
-  // An additive move is not floored.
-  const s0 = price(small, "si.shift", { line: "1", k: "1" }), s1 = price(big, "si.shift", { line: "1", k: "1" });
-  assert.equal(s0.which + s0.arg, s1.which + s1.arg);
-});

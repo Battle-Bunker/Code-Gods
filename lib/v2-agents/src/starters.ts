@@ -151,9 +151,16 @@ function scoreTs(e: FamilyEntry, tieBreaker: string | null): string[] {
   return out;
 }
 
+/**
+ * Every line starter is one simple climber (owner, 17 Nov): it reads the line as y = mx + c, tries whole-number steps on
+ * the gradient-and-intercept lens in its own head (lensSteps: add ±1..FAR to a top or bottom, double or halve, negate,
+ * round, swap), and takes the one that raises its points most for its price. On a vertical line it tries the
+ * abc lens's step that tips it. The kinds differ only in how far a step may go and how many plans they price.
+ */
 function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far: number, quotes: number): string[] {
+  void e; void tieBreaker;
   const args = kind === "example" ? "p" : "p, tie";
-  const out = [
+  return [
     `const FAR = ${far};      // how far one change may go`,
     `const QUOTES = ${quotes};  // at most this many plans are priced (each price is a host call)`,
     ...(kind === "naive" ? [] : [
@@ -164,80 +171,21 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     "function agent(offer) {",
     ...(kind === "naive" ? [] : [
       "  if (LEAVE.includes(offer.object)) return null;   // a deal: leave this line alone",
-      "  if (saving(offer)) return null;   // under 10 s of your income in hand: save up for a move (the game still tells you the line)",
-      "  // A tug-of-war (another player taking back your gains on this line, 3 times lately) burns energy on both",
-      "  // sides: tell your owner, who can make a deal. (Leaving the line instead gives it away: try it and compare.)",
+      "  if (saving(offer)) return null;   // under 10 s of your income in hand: save up for a move",
+      "  // A tug-of-war (another player taking back your gains on this line, 3 times lately): tell your owner.",
       "  contested(offer, 3);",
     ]),
     "  const v = look(offer, \"si\");      // the line as y = mx + c",
     "  const rule = goal(offer);         // your rule (free)",
-    `  ${e.vertical && kind !== "naive" ? "let" : "const"} m = v.m, c = v.c, p = rule.params${kind === "example" ? "" : ", tie = rule.tieBreaker"};`,
-    ...(kind === "naive" ? ["  if (!Q.isQ(m)) return null;       // a vertical line has no y = mx + c: skip"] : e.vertical ? [] : [
-      "  // A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.",
-      `  if (!Q.isQ(m)) return climb(offer, tips(offer).filter(([plan]) => !PROTECT.includes(offer.object) || fair(offer, plan)).map(([plan, m2, c2]) => [plan, score(m2, c2, ${args})]), null, QUOTES);`,
-    ]),
-    "  const tries = [];                 // [plan, m after, c after]: changes tried in the agent's own head",
-    "  for (let k = -FAR; k <= FAR; k++) {",
-    "    if (k === 0) continue;",
-  ];
-  if (kind === "bold") {
-    out.push(
-      "    tries.push([move(\"si.shift\", { k }), m, Q.add(c, k)]);     // move the line up or down",
-      "    tries.push([move(\"si.tilt\", { k }), Q.add(m, k), c]);      // make it steeper or flatter",
-      "    for (let j = -FAR; j <= FAR; j++) {                          // both at once",
-      "      if (j !== 0) tries.push([[move(\"si.shift\", { k }), move(\"si.tilt\", { k: j })], Q.add(m, j), Q.add(c, k)]);",
-      "    }",
-    );
-  } else {
-    const pres = new Set<string>();
-    for (const id of lensesFor(kind, e, tieBreaker)) {
-      const l: Lens = LENSES[id];
-      if (l.pre && !pres.has(l.pre.ts)) { pres.add(l.pre.ts); out.push(`    ${l.pre.ts}`); }
-      out.push(`    ${l.when ? `if (${l.when.ts}) ` : ""}tries.push(${l.ts});   // ${l.comment}`);
-    }
-  }
-  out.push(
-    "  }",
-    ...(kind !== "naive" && e.rungs ? e.rungs.ts.map(l => `  ${l}`) : []),
-    ...(kind === "naive" ? [] : ["  tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds", ...(kind === "simple" || kind === "thorough" ? ["  tries.push(...shortcuts(m, c, rule.mutators));   // other views the game offers: mirrors, a slide, turns, one intercept moved"] : [])]),
-    ...(kind === "naive" ? [
-      `  let top = score(m, c, ${args}), plans = [];`,
-      "  for (const [plan, m2, c2] of tries) {",
-      `    const s = score(m2, c2, ${args});`,
-      "    if (better(s, top)) { top = s; plans = [plan]; }               // a new best",
-      "    else if (plans.length && !better(top, s)) plans.push(plan);   // as good as the best: the price decides",
-      "  }",
-      "  return plans.length ? cheapest(offer, plans.slice(0, QUOTES)) : null;   // the cheapest of the best, or skip",
-    ] : [
-      (kind === "thorough" || kind === "bold" || (kind === "simple" && e.boundedSimple)
-        ? `  let options = scoreEach(tries, ([plan, m2, c2]) => [plan, score(m2, c2, ${args})]);   // each step and the score it reaches (fewer on a big line)`
-        : `  let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, ${args})]);   // each step and the score it reaches`),
-      ...POINTS.ts,
-      "  // The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or null.",
-      ...(kind === "thorough" ? [
-        `  const one = climb(offer, options, score(m, c, ${args}), QUOTES);`,
-        "  if (one || PROTECT.includes(offer.object)) return one;",
-        "  // No single step helps: look two steps ahead (each step, then a shift or tilt by 1) and take the first",
-        "  // step of the best pair, though it may lower your points for a moment. It weighs the 4 best pairs: a few more small reads.",
-        "  // The first steps: the 6 best for your rule (options are tries with their scores, in the same order).",
-        "  const firsts = tries.slice(0, options.length).map((t, i) => [t, options[i][1]]).filter(([[, m1]]) => Q.isQ(m1))",
-        "    .sort((a, b) => (better(a[1], b[1]) ? -1 : better(b[1], a[1]) ? 1 : 0)).slice(0, 6).map(([t]) => t);",
-        "  const pairs = [];",
-        "  for (const [plan, m1, c1] of firsts) {",
-        "    if (stepsLeft() < 0.45 * stepBudget()) break;   // a big line: weigh fewer pairs rather than fail",
-        "    const first = Array.isArray(plan) ? plan : [plan];",
-        "    for (const k of [-1, 1]) {",
-        `      pairs.push([[...first, move("si.shift", { k })], score(m1, Q.add(c1, k), ${args})]);`,
-        `      pairs.push([[...first, move("si.tilt", { k })], score(Q.add(m1, k), c1, ${args})]);`,
-        "    }",
-        "  }",
-        `  const two = climb(offer, pairs, score(m, c, ${args}), 4);`,
-        "  return two ? two.slice(0, -1) : null;",
-      ] : [`  return climb(offer, options, score(m, c, ${args}), QUOTES);`]),
-    ]),
+    `  const m = v.m, c = v.c, p = rule.params${kind === "example" ? "" : ", tie = rule.tieBreaker"};`,
+    "  // [plan, m after, c after]: whole-number steps on one lens, tried in the agent's own head",
+    "  const tries = lensSteps(m, c, FAR);",
+    `  let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, ${args})]);   // each step and the score it reaches`,
+    ...(kind === "naive" ? [] : POINTS.ts),
+    "  // The step that raises your points most for its price, weighing the QUOTES best; or null.",
+    `  return climb(offer, options, score(m, c, ${args}), QUOTES);`,
     "}",
-  );
-  return kind === "naive" || !e.vertical ? out : verticalBranch(out, "typescript");
+  ];
 }
 
 /**
@@ -299,8 +247,9 @@ function scorePy(e: FamilyEntry, tieBreaker: string | null): string[] {
 }
 
 function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far: number, quotes: number): string[] {
+  void e; void tieBreaker;
   const args = kind === "example" ? "p" : "p, tie";
-  const out = [
+  return [
     `FAR = ${far}      # how far one change may go`,
     `QUOTES = ${quotes}  # at most this many plans are priced (each price is a host call)`,
     ...(kind === "naive" ? [] : [
@@ -313,87 +262,21 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     ...(kind === "naive" ? [] : [
       "    if offer.object in LEAVE:   # a deal: leave this line alone",
       "        return None",
-      "    if saving(offer):   # under 10 s of your income in hand: save up for a move (the game still tells you the line)",
+      "    if saving(offer):   # under 10 s of your income in hand: save up for a move",
       "        return None",
-      "    # A tug-of-war (another player taking back your gains on this line, 3 times lately) burns energy on both",
-      "    # sides: tell your owner, who can make a deal. (Leaving the line instead gives it away: try it and compare.)",
+      "    # A tug-of-war (another player taking back your gains on this line, 3 times lately): tell your owner.",
       "    contested(offer, 3)",
     ]),
     "    v = look(offer, \"si\")      # the line as y = mx + c",
     "    rule = goal(offer)         # your rule (free)",
     kind === "example" ? "    m, c, p = v.m, v.c, rule.params" : "    m, c, p, tie = v.m, v.c, rule.params, rule.tie_breaker",
-    ...(kind === "naive" ? ["    if m == None:              # a vertical line has no y = mx + c: skip", "        return None"] : e.vertical ? [] : [
-      "    # A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.",
-      "    if m == None:",
-      `        return climb(offer, [(plan, score(m2, c2, ${args})) for plan, m2, c2 in tips(offer) if offer.object not in PROTECT or fair(offer, plan)], None, QUOTES)`,
-    ]),
-    "    tries = []                 # (plan, m after, c after): changes tried in the agent's own head",
-    "    for k in range(-FAR, FAR + 1):",
-    "        if k == 0:",
-    "            continue",
+    "    # (plan, m after, c after): whole-number steps on one lens, tried in the agent's own head",
+    "    tries = lens_steps(m, c, FAR)",
+    `    options = [(plan, score(m2, c2, ${args})) for plan, m2, c2 in tries]   # each step and the score it reaches`,
+    ...(kind === "naive" ? [] : POINTS.py),
+    "    # The step that raises your points most for its price, weighing the QUOTES best; or None.",
+    `    return climb(offer, options, score(m, c, ${args}), QUOTES)`,
   ];
-  if (kind === "bold") {
-    out.push(
-      "        tries.append((move(\"si.shift\", k=k), m, c + k))     # move the line up or down",
-      "        tries.append((move(\"si.tilt\", k=k), m + k, c))      # make it steeper or flatter",
-      "        for j in range(-FAR, FAR + 1):                         # both at once",
-      "            if j != 0:",
-      "                tries.append(([move(\"si.shift\", k=k), move(\"si.tilt\", k=j)], m + j, c + k))",
-    );
-  } else {
-    const pres = new Set<string>();
-    for (const id of lensesFor(kind, e, tieBreaker)) {
-      const l: Lens = LENSES[id];
-      if (l.pre && !pres.has(l.pre.py)) { pres.add(l.pre.py); out.push(`        ${l.pre.py}`); }
-      out.push(`        ${l.when ? `if ${l.when.py}: ` : ""}tries.append(${l.py})   # ${l.comment}`);
-    }
-  }
-  out.push(
-    ...(kind !== "naive" && e.rungs ? e.rungs.py.map(l => `    ${l}`) : []),
-    ...(kind === "naive" ? [] : ["    tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds", ...(kind === "simple" || kind === "thorough" ? ["    tries += shortcuts(m, c, rule.mutators)   # other views the game offers: mirrors, a slide, turns, one intercept moved"] : [])]),
-    ...(kind === "naive" ? [
-      `    top, plans = score(m, c, ${args}), []`,
-      "    for plan, m2, c2 in tries:",
-      `        s = score(m2, c2, ${args})`,
-      "        if better(s, top):",
-      "            top, plans = s, [plan]         # a new best",
-      "        elif plans and not better(top, s):",
-      "            plans.append(plan)             # as good as the best: the price decides",
-      "    return cheapest(offer, plans[:QUOTES]) if plans else None   # the cheapest of the best, or skip",
-    ] : [
-      (kind === "thorough" || kind === "bold" || (kind === "simple" && e.boundedSimple)
-        ? `    options = score_each(tries, lambda t: (t[0], score(t[1], t[2], ${args})))   # each step and the score it reaches (fewer on a big line)`
-        : `    options = [(plan, score(m2, c2, ${args})) for plan, m2, c2 in tries]   # each step and the score it reaches`),
-      ...POINTS.py,
-      "    # The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or None.",
-      ...(kind === "thorough" ? [
-        `    one = climb(offer, options, score(m, c, ${args}), QUOTES)`,
-        "    if one or offer.object in PROTECT:",
-        "        return one",
-        "    # No single step helps: look two steps ahead (each step, then a shift or tilt by 1) and take the first",
-        "    # step of the best pair, though it may lower your points for a moment. It weighs the 4 best pairs: a few more small reads.",
-        "    # The first steps: the 6 best for your rule (options are tries with their scores, in the same order).",
-        "    cands, firsts = [(t, o[1]) for t, o in zip(tries, options) if t[1] is not None], []",
-        "    while cands and len(firsts) < 6:",
-        "        best = 0",
-        "        for i in range(1, len(cands)):",
-        "            if better(cands[i][1], cands[best][1]):",
-        "                best = i",
-        "        firsts.append(cands.pop(best)[0])",
-        "    pairs = []",
-        "    for plan, m1, c1 in firsts:",
-        "        if steps_left() < 0.45 * step_budget():   # a big line: weigh fewer pairs rather than fail",
-        "            break",
-        "        first = list(plan) if isinstance(plan, (list, tuple)) else [plan]",
-        "        for k in (-1, 1):",
-        `            pairs.append((first + [move("si.shift", k=k)], score(m1, c1 + k, ${args})))`,
-        `            pairs.append((first + [move("si.tilt", k=k)], score(m1 + k, c1, ${args})))`,
-        `    two = climb(offer, pairs, score(m, c, ${args}), 4)`,
-        "    return two[:-1] if two else None",
-      ] : [`    return climb(offer, options, score(m, c, ${args}), QUOTES)`]),
-    ]),
-  );
-  return kind === "naive" || !e.vertical ? out : verticalBranch(out, "python");
 }
 
 // ---------------------------------------------------------------- assembly

@@ -44,7 +44,7 @@ test("the beginner start buys three of the starter a newcomer summons (Simple) a
   }
   assert.equal(presetOf("lines-beginner").startingEnergy, LINES_BEGINNER_ECONOMY.startingEnergy);
   assert.equal(presetOf("grids-beginner").startingEnergy, GRIDS_BEGINNER_ECONOMY.startingEnergy);
-  assert.equal(presetOf("lines-beginner").economy.powerPerSecond, 4);
+  assert.equal(presetOf("lines-beginner").economy.powerPerSecond, 3);
 });
 test("the beginner grid presets do not drift, as v1's grid never redrew a seat's rule", async () => {
   const { presetOf } = await import("../../convex/v2/presets.ts");

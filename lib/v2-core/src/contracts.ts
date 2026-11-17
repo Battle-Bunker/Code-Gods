@@ -63,6 +63,16 @@ export interface ObjectType<S> {
    * least this bad" is (lib/v2-valuation defence.ts). Absent: the type has none.
    */
   readonly penalties?: readonly RuleFamily<S, any>[];
+  /**
+   * A newborn object drawn directly (owner, 17 Nov: lines pick a lens at random and draw its whole numbers). Absent:
+   * births walk from the origin.
+   */
+  newborn?(variant: Variant, rng: Rng): S;
+  /**
+   * The turn's surprise in bits (v2-core surprise.ts) for its overall change, added to its calls' naming bits; or why
+   * the turn is not allowed (a turn pins one lens). Absent: a turn costs its naming bits only (grids).
+   */
+  turnSurprise?(before: S, after: S, calls: readonly Call[], variant: Variant): number | Invalid;
 }
 
 /** A type's family by id: its rules first, then its penalty families (defence goals). */

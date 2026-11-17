@@ -163,9 +163,9 @@ test("check: works, warns, fails and rejected, with the summon price and every a
   assert.deepEqual(works.sample.map(s => s.objectId), ["o0", "o1", "o2"]);
   assert.equal(works.acts.length, 3);
   assert.equal((await run("typescript", "function agent(o) { return null; }")).verdict, "warns");
-  const fails = await run("typescript", `function agent(o) { return [move("si.shift", { k: 0 })]; }`);
+  const fails = await run("typescript", `function agent(o) { return [move("add", { lens: "mc", at: 3, k: 0 })]; }`);
   assert.equal(fails.verdict, "fails");
-  assert.match(fails.summary, /k/);
+  assert.match(fails.summary, /adding 0/);
   const rejected = await run("python", "def agent(offer)\n    return None\n");
   assert.equal(rejected.verdict, "rejected");
   assert.equal(rejected.sample.length, 1, "a program that does not compile is tried once");
@@ -190,19 +190,6 @@ test("on a rational line the starters clear a fraction their rule cares about: y
     assert.equal(record.outcome, "committed", `${language}: ${record.reason}`);
     const v = new EngineHost({ type: lineType, variant: lineQ, state, rule: { family: "power-hug", params: { k: 3 } }, energy: 0 }).handle({ op: "view", rep: "si" } as never, { hostCallsLeft: 5 }) as { result: { elements: { c: { q: string } } } };
     assert.ok(!v.result.elements.c.q.includes("/"), `${language}: the intercept is whole now (${v.result.elements.c.q})`);
-  }
-});
-
-test("a vertical line is tipped, not skipped, where the rule cannot read it: the starters climb the tips (mirror or nudge b)", async () => {
-  const at = { lines: [{ a: 1n, b: 0n, c: -3n }] };   // x = 3
-  assert.equal(CATALOGUE.find(e => e.family === "power-hug")!.vertical, undefined);
-  for (const language of ["typescript", "python"] as const) {
-    const simple = startersFor("power-hug", language).find(a => a.kind === "simple")!;
-    const { record } = await runAct(await boxes.get(language), {
-      type: lineType, variant: lineQ, state: at, rule: { family: "power-hug", params: { k: 3 }, tieBreaker: null }, program: program(simple), seed: "1", energy: 500,
-    });
-    assert.equal(record.outcome, "committed", `${language}: ${record.reason}`);
-    assert.ok(["cart.mirror", "gen.nudge"].includes(record.calls[0]!.mutator), `${language}: ${record.calls[0]!.mutator}`);
   }
 });
 

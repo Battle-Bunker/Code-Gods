@@ -47,6 +47,9 @@ export function drawMutator<S>(ms: readonly Mutator<S, any>[], variant: Variant,
   return ms[ms.length - 1]!;
 }
 
+/** Every mutation of a turn pays one bit saying whether another follows. */
+export const CONTINUE_BITS = 1;
+
 /** Apply one mutator with decoded arguments and price it. Unchanged results are invalid (a call must change the object). */
 export function applyPriced<S, A>(type: ObjectType<S>, variant: Variant, state: S, mutator: Mutator<S, A>, site: number, args: A): Applied<S> | Invalid {
   const ms = variantMutators(type, variant);
@@ -58,11 +61,10 @@ export function applyPriced<S, A>(type: ObjectType<S>, variant: Variant, state: 
   if (type.encode(result) === type.encode(state)) return { invalid: "that call does not change the object" };
   const which = whichBits(variant, mutator.id);
   const where = mutator.perSite ? Math.log2(k) : 0;
-  const code = mutator.args(variant).bits(args);
-  // A floored mutator's top-up counts as argument bits (Mutator.floor).
-  const arg = mutator.floor ? Math.max(code, mutator.floor(state, result, mutator.perSite ? site : 0, args, variant) - which - where) : code;
-  const surcharge = Math.max(0, type.readLength(result, variant) - type.readLength(state, variant));
-  return { result, price: { which, where, arg, surcharge, total: which + where + arg + surcharge } };
+  const arg = mutator.args(variant).bits(args);
+  // Naming bits (owner, 17 Nov): which mutation, where, its argument, and one "continue" bit. The turn's surprise is
+  // added once per turn by applyCalls; `surcharge` is kept at 0 on the wire.
+  return { result, price: { which, where, arg, surcharge: 0, total: which + where + arg + CONTINUE_BITS } };
 }
 
 /** Apply a wire call (as an agent returns it). */
@@ -80,7 +82,7 @@ export function applyCall<S>(type: ObjectType<S>, variant: Variant, state: S, ca
 
 /** Apply calls in order; the first invalid one fails the whole list. */
 export function applyCalls<S>(type: ObjectType<S>, variant: Variant, state: S, calls: readonly Call[]):
-  { readonly result: S; readonly prices: readonly Price[]; readonly total: number } | Invalid {
+  { readonly result: S; readonly prices: readonly Price[]; readonly naming: number; readonly surprise: number; readonly total: number } | Invalid {
   let s = state;
   const prices: Price[] = [];
   for (const c of calls) {
@@ -89,7 +91,10 @@ export function applyCalls<S>(type: ObjectType<S>, variant: Variant, state: S, c
     s = a.result;
     prices.push(a.price);
   }
-  return { result: s, prices, total: prices.reduce((t, p) => t + p.total, 0) };
+  const naming = prices.reduce((t, p) => t + p.total, 0);
+  const surprise = type.turnSurprise && calls.length ? type.turnSurprise(state, s, calls, variant) : 0;
+  if (isInvalid(surprise)) return surprise;
+  return { result: s, prices, naming, surprise, total: naming + surprise };
 }
 
 /**

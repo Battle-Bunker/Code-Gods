@@ -111,7 +111,7 @@ test("a crash neither frees nor traps: a program that fails on a state refuses t
   // True where it was made (c = 13); it throws on every other state.
   const brittle: LockProgram = { language: "typescript", words: "c is 13, or else it throws",
     source: `function predicate(offer) { if (!Q.eq(look(offer, "si").c, Q.of(13))) throw new Error("boom"); return true; }` };
-  const shift = [{ mutator: "si.shift", site: 0, args: { k: "1" } }];
+  const shift = [{ mutator: "add", site: 0, args: { lens: "mc", at: "3", k: "1" } }];
   const base = { type: lineType, variant: lineZ, state, calls: shift, world: 0, nextLock: 2, rates, run, programBits: predicateBits };
   const refused = lockedAct({ ...base, ops: [], locks: [live(1, brittle)] });
   assert.ok(isInvalid(refused) && /breaks lock #1 \(c is 13, or else it throws\): its program failed on that state, which counts as not met \(.*boom/.test(refused.invalid), JSON.stringify(refused));
@@ -140,17 +140,17 @@ test("the commit applies an act's lock changes again without running a program, 
 const text = (language: "typescript" | "python", p: LockProgram) => JSON.stringify(p.source);
 const programs = {
   typescript: {
-    shift: (k: number) => `function agent(offer) { return [move("si.shift", { k: ${k} })]; }`,
-    drainThenShift: (k: number, x: number) => `function agent(offer) { offer.drain(1, ${x}); return [move("si.shift", { k: ${k} })]; }`,
+    shift: (k: number) => `function agent(offer) { return [move("add", { lens: "mc", at: 3, k: ${k} })]; }`,
+    drainThenShift: (k: number, x: number) => `function agent(offer) { offer.drain(1, ${x}); return [move("add", { lens: "mc", at: 3, k: ${k} })]; }`,
     list: `function agent(offer) { const ls = offer.locks(); offer.note(ls.map(l => l.lock + ":" + l.words + ":" + l.language + ":" + l.source.length).join("|")); return null; }`,
-    lockAfter: (k: number, p: LockProgram) => `function agent(offer) { const q = offer.lock(${text("typescript", p)}, 10, ${JSON.stringify(p.words)}); offer.note(String(q.holdsNow)); return [move("si.shift", { k: ${k} })]; }`,
+    lockAfter: (k: number, p: LockProgram) => `function agent(offer) { const q = offer.lock(${text("typescript", p)}, 10, ${JSON.stringify(p.words)}); offer.note(String(q.holdsNow)); return [move("add", { lens: "mc", at: 3, k: ${k} })]; }`,
     fundOnly: `function agent(offer) { offer.fund(1, 3); return null; }`,
   },
   python: {
-    shift: (k: number) => `def agent(offer):\n    return [move("si.shift", k=${k})]\n`,
-    drainThenShift: (k: number, x: number) => `def agent(offer):\n    offer.drain(1, ${x})\n    return [move("si.shift", k=${k})]\n`,
+    shift: (k: number) => `def agent(offer):\n    return [move("add", lens="mc", at=3, k=${k})]\n`,
+    drainThenShift: (k: number, x: number) => `def agent(offer):\n    offer.drain(1, ${x})\n    return [move("add", lens="mc", at=3, k=${k})]\n`,
     list: `def agent(offer):\n    offer.note("|".join(f"{l.lock}:{l.words}:{l.language}:{len(l.source)}" for l in offer.locks()))\n    return None\n`,
-    lockAfter: (k: number, p: LockProgram) => `def agent(offer):\n    q = offer.lock(${text("python", p)}, 10, ${JSON.stringify(p.words)})\n    offer.note(str(q.holdsNow).lower())\n    return [move("si.shift", k=${k})]\n`,
+    lockAfter: (k: number, p: LockProgram) => `def agent(offer):\n    q = offer.lock(${text("python", p)}, 10, ${JSON.stringify(p.words)})\n    offer.note(str(q.holdsNow).lower())\n    return [move("add", lens="mc", at=3, k=${k})]\n`,
     fundOnly: `def agent(offer):\n    offer.fund(1, 3)\n    return None\n`,
   },
 };
@@ -215,11 +215,11 @@ test("quotes see the act's queued drains; a game without locks says so", () => {
   const prime = ready("prime-intercept", "typescript");
   const host = new EngineHost({ type: lineType, variant: lineZ, state, rule, energy: 100, locks: { ...locks([live(1, prime)]), language: "typescript" } });
   const ctx = { hostCallsLeft: 10 };
-  const q1 = host.handle({ op: "quote", calls: [{ mutator: "si.shift", site: 0, args: { k: "1" } }] }, ctx);
+  const q1 = host.handle({ op: "quote", calls: [{ mutator: "add", site: 0, args: { lens: "mc", at: "3", k: "1" } }] }, ctx);
   assert.ok(q1.ok && (q1.result as { valid: boolean }).valid === false);
   assert.match((q1 as { result: { reason: string } }).result.reason, /breaks lock #1/);
   assert.ok(host.handle({ op: "drain", lock: 1, amount: 5 }, ctx).ok);
-  const q2 = host.handle({ op: "quote", calls: [{ mutator: "si.shift", site: 0, args: { k: "1" } }] }, ctx);
+  const q2 = host.handle({ op: "quote", calls: [{ mutator: "add", site: 0, args: { lens: "mc", at: "3", k: "1" } }] }, ctx);
   assert.ok(q2.ok && (q2.result as { valid: boolean }).valid === true);
   const none = new EngineHost({ type: lineType, variant: lineZ, state, rule, energy: 100 }).handle({ op: "locks" }, ctx);
   assert.deepEqual(none, { ok: false, error: "this game has no locks" });

@@ -48,15 +48,16 @@ export function mutatorChoices(variant: Variant): MutatorChoice[] {
     // Every argument costing at most 12 bits, cheapest first: enough to tell numbers from words and to see fractions.
     const combos = [...(m.args(variant).enumerate?.(12) ?? [])] as Record<string, Q | string>[];
     const first = combos[0] ?? {};
-    const names = [...new Set(combos.flatMap(c => Object.keys(c)))];
     const help = m.argHelp?.(variant) ?? {};
+    // A move whose code cannot list its arguments (the lens moves) names them in its help.
+    const names = combos.length ? [...new Set(combos.flatMap(c => Object.keys(c)))] : Object.keys(help);
     const args = names.map((name): ArgField => {
       const values = combos.filter(c => name in c).map(c => c[name]!);
       const h = help[name];
       const optional = combos.some(c => !(name in c)) ? { optional: true as const } : {};
       // The move's own example to start from, else its cheapest value; an argument its cheapest shape leaves out (a
       // fold's mirror, beside its crease) starts empty.
-      const start = !(name in first) ? "" : h?.example ? h.example.replace(/^-/, "−") : shown(first[name]!);
+      const start = !combos.length ? h?.example ?? "" : !(name in first) ? "" : h?.example ? h.example.replace(/^-/, "−") : shown(first[name]!);
       const said: Said = { label: h?.label ?? name, hint: h?.hint ?? "", ...(h?.choices ? { choiceWords: h.choices } : {}) };
       const words = [...new Set(values.filter((v): v is string => typeof v === "string"))];
       const numbers = values.filter((v): v is Q => typeof v !== "string");
