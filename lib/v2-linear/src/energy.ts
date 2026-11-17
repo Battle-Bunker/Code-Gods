@@ -103,7 +103,7 @@ class OutOfWork extends Error {}
 
 const keyOf = (l: Line) => `${l.a},${l.b},${l.c}`;
 /** One lens's route space (the climb's moves, naming and surprise). */
-function lensSpace(lambda: number, lens: Lens, u: (l: Line) => number): RouteSpace<Line> {
+export function lensSpace(lambda: number, lens: Lens, u: (l: Line) => number): RouteSpace<Line> {
   const nums = (l: Line) => lens.numbers(l);
   return {
     key: keyOf, u,
