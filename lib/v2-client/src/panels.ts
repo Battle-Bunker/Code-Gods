@@ -5,7 +5,7 @@
  * them and every client of theirs follows. How they are laid out on a desktop is the view state's `dock` (`dockFor`).
  * Player words only: points, rarity in bits, energy, power, "line".
  */
-import { defaultDock, dockGroups, dockInsert, dockKindOf, dockWithout, formatDock, parseDock, type DockNode, type Place, type ViewState } from "@workspace/v2-affordances";
+import { defaultDock, dockGroups, dockInsert, dockKindOf, dockPanes, dockWithout, formatDock, parseDock, type DockNode, type Place, type ViewState } from "@workspace/v2-affordances";
 
 /** A game's phase, or "replay": an ended game watched at a playhead (the replay's own arrangement). */
 export type GamePhase = "planning" | "live" | "paused" | "ended" | "replay";
@@ -152,16 +152,28 @@ const needsWorld = (id: string) => isPaneId(id) && !PANES[id].phases.includes("p
  * first. Nothing is ever left out to make room (the desktop dock adds tabs). After the end the results come
  * first even when not open (shown, not stored). Unknown pane ids are dropped (a pane removed since the view was saved); a stored panel's pane is shown in every phase.
  */
+/** The panes a game screen shows by default (a replay's act log is one players open themselves). */
+const OTHER_DEFAULTS = new Set((["planning", "live", "ended"] as const).flatMap(p => defaultPanes(p).map(d => d.pane)));
+
 export function shownPanes(view: Pick<ViewState, "panes">, phase: GamePhase): OpenPane[] {
   const own = view.panes.filter(p => docked(p) && inPhase(p.pane, phase));
   const defaults = defaultPanes(phase);
   let panes = own.length ? own : defaults;
   // Before the world (arranged in planning) or after the end (the last game's results): the phase's defaults join.
-  const fromOtherPhase = phase === "planning" ? view.panes.some(p => docked(p) && needsWorld(p.pane)) : !view.panes.some(p => docked(p) && needsWorld(p.pane));
+  // (An arrangement stored on the end screen holds the results: the next game's screens meet their defaults too.)
+  const fromOtherPhase = phase === "planning" ? view.panes.some(p => docked(p) && needsWorld(p.pane))
+    : !view.panes.some(p => docked(p) && needsWorld(p.pane)) || (phase !== "ended" && view.panes.some(p => p.pane === "results"));
   const lacksDefaults = !own.some(p => defaults.some(d => d.pane === p.pane));
   if (own.length && (fromOtherPhase || lacksDefaults)) {
     panes = [...defaults.filter(d => !own.some(p => p.pane === d.pane)), ...own];
   }
+  // Another screen's default panes stay on their screen (they came along as tabs inside this screen's panes: the
+  // planning screen's next step and agent code inside the live game), unless the player put them in this screen's own
+  // arrangement: a screen shows its defaults, what the player arranged on it and the other panes the player opened.
+  const kind = dockKindOf(phase) ?? "live";
+  const arranged = new Set(dockPanes((view as Partial<Pick<ViewState, "dock">>).dock?.[kind]));
+  const mine = new Set(defaults.map(d => d.pane));
+  panes = panes.filter(p => mine.has(p.pane) || arranged.has(p.pane) || !OTHER_DEFAULTS.has(p.pane));
   if (phase === "ended" && !panes.some(p => p.pane === "results")) return [{ pane: "results", place: "main" }, ...panes];
   return panes;
 }
@@ -220,8 +232,9 @@ export function dockFor(view: Pick<ViewState, "panes" | "dock">, phase: GamePhas
   let tree = (view.dock?.[kind] && keep(view.dock[kind])) || keep(defaultDock(kind));
   // A pane joining this screen's dock goes behind its group's tab, except the assistant when it was in front in the
   // arrangement it comes from (re-walk: the conversation went behind a tab when the world started).
-  const frontElsewhere = (pane: string) => Object.values(view.dock ?? {}).some(t => t && dockGroups(t).some(l => l.group.active === pane));
-  for (const p of shown) tree = dockInsert(tree, p.pane, p.place, p.pane === "assistant" && frontElsewhere(p.pane));
+  // A pane joining this screen's dock gets a place of its own beside the pane at its place, never a tab inside another
+  // (the coordinator, 17 November: nothing arrives as a tab by default).
+  for (const p of shown) tree = dockInsert(tree, p.pane, p.place, true);
   return tree;
 }
 

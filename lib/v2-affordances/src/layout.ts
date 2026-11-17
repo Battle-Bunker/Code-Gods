@@ -111,7 +111,8 @@ function opened(v: ViewState, pane: string, place: Place | undefined, ctx: Affor
   // A pane opened at a place joins that place behind the tab shown there (the panes on screen, stored before a change,
   // keep their tabs); without a place, or moved, it comes to the front. The assistant always does: a conversation
   // opened to talk in is no use behind a tab.
-  return { ...v, panes, dock: placed(open ? undock(v, pane) : v.dock, pane, at, ctx, open || !place || pane === "assistant") };
+  // Never a tab inside another pane (the owner saw tabs): a pane opened, at a place or not, gets a place of its own.
+  return { ...v, panes, dock: placed(open ? undock(v, pane) : v.dock, pane, at, ctx) };
 }
 /**
  * The arrangements after closing `pane`: out of the screen in view's (other screens keep its place there for when it is
