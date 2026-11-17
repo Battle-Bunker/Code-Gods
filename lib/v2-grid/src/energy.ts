@@ -13,7 +13,7 @@
  * rule on first use.
  */
 import { latinHypercube, meanAndSpread, rng as makeRng, startCost, whichBits, type Estimate, type EstimateOpts, type Mutator, type RouteSpace, type Variant } from "@workspace/v2-core";
-import { encodeGrid, gridParams, type GridState } from "./grid.ts";
+import { encodeGrid, gridParams, inDomain, type GridState } from "./grid.ts";
 import type { GridDynamicRule } from "./dynamic-families.ts";
 import { gridMutators, type GridArgs } from "./mutators.ts";
 
@@ -86,7 +86,7 @@ export function rewriteBits(x: readonly number[], t: readonly number[], v: Varia
   const { cellBits } = gridNaming(v);
   let n = 0;
   for (let i = 0; i < t.length; i++) if (t[i] !== x[i]) n++;
-  return n * cellBits;
+  return n === 0 ? 0 : n * cellBits;
 }
 
 /**
@@ -100,6 +100,9 @@ function climbGrid<P>(rule: GridDynamicRule<P>, params: P, v: Variant, maxSteps 
   const groupOf = new Int16Array(n2).fill(-1);
   groups.forEach((g, gi) => { for (const i of g) groupOf[i] = gi; });
   const touchedGroups = moves.map(mv => [...new Set(mv.touched.map(i => groupOf[i]!).filter(g => g >= 0))]);
+  // A cached gain depends on the move's touched cells (its validity) and its groups (its gain).
+  const cellMask = moves.map(mv => mv.touched.reduce((m, i) => m | (1 << i), 0));
+  const groupMask = touchedGroups.map(gs => gs.reduce((m, gi) => m | (1 << gi), 0));
   const uFull = (cells: readonly number[]) => { const x = rule.u({ cells }, params); return Number.isNaN(x) ? -Infinity : x; };
   const buf = groups.map(g => new Array<number>(g.length).fill(0));
   return (x: GridState, uStar: number, bound = Infinity): { target: GridState; bits: number } | null => {
@@ -140,7 +143,8 @@ function climbGrid<P>(rule: GridDynamicRule<P>, params: P, v: Variant, maxSteps 
         const changed = touchedGroups[best]!;
         for (const gi of changed) partNow[gi] = partOf(gi, cur);
         uy = partNow.reduce((t, p) => t + p, 0);
-        for (let k = 0; k < moves.length; k++) if (touchedGroups[k]!.some(gi => changed.includes(gi))) stale[k] = 1;
+        const cm = cellMask[best]!, gm = groupMask[best]!;
+        for (let k = 0; k < moves.length; k++) if ((cellMask[k]! & cm) || (groupMask[k]! & gm)) stale[k] = 1;
       } else uy = uFull(cur);
     }
     if (uy < uStar - 1e-9) return null;
@@ -211,7 +215,7 @@ function separable<P>(rule: GridDynamicRule<P>, params: P, x: readonly number[],
     offer(xs, part(xs, params));
     offer(ss, part(ss, params));
     for (const a of anchors[gi]!) offer(a.ds, a.u);
-    const f = front(bestByCount.flatMap((b, d) => (b ? [{ c: d * cellBits, u: b.u, cells: b.ds }] : [])));
+    const f = front(bestByCount.flatMap((b, d) => (b ? [{ c: d === 0 ? 0 : d * cellBits, u: b.u, cells: b.ds }] : [])));
     const next: Option[] = [];
     for (const a of acc) for (const b of f) {
       const cells = a.cells.slice();
@@ -239,7 +243,7 @@ export function estimateGrid<P>(s: GridState, rule: GridDynamicRule<P>, params: 
   const K = o.K ?? GRID_STARTS, seed = o.seed ?? `fresh:${Date.now()}:${fresh++}:${Math.random()}`;
   const sp = space(rule, params, v), climb = climbGrid(rule, params, v), raw = rule.u(s, params), uStar = Number.isNaN(raw) ? -Infinity : raw;
   const samples = gridStarts(v, K, seed).map(x => {
-    const cands = [...(rule.parts ? separable(rule, params, x.cells, s.cells, uStar, v) : []), ...(rule.candidates?.(x, uStar, params) ?? [])];
+    const cands = [...(rule.parts ? separable(rule, params, x.cells, s.cells, uStar, v) : []), ...(rule.candidates?.(x, uStar, params) ?? []).filter(t => !("invalid" in inDomain(t, v)))];
     const c = startCost(x, s, uStar, sp, cands, (x0, u0, _sp, bound) => climb(x0, u0, bound));
     return { cost: c.cost, best: c.best, universal: c.universal, by: c.by };
   });
