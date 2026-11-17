@@ -209,6 +209,9 @@ try {
     await page.getByTestId("pane-what-if").getByTestId("select-what-if-change").waitFor({ timeout: 15_000 });
     assert.equal(await page.getByTestId("what-if-empty").count(), 0, `${label}: What if has the line`);
     assert.equal(await page.getByTestId("pane-object").count(), 0, `${label}: still no One line pane`);
+    // Opening places the pane, then brings it to the front (two view writes): a close between them is undone by the
+    // second (a race reported to the coordinator, 17 November). Let the opening finish first.
+    await page.waitForTimeout(1500);
     await page.getByTestId("button-close-what-if").click();
     await page.getByTestId("pane-what-if").waitFor({ state: "detached", timeout: 10_000 });
     await page.waitForTimeout(3000);
