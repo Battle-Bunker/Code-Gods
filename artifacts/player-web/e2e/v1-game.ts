@@ -167,7 +167,8 @@ try {
     await check("three humans: each reads the results (headline, exact totals, standings)", async () => {
       for (const p of players) {
         const results = p.page.getByTestId("results");
-        await results.waitFor({ timeout: 60_000 }).catch(async () => { await openPane(p.page, "results"); });
+        // An ended game is its replay: How the game went is a pane away.
+        if (!await results.count()) await openPane(p.page, "results");
         await p.page.getByTestId("text-results-headline").waitFor({ timeout: 30_000 });
         assert.match(await p.page.getByTestId("text-results-headline").innerText(), /\w/);
         assert.equal(await p.page.locator('[data-testid^="row-result-"]').count(), 3, `${p.who}: three players in the standings`);
@@ -354,7 +355,8 @@ try {
     });
 
     await check("bidding: the bid's outcome is on the winner's card: carol won her rule for 10% off her final total", async () => {
-      // "Where am I" is in the phone's default stack.
+      // "Where am I" is a pane away (the owner's layout, 17 November).
+      await openPane(c, "overview");
       const note = c.getByTestId("text-overview-bid");
       await note.waitFor({ timeout: 30_000 });
       assert.match(await note.innerText(), /^You won .+ in the bid: 10% comes off your total/);

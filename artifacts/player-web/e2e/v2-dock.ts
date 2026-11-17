@@ -269,7 +269,9 @@ try {
     // An ended game is its replay (v1): the owner's layout with the Timeline in the assistant's place.
     await page.locator('[data-testid="pane-timeline"] [data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 180_000 });
     console.log(`${label}: replay dock: ${await dockText(page)}`);
-    await usable(page, ["my-card", "race", "objects", "agents", "timeline"], `${label} replay`);
+    // My agents in a replay lists the watched player's agents from the record (no live work line to measure).
+    await usable(page, ["my-card", "race", "objects", "timeline"], `${label} replay`);
+    await page.getByTestId("pane-agents").waitFor();
     await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-replay.png`) });
     // How the game went is a pane away (any pane's menu).
     await page.locator("[data-testid^=button-pane-menu-]").first().click();
