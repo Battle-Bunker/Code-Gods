@@ -41,7 +41,7 @@ export function rulesParagraphs(r: RulesInput): string[] {
   return [
     "Code Gods is a game about a shared world and secret wishes.",
     "The world is a crowd of straight lines. Every player has a secret goal card: a short rule that gives every line a score. "
-      + "The better a line scores by your rule, the rarer that is among random lines, counted in bits: each bit = twice as rare.",
+      + "The better a line scores by your rule, the more energy it holds: what reaching a line at least that good costs from a random line of its size, in bits.",
     "You never move a line yourself. You summon agents: small programs that make moves on lines, like tilting or shifting one. "
       + `Summoning an agent and every move it makes cost energy. You start with ${energyText(r.startingEnergy)}. `
       + `Your power is the energy you earn each second: ${powerText(r.powerPerSecond)}, shared out among your agents. `

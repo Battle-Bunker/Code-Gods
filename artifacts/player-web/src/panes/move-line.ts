@@ -65,10 +65,10 @@ export function rarityDirection(before: MoveSnap, after: MoveSnap): -1 | 0 | 1 {
   return same(before.rarityBits, after.rarityBits) ? 0 : (Math.sign(after.rarityBits - before.rarityBits) as -1 | 1);
 }
 
-/** "Your rarity 3.40 → 6.80 bits: 1 in 11 → 1 in 111 by chance", or "Your rarity stayed 3.40 bits (1 in 11 by chance)". */
+/** "Your energy 3.40 → 6.80 bits", or "Your energy stayed 3.40 bits". */
 export function rarityText(before: number, after: number): string {
-  if (same(before, after)) return `Your rarity stayed ${bitsText(after)} (${chanceText(after)} by chance)`;
-  return `Your rarity ${num(before)} → ${bitsText(after)}: ${chanceText(before)} → ${chanceText(after)} by chance`;
+  if (same(before, after)) return `Your energy stayed ${bitsText(after)}`;
+  return `Your energy ${num(before)} → ${bitsText(after)}`;
 }
 
 /**

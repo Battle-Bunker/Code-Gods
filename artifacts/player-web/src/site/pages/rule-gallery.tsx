@@ -124,7 +124,7 @@ export function RuleFamily() {
             </div>
             <div className="min-w-0 border bg-card p-3 md:p-4" data-testid="goal-card">
               <GoalCard rule={page.rule} example={example} />
-              <p className="mt-2 text-xs text-muted-foreground">In a game, your own {word.many} also show their rarity in bits (each bit = twice as rare) and their chance: how rarely a random {word.one} is that good.</p>
+              <p className="mt-2 text-xs text-muted-foreground">In a game, your own {word.many} also show their energy in bits: what reaching one at least that good costs from a random {word.one} of its size.</p>
             </div>
           </div>
         </>)}

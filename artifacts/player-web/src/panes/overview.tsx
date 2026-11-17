@@ -50,7 +50,7 @@ export function OverviewPane() {
         <div className="space-y-2" data-testid="text-points-explained">
           <p>{scoreSentence(objectWord(header.variant).one, objectWord(header.variant).many)}</p>
           <p className="text-muted-foreground">
-            {totalNote(totalSumNote(objectWord(header.variant).one), (mine?.handicap ?? 0) > 0)} Every {objectWord(header.variant).one} counts, not only the {objectWord(header.variant).many} your agent moved, so you can have points before you do anything. Rarity is
+            {totalNote(totalSumNote(objectWord(header.variant).one), (mine?.handicap ?? 0) > 0)} Every {objectWord(header.variant).one} counts, not only the {objectWord(header.variant).many} your agent moved, so you can have points before you do anything. Energy is
             counted in bits <BitsHelp testId="button-bits-help-overview" />. Your agent's job is to raise your total.
           </p>
           <LineByLine testId="button-line-by-line-overview" className="border border-border px-3 py-1.5 text-sm hover:bg-muted" />

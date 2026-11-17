@@ -19,7 +19,7 @@ test("compact face: the primary drawn with its marks, the bits, one line per par
   assert.match(html, /data-rep="cart"/);
   assert.match(html, /data-ref="cart\.xInt"[^>]*data-focus/);
   const t = text(html);
-  assert.match(t, /bits \(1 in [\d.,]+ by chance\)/);
+  assert.match(t, /bits of energy/);
   assert.match(t, /● /);
   assert.match(t, /◆ /);
   assert.doesNotMatch(t, /step \d|\d\/\d+ /);
@@ -38,7 +38,7 @@ test("expanded face: the rule's views, both parts with their rulers, the moves w
   assert.match(t, /\d energy/);
   // A concept has a name, never only a symbol (the owner, 15 Nov): no ⚡, ★, ↑ or ▾ standing alone.
   assert.doesNotMatch(t, /[⚡★↑↓▾✕✓✗]/u);
-  assert.match(t, /→ [\d.]+ bits \(1 in/);
+  assert.match(t, /→ [\d.]+ bits of energy/);
   assert.match(t, /your rule's main view/);
   assert.match(html, /class="v2v-ruler"/);
   assert.doesNotMatch(t, /\bstep \d|Steps to the top|within \d/);
@@ -65,7 +65,7 @@ test("move line: the change, what it did to the rule's quantities, the rarity wi
   const t = text(renderToStaticMarkup(<MoveLine rule={tank} before={mc(-3, 10)} after={mc(-3, 9)} who="Your agent Tank-1" what="move the line down 1"
     value={VALUE} points={{ before: 8.2, after: 16.3, want: 2.4 }} />));
   assert.match(t, /Your agent Tank-1 changed a line: y = −3x \+ 10 → y = −3x \+ 9 \(move the line down 1\)\./);
-  assert.match(t, /Rarity [\d.]+ → [\d.]+ bits, 1 in [\d.,]+ by chance \(fewer random lines are this good\)\./);
+  assert.match(t, /Energy [\d.]+ → [\d.]+ bits \(dearer to reach from a random line\)\./);
   assert.match(t, /Points on this line 8\.20 → 16\.30 \(the others want it 2\.40\)\./);
   assert.doesNotMatch(t, /step \d/);
   const t2 = text(renderToStaticMarkup(<MoveLine rule={tank} before={mc(-3, 10)} after={mc(-3, 9)} who="Your agent" value={VALUE}
@@ -102,7 +102,7 @@ test("the climb: each move's points with the others' total and the change from n
   const html = renderToStaticMarkup(<ExpandedFace rule={tank} state={s} value={VALUE} others={{ now: 2.5, at }} />);
   const t = text(html);
   assert.match(t, /Best for points/);
-  assert.match(t, /Best for my rarity/);
+  assert.match(t, /Best for my energy/);
   assert.match(t, /your [\d.]+ bits × others' [\d.]+ bits [=≈] [\d.,]+ points \([+−][\d.,]+ from now\)/);
   const shown = [...html.matchAll(/data-points="([\d.]+)"/g)].map(x => Number(x[1]));
   assert.deepEqual([...shown].sort((a, b) => b - a), shown, "descending points");

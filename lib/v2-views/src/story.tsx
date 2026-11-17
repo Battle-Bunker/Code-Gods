@@ -157,7 +157,7 @@ export function MoveLine<S, P>(props: MoveLineProps<S, P>): ReactElement {
   const up = cmp > 0, down = cmp < 0;
   const scoring = a0.score === null && a1.score !== null ? "Now it scores" : a0.score !== null && a1.score === null ? "It no longer scores" : null;
   const rarity = a0.bits !== null && a1.bits !== null && fmtNum(a0.bits) !== fmtNum(a1.bits)
-    ? `Rarity ${fmtNum(a0.bits)} → ${fmtBits(a1.bits)}, ${chanceText(a1.bits)} by chance (${a1.bits > a0.bits ? "fewer" : "more"} random ${noun}s are this good)`
+    ? `Energy ${fmtNum(a0.bits)} → ${fmtBits(a1.bits)} (${a1.bits > a0.bits ? "dearer" : "cheaper"} to reach from a random ${noun})`
     : null;
   let points: string | null = null;
   if (props.points) {

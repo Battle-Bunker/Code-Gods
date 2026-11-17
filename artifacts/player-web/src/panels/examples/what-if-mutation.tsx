@@ -46,7 +46,7 @@ export default definePanel({
         </label>
         {!out ? null : !out.ok ? <p className="text-destructive" data-testid="example-what-if-refused">{out.reason}</p> : (
           <p className="tabular-nums" data-testid="example-what-if-result">
-            {out.what}: your bits {fmtBits(out.from.rarity ?? 0)} → <b>{fmtBits(out.to.rarity ?? 0)}</b>
+            {out.what}: your energy {fmtBits(out.from.rarity ?? 0)} → <b>{fmtBits(out.to.rarity ?? 0)}</b>
             {out.to.points !== null && <>, points {pointsText(out.from.points ?? 0)} → <b>{pointsText(out.to.points)}</b></>}; an agent would spend {fmtNum(out.charge)} energy.
           </p>
         )}
