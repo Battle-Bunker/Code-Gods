@@ -404,6 +404,16 @@ provisional plan, and it comes next.
 
 ## 5. The mutator contract
 
+> **Superseded for pricing (17 Nov, owner decisions 51 and 52).** A turn pins one lens and makes a list of mutations;
+> it costs each mutation's naming bits (which mutation log2 of the menu, which number log2 of the lens's count, its
+> argument by Elias gamma plus a sign bit, one continue bit) plus the turn's surprise, Σ over the lens's whole numbers
+> of (s + g)² / (2 ln 2), s = H(after) − H(before), H(n) = log2(1 + |n|), g = λ·ln 2 / 2, λ = 1, plus log2 4 bits for
+> the lens (lib/v2-core surprise.ts, walk.ts `applyCalls`, ObjectType.turnSurprise). Energy is bits: the act charge
+> is R/κ + W. Lines: lib/v2-linear lens-moves.ts (lenses mc, xy, abc, mA; add, mul, div, neg, swap, round; pairs in
+> lowest terms, bottoms ≥ 1; newborns from a random lens, bit length L with P ∝ 2^−L). Grids: naming bits only. The
+> floor, the surcharge, the which-codes and the exact potential below no longer price anything; the old line mutator
+> code is left only for the two-line systems (withheld).
+
 ### 5.1 Declaration
 
 ```ts
