@@ -10,7 +10,7 @@ import { useIsSeated } from "@/sdk";
 import { useRuntime, useView } from "@/core/affordance-runtime";
 import { useWide } from "@/core/use-wide";
 import { onReveal } from "./open-pane";
-import { DockScopeContext, PaneBackContext, PaneBody, PaneHeader, PaneMenu, usePaneName, type PaneBack, type PaneComponents, type StoredPaneComponent } from "./pane-parts";
+import { DockScopeContext, PaneBackContext, PaneBody, PaneClose, PaneHeader, PaneMenu, usePaneName, type PaneBack, type PaneComponents, type StoredPaneComponent } from "./pane-parts";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { EMPTY_VIEW, type ViewState } from "@workspace/v2-affordances";
 import { back as backOf, canBack, emptyHistory, isViewPane, observe, opsFor, restored, restoring, type History, type ViewOp } from "./history";
@@ -40,6 +40,7 @@ function AssistantSheet({ open, setOpen }: { open: boolean; setOpen: (o: boolean
           <span className="truncate">{name(SHEET)}</span><span className="text-xs font-normal text-muted-foreground">{open ? "Lower ▾" : "Open ▴"}</span>
         </button>
         <PaneMenu pane={SHEET} />
+        <PaneClose pane={SHEET} />
       </div>
       {open && (
         <section data-pane={SHEET} data-testid={`pane-${SHEET}`} aria-label={name(SHEET)} className="flex min-h-0 flex-1 flex-col border-t">
