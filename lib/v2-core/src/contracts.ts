@@ -338,7 +338,12 @@ export interface DynamicRule<S, P> {
   /** The readings u depends on, in the type's own names: a start matches the state's size on these only. */
   readonly reads: readonly string[];
   /** The family's search heuristics ("every rule defines its own intelligent search heuristics"): target states for a start. */
-  readonly searches: readonly Search<S, P>[];
+  readonly searches?: readonly Search<S, P>[];
+  /**
+   * Target states reachable from the start x in one turn with utility at least uStar, as fast arithmetic (free-energy.ts).
+   * The estimator prices each by the cheapest turn that names it; a candidate can only lower the estimate.
+   */
+  candidates?(x: S, uStar: number, params: P): readonly S[];
 }
 export interface Search<S, P> {
   readonly id: string;
@@ -357,6 +362,8 @@ export interface Estimate {
   /** The state's utility. */
   readonly u: number;
   readonly K: number;
+  /** The standard error of the mean over the starts (in the energy's units), when the estimator reports it. */
+  readonly spread?: number;
 }
 
 /** A family's parameter space: drawable and typeable (RuleFamily.space). */

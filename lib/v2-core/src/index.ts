@@ -12,3 +12,4 @@ export * from "./cycles.ts";
 export * from "./drift.ts";
 export * from "./principles.ts";
 export * from "./locks.ts";
+export * from "./free-energy.ts";
