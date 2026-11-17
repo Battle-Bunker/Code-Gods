@@ -9,6 +9,7 @@
  */
 import { argBits, universalBits, gcd, physicsOf, turnSurprise, type ArgCode, type Call, type Invalid, type Mutator, type Rng, type Variant } from "@workspace/v2-core";
 import { inDomain, lineParams, normalise, type Line, type LineState } from "./line.ts";
+import { cfGameLens, peLens } from "./fractal-lenses.ts";
 
 export interface Lens {
   readonly id: string;
@@ -73,8 +74,18 @@ export const lenses: readonly Lens[] = [
       return normalise(-p! * sd, q! * sd, sign * sn);
     },
   },
+  // The continued-fraction and prime-exponent lenses (fractal-lenses.ts; the owner, 17 Nov: "a fractal space of values
+  // where there are multiple directions to go towards greater complexity").
+  cfGameLens,
+  {
+    id: "pe", title: peLens.title, numbers: peLens.numbers, pairs: [], paramNames: [],
+    read: l => peLens.read(l) ?? { invalid: "a vertical line has no gradient" },
+    build: n => peLens.build(n) ?? { invalid: "an exponent stays 0 or more, a bottom 1 or more, and 0 has no exponents" },
+  },
 ];
 export const lensById = (id: string): Lens | undefined => lenses.find(l => l.id === id);
+/** The lenses a newborn line is drawn in (the first four: a draw of the new lenses' many numbers would be a different law). */
+const NEWBORN_LENSES = lenses.slice(0, 4);
 
 /** Read a line's numbers in a lens, canonical (pairs in lowest terms, bottoms ≥ 1). */
 export function readLens(lens: Lens, l: Line): bigint[] | Invalid {
@@ -247,7 +258,7 @@ export function newbornLine(r: Rng, variant: Variant): Line {
     return BigInt(lo + r.below(lo));
   };
   for (let tries = 0; tries < 200; tries++) {
-    const lens = lenses[r.below(lenses.length)]!;
+    const lens = NEWBORN_LENSES[r.below(NEWBORN_LENSES.length)]!;
     const bottoms = new Set(lens.pairs.map(p => p[1]));
     const n = lens.numbers.map((_, i) => {
       const v = draw();

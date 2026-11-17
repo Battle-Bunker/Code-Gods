@@ -111,8 +111,12 @@ export function estimateLine(s: Line, rule: LineRule, variant: Variant, o: LineE
   };
   const uStar = u(s);
   if (uStar === -Infinity) return { energy: 0, spread: 0, u: uStar, K: 0, samples: [] };
-  // The rule's own lens first, so its climb's cost bounds the others'.
-  const spaces = [...LENSES].sort((a, b) => Number(b.id === rule.lens) - Number(a.id === rule.lens)).map(l => lensSpace(lambda, l, u));
+  // The climb runs in the rule's own lens first (its cost bounds the others'), then gradient-and-intercept and the two
+  // fine-structure lenses (continued fractions, prime exponents). The intercept, equation and area lenses join the
+  // routes' prices (every candidate and the direct turn are priced in all six) but not the climb: their climbs found
+  // the best route on almost no start and doubled the time (seen narrowly, 17 Nov).
+  const CLIMB: readonly LensId[] = [rule.lens, "mc", "cf", "pe"];
+  const spaces = LENSES.filter(l => CLIMB.includes(l.id)).sort((a, b) => CLIMB.indexOf(a.id) - CLIMB.indexOf(b.id)).map(l => lensSpace(lambda, l, u));
   const all: RouteSpace<Line> = { key: keyOf, u, moves: function* () {}, surprise: () => 0, name: (x, t) => routePrice(lambda, x, t).total };
   const climb = (x: Line, uS: number, _sp: RouteSpace<Line>, bound = Infinity) => {
     let best: { readonly target: Line; readonly bits: number } | null = null, cap = bound;

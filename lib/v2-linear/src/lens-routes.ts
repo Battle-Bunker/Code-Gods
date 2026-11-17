@@ -12,7 +12,7 @@ import { argBits, universalBits, gcd, q, turnSurprise, type Q } from "@workspace
 import { isVertical, type Line } from "./line.ts";
 import { LENS_BITS, lenses as gameLenses } from "./lens-moves.ts";
 
-export type LensId = "mc" | "xy" | "abc" | "mA";
+export type LensId = "mc" | "xy" | "abc" | "mA" | "cf" | "pe";
 /** The estimator's view of a lens (the game's own, lens-moves.ts): numbers of a line, and a line from numbers. */
 export interface Lens {
   readonly id: LensId;
@@ -128,7 +128,15 @@ export function* lensMoves(lens: Lens, x: Line, xs: readonly bigint[]): Generato
   const emit = function* (ns: bigint[], bits: number) { const l = lens.line(ns, x); if (l) yield { to: l, bits }; };
   const set = (i: number, v: bigint) => { const ns = xs.slice(); ns[i] = v; return ns; };
   const bottoms = new Set(lens.pairs.map(p => p[1]));
+  // The continued-fraction lens: past a parameter's first empty slot every change leaves a gap (refused), so skip them.
+  const cfSlots = lens.id === "cf" ? lens.names.length / 2 : 0;
   for (let i = 0; i < xs.length; i++) {
+    if (cfSlots && i % cfSlots > 0 && xs[i] === 0n && xs[i - 1] === 0n) continue;
+    // The prime-exponent lens: an exponent steps by 1 (one more or one fewer of that prime); its cofactors move like any number.
+    if (lens.id === "pe" && i % 7 !== 6) {
+      for (const kk of [1n, -1n]) if (xs[i]! + kk >= 0n) yield* emit(set(i, xs[i]! + kk), mutationBits(lens, argBits(kk, true)));
+      continue;
+    }
     const n = xs[i]!, L = babs(n).toString(2).length;
     // Amounts: ±1, ±2 and ±4^j up to about twice the number (a climb's steps from fine to coarse).
     const ks: bigint[] = [1n, 2n];

@@ -11,6 +11,18 @@ from a random object of the same 'size'". This replaces the value tables (decisi
 - **Lenses** (built: the game's own, lens-moves.ts, seen through lens-routes.ts' `Lens`): gradient and y-intercept (m top, m
   bottom, c top, c bottom); x- and y-intercepts; a, b, c; gradient and signed area (c's sign kept from the line before).
   Every fraction is a pair of whole numbers in lowest terms, bottom > 0.
+- **Two fine-structure lenses** (built 17 Nov, lib/v2-linear fractal-lenses.ts; in the game's lens list): continued
+  fractions (the gradient and the y-intercept each in 16 slots, 0 for an empty one: appending a coefficient is adding to
+  the first empty slot, dropping the last is adding minus it, so a coefficient that appears rises from 0 in the turn's
+  surprise and no new moves were needed) and prime exponents (each top and bottom as its exponents of 2, 3, 5, 7, 11, 13
+  and what is left: one more of a prime is adding 1). Newborn lines are still drawn in the first four lenses. Every
+  route is priced in all six lenses; the climb runs in the rule's own lens, gradient-and-intercept and the two new ones
+  (the intercept, equation and area climbs found the best route on almost no start and doubled the time). With them an
+  estimate takes 17–96 ms (was 0–65; seen narrowly, the probe's lines, Node). "Add p/q to a parameter" expands into
+  whole-number mutations (`expandAdd`: 1/2 + 1/3 = multiply the bottom by 3, then add 4 to the top), priced as those.
+  In the Convex runtime with six lenses (seen narrowly, test/v2-energy-cost.test.ts, the local backend, other suites
+  running alongside): a Lines · beginner commit took a median 231 ms and at most 296 ms, a look at every object a median
+  154 ms and at most 221 ms.
 - **A route's bits** (built): the cheapest turn in any lens that names the target: its mutations' naming bits
   (v2-core surprise.ts `namingBits`, menu of six: add, multiply, divide exactly, negate, swap, round) plus the turn's
   surprise (`turnSurprise` over the lens's numbers before and after). Per number the cheapest list is one add, one
