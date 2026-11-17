@@ -34,12 +34,11 @@ function gcdB(a, b) { while (b !== 0n) [a, b] = [b, a % b]; return a; }
 function score(m, c, p, tie) {
   const P = BigInt(p.p), D = BigInt(p.k), t = m.n < 0n ? -m.n : m.n, b = m.d, L = Math.log2(p.p);
   const lg = n => { const k = Math.max(0, n.toString(2).length - 53); return Math.log2(Number(n >> BigInt(k))) + k; };
-  const inv = (a, n) => { let [x, nx, g, ng] = [0n, 1n, n, ((a % n) + n) % n]; while (ng !== 0n) { const k = g / ng; [x, nx] = [nx, x - k * nx]; [g, ng] = [ng, g - k * ng]; } return ((x % n) + n) % n; };
   let main = 0, mod = 1n, r = -1n;   // r: a root of x² ≡ D (mod p^e), lifted level by level
   for (let x = 1n; x < P; x++) if ((x * x - D) % P === 0n) { r = x; break; }
   if (b % P !== 0n && r >= 0n) for (let e = 1; mod <= t * t + D * b * b; e++) {
     mod *= P;
-    if (e > 1) r = (((r - (r * r - D) * inv(2n * r, mod)) % mod) + mod) % mod;   // Hensel's lift to p^e
+    if (e > 1) while ((r * r - D) % mod !== 0n) r += mod / P;   // Hensel's lift to p^e: one of r + j·p^(e−1)
     const want = (r * b) % mod;
     for (const root of [want, (mod - want) % mod]) {   // the tops making p^e divide it are ±r·bottom mod p^e
       const d = (((t - root) % mod) + mod) % mod, dist = d < mod - d ? d : mod - d;
