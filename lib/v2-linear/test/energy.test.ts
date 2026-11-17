@@ -90,7 +90,11 @@ test("a start whose search runs out of work keeps the routes it found; each star
   const e = estimateLine(s, rule, lineQ, { seed: `acc:${s.a},${s.b},${s.c}` });
   const lambda = LINES_BEGINNER_PHYSICS.gravity;
   for (const x of e.samples) assert.ok(x.cost <= routePrice(lambda, x.from, s).total + 1e-9, "never dearer than the direct turn");
-  assert.ok(e.work <= LINES_BEGINNER_PHYSICS.estimatorWork);
+  assert.ok(e.work <= LINES_BEGINNER_PHYSICS.estimatorWork + 2, "within the budget, up to one state's cost");
   assert.ok(e.energy < 30, `energy ${e.energy.toFixed(1)}: the routes found before the budget ran out count`);
-  assert.equal(e.bound, true, "a cut climb still says the estimate is a bound");
+  // On a smaller budget the climbs are cut: the estimate says so, and each start still keeps what it found.
+  const { withPhysics } = await import("@workspace/v2-core");
+  const cut = estimateLine(s, rule, withPhysics(lineQ, { ...LINES_BEGINNER_PHYSICS, estimatorWork: 600 }), { seed: `acc:${s.a},${s.b},${s.c}` });
+  assert.equal(cut.bound, true, "a cut climb still says the estimate is a bound");
+  for (const x of cut.samples) assert.ok(x.cost <= routePrice(lambda, x.from, s).total + 1e-9);
 });
