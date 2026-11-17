@@ -145,17 +145,14 @@ async function endedGame(page: Page, preset: string, noun: string) {
   const feed = await open(page, "feed");
   await feed.locator("[data-testid=text-move-line], [data-testid=text-tug-line]").first().waitFor({ timeout: 15_000 });
   ok("feed");
-  // The public log (every player's moves, attributed) is a live read: the replay's act log is the watched player's
-  // moves at the playhead, so the log's "all" mode is not offered in a replay (a known gap, reported).
-  if (await feed.getByTestId("button-feed-mode-all").count()) {
-    await feed.getByTestId("button-feed-mode-all").click();
-    await feed.locator("[data-testid^=row-log]").first().waitFor({ timeout: 15_000 });
-    const log = await feed.locator("[data-testid=text-log-line]").allInnerTexts();
-    assert.ok(log.length > 0, `${label}: the public log has rows`);
-    for (const l of log) assert.doesNotMatch(l, new RegExp(`^(${noun[0]!.toUpperCase()}${noun.slice(1)} \\d+ changed|Another player)|\\babout \\d`), `${label}: after the end the log is attributed and exact: ${l}`);
-    console.log(`${label}: public log after the end: ${log[0]}`);
-    ok("public log");
-  } else console.log(`${label}: the public log is not offered in the replay`);
+  // The public log, as in a live game: every move up to the replay's playhead (at the end: all), attributed.
+  await feed.getByTestId("button-feed-mode-all").click();
+  await feed.locator("[data-testid^=row-log]").first().waitFor({ timeout: 15_000 });
+  const log = await feed.locator("[data-testid=text-log-line]").allInnerTexts();
+  assert.ok(log.length > 0, `${label}: the public log has rows`);
+  for (const l of log) assert.doesNotMatch(l, new RegExp(`^(${noun[0]!.toUpperCase()}${noun.slice(1)} \\d+ changed|Another player)|\\babout \\d`), `${label}: after the end the log is attributed and exact: ${l}`);
+  console.log(`${label}: public log after the end: ${log[0]}`);
+  ok("public log");
   // The agents and their code.
   const agents = await open(page, "agents");
   const agent = agents.locator("[data-testid^=row-agent-]").first();
@@ -166,11 +163,8 @@ async function endedGame(page: Page, preset: string, noun: string) {
   assert.match(await source.innerText(), /\b(function|def|const|return)\b/, `${label}: the agent's code is readable`);
   // After the end nothing is edited or put back; how energy works is still there to read.
   assert.equal(await agent.locator("[data-testid^=button-agent-edit-], [data-testid^=button-put-back-]").count(), 0, `${label}: no edit after the end`);
-  // How energy works sits with the viewer's live energy, which a replay (the watched player at the playhead) has not.
-  if (await agents.getByTestId("details-energy-how").count()) {
-    await agents.getByTestId("details-energy-how").locator("summary").click();
-    assert.match(await agents.getByTestId("details-energy-how").innerText(), /power/, `${label}: how energy works`);
-  } else console.log(`${label}: how energy works is not in the replay's My agents`);
+  await agents.getByTestId("details-energy-how").locator("summary").click();
+  assert.match(await agents.getByTestId("details-energy-how").innerText(), /power/, `${label}: how energy works`);
   ok("agents");
   // The chat, the leaderboard, the charts, the rules, the assistant, the player's own panels.
   const chatPane = await open(page, "public-chat");
