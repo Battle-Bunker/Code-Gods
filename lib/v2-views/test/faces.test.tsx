@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { q, type Score } from "@workspace/v2-core";
-import { fromMC, lineQ, lineType, squareTriangle, type LineState } from "@workspace/v2-linear";
+import { fromMC, lineQ, lineType, corner, type LineState } from "@workspace/v2-linear";
 import { CompactFace, ExpandedFace, type RuleRef } from "../src/index.ts";
 import { emptyTank } from "../src/demo.ts";
 

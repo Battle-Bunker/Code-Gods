@@ -12,7 +12,7 @@ import type { HostRequest } from "@workspace/v2-sandbox";
 import { EngineHost, type RuleRef } from "../src/index.ts";
 
 const state = { lines: [fromMC(q(2), q(3))] };
-const mine: RuleRef = { family: "multiples", params: { k: 3 }, tieBreaker: null };
+const mine: RuleRef = { family: "long-run", params: { b: 7, d: 3, on: "y-intercept top" }, tieBreaker: null };
 // The same two opponents in either seat order: each seat's rule differs, and the totals agree on every state.
 const host = (first: RuleRef, second: RuleRef) => new EngineHost({ type: lineType, variant: lineZ, state, rule: mine, energy: 50, energySeed: "s", others: [{ rule: first }, { rule: second }] });
 
@@ -29,7 +29,7 @@ const requests: HostRequest[] = [
 ] as never;
 
 test("agent code cannot tell apart two opponents whose rules differ but whose totals agree", () => {
-  const p: RuleRef = { family: "prime-hug", params: { suffix: "1" }, tieBreaker: null }, w: RuleRef = { family: "multiples", params: { k: 3 }, tieBreaker: null };
+  const p: RuleRef = { family: "bearing", params: { deg: 37 }, tieBreaker: null }, w: RuleRef = { family: "long-run", params: { b: 7, d: 3, on: "y-intercept top" }, tieBreaker: null };
   const a = host(p, w), b = host(w, p);
   for (const r of requests) {
     const ra = a.handle(r, { hostCallsLeft: 64 }), rb = b.handle(r, { hostCallsLeft: 64 });

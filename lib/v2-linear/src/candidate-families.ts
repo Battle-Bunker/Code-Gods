@@ -1,5 +1,7 @@
 /**
- * Candidate line rules (17 Nov), built to be tried and measured, NOT dealt in any game: the shortlist of the two
+ * Line rules from the two rule brainstorms (17 Nov). Eight are dealt since the coordinator's trial of 17 Nov (dealt.ts):
+ * Bearing, Golden Path, Ring, Archimedes, Hensel, Whole Stair, Corner, Long Run. Prime Palette, Kin and Shared Secret are
+ * still candidates, NOT dealt (candidateFamilies). Built from the shortlist of the two
  * brainstorms (docs/engine-v2/redesign/rules-arithmetic.md and rules-geometry.md on the claude/rules-* branches). Each is
  * one pure real utility of the line, with candidates for the estimator and a card. They appear only in the rules mirror's
  * "Candidate rules (not dealt)" group; measurements are in docs/engine-v2/energy.md ("Candidate rules").
@@ -87,7 +89,7 @@ function abcOf(m: Q, c: Q): [bigint, bigint, bigint] {
   const L = (m.d * c.d) / gcd(m.d, c.d), a = -m.n * (L / m.d), b = L, cc = -c.n * (L / c.d), g = gcd(gcd(babs(a), b), babs(cc));
   return [a / g, b / g, cc / g];
 }
-interface RingP { readonly u: number; readonly v: number; readonly rho: number }
+export interface RingP { readonly u: number; readonly v: number; readonly rho: number }
 const RINGS: RingP[] = [{ u: 2, v: 1, rho: 7 }, { u: 0, v: 0, rho: 3 }, { u: -1, v: 3, rho: 11 }, { u: 3, v: -2, rho: 6 }, { u: 1, v: 1, rho: 19 }];
 export function ringU(m: Q, c: Q, { u, v, rho }: RingP): number {
   const [a, b, cc] = abcOf(m, c), norm = Math.sqrt(Number(a) ** 2 + Number(b) ** 2);
@@ -143,7 +145,7 @@ export const archimedes = dynamicLine<{ k: number }>({
 
 // ------------------------------------------------------------------ 5. Hensel (exactness): p divides top² − D·bottom² many times
 
-interface HenselP { readonly k: number; readonly p: number }
+export interface HenselP { readonly k: number; readonly p: number }
 const HENSEL: HenselP[] = [{ k: 2, p: 7 }, { k: 3, p: 11 }, { k: 5, p: 11 }, { k: 2, p: 17 }, { k: 7, p: 3 }];
 export function henselU(m: Q, { k: D, p }: HenselP): number {
   let N = babs(m.n) ** 2n - BigInt(D) * m.d * m.d, e = 0;
@@ -164,7 +166,7 @@ function liftRoot(D: number, p: number, k: number): bigint | null {
   return r;
 }
 export const hensel = dynamicLine<HenselP>({
-  id: "hensel", title: "Hensel", goal: "the dealt prime dividing top² − D·bottom² many times", reads: ["m"], focus: ["si", "m"],
+  id: "hensel", whole: true, title: "Hensel", goal: "the dealt prime dividing top² − D·bottom² many times", reads: ["m"], focus: ["si", "m"],
   space: listSpace(HENSEL, h => `${h.k} ${h.p}`, "D and p: one of " + HENSEL.map(h => `${h.k} ${h.p}`).join(", ")),
   peers: [HENSEL[0]!, HENSEL[1]!],
   card: ({ k, p }) => `Write the gradient as top/bottom in lowest terms. Work out top × top − ${k} × bottom × bottom. Score log2 ${p} for every time ${p} divides it.`,
@@ -254,7 +256,7 @@ export const corner = dynamicLine<{ k: number }>({
 // ------------------------------------------------------------------ number readers for Prime Palette and Long Run
 
 const PARTS = ["gradient top", "gradient bottom", "y-intercept top", "y-intercept bottom"] as const;
-type Part = (typeof PARTS)[number];
+export type Part = (typeof PARTS)[number];
 const partOf = (m: Q, c: Q, on: Part): bigint => babs(on === "gradient top" ? m.n : on === "gradient bottom" ? m.d : on === "y-intercept top" ? c.n : c.d);
 /** The line with one part replaced (its sign kept), as a target. */
 function withPart(m: Q, c: Q, on: Part, v: bigint): LineTarget | null {
@@ -267,7 +269,7 @@ function withPart(m: Q, c: Q, on: Part, v: bigint): LineTarget | null {
 
 // ------------------------------------------------------------------ 8. Prime Palette (exactness): dealt primes dividing one number
 
-interface PaletteP { readonly primes: readonly number[]; readonly on: Part }
+export interface PaletteP { readonly primes: readonly number[]; readonly on: Part }
 const PALETTES: PaletteP[] = [{ primes: [3], on: "gradient top" }, { primes: [2, 5], on: "y-intercept bottom" }, { primes: [7], on: "y-intercept top" }, { primes: [3, 11], on: "gradient bottom" }];
 export function paletteU(n: bigint, primes: readonly number[]): number {
   if (n === 0n) return 0;
@@ -293,7 +295,7 @@ export const primePalette = dynamicLine<PaletteP>({
 
 // ------------------------------------------------------------------ 9. Long Run (exactness): the longest run of a digit in a base
 
-interface RunP { readonly b: number; readonly d: number; readonly on: Part }
+export interface RunP { readonly b: number; readonly d: number; readonly on: Part }
 const RUNS: RunP[] = [{ b: 7, d: 3, on: "y-intercept top" }, { b: 10, d: 9, on: "gradient top" }, { b: 3, d: 2, on: "gradient bottom" }, { b: 12, d: 5, on: "y-intercept bottom" }];
 export function longRunU(n: bigint, b: number, d: number): number {
   const B = BigInt(b), D = BigInt(d);
@@ -302,7 +304,7 @@ export function longRunU(n: bigint, b: number, d: number): number {
   return Math.max(0, best - 1) * log2(b);
 }
 export const longRun = dynamicLine<RunP>({
-  id: "long-run", title: "Long Run", goal: "a long run of the dealt digit in the dealt base", reads: ["m", "c"], focus: ["si", "c"],
+  id: "long-run", whole: true, title: "Long Run", goal: "a long run of the dealt digit in the dealt base", reads: ["m", "c"], focus: ["si", "c"],
   space: listSpace(RUNS, p => `${p.b} ${p.d} ${p.on}`, "a base, a digit and a number: one of " + RUNS.map(p => `${p.b} ${p.d} ${p.on}`).join("; ")),
   peers: [RUNS[0]!, RUNS[1]!],
   card: ({ b, d, on }) => `Write the ${on} (in lowest terms) in base ${b}. Find the longest run of the digit ${d} in a row: you score the binary digits of ${b} for every ${d} in that run after the first.`,
@@ -374,5 +376,5 @@ export const sharedSecret = dynamicLine<Record<string, never>>({
   } }],
 });
 
-/** The candidate rules: built to try and measure, never dealt (not in dynamicFamilies, no agents). */
-export const candidateFamilies: readonly RuleFamily<LineState, any>[] = [bearing, goldenPath, ring, archimedes, hensel, wholeStair, corner, primePalette, longRun, kin, sharedSecret];
+/** The candidate rules still on trial, never dealt (no agents): Prime Palette, Kin and Shared Secret (energy.md flags). */
+export const candidateFamilies: readonly RuleFamily<LineState, any>[] = [primePalette, kin, sharedSecret];

@@ -8,3 +8,4 @@ export * from "./dynamic-families.ts";
 export * from "./lens-routes.ts";
 export * from "./fractal-lenses.ts";
 export * from "./candidate-families.ts";
+export * from "./dealt.ts";

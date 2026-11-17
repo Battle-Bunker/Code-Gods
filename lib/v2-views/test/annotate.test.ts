@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { applyPriced, compareScores, evaluateObject, Qn, q, refKey, rng, variantMutators, walkStep, type ObjectType, type Q, type RuleFamily } from "@workspace/v2-core";
-import { crossingSliver, dynamicFamilies as families, fromMC, lineQ, lineType, lineZ, circleKiss, primeHug, squareTriangle, type LineState } from "@workspace/v2-linear";
+import { goldenPath, dynamicFamilies as families, fromMC, lineQ, lineType, lineZ, ring, bearing, corner, wholeStair, type LineState } from "@workspace/v2-linear";
 import { annotate, fmtQ, markTerm, moves, type RuleRef } from "../src/index.ts";
 import { emptyTank } from "../src/demo.ts";
 
@@ -76,7 +76,7 @@ test("parts are the recorded terms on every family and a walk of states: no seco
 
 test("moves: each really improves the utility, at the price it quotes; the cheapest for the main part leads, the frontier ascends", () => {
   for (const [f, p, st] of [
-    [emptyTank, {}, mc(-3, 10)], [primeHug, { suffix: "3" }, mc(4, -3)], [circleKiss, { k: 5 }, mc(q(3, 4), 6)], [crossingSliver, { pattern: "1" }, mc(7, -2)], [squareTriangle, { k: 3 }, mc(-1, 3)],
+    [emptyTank, {}, mc(-3, 10)], [wholeStair, { k: 1 }, mc(4, -3)], [ring, { u: 2, v: 1, rho: 7 }, mc(q(3, 4), 6)], [goldenPath, { word: "1" }, mc(7, -2)], [corner, { k: 3 }, mc(-1, 3)],
   ] as const) {
     const r = rule(f as RuleFamily<LineState, unknown>, p, lineQ);
     const before = evaluateObject(lineType, r.family, r.params, st, lineQ).score;
@@ -101,7 +101,7 @@ test("moves: each really improves the utility, at the price it quotes; the cheap
 
 test("a move no player could pay for is never offered (gallery: a move priced 21,123,744,906,456,000,000.00 energy)", async () => {
   const { MAX_MOVE_PRICE } = await import("../src/moves.ts");
-  for (const f of [primeHug, squareTriangle] as RuleFamily<LineState, unknown>[]) {
+  for (const f of [bearing, corner] as RuleFamily<LineState, unknown>[]) {
     const rule = { type: lineType, family: f, params: f.dealable(lineQ)[0], variant: lineQ } as RuleRef<LineState, unknown>;
     for (const s of [fromMC(q(997), q(3)), fromMC(q(-3), q(10))].map(l => ({ lines: [l] }))) {
       for (const m of moves(rule, s, undefined, { k: 4 })) assert.ok(m.price.total <= MAX_MOVE_PRICE, `${f.id}: ${m.words} at ${m.price.total}`);

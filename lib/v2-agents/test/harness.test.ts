@@ -16,7 +16,7 @@ const player = (name: string, family: string, tieBreaker: string | null, params?
 test("two players on shared lines spend their budget, by view, and both rules are measured", async () => {
   const r = await runHarness(boxes, {
     type: lineType, variant: lineZ, lines: 3, seed: "t", budget: 200,
-    players: [player("A", "multiples", null, { k: 3 }), player("B", "multiples", null, { k: 3 })]
+    players: [player("A", "hensel", null, { k: 2, p: 7 }), player("B", "whole-stair", null, { k: 1 })]
   });
   assert.equal(r.rules.length, 2);
   for (const s of r.spend) {
@@ -28,5 +28,5 @@ test("two players on shared lines spend their budget, by view, and both rules ar
   const a = r.rules[0]!;
   assert.equal(a.utilities.start.length, 1, "one utility (owner decision 50)");
   assert.equal(a.utilities.end.length, 1);
-  assert.match(formatReport(r), /\| A \| multiples/);
+  assert.match(formatReport(r), /\| A \| hensel/);
 });

@@ -7,8 +7,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { editBits, startersFor, summonBits } from "../src/index.ts";
 
-const simple = startersFor("multiples", "typescript").find(a => a.kind === "simple")!.source;
-const simplePy = startersFor("multiples", "python").find(a => a.kind === "simple")!.source;
+const simple = startersFor("long-run", "typescript").find(a => a.kind === "simple")!.source;
+const simplePy = startersFor("long-run", "python").find(a => a.kind === "simple")!.source;
 const keepOff = (s: string) => s.replace("function agent(offer) {", "function agent(offer) {\n  if ([2, 9].includes(offer.object)) return null;   // the deal with Bo");
 const keepOffPy = (s: string) => s.replace("def agent(offer):\n", "def agent(offer):\n    if offer.object in (2, 9):   # the deal with Bo\n        return None\n");
 
@@ -28,7 +28,7 @@ test("a one-line change (keep off two lines) costs a small fraction of the full 
 });
 
 test("never more than the new program's full price; more change costs more", () => {
-  const other = startersFor("square-triangle", "typescript").find(a => a.kind === "bold")!.source;
+  const other = startersFor("corner", "typescript").find(a => a.kind === "bold")!.source;
   const all = editBits("typescript", simple, other);
   assert.ok(all.bits <= summonBits("typescript", other).bits + 1e-9);
   const one = editBits("typescript", simple, keepOff(simple)).bits;

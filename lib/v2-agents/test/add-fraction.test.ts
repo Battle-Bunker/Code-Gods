@@ -8,7 +8,7 @@ import { runAct, sandboxes } from "../src/index.ts";
 const boxes = sandboxes();
 after(() => boxes.close());
 const state = lineType.decode("-4,2,-1");   // y = 2x + 1/2
-const rule = { family: "multiples", params: { k: 3 }, tieBreaker: null };
+const rule = { family: "long-run", params: { b: 7, d: 3, on: "y-intercept top" }, tieBreaker: null };
 const source = {
   typescript: `function agent(offer) { return addFraction("mc", 2, 1, 2, 1, 3); }`,
   python: `def agent(offer):\n    return add_fraction("mc", 2, 1, 2, 1, 3)\n`,

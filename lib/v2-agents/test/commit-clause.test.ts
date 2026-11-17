@@ -16,15 +16,15 @@ const boxes = sandboxes();
 after(() => boxes.close());
 const q = (n: number) => Qn.q(n);
 // Dynamic rules: the host values states by their energy (seeded by the act's seed, so one act sees one number per state).
-const rule = { family: "prime-hug", params: { suffix: "1" }, tieBreaker: null };
-const otherRule = { family: "multiples", params: { k: 3 }, tieBreaker: null };
+const rule = { family: "hensel", params: { k: 2, p: 7 }, tieBreaker: null };
+const otherRule = { family: "long-run", params: { b: 7, d: 3, on: "y-intercept top" }, tieBreaker: null };
 const values = undefined, others = [{ rule: otherRule }];
-let C0 = 81;   // y = 11x + C0: chosen below so that one small shift raises the points and another lowers them
-let state = { lines: [fromMC(q(11), q(C0))] };
-const shift = (k: number) => ({ lines: [fromMC(q(11), q(C0 + k))] });
+let C0 = 81;   // y = C0·x + 24: C0 chosen below so that one small shift of the gradient raises the points and another lowers them
+let state = { lines: [fromMC(q(C0), q(24))] };   // 24 is 33 in base 7: the other player's Long Run has some energy
+const shift = (k: number) => ({ lines: [fromMC(q(C0 + k), q(24))] });
 const source = {
-  typescript: (k: number) => `function agent(offer) { return onlyIfBetter([move("add", { lens: "mc", at: 3, k: ${k} })]); }`,
-  python: (k: number) => `def agent(offer):\n    return only_if_better([move("add", lens="mc", at=3, k=${k})])\n`,
+  typescript: (k: number) => `function agent(offer) { return onlyIfBetter([move("add", { lens: "mc", at: 1, k: ${k} })]); }`,
+  python: (k: number) => `def agent(offer):\n    return only_if_better([move("add", lens="mc", at=1, k=${k})])\n`,
 };
 const host = (disclosed?: (e: string) => number) =>
   new EngineHost({ type: lineType, variant: lineQ, state, rule, energy: 100, values, others, energySeed: "7", ...(disclosed ? { disclosed } : {}) });
@@ -41,10 +41,10 @@ const points = (s: typeof state, disclosed?: (e: string) => number) => host(disc
 const KS = [1, -1, 2, -2, 3, -3];
 let up: number | undefined, down: number | undefined;
 for (const c0 of [81, ...Array.from({ length: 80 }, (_, i) => 40 + i)]) {
-  C0 = c0; state = { lines: [fromMC(q(11), q(C0))] };
+  C0 = c0; state = { lines: [fromMC(q(C0), q(24))] };
   const here = points(state);
   up = KS.find(k => points(shift(k)) > here); down = KS.find(k => points(shift(k)) < here);
-  if (up !== undefined && down !== undefined) break;
+  if (here > 0 && up !== undefined && down !== undefined) break;
 }
 
 test("the payoff the clause decides on: own bits exact, the others' sum as disclosed, points own × max(0, others)", () => {
@@ -108,8 +108,8 @@ for (const language of ["typescript", "python"] as const) {
   });
   test(`${language}: asking othersAfter on the plan first, the clause charges nothing more for it`, async () => {
     const src = language === "typescript"
-      ? `function agent(offer) { const plan = [move("add", { lens: "mc", at: 3, k: ${up} })]; offer.othersAfter(plan); return onlyIfBetter(plan); }`
-      : `def agent(offer):\n    plan = [move("add", lens="mc", at=3, k=${up})]\n    offer.others_after(plan)\n    return only_if_better(plan)\n`;
+      ? `function agent(offer) { const plan = [move("add", { lens: "mc", at: 1, k: ${up} })]; offer.othersAfter(plan); return onlyIfBetter(plan); }`
+      : `def agent(offer):\n    plan = [move("add", lens="mc", at=1, k=${up})]\n    offer.others_after(plan)\n    return only_if_better(plan)\n`;
     const asked = await run(src), plain = await act(language, up!, { commitClause: true });
     assert.equal(asked.record.outcome, "committed");
     assert.ok(Math.abs(asked.record.readBits - plain.record.readBits) < 1e-9, `${asked.record.readBits} against ${plain.record.readBits}`);

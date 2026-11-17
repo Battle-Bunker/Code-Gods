@@ -46,8 +46,8 @@ const FILE = {
     roster: [{ memberId: "m1", name: "Ada", kind: "human" }, { memberId: "m2", name: "Bo", kind: "practice" }],
   },
   rules: [
-    { memberId: "m1", family: "prime-hug", params: { suffix: "1" }, tieBreaker: null, ruleKey: "k1", card: "Ada's card", layers: ["main"], contentHash: "h1", handicap: null },
-    { memberId: "m2", family: "square-triangle", params: {}, tieBreaker: null, ruleKey: "k2", card: "Bo's card", layers: ["main"], contentHash: "h2", value: { knots: [{ u: null, bits: 0, lo: 0, hi: 0 }, { u: ["1"], bits: 3, lo: 2.5, hi: 3.5 }], tail: { primary: { form: "linear", slope: 1 }, secondary: { form: "log", slope: 0.5 } } }, handicap: 10 },
+    { memberId: "m1", family: "bearing", params: { suffix: "1" }, tieBreaker: null, ruleKey: "k1", card: "Ada's card", layers: ["main"], contentHash: "h1", handicap: null },
+    { memberId: "m2", family: "corner", params: {}, tieBreaker: null, ruleKey: "k2", card: "Bo's card", layers: ["main"], contentHash: "h2", value: { knots: [{ u: null, bits: 0, lo: 0, hi: 0 }, { u: ["1"], bits: 3, lo: 2.5, hi: 3.5 }], tail: { primary: { form: "linear", slope: 1 }, secondary: { form: "log", slope: 0.5 } } }, handicap: 10 },
   ],
   events: EVENTS.map(([kind, data], seq) => ({ seq, kind, data })),
 };
@@ -162,16 +162,16 @@ test("parameter drift (call 18): the replay's rule card is the one in force at t
   // Catches: the replay showing the END rule from the first second (the file's rules are the end state), or a drift lost.
   const events: [string, unknown][] = [
     ["gameStarted", { variant: "line-z", players: [
-      { memberId: "m1", family: "square-triangle", params: { k: 3 }, tieBreaker: null, ruleKey: "k-start", contentHash: "h0" },
-      { memberId: "m2", family: "square-triangle", params: { k: 5 }, tieBreaker: null, ruleKey: "k2", contentHash: "h2" },
+      { memberId: "m1", family: "corner", params: { k: 3 }, tieBreaker: null, ruleKey: "k-start", contentHash: "h0" },
+      { memberId: "m2", family: "corner", params: { k: 5 }, tieBreaker: null, ruleKey: "k2", contentHash: "h2" },
     ] }],
     ["phase", { phase: "live", worldSeconds: 0 }],
     ["tick", { tick: 1, worldSeconds: 60, standings: standings(1, 1) }],
-    ["drift", { worldSeconds: 120, k: 1, seats: [{ memberId: "m1", family: "square-triangle", params: { k: 7 }, tieBreaker: null, ruleKey: "k-end", contentHash: "h1", card: "Ada's card after the drift" }] }],
+    ["drift", { worldSeconds: 120, k: 1, seats: [{ memberId: "m1", family: "corner", params: { k: 7 }, tieBreaker: null, ruleKey: "k-end", contentHash: "h1", card: "Ada's card after the drift" }] }],
     ["tick", { tick: 2, worldSeconds: 130, standings: standings(1, 1) }],
     ["gameEnded", { worldSeconds: 130, standings: standings(1, 1) }],
   ];
-  const file = { ...FILE, rules: [{ ...FILE.rules[0]!, family: "square-triangle", params: { k: 7 }, ruleKey: "k-end", card: "Ada's card after the drift" }, FILE.rules[1]!],
+  const file = { ...FILE, rules: [{ ...FILE.rules[0]!, family: "corner", params: { k: 7 }, ruleKey: "k-end", card: "Ada's card after the drift" }, FILE.rules[1]!],
     events: events.map(([kind, data], seq) => ({ seq, kind, data })) };
   const x = indexReplay(file);
   const before = frameAt(x, 3).rule("m1")!, after = frameAt(x, 5).rule("m1")!;

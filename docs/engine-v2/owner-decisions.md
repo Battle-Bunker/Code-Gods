@@ -916,6 +916,16 @@ back) or TRIAL (a declared experiment, measured and reported).
     like a bad interpretation of one of my off hand ideas and it sucks ... I said at the time that was a throw away
     idea." Not replaced; fresh rules come from the brainstorm sessions.
 
+42. **TRIAL** (the coordinator's, 17 Nov, carried out by the energy worker; not the owner's decision, reversible): **a
+    new dealt line set.** The owner asked for "new elegant rules" and called the hug shape a throwaway, and has not yet
+    picked from the brainstorms, so the coordinator chose. Dealt on every line preset (lib/v2-linear dealt.ts):
+    Bearing, Golden Path, Ring, Archimedes, Hensel, Whole Stair, Corner, Long Run (from the candidates; energy.md,
+    "Candidate rules") and Prime Balance, Recurrence Pair, Unit Fraction, Stepping Coefficients (kept). Retired (code
+    deleted, one line each in old-rule-ideas.md): Prime Hug, Multiples, Fine Bottom, Next-door Bottom, Prime Sliver,
+    Crossing Pattern, Circle Kiss, Square Triangle. Prime Palette, Kin and Shared Secret stay candidates (flags in
+    energy.md). Archimedes with Hensel, and Whole Stair with Corner, may be dealt the same D or n in one game (their
+    parameter lists overlap on purpose: the tension). Effects in play: not yet measured.
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.

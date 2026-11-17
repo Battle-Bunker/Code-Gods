@@ -75,7 +75,7 @@ test("every grid family has the four starters in both languages; hasStarters say
     for (const language of ["typescript", "python"] as const) assert.deepEqual(startersFor(f.id, language).map(a => a.title), ["Simple", "Thorough", "Bold", "Naive (for learning)"]);
   }
   assert.equal(hasStarters("no-such-family"), false);
-  assert.equal(hasStarters("multiples"), true, "lines too");
+  assert.equal(hasStarters("long-run"), true, "lines too");
 });
 
 /** Score boards with an agent's own score function, in the sandbox, as wire strings. */
