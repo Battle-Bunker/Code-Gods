@@ -8,7 +8,7 @@ import { driftSecondsOf } from "./drift";
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query } from "../_generated/server";
-import { requireGameMember, ruleOf } from "./access";
+import { normaliseCode, requireGameMember, requireUser, ruleOf } from "./access";
 import { gameDetailsV, headerV, standingsHistoryV, standingsV } from "./validators";
 import { locksOn, ratesOf } from "./lockSettings.ts";
 
@@ -43,6 +43,27 @@ export function headerView(game: Doc<"v2Games">, me: Doc<"v2Members">["_id"] | n
     } : null,
   };
 }
+
+/**
+ * A game link's id (v1's short codes): /rooms/:room/games/:game names the game by its room's code and its number in
+ * the room, or (a link from before short ids) by its document id. Two index reads (v2Rooms by_code, v2Games by_room)
+ * or one get, then the caller's membership; the answer never changes.
+ */
+export const resolve = query({
+  args: { room: v.string(), game: v.string() },
+  returns: v.object({ gameId: v.id("v2Games"), room: v.string(), number: v.number() }),
+  handler: async (ctx, { room: code, game }) => {
+    await requireUser(ctx);
+    let id = game;
+    if (/^\d+$/.test(game)) {
+      const room = await ctx.db.query("v2Rooms").withIndex("by_code", q => q.eq("code", normaliseCode(code))).first();
+      id = room ? (await ctx.db.query("v2Games").withIndex("by_room", q => q.eq("roomId", room._id).eq("number", Number(game))).first())?._id ?? "" : "";
+    }
+    const { game: g } = await requireGameMember(ctx, id);
+    const room = await ctx.db.get(g.roomId);
+    return { gameId: g._id, room: room?.code ?? normaliseCode(code), number: g.number };
+  },
+});
 
 /** Cold: changes with the phase only. */
 export const header = query({
