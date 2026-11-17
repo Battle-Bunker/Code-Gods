@@ -25,7 +25,7 @@ from a random object of the same 'size'". This replaces the value tables (decisi
   `candidates` (its old searches' targets).
 - **Time and spread** (seen narrowly: one good line per rule from its candidates, its first dealt parameters, six seeds,
   Node on this machine): 0–60 ms an estimate; repeat sd 2–9% for most rules, 16–25% for Power Hug and Circle Kiss.
-  The Convex runtime's figure is not measured (the local backend would not start here). The lenses and their prices are the game's own (lens-moves.ts: each mutation which + where + argument + continue bit, the lens named once a turn).
+  In the Convex runtime (seen narrowly: artifacts/engine test/v2-energy-cost.test.ts, one Lines · beginner game, the local backend on this machine, 17 Nov): a commit (every seat's energy on the changed line) took a median 155 ms and at most 207 ms over 20 commits; a look at every object a median 107 ms and at most 162 ms. The test fails past 600 ms; Convex stops a mutation at 1 s. The lenses and their prices are the game's own (lens-moves.ts: each mutation which + where + argument + continue bit, the lens named once a turn).
 
 ### Spot check: does the universal climb alone match the best route found with candidates? (seen narrowly)
 
@@ -204,7 +204,9 @@ to those particular heuristics".
 - **A candidate only lowers c(x)** (built, tested: test/energy.test.ts): the soft minimum over a larger set of routes.
 - **Spread and time** (seen narrowly: one climbed board per rule, its first dealt parameters, 8 seeds, Node on this
   machine): repeat sd 2–7% of the energy, mean 3.3%; 12–36 ms an estimate. `Estimate.spread` reports the standard
-  error of the mean over the starts.
+  error of the mean over the starts. In the Convex runtime (seen narrowly: test/v2-energy-cost.test.ts, one Grids ·
+  beginner game, the local backend, 17 Nov): a commit took a median 155 ms and at most 200 ms; a look at every object a
+  median 140 ms and at most 172 ms.
 - **Which route wins** (seen narrowly, same boards, K = 20, six seeds): the universal climb is the cheapest route on
   70–100% of starts for six rules (Census and Snake: all), on 52% for Adding Rows, and on about 30% for Row Multiples
   and Power Diagonals, where the anchors (whole rows or diagonals onto multiples or powers) win. Climbed boards cost 40–95 bits; random boards 0–10.
