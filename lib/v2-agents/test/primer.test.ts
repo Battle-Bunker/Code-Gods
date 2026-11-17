@@ -1,8 +1,9 @@
 /** The primer stays true to the code and short. */
+import { lineZ } from "./config.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { lineType, lineZ } from "@workspace/v2-linear";
+import { lineType } from "@workspace/v2-linear";
 import { AGENT_PRIMER, HELPERS } from "../src/index.ts";
 
 const guest = (f: string) => readFileSync(new URL(`../../v2-sandbox/guest/${f}`, import.meta.url), "utf8");

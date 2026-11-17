@@ -9,9 +9,11 @@
  */
 import type { ReactNode } from "react";
 import { applyCall, evaluateObject, isInvalid, rng, walkStep, type RuleFamily, type Score } from "@workspace/v2-core";
-import { grid4, gridPresets, gridType, type GridState } from "@workspace/v2-grid";
+import { gridPresets, gridType, type GridState } from "@workspace/v2-grid";
 import { pickExamples, valueFor } from "./values";
 import { annotate, bitsLine, CompactFace, defaultRep, ExpandedFace, GoalCard, MoveLine, ObjectChip, RepView, type RuleRef } from "@workspace/v2-views";
+import { variantOf as configuredVariant } from "../sdk/object-types.ts";
+const grid4 = configuredVariant("grid-4-d10");
 
 type Family = RuleFamily<GridState, unknown>;
 /** The secondaries a preset deals with this family (its first dealt parameters), or the family's own when none deals it. */

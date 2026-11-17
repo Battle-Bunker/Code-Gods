@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { GRAVITY, argBits, universalBits, infoSize, namingBits, turnCost, turnSurprise } from "../src/surprise.ts";
+import { driftOf, argBits, universalBits, infoSize, namingBits, turnCost, turnSurprise } from "../src/surprise.ts";
 
 test("information size and codes", () => {
   assert.equal(infoSize(0), 0);
@@ -17,22 +17,22 @@ test("information size and codes", () => {
 });
 
 test("holding costs the small constant; up costs more than down by λ·|s|", () => {
-  const hold = turnSurprise([5], [5]);
-  assert.ok(Math.abs(hold - GRAVITY ** 2 / (2 * Math.LN2)) < 1e-12);
-  const up = turnSurprise([7], [15]), down = turnSurprise([15], [7]);
+  const hold = turnSurprise(1, [5], [5]);
+  assert.ok(Math.abs(hold - driftOf(1) ** 2 / (2 * Math.LN2)) < 1e-12);
+  const up = turnSurprise(1, [7], [15]), down = turnSurprise(1, [15], [7]);
   assert.ok(Math.abs(up - down - 1 * 1) < 1e-12); // s = 1 bit, λ = 1
 });
 
 test("a rise in one turn costs more than the same rise in several (big steps are super-linear)", () => {
-  const one = turnSurprise([1], [127]); // 1 → 7 bits
+  const one = turnSurprise(1, [1], [127]); // 1 → 7 bits
   let six = 0;
-  for (let k = 1; k < 7; k++) six += turnSurprise([2 ** k - 1], [2 ** (k + 1) - 1]);
+  for (let k = 1; k < 7; k++) six += turnSurprise(1, [2 ** k - 1], [2 ** (k + 1) - 1]);
   assert.ok(one > six * 2, `${one} vs ${six}`);
 });
 
 test("crossing zero pays the path down and up", () => {
-  const plain = turnSurprise([7], [7]);
-  const crossed = turnSurprise([7], [-7], [true]);
+  const plain = turnSurprise(1, [7], [7]);
+  const crossed = turnSurprise(1, [7], [-7], [true]);
   assert.ok(crossed > plain + 10);
 });
 
@@ -44,7 +44,18 @@ test("cost is never negative over random turns", () => {
     const b = Array.from({ length: n }, () => Math.round((r() - 0.5) * 2 ** (r() * 30)));
     const a = b.map((x) => (r() < 0.5 ? x : Math.round((r() - 0.5) * 2 ** (r() * 30))));
     const crossed = b.map((x, j) => Math.sign(x) * Math.sign(a[j]) < 0 && r() < 0.5);
-    const c = turnCost([namingBits({ menuSize: 6, lensSize: n, argBits: argBits(3, true) })], b, a, crossed);
+    const c = turnCost(1, [namingBits({ menuSize: 6, lensSize: n, argBits: argBits(3, true) })], b, a, crossed);
     assert.ok(c.surprise >= 0 && c.total > 0);
   }
+});
+
+test("gravity is the game's setting: λ = 0 makes up and down cost the same; the engine has no default physics", async () => {
+  assert.ok(Math.abs(turnSurprise(0, [7], [15]) - turnSurprise(0, [15], [7])) < 1e-12);
+  assert.ok(turnSurprise(2, [7], [15]) - turnSurprise(2, [15], [7]) > turnSurprise(1, [7], [15]) - turnSurprise(1, [15], [7]));
+  const { physicsOf, withPhysics, assertPhysics } = await import("../src/physics.ts");
+  const v = { id: "x", objectType: "line", mutators: [], birthMixSteps: 1, params: {} };
+  assert.throws(() => physicsOf(v), /physics settings are missing/);
+  assert.throws(() => withPhysics(v, { gravity: -1, estimatorStarts: 12, sameSizeBand: 0.5, newbornBitRate: 1 }), /gravity/);
+  assert.throws(() => assertPhysics({ gravity: 1, estimatorStarts: 1.5, sameSizeBand: 0.5, newbornBitRate: 1 }), /whole/);
+  assert.equal(physicsOf(withPhysics(v, { gravity: 1, estimatorStarts: 12, sameSizeBand: 0.5, newbornBitRate: 1 })).estimatorStarts, 12);
 });

@@ -1,7 +1,7 @@
 /**
  * A room's economy settings (docs/energy-model.md §6, §6.1, §7). κ and β are not settings (charge.ts).
  */
-import type { Rng } from "@workspace/v2-core";
+import type { Physics, Rng } from "@workspace/v2-core";
 
 export interface Economy {
   /** Each player's fixed power budget, bits per world second, split between its agents and its own store. */
@@ -35,6 +35,23 @@ export const LINES_BEGINNER_ECONOMY: Economy = Object.freeze({
  * reads 16 cells, not y = mx + c, so it is longer and dearer): 3 × the median grid starter's 511 bits ÷ 16 ≈ 100 (17 Nov: the nine dynamic grid rules; 140 before).
  */
 export const GRIDS_BEGINNER_ECONOMY: Economy = Object.freeze({ ...LINES_BEGINNER_ECONOMY, startingEnergy: 70 });
+
+/**
+ * The beginner games' physics (owner, 17 Nov: "all key params are game config parameters ... including the likes of
+ * energy income and gravity strength"). The engine has no defaults: these are the only values, read by the server's and
+ * the app's variants (physicsForVariant). Lines: gravity λ = 1 (the resting law ∝ 2^−H; a rise costs λ·s more than a
+ * fall), 12 estimator starts within half a bit of the state's size, newborn numbers' bit lengths with P(L) ∝ 2^−L.
+ */
+export const LINES_BEGINNER_PHYSICS: Physics = Object.freeze({ gravity: 1, estimatorStarts: 12, sameSizeBand: 0.5, newbornBitRate: 1 });
+/** Grids: only the estimator's start count applies (a board has no size, no gravity, and is born by its walk). */
+export const GRIDS_BEGINNER_PHYSICS: Physics = Object.freeze({ gravity: 1, estimatorStarts: 20, sameSizeBand: 0.5, newbornBitRate: 1 });
+
+/** The physics of each variant the beginner configurations deal; undefined for a variant no configuration sets. */
+export function physicsForVariant(variantId: string): Physics | undefined {
+  if (variantId.startsWith("line-")) return LINES_BEGINNER_PHYSICS;
+  if (variantId.startsWith("grid-")) return GRIDS_BEGINNER_PHYSICS;
+  return undefined;
+}
 
 /** The bounds a room's economy must keep. */
 export const ECONOMY_LIMITS = Object.freeze({

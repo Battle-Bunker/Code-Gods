@@ -1,8 +1,11 @@
 /** A board's energy (src/energy.ts on v2-core free-energy.ts): what holds by construction, the spread and the time gate. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { argBits, rng, softMinBits, startCost } from "@workspace/v2-core";
-import { dynamicGridFamilies, estimateGrid, grid4, gridNaming, gridStarts, type GridDynamicRule, type GridState } from "../src/index.ts";
+import { argBits, rng, softMinBits, startCost, withPhysics } from "@workspace/v2-core";
+import { GRIDS_BEGINNER_PHYSICS } from "@workspace/v2-economy";
+import { dynamicGridFamilies, estimateGrid, grid4 as grid4Base, gridNaming, gridStarts, type GridDynamicRule, type GridState } from "../src/index.ts";
+/** The board as Grids · beginner's configuration sets it up. */
+const grid4 = withPhysics(grid4Base, GRIDS_BEGINNER_PHYSICS);
 
 type F = (typeof dynamicGridFamilies)[number];
 const ruleOf = (f: F) => f.dynamic as GridDynamicRule<unknown>;
@@ -25,6 +28,7 @@ const boards = new Map(dynamicGridFamilies.map(f => {
   const p = f.dealable(grid4)[0], start = gridStarts(grid4, 1, String(r.unit()))[0]!;
   return [f.id, { p, start, top: climb(f, p, start) }] as const;
 }));
+
 
 test("the soft minimum: never above the cheapest route, at most 1 bit below two equal routes, and more routes only lower it", () => {
   assert.equal(softMinBits([5]), 5);

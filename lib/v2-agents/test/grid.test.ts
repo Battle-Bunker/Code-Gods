@@ -5,10 +5,11 @@
  *  - an agent's own idea of the score is the engine's utility on sampled boards, in both languages;
  *  - both languages make the same moves on newborn boards, and none fails.
  */
+import { grid4 } from "./config.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { applyCalls, evaluateSite, isInvalid, scoreToWire } from "@workspace/v2-core";
-import { grid4, gridType, type GridState } from "@workspace/v2-grid";
+import { gridType, type GridState } from "@workspace/v2-grid";
 import type { HostReply, HostRequest, Language } from "@workspace/v2-sandbox";
 import { agentPrimer, births, EngineHost, GRID_CATALOGUE, gridUndescribed, hasStarters, runAct, sandboxes, scoreSource, shippedAgents, startersFor, type ShippedAgent } from "../src/index.ts";
 

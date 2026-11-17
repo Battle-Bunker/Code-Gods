@@ -3,10 +3,11 @@
  * table's scripted player turns. What would break: a measurement row whose "vandal" never knocks or whose agents fail
  * to run (the row would measure the naive game under another name), or player edits that are free.
  */
+import { lineQ, grid4 } from "./config.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { gridPresets, gridType, grid4 } from "@workspace/v2-grid";
-import { lineQ, lineType, presets } from "@workspace/v2-linear";
+import { gridPresets, gridType } from "@workspace/v2-grid";
+import { lineType, presets } from "@workspace/v2-linear";
 import { births } from "../src/births.ts";
 import { check } from "../src/check.ts";
 import { sandboxes, startersFor } from "../src/index.ts";

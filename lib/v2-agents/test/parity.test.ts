@@ -4,10 +4,11 @@
  * same host calls in the same order, is charged the same reads and returns the same calls, against the engine host
  * over lib/v2-linear's real line, rules and prices.
  */
+import { lineQ, lineZ } from "./config.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { fromMC, lineType, lineZ, lineQ } from "@workspace/v2-linear";
+import { fromMC, lineType } from "@workspace/v2-linear";
 import { applyCalls, isInvalid, q, type Q } from "@workspace/v2-core";
 import { EngineHost, runAct, sandboxes, type RuleRef } from "../src/index.ts";
 import type { Language } from "@workspace/v2-sandbox";

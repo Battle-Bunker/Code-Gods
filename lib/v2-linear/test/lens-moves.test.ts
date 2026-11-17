@@ -1,9 +1,10 @@
 /** The whole-number lens moves and the turn price (owner, 17 Nov). Breaks caught: a wrong lens read or build, a pair
  * left unreduced, a mixed-lens turn accepted, a price that is not naming bits + surprise. */
+import { lineQ, lineZ } from "./config.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { applyCalls, argBits, infoSize, isInvalid, rng, turnSurprise, type Call } from "@workspace/v2-core";
-import { lineQ, lineType, lineZ } from "../src/type.ts";
+import { lineType } from "../src/type.ts";
 import { fromMC, describeLine } from "../src/line.ts";
 import { lensById, lenses, LENS_BITS, newbornLine, readLens } from "../src/lens-moves.ts";
 import { q } from "@workspace/v2-core";
@@ -67,7 +68,7 @@ test("a turn pins one lens, and its price is naming bits plus the surprise of it
   assert.ok(!isInvalid(r));
   // naming: log2 6 (menu) + log2 4 (which number) + argBits(1, signed) + 1 (continue)
   assert.ok(Math.abs(r.naming - (Math.log2(6) + 2 + argBits(1, true) + 1)) < 1e-9);
-  assert.ok(Math.abs(r.surprise - (turnSurprise([2n, 1n, 5n, 1n], [2n, 1n, 6n, 1n]) + LENS_BITS)) < 1e-9);
+  assert.ok(Math.abs(r.surprise - (turnSurprise(1, [2n, 1n, 5n, 1n], [2n, 1n, 6n, 1n]) + LENS_BITS)) < 1e-9);
   assert.ok(Math.abs(r.total - r.naming - r.surprise) < 1e-9);
   // doubling 5 → 10 by multiply: the surprise of a one-bit rise is more than a small add's
   const d = turn(s, [call("mul", { lens: "mc", at: "3", k: "2" })]);

@@ -7,10 +7,8 @@
 //     its rise in information size and g = λ·ln 2 / 2 the drift of a passive jiggle one bit wide whose resting law is
 //     ∝ 2^(−λH). Rises cost more than equal falls by λ·|s|; an unchanged number pays g² / (2 ln 2) (holding).
 
-/** The one dial: gravity. */
-export const LAMBDA = 1;
-/** The passive downward drift per turn, in bits. */
-export const GRAVITY = (LAMBDA * Math.LN2) / 2;
+/** The passive downward drift per turn, in bits, at gravity λ (the game's physics setting `gravity`). */
+export const driftOf = (lambda: number): number => (lambda * Math.LN2) / 2;
 
 /** log2 of a non-negative bigint or number, exact enough for pricing at any size. */
 function log2Abs(n: bigint | number): number {
@@ -62,14 +60,16 @@ export function namingBits(m: { menuSize: number; lensSize: number; argBits: num
  * zero: its path runs down to zero and up again, so the square uses that path's length (the drift term keeps the net
  * rise, so the cost stays the surprise of a reversible jiggle and is never negative).
  */
-export function turnSurprise(before: readonly (bigint | number)[], after: readonly (bigint | number)[], crossed?: readonly boolean[]): number {
+export function turnSurprise(lambda: number, before: readonly (bigint | number)[], after: readonly (bigint | number)[], crossed?: readonly boolean[]): number {
   if (before.length !== after.length) throw new Error("turnSurprise: lens lengths differ");
+  if (!Number.isFinite(lambda) || lambda < 0) throw new Error("turnSurprise: gravity must be a finite number ≥ 0");
+  const g = driftOf(lambda);
   let total = 0;
   for (let i = 0; i < before.length; i++) {
     const hb = infoSize(before[i]), ha = infoSize(after[i]);
     const s = ha - hb;
     const path = crossed?.[i] ? hb + ha : Math.abs(s);
-    total += (path * path + 2 * GRAVITY * s + GRAVITY * GRAVITY) / (2 * Math.LN2);
+    total += (path * path + 2 * g * s + g * g) / (2 * Math.LN2);
   }
   return total;
 }
@@ -77,8 +77,8 @@ export function turnSurprise(before: readonly (bigint | number)[], after: readon
 export type TurnPrice = { naming: number; surprise: number; total: number };
 
 /** The whole price of a turn: its mutations' naming bits plus its surprise. */
-export function turnCost(namings: readonly number[], before: readonly (bigint | number)[], after: readonly (bigint | number)[], crossed?: readonly boolean[]): TurnPrice {
+export function turnCost(lambda: number, namings: readonly number[], before: readonly (bigint | number)[], after: readonly (bigint | number)[], crossed?: readonly boolean[]): TurnPrice {
   const naming = namings.reduce((a, b) => a + b, 0);
-  const surprise = turnSurprise(before, after, crossed);
+  const surprise = turnSurprise(lambda, before, after, crossed);
   return { naming, surprise, total: naming + surprise };
 }

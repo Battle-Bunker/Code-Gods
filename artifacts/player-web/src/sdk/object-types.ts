@@ -2,7 +2,8 @@
  * The object types this build can draw (lines, grids, coloured grids, pairs of lines), and what the app calls each: a game's variant decides its type,
  * as on the server (convex/v2/world.ts typeOf). "Grid" is the noun everywhere in a game of grids (ux-lessons 2.8).
  */
-import type { ObjectType, Variant } from "@workspace/v2-core";
+import { withPhysics, type ObjectType, type Variant } from "@workspace/v2-core";
+import { physicsForVariant } from "@workspace/v2-economy";
 import { lineType } from "@workspace/v2-linear";
 import { gridType } from "@workspace/v2-grid";
 import { pairType } from "@workspace/v2-pair";
@@ -16,9 +17,20 @@ export function objectTypeOf(variantId?: string | null): ObjectType<any> {
 }
 
 /** A variant by id, from every type (the first line variant when this build does not know it). */
+const withSettings = new Map<string, Variant>();
+/** A variant by id, from every type (the first line variant when this build does not know it), with its configuration's physics. */
 export function variantOf(id: string): Variant {
-  for (const t of OBJECT_TYPES) { const v = t.variants.find(x => x.id === id); if (v) return v; }
-  return lineType.variants[0]!;
+  const known = OBJECT_TYPES.some(t => t.variants.some(x => x.id === id));
+  const key = known ? id : lineType.variants[0]!.id;
+  let v = withSettings.get(key);
+  if (!v) {
+    let base: Variant = lineType.variants[0]!;
+    for (const t of OBJECT_TYPES) { const x = t.variants.find(y => y.id === key); if (x) { base = x; break; } }
+    const physics = physicsForVariant(key);
+    v = physics ? withPhysics(base, physics) : base;
+    withSettings.set(key, v);
+  }
+  return v;
 }
 
 export interface ObjectWord { readonly one: string; readonly One: string; readonly many: string; readonly Many: string }

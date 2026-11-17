@@ -5,9 +5,10 @@
  * same numbers `othersAfter` reports, noise included), so the clause is never a cheaper or sharper probe of the others
  * than asking. It is charged what `othersAfter` is. A game offers it or not (off by default, as in v1).
  */
+import { lineQ } from "./config.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { fromMC, lineQ, lineType } from "@workspace/v2-linear";
+import { fromMC, lineType } from "@workspace/v2-linear";
 import { Qn } from "@workspace/v2-core";
 import { EngineHost, OTHERS_AFTER_BITS, runAct, sandboxes, SPEC_ECONOMY } from "../src/index.ts";
 

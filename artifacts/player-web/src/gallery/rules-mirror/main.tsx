@@ -8,9 +8,12 @@
  */
 import { StrictMode, useEffect, useMemo, useState, type ReactElement } from "react";
 import { createRoot } from "react-dom/client";
-import { argBits, universalBits, energyOf, Qn, q, rng, type Q, type RuleFamily } from "@workspace/v2-core";
-import { describeLine, dynamicFamilies, fromMC, lensById, lensSurprise, lineQ, mutationBits, lineType, roundHalfAway, type Line, type LensId, type LineState } from "@workspace/v2-linear";
+import { argBits, universalBits, energyOf, physicsOf, Qn, q, rng, type Q, type RuleFamily } from "@workspace/v2-core";
+import { variantOf } from "../../sdk/object-types.ts";
+import { describeLine, dynamicFamilies, fromMC, lensById, lensSurprise, mutationBits, lineType, roundHalfAway, type Line, type LensId, type LineState } from "@workspace/v2-linear";
 import "./style.css";
+/** Lines · beginner's board with its configuration's physics (gravity, estimator starts). */
+const lineQ = variantOf("line-q");
 
 type Family = RuleFamily<LineState, unknown>;
 const FAMILIES = dynamicFamilies as readonly Family[];
@@ -31,7 +34,7 @@ function exampleTurns(l: Line): Turn[] {
     const ts = edit(xs.slice());
     const t = ts && lens.line(ts, l), back = t && lens.numbers(t);
     if (!t || !back) return;
-    out.push({ words: `${lens.title}: ${words}`, to: describeLine(t), naming: mutationBits(lens, Math.max(0, arg), arg < 0), surprise: lensSurprise(xs, back) });
+    out.push({ words: `${lens.title}: ${words}`, to: describeLine(t), naming: mutationBits(lens, Math.max(0, arg), arg < 0), surprise: lensSurprise(physicsOf(lineQ).gravity, xs, back) });
   };
   one("mc", "add 1 to the y-intercept's top", argBits(1n, true), ns => { ns[2] = ns[2]! + 1n; return ns; });
   one("mc", "multiply the y-intercept's top by 10", universalBits(10n), ns => { ns[2] = ns[2]! * 10n; return ns; });

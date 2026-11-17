@@ -7,9 +7,10 @@
  * What would break: a predicate priced by anything but the agent's own measures; a crash letting a move through; a
  * lock that cannot be drained; a quote that disagrees with the commit; the commit trusting a lock the act never asked.
  */
+import { lineZ } from "./config.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { fromMC, lineZ, lineType } from "@workspace/v2-linear";
+import { fromMC, lineType } from "@workspace/v2-linear";
 import { actRunner, commitLocks, isInvalid, lockProgram, lockedAct, LOCK_CHECKS_PER_ACT, MAX_LOCK_SOURCE, Qn, type ActLock, type LockProgram, type PredicateRun } from "@workspace/v2-core";
 import { EngineHost, predicateBits, predicateBoxes, predicateRunner, READY_PREDICATES, runAct, sandboxes, summonBits } from "../src/index.ts";
 

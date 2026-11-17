@@ -3,8 +3,10 @@
  * nobody curated, lines met on a seeded walk.
  */
 import { evaluateObject, q, rng, walkStep, type Q, type RuleFamily, type Score, type TieBreaker } from "@workspace/v2-core";
-import { fromMC, lineQ, lineType, normalise, type Line, type LineState } from "@workspace/v2-linear";
+import { fromMC, lineType, normalise, type Line, type LineState } from "@workspace/v2-linear";
 import { pickExamples } from "./pick-examples";
+import { variantOf as configuredVariant } from "../sdk/object-types.ts";
+const lineQ = configuredVariant("line-q");
 
 export const mc = (m: number | Q, c: number | Q): LineState =>
   ({ lines: [fromMC(typeof m === "number" ? q(m) : m, typeof c === "number" ? q(c) : c)] });

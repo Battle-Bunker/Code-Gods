@@ -7,7 +7,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { compareScores, type Score } from "@workspace/v2-core";
-import { lineType, lineQ, lineZ } from "@workspace/v2-linear";
+import { lineType } from "@workspace/v2-linear";
+import { variantOf } from "../src/sdk/object-types.ts";
+// The boards as the game configuration sets them up (with their physics).
+const lineQ = variantOf("line-q"), lineZ = variantOf("line-z");
 import { familyOf } from "../src/sdk/rule.ts";
 import { argError, mutatorChoices, whatIf } from "../src/panes/what-if-model.ts";
 

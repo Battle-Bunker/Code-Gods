@@ -1,8 +1,9 @@
 /** The dynamic line families (src/dynamic-families.ts): worked utilities, and each family's heuristics help its energy. */
+import { lineQ } from "./config.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { q, type Q } from "@workspace/v2-core";
-import { circleKiss, crossingSliver, dynamicFamilies, estimateLine, fromMC, lineQ, lineRule, primeBalance, primeSliver, recurrencePair, squareTriangle, steppingCoefficients, unitFraction } from "../src/index.ts";
+import { circleKiss, crossingSliver, dynamicFamilies, estimateLine, fromMC, lineRule, primeBalance, primeSliver, recurrencePair, squareTriangle, steppingCoefficients, unitFraction } from "../src/index.ts";
 
 const u = (F: { dynamic?: unknown }, p: unknown, m: Q, c: Q) => (F as typeof circleKiss).dynamic!.u({ lines: [fromMC(m, c)] }, p as never);
 const near = (a: number, b: number, what: string) => assert.ok(Math.abs(a - b) < 1e-9, `${what}: ${a} against ${b}`);

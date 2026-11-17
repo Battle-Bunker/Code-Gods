@@ -14,8 +14,9 @@ import { mutatorChoices, whatIf } from "../src/panes/what-if-model.ts";
 test("a grid variant is a grid everywhere: type, variant, noun, first representation, decoding", () => {
   assert.equal(objectTypeOf("grid-4-d10").id, "grid");
   assert.equal(objectTypeOf("line-z").id, "line");
-  assert.equal(variantOf("grid-4-d10"), grid4);
-  assert.equal(variantOf("line-z"), lineZ);
+  assert.equal(variantOf("grid-4-d10").id, grid4.id);
+  assert.equal(variantOf("line-z").id, lineZ.id);
+  assert.ok(variantOf("line-z").physics, "a variant carries its configuration's physics");
   assert.deepEqual(objectWord("grid-4-d10"), { one: "grid", One: "Grid", many: "grids", Many: "Grids" });
   assert.equal(objectWord("line-z").One, "Line");
   assert.equal(defaultRepOf("grid-4-d10"), "cells");

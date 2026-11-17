@@ -1,8 +1,9 @@
 /** The shipped agents of the dynamic families (src/dynamic-catalogue.ts) score lines as the engine's utility does, in both languages. */
+import { lineQ } from "./config.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateSite, q, Qn } from "@workspace/v2-core";
-import { dynamicFamilies, fromMC, lineQ, lineType, type LineState } from "@workspace/v2-linear";
+import { dynamicFamilies, fromMC, lineType, type LineState } from "@workspace/v2-linear";
 import { births, EngineHost, sandboxes, scoreSource, startersFor } from "../src/index.ts";
 
 const boxes = sandboxes();

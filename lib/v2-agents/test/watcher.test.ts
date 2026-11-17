@@ -2,10 +2,11 @@
  * The Watcher: it reads the whole object (so the server tells its owner the object) and changes nothing, in both
  * languages and on both object types, and it is cheap to summon.
  */
+import { lineQ, lineZ, grid4 } from "./config.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { grid4, gridType } from "@workspace/v2-grid";
-import { lineQ, lineType, lineZ } from "@workspace/v2-linear";
+import { gridType } from "@workspace/v2-grid";
+import { lineType } from "@workspace/v2-linear";
 import { pairQ, pairType } from "@workspace/v2-pair";
 import { births, runAct, sandboxes, summonBits, watcherFor, type WatcherType } from "../src/index.ts";
 

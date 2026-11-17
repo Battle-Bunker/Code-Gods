@@ -13,7 +13,9 @@ import assert from "node:assert/strict";
 import { sandboxes, startersFor } from "@workspace/v2-agents";
 type ShippedLanguage = "typescript" | "python";
 import { runTable } from "@workspace/v2-agents/table";
-import { lineQ, lineType } from "@workspace/v2-linear";
+import { lineType } from "@workspace/v2-linear";
+import { variantOf } from "../convex/v2/variants.ts";
+const lineQ = variantOf("line-q");
 import { admin, humans, perform, type Human } from "./v2-helpers.ts";
 
 const SCALE = 10, THIRDS = 3;
