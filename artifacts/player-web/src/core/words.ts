@@ -138,3 +138,6 @@ export const seeEachText = (w: { one: string }): string => (w.one.includes(" ") 
 /** What one entry of the objects list is, without a possessive on a two-word object ("pair of lines's"). */
 export const eachEntryText = (w: { one: string }): string =>
   `Each entry is ${w.one.includes(" ") ? `the points of one ${w.one}` : `one ${w.one}'s points`}; all of them added up make your total.`;
+
+/** The one line a bound energy's marker (≤) explains on hover: the estimator's work budget ran out before it found it. */
+export const BOUND_NOTE = "At most this much: the estimate ran out of time before it found this line's exact energy for your rule.";
