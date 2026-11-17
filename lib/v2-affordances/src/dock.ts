@@ -169,8 +169,10 @@ export function formatDock(n: DockNode): string {
  */
 export const DEFAULT_DOCKS: Readonly<Record<DockKind, string>> = {
   planning: "row(column(overview 45, my-card 55) 33, objects 37, forge 30)",
-  live: "row(column(my-card 45, agents 55) 33, objects 37, column(feed 50, race 50) 30)",
-  ended: "row(my-card 28, results 44, race 28)",
+  // The owner's layout (17 November): the goal card over the leaderboard, the lines, my agents; the assistant below.
+  live: "column(row(column(my-card 50, race 50) 33, objects 37, agents 30) 67, assistant 33)",
+  // The assistant, open on the live screen by default, comes along under the leaderboard: the results keep full height.
+  ended: "row(my-card 28, results 44, column(race 50, assistant 50) 28)",
   replay: "row(my-card 28, objects 42, column(feed 50, race 50) 30)",
 };
 const DEFAULT_TREES = Object.fromEntries(DOCK_KINDS.map(k => [k, parseDock(DEFAULT_DOCKS[k])])) as Record<DockKind, DockNode>;

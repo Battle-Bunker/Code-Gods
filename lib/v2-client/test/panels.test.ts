@@ -38,7 +38,7 @@ test("the panels pane is offered in every phase", () => {
 
 test("an empty view follows the phase's defaults; an own arrangement is kept", () => {
   assert.deepEqual(shownPanes(EMPTY_VIEW, "planning"), defaultPanes("planning"));
-  const own = { panes: [{ pane: "feed", place: "main" as const }] };
+  const own = { panes: [{ pane: "race", place: "main" as const }] };
   assert.deepEqual(shownPanes(own, "live"), own.panes);
 });
 
@@ -56,7 +56,7 @@ test("opening a pane on an empty view keeps the defaults first, and the pane joi
 
 test("opening a pane never closes another (round 1: One line evicted What just changed)", () => {
   const full = { panes: [...defaultPanes("live"), { pane: "object", place: "main" as const }, { pane: "public-chat", place: "right" as const }] };
-  for (const pane of ["rules", "assistant", "others-care", "points-over-time"]) {
+  for (const pane of ["rules", "feed", "others-care", "points-over-time"]) {
     const ops = openPlan(full, "live", pane);
     assert.deepEqual(ops.map(o => o.id), ["view.openPane", "view.openPane"], pane);
   }
@@ -64,19 +64,20 @@ test("opening a pane never closes another (round 1: One line evicted What just c
 });
 
 test("opening an open pane brings it to the front of its tab group, without opening it twice", () => {
-  assert.deepEqual(openPlan({ panes: [{ pane: "feed", place: "right" }] }, "live", "feed"), [{ id: "view.openPane", args: { pane: "feed" } }]);
+  assert.deepEqual(openPlan({ panes: [{ pane: "race", place: "right" }] }, "live", "race"), [{ id: "view.openPane", args: { pane: "race" } }]);
 });
 
 test("the middle is never empty, and a phone reads main first", () => {
   const c = columns([{ pane: "feed", place: "right" }, { pane: "agents", place: "bottom" }]);
   assert.deepEqual(c.main, ["feed"]);
-  assert.deepEqual(readingOrder(defaultPanes("live")), ["objects", "my-card", "feed", "agents", "race"]);
+  // The owner's order on a phone (17 November): the goal, the lines, the agents, the leaderboard, the assistant.
+  assert.deepEqual(readingOrder(defaultPanes("live")), ["my-card", "objects", "agents", "race", "assistant"]);
 });
 
 test("an arrangement made in planning meets the world's defaults when the world starts", () => {
   const planning = { panes: [{ pane: "forge", place: "main" as const }, { pane: "my-card", place: "left" as const }] };
   const live = shownPanes(planning, "live").map(p => p.pane);
-  assert.ok(live.includes("objects") && live.includes("feed"), "the lines and the act log appear");
+  assert.ok(live.includes("objects") && live.includes("agents") && live.includes("race"), "the lines, the agents and the leaderboard appear");
   assert.ok(live.includes("forge"), "the player's own pane stays");
   assert.ok(!shownPanes(planning, "ended").some(p => p.pane === "forge"), "no forge after the end");
 });
@@ -121,7 +122,7 @@ test("closing a default pane keeps the other defaults", () => {
 
 test("moving an open pane is one move", () => {
   const view = { panes: defaultPanes("live") };
-  assert.deepEqual(openPlan(view, "live", "feed", "left"), [{ id: "view.movePane", args: { pane: "feed", place: "left" } }]);
+  assert.deepEqual(openPlan(view, "live", "agents", "left"), [{ id: "view.movePane", args: { pane: "agents", place: "left" } }]);
 });
 
 test("the others-care, points-over-time and rules panes are offered where they have something to show", () => {
@@ -167,9 +168,9 @@ test("an assistant in front in planning is in front when the world starts (re-wa
   const front = { ...EMPTY_VIEW, panes, dock: { planning: parseDock("row(overview 25, my-card 40, forge|*assistant 35)") } };
   const groupOf = (v: typeof front) => dockGroups(dockFor(v, "live")!).find(l => l.group.tabs.includes("assistant"))!.group;
   assert.equal(groupOf(front).active, "assistant");
-  // Behind a tab in planning, it stays where the live screen puts it.
+  // The live screen's default gives the assistant a row of its own (the owner's layout), so it is in front there anyway.
   const behind = { ...front, dock: { planning: parseDock("row(overview 25, my-card 40, *forge|assistant 35)") } };
-  assert.notEqual(groupOf(behind).active, "assistant");
+  assert.equal(groupOf(behind).active, "assistant");
 });
 
 test("pane blurbs fit every game: none says “a line” (the palette showed it in a grid game)", () => {

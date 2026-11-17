@@ -193,8 +193,9 @@ export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
     return { ...v, dock: { ...v.dock, [kind]: twoPanels(v, v.dock[kind] ?? defaultDock(kind)) } };
   },
   "view.resetLayout": (v, _a, ctx) => {
+    // The default screen: its arrangement and its panes (the owner: "reset layout" gives the default layout).
     const { [screenOf(ctx)]: _old, ...rest } = v.dock;
-    return { ...v, dock: rest };
+    return { ...v, dock: rest, panes: [], maximised: null };
   },
   "view.pinRepresentation": (v, a) => ({ ...v, pins: { ...v.pins, [a.family ?? "*"]: a.rep } }),
   "view.showRepresentation": (v, a, ctx) => ({ ...opened(v, "object", undefined, ctx), focus: { objectId: a.objectId, reps: [a.rep] } }),

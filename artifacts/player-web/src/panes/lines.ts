@@ -99,7 +99,7 @@ export function whyLine(v: { rarity: number; want: number }, main: { sentence?: 
   const only = onlyYouNote(v.rarity, v.want, one);
   const head = `${scoreFormula(v.rarity, v.want, approx)}.${only ? ` ${only}` : ""}`;
   if (main.worst) return `${head} This ${one} does not score for your rule: ${main.worst}.`;
-  return main.sentence ? `${head} Main part: ${main.sentence.replace(/\.$/, "")}.` : head;
+  return main.sentence ? `${head} ${main.sentence.replace(/\.$/, "")}.` : head;
 }
 
 // ------------------------------------------------------------------ the goal card's parts

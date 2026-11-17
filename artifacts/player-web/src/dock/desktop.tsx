@@ -44,10 +44,10 @@ export function sameDock(a: DockNode | null, b: DockNode | null): boolean {
 }
 
 export default function DesktopDock({ phase }: { phase: GamePhase }) {
-  const { view } = useDockScope();
+  const { view, aiOff } = useDockScope();
   const rt = useRuntime();
   const name = usePaneName();
-  const tree = useMemo(() => dockFor(view, phase), [view.panes, view.dock, phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  const tree = useMemo(() => { const t = dockFor(view, phase); return aiOff && t ? dockWithout(t, p => p === "assistant") : t; }, [view.panes, view.dock, phase, aiOff]); // eslint-disable-line react-hooks/exhaustive-deps
   const treeNow = useRef(tree);
   treeNow.current = tree;
   const viewNow = useRef(view);
