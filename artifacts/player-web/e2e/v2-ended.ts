@@ -244,7 +244,9 @@ async function endedGame(page: Page, preset: string, noun: string) {
 
   // The same URL, opened again, serves the replay.
   await page.goto(gameUrl);
-  await page.locator('[data-testid="pane-timeline"] [data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 30_000 });
+  // The panes opened above share the bottom row with the Timeline as tabs: it is there, in front or behind one.
+  await page.getByTestId("text-phase").getByText(/replay/i).waitFor({ timeout: 30_000 });
+  await page.getByTestId("tab-timeline").or(page.getByTestId("pane-timeline")).first().waitFor({ timeout: 30_000 });
   ok("replay at the same URL");
   console.log(`${label}: after the end: ${checked.join(", ")}`);
 }

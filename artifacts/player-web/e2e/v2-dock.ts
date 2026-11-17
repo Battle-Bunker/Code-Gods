@@ -275,7 +275,9 @@ try {
     // My agents in a replay lists the watched player's agents from the record (no live work line to measure).
     // At 720 px tall the goal and the leaderboard share the top two thirds of the dock (176 px each, under the 220 the
     // other screens give them): the Timeline's row is the replay's, and a room without AI has no assistant row to take.
-    await usable(page, viewport.height >= 1000 ? ["my-card", "race", "objects", "timeline"] : ["objects", "timeline"], `${label} replay`);
+    await usable(page, viewport.height >= 1000 ? ["my-card", "race", "objects", "timeline"] : ["objects"], `${label} replay`);
+    // At 720 the Timeline's row is 173 px: its play button and slider are in view (the events scroll under them).
+    for (const sel of KEY.timeline!) assert.ok(await page.getByTestId("pane-timeline").locator([sel].flat()[0]!).first().isVisible(), `${label}: the Timeline's ${sel} is in view`);
     await page.getByTestId("pane-agents").waitFor();
     await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-replay.png`) });
     // How the game went is a pane away (any pane's menu).
