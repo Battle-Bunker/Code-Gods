@@ -78,7 +78,7 @@ test("an arrangement made in planning meets the world's defaults when the world 
   const planning = { panes: [{ pane: "forge", place: "main" as const }, { pane: "my-card", place: "left" as const }] };
   const live = shownPanes(planning, "live").map(p => p.pane);
   assert.ok(live.includes("objects") && live.includes("agents") && live.includes("race"), "the lines, the agents and the leaderboard appear");
-  assert.ok(live.includes("forge"), "the player's own pane stays");
+  assert.ok(!live.includes("forge"), "the planning screen's agent code stays behind (it came along as a tab inside the live panes)");
   assert.ok(!shownPanes(planning, "ended").some(p => p.pane === "forge"), "no forge after the end");
 });
 
@@ -98,7 +98,7 @@ test("an arrangement made after a game's end meets the planning defaults when th
   const ended = { panes: [{ pane: "results", place: "main" as const }, { pane: "my-card", place: "left" as const }, { pane: "assistant", place: "right" as const }] };
   const planning = shownPanes(ended, "planning").map(p => p.pane);
   for (const d of defaultPanes("planning")) assert.ok(planning.includes(d.pane), d.pane);
-  assert.ok(planning.includes("assistant"), "the player's own pane stays");
+  assert.ok(!planning.includes("assistant"), "another screen's default stays on its screen (the live screen's assistant)");
 });
 
 test("every stored pane shows: nothing is dropped to make room", () => {

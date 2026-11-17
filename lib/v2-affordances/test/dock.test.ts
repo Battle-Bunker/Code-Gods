@@ -59,13 +59,13 @@ test("moving or closing a pane takes it out of every arrangement; reopening an o
 test("opening a pane shows it on the screen in view and takes nothing away; one line opens below the lines", () => {
   // Catches: opening a pane evicting another (round 1: One line evicted What just changed).
   let v = applyView(EMPTY_VIEW, "view.openPane", { pane: "public-chat", place: "right" }, live).view;
-  assert.equal(formatDock(v.dock.live!), "column(row(column(my-card 50, race 50) 33, objects 37, agents|public-chat 30) 67, assistant 33)", "at a place: behind the tab there");
+  assert.equal(formatDock(v.dock.live!), "column(row(column(my-card 50, race 50) 33, objects 37, column(agents 50, public-chat 50) 30) 67, assistant 33)", "at a place: beside the pane there, never a tab");
   v = applyView(v, "view.openPane", { pane: "public-chat" }, live).view;
   const tree = v.dock.live!;
   assert.deepEqual(dockPanes(tree).filter(p => p !== "public-chat"), dockPanes(defaultDock("live")), "every default pane stays");
-  assert.equal(formatDock(tree), "column(row(column(my-card 50, race 50) 33, objects 37, agents|*public-chat 30) 67, assistant 33)");
+  assert.equal(formatDock(tree), "column(row(column(my-card 50, race 50) 33, objects 37, column(agents 50, public-chat 50) 30) 67, assistant 33)");
   v = applyView(v, "view.openObject", { objectId: "o1" }, live).view;
-  assert.equal(formatDock(v.dock.live!), "column(row(column(my-card 50, race 50) 33, column(objects 45, object 55) 37, agents|*public-chat 30) 67, assistant 33)");
+  assert.equal(formatDock(v.dock.live!), "column(row(column(my-card 50, race 50) 33, column(objects 45, object 55) 37, column(agents 50, public-chat 50) 30) 67, assistant 33)");
   const room = applyView(EMPTY_VIEW, "view.openPane", { pane: "rules" }, { ...live, context: "room" }).view;
   assert.deepEqual(room.dock, {}, "the room page has no dock: the pane joins when a game shows it");
 });

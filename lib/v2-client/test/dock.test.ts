@@ -80,17 +80,18 @@ test("a whole game of changes leaves the next planning screen as it was, the age
   v = run(v, [{ id: "view.arrangeDock", args: { dock: "row(overview 20, my-card 30, forge 50)" } }], "planning");
   v = run(v, openPlan(v, "live", "public-chat"), "live");
   v = run(v, openPlan(v, "ended", "points-over-time"), "ended");
-  // Panes opened during the game that planning can show join behind the tabs in front; the assistant (open on the live
-  // screen by default) keeps a group of its own, below.
-  assert.equal(formatDock(dockFor(v, "planning")!), "row(overview 20, my-card 30, column(forge|objects|agents|public-chat 50, assistant 50) 50)");
+  // A pane the player opened during the game that planning can show joins beside the pane at its place, never as a tab;
+  // the live screen's defaults (the agents, the assistant) stay on the live screen.
+  assert.equal(formatDock(dockFor(v, "planning")!), "row(overview 20, my-card 30, column(forge 50, row(objects 50, public-chat 50) 50) 50)");
 });
 
-test("after the end the results keep their full height: panes carried from the live screen join behind tabs", () => {
+test("after the end the results stay in front: the live screen's defaults stay behind, a pane opened joins beside", () => {
   const v = run(EMPTY_VIEW, openPlan(EMPTY_VIEW, "live", "object"), "live");
   const ended = dockFor(v, "ended")!;
-  assert.deepEqual(visible(v, "ended").sort(), ["assistant", "my-card", "race", "results"]);
+  assert.deepEqual(visible(v, "ended").sort(), ["my-card", "object", "race", "results"]);
+  assert.equal(dockGroups(ended).length, dockPanes(ended).length, `no tabs: ${formatDock(ended)}`);
   const results = dockGroups(ended).find(l => l.group.tabs.includes("results"))!;
-  assert.ok(results.rect.h > 0.99 && results.group.active === "results", formatDock(ended));
+  assert.ok(results.rect.h >= 0.5 && results.group.active === "results", formatDock(ended));
 });
 
 test("a default closed in the next game's planning stays closed, and keeps its place on the live screen", () => {
@@ -100,9 +101,10 @@ test("a default closed in the next game's planning stays closed, and keeps its p
   v = run(v, openPlan(v, "live", "public-chat"), "live");
   v = run(v, closePlan(v, "planning", "overview"), "planning");
   assert.ok(!dockPanes(dockFor(v, "planning")).includes("overview"), formatDock(dockFor(v, "planning")!));
-  assert.deepEqual(dockPanes(dockFor(v, "planning")).sort(), ["agents", "assistant", "forge", "my-card", "objects", "public-chat"], "panes opened in the live game that planning can show stay");
+  assert.deepEqual(dockPanes(dockFor(v, "planning")).sort(), ["forge", "my-card", "objects", "public-chat"], "panes opened in the live game that planning can show stay");
   const live = formatDock(dockFor(v, "live")!);
-  assert.ok(/agents\|race\|/.test(live) && visible(v, "live").includes("objects"), live);
+  // The human's own tab (agents|race) is theirs; the pane opened since joins beside, not as a tab.
+  assert.ok(/agents\|race\b/.test(live) && !/race\|/.test(live) && visible(v, "live").includes("objects"), live);
 });
 
 test("opening a pane does not bring the screen's other panes in front of the tabs the human chose", () => {
@@ -124,7 +126,7 @@ test("a spectator's default is v1's: the leaderboard, the lines and public chat,
   // Opening a pane keeps what the spectator sees (the ops are planned from the same view).
   const shown = viewerView(EMPTY_VIEW, "live", false);
   const opened = run(EMPTY_VIEW, [...spectatorArrange(EMPTY_VIEW, "live", false), ...openPlan(shown, "live", "rules")], "live");
-  assert.equal(formatDock(dockFor(opened, "live")!), "row(race 28, objects|*rules 44, public-chat 28)", "the spectator's screen kept; the pane opened in front at its home");
+  assert.equal(formatDock(dockFor(opened, "live")!), "row(race 28, column(objects 50, rules 50) 44, public-chat 28)", "the spectator's screen kept; the pane opened beside the pane at its home");
   assert.deepEqual(spectatorArrange(opened, "live", false), [], "stored once");
 });
 
@@ -138,4 +140,15 @@ test("a pane dropped onto another's centre replaces it (v1 stored-panels: no tab
   const tabbed = parseDock("row(my-card|agents 30, objects 40, column(feed 50, race 50) 30)");
   assert.deepEqual(droppedOnto(tabbed, parseDock("row(my-card|agents 30, objects|*race 40, feed 30)")), ["objects"]);
   assert.deepEqual(droppedOnto(tabbed, parseDock("row(*my-card|agents|race 30, objects 40, feed 30)")), ["my-card", "agents"]);
+});
+
+test("the world starting after a summon in planning gives the live screen's default, with no tabs (the owner saw tabs)", () => {
+  // "Summon my first agent" stores the planning panes (the next step, the agent code); they stay on the planning screen.
+  const planning = run(EMPTY_VIEW, openPlan(EMPTY_VIEW, "planning", "forge"), "planning");
+  assert.equal(formatDock(dockFor(planning, "live")!), formatDock(dockFor(EMPTY_VIEW, "live")!));
+  assert.ok(!formatDock(dockFor(planning, "live")!).includes("|"));
+  // A pane the player opened in planning comes along, beside the pane at its place, not as a tab.
+  const chat = run(planning, openPlan(planning, "planning", "public-chat"), "planning");
+  const live = dockFor(chat, "live")!;
+  assert.ok(dockPanes(live).includes("public-chat") && !formatDock(live).includes("|"), formatDock(live));
 });

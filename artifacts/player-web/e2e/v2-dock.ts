@@ -174,6 +174,8 @@ try {
     await page.locator("[data-testid^=marks-line-]").first().waitFor({ timeout: 30_000 });
     await usable(page, ["my-card", "objects", "agents", "race"], `${label} live`);
     await ownersLayout(page, label);
+    // The planning screen's panes (stored by "Summon my first agent") stay behind: no tabs in the live default.
+    assert.ok(!(await dockText(page)).includes("|"), `${label}: no tabs when the world starts: ${await dockText(page)}`);
     await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-live.png`) });
     console.log(`${label}: planning and live defaults usable: ${await dockText(page)}`);
 
