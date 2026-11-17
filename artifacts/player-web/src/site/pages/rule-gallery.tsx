@@ -4,6 +4,7 @@
  * or server read. The gallery lists the rules a board deals; a rule's page shows its card for the chosen numbers and
  * tie-breaker, its parts, the views it reads and the goal card's worked example with its rarity in bits.
  */
+import { RuleCode } from "@/components/rule-code";
 import { useEffect, useMemo } from "react";
 import { Link, useLocation, useParams, useSearch } from "wouter";
 import { GoalCard, workedExample } from "@workspace/v2-views";
@@ -124,6 +125,7 @@ export function RuleFamily() {
             </div>
             <div className="min-w-0 border bg-card p-3 md:p-4" data-testid="goal-card">
               <GoalCard rule={page.rule} example={example} />
+              <RuleCode familyId={page.rule.family.id} params={page.rule.params} />
               <p className="mt-2 text-xs text-muted-foreground">In a game, your own {word.many} also show their energy in bits: what reaching one at least that good costs from a random {word.one} of its size.</p>
             </div>
           </div>

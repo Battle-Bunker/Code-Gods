@@ -4,6 +4,7 @@
  * 23: no steps); then a worked example (the family's own, else the most legible from a seeded walk: lib/v2-views example.ts); and the rule's
  * parts named "(main part, tie-breaker)" (ux-lessons 2.6).
  */
+import { RuleCode } from "@/components/rule-code";
 import { useMemo, useState } from "react";
 import { DriftOnCard } from "./drift";
 import { GoalCard, randomExample, rarityScale, workedExample } from "@workspace/v2-views";
@@ -73,6 +74,7 @@ function Card({ rule, parts, value }: { rule: GameRule; parts: number; value: ((
   return (
     <div className="space-y-2 p-3" data-testid="goal-card">
       <GoalCard rule={rule} example={example} mine={mine} value={value ?? undefined} exampleOpen={false} exampleTools={tools} scale={scale} />
+      <RuleCode familyId={rule.family.id} params={rule.params} />
       {/* How the parts rank, behind "more" (round 27: the card read 52 words before anything else). */}
       {note && (
         <details className="text-xs text-muted-foreground" data-testid="details-rule-parts">
@@ -93,7 +95,7 @@ function SeatedCard() {
       <div className="space-y-1 p-4 text-sm" data-testid="goal-card">
         <p className="font-semibold">{my.row.title}</p>
         <p>{my.row.card}</p>
-        <p className="text-muted-foreground">Reload the page to see your rule drawn with a worked example.</p>
+        <p className="text-muted-foreground" data-testid="text-rule-retired">This game's rule has since been retired from the game: its drawing and scores are no longer available.</p>
       </div>
     );
   }
