@@ -8,6 +8,7 @@
 // lines were good for both (min energy ≥ GOOD bits), the cheapest one-turn route to a good-for-both line, and the pull:
 // from the best line, how much each rule's own best one-turn candidate costs the other rule's energy.
 // Usage: node --experimental-strip-types scripts/interaction-check.ts [pairs|triples|approach] [DRAWS] [NEWBORNS] [FROM]
+// (ONLY="a+b;c+d" runs just those groups, by rule ids.)
 import { physicsOf, rng as makeRng, type Rng } from "@workspace/v2-core";
 import { lineQ as V } from "../test/config.ts";
 import { dynamicFamilies, estimateLine, isVertical, lensById, lensMoves, lineRule, routePrice, type Line, type LineRule } from "../src/index.ts";
@@ -78,8 +79,8 @@ if (mode === "pairs" || mode === "triples") {
   console.log(`| rules | good-for-all lines (distinct / runs) | best joint line: energies | its cost, turns | cheapest good-for-all turn from a newborn: energies / cost | pull: own move's loss to the other(s), bits |`);
   console.log("|---|---|---|---|---|---|");
   // Resume: skip the first FROM groups (their parameter draws then differ from an unbroken run).
-  const FROM = Number(process.argv[5] ?? 0);
-  for (const G of groups.slice(FROM)) {
+  const FROM = Number(process.argv[5] ?? 0), ONLY = process.env.ONLY?.split(";").map(g => g.split("+").sort().join("+"));
+  for (const G of groups.slice(FROM).filter(G => !ONLY || ONLY.includes(G.map(F => F.id).sort().join("+")))) {
     const good = new Set<string>(); let runs = 0, bestAll: { e: number[]; paid: number; turns: number; j: number } | null = null;
     let cheapest: { e: number[]; c: number; ratio: number } | null = null;
     const pulls: number[][] = G.map(() => []);
