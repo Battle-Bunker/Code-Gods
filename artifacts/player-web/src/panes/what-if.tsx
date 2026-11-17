@@ -36,6 +36,8 @@ function Tryout({ rule, my, state, want, sites, testPrefix = "", objectId }: { r
   const choice = choices.find(c => c.id === id) ?? choices[0]!;
   const [args, setArgs] = useState<Record<string, string>>(() => defaults(choice));
   const [site, setSite] = useState(0);
+  // The moves already in this turn (one lens per turn); the form adds the next.
+  const [steps, setSteps] = useState<{ mutator: string; site: number; args: Record<string, string> }[]>([]);
   const pick = (next: string) => { const c = choices.find(x => x.id === next)!; setId(next); setArgs(defaults(c)); };
   const bad = formError(choice.args, args);
   const bits = my.bits;
@@ -44,8 +46,8 @@ function Tryout({ rule, my, state, want, sites, testPrefix = "", objectId }: { r
   const out = useMemo(() => {
     if (bad) return null;
     const wire = wireArgs(choice.args, args);
-    return whatIf({ rule, state, call: { mutator: choice.id, site, args: wire }, value: bits, want }, before);
-  }, [rule, state, choice, args, site, bits, want, bad?.[1], before]); // eslint-disable-line react-hooks/exhaustive-deps
+    return whatIf({ rule, state, steps, call: { mutator: choice.id, site, args: wire }, value: bits, want }, before);
+  }, [rule, state, choice, args, site, bits, want, bad?.[1], before, steps]); // eslint-disable-line react-hooks/exhaustive-deps
   const groups = [...new Set(choices.map(c => c.repTitle))];
   return (
     <div className="space-y-3">
@@ -87,6 +89,10 @@ function Tryout({ rule, my, state, want, sites, testPrefix = "", objectId }: { r
         : out && !out.ok ? <p className="text-sm text-destructive" data-testid={tid("text-what-if-error")}>This change is not allowed: {out.reason}.</p>
         : out && out.ok ? (
           <div className="space-y-2 border-t pt-3 text-sm" data-testid={tid("what-if-result")}>
+            <div className="flex flex-wrap gap-3 text-xs">
+              <button type="button" className="underline underline-offset-4" onClick={() => setSteps([...steps, { mutator: choice.id, site, args: wireArgs(choice.args, args) }])} data-testid={tid("button-what-if-add-step")}>Add another move to this turn</button>
+              {steps.length > 0 && <button type="button" className="underline underline-offset-4" onClick={() => setSteps([])} data-testid={tid("button-what-if-clear-steps")}>Start the turn again ({steps.length} move{steps.length === 1 ? "" : "s"} before this one)</button>}
+            </div>
             <p data-testid={tid("text-what-if-after")}>It would {out.what}: <ObjectChip type={rule.type} state={out.after} sites={sites} /></p>
             {/* A lens move (turn, fold, swap, lean, zoom) drawn on the plane and said in plain words; other moves draw nothing. */}
             {rule.type.id === "line" && (
