@@ -38,8 +38,9 @@ function score(m, c, p, tie) {
   const g = gcdB(gcdB(ab(a), b), ab(cc));
   a /= g; b /= g; cc /= g;
   const top = [a, b, cc].reduce((t, x) => (ab(x) > t ? ab(x) : t), 0n);
-  if (top >= BigInt(LIMIT)) return null;
-  const main = Math.log2(Number(top)) - 2 * (Math.abs(Number(b - a) - p.k) + Math.abs(Number(cc - b) - p.k));
+  if (top === 0n) return null;
+  const lg = n => { const L = n.toString(2).length; return L <= 52 ? Math.log2(Number(n)) : Math.log2(Number(n >> BigInt(L - 52))) + (L - 52); };   // log2 of a whole number, any size
+  const main = lg(top) - 2 * (Number(ab(b - a - BigInt(p.k))) + Number(ab(cc - b - BigInt(p.k))));
   // main: binary digits of the biggest of a, b, c, less twice how far each step is from d
   return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     return null;

@@ -36,7 +36,7 @@ function gcdB(a, b) { while (b !== 0n) [a, b] = [b, a % b]; return a; }
 // How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   const ab = x => (x < 0n ? -x : x), t = ab(m.n), d = m.d, xs = [1n, BigInt(p.k)];   // the sequence 1, a, …
-  while (xs[xs.length - 1] <= d * 2n + 2n && xs.length < 400) xs.push(BigInt(p.k) * xs[xs.length - 1] + xs[xs.length - 2]);
+  while (xs[xs.length - 1] <= d * 2n + 2n) xs.push(BigInt(p.k) * xs[xs.length - 1] + xs[xs.length - 2]);
   let n = 0;                                        // the term nearest the bottom
   for (let i = 1; i < xs.length - 1; i++) if (ab(xs[i] - d) < ab(xs[n] - d)) n = i;
   const main = n - 2 * Math.log2(Number(1n + ab(d - xs[n]))) - 2 * Math.log2(Number(1n + ab(t - xs[n + 1])));

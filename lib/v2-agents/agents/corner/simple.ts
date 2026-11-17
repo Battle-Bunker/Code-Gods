@@ -35,10 +35,12 @@ function gcdB(a, b) { while (b !== 0n) [a, b] = [b, a % b]; return a; }
 
 // How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
-  const A = 2 * p.k * Number(m.n < 0n ? -m.n : m.n) * Number(m.d);   // 2n × top × bottom
-  if (A === 0 || A > 2 ** 100) return null;
-  const s = Math.round(Math.sqrt(A));
-  const main = 0.5 * Math.log2(A) - Math.log2(1 + Math.abs(A - s * s));
+  const lg = n => { const L = n.toString(2).length; return L <= 52 ? Math.log2(Number(n)) : Math.log2(Number(n >> BigInt(L - 52))) + (L - 52); };   // log2 of a whole number, any size
+  const isq = n => { if (n < 2n) return n; let x = 1n << BigInt(Math.ceil(n.toString(2).length / 2)); for (;;) { const y = (x + n / x) >> 1n; if (y >= x) break; x = y; } while (x * x > n) x--; return x; };   // the whole square root
+  const A = 2n * BigInt(p.k) * (m.n < 0n ? -m.n : m.n) * m.d;   // 2n × top × bottom
+  if (A === 0n) return null;
+  const s = isq(A), d0 = A - s * s, d1 = (s + 1n) * (s + 1n) - A;   // the squares either side
+  const main = 0.5 * lg(A) - lg(1n + (d0 < d1 ? d0 : d1));
   // main: half the binary digits of 2n × top × bottom, less those of its distance from a square
   return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     return null;

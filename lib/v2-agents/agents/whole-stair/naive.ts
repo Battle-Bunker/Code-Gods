@@ -32,10 +32,12 @@ function gcdB(a, b) { while (b !== 0n) [a, b] = [b, a % b]; return a; }
 
 // How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
-  const rise = Number(m.n < 0n ? -m.n : m.n), run = Number(m.d), h2 = rise * rise + run * run;
-  if (rise === 0 || h2 > 2 ** 100) return null;
-  const s = Math.round(Math.sqrt(h2 / p.k));
-  const main = 0.5 * Math.log2(h2) - Math.log2(1 + Math.abs(h2 - p.k * s * s));
+  const lg = n => { const L = n.toString(2).length; return L <= 52 ? Math.log2(Number(n)) : Math.log2(Number(n >> BigInt(L - 52))) + (L - 52); };   // log2 of a whole number, any size
+  const isq = n => { if (n < 2n) return n; let x = 1n << BigInt(Math.ceil(n.toString(2).length / 2)); for (;;) { const y = (x + n / x) >> 1n; if (y >= x) break; x = y; } while (x * x > n) x--; return x; };   // the whole square root
+  const rise = m.n < 0n ? -m.n : m.n, run = m.d, h2 = rise * rise + run * run, N = BigInt(p.k);
+  if (rise === 0n) return null;
+  const c0 = isq(h2 / N), d0 = h2 - N * c0 * c0, d1 = N * (c0 + 1n) * (c0 + 1n) - h2;   // the n × squares either side
+  const main = 0.5 * lg(h2) - lg(1n + (d0 < d1 ? d0 : d1));
   // main: half the binary digits of rise² + run², less those of its distance from n times a square
   return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     return null;

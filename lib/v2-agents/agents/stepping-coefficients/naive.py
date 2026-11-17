@@ -76,7 +76,7 @@ def score(m, c, p, tie):
     g = math.gcd(math.gcd(abs(a), b), abs(cc))
     a, b, cc = a // g, b // g, cc // g
     top = max(abs(a), abs(b), abs(cc))
-    if top >= LIMIT:
+    if top == 0:
         return None
     main = math.log2(top) - 2 * (abs((b - a) - p["k"]) + abs((cc - b) - p["k"]))
     # main: binary digits of the biggest of a, b, c, less twice how far each step is from d

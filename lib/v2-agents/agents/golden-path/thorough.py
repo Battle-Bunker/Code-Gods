@@ -74,7 +74,7 @@ def factors_n(n):
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     n, d, k, i, on = abs(m.numerator), m.denominator, 0, 0, True   # the gradient's continued fraction, step by step
-    while d != 0 and i < 200:
+    while d != 0:
         a = n // d
         if on and a == int(p["word"][i % len(p["word"])]):
             k += 1

@@ -73,11 +73,11 @@ def factors_n(n):
 
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
-    A = 2 * p["k"] * float(abs(m.numerator)) * float(m.denominator)   # 2n × top × bottom
-    if A == 0 or A > 2 ** 100:
+    A = 2 * p["k"] * abs(m.numerator) * m.denominator   # 2n × top × bottom
+    if A == 0:
         return None
-    s = math.floor(math.sqrt(A) + 0.5)
-    main = 0.5 * math.log2(A) - math.log2(1 + abs(A - s * s))
+    s = math.isqrt(A)   # the squares either side
+    main = 0.5 * math.log2(A) - math.log2(1 + min(A - s * s, (s + 1) * (s + 1) - A))
     # main: half the binary digits of 2n × top × bottom, less those of its distance from a square
     def tier(t):   # each secondary, in order (None: ranks last)
         return None   # none described (a family with no tie-breakers)
