@@ -894,6 +894,24 @@ back) or TRIAL (a declared experiment, measured and reported).
     linear in the digits (grid-params.md §14). The preset was a v2 invention, not part of the original baseline.
     Divisibility and Leading Digits keep their code and values, undealt, for the grid design session.
 
+40. **TRIAL** (the coordinator's, 17 Nov, carried out by the energy worker; not the owner's decision): **Unit
+    Fraction, Prime Sliver and Crossing Sliver rewritten as fine-structure rules** (lib/v2-linear dynamic-families.ts;
+    energy.md, "Fine structure").
+    - **Motivation.** Under the 17 Nov energy measure their good lines cost 0–0.3 bits: 69–72 of 72 same-size starts
+      were already as good, because the old formulas (1/n nearest the reading, less 4 × the distance off) barely tell
+      1/4999 from 1/5003. They were size-only rules in disguise. The owner wants "rules in terms of the structure of
+      rational numbers that grow in utility and energy in fine structure rather than magnitude ... a fractal space of
+      values where there are multiple directions to go towards greater complexity".
+    - **The rules.** Unit Fraction: the y-intercept's bottom ends in the dealt digits repeated (1 per matching last
+      digit) and its top is 1 (less (|top| − 1)³). Prime Sliver: the gradient's bottom is a power of a dealt prime p
+      (e·log2 p, less the binary digits of the rest of the bottom and of the top). Crossing Pattern (id
+      crossing-sliver): the x-crossing's continued fraction follows a dealt pattern of whole parts 1–4 (1 per leading
+      match, less ¼ per whole part after the first miss).
+    - **Effects (seen narrowly: one line per depth, K = 12, three seeds).** Energy rises with depth: Unit Fraction 11
+      to 57 bits (1 to 8 matching digits), Prime Sliver 6 to 41 (3¹ to 3¹²), Crossing Pattern 6 to 46 (4 to 16
+      matching whole parts); at most 1 of 12 same-size starts qualifies at the deepest state tested. Not yet measured:
+      how the rules play against the others in a game.
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.
