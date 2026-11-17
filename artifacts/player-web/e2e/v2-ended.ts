@@ -4,7 +4,8 @@
  * grids, is played to its natural end at desktop against the LIVE local engine; then every pane of the ended game is
  * opened from the dock's own pane menu and must hold its content: the goal, the objects and one object with its views,
  * the act log and the public log (now naming who moved), the agents and their code, the chat, the leaderboard, the
- * assistant, the charts and the rules. The same URL then serves the replay.
+ * assistant, the charts and the rules. An ended game is its replay (v1): the screen becomes it at the end, without a
+ * reload, and the same URL opened again serves it.
  *
  *   pnpm --filter @workspace/player-web run e2e:ended        (SKIP_DEPLOY=1 reuses the uploaded build)
  */
@@ -101,9 +102,12 @@ async function endedGame(page: Page, preset: string, noun: string) {
   await chat.getByTestId("input-chat").fill(said);
   await chat.getByTestId("button-send-chat").click();
   await chat.getByText(said).waitFor({ timeout: 15_000 });
-  await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
-  await page.getByTestId("pane-results").getByText(/You finished \S+ of 3 with/).waitFor({ timeout: 20_000 });
-  console.log(`${label}: the game ended`);
+  // At the end the screen becomes the replay in this document: the Timeline in the assistant's place.
+  await page.evaluate(() => { (window as unknown as { sameDoc: boolean }).sameDoc = true; });
+  await page.locator('[data-testid="pane-timeline"] [data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 180_000 });
+  assert.ok(await page.evaluate(() => (window as unknown as { sameDoc?: boolean }).sameDoc), `${label}: the replay opened without a reload`);
+  assert.equal(await page.getByTestId("pane-assistant").count(), 0, `${label}: the Timeline stands in the assistant's place`);
+  console.log(`${label}: the game ended and its replay opened`);
 
   const checked: string[] = [];
   const ok = (pane: string) => checked.push(pane);
@@ -226,16 +230,16 @@ async function endedGame(page: Page, preset: string, noun: string) {
   await noErrors("every pane");
   await page.screenshot({ path: path.join(shots, `ended-${label}.png`) });
 
-  // The same URL serves the replay.
-  await page.goto(`${gameUrl}?replay`);
-  await page.locator('[data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 30_000 });
+  // The same URL, opened again, serves the replay.
+  await page.goto(gameUrl);
+  await page.locator('[data-testid="pane-timeline"] [data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 30_000 });
   ok("replay at the same URL");
   console.log(`${label}: after the end: ${checked.join(", ")}`);
 }
 
 /**
- * A phone after the buzzer (playtest round 26, 08): the page opens at "How the game went", scrolling up from the bottom
- * never jumps back, "What earned your points" can be reached, and "See it line by line" opens Lines.
+ * A phone after the buzzer (playtest round 26, 08): the replay with its Timeline, "How the game went" from a pane's
+ * menu, scrolling up from the bottom never jumps back, "What earned your points" can be reached, and "See it line by line" opens Lines.
  */
 async function phoneEnd(browser: any) {
   const { context, page, errors } = await signIn(browser, "bob", { width: 390, height: 844 });
@@ -248,10 +252,12 @@ async function phoneEnd(browser: any) {
   await page.getByTestId("text-forge-status").getByText(/is summoned/).waitFor({ timeout: 60_000 });
   const startNow = page.getByTestId("button-start-world");
   if (await startNow.count()) { await startNow.click(); await startNow.click().catch(() => {}); }
-  await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
+  // At the end the phone shows the replay: its Timeline is on the page, and How the game went opens from a pane's menu.
   const scroller = page.getByTestId("dock-stacked");
+  await page.locator('[data-testid="pane-timeline"] [data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 180_000 });
+  await page.locator("[data-testid^=button-pane-menu-]").first().click();
+  await page.getByTestId("button-open-pane-results").click();
   await page.getByTestId("pane-results").getByText(/You finished/).waitFor({ timeout: 20_000 });
-  assert.equal(await scroller.evaluate((el: HTMLElement) => el.scrollTop), 0, "phone: the end opens at How the game went");
   await page.getByTestId("text-summary-next").waitFor({ timeout: 15_000 });
   // The playtester's steps (round 26/27): the top bar's "See it line by line", then "How the game went" from the row of
   // pane names, then the mouse wheel at the centre of the screen, 700 px at a time.
@@ -278,7 +284,7 @@ async function phoneEnd(browser: any) {
   await page.screenshot({ path: path.join(shots, "ended-phone.png") });
   assert.deepEqual(errors, [], "phone: no page errors");
   await context.close();
-  console.log("phone: after the buzzer the page opens at the result, scrolls without jumping, and See it line by line opens Lines");
+  console.log("phone: after the buzzer the replay opens, the result is a pane away, scrolls without jumping, and See it line by line opens Lines");
 }
 
 const browser = await chromium.launch();

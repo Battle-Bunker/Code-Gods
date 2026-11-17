@@ -154,14 +154,14 @@ try {
       await a.getByTestId("button-end-game").click();
       await a.getByTestId("button-end-game-yes").click();
       for (const p of players) {
-        await p.page.getByTestId("text-phase").filter({ hasText: /ended/i }).waitFor({ timeout: 90_000 });
+        await p.page.getByTestId("text-phase").filter({ hasText: /ended|replay/i }).waitFor({ timeout: 90_000 });
         assert.equal(p.page.url().replace(/[?#].*$/, ""), gameUrl, `${p.who} left the game's page`);
       }
     });
 
-    await missing(["e2e-multi-client-10", "e2e-site-smoke-11"], "three humans: the ended game's page turns into its replay by itself (the replay transport, no click)", async () => {
-      // v2: the ended page leads with the results and a "Watch the replay" button; v1's page was the replay.
-      await b.getByTestId("replay-bar").waitFor({ timeout: 10_000 });
+    await check("three humans: the ended game's page turns into its replay by itself (the replay transport, no click)", async () => {
+      // As v1: the Timeline in the assistant's place, in the same document.
+      for (const p of players) await p.page.locator('[data-testid="pane-timeline"] [data-testid="replay-bar"]').waitFor({ timeout: 60_000 });
     });
 
     await check("three humans: each reads the results (headline, exact totals, standings)", async () => {
@@ -210,9 +210,7 @@ try {
       await c.getByTestId(`link-past-game-${gameId}`).click();
       await c.waitForURL(GAME_URL);
       await c.reload();
-      // v2: the replay opens from the ended page's "Watch the replay".
-      if (!await c.getByTestId("replay-bar").count()) await c.getByTestId("button-watch-replay").first().click({ timeout: 30_000 });
-      await c.getByTestId("replay-bar").waitFor({ timeout: 60_000 });
+      await c.locator('[data-testid="pane-timeline"] [data-testid="replay-bar"]').waitFor({ timeout: 60_000 });
       await c.getByTestId("input-replay-seek").waitFor();
     });
 

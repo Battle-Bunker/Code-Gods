@@ -1,9 +1,9 @@
 /**
  * The desktop dock gives every open pane a usable size (playtest round 1, item 1), against the LIVE local engine. At
  * 1920×1080 and 1280×720, in a practice game:
- *   planning, live and ended: every pane of the default arrangement has a body at least 300 px wide and 220 px tall and
+ *   planning, live and the ended game's replay: every pane of the default arrangement has a body at least 300 px wide and 220 px tall and
  *   its key elements (the goal card's rule, the lines' sort, the act log, the agent's stats line,
- *   the leaderboard's chart, the results' headline and "Watch the replay") lie wholly inside the pane, inside the window → pointing at a line shows its detail over the list (the dock unchanged)
+ *   the leaderboard's chart, the Timeline's play button and slider, the results' headline) lie wholly inside the pane, inside the window → pointing at a line shows its detail over the list (the dock unchanged)
  *   → a dragged gutter is stored and comes back after a reload.
  * At 390×844 the phone stays stacked, and the forge's "Open My agents" adds My agents to the stack (every other pane
  * stays in the jump row) and scrolls to it (a persona walk saw it replace the stack with Lines).
@@ -81,7 +81,9 @@ const KEY: Record<string, string | string[]> = {
   // The agent's stats line (energy, moves, skips, failures, spend, points: round 2 saw it cut at 1440×900).
   agents: "[data-testid^=text-agent-work-]",
   race: "[data-testid=race-chart], [data-testid=race-empty]",
-  results: ["[data-testid=text-results-headline]", "[data-testid=button-watch-replay]"],
+  results: ["[data-testid=text-results-headline]"],
+  // The replay's play button and slider (the Timeline in the assistant's place).
+  timeline: ["[data-testid=button-replay-play], [data-testid=button-replay-pause]", "[data-testid=input-replay-seek]"],
 };
 
 /** Every pane named is on screen with a usable body, and its key element is wholly inside it. */
@@ -264,11 +266,15 @@ try {
       await page.locator(`[data-testid=dock-desktop]${want}`).waitFor({ timeout: 5_000 });
     }
 
-    await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
+    // An ended game is its replay (v1): the owner's layout with the Timeline in the assistant's place.
+    await page.locator('[data-testid="pane-timeline"] [data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 180_000 });
+    console.log(`${label}: replay dock: ${await dockText(page)}`);
+    await usable(page, ["my-card", "race", "objects", "agents", "timeline"], `${label} replay`);
+    await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-replay.png`) });
+    // How the game went is a pane away (any pane's menu).
+    await page.locator("[data-testid^=button-pane-menu-]").first().click();
+    await page.getByTestId("button-open-pane-results").click();
     await page.getByTestId("pane-results").getByText(/You finished/).waitFor({ timeout: 20_000 });
-    console.log(`${label}: ended dock: ${await dockText(page)}`);
-    await usable(page, ["results", "my-card", "race"], `${label} ended`);
-    await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-ended.png`) });
     // Opening a pane never hides the one acted from: from Results, open the line-by-line list; Results stays in view.
     const endedDock = await dockText(page);
     await page.getByTestId("pane-results").getByTestId("button-line-by-line-results").click();

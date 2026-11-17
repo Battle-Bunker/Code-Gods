@@ -198,10 +198,13 @@ try {
       await page.waitForURL(`${SITE}/rooms/${room}/games/1?panels=on#top`);
       await page.getByTestId("text-my-total").getByText(/points/).waitFor();   // "…" until the standings arrive
       assert.match(await page.getByTestId("text-my-energy").innerText(), /^Energy [\d,]+\.\d\d/);
-      for (const pane of ["objects", "my-card", "feed", "agents", "race"]) await page.getByTestId(`pane-${pane}`).waitFor();
+      // The owner's layout (17 November); the act log ("What just changed") is a pane away.
+      for (const pane of ["objects", "my-card", "agents", "race"]) await page.getByTestId(`pane-${pane}`).waitFor();
       const row = page.locator("[data-testid^=row-line-]").first();
       await row.waitFor();
       await page.locator("[data-testid^=marks-line-]").first().waitFor();   // each row's face arrives with its own subscription
+      await page.locator("[data-testid^=button-pane-menu-]").first().click();
+      await page.getByTestId("button-open-pane-feed").click();
       await page.getByTestId("pane-feed").getByText(/Your agent\b/).first().waitFor();   // \b: not the folded table's "Your agents' move"
       const feed = await page.getByTestId("pane-feed").innerText();
       assert.match(feed, /Your agent/);
