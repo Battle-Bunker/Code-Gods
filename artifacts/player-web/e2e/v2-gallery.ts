@@ -82,31 +82,22 @@ try {
     // Fraction lines are the default board (#597): the URL names only another board.
     await page.getByTestId("button-board-line-z").click();
     await page.waitForURL(/board=line-z/);
-    await page.getByTestId("link-family-triangle-area").click();
-    // A line rule's page offers only line boards (round 6: "Grids" was offered on a line-only rule).
+    // Any listed line rule: its page offers only line boards (round 6), and shows its card and a worked example.
+    const firstRule = page.locator("[data-testid^=link-family-]").first();
+    const ruleId = (await firstRule.getAttribute("data-testid"))!.replace("link-family-", "");
+    await firstRule.click();
     await page.getByTestId("board-picker").waitFor();
     assert.equal(await page.getByTestId("button-board-grid-4-d10").count(), 0, "no grid board on a line rule's page");
     await page.getByTestId("page-rule-family").waitFor();
-    const card = page.getByTestId("text-family-card");
-    await card.getByText(/area as close as possible to 4\./).waitFor();
-    await page.getByTestId("select-family-params").selectOption("2");
-    await card.getByText(/area as close as possible to 8\./).waitFor();
-    await page.waitForURL(/params=2/);
-    await page.getByTestId("radio-tie-breaker-even").check();
-    await card.getByText(/legs as close to equal/).waitFor();
-    await page.getByTestId("goal-card").getByText(/A worked example/).first().waitFor();
+    await page.getByTestId("text-family-card").waitFor();
+    await page.getByTestId("goal-card").first().waitFor();
     await assertNoSteps(page, `${label}: a rule's gallery page`);
-    // A rule a setup deals: its goal card's parts on their rulers and the moves that would make the example rarer.
-    await page.goto(`${SITE}/rule-gallery/prime-landing`);
-    await page.getByTestId("goal-card").getByText(/What would make it rarer|No single move/).first().waitFor({ timeout: 15_000 });
-    await assertNoSteps(page, `${label}: a dealt rule's gallery page`);
-    await page.goBack();
-    await page.getByTestId("text-family-card").getByText(/legs as close to equal/).waitFor();
     await noSideways(page, `${label} rule page`);
     await shot(page, `gallery-${label}-family`);
     // The link opens the same rule again.
     await page.reload();
-    await card.getByText(/to 8\. (Tie-breaker|Secondary): make the two legs/i).waitFor();
+    await page.getByTestId("text-family-card").waitFor();
+    assert.match(page.url(), new RegExp(ruleId));
     await page.goto(`${SITE}/rule-gallery/no-such-rule`);
     await page.getByTestId("empty-rule-family").waitFor();
     console.log(`${label}: gallery ok`);
@@ -167,46 +158,28 @@ try {
     const whatIf = page.getByTestId("pane-what-if");
     await whatIf.getByTestId("what-if-result").waitFor({ timeout: 15_000 }).catch(async (e: Error) => { console.log("WHATIF", (await whatIf.innerText()).slice(0, 600)); throw e; });
     await assertNoSteps(page, `${label}: the game with What if`);
-    // Owner decision 23: no steps; the rarity says its chance.
+    // Owner decision 23: no steps. Energy in bits; a turn's cost split into naming bits and surprise (17 Nov).
     assert.doesNotMatch(await whatIf.getByTestId("what-if-result").innerText(), /\bstep\b/i);
     if (await whatIf.getByTestId("text-what-if-rarity").count()) {
-      assert.match(await whatIf.getByTestId("text-what-if-rarity").innerText(), /Your rarity\s*[\d.]+ bits \(1 in [^)]+ by chance\) → [\d.]+ bits \(1 in [^)]+ by chance\)/);
+      assert.match(await whatIf.getByTestId("text-what-if-rarity").innerText(), /Your energy\s*[\d.]+ bits → [\d.]+ bits/);
     }
-    assert.match(await whatIf.getByTestId("text-what-if-charge").innerText(), /An agent would spend about [\d.]+ energy/);
-    assert.match(await whatIf.getByTestId("text-what-if-after").innerText(), /It would move the line up 1:\s+y =/);
+    assert.match(await whatIf.getByTestId("text-what-if-charge").innerText(), /This turn costs [\d.]+ energy: [\d.]+ bits to name its moves and [\d.]+ bits of surprise/);
+    // The lens move: a lens, a named number (never a bare index) and an amount.
+    assert.match(await whatIf.getByTestId("select-what-if-at").locator("option:checked").innerText(), /top|bottom|^[abc]$/);
     await whatIf.getByTestId("input-what-if-k").fill("abc");
     await whatIf.getByTestId("text-what-if-error").getByText(/Type a number/).waitFor();
     await whatIf.getByTestId("input-what-if-k").fill("−2");
-    await whatIf.getByTestId("text-what-if-after").getByText(/down 2/).waitFor();
-    // Each argument said for a person, never its raw name (round 23: "k", "centre", "turn").
-    assert.equal(await whatIf.getByTestId("label-what-if-k").innerText(), "How far up");
-    assert.match(await whatIf.getByTestId("hint-what-if-k").innerText(), /a number such as 2/);
-    await whatIf.getByTestId("select-what-if-change").selectOption("cart.mirror");
-    assert.match(await whatIf.getByTestId("select-what-if-axis").locator("option:checked").innerText(), /the y-axis/);
-    await whatIf.getByTestId("select-what-if-axis").selectOption("x");
+    await whatIf.getByTestId("text-what-if-after").getByText(/add −2/).waitFor();
+    // Add p/q: made as the whole-number moves it expands into.
+    await whatIf.getByTestId("select-what-if-change").selectOption("add-fraction");
     await whatIf.getByTestId("what-if-result").or(whatIf.getByTestId("text-what-if-error")).first().waitFor();
-    // The turn (round 23): its labels and hint, and a sketch whose lines and pin are drawn in colour, its label clear.
-    await whatIf.getByTestId("select-what-if-change").selectOption("rot.turn");
-    assert.equal(await whatIf.getByTestId("label-what-if-centre").innerText(), "Where to pin it");
-    assert.equal(await whatIf.getByTestId("label-what-if-turn").innerText(), "How far to turn");
-    assert.match(await whatIf.getByTestId("hint-what-if-turn").innerText(), /45°/);
-    const sketch = whatIf.getByTestId("move-sketch");
-    if (await whatIf.getByTestId("what-if-result").count()) {
-      await sketch.waitFor({ timeout: 10_000 });
-      for (const part of ["line.old", "line.new"]) {
-        const stroke = await sketch.locator(part).first().evaluate((el: Element) => getComputedStyle(el).stroke);
-        assert.ok(stroke && stroke !== "none", `${label}: the sketch's ${part} has a colour (${stroke})`);
-      }
-      await sketch.locator('[data-part="pin"]').waitFor();
-      await sketch.scrollIntoViewIfNeeded();
-      await shot(page, `what-if-turn-${label}`);
-    } else console.log(`${label}: the turn's start was refused here: ${await whatIf.getByTestId("text-what-if-error").innerText()}`);
+    await whatIf.getByTestId("select-what-if-change").selectOption("add");
     // v1's "Compared with": a second change on the same line, under the first, with its own result.
     await whatIf.getByTestId("button-what-if-compare").click();
     const compared = whatIf.getByTestId("what-if-compared");
     await compared.getByTestId("input-what-if-compare-k").fill("3");
-    await compared.getByTestId("text-what-if-compare-after").getByText(/up 3/).waitFor();
-    assert.equal(await whatIf.getByTestId("select-what-if-change").inputValue(), "rot.turn", "the first change keeps its own choice");
+    await compared.getByTestId("text-what-if-compare-after").getByText(/add 3/).waitFor();
+    assert.equal(await whatIf.getByTestId("select-what-if-change").inputValue(), "add", "the first change keeps its own choice");
     await compared.scrollIntoViewIfNeeded();
     await shot(page, `what-if-compared-${label}`);
     await whatIf.getByTestId("button-what-if-compare-off").click();

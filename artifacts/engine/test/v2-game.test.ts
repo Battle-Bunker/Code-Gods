@@ -226,11 +226,12 @@ test("the stored replay: built once at the end, served only to a member with a J
 
 gameSuite("lines-beginner", lineType, variantOf("line-q"));
 gameSuite("grids-beginner", gridType, variantOf("grid-4-d10"));   // the dynamic grid rules (energy.md, Grids)
-// Two lines as one object (docs/engine-v2/two-line-systems.md) and the coloured boards: withheld since the value tables
-// went (17 Nov) until their rules are restated as utilities (deal.ts playable).
-test("lines-pairs and grids-original-colours are withheld: not listed, refused", async () => {
+// The coloured boards: withheld since the value tables went (17 Nov) until their rules are restated as utilities
+// (deal.ts playable). Two-line systems were deleted (v1-audit: STILL MISSING), so their setup no longer exists.
+test("grids-original-colours is withheld: not listed, refused; lines-pairs is gone", async () => {
   const [h] = await humans("withheld");
-  for (const preset of ["lines-pairs", "grids-original-colours"]) {
+  assert.ok(!(await h!.query("v2/setups:presets", {})).some((p: any) => p.id === "lines-pairs"), "lines-pairs not listed");
+  for (const preset of ["grids-original-colours"]) {
     const out = await perform(h!, "room.create", { name: preset, preset }).catch((e: any) => e.data);
     assert.match(out.error.message, /not playable yet/, preset);
     assert.ok(!(await h!.query("v2/setups:presets", {})).some((p: any) => p.id === preset), `${preset} not listed`);
