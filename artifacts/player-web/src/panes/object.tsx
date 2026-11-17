@@ -48,6 +48,8 @@ function FocusedLine({ objectId, reps, onReps }: { objectId: string; reps: reado
   const show = useAffordance("view.showRepresentation");
   const compare = useAffordance("view.compareRepresentations");
   const pin = useAffordance("view.pinRepresentation");
+  // From the overlay, "Try a change" makes this the object in focus (What if works on it) without opening One line.
+  const focusOn = useAffordance("view.openObject");
   const header = useGame();
   const worldNow = useWorldNow();
   const replaying = useReplaying();
@@ -152,7 +154,7 @@ function FocusedLine({ objectId, reps, onReps }: { objectId: string; reps: reado
         </ul>
       )}
       <ObjectLocks objectId={objectId} noun={word.one} retired={o.retiredAt !== undefined} />
-      <button type="button" className="mr-4 text-xs underline underline-offset-4" data-testid="button-open-what-if" onClick={() => void openPane("what-if")}>
+      <button type="button" className="mr-4 text-xs underline underline-offset-4" data-testid="button-open-what-if" onClick={() => void (onReps ? focusOn.run({ objectId, show: false }) : Promise.resolve()).then(() => openPane("what-if")).catch(failed("What if did not open"))}>
         Try a change on this {word.one}
       </button>
       {/* A deal, one press from the line it is about: the forge opens with the leave-alone control filled in. */}

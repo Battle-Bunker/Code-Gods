@@ -92,9 +92,9 @@ export const viewOps = [
   }),
   affordance({
     id: "view.openObject", title: "Open an object", group: "view", scope: "room",
-    description: "Opens one object's expanded face: every representation its rule depends on, with the rule's marks. `from`: the words of the move it was opened from (the act log), said on the face as v1's 'Opened from:'.",
+    description: "Opens one object's expanded face: every representation its rule depends on, with the rule's marks. `from`: the words of the move it was opened from (the act log), said on the face as v1's 'Opened from:'. `show: false` only makes it the object in focus (What if works on it) without opening its pane.",
     tooltip: "Look closely at one object.", keywords: ["open", "inspect", "details", "expand"],
-    params: obj({ objectId: id, from: z.string().max(300).optional() }), result: done,
+    params: obj({ objectId: id, from: z.string().max(300).optional(), show: z.boolean().optional() }), result: done,
     contexts: GAME, caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({

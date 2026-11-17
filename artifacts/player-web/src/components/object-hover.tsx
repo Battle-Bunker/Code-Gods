@@ -37,7 +37,7 @@ export function ObjectHover({ objectId, label, children, className = "", testId 
           onOpenAutoFocus={e => { if (!pinned.current) e.preventDefault(); }}
           onPointerEnter={clear} onPointerLeave={hoverOut}
           aria-label={`${label}: details`} data-testid="object-hover-detail"
-          className="z-50 w-[min(calc(100vw-16px),40rem)] max-h-[min(85vh,44rem)] overflow-auto border bg-popover text-popover-foreground shadow-lg text-left whitespace-normal font-sans">
+          className="z-50 w-[min(calc(100vw-16px),40rem)] max-h-[min(85vh,44rem,var(--radix-popover-content-available-height))] overflow-auto border bg-popover text-popover-foreground shadow-lg text-left whitespace-normal font-sans">
           <ObjectDetail objectId={objectId} />
         </Popover.Content>
       </Popover.Portal>

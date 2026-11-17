@@ -154,3 +154,11 @@ test("opening an object from a move keeps the move's words, as v1's 'Opened from
   v = applyView(v, "view.openObject", { objectId: "o1" }, live).view;
   assert.equal(v.focus?.from, undefined);
 });
+
+test("openObject with show: false focuses the object without opening its pane (the hover overlay's Try a change)", () => {
+  const r = applyView(EMPTY_VIEW, "view.openObject", { objectId: "o1", show: false }, live);
+  assert.ok(r.outcome.ok);
+  assert.equal(r.view.focus?.objectId, "o1");
+  assert.ok(!r.view.panes.some(p => p.pane === "object"), "One line is not opened");
+  assert.ok(applyView(EMPTY_VIEW, "view.openObject", { objectId: "o1" }, live).view.panes.some(p => p.pane === "object"), "without it, One line opens");
+});

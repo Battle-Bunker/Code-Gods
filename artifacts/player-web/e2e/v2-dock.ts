@@ -143,7 +143,7 @@ try {
   for (const [who, viewport] of [["alice", { width: 1440, height: 900 }], ["carol", { width: 1280, height: 720 }]] as const) {
     const label = `${viewport.width}×${viewport.height}`;
     const { context, page, errors } = await signIn(browser, who, viewport);
-    await practiceGame(page, 45);
+    await practiceGame(page, 75);
     await page.getByTestId("dock-desktop").waitFor();
     await usable(page, ["overview", "my-card", "forge"], `${label} planning`);
     await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-planning.png`) });
@@ -178,6 +178,15 @@ try {
     await detail.waitFor({ state: "detached", timeout: 5_000 });
     assert.equal(await page.getByTestId("pane-object").count(), 0, `${label}: no One line pane`);
     assert.equal(await dockText(page), liveDock, `${label}: the dock is unchanged`);
+    // The overlay's "Try a change" opens What if on this line (it is put in focus, One line is not opened).
+    await face.click();
+    await detail.getByTestId("button-open-what-if").click();
+    await page.getByTestId("pane-what-if").waitFor({ timeout: 15_000 });
+    await page.getByTestId("pane-what-if").getByTestId("select-what-if-change").waitFor({ timeout: 15_000 });
+    assert.equal(await page.getByTestId("what-if-empty").count(), 0, `${label}: What if has the line`);
+    assert.equal(await page.getByTestId("pane-object").count(), 0, `${label}: still no One line pane`);
+    await page.getByTestId("button-close-what-if").click();
+    await page.getByTestId("pane-what-if").waitFor({ state: "detached", timeout: 10_000 });
     // The act log's "This line now" opens the same overlay.
     const moveLink = page.locator("[data-testid^=button-open-move-]").first();
     if (await moveLink.count()) {
