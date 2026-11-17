@@ -2,6 +2,43 @@
 
 Labels: **built** (in the code and tested), **seen narrowly** (measured under the stated assumptions), **guess**.
 
+## Update, 17 Nov (Melbourne, late afternoon): rules, lenses and estimator as they stand
+
+Labels: **built** (in code, tested), **seen narrowly** (measured under stated assumptions), **open**.
+
+**Rules (built; trial 42, owner-decisions.md, the coordinator's call, reversible).** Every line preset deals twelve
+(lib/v2-linear dealt.ts): Bearing, Golden Path, Ring, Archimedes, Hensel, Whole Stair, Corner, Long Run (from the two
+rule brainstorms; candidate-families.ts) and Prime Balance, Recurrence Pair, Unit Fraction, Stepping Coefficients
+(dynamic-families.ts). Retired with code deleted (old-rule-ideas.md): Power Hug, Prime Hug, Multiples, Fine Bottom,
+Next-door Bottom, Prime Sliver, Crossing Pattern, Circle Kiss, Square Triangle. Candidates not dealt: Prime Palette
+(energy plateaus near 39 bits: the prime-exponent lens makes one more prime a cheap turn), Kin (a trivial line scores
+like its first rungs) and Shared Secret (energy about 8 bits at any depth); a fresh session is to fix them. Agents
+score all twelve in both languages (lib/v2-agents dynamic-catalogue.ts; 350 shipped agents rendered).
+
+**Lenses (built).** Six, in the game's lens list (lib/v2-linear lens-moves.ts): mc, xy, abc, mA (session A's) and the
+continued-fraction lens cf (16 slots per parameter, 0 for empty: appending a term is adding to the first empty slot,
+dropping is adding minus it, so no new moves and no change to turnSurprise) and the prime-exponent lens pe (exponents
+of 2..13 and a cofactor per top and bottom); fractal-lenses.ts. Newborn lines are still drawn in the first four.
+"Add p/q" exists as `expandAdd` (priced as its whole-number mutations) and in the rules mirror only: wiring it into the
+affordance directory is open (session A's area).
+
+**Estimator (built; docs/engine-v2/energy.md).** energy = mean over the setting's estimatorStarts of the soft minimum
+over one-turn routes (naming bits + surprise), lib/v2-core free-energy.ts. Lines: routes priced in all six lenses, the
+greedy climb in the rule's own lens, mc, cf and pe; candidates from each rule. Grids: naming bits only, incremental
+climb, anchors and candidates. Physics are room settings (session A, v2-economy settings.ts). Cost (seen narrowly,
+local backend): a Lines · beginner commit median 97–231 ms by run, at most about 300 ms; grids about 155–250 ms.
+
+**Seen narrowly (energy.md, "Candidate rules"):** on every dealt brainstorm rule's ladder the turn to the next rung
+costs 2–10 times the energy it adds (no pump); one more continued-fraction term costs 17–77 bits for Bearing, 46–72 for
+Golden Path, 21–53 for Archimedes against 2–16 bits gained. Energy rises with depth for all eight. Hensel and Long Run
+are knife edges to a +1 on their own number; Bearing and Archimedes keep most of their value.
+
+**Open.** (1) How the new set plays: no game measured yet (dynamics, convergence, one strategy dominating). (2) Prime
+Palette, Kin, Shared Secret redesign. (3) "Add p/q" as an affordance. (4) Whole Stair's candidates are slow (about 220 ms
+an estimate alone; fine inside a commit so far). (5) Golden Path's continued-fraction lens holds 16 terms per
+parameter; deeper fractions cannot be pinned in it. (6) The design-principles table in energy.md still describes the
+retired line pool's opponents row; rewrite it for the dealt twelve.
+
 ## Update, 17 Nov (Melbourne, mid-morning): steps 6 and 7 done; step 8's measurements
 
 - **Step 6, grids (#1165).** Nine pure-utility grid rules (`lib/v2-grid/src/dynamic-families.ts`; table and check table
