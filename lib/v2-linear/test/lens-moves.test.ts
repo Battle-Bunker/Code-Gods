@@ -68,7 +68,7 @@ test("a turn pins one lens, and its price is naming bits plus the surprise of it
   assert.ok(!isInvalid(r));
   // naming: log2 6 (menu) + log2 4 (which number) + argBits(1, signed) + 1 (continue)
   assert.ok(Math.abs(r.naming - (Math.log2(6) + 2 + argBits(1, true) + 1)) < 1e-9);
-  assert.ok(Math.abs(r.surprise - (turnSurprise(1, [2n, 1n, 5n, 1n], [2n, 1n, 6n, 1n]) + LENS_BITS)) < 1e-9);
+  assert.ok(Math.abs(r.surprise - (turnSurprise(physicsOf(lineQ).gravity, [2n, 1n, 5n, 1n], [2n, 1n, 6n, 1n]) + LENS_BITS)) < 1e-9);
   assert.ok(Math.abs(r.total - r.naming - r.surprise) < 1e-9);
   // doubling 5 → 10 by multiply: the surprise of a one-bit rise is more than a small add's
   const d = turn(s, [call("mul", { lens: "mc", at: "3", k: "2" })]);

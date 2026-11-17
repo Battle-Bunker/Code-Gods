@@ -8,7 +8,7 @@
  * The lenses are the game's own (lens-moves.ts), seen through `Lens`; the prices below match its turn law (each
  * mutation's which + where + argument + continue bit, the lens named once a turn, the surprise of the overall change).
  */
-import { argBits, universalBits, gcd, q, turnSurprise, type Q } from "@workspace/v2-core";
+import { argBits, universalBits, gcd, numberSurprise, q, turnSurprise, type Q } from "@workspace/v2-core";
 import { isVertical, type Line } from "./line.ts";
 import { LENS_BITS, lenses as gameLenses } from "./lens-moves.ts";
 
@@ -55,7 +55,7 @@ export const mutationBits = (lens: Lens, arg: number, onPair = false): number =>
 const factorBits = (f: bigint): number => universalBits(f);
 /** The bits naming the turn's lens, paid once a turn. */
 export const TURN_BITS = LENS_BITS;
-const S = (lambda: number, a: bigint, b: bigint, crossed: boolean) => turnSurprise(lambda, [a], [b], [crossed]);
+const S = (lambda: number, a: bigint, b: bigint, crossed: boolean) => numberSurprise(lambda, a, b, crossed);
 const crosses = (a: bigint, b: bigint) => (a < 0n && b > 0n) || (a > 0n && b < 0n);
 
 /** The cheapest single-number path from a to b: naming bits and whether it crosses zero (an add through 0). */
@@ -100,7 +100,7 @@ export function lensPrice(lambda: number, lens: Lens, xs: readonly bigint[], ts:
     }
     naming += best; surprise += bestS;
   }
-  return { naming, surprise };
+  return { naming, surprise: Math.max(0, surprise) };
 }
 /** t/b rounded as the game rounds (floor(t/b + ½)). */
 export const roundHalf = (t: bigint, b: bigint): bigint => { const num = 2n * t + b, den = 2n * b; return num >= 0n ? num / den : -((-num + den - 1n) / den); };

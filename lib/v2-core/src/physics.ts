@@ -24,7 +24,7 @@ export interface Physics {
 
 /** The bounds each setting must keep. */
 export const PHYSICS_LIMITS: Readonly<Record<keyof Physics, { readonly min: number; readonly max: number }>> = Object.freeze({
-  gravity: Object.freeze({ min: 0, max: 16 }),
+  gravity: Object.freeze({ min: 0, max: 100 }),
   estimatorStarts: Object.freeze({ min: 1, max: 10_000 }),
   sameSizeBand: Object.freeze({ min: 0, max: 8 }),
   newbornBitRate: Object.freeze({ min: 0.05, max: 16 }),
