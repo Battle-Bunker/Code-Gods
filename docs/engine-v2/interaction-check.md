@@ -27,7 +27,32 @@ Script: `lib/v2-linear/scripts/interaction-check.ts` (`pairs|triples|approach`; 
 
 ## Headline
 
-HEADLINE
+- **Pairs: 37 rich, 25 with some, 4 dull, none broken (seen narrowly).** Rich: 4 or more distinct lines good for both
+  in 6 runs; dull: none (Bearing + Stepping Coefficients, Golden Path + Hensel, Ring + Unit Fraction, and Golden Path +
+  Long Run, whose 0 is the method: the climb cannot leave a line where both energies are 0).
+- **No cheap joint peak survives the estimator fixes.** In the first run 7 pairs and 1 triple had a first turn reaching
+  12+ bits for every seat for less than two thirds of the energy it reached (worst: Whole Stair + Unit Fraction, 41.5 and
+  12.9 bits for a 14.2-bit turn; Archimedes + Whole Stair 4.2×). Every one involved Whole Stair or Corner, whose energies
+  were then overstated, or a rule pair whose first rungs are near each other (Bearing + Hensel). Re-run after #1222 (the
+  candidate fixes), the same 8 groups' best ratio is 0.81 (table below): reaching a line good for both costs more than
+  the energy it holds. The only one-turn line with both energies at 30+ bits (Ring + Prime Balance, 44 and 57) cost
+  89.5 bits.
+- **Cost to the best joint line found:** median 371 bits over 8 turns from a newborn (range 54–583); the climb was
+  usually still gaining at its 8-turn stop, so joint peaks are deeper and dearer than these (guess).
+- **Pulls (who hurts whom):** a seat's own best move costs the other seat 0–20 bits in most pairs. Strong one-way pulls:
+  Corner's move on Recurrence Pair (156 bits), Stepping Coefficients' on Prime Balance (105), Bearing's on Corner (100),
+  Unit Fraction's on Prime Balance (91), Bearing's on Archimedes, Golden Path and Corner (50–100: Bearing wants one
+  gradient, they want others). Negative pulls (a move that helps the other) are common and small (Ring + Prime Balance
+  −32, Corner + Stepping Coefficients −62). Pairs reading different numbers (gradient against y-intercept: Prime
+  Balance, Unit Fraction with the gradient rules) barely touch each other (pulls near 0).
+- **One approach does not raise most rules.** Of 1,215 first-turn options from 24 newborns, the median raises 3 of the
+  12 rules by 2+ bits; 9 is the most (one option), and 113 options raise 7 or more. Those are first turns from tiny
+  newborn lines (a step up in size raises most energies from near 0); the best gain per bit was 38 summed bits for a
+  7.7-bit turn (y = −x + 2 to y = −4x + 2), about 3 bits for each of six rules. Guess: harmless (small values), but it
+  is the one place a single cheap move pays several seats at once.
+- **What this means (guess).** The dealt twelve offer joint lines for most pairs at a few hundred bits from a newborn,
+  with real tension on the gradient (Bearing against the other gradient rules) and little between gradient and
+  intercept rules. Nothing here says a dominant strategy exists or not: two seats, greedy climbs, 8 turns.
 
 ## Pairs
 
@@ -138,6 +163,19 @@ twelve rules' energies one option raises by at least 2 bits.
     most: 9 rules (Bearing, Golden Path, Ring, Archimedes, Whole Stair, Corner, Prime Balance, Recurrence Pair, Stepping Coefficients), line 12,7,2 from 2,2,-3 (a, b, c), turn cost 64.6 bits, the twelve energies' summed change 44.4
     best summed change per bit: 4.97 (38.1 over 7.7 bits, 6 rules ≥ 2 bits), line 4,1,-2 from 1,1,-2
 
+## The cheap flags re-run after #1222 (seen narrowly; 2 new parameter draws × 3 newborns each)
+
+| rules | good-for-all lines (distinct / runs) | best joint line: energies | its cost, turns | cheapest good-for-all turn from a newborn: energies / cost | pull: own move's loss to the other(s), bits |
+|---|---|---|---|---|---|
+| Bearing + Hensel | 5 / 6 | 13.4, 40.3 | 428.5, 8 | 12.5, 14.6 / 47.8 (0.57) | 33.7, 1.4 |
+| Bearing + Whole Stair | 6 / 6 | 28.4, 44.4 | 229.8, 6 | 19.4, 16.7 / 109.9 (0.33) | 35.0, 6.8 |
+| Golden Path + Archimedes | 2 / 6 | 41.6, 11.4 | 364.5, 8 | none | 4.4, 34.0 |
+| Archimedes + Whole Stair | 3 / 6 | 24.7, 25.9 | 130.0, 6 | none | 23.5, 10.1 |
+| Whole Stair + Corner | 5 / 6 | 13.9, 48.2 | 191.4, 6 | 14.2, 23.6 / 46.7 (0.81) | 26.4, 19.7 |
+| Whole Stair + Unit Fraction | 3 / 6 | 98.7, 40.4 | 479.0, 8 | none | 8.5, 2.6 |
+| Corner + Unit Fraction | 3 / 6 | 72.3, 30.0 | 325.5, 8 | 14.8, 12.4 / 54.4 (0.50) | 5.9, 12.6 |
+| Long Run + Prime Balance + Stepping Coefficients | 4 / 6 | 99.9, 284.7, 85.8 | 359.0, 7 | 22.5, 13.0, 12.7 / 83.4 (0.58) | 60.3, 84.2, 92.6 |
+
 ## How this could be wrong
 
 - 6 runs a pair, 3 a triple, 2 parameter draws: "none" or "one" can be bad luck; "distinct" lines are counted only
@@ -149,4 +187,4 @@ twelve rules' energies one option raises by at least 2 bits.
 - Energies are estimates (12 starts each): the "cheap" ratios compare an estimate with one turn's exact price, and a
   newborn is itself a random start, so a lucky newborn reaches a line for less than that line's average.
 - Before #1222, Whole Stair and Corner were overstated by 8–18 bits at small sizes: their pairs' "cheap" ratios were
-  inflated (re-run below).
+  inflated (re-run above, with new parameter draws, so it is not the same experiment repeated).
