@@ -12,7 +12,7 @@ const show = (l: Line) => `${Qn.toWire(mOf(l))}, ${Qn.toWire(cOf(l))}`;
 /** +1 on the number the rule reads. */
 function knock(id: string, p: any, l: Line): Line {
   const m = mOf(l), c = cOf(l);
-  const on: string = p.on ?? ({ ring: "abc", "shared-secret": "abc", kin: "y-intercept top" } as Record<string, string>)[id] ?? "gradient top";
+  const on: string = p.on ?? ({ ring: "abc", kin: "y-intercept top" } as Record<string, string>)[id] ?? "gradient top";
   if (on === "abc") return { ...l, c: l.c + 1n };
   if (on === "gradient top") return fromMC(q(m.n + (m.n < 0n ? -1n : 1n), m.d), c);
   if (on === "gradient bottom") return fromMC(q(m.n, m.d + 1n), c);

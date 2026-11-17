@@ -10,9 +10,8 @@ Labels: **built** (in code, tested), **seen narrowly** (measured under stated as
 (lib/v2-linear dealt.ts): Bearing, Golden Path, Ring, Archimedes, Hensel, Whole Stair, Corner, Long Run (from the two
 rule brainstorms; candidate-families.ts) and Prime Balance, Recurrence Pair, Unit Fraction, Stepping Coefficients
 (dynamic-families.ts). Retired with code deleted (old-rule-ideas.md): Power Hug, Prime Hug, Multiples, Fine Bottom,
-Next-door Bottom, Prime Sliver, Crossing Pattern, Circle Kiss, Square Triangle. Candidates not dealt: Prime Palette
-(energy plateaus near 39 bits: the prime-exponent lens makes one more prime a cheap turn), Kin (a trivial line scores
-like its first rungs) and Shared Secret (energy about 8 bits at any depth); a fresh session is to fix them. Agents
+Next-door Bottom, Prime Sliver, Crossing Pattern, Circle Kiss, Square Triangle. Candidates: Kin (its candidates fixed on 17 Nov; not dealt until it passes the interaction check); Prime Palette and
+Shared Secret retired on 17 Nov (old-rule-ideas.md). Agents
 score all twelve in both languages (lib/v2-agents dynamic-catalogue.ts; 350 shipped agents rendered).
 
 **Lenses (built).** Six, in the game's lens list (lib/v2-linear lens-moves.ts): mc, xy, abc, mA (session A's) and the
