@@ -18,11 +18,13 @@ import { estimateLine, lineRule, type LineRule } from "../src/energy.ts";
 import { routePrice, LENSES } from "../src/lens-routes.ts";
 import type { Line, LineState } from "../src/line.ts";
 
-export type Kind = "greedy" | "hopper" | "saver" | "knocker";
+export type Kind = "greedy" | "hopper" | "saver" | "knocker" | "points";
 export interface SimOpts {
   gravity?: number; power?: number; store?: number; K?: number; band?: number; seed?: string; seats?: number;
   worldSeconds?: number; startLines?: number; birthEvery?: number; opsPerSecond?: number; share?: number;
   kinds?: Kind[]; saveTo?: number; quiet?: boolean; rot?: number; agentStart?: number;
+  /** How a cut-off (bound) estimate is scored: keep it (the engine today), cap its rise at the move's cost, or keep the previous value. */
+  boundRule?: "keep" | "capCost" | "prev";
 }
 
 const READ_BITS = 16;
@@ -165,6 +167,21 @@ export function simulate(o: SimOpts = {}) {
       const ok = pool.filter(x => x.bits <= budget && gain(x) > 0);
       return ok.length ? ok.reduce((a, b) => (gain(b) > gain(a) ? b : a)) : null;
     }
+    if (s.kind === "points") {
+      // Points-aware: the affordable turn with the best gain in this line's points, own energy × the others' sum (what a
+      // player sees through othersAfter), per bit; the four best by utility gain per bit are weighed, energies at K = 4.
+      const cands = opts.filter(x => gain(x) > 0).sort((a, b) => gain(b) / b.bits - gain(a) / a.bits).slice(0, 4);
+      if (!cands.length) { lastWhy = "none"; return null; }
+      const p0 = pointsOn(seats.map(z => est(l, z, 4, `p0:${estimates}`)), s.i);   // the same K as the candidates'
+      let best: Option | null = null, bv = 0;
+      for (const x of cands) {
+        const E = seats.map(z => est(x.to, z, 4));
+        const v = (pointsOn(E, s.i) - p0) / x.bits;
+        if (v > bv) { bv = v; best = x; }
+      }
+      if (!best) lastWhy = "none";
+      return best;
+    }
     // knocker: the best move by the change in (my points − the leader's points) on this line per bit, energies at K = 4.
     const tot = totals();
     let leader = -1;
@@ -209,7 +226,13 @@ export function simulate(o: SimOpts = {}) {
       L.line = x.to; L.commits++; L.states.add(key(x.to)); L.lastCommit = t; L.commitTimes.push(t);
       const Eb = L.E, lb = L.line === x.to ? null : null;
       let ownBound = false;
-      L.E = seats.map(z => { const e = est(L.line, z); if (z.i === s.i) ownBound = lastBound; return e; });
+      L.E = seats.map(z => {
+        let e = est(L.line, z);
+        if (lastBound && o.boundRule === "capCost") e = Math.min(e, Eb[z.i]! + x.bits);
+        else if (lastBound && o.boundRule === "prev") e = Eb[z.i]!;
+        if (z.i === s.i) ownBound = lastBound;
+        return e;
+      });
       if (process.env.TRACE && L.E[s.i]! - Eb[s.i]! > Math.max(100, 3 * x.bits)) console.error(JSON.stringify({ t, fam: s.fam, params: s.params, bits: x.bits, calls: x.calls, from: prev, to: key(x.to), Eb: Eb[s.i], Ea: L.E[s.i], uB: s.rule.u(prevLine), uA: s.rule.u(x.to) }));
       log.push([t, s.i, lines.indexOf(L), Math.round(x.bits * 10) / 10, x.calls.length, Math.round((L.E[s.i]! - Eb[s.i]!) * 10) / 10, Math.round(L.E.reduce((a, e, j) => a + (j === s.i ? 0 : e - Eb[j]!), 0) * 10) / 10, sizeBits(L.line) - sizeBits(prevLine), ownBound ? 1 : 0, sizeBits(L.line), Math.round((s.rule.u(L.line) - s.rule.u(prevLine)) * 100) / 100]);
     }
