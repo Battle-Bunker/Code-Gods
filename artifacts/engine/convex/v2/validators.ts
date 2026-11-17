@@ -141,6 +141,8 @@ export const playObjectV = v.object({
      * today's lexicographic rules. Absent from answers written before it.
      */
     parts: v.optional(v.union(v.array(v.object({ layer: v.string(), bits: v.number() })), v.null())),
+    /** rarityBits is an upper bound on the energy (the estimator's work budget ran out), not one it found. */
+    bound: v.optional(v.boolean()),
   }), v.null()),
   /** Paid observation (knowledge.ts): when the caller was last told this object (world seconds), and how many changes it has had since (public). */
   knownAt: v.optional(v.union(v.number(), v.null())), changesSince: v.optional(v.number()),
