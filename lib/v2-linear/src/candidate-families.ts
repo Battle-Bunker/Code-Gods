@@ -13,7 +13,7 @@
 import { gcd, q, Qn, type ParamSpace, type Q, type RuleFamily } from "@workspace/v2-core";
 import type { LineState } from "./line.ts";
 import { isqrt } from "./numbers.ts";
-import { continuedFraction, dynamicLine, fromContinued, type LineTarget } from "./dynamic-families.ts";
+import { continuedFraction, dynamicLine, fromContinued, lensNeighbours, type LineTarget } from "./dynamic-families.ts";
 
 const log2 = Math.log2, abs = Math.abs;
 const babs = (x: bigint) => (x < 0n ? -x : x);
@@ -148,6 +148,10 @@ export const ring = dynamicLine<RingP>({
       }
     }
     return out;
+  } }, { id: "one-number", propose: (m, c, uStar, p) => {
+    // One number moved, in any lens (a larger search's cheap routes; 17 Nov, estimator-accuracy.md).
+    const ok = (t: LineTarget) => ringU(t.m ?? m, t.c ?? c, p) >= uStar - 1e-9;
+    return [...oneNumberScan(m, c, ok, 8, 6), ...lensNeighbours(m, c, ["xy"], ok, 6)];
   } }],
 });
 
@@ -238,6 +242,47 @@ function triples(top: number): [number, number][] {
   }
   return out;
 }
+/** The divisors of n (n below 2^64 or so: trial division to 2^14; past that, n's factors found that far and the rest whole). */
+function divisors(n: bigint): bigint[] {
+  let ds = [1n];
+  for (let p = 2n; p < 1n << 14n && p * p <= n; p += p === 2n ? 1n : 2n) {
+    let e = 0;
+    while (n % p === 0n) { n /= p; e++; }
+    if (e) { const pw = ds.flatMap(d => Array.from({ length: e }, (_, i) => d * p ** BigInt(i + 1))); ds = ds.concat(pw); }
+    if (ds.length > 4096) break;
+  }
+  if (n > 1n) ds = ds.concat(ds.map(d => d * n));
+  return ds;
+}
+/**
+ * Whole Stair with n = 1, one number at a time: the moved number z scales one leg (rise or run = α·z, the other leg β
+ * fixed). Every whole leg α·z with β is d·e = β² split as (e − d)/2, so z = (β²/d − d)/(2α) for each divisor d of β² below
+ * β (exact Pythagorean steps; a larger search's near misses are oneNumberScan's).
+ */
+function legLines(m: Q, c: Q, ok: (t: LineTarget) => boolean, keep: number): LineTarget[] {
+  const found: { t: LineTarget; d: bigint }[] = [];
+  for (const one of oneNumbers(m, c)) {
+    const z0 = babs(one.z0), sg = one.z0 < 0n ? -1n : 1n;
+    if (z0 === 0n) continue;
+    const t1 = one.at(sg * (z0 + 1n)), t2 = one.at(sg * (z0 + 2n));
+    if (!t1 || !t2 || !t1.m || !t2.m) continue;
+    // Which leg z scales, and by how much: the leg that grows by α as z steps by 1 (the other stays β).
+    for (const [leg, other] of [[(v: Q) => babs(v.n), (v: Q) => v.d], [(v: Q) => v.d, (v: Q) => babs(v.n)]] as const) {
+      const a1 = leg(t1.m), a2 = leg(t2.m), alpha = a2 - a1, beta = other(t1.m);
+      if (alpha <= 0n || other(t2.m) !== beta || a1 !== alpha * (z0 + 1n)) continue;
+      const B2 = beta * beta;
+      for (const d of divisors(B2)) {
+        if (d >= beta) continue;
+        const twice = B2 / d - d;
+        if (twice % (2n * alpha) !== 0n) continue;
+        const z = twice / (2n * alpha), t = z > 0n && z !== z0 ? one.at(sg * z) : null;
+        if (t && ok(t)) found.push({ t, d: babs(z - z0) });
+      }
+    }
+  }
+  found.sort((x, y) => (x.d < y.d ? -1 : x.d > y.d ? 1 : 0));
+  return found.slice(0, keep).map(f => f.t);
+}
 export const wholeStair = dynamicLine<{ k: number }>({
   id: "whole-stair", title: "Whole Stair", goal: "the gradient's step with a whole-number slanted edge (times √n)", reads: ["m"], focus: ["si", "m"],
   space: listSpace(SUMS2.map(k => ({ k })), p => String(p.k), `n, one of ${SUMS2.join(", ")}`),
@@ -255,6 +300,9 @@ export const wholeStair = dynamicLine<{ k: number }>({
       if (wholeStairU(v, k) >= uStar - 1e-9) out.push({ m: Qn.mul(q(sign(m)), v) });
     }
     return out.sort((a, b) => abs(toNum(a.m!) - x) - abs(toNum(b.m!) - x)).slice(0, 3);
+  } }, { id: "one-number", propose: (m, c, uStar, { k }) => {
+    const ok = (t: LineTarget) => wholeStairU(t.m ?? m, k) >= uStar - 1e-9;
+    return [...oneNumberScan(m, c, ok, 128, 6), ...(k === 1 ? legLines(m, c, ok, 6) : [])];
   } }],
 });
 
@@ -286,8 +334,88 @@ export const corner = dynamicLine<{ k: number }>({
       }
     }
     return out.slice(0, 4);
-  } }],
+  } }, { id: "one-number", propose: (m, c, uStar, { k }) =>
+    // One number of a lens moved so 2n·top·bottom is a square or near one (the routes a larger search found; 17 Nov).
+    nearSquareLines(m, c, t => { const mm = t.m ?? m; return 2n * BigInt(k) * babs(mm.n) * mm.d; }, t => cornerU(t.m ?? m, k) >= uStar - 1e-9, 128, 6) }],
 });
+
+// ------------------------------------------------------------------ one number at a time, in the lenses a turn pins
+
+/** One whole number of the line in a lens, and the line with it replaced (a single add or multiply on that number). */
+interface OneNumber { readonly z0: bigint; at(z: bigint): LineTarget | null }
+/** The whole numbers of the gradient-and-intercept, intercepts and a, b, c lenses, each with its replacement. */
+function oneNumbers(m: Q, c: Q): OneNumber[] {
+  const out: OneNumber[] = [];
+  const pairs = (vs: bigint[], build: (v: bigint[]) => LineTarget | null) =>
+    vs.forEach((z0, i) => out.push({ z0, at: z => { if (i % 2 === 1 && z <= 0n) return null; const v = vs.slice(); v[i] = z; return build(v); } }));
+  pairs([m.n, m.d, c.n, c.d], v => ({ m: q(v[0]!, v[1]!), c: q(v[2]!, v[3]!) }));
+  if (m.n !== 0n) {
+    const X = Qn.neg(Qn.div(c, m));   // the x-intercept; the y-intercept is c
+    pairs([X.n, X.d, c.n, c.d], v => (v[0] === 0n ? null : { m: Qn.neg(Qn.div(q(v[2]!, v[3]!), q(v[0]!, v[1]!))), c: q(v[2]!, v[3]!) }));
+  }
+  const abc = abcOf(m, c);
+  abc.forEach((z0, i) => out.push({ z0, at: z => { const v = abc.slice(); v[i] = z; return v[1] === 0n ? null : { m: q(-v[0]!, v[1]!), c: q(-v[2]!, v[1]!) }; } }));
+  return out;
+}
+/**
+ * Lines one number away (in any lens) that pass `ok`: each number moved by up to ±J, or multiplied or divided exactly by
+ * 2 to 16. The cheapest-looking first (the smallest change), at most `keep`. A rule's own number theory comes first; this
+ * finds the near misses a single small add or multiply reaches (the routes a larger search found that the rules' own
+ * candidates missed; 17 Nov).
+ */
+export function oneNumberScan(m: Q, c: Q, ok: (t: LineTarget) => boolean, J: number, keep: number): LineTarget[] {
+  const found: { t: LineTarget; d: bigint }[] = [];
+  for (const one of oneNumbers(m, c)) {
+    const z0 = one.z0, zs: bigint[] = [];
+    for (let j = 1; j <= J; j++) zs.push(z0 + BigInt(j), z0 - BigInt(j));
+    for (let f = 2n; f <= 16n; f++) { zs.push(z0 * f); if (z0 % f === 0n) zs.push(z0 / f); }
+    for (const z of zs) {
+      if (z === z0) continue;
+      const t = one.at(z);
+      if (t && ok(t)) found.push({ t, d: babs(z - z0) });
+    }
+  }
+  found.sort((x, y) => (x.d < y.d ? -1 : x.d > y.d ? 1 : 0));
+  return found.slice(0, keep).map(f => f.t);
+}
+/** The squarefree part of n, up to the primes below 4096 (a cofactor left over counts as squarefree: still exact, maybe not least). */
+function squarefreePart(n: bigint): bigint {
+  let g = 1n;
+  for (let p = 2n; p < 4096n && p * p <= n; p += p === 2n ? 1n : 2n) {
+    let e = 0;
+    while (n % p === 0n) { n /= p; e++; }
+    if (e % 2) g *= p;
+  }
+  return g * n;
+}
+/**
+ * Lines one number away (in any lens) whose A, a positive whole number proportional to that number, is a square or
+ * near one: for each number z with A = K·z, (1) z = g·w², g the squarefree part of K, for the w nearest (A then an exact
+ * square), and (2) for s within J of √A, the z nearest s²/K (a near square at a step of about 2·s·j/K), or, where that
+ * step is under 1, every z within J of z0.
+ */
+function nearSquareLines(m: Q, c: Q, A: (t: LineTarget) => bigint, ok: (t: LineTarget) => boolean, J: number, keep: number): LineTarget[] {
+  const found: { t: LineTarget; d: bigint }[] = [];
+  const tryZ = (one: OneNumber, sg: bigint, z0: bigint, z: bigint) => {
+    if (z <= 0n || z === z0) return;
+    const t = one.at(sg * z);
+    if (t && ok(t)) found.push({ t, d: babs(z - z0) });
+  };
+  for (const one of oneNumbers(m, c)) {
+    const z0 = babs(one.z0), sg = one.z0 < 0n ? -1n : 1n;
+    if (z0 === 0n) continue;
+    // K from the next number up: at z0 itself a shared factor can cancel (the intercepts lens), next to it rarely.
+    const t1 = one.at(sg * (z0 + 1n)), A1 = t1 ? A(t1) : 0n;
+    if (A1 <= 0n || A1 % (z0 + 1n) !== 0n) continue;
+    const K = A1 / (z0 + 1n), g = squarefreePart(K), w = isqrt(z0 / g), r0 = isqrt(K * z0);
+    for (const ww of [w, w + 1n]) tryZ(one, sg, z0, g * ww * ww);
+    // Where a step of s moves z by less than 1 (4·z < K), every z near z0 is its own try.
+    if (4n * z0 < K) for (let j = -J; j <= J; j++) tryZ(one, sg, z0, z0 + BigInt(j));
+    else for (let j = -J; j <= J; j++) { const s = r0 + BigInt(j); if (s > 0n) tryZ(one, sg, z0, (2n * s * s + K) / (2n * K)); }
+  }
+  found.sort((x, y) => (x.d < y.d ? -1 : x.d > y.d ? 1 : 0));
+  return found.slice(0, keep).map(f => f.t);
+}
 
 // ------------------------------------------------------------------ number readers for Prime Palette and Long Run
 

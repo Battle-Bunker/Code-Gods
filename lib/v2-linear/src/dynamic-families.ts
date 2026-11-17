@@ -16,6 +16,7 @@ import { gcd, q, Qn, ref, rng, type DynamicRule, type ElementValue, type ParamSp
 import type { LineState } from "./line.ts";
 import { drawSuffix, isSuffix } from "./numbers.ts";
 import { fromMC } from "./line.ts";
+import { lensById, lensMoves } from "./lens-routes.ts";
 
 const num = (v: ElementValue): Q | null => (v.kind === "number" ? v.q : null);
 const abs = Math.abs, log2 = Math.log2;
@@ -143,6 +144,24 @@ export function fromContinued(as: readonly bigint[]): Q {
   for (let i = as.length - 2; i >= 0; i--) [n, d] = [as[i]! * n + d, n];
   return q(n, d);
 }
+/**
+ * The single mutations of the given lenses (the climb's moves: small adds, small multiples, negate, swap, round) that
+ * pass `ok`, cheapest naming first, at most `keep`. For a rule whose cheap routes go through a lens the estimator prices
+ * but does not climb (the intercepts and area lenses; 17 Nov, estimator-accuracy.md).
+ */
+export function lensNeighbours(m: Q, c: Q, ids: readonly ("xy" | "mA" | "abc" | "mc")[], ok: (t: LineTarget) => boolean, keep: number): LineTarget[] {
+  const line = fromMC(m, c), moves: { t: LineTarget; bits: number }[] = [];
+  for (const id of ids) {
+    const lens = lensById(id), ns = lens.numbers(line);
+    if (!ns) continue;
+    for (const mv of lensMoves(lens, line, ns)) {
+      if (mv.to.b === 0n) continue;
+      const t = { m: q(-mv.to.a, mv.to.b), c: q(-mv.to.c, mv.to.b) };
+      if (ok(t)) moves.push({ t, bits: mv.bits });
+    }
+  }
+  return moves.sort((x, y) => x.bits - y.bits).slice(0, keep).map(x => x.t);
+}
 // ------------------------------------------------------------------ 10. Stepping Coefficients, on a, b, c
 
 /** a, b, c of ax + by + c = 0 in lowest whole numbers, b > 0 (y = mx + c is −m·x + y − c = 0). */
@@ -182,6 +201,17 @@ export const steppingCoefficients = dynamicLine<{ k: number }>({
       }
     }
     return out;
+  } }, { id: "repair-one", propose: (m, c, uStar, { k }) => {
+    // One number put back in step (a = b − d, b = a + d or c − d, c = b + d), and every single mutation of the
+    // intercepts and area lenses (a swap there reorders a, b, c: the routes a larger search found; 17 Nov).
+    const [a, b, cc] = abcOf(m, c), K = BigInt(k), out: LineTarget[] = [];
+    const ok = (x: bigint, y: bigint, z: bigint) => y > 0n && stepU(x, y, z, k) >= uStar - 1e-9;
+    // With a's and c's signs kept or flipped (a negate is a cheap mutation), and each one-number repair of that.
+    for (const sa of [1n, -1n]) for (const sc of [1n, -1n]) {
+      const A = sa * a, C = sc * cc;
+      for (const [x, y, z] of [[A, b, C], [b - K, b, C], [A, A + K, C], [A, C - K, C], [A, b, b + K]] as const) if ((x !== a || z !== cc || y !== b) && ok(x, y, z)) out.push({ m: q(-x, y), c: q(-z, y) });
+    }
+    return [...out, ...lensNeighbours(m, c, ["xy", "mA"], t => { const [x, y, z] = abcOf(t.m!, t.c!); return ok(x, y, z); }, 8)];
   } }],
 });
 

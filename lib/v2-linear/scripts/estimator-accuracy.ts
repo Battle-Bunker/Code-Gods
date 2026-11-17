@@ -172,6 +172,12 @@ for (const F of dynamicFamilies) {
           }
           const all = [...routes.values()], bestBig = all.reduce((a, b) => (b[0] < a[0] ? b : a));
           by[bestBig[1]] = (by[bestBig[1]] ?? 0) + 1;
+          // EXPLAIN=1: each start where the larger search beats the live estimate's cheapest route by over 2 bits.
+          if (process.env.EXPLAIN && bestBig[0] < ls.best - 2) {
+            const t = [...routes].find(([, v]) => v === bestBig)![0], [ta, tb, tc] = t.split(",").map(BigInt), tl: Line = { a: ta!, b: tb!, c: tc! };
+            const mc = (l: Line) => lensById("mc").numbers(l)?.join(" ");
+            console.error(JSON.stringify({ explain: F.id, B, p, s: mc(s), uStar: +uStar.toFixed(2), x: mc(x), t: mc(tl), uT: +u(tl).toFixed(2), by: bestBig[1], big: +bestBig[0].toFixed(1), live: +ls.best.toFixed(1), lens: routePrice(lambda, x, tl).lens }));
+          }
           if (ls.best <= bestBig[0] + 0.01) exact++;
           return softMinBits(all.map(v => v[0]));
         });
