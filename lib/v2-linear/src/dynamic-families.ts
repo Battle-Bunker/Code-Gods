@@ -59,13 +59,12 @@ export function dynamicLine<P>(s: DynamicLineSpec<P>): RuleFamily<LineState, P> 
     const l = st.lines[0]!;
     return l.b === 0n ? null : [q(-l.a, l.b), q(-l.c, l.b)];
   };
-  const r = rng("line-candidates");
   const dynamic: DynamicRule<LineState, P> = {
     reads: s.reads,
     u: (st, p) => { const x = mc(st); return x ? s.u(x[0], x[1], p) : NaN; },
     // The rule's candidates (energy.ts): the targets its searches propose, each a line one turn away.
     candidates: (st, uStar, p) => {
-      const x = mc(st);
+      const x = mc(st), r = rng("line-candidates");   // fixed per call, so a seeded estimate repeats
       return x ? s.searches.flatMap(h => h.propose(x[0], x[1], uStar, p, r).map(t => ({ lines: [fromMC(t.m ?? x[0], t.c ?? x[1])] }))) : [];
     },
   };

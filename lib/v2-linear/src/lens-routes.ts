@@ -95,12 +95,12 @@ export function numberNaming(lens: Lens, a: bigint, b: bigint): { readonly bits:
   const neg = mutationBits(lens, 0);
   if (b === -a) return { bits: neg, crossed: false };
   let bits = mutationBits(lens, argBits(b - a, true)), crossed = crosses(a, b);
-  // Across zero: negate first, then add (no crossing, so no long path's surprise).
-  if (crossed) { const nb = neg + mutationBits(lens, argBits(b + a, true)); if (nb < Infinity) { bits = nb; crossed = false; } }
+  // Across zero: negate first, then add (no crossing, so no long path's surprise), when that is the cheaper whole.
+  if (crossed) { const nb = neg + mutationBits(lens, argBits(b + a, true)); if (nb + S(a, b, false) < bits + S(a, b, true)) { bits = nb; crossed = false; } }
   const scale = (big: bigint, small: bigint) => {   // big = small·f
     if (small === 0n || big % small !== 0n) return;
     const f = big / small, fb = mutationBits(lens, argBits(babs(f), false)) + (f < 0n ? neg : 0);
-    if (babs(f) >= 2n && fb < bits) { bits = fb; crossed = false; }
+    if (babs(f) >= 2n && fb + S(a, b, false) < bits + S(a, b, crossed)) { bits = fb; crossed = false; }
   };
   scale(b, a);   // multiply a by f
   scale(a, b);   // divide a by f
