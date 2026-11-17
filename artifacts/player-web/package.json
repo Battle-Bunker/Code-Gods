@@ -107,7 +107,6 @@
     "@workspace/v2-core": "workspace:*",
     "@workspace/v2-economy": "workspace:*",
     "@workspace/v2-grid": "workspace:*",
-    "@workspace/v2-pair": "workspace:*",
     "@workspace/v2-grid-boards": "workspace:*",
     "@workspace/v2-linear": "workspace:*",
     "@workspace/v2-valuation": "workspace:*",

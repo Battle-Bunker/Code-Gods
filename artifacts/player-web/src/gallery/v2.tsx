@@ -14,18 +14,16 @@
 import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { q } from "@workspace/v2-core";
-import { crossingSliver, encodeLine, fromMC, lensMutators, lineType, multiples, normalise, primeHug, squareTriangle, steppingCoefficients, type Line, type LineState } from "@workspace/v2-linear";
-import { annotate, bitsLine, CompactFace, ExpandedFace, GameSummary, GoalCard, MoveLine, MoveSketch, ObjectChip, summarise, type RuleRef } from "@workspace/v2-views";
+import { crossingSliver, encodeLine, fromMC, lineType, multiples, normalise, primeHug, squareTriangle, steppingCoefficients, type Line, type LineState } from "@workspace/v2-linear";
+import { annotate, bitsLine, CompactFace, ExpandedFace, GameSummary, GoalCard, MoveLine, ObjectChip, summarise, type RuleRef } from "@workspace/v2-views";
 import { valueFor } from "./values";
 import { abc, autoLines, CURATED, mc, type LineFamily } from "./line-examples";
 import { emptyTank, treePrimeIntercept } from "@workspace/v2-views/demo";
 import "@workspace/v2-views/styles.css";
 import { GridsSection } from "./v2-grids";
-import { canonicalPair, pairQ, pairType, wholeAnswer, type PairState } from "@workspace/v2-pair";
 import { variantOf as configuredVariant } from "../sdk/object-types.ts";
 const lineQ = configuredVariant("line-q");
 const lineZ = configuredVariant("line-z");
-const lineQLenses = configuredVariant("line-q-lenses");
 
 type Family = LineFamily;
 const ruleOf = (family: Family, params: unknown): RuleRef<LineState, unknown> => ({ type: lineType, family, params, variant: lineQ });
@@ -153,36 +151,6 @@ function Hard() {
   );
 }
 
-// ------------------------------------------------------------------ the five lens moves
-
-/** Each lens move on a line, as the What if pane draws it (lenses-and-mutators.md §5). */
-const LENS_MOVES: { title: string; line: Line; mutator: string; args: Record<string, string> }[] = [
-  { title: "turn about a pin", line: fromMC(q(1, 2), q(1)) as Line, mutator: "rot.turn", args: { centre: "2", turn: "3/4" } },
-  { title: "turn about the origin", line: fromMC(q(0), q(5)) as Line, mutator: "rot.turn", args: { centre: "origin", turn: "-3/4" } },
-  { title: "fold in a crease", line: fromMC(q(2), q(-1)) as Line, mutator: "fold", args: { x0: "1", s: "0" } },
-  { title: "fold in a mirror", line: fromMC(q(3), q(1)) as Line, mutator: "fold", args: { mirror: encodeLine(normalise(-1n, 1n, 0n) as Line) } },
-  { title: "swap gradient and y-intercept", line: fromMC(q(2), q(5)) as Line, mutator: "coef.swap", args: { pair: "m-c" } },
-  { title: "swap b and c", line: fromMC(q(1, 2), q(3)) as Line, mutator: "coef.swap", args: { pair: "b-c" } },
-  { title: "lean", line: fromMC(q(1), q(-2)) as Line, mutator: "basis.lean", args: { k: "1/2" } },
-  { title: "zoom", line: fromMC(q(-1), q(3)) as Line, mutator: "basis.zoom", args: { f: "2" } },
-];
-
-function Lenses() {
-  return (
-    <section className="g-section" id="lenses" data-section="lenses">
-      <h2>The five lens moves, drawn</h2>
-      <p className="g-note">The old line dashed and faint, the new line bold, and what the move keeps or measures (line-q-lenses).</p>
-      <div className="g-dealt-grid">
-        {LENS_MOVES.map(l => {
-          const m = lensMutators.find(x => x.id === l.mutator)!;
-          const r = m.apply({ lines: [l.line] }, 0, m.args(lineQLenses).decode(l.args), lineQLenses) as LineState;
-          return <Cell key={l.title} title={l.title}><MoveSketch before={l.line} after={r.lines[0]!} call={l} /></Cell>;
-        })}
-      </div>
-    </section>
-  );
-}
-
 // ------------------------------------------------------------------ the end summary
 
 /** "What earned your points" for a ladder rule on lines on and off its rungs (round 29: "…dealt prime…: −½"). */
@@ -223,35 +191,6 @@ function Tree() {
         <div key={t.title} className="g-row" data-tree={t.title}>
           <div className="g-small"><Cell title={t.title}><CompactFace rule={rule} state={t.state} /></Cell></div>
           <Cell title="expanded" wide><ExpandedFace rule={rule} state={t.state} improvement={false} initialRep="cart" /></Cell>
-        </div>
-      ))}
-    </section>
-  );
-}
-
-// ------------------------------------------------------------------ two-line systems
-
-const pairOf = (p: [bigint, bigint, bigint], r: [bigint, bigint, bigint]) => canonicalPair([normalise(...p) as Line, normalise(...r) as Line], pairQ) as PairState;
-/** Pairs for Whole Answer: crossing on a peg, crossing off it, an upright line, parallel lines. */
-const PAIRS: { title: string; state: PairState; before?: PairState }[] = [
-  { title: "crossing on a whole point", state: pairOf([1n, 1n, -3n], [1n, -1n, -1n]) },
-  { title: "crossing between pegs", state: pairOf([2n, 3n, -7n], [1n, -2n, -1n]) },
-  { title: "one line upright", state: pairOf([1n, 0n, -3n], [2n, -1n, 1n]) },
-  { title: "parallel: no crossing", state: pairOf([2n, -1n, 1n], [2n, -1n, -4n]) },
-  // A move that flips the stored order: the line that did not move keeps its colour.
-  { title: "after a move (y = x − 1 up to y = x + 9)", state: pairOf([1n, -1n, 9n], [2n, 1n, -5n]), before: pairOf([1n, -1n, -1n], [2n, 1n, -5n]) },
-];
-
-function Pairs() {
-  const rule = { type: pairType, family: wholeAnswer, params: wholeAnswer.dealable(pairQ)[0], variant: pairQ } as RuleRef<PairState, unknown>;
-  return (
-    <section className="g-section" id="pairs" data-section="pairs">
-      <h2>Two-line systems: Whole Answer</h2>
-      <p className="g-note">Each pair as one object: both lines on the plane, each in its own colour, the equations given side by side and solved (lines-pairs, withheld from the lobby until its starters land).</p>
-      {PAIRS.map(p => (
-        <div key={p.title} className="g-row" data-pair={p.title}>
-          <div className="g-small"><Cell title={p.title}><CompactFace rule={rule} state={p.state} before={p.before} /></Cell></div>
-          <Cell title="expanded" wide><ExpandedFace rule={rule} state={p.state} before={p.before} improvement={false} /></Cell>
         </div>
       ))}
     </section>
@@ -326,7 +265,7 @@ function Gallery() {
         <h1>Engine v2 views</h1>
         <p className="g-note">The chip, the compact face and the expanded face for every rule of the line and of the grid. Point at a number to light the same quantity in every view; point at a part to see only its marks.</p>
         <nav className="g-nav">
-          <a href="#story">Storyboards</a><a href="#families">Families</a><a href="#dealt">Every dealable rule</a><a href="#grids">Grids</a><a href="#lenses">Lens moves</a><a href="#pairs">Pairs</a><a href="#tree">Tree rules</a>
+          <a href="#story">Storyboards</a><a href="#families">Families</a><a href="#dealt">Every dealable rule</a><a href="#grids">Grids</a><a href="#tree">Tree rules</a>
           <a href={link({ scheme: other })}>{other} scheme</a>
         </nav>
         {show("story") && !only && <Storyboards />}
@@ -338,8 +277,6 @@ function Gallery() {
         )}
         {show("dealt") && <Dealt />}
         {show("grids") && <GridsSection only={only} />}
-        {show("lenses") && !only && <Lenses />}
-        {show("pairs") && !only && <Pairs />}
         {show("tree") && !only && <Tree />}
         {show("summary") && !only && <EndSummary />}
         {section === "plot" && <Hard />}

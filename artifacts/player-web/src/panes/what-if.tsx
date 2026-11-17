@@ -6,7 +6,7 @@
  * (./what-if-model.ts); the line and its value are the shared live subscriptions the other panes use.
  */
 import { useMemo, useState } from "react";
-import { MoveSketch, ObjectChip } from "@workspace/v2-views";
+import { ObjectChip } from "@workspace/v2-views";
 import { LENSES, type LineState } from "@workspace/v2-linear";
 import { decodeState, objectWord, useGame, useGameScope, useMyObject, useMyRule, type GameRule, type MyRule } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
@@ -106,10 +106,6 @@ function Tryout({ rule, my, state, want, sites, testPrefix = "", objectId }: { r
               {steps.length > 0 && <button type="button" className="underline underline-offset-4" onClick={() => setSteps([])} data-testid={tid("button-what-if-clear-steps")}>Start the turn again ({steps.length} move{steps.length === 1 ? "" : "s"} before this one)</button>}
             </div>
             <p data-testid={tid("text-what-if-after")}>It would {out.what}: <ObjectChip type={rule.type} state={out.after} sites={sites} /></p>
-            {/* A lens move (turn, fold, swap, lean, zoom) drawn on the plane and said in plain words; other moves draw nothing. */}
-            {rule.type.id === "line" && (
-              <MoveSketch before={(state as LineState).lines[site]!} after={(out.after as LineState).lines[site]!} call={{ mutator: choice.id, args: wireArgs(choice.args, args) }} />
-            )}
             <dl className="space-y-1">
               <Delta label="Your energy" from={out.from.rarity} to={out.to.rarity} fmt={b => bitsText(b)} testId={tid("text-what-if-rarity")} />
               <Delta label="Your points on it" from={out.from.points} to={out.to.points} fmt={pointsText} testId={tid("text-what-if-points")} />

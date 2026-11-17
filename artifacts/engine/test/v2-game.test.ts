@@ -16,7 +16,6 @@ import assert from "node:assert/strict";
 import { hasStarters, runAct, type ActRecord } from "@workspace/v2-agents";
 import { lineType } from "@workspace/v2-linear";
 import { gridType } from "@workspace/v2-grid";
-import { pairType, pairQ } from "@workspace/v2-pair";
 import type { ObjectType, Variant } from "@workspace/v2-core";
 import { createSandbox, type Language, type Sandbox } from "@workspace/v2-sandbox";
 import { admin, httpJwt, humans, perform, SITE_, type Human } from "./v2-helpers.ts";

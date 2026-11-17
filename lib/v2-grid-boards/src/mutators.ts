@@ -8,7 +8,7 @@
  * its size (v2-core amountCode: a move of k costs exactly |k| moves of 1). A colour is flat under the law, so changing
  * one costs only its choice: the colour moves are representation shortcuts (owner decision 25).
  */
-import { amountCode, choiceBits, sampleAmount, whichBits, type ArgCode, type ArgHelp, type Invalid, type Mutator, type Rng, type Variant } from "@workspace/v2-core";
+import { argBits, choiceBits, whichBits, type ArgCode, type ArgHelp, type Invalid, type Mutator, type Rng, type Variant } from "@workspace/v2-core";
 import { boardParams, COLOURS, inDomain, isCard, paletteOf, SUIT_NAMES, type BoardState } from "./board.ts";
 import { cellLabel, cellName, lineCells, lineNames, lineWords } from "./units.ts";
 
@@ -29,7 +29,11 @@ const oneOf = (names: readonly string[]): Field => ({
   sample: rng => names[rng.below(names.length)]!,
   decode: w => { if (typeof w !== "string" || !names.includes(w)) throw new RangeError(`must be one of ${names.join(", ")}`); return w; },
 });
-const amountBits = (k: number, o: number): number => amountCode(o, 1, false).bits(Math.abs(k));
+const amountBits = (k: number, _o: number): number => argBits(k, true);
+/** Amounts beyond this are not listed (a board holds small digits; the code grows only like log k, so listing by price never ends). */
+const MAX_LISTED_AMOUNT = 20;
+/** A nonzero amount drawn with each extra binary digit half as likely, and a random sign (for births' walk). */
+const sampleK = (rng: Rng): number => { let L = 1; while (L < 30 && rng.below(2) === 1) L++; const lo = 2 ** (L - 1); const m = lo + rng.below(lo); return rng.below(2) ? m : -m; };
 function decodeAmount(w: unknown): number {
   const s = typeof w === "number" ? String(w) : w;
   if (typeof s !== "string" || !/^-?\d+$/.test(s)) throw new RangeError("must be a whole number");
@@ -54,7 +58,7 @@ function fields(base: number, spec: Readonly<Record<string, Field>>, amount = fa
       if (amount) {
         partial = partial.flatMap(p => {
           const o = base + p.bits, out: typeof partial = [];
-          for (let k = 1; p.bits + amountBits(k, o) <= maxBits + 1e-9; k++) for (const x of [k, -k]) out.push({ a: { ...p.a, k: x }, bits: p.bits + amountBits(x, o) });
+          for (let k = 1; k <= MAX_LISTED_AMOUNT && p.bits + amountBits(k, o) <= maxBits + 1e-9; k++) for (const x of [k, -k]) out.push({ a: { ...p.a, k: x }, bits: p.bits + amountBits(x, o) });
           return out;
         });
       }
@@ -64,7 +68,7 @@ function fields(base: number, spec: Readonly<Record<string, Field>>, amount = fa
     sample: rng => {
       const out: Record<string, string | number> = {};
       for (const k of choiceNames) { const v = spec[k]!.sample(rng); if (v === null) return null; out[k] = v; }
-      if (amount) out.k = Number(sampleAmount(rng, base + choiceBitsOf(out), false)!.n);
+      if (amount) out.k = sampleK(rng);
       return out;
     },
     encode: a => Object.fromEntries(names.map(k => [k, String(a[k])])),

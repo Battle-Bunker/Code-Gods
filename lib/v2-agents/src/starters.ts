@@ -17,7 +17,6 @@ import type { Language } from "@workspace/v2-sandbox";
 import { CATALOGUE, LENSES, type FamilyEntry, type Lens, type LensId } from "./catalogue.ts";
 import { gridExampleFor, gridScoreSource, gridShippedAgents, gridStartersFor, isGridFamily, isGridTypeFamily } from "./grid-starters.ts";
 import { boardExampleFor, boardScoreSource, boardShippedAgents, boardStartersFor, isBoardFamily, isBoardTypeFamily } from "./board-starters.ts";
-import { isPairFamily, isPairTypeFamily, pairExampleFor, pairScoreSource, pairShippedAgents, pairStartersFor } from "./pair-starters.ts";
 
 export type AgentKind = "example" | "simple" | "thorough" | "bold" | "naive";
 export type ShippedLanguage = Extract<Language, "typescript" | "python">;
@@ -309,7 +308,6 @@ export function exampleFor(family: string, tieBreaker: string | null, language: 
   if (tieBreaker === null) return null;
   if (isGridTypeFamily(family)) return gridExampleFor(family, tieBreaker, language);
   if (isBoardTypeFamily(family)) return boardExampleFor(family, tieBreaker, language);
-  if (isPairTypeFamily(family)) return pairExampleFor(family, tieBreaker, language);
   const e = CATALOGUE.find(x => x.family === family);
   return e?.tieBreakers[tieBreaker] ? render("example", family, tieBreaker, language) : null;
 }
@@ -318,7 +316,6 @@ export function exampleFor(family: string, tieBreaker: string | null, language: 
 export function startersFor(family: string, language: ShippedLanguage, tieBreaker?: string | null): ShippedAgent[] {
   if (isGridTypeFamily(family)) return gridStartersFor(family, language, tieBreaker);   // grids: written for the dealt tie-breaker (lines read it themselves)
   if (isBoardTypeFamily(family)) return boardStartersFor(family, language, tieBreaker);   // coloured boards: likewise
-  if (isPairTypeFamily(family)) return pairStartersFor(family, language);   // pairs: read the dealt tie-breaker, as lines do
   return (["simple", "thorough", "bold", "naive"] as const).map(k => render(k, family, null, language));
 }
 
@@ -328,7 +325,7 @@ export function shippedAgents(): ShippedAgent[] {
   return CATALOGUE.filter(e => lineType.families.some(f => f.id === e.family)).flatMap(e => LANGUAGES.flatMap(language => [
     ...Object.keys(e.tieBreakers).filter(tb => familyOf(e.family).tieBreakers.some(t => t.id === tb)).map(tb => render("example", e.family, tb, language)),
     ...startersFor(e.family, language),
-  ])).concat(gridShippedAgents(), pairShippedAgents(), boardShippedAgents());
+  ])).concat(gridShippedAgents(), boardShippedAgents());
 }
 
 /**
@@ -337,7 +334,7 @@ export function shippedAgents(): ShippedAgent[] {
  * can always summon one.
  */
 export function hasStarters(family: string): boolean {
-  return isGridFamily(family) || isPairFamily(family) || isBoardFamily(family) || (CATALOGUE.some(e => e.family === family) && lineType.families.some(f => f.id === family));
+  return isGridFamily(family) || isBoardFamily(family) || (CATALOGUE.some(e => e.family === family) && lineType.families.some(f => f.id === family));
 }
 
 /** Where a shipped agent's rendered copy is committed (for reading and review): agents/<family>/<name>.<ext>. */
@@ -353,7 +350,6 @@ export function shippedPath(a: ShippedAgent): string {
 export function scoreSource(family: string, tieBreaker: string | null, language: ShippedLanguage): string {
   if (isGridTypeFamily(family)) return gridScoreSource(family, tieBreaker, language);
   if (isBoardTypeFamily(family)) return boardScoreSource(family, tieBreaker, language);
-  if (isPairTypeFamily(family)) return pairScoreSource(family, tieBreaker, language);
   const e = entryOf(family);
   return (language === "typescript" ? scoreTs(e, tieBreaker) : scorePy(e, tieBreaker)).join("\n") + "\n";
 }

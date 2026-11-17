@@ -2,10 +2,9 @@
 import type { ObjectType } from "@workspace/v2-core";
 import { lineType } from "@workspace/v2-linear";
 import { gridType } from "@workspace/v2-grid";
-import { pairType } from "@workspace/v2-pair";
 import { BOARD_TYPES } from "@workspace/v2-grid-boards";
 
-export const objectTypes: readonly ObjectType<any>[] = [lineType, gridType, pairType, ...BOARD_TYPES];
+export const objectTypes: readonly ObjectType<any>[] = [lineType, gridType, ...BOARD_TYPES];
 
 export function findVariant(id: string) {
   for (const type of objectTypes) {

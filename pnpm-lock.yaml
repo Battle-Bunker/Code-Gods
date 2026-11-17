@@ -188,9 +188,6 @@ importers:
       '@workspace/v2-linear':
         specifier: workspace:*
         version: link:../../lib/v2-linear
-      '@workspace/v2-pair':
-        specifier: workspace:*
-        version: link:../../lib/v2-pair
       '@workspace/v2-sandbox':
         specifier: workspace:*
         version: link:../../lib/v2-sandbox
@@ -252,9 +249,6 @@ importers:
       '@workspace/v2-linear':
         specifier: workspace:*
         version: link:../../lib/v2-linear
-      '@workspace/v2-pair':
-        specifier: workspace:*
-        version: link:../../lib/v2-pair
       '@workspace/v2-valuation':
         specifier: workspace:*
         version: link:../../lib/v2-valuation
@@ -510,9 +504,6 @@ importers:
       '@workspace/v2-linear':
         specifier: workspace:*
         version: link:../v2-linear
-      '@workspace/v2-pair':
-        specifier: workspace:*
-        version: link:../v2-pair
       '@workspace/v2-sandbox':
         specifier: workspace:*
         version: link:../v2-sandbox
@@ -586,15 +577,6 @@ importers:
         specifier: workspace:*
         version: link:../v2-economy
 
-  lib/v2-pair:
-    dependencies:
-      '@workspace/v2-core':
-        specifier: workspace:*
-        version: link:../v2-core
-      '@workspace/v2-linear':
-        specifier: workspace:*
-        version: link:../v2-linear
-
   lib/v2-sandbox:
     dependencies:
       quickjs-emscripten:
@@ -622,9 +604,6 @@ importers:
       '@workspace/v2-linear':
         specifier: workspace:*
         version: link:../v2-linear
-      '@workspace/v2-pair':
-        specifier: workspace:*
-        version: link:../v2-pair
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -666,9 +645,6 @@ importers:
       '@workspace/v2-grid-boards':
         specifier: workspace:*
         version: link:../v2-grid-boards
-      '@workspace/v2-pair':
-        specifier: workspace:*
-        version: link:../v2-pair
       '@workspace/v2-valuation':
         specifier: workspace:*
         version: link:../v2-valuation

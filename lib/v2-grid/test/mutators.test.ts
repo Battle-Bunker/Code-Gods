@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { amountCode, applyCall, isInvalid, whichBits, type Call } from "@workspace/v2-core";
+import { applyCall, isInvalid, whichBits, type Call } from "@workspace/v2-core";
 import { gridType, grid4 } from "../src/index.ts";
 import { board, rowsOf } from "./helpers.ts";
 

@@ -9,9 +9,8 @@ import { dealablePool } from "../../convex/v2/deal.ts";
 import { presetOf } from "../../convex/v2/presets.ts";
 import { birthDraws, decode, valueOf } from "../../convex/v2/world.ts";
 
-test("refused on grids, on pairs and below σ 8; offered on lines at σ 8", () => {
+test("refused on grids and below σ 8; offered on lines at σ 8", () => {
   assert.match(fitRefusal({ variant: "grid-4-d10", noiseVariance: 64 })!, /lines only/);
-  assert.match(fitRefusal({ variant: "pair-q", noiseVariance: 64 })!, /lines only/);
   assert.match(fitRefusal({ variant: "line-q", noiseVariance: 0 })!, /±8/);
   assert.match(fitRefusal({ variant: "line-q", noiseVariance: 63 })!, /±8/);
   assert.equal(fitRefusal({ variant: "line-q-lenses", noiseVariance: 64 }), null);

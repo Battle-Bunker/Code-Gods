@@ -7,7 +7,6 @@
 import { LINES_BEGINNER_ECONOMY, readPriceWeightFor, summonPriceScale } from "@workspace/v2-economy";
 import { preset as linearPreset, type PoolRule } from "@workspace/v2-linear";
 import { gridPresets } from "@workspace/v2-grid";
-import { pairPresets } from "@workspace/v2-pair";
 import { boardPresets } from "@workspace/v2-grid-boards";
 
 export interface PresetBid { pricing: "first" | "second"; disclosure: "none" | "handicaps" | "all"; seconds: number }
@@ -79,7 +78,7 @@ const ECONOMY: PresetEconomy = {
  * A typical object's full read, in bits: the median over 1,000 births of each variant a preset plays (measured; the
  * unit test v2-presets keeps it within 10% of the births). The read-price weight is set from it.
  */
-export const MEDIAN_LOOK_BITS: Readonly<Record<string, number>> = { "line-q": 13.7, "line-q-lenses": 14.0, "grid-4-d10": 41.1, "pair-q": 26.4, "board-4-base10-rgb": 57.5 };
+export const MEDIAN_LOOK_BITS: Readonly<Record<string, number>> = { "line-q": 13.7, "line-q-lenses": 14.0, "grid-4-d10": 41.1, "board-4-base10-rgb": 57.5 };
 export function medianLookBits(variant: string): number {
   const bits = MEDIAN_LOOK_BITS[variant];
   if (bits === undefined) throw new Error(`No median look for the variant ${variant}: measure it (MEDIAN_LOOK_BITS)`);
@@ -109,7 +108,7 @@ export function beginnerStart(variant: string, powerPerSecond: number): number {
 
 /** A pool by id: the line presets' (v2-linear), the grid's (v2-grid), the two-line systems' (v2-pair) or the coloured boards' (v2-grid-boards). */
 function poolPreset(id: string): { id: string; title: string; variant: string; rules: readonly PoolRule[] } {
-  const g = gridPresets.find(x => x.id === id) ?? pairPresets.find(x => x.id === id) ?? boardPresets.find(x => x.id === id);
+  const g = gridPresets.find(x => x.id === id) ?? boardPresets.find(x => x.id === id);
   return g ? { id: g.id, title: g.title, variant: g.variant, rules: g.rules as readonly PoolRule[] } : linearPreset(id);
 }
 
@@ -164,11 +163,6 @@ export const PRESETS: readonly Preset[] = [
   // A trial (docs/engine-v2/lenses-and-mutators.md §5): the beginner pool with five more ways to move a line. Not the default.
   fromPool("lines-lenses", V1_DEFAULT_BOARD),
   GRIDS,
-  // Two lines as one object (docs/engine-v2/two-line-systems.md): not the default. Its families carry dealt numbers
-  // (a remainder, a divisor, a ratio: §8.3); every one is a ladder (keepsParams), so drift never redraws them (§11).
-  // Two-line systems on the beginner economy (the coordinator, 15 Nov, playtest rounds 24–25: games ended at hidden
-  // moments after 0:45–6:32): ten minutes fixed, as the line beginner game, with its start.
-  fromPool("lines-pairs", { ...BEGINNER_WORLD, startingEnergy: BEGINNER.startingEnergy }),
   { ...GRIDS, id: "grids-beginner-bidding", title: "Grids · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
   // Grid starters are dearer: 900 to start, so a starter takes about the share of it a line starter takes of 600.
   fromPool("grids-more-rules", { ...V1_DEFAULT_BOARD, startingEnergy: 900 }),
