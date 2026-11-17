@@ -47,3 +47,4 @@ body { margin: 0; background: var(--rm-bg); color: var(--rm-ink); }
 .rm-turns { border-collapse: collapse; font-size: 0.9em; }
 .rm-turns th, .rm-turns td { text-align: left; padding: 2px 8px 2px 0; vertical-align: top; }
 .rm-turns td:nth-child(n + 3) { text-align: right; font-variant-numeric: tabular-nums; }
+.rm-turns th { white-space: nowrap; }
