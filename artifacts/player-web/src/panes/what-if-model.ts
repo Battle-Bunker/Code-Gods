@@ -117,7 +117,7 @@ export interface Standing {
 }
 export type WhatIf =
   | { ok: false; reason: string }
-  | { ok: true; after: unknown; what: string; price: number; charge: number; from: Standing; to: Standing };
+  | { ok: true; after: unknown; what: string; price: number; charge: number; naming: number; surprise: number; from: Standing; to: Standing };
 
 export interface WhatIfInput {
   rule: GameRule;
@@ -159,6 +159,7 @@ export function whatIf(i: WhatIfInput, from?: Standing): WhatIf {
     const m = mutatorOf(i.rule, i.call.mutator);
     return {
       ok: true, after: priced.result, what: typesetNumbers(m.describe(m.args(i.rule.variant).decode(i.call.args))), price: quote.total, charge: quote.charge,
+      naming: priced.prices.reduce((t, p) => t + p.total, 0), surprise: quote.total - priced.prices.reduce((t, p) => t + p.total, 0),
       from: from ?? standing(i.rule, i.state, i.value, i.want), to: standing(i.rule, priced.result, i.value, i.want),
     };
   } catch (e) {
