@@ -198,10 +198,13 @@ try {
       await page.waitForURL(`${SITE}/rooms/${room}/games/1?panels=on#top`);
       await page.getByTestId("text-my-total").getByText(/points/).waitFor();   // "…" until the standings arrive
       assert.match(await page.getByTestId("text-my-energy").innerText(), /^Energy [\d,]+\.\d\d/);
-      for (const pane of ["objects", "my-card", "feed", "agents", "race"]) await page.getByTestId(`pane-${pane}`).waitFor();
+      // The owner's layout (17 November); the act log ("What just changed") is a pane away.
+      for (const pane of ["objects", "my-card", "agents", "race"]) await page.getByTestId(`pane-${pane}`).waitFor();
       const row = page.locator("[data-testid^=row-line-]").first();
       await row.waitFor();
       await page.locator("[data-testid^=marks-line-]").first().waitFor();   // each row's face arrives with its own subscription
+      await page.locator("[data-testid^=button-pane-menu-]").first().click();
+      await page.getByTestId("button-open-pane-feed").click();
       await page.getByTestId("pane-feed").getByText(/Your agent\b/).first().waitFor();   // \b: not the folded table's "Your agents' move"
       const feed = await page.getByTestId("pane-feed").innerText();
       assert.match(feed, /Your agent/);
@@ -277,7 +280,10 @@ try {
       assert.ok(await lines.locator("[data-testid^=row-line-]").count() <= 2, "at most 2 live lines listed");
       await shot(page, `v2-turnover-${label}`);
       // The end page: the retired lines with what each banked.
-      await page.getByTestId("button-watch-replay").waitFor({ timeout: 90_000 });   // the game has ended
+      // The game has ended: its page is the replay (the Timeline), and How the game went is a pane away.
+      await page.locator('[data-testid="pane-timeline"] [data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 120_000 });
+      await page.locator("[data-testid^=button-pane-menu-]").first().click();
+      await page.getByTestId("button-open-pane-results").click();
       const end = page.getByTestId("results").getByTestId("retired-lines");
       await end.locator("[data-testid^=text-retired-line-]").first().waitFor({ timeout: 30_000 })
         .catch(async (e: unknown) => { await shot(page, `v2-turnover-end-failed-${label}`); throw e; });
@@ -286,8 +292,6 @@ try {
       const banked = await end.locator("[data-testid^=row-retired-]").count();
       assert.ok(banked >= 3, `${banked} retired lines on the end page`);
       await shot(page, `v2-turnover-end-${label}`);
-      // The replay: at its end the same retired lines.
-      await page.getByTestId("button-watch-replay").click();
       // The replay opens on its end (as v1's did: the final board), so "Go to the end" is disabled there; the same retired lines.
       await page.getByTestId("replay-bar").waitFor({ timeout: 60_000 });
       const toEnd = page.getByTestId("button-replay-end");

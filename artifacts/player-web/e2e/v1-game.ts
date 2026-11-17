@@ -154,20 +154,21 @@ try {
       await a.getByTestId("button-end-game").click();
       await a.getByTestId("button-end-game-yes").click();
       for (const p of players) {
-        await p.page.getByTestId("text-phase").filter({ hasText: /ended/i }).waitFor({ timeout: 90_000 });
+        await p.page.getByTestId("text-phase").filter({ hasText: /ended|replay/i }).waitFor({ timeout: 90_000 });
         assert.equal(p.page.url().replace(/[?#].*$/, ""), gameUrl, `${p.who} left the game's page`);
       }
     });
 
-    await missing(["e2e-multi-client-10", "e2e-site-smoke-11"], "three humans: the ended game's page turns into its replay by itself (the replay transport, no click)", async () => {
-      // v2: the ended page leads with the results and a "Watch the replay" button; v1's page was the replay.
-      await b.getByTestId("replay-bar").waitFor({ timeout: 10_000 });
+    await check("three humans: the ended game's page turns into its replay by itself (the replay transport, no click)", async () => {
+      // As v1: the Timeline in the assistant's place, in the same document.
+      for (const p of players) await p.page.locator('[data-testid="pane-timeline"] [data-testid="replay-bar"]').waitFor({ timeout: 60_000 });
     });
 
     await check("three humans: each reads the results (headline, exact totals, standings)", async () => {
       for (const p of players) {
         const results = p.page.getByTestId("results");
-        await results.waitFor({ timeout: 60_000 }).catch(async () => { await openPane(p.page, "results"); });
+        // An ended game is its replay: How the game went is a pane away.
+        if (!await results.count()) await openPane(p.page, "results");
         await p.page.getByTestId("text-results-headline").waitFor({ timeout: 30_000 });
         assert.match(await p.page.getByTestId("text-results-headline").innerText(), /\w/);
         assert.equal(await p.page.locator('[data-testid^="row-result-"]').count(), 3, `${p.who}: three players in the standings`);
@@ -210,9 +211,7 @@ try {
       await c.getByTestId(`link-past-game-${gameId}`).click();
       await c.waitForURL(GAME_URL);
       await c.reload();
-      // v2: the replay opens from the ended page's "Watch the replay".
-      if (!await c.getByTestId("replay-bar").count()) await c.getByTestId("button-watch-replay").first().click({ timeout: 30_000 });
-      await c.getByTestId("replay-bar").waitFor({ timeout: 60_000 });
+      await c.locator('[data-testid="pane-timeline"] [data-testid="replay-bar"]').waitFor({ timeout: 60_000 });
       await c.getByTestId("input-replay-seek").waitFor();
     });
 
@@ -356,7 +355,8 @@ try {
     });
 
     await check("bidding: the bid's outcome is on the winner's card: carol won her rule for 10% off her final total", async () => {
-      // "Where am I" is in the phone's default stack.
+      // "Where am I" is a pane away (the owner's layout, 17 November).
+      await openPane(c, "overview");
       const note = c.getByTestId("text-overview-bid");
       await note.waitFor({ timeout: 30_000 });
       assert.match(await note.innerText(), /^You won .+ in the bid: 10% comes off your total/);

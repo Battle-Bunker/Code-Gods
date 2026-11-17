@@ -161,6 +161,11 @@ test("in a replay the replay's own entry is never drawn, the replay's defaults s
   for (const op of openPlan(both, "replay", "assistant")) both = applyView(both, op.id, op.args, ctx).view;
   const showing = shownPanes(both, "replay").map(p => p.pane);
   assert.ok(showing.includes("assistant") && showing.includes("timeline"), showing.join());
+  // With the results open in the replay, a closed pane stays closed (the results do not mark a carried-over screen).
+  let withResults = { ...EMPTY_VIEW, panes: defaultPanes("live") } as ViewState;
+  for (const op of openPlan(withResults, "replay", "results")) withResults = applyView(withResults, op.id, op.args, ctx).view;
+  for (const op of closePlan(withResults, "replay", "agents")) withResults = applyView(withResults, op.id, op.args, ctx).view;
+  assert.ok(!shownPanes(withResults, "replay").some(p => p.pane === "agents"), "a pane closed in the replay stays closed");
   for (const id of ["forge", "overview"] as const) assert.ok(!PANES[id].phases.includes("replay"), `${id} has nothing to show in a replay`);
   assert.deepEqual(PANES.timeline.phases, ["replay"], "the Timeline is the replay's only");
   // The results stay reachable in the replay from the pane menu and the palette, never opened over the playhead.
