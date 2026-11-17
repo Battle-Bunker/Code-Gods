@@ -13,7 +13,7 @@
  * Every utility is cheap (a few thousand steps at most) and treats numbers past 10^10 as beyond its reach (NaN, the
  * worst), a bound on the cost of a reading.
  */
-import { gcd, q, Qn, ref, type DynamicRule, type ElementValue, type ParamSpace, type Q, type Rng, type RuleFamily } from "@workspace/v2-core";
+import { gcd, q, Qn, ref, rng, type DynamicRule, type ElementValue, type ParamSpace, type Q, type Rng, type RuleFamily } from "@workspace/v2-core";
 import type { LineState } from "./line.ts";
 import { drawSuffix, isSuffix } from "./numbers.ts";
 import { fromMC } from "./line.ts";
@@ -39,8 +39,9 @@ export interface DynamicLineSpec<P> {
   card(p: P): string;
   /** The main part's title, short. */
   readonly goal: string;
-  /** What the energy's starts match (energy.ts startLike): "m", "c", "X" (the x-crossing) or "gen" (a, b and c). */
-  readonly reads: readonly ("m" | "c" | "X" | "gen")[];
+  /** The lens its energy's starts are drawn in (energy.ts lensOfReads): "m"/"c" gradient and y-intercept, "X" the x- and
+   * y-intercepts, "gen" a, b and c, "area" the gradient and signed area. */
+  readonly reads: readonly ("m" | "c" | "X" | "gen" | "area")[];
   /** The utility of y = mx + c; NaN is the worst. */
   u(m: Q, c: Q, p: P): number;
   /** Where u is read, for the views' focus mark: a representation and its element. */
@@ -61,13 +62,11 @@ export function dynamicLine<P>(s: DynamicLineSpec<P>): RuleFamily<LineState, P> 
   const dynamic: DynamicRule<LineState, P> = {
     reads: s.reads,
     u: (st, p) => { const x = mc(st); return x ? s.u(x[0], x[1], p) : NaN; },
-    searches: s.searches.map(h => ({
-      id: h.id,
-      propose: (st, uStar, p, r) => {
-        const x = mc(st);
-        return x ? h.propose(x[0], x[1], uStar, p, r).map(t => ({ lines: [fromMC(t.m ?? x[0], t.c ?? x[1])] })) : [];
-      },
-    })),
+    // The rule's candidates (energy.ts): the targets its searches propose, each a line one turn away.
+    candidates: (st, uStar, p) => {
+      const x = mc(st), r = rng("line-candidates");   // fixed per call, so a seeded estimate repeats
+      return x ? s.searches.flatMap(h => h.propose(x[0], x[1], uStar, p, r).map(t => ({ lines: [fromMC(t.m ?? x[0], t.c ?? x[1])] }))) : [];
+    },
   };
   return {
     id: s.id, title: s.title, card: p => s.card(p), params: [],
@@ -393,7 +392,7 @@ const sqTriU = (m: Q, c: Q, k: number) => {
 };
 const st = intRange(2, 30, "k, a whole number from 2 to 30", [3, 7]);
 export const squareTriangle = dynamicLine<{ k: number }>({
-  id: "square-triangle", whole: true, title: "Square Triangle", goal: "the triangle under the line with the area of a square of side a multiple of k", reads: ["m", "c"], focus: ["tri", "area"], ...st,
+  id: "square-triangle", whole: true, title: "Square Triangle", goal: "the triangle under the line with the area of a square of side a multiple of k", reads: ["m", "area"], focus: ["tri", "area"], ...st,
   card: ({ k }) => `The line and the two axes make a triangle. Its area should be exactly a square number n × n, where n is a multiple of ${k} (${k * k}, ${4 * k * k}, ${9 * k * k}, …). A bigger n scores more (its binary digits); missing costs twice the square root of how far the area is from n × n.`,
   u: (m, c, { k }) => sqTriU(m, c, k),
   searches: [{ id: "square-areas", propose: (m, c, uStar, { k }) => {

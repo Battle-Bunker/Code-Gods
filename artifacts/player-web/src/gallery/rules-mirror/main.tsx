@@ -8,14 +8,41 @@
  */
 import { StrictMode, useEffect, useMemo, useState, type ReactElement } from "react";
 import { createRoot } from "react-dom/client";
-import { energyOf, Qn, q, rng, type Q, type RuleFamily } from "@workspace/v2-core";
-import { describeLine, dynamicFamilies, fromMC, lineQ, lineType, type LineState } from "@workspace/v2-linear";
+import { argBits, energyOf, Qn, q, rng, type Q, type RuleFamily } from "@workspace/v2-core";
+import { describeLine, dynamicFamilies, fromMC, lensById, lensSurprise, lineQ, mutationBits, lineType, roundHalfAway, type Line, type LensId, type LineState } from "@workspace/v2-linear";
 import "./style.css";
 
 type Family = RuleFamily<LineState, unknown>;
 const FAMILIES = dynamicFamilies as readonly Family[];
-/** Estimates shown per line, each the mean over the server's own number of random starts (LINE_K): their spread is the jitter. */
-const ESTIMATES = 5;
+/** Estimates shown per line, each the mean over the server's own number of random starts: their range is the jitter. */
+const ESTIMATES = 3;
+
+// ------------------------------------------------------------------ example turns (lens-routes.ts prices)
+
+interface Turn { readonly words: string; readonly to: string; readonly naming: number; readonly surprise: number }
+/** A few one-mutation turns from the line, each in its lens, priced as the game prices a turn: naming bits plus surprise. */
+function exampleTurns(l: Line): Turn[] {
+  const out: Turn[] = [];
+  // Each turn is one mutation: its naming bits are that mutation's; its surprise is over the lens's numbers before and
+  // after (in lowest terms).
+  const one = (lensId: LensId, words: string, arg: number, edit: (ns: bigint[]) => bigint[] | null) => {
+    const lens = lensById(lensId), xs = lens.numbers(l);
+    if (!xs) return;
+    const ts = edit(xs.slice());
+    const t = ts && lens.line(ts, l), back = t && lens.numbers(t);
+    if (!t || !back) return;
+    out.push({ words: `${lens.title}: ${words}`, to: describeLine(t), naming: mutationBits(lens, arg), surprise: lensSurprise(xs, back) });
+  };
+  one("mc", "add 1 to the y-intercept's top", argBits(1n, true), ns => { ns[2] = ns[2]! + 1n; return ns; });
+  one("mc", "multiply the y-intercept's top by 10", argBits(10n, false), ns => { ns[2] = ns[2]! * 10n; return ns; });
+  one("mc", "add 1,000 to the y-intercept's top", argBits(1000n, true), ns => { ns[2] = ns[2]! + 1000n; return ns; });
+  one("mc", "swap the gradient's top and bottom", 0, ns => (ns[0] === 0n ? null : [ns[0]! < 0n ? -ns[1]! : ns[1]!, ns[0]! < 0n ? -ns[0]! : ns[0]!, ns[2]!, ns[3]!]));
+  one("mc", "round the y-intercept", 0, ns => (ns[3] === 1n ? null : [ns[0]!, ns[1]!, roundHalfAway(q(ns[2]!, ns[3]!)), 1n]));
+  one("xc", "add 1 to the x-crossing's top", argBits(1n, true), ns => { ns[0] = ns[0]! + 1n; return ns; });
+  one("abc", "add 1 to a", argBits(1n, true), ns => { ns[0] = ns[0]! + 1n; return ns; });
+  one("ma", "multiply the area's top by 4", argBits(4n, false), ns => { ns[2] = ns[2]! * 4n; return ns; });
+  return out;
+}
 
 // ------------------------------------------------------------------ numbers
 
@@ -49,7 +76,7 @@ function App(): ReactElement {
   const [paramText, setParamText] = useState("");
   const [paramError, setParamError] = useState<string | null>(null);
   const [mText, setMText] = useState("2"), [cText, setCText] = useState("3");
-  const [estimates, setEstimates] = useState<number[]>([]);
+  const [estimates, setEstimates] = useState<{ energy: number; spread: number }[]>([]);
   const [seed, setSeed] = useState(1);
 
   const chooseFamily = (id: string) => {
@@ -66,12 +93,14 @@ function App(): ReactElement {
   // Fresh randomness on every estimate (the server re-estimates on each change and each look).
   useEffect(() => {
     if (!state) { setEstimates([]); return; }
-    const out: number[] = [];
-    for (let i = 0; i < ESTIMATES; i++) out.push(energyOf(lineType, family, params, state, lineQ).energy);
+    const out: { energy: number; spread: number }[] = [];
+    for (let i = 0; i < ESTIMATES; i++) { const e = energyOf(lineType, family, params, state, lineQ); out.push({ energy: e.energy, spread: e.spread ?? NaN }); }
     setEstimates(out);
   }, [familyId, params, mText, cText, seed]);
-  const mean = estimates.length ? estimates.reduce((a, b) => a + b, 0) / estimates.length : NaN;
-  const lo = estimates.length ? Math.min(...estimates) : NaN, hi = estimates.length ? Math.max(...estimates) : NaN;
+  const es = estimates.map(e => e.energy), mean = es.length ? es.reduce((a, b) => a + b, 0) / es.length : NaN;
+  const lo = es.length ? Math.min(...es) : NaN, hi = es.length ? Math.max(...es) : NaN;
+  const spread = estimates.length ? estimates.reduce((a, b) => a + b.spread, 0) / estimates.length : NaN;
+  const turns = useMemo(() => (state ? exampleTurns(state.lines[0]!) : []), [mText, cText]);
 
   return (
     <div className="rm-root">
@@ -80,8 +109,9 @@ function App(): ReactElement {
           <h1>Line rules</h1>
           <p className="rm-muted">
             The {FAMILIES.length} rules the line games deal. Each scores a line with one number, its <b>utility</b> (bigger is better).
-            A line's <b>energy</b>, what the game pays out, is the expected cost of reaching a line at least this good from a random line
-            of the same size, using the game's own moves and prices. It is estimated afresh from random starts each time, so it jitters.
+            A line's <b>energy</b>, in bits, is the average over random lines of the same size of how surprising it is to reach a line at
+            least this good in one turn: a turn's cost is the bits that name its mutations plus its surprise. It is estimated afresh
+            from random starts each time, so it jitters; the ± is the standard error of one estimate.
           </p>
         </header>
         <div className="rm-grid">
@@ -89,7 +119,7 @@ function App(): ReactElement {
             {FAMILIES.map(f => (
               <button key={f.id} type="button" className={f.id === familyId ? "rm-pick rm-on" : "rm-pick"} onClick={() => chooseFamily(f.id)}>
                 <span>{f.title}</span>
-                <span className="rm-muted rm-reads">reads {f.dynamic!.reads.map(r => ({ m: "the gradient", c: "the y-intercept", X: "the x-crossing", gen: "a, b, c" } as Record<string, string>)[r] ?? r).join(" and ")}</span>
+                <span className="rm-muted rm-reads">reads {f.dynamic!.reads.map(r => ({ m: "the gradient", c: "the y-intercept", X: "the x-crossing", gen: "a, b, c", area: "the area" } as Record<string, string>)[r] ?? r).join(" and ")}</span>
               </button>
             ))}
           </nav>
@@ -128,8 +158,19 @@ function App(): ReactElement {
                 <dt>Utility</dt><dd>{fmt(u)}</dd>
                 <dt>Energy</dt>
                 <dd>
-                  {fmt(mean)} <span className="rm-muted">(the mean of {ESTIMATES} estimates; they ranged {fmt(lo)} to {fmt(hi)})</span>{" "}
+                  {fmt(mean)} bits ± {fmt(spread)} <span className="rm-muted">(the mean of {ESTIMATES} estimates; they ranged {fmt(lo)} to {fmt(hi)})</span>{" "}
                   <button type="button" onClick={() => setSeed(seed + 1)}>Estimate again</button>
+                </dd>
+                <dt>Some turns from here</dt>
+                <dd>
+                  <table className="rm-turns">
+                    <thead><tr><th>Turn</th><th>Gives</th><th>Naming</th><th>Surprise</th><th>Bits</th></tr></thead>
+                    <tbody>
+                      {turns.map(t => (
+                        <tr key={t.words}><td>{t.words}</td><td>{t.to}</td><td>{fmt(t.naming)}</td><td>{fmt(t.surprise)}</td><td>{fmt(t.naming + t.surprise)}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </dd>
               </dl>
             )}

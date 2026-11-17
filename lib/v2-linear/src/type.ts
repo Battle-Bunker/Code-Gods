@@ -72,7 +72,7 @@ export const lineType: ObjectType<LineState> = {
   // A rule scores each line; an object's energy is the sum of its lines' (each line's state is reached on its own).
   estimate: (state, variant, rule, params, opts) => {
     const r = lineRule(rule, params), each = state.lines.map((l, i) => estimateLine(l, r, variant, opts?.seed ? { ...opts, seed: `${opts.seed}:${i}` } : opts));
-    return each.length === 1 ? each[0]! : { energy: each.reduce((t, e) => t + e.energy, 0), u: each.reduce((t, e) => t + e.u, 0), K: each[0]!.K };
+    return each.length === 1 ? each[0]! : { energy: each.reduce((t, e) => t + e.energy, 0), u: each.reduce((t, e) => t + e.u, 0), K: each[0]!.K, spread: Math.sqrt(each.reduce((t, e) => t + e.spread ** 2, 0)) };
   },
   families: [...dynamicFamilies],
 };
