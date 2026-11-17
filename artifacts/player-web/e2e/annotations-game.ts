@@ -114,8 +114,8 @@ try {
     if (desktop) {
       await page.mouse.move(0, 0);
       await save(page, `${name}-1-lines-at-rest`);
-      await page.locator("[data-testid^=row-line-]").first().click();
-      const line = page.getByTestId("pane-object");
+      await page.locator("[data-testid^=marks-line-]").first().click();
+      const line = page.getByTestId("object-hover-detail");
       await line.locator(".v2v-part").first().waitFor({ timeout: 20_000 });
       await save(page, `${name}-2-one-line-and-goal`);
       await line.locator(".v2v-part").first().click();
@@ -129,11 +129,11 @@ try {
         const rows = page.locator("[data-testid^=row-line-]");
         let best = 0, pick = 0;
         for (let i = 0; i < Math.min(await rows.count(), 12); i++) {
-          await rows.nth(i).click();
+          await rows.nth(i).locator("[data-testid^=marks-line-]").click();
           const chip = await line.locator(".v2v-chip-eq").first().innerText({ timeout: 5000 }).catch(() => "");
           if (reach(chip) > best) { best = reach(chip); pick = i; }
         }
-        await rows.nth(pick).click();
+        await rows.nth(pick).locator("[data-testid^=marks-line-]").click();
         await line.locator(".v2v-part").first().waitFor({ timeout: 20_000 });
         await save(page, `hard-case-${name}`);
         console.log(`hard case: row ${pick + 1}: ${await line.locator(".v2v-chip-eq").first().innerText()}`);
@@ -141,8 +141,8 @@ try {
       }
       done.add(rule);
     } else {
-      await page.locator("[data-testid^=row-line-]").first().click();
-      const line = page.getByTestId("pane-object");
+      await page.locator("[data-testid^=marks-line-]").first().click();
+      const line = page.getByTestId("object-hover-detail");
       await line.locator(".v2v-part").first().waitFor({ timeout: 20_000 });
       await line.scrollIntoViewIfNeeded();
       await save(page, `phone-${name}-1-one-line`);

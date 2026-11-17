@@ -138,7 +138,7 @@ async function paidGame(browser: any, preset: string, noun: { one: string; many:
   const n = (await row.getAttribute("data-testid"))!.slice("text-seen-line-".length);
   if (stale) assert.equal(await page.getByTestId(`mark-fresh-line-${n}`).getAttribute("data-fresh"), "stale");
   console.log(`${preset}: ${noun.one} ${n}: ${await row.innerText()}${stale ? "" : " (none went stale within a minute)"}`);
-  await page.getByTestId(`row-line-${n}`).click();
+  await page.getByTestId(`marks-line-${n}`).click();
   const seen = page.getByTestId("text-line-seen");
   await seen.getByText(/As you saw it at \d+:\d\d · /).waitFor({ timeout: 15_000 });
   const before = await seen.innerText();

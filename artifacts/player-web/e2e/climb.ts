@@ -85,8 +85,8 @@ try {
     await list.locator("[data-testid^=row-line-]").first().waitFor({ timeout: 20_000 });
     for (let i = 0; i < 30 && !await row.count(); i++) { await list.locator("[data-testid^=row-line-]").last().scrollIntoViewIfNeeded(); await page.waitForTimeout(150); }
     await row.scrollIntoViewIfNeeded({ timeout: 20_000 });
-    await row.click();
-    const line = page.getByTestId("pane-object");
+    await row.locator("[data-testid^=marks-line-]").click();
+    const line = page.getByTestId("object-hover-detail");
     await line.locator(".v2v-move-option[data-points]").first().waitFor({ timeout: 20_000 });
 
     // (1) Each move: your bits × the others' total = points, and the change from now; best for points first.

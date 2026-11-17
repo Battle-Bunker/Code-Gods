@@ -211,13 +211,13 @@ try {
       assert.equal(doubled, null, `${label}: the word energy doubled: ${doubled}`);
       await noHorizontalScroll(page, `${label} game`);
       await shot(page, `v2-game-${label}`);
-      await row.click();
-      await page.getByTestId("pane-object").waitFor();
+      await row.locator("[data-testid^=marks-line-]").click();
+      await page.getByTestId("object-hover-detail").waitFor();
       await page.getByTestId("pane-objects").waitFor({ timeout: 5000 });   // the list a line is opened from stays
-      await page.getByTestId("pane-object").getByText("your rule's main view").first().waitFor();   // the rule's representations
+      await page.getByTestId("object-hover-detail").getByText("your rule's main view").first().waitFor();   // the rule's representations
       // Every control of the views fits the screen (round 11: "More views" ran past a 390 phone's right edge).
       const width = page.viewportSize()!.width;
-      for (const pane of ["pane-object", "pane-my-card"]) {
+      for (const pane of ["object-hover-detail", "pane-my-card"]) {
         if (!await page.getByTestId(pane).count() && await page.getByTestId("button-jump-my-card").count()) await page.getByTestId("button-jump-my-card").click();
         if (!await page.getByTestId(pane).count()) { console.log(`${label}: ${pane} not on screen; not measured`); continue; }
         await page.getByTestId(pane).locator(".v2v-switcher").first().waitFor({ timeout: 10_000 }).catch(() => {});
@@ -286,9 +286,11 @@ try {
       await shot(page, `v2-turnover-end-${label}`);
       // The replay: at its end the same retired lines.
       await page.getByTestId("button-watch-replay").click();
-      // The replay opens at the start, before anything retired; at its end, the same retired lines.
+      // The replay opens on its end (as v1's did: the final board), so "Go to the end" is disabled there; the same retired lines.
       await page.getByTestId("replay-bar").waitFor({ timeout: 60_000 });
-      await page.getByTestId("button-replay-end").click();
+      const toEnd = page.getByTestId("button-replay-end");
+      await toEnd.waitFor();
+      if (await toEnd.isEnabled()) await toEnd.click();
       const replayRetired = page.getByTestId("pane-objects").getByTestId("retired-lines");
       await replayRetired.locator("[data-testid^=row-retired-]").first().waitFor({ timeout: 60_000 });
       assert.equal(await replayRetired.locator("[data-testid^=row-retired-]").count(), banked, "the replay's end shows the same retired lines");
