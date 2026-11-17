@@ -41,22 +41,22 @@ test("the grid board lists the grid's families (the beginner grid pool first), n
   assert.equal(p.rule.type, gridType);
   assert.equal(p.rule.variant.id, grid4.id);
   assert.match(p.main.sentence, /multiple of 13/);
-  assert.equal(familyPage("square-triangle", setupFromSearch(`?board=${grid4.id}`)), null, "a line family has no page on the grid board");
+  assert.equal(familyPage("corner", setupFromSearch(`?board=${grid4.id}`)), null, "a line family has no page on the grid board");
 });
 
 test("a family page offers the family's dealable parameters, and its card follows the choice", () => {
-  const p = familyPage("square-triangle", setupFromSearch("?board=line-z&params=1"))!;
-  assert.deepEqual(p.params.map(c => c.label), ["k = 3", "k = 7"]);
+  const p = familyPage("hensel", setupFromSearch("?board=line-z&params=1"))!;
+  assert.deepEqual(p.params.map(c => c.label), ["k = 2, p = 7", "k = 3, p = 11"]);
   assert.equal(p.setup.params, 1);
-  assert.deepEqual(p.rule.params, { k: 7 });
+  assert.deepEqual(p.rule.params, { k: 3, p: 11 });
   assert.equal(p.rule.tieBreaker, null);
   assert.deepEqual(p.tieBreakers, []);
-  assert.match(p.card, /multiple of 7/);
+  assert.match(p.card, /log2 11/);
 });
 
 test("an unknown family has no page; an unknown board or a parameter past the end falls back to the first", () => {
   assert.equal(familyPage("no-such-family", setupFromSearch("")), null);
-  const p = familyPage("square-triangle", setupFromSearch("?board=grid&params=99"))!;
+  const p = familyPage("corner", setupFromSearch("?board=grid&params=99"))!;
   assert.equal(p.setup.board, "line-q", "fraction lines are the default board (decision 2)");
   assert.equal(p.setup.params, 0);
 });

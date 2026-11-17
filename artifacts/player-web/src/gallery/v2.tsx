@@ -14,7 +14,7 @@
 import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { q } from "@workspace/v2-core";
-import { crossingSliver, encodeLine, fromMC, lineType, multiples, normalise, primeHug, squareTriangle, steppingCoefficients, type Line, type LineState } from "@workspace/v2-linear";
+import { corner, goldenPath, encodeLine, fromMC, lineType, longRun, normalise, bearing, steppingCoefficients, type Line, type LineState } from "@workspace/v2-linear";
 import { annotate, bitsLine, CompactFace, ExpandedFace, GameSummary, GoalCard, MoveLine, ObjectChip, summarise, type RuleRef } from "@workspace/v2-views";
 import { valueFor } from "./values";
 import { abc, autoLines, CURATED, mc, type LineFamily } from "./line-examples";
@@ -120,15 +120,15 @@ function LineRow({ rule, state }: { rule: RuleRef<LineState, unknown>; state: Li
 
 /** Lines real games produce that a fixed window draws badly, under the rules that read them on the plane. */
 const HARD: readonly { title: string; family: Family; state: LineState; tb?: string }[] = [
-  { title: "y = 290x + 59 · Square Triangle", family: squareTriangle, state: mc(290, 59) },
-  { title: "y = 290x + 59 · Multiples", family: multiples, state: mc(290, 59) },
-  { title: "near-horizontal y = x/6 + 7/6 · Crossing Sliver", family: crossingSliver, state: mc(q(1, 6), q(7, 6)) },
-  { title: "far from the origin, c = 27,720 · Multiples", family: multiples, state: mc(27720, 27720) },
-  { title: "far from the origin, y = 5x + 27,720 · Multiples", family: multiples, state: mc(5, 27720) },
-  { title: "through the origin · Square Triangle", family: squareTriangle, state: mc(3, 0) },
-  { title: "near-vertical, x-intercept 90 · Crossing Sliver", family: crossingSliver, state: abc(1000, -1, -90001) },
+  { title: "y = 290x + 59 · Corner", family: corner, state: mc(290, 59) },
+  { title: "y = 290x + 59 · Long Run", family: longRun, state: mc(290, 59) },
+  { title: "near-horizontal y = x/6 + 7/6 · Golden Path", family: goldenPath, state: mc(q(1, 6), q(7, 6)) },
+  { title: "far from the origin, c = 27,720 · Long Run", family: longRun, state: mc(27720, 27720) },
+  { title: "far from the origin, y = 5x + 27,720 · Long Run", family: longRun, state: mc(5, 27720) },
+  { title: "through the origin · Corner", family: corner, state: mc(3, 0) },
+  { title: "near-vertical, x-intercept 90 · Golden Path", family: goldenPath, state: abc(1000, -1, -90001) },
   { title: "Stepping Coefficients y = 15x + 6", family: steppingCoefficients, state: mc(15, 6) },
-  { title: "Prime Hug y = 997x + 3", family: primeHug, state: mc(997, 3) },
+  { title: "Bearing y = 997x + 3", family: bearing, state: mc(997, 3) },
 ];
 
 function Hard() {
@@ -141,9 +141,9 @@ function Hard() {
         return (
           <div key={h.title} className="g-row" data-hard={h.title}>
             <div className="g-small">
-              <Cell title={h.title}><CompactFace rule={rule} state={h.state} rep={h.family === squareTriangle ? "tri" : "cart"} /></Cell>
+              <Cell title={h.title}><CompactFace rule={rule} state={h.state} rep="cart" /></Cell>
             </div>
-            <Cell title="expanded" wide><ExpandedFace rule={rule} state={h.state} value={valueOf(rule)} improvement={false} initialRep={h.family === squareTriangle ? "tri" : "cart"} /></Cell>
+            <Cell title="expanded" wide><ExpandedFace rule={rule} state={h.state} value={valueOf(rule)} improvement={false} initialRep="cart" /></Cell>
           </div>
         );
       })}
@@ -155,7 +155,7 @@ function Hard() {
 
 /** "What earned your points" for a ladder rule on lines on and off its rungs (round 29: "…dealt prime…: −½"). */
 function EndSummary() {
-  const rule = { type: lineType, family: primeHug, params: primeHug.dealable(lineQ)[0], variant: lineQ, tieBreaker: primeHug.tieBreakers[0]?.id ?? null } as RuleRef<LineState, unknown>;
+  const rule = { type: lineType, family: bearing, params: bearing.dealable(lineQ)[0], variant: lineQ, tieBreaker: bearing.tieBreakers[0]?.id ?? null } as RuleRef<LineState, unknown>;
   const objects = [
     { number: 1, state: mc(11, 3), points: 41.2, bits: 6.1, want: 6.75 },
     { number: 2, state: mc(10, 3), points: 12.5, bits: 2.5, want: 5 },

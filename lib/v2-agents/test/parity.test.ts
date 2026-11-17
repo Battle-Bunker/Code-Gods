@@ -36,7 +36,7 @@ async function both(agent: string, rule: RuleRef, at: ReturnType<typeof line>) {
 test("every helper gives the same answers in both languages", async () => {
   const out: string[] = [];
   for (const language of ["typescript", "python"] as Language[]) {
-    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(3, 2), q(-4), lineQ).state, rule: { family: "square-triangle", params: { k: 3 } }, energy: 100, energySeed: "1" });
+    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(3, 2), q(-4), lineQ).state, rule: { family: "corner", params: { k: 3 } }, energy: 100, energySeed: "1" });
     const res = await (await boxes.get(language)).act({ source: source(`every-helper.${language === "python" ? "py" : "ts"}`), offer: { object: 0 }, seed: "1", host });
     assert.equal(res.ok, true, res.ok ? "" : res.error);
     if (res.ok) out.push(JSON.stringify({ calls: JSON.parse(res.calls), transcript: res.transcript, readBits: res.readBits }));
@@ -53,7 +53,7 @@ test("every helper gives the same answers in both languages", async () => {
 test("an agent may declare its own name that a helper has (the helpers are configurable globals)", async () => {
   const src = `const square = x => Q.mul(x, x);\nconst price = 3;\nfunction agent(offer) { return [move("add", { lens: "mc", at: 3, k: Q.sub(square(price), 8) })]; }`;
   const { record } = await runAct(await boxes.get("typescript"), {
-    type: lineType, ...line(1, 1), rule: { family: "multiples", params: { k: 3 } }, program: { language: "typescript", source: src }, seed: "1", energy: 10,
+    type: lineType, ...line(1, 1), rule: { family: "long-run", params: { b: 7, d: 3, on: "y-intercept top" } }, program: { language: "typescript", source: src }, seed: "1", energy: 10,
   });
   assert.equal(record.outcome, "committed", record.reason);
   assert.deepEqual(record.calls[0]!.args, { lens: "mc", at: "3", k: "1" });
@@ -80,7 +80,7 @@ test("the points helpers: worth (null) and rarity (0) without tables, recent, pu
 `;
   const out = [];
   for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-    const host = new EngineHost({ type: lineType, ...line(1, 1), rule: { family: "multiples", params: { k: 3 } }, energy: 10, value, history });
+    const host = new EngineHost({ type: lineType, ...line(1, 1), rule: { family: "long-run", params: { b: 7, d: 3, on: "y-intercept top" } }, energy: 10, value, history });
     const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
     assert.equal(res.ok, true, res.ok ? "" : res.error);
     if (res.ok) out.push({ r: (JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r, notes: host.notes, readBits: res.readBits });
@@ -93,7 +93,7 @@ test("the points helpers: worth (null) and rarity (0) without tables, recent, pu
 test("without the game's values an agent still runs (worth is null, rarity 0, recent empty), and its notes reach the act record", async () => {
   const src = `function agent(offer) { note(offer, [worth(offer), rarity(offer, [1]), recent(offer).length, contested(offer, 1)].join("|")); return null; }`;
   const { record } = await runAct(await boxes.get("typescript"), {
-    type: lineType, ...line(1, 1), rule: { family: "multiples", params: { k: 3 } }, program: { language: "typescript", source: src }, seed: "1", energy: 10,
+    type: lineType, ...line(1, 1), rule: { family: "long-run", params: { b: 7, d: 3, on: "y-intercept top" } }, program: { language: "typescript", source: src }, seed: "1", energy: 10,
   });
   assert.equal(record.outcome, "skipped", record.reason);
   assert.deepEqual(record.notes, ["|0|0|false"]);
@@ -104,7 +104,7 @@ test("price() of the plan cheapest() just returned is answered without a second 
   const py = `def agent(offer):\n    plans = [[move("add", lens="mc", at=3, k=1)], [move("add", lens="mc", at=1, k=1)]]\n    p = cheapest(offer, plans)\n    return None if price(offer, p) is None else p\n`;
   for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
     const { record } = await runAct(await boxes.get(language), {
-      type: lineType, ...line(1, 1), rule: { family: "multiples", params: { k: 3 } }, program: { language, source: src }, seed: "1", energy: 10,
+      type: lineType, ...line(1, 1), rule: { family: "long-run", params: { b: 7, d: 3, on: "y-intercept top" } }, program: { language, source: src }, seed: "1", energy: 10,
     });
     assert.equal(record.outcome, "committed", record.reason);
     assert.equal(record.transcript.filter(e => e.request.op === "quote").length, 2, `${language}: two plans, two quotes`);
@@ -125,7 +125,7 @@ test("rounding: on a line with fractions, the steps to the whole number below an
 `;
   const out: string[] = [];
   for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-    const host = new EngineHost({ type: lineType, ...line(1, 1), rule: { family: "multiples", params: { k: 3 } }, energy: 10 });
+    const host = new EngineHost({ type: lineType, ...line(1, 1), rule: { family: "long-run", params: { b: 7, d: 3, on: "y-intercept top" } }, energy: 10 });
     const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
     assert.equal(res.ok, true, res.ok ? "" : res.error);
     if (res.ok) out.push((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r);
@@ -152,7 +152,7 @@ test("fractions and tips: steps into halves and thirds; on a vertical line, the 
   for (const state of [{ lines: [{ a: 2n, b: 0n, c: -1n }] }, line(3, 4, lineQ).state]) {   // x = 1/2 (vertical), then y = 3x + 4
     const row: string[] = [];
     for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-      const host = new EngineHost({ type: lineType, variant: lineQ, state, rule: { family: "multiples", params: { k: 3 } }, energy: 10 });
+      const host = new EngineHost({ type: lineType, variant: lineQ, state, rule: { family: "long-run", params: { b: 7, d: 3, on: "y-intercept top" } }, energy: 10 });
       const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
       assert.equal(res.ok, true, res.ok ? "" : res.error);
       if (res.ok) row.push((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r);
@@ -173,7 +173,7 @@ test("simplest: the fraction with the smallest denominator between two numbers (
   const py = `def agent(offer):\n    return [move("probe", r="|".join(str(simplest(Fraction(a), Fraction(b))) for a, b in ${JSON.stringify(cases)}))]\n`;
   const out: string[] = [];
   for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(3, 2), q(-4), lineQ).state, rule: { family: "square-triangle", params: { k: 3 } }, energy: 100, energySeed: "1" });
+    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(3, 2), q(-4), lineQ).state, rule: { family: "corner", params: { k: 3 } }, energy: 100, energySeed: "1" });
     const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
     assert.equal(res.ok, true, res.ok ? "" : res.error);
     if (res.ok) out.push((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r);
@@ -186,7 +186,7 @@ test("shortcuts offers only the moves in the game's menu (myRule().mutators), in
   const ts = `function agent(offer) { const menu = goal(offer).mutators; return [move("probe", { r: [menu.includes("cart.mirror"), [...new Set(shortcuts(Q.from(2), Q.from(3), ["cart.mirror"]).map(([p]) => p.mutator))].join(",")].join("|") })]; }`;
   const py = `def agent(offer):\n    menu = goal(offer).mutators\n    kinds = sorted(set(p["mutator"] for p, _, _ in shortcuts(Fraction(2), Fraction(3), ["cart.mirror"])))\n    return [move("probe", r=("true" if "cart.mirror" in menu else "false") + "|" + ",".join(kinds))]\n`;
   for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(3, 2), q(-4), lineQ).state, rule: { family: "square-triangle", params: { k: 3 } }, energy: 100, energySeed: "1" });
+    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(3, 2), q(-4), lineQ).state, rule: { family: "corner", params: { k: 3 } }, energy: 100, energySeed: "1" });
     const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
     assert.equal(res.ok, true, res.ok ? "" : res.error);
     if (res.ok) assert.equal((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r, `${lineQ.mutators.includes("cart.mirror")}|cart.mirror`, language);
@@ -209,7 +209,7 @@ test("simplest equals the brute-force definition (smallest denominator, then num
   const py = `def agent(offer):\n    return [move("probe", r="|".join(str(simplest(Fraction(a), Fraction(b))) for a, b in ${JSON.stringify(cases)}))]\n`;
   const want = cases.map(brute).map(s => (s.endsWith("/1") ? s.slice(0, -2) : s));
   for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(3, 2), q(-4), lineQ).state, rule: { family: "square-triangle", params: { k: 3 } }, energy: 100, energySeed: "1" });
+    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(3, 2), q(-4), lineQ).state, rule: { family: "corner", params: { k: 3 } }, energy: 100, energySeed: "1" });
     const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host, limits: { stepBudget: 5_000_000, wallMs: 20_000 } });
     assert.equal(res.ok, true, res.ok ? "" : res.error);
     if (res.ok) assert.deepEqual((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r.split("|"), want, language);

@@ -311,7 +311,32 @@ better), the readings it `reads`, and its own `searches` (heuristics that propos
   families on a few sample lines). One outlier, a far-off state under a trial family, took 0.9 s, so a utility must
   bound its own search: every dealt family treats numbers past 10^10 as out of reach.
 
-## The dealt line families (lib/v2-linear dynamic-families.ts)
+## The dealt line families (lib/v2-linear dealt.ts; trial 42, 17 Nov)
+
+Since owner-decisions.md trial 42 every line preset deals these twelve (built: dealt.ts). Utilities, cards and
+measurements of the first eight: "Candidate rules, not dealt" above (they were measured as candidates); the last four:
+"Fine structure" above and the table below the next heading.
+
+| Family | Reads | Kind | Space |
+|---|---|---|---|
+| Bearing | m | approach tan φ (one point per matching binary digit) | 88 angles |
+| Golden Path | m | the continued fraction follows a dealt word | 8 words |
+| Ring | a, b, c | touch a circle no line touches exactly | 5 circles |
+| Archimedes | m | top² − D·bottom² tiny against the numbers' size | 9 D |
+| Hensel | m | p divides top² − D·bottom² many times | 5 (D, p) |
+| Whole Stair | m | rise² + run² = n × a square | 5 n |
+| Corner | m | 2n·top·bottom a square | 6 n |
+| Long Run | one dealt number | the longest run of a digit in a base | 4 |
+| Prime Balance | c | p^e over q^e | 30 prime pairs |
+| Recurrence Pair | m | neighbours of a dealt recurrence | a 1–6 |
+| Unit Fraction | c | top 1, the bottom ending in the dealt digits repeated | 99 suffixes |
+| Stepping Coefficients | a, b, c | a, b, c in equal steps of d, big | d ±1–30 |
+
+Archimedes and Hensel share D = 2 and 7 in their lists, Whole Stair and Corner share n = 1, 2, 5: one game may deal both
+on the same D or n (the intended tension). Hensel and Long Run are dealt on whole-number boards too.
+
+### The retired families' table (before trial 42)
+
 
 | Family | Reads | Utility (bigger better) | Pulls | Space |
 |---|---|---|---|---|

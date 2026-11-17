@@ -13,7 +13,7 @@ after(() => boxes.close());
 // y = 2x + 3 on line-z: si reads m = 2 (6 bits) and c = 3 (6 bits); φ, the full read of the state, is less.
 const state = { lines: [fromMC(q(2), q(3))] };
 const PHI = lineType.readLength(state, lineZ);
-const rule: RuleRef = { family: "multiples", params: { k: 3 } };
+const rule: RuleRef = { family: "long-run", params: { b: 7, d: 3, on: "y-intercept top" } };
 const host = () => new EngineHost({ type: lineType, variant: lineZ, state, rule, energy: 50 });
 const ask = (h: EngineHost<typeof state>, request: HostRequest) => h.handle(request, { hostCallsLeft: 10 }) as HostReply & { ok: true; result: any };
 
@@ -49,7 +49,7 @@ test("myScore charges the rule's views and reports each layer; myRule and budget
   const h = host();
   const s = ask(h, { op: "myScore" });
   assert.equal(s.result.score.length, 1, "one number: the utility (owner decision 50)");
-  assert.ok(Math.abs(Number(s.result.score[0].split("/")[0]) / Number(s.result.score[0].split("/")[1] ?? 1) - Math.log2(3)) < 1e-6, "c = 3, one 3 and nothing else: log2 3");
+  assert.ok(Math.abs(Number(s.result.score[0].split("/")[0]) / Number(s.result.score[0].split("/")[1] ?? 1) - 0) < 1e-6, "c = 3 is 3 in base 7: a run of one 3 scores 0");
   assert.deepEqual(s.result.layers.map((l: { id: string }) => l.id), ["utility"]);
   assert.ok(typeof s.result.bits === "number" && s.result.bits >= 0, "a dynamic rule: its bits are the state's energy");
   assert.equal("level" in s.result || "top" in s.result, false, "no levels (owner decision 23)");
@@ -57,7 +57,7 @@ test("myScore charges the rule's views and reports each layer; myRule and budget
   const r = ask(h, { op: "myRule" }).result;
   assert.equal(r.tieBreaker, null);
   assert.deepEqual(r.layers.map((l: { id: string }) => l.id), ["utility"]);
-  assert.match(r.card, /multiple of 3/);
+  assert.match(r.card, /base 7/);
   assert.equal(ask(h, { op: "budget" }).result.energy, 50);
   assert.equal(h.readBits, PHI);
   const alone = new EngineHost({ type: lineType, variant: lineZ, state, rule: { ...rule, tieBreaker: null }, energy: 50 });
@@ -123,7 +123,7 @@ test("skips, invalid calls and broken programs change nothing and are charged th
 
 test("unique objects: a plan onto a state another object holds is not allowed, so a quote refuses it", () => {
   const at = { lines: [fromMC(q(2), q(3))] }, held = lineType.encode({ lines: [fromMC(q(2), q(4))] });
-  const host = new EngineHost({ type: lineType, variant: lineZ, state: at, rule: { family: "multiples", params: { k: 3 } }, energy: 10, occupied: e => e === held });
+  const host = new EngineHost({ type: lineType, variant: lineZ, state: at, rule: { family: "long-run", params: { b: 7, d: 3, on: "y-intercept top" } }, energy: 10, occupied: e => e === held });
   const up = host.price([{ mutator: "add", site: 0, args: { lens: "mc", at: "3", k: "1" } }]), down = host.price([{ mutator: "add", site: 0, args: { lens: "mc", at: "3", k: "-1" } }]);
   assert.deepEqual([up.valid, up.valid ? "" : up.reason], [false, "another object is already in that state"]);
   assert.equal(down.valid, true);

@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import type { Score } from "@workspace/v2-core";
-import { dynamicFamilies, lineQ, lineType, lineZ, squareTriangle, type LineState } from "@workspace/v2-linear";
+import { dynamicFamilies, lineQ, lineType, lineZ, corner, type LineState } from "@workspace/v2-linear";
 import { grid4, gridType } from "@workspace/v2-grid";
 import { contributors, legibility, workedExample, type RuleRef } from "../src/index.ts";
 
@@ -17,8 +17,8 @@ import { contributors, legibility, workedExample, type RuleRef } from "../src/in
 const valueOf = (_variant: string, _r: RuleRef<any, unknown>): ((u: Score) => number) | undefined => undefined;
 
 test("Square Area's example has whole legs and a real square, and its tie-breaker counts", () => {
-  for (const tb of squareTriangle.tieBreakers) {
-    const rule: RuleRef<LineState, unknown> = { type: lineType, family: squareTriangle as never, params: squareTriangle.dealable(lineZ)[0], variant: lineZ, tieBreaker: tb.id };
+  for (const tb of corner.tieBreakers) {
+    const rule: RuleRef<LineState, unknown> = { type: lineType, family: corner as never, params: corner.dealable(lineZ)[0], variant: lineZ, tieBreaker: tb.id };
     const ex = workedExample(rule, valueOf("line-z", rule));
     const [main, tie] = contributors(rule, ex).parts;
     assert.ok(main!.reference && main!.reference.value >= 1, `${tb.id}: a non-zero square: ${main!.sentence}`);

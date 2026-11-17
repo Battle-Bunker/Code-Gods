@@ -5,7 +5,7 @@ import { readLeave, setLeave } from "../src/leave.ts";
 import { startersFor } from "../src/starters.ts";
 
 test("every starter's leave-alone list reads and rewrites, in both languages, for lines and grids", () => {
-  for (const [family, tb] of [["crossing-sliver", null], ["row-multiples", null]] as const) {
+  for (const [family, tb] of [["golden-path", null], ["row-multiples", null]] as const) {
     for (const language of ["typescript", "python"] as const) {
       const starters = startersFor(family, language, tb);
       assert.ok(starters.length > 0, `${family}/${language} has starters`);

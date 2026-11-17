@@ -155,9 +155,9 @@ test("summon price: comments are free, names cost once, the Q. prefix is JavaScr
 test("check: works, warns, fails and rejected, with the summon price and every act", async () => {
   const samples = births(lineType, lineZ, "check", 3).map((state, i) => ({ objectId: `o${i}`, state }));
   const run = (language: Language, source: string, s = samples) => boxes.get(language).then(box => check(box, {
-    type: lineType, variant: lineZ, rule: { family: "multiples", params: { k: 3 } }, program: { language, source }, samples: s, energy: 100,
+    type: lineType, variant: lineZ, rule: { family: "whole-stair", params: { k: 1 } }, program: { language, source }, samples: s, energy: 100,
   }));
-  const simple = all.find(a => a.family === "multiples" && a.kind === "simple" && a.language === "python")!;
+  const simple = all.find(a => a.family === "whole-stair" && a.kind === "simple" && a.language === "python")!;
   const works = await run("python", simple.source);
   assert.equal(works.verdict, "works", works.summary);
   assert.equal(works.price, summonBits("python", simple.source).energy);
@@ -181,31 +181,31 @@ test("after a first summon at the first-agent share, the player's store can stil
   assert.ok((1 - share) * e.powerPerSecond * e.fullChargeSeconds >= dearest, "the store's capacity holds the dearest agent");
 });
 
-test("on a rational line the starters clear a fraction their rule cares about: y = 2x + 7/3 goes to a whole intercept (Multiples, powers of 3)", async () => {
-  const at = { lines: [fromMC(q(2), q(7, 3))] };
+test("on a rational line the starters climb their own rule: y = 5/2 x + 7/3 under Hensel (2, 7)", async () => {
+  const at = { lines: [fromMC(q(5, 2), q(7, 3))] }, f = familyOf("hensel"), params = { k: 2, p: 7 };
+  const main = (s: LineState) => evaluateSite(lineType, f, params, s, lineQ, 0, null).score![0]!;
   for (const language of ["typescript", "python"] as const) {
-    const simple = startersFor("multiples", language).find(a => a.kind === "simple")!;
+    const simple = startersFor("hensel", language).find(a => a.kind === "simple")!;
     const { record, state } = await runAct(await boxes.get(language), {
-      type: lineType, variant: lineQ, state: at, rule: { family: "multiples", params: { k: 3 }, tieBreaker: null }, program: program(simple), seed: "1", energy: 500,
+      type: lineType, variant: lineQ, state: at, rule: { family: "hensel", params, tieBreaker: null }, program: program(simple), seed: "1", energy: 500,
     });
     assert.equal(record.outcome, "committed", `${language}: ${record.reason}`);
-    const v = new EngineHost({ type: lineType, variant: lineQ, state, rule: { family: "multiples", params: { k: 3 } }, energy: 0 }).handle({ op: "view", rep: "si" } as never, { hostCallsLeft: 5 }) as { result: { elements: { c: { q: string } } } };
-    assert.ok(!v.result.elements.c.q.includes("/"), `${language}: the intercept is whole now (${v.result.elements.c.q})`);
+    assert.ok(Qn.cmp(main(state), main(at)) > 0, `${language}: the utility rose (${lineType.encode(state)})`);
   }
 });
 
 test("starters read the rule's parameters every act (drift redraws them): the same agent follows k = 3, then k = 7, in one sandbox", async () => {
-  const f = familyOf("square-triangle");
+  const f = familyOf("corner");
   const at = { lines: [fromMC(q(-1), q(3))] };   // y = −x + 3: a triangle of area 9/2
   for (const language of ["typescript", "python"] as const) {
-    const simple = startersFor("square-triangle", language).find(a => a.kind === "simple")!;
+    const simple = startersFor("corner", language).find(a => a.kind === "simple")!;
     const box = await boxes.get(language);
     for (const k of [3, 7]) {
       const params = { k };
       const main = (s: LineState) => evaluateSite(lineType, f, params, s, lineQ, 0, null).score![0]!;
       let s: LineState = at;
       for (let t = 0; t < 6; t++) {
-        const { record, state } = await runAct(box, { type: lineType, variant: lineQ, state: s, rule: { family: "square-triangle", params, tieBreaker: null }, program: program(simple), seed: String(k * 100 + t), energy: 500 });
+        const { record, state } = await runAct(box, { type: lineType, variant: lineQ, state: s, rule: { family: "corner", params, tieBreaker: null }, program: program(simple), seed: String(k * 100 + t), energy: 500 });
         assert.notEqual(record.outcome, "failed", record.reason);
         s = state;
       }

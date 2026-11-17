@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { canonicalJson, hashHex, q, rng, walkStep, type Q, type Score } from "@workspace/v2-core";
-import { dynamicFamilies, multiples, fromMC, lineQ, lineType, lineZ, squareTriangle, steppingCoefficients, crossingSliver, type LineState } from "@workspace/v2-linear";
+import { dynamicFamilies, longRun, fromMC, lineQ, lineType, lineZ, corner, steppingCoefficients, goldenPath, type LineState } from "@workspace/v2-linear";
 import { contributors, partLine, type RuleRef } from "../src/index.ts";
 import { moves } from "../src/moves.ts";
 
@@ -36,8 +36,8 @@ test("contributors never throw, and say no steps, on a walk of lines under every
 test("a change from or to an undefined quantity says 'none', not the reason sentence", async () => {
   const { changesBetween, contributors } = await import("../src/index.ts");
   // Square Area has no reading of a vertical line (no triangle with the axes); some families do (they score it).
-  const { squareTriangle, normalise } = await import("@workspace/v2-linear");
-  const rule = { type: lineType, family: squareTriangle, params: squareTriangle.dealable(lineQ)[0], variant: lineQ, tieBreaker: null } as never;
+  const { corner, normalise } = await import("@workspace/v2-linear");
+  const rule = { type: lineType, family: corner, params: corner.dealable(lineQ)[0], variant: lineQ, tieBreaker: null } as never;
   const vertical = { lines: [normalise(1n, 0n, -1n) as never] } as LineState, sloped = mc(q(2, 3), q(7, 4));
   const up = changesBetween(contributors(rule, vertical).parts, contributors(rule, sloped).parts);
   assert.ok(up.length > 0, "the parts changed");

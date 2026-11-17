@@ -4,7 +4,7 @@
  * only the families whose good states are whole lines are dealt (DynamicLineSpec.whole).
  */
 import type { RuleFamily, TieBreaker, Variant } from "@workspace/v2-core";
-import { dynamicFamilies } from "./dynamic-families.ts";
+import { dynamicFamilies } from "./dealt.ts";
 import { lineQ, lineQLenses, lineZ, lineZ4 } from "./type.ts";
 
 export interface PoolRule {

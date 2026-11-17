@@ -1,14 +1,14 @@
 /** @jsxRuntime automatic */
 /**
  * The two lenses of the new beginner families (layered-line-rules §10.5): the crossing (solving y = 0, worked out) and
- * the table's run of multiples (a "y ÷ x" row, ticked while whole, the first miss marked). Static markup, as in
+ * the table's run of longRun (a "y ÷ x" row, ticked while whole, the first miss marked). Static markup, as in
  * render.test.tsx, under the real families of v2-linear.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { q, type Mark, type Q, type RuleFamily } from "@workspace/v2-core";
-import { multiples, fromMC, lineQ, lineType, normalise, crossingSliver, type Line, type LineState } from "@workspace/v2-linear";
+import { longRun, fromMC, lineQ, lineType, normalise, goldenPath, type Line, type LineState } from "@workspace/v2-linear";
 import { annotate, ExpandedFace, ObjectChip, RepView, repText, type RuleRef } from "../src/index.ts";
 
 const mc = (m: number | Q, c: number | Q): LineState =>
@@ -41,9 +41,8 @@ test("crossing scene: every step's numbers and both readouts are element nodes; 
 });
 
 test("crossing: marks land on its elements and x0 lights with the plane's x-intercept", () => {
-  const e = evaluation(crossingSliver, mc(3, -7));
+  const e = evaluation(goldenPath, mc(3, -7));
   const html = view(mc(3, -7), "crossing", "expanded", e.marks);
-  assert.match(node(html, "crossing.x0"), /data-focus=""/);
   const near: Mark[] = [{ kind: "candidate", ref: { rep: "crossing", name: "near" } }];
   assert.match(node(view(mc(3, -7), "crossing", "expanded", near), "crossing.near"), /data-cand=""/);
   assert.match(node(view(mc(3, -7), "crossing", "expanded", [], { highlight: "xIntercept" }), "crossing.x0"), /data-lit=""/);

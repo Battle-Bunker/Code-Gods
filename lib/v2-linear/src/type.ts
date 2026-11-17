@@ -3,7 +3,7 @@ import type { ObjectType, Variant } from "@workspace/v2-core";
 import { decodeLine, encodeLine, inDomain, lineBits, lineParams, normalise, type LineState } from "./line.ts";
 import { representations } from "./representations.ts";
 import { lensMoves, lineTurnSurprise, newbornLine } from "./lens-moves.ts";
-import { dynamicFamilies } from "./dynamic-families.ts";
+import { dynamicFamilies } from "./dealt.ts";
 import { estimateLine, lineRule } from "./energy.ts";
 
 /** Every line variant offers the same small menu of whole-number mutations on a pinned lens (owner, 17 Nov). */

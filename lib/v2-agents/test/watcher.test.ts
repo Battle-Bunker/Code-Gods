@@ -13,8 +13,8 @@ const boxes = sandboxes();
 after(() => boxes.close());
 
 const CASES = [
-  { type: "lines" as WatcherType, objectType: lineType, variant: lineQ, rule: { family: "multiples", params: { k: 3 } } },
-  { type: "lines" as WatcherType, objectType: lineType, variant: lineZ, rule: { family: "multiples", params: { k: 3 } } },
+  { type: "lines" as WatcherType, objectType: lineType, variant: lineQ, rule: { family: "long-run", params: { b: 7, d: 3, on: "y-intercept top" } } },
+  { type: "lines" as WatcherType, objectType: lineType, variant: lineZ, rule: { family: "long-run", params: { b: 7, d: 3, on: "y-intercept top" } } },
   { type: "grids" as WatcherType, objectType: gridType, variant: grid4, rule: { family: gridType.families[0]!.id, params: {} } },
 ];
 
