@@ -1,5 +1,5 @@
-# Crossing Sliver · Thorough
-# Main part: the line crossing the x-axis at one over a big whole number. Secondary preference: whichever you were dealt ().
+# Crossing Pattern · Thorough
+# Main part: the x-crossing's continued fraction following the dealt pattern. Secondary preference: whichever you were dealt ().
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -75,15 +75,18 @@ def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m == 0:
         return None                                   # a flat line never crosses the x-axis
-    x = abs(num(c) / num(m))                          # where it crosses, ignoring the sign
-    if x == 0 or x < 1 / LIMIT:
-        return None
-    step = 10 ** len(p["suffix"])
-    n = nearest_n(1 / x, lambda t: t % step == int(p["suffix"]) % step, suffix_floor(p["suffix"], 1 / x), step, 4)
-    if n is None:
-        return None
-    main = math.log2(n) - 4 * abs(n * x - 1)
-    # main: binary digits of the whole number n with 1/n nearest the x-crossing, less four times how far n × crossing is from 1
+    n, d = abs(c.numerator * m.denominator), abs(c.denominator * m.numerator)   # |x-crossing| = |c / m| as n / d
+    k, length, miss = 0, 0, False
+    while d != 0 and length < 200:                    # its continued fraction, whole part by whole part
+        a = n // d
+        if not miss and a == int(p["pattern"][length % len(p["pattern"])]):
+            k += 1
+        else:
+            miss = True
+        n, d = d, n % d
+        length += 1
+    main = k - (length - k) / 4
+    # main: leading continued-fraction whole parts of the x-crossing following the dealt pattern, less a quarter for each after the first miss
     def tier(t):   # each secondary, in order (None: ranks last)
         return None   # none described (a family with no tie-breakers)
     return [main] + [tier(t) for t in (tie.split(">") if tie else [])]

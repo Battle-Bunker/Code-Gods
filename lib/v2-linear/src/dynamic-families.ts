@@ -236,67 +236,111 @@ export const nextDoorBottom = dynamicLine<{ k: number }>({
   } }],
 });
 
-// ------------------------------------------------------------------ 7. Unit Fraction (against size), on c
+// ------------------------------------------------------------------ 7–9: fine structure (owner, 17 Nov)
+//
+// "Rules in terms of the structure of rational numbers that grow in utility and energy in fine structure rather than
+// magnitude." Each counts whole-number units of structure (digits, prime powers, continued-fraction terms), so a random
+// start of the same size almost never qualifies, and each step deeper is rarer than the last.
 
-const ufU = (x: number, suffix: string) => {
-  if (x === 0 || x < 1 / LIMIT) return NaN;
-  const n = nearest(1 / x, n => n % 10 ** suffix.length === Number(suffix) % 10 ** suffix.length, suffixFloor(suffix), 10 ** suffix.length, 4);
-  return n === null ? NaN : log2(n) - 4 * abs(n * x - 1);
-};
 const endSpace: ParamSpace<{ suffix: string }> = {
-  size: 99, hint: "the whole number's last digits: 1 or 2 digits, not 0 alone (e.g. 3 or 25)",
+  size: 99, hint: "the digits the bottom should end in, repeated: 1 or 2 digits, not 0 alone (e.g. 3 or 25)",
   draw: r => ({ suffix: String(1 + r.below(99)) }),
   parse(text) { const s = text.trim(); return /^[0-9]{1,2}$/.test(s) && Number(s) > 0 ? { suffix: s } : { invalid: "1 or 2 digits, not 0" }; },
   label: p => p.suffix,
 };
+/** The suffix repeated to L digits, right-aligned ("25", 5 → "52525"). */
+const repeated = (suffix: string, L: number): string => { let t = ""; while (t.length < L) t = suffix + t; return t.slice(t.length - L); };
+/** How many of n's last decimal digits match the suffix repeated (counted from the right). */
+export function matchedEnd(n: bigint, suffix: string): number {
+  const ds = (n < 0n ? -n : n).toString(), want = repeated(suffix, ds.length);
+  let k = 0;
+  while (k < ds.length && ds[ds.length - 1 - k] === want[want.length - 1 - k]) k++;
+  return k;
+}
+const babsQ = (x: bigint) => (x < 0n ? -x : x);
 export const unitFraction = dynamicLine<{ suffix: string }>({
-  id: "unit-fraction", title: "Unit Fraction", goal: "the y-intercept one over a big whole number", reads: ["c"], focus: ["si", "c"],
-  space: endSpace, peers: [{ suffix: "3" }, { suffix: "8" }],
-  card: ({ suffix }) => `The y-intercept (ignoring its sign) should be exactly one over a whole number ending in ${suffix} (1/${suffix}, 1/${Number(suffix) + 10 ** suffix.length}, …). The smaller the fraction, the better (the binary digits of the whole number); being off costs four times how far n × y-intercept is from 1.`,
-  u: (_m, c, { suffix }) => ufU(abs(toNum(c)), suffix),
-  searches: [{ id: "small-enough-units", propose: (_m, c, uStar, { suffix }) => {
-    const step = 10 ** suffix.length, e = Number(suffix) % step, need = Math.max(1, Math.ceil(2 ** uStar - 1e-9));
-    const first = need + ((e - need) % step + step) % step;
-    return [first, first + step].filter(n => n > 0 && n < LIMIT).map(n => ({ c: q(Qn.sign(c) < 0 ? -1n : 1n, BigInt(n)) }));
+  id: "unit-fraction", title: "Unit Fraction", goal: "the y-intercept 1 over a whole number ending in the dealt digits, repeated", reads: ["c"], focus: ["si", "c"],
+  space: endSpace, peers: [{ suffix: "3" }, { suffix: "25" }],
+  card: ({ suffix }) => `Write the y-intercept as a fraction top/bottom in lowest terms. The top should be 1 (or −1): being d away costs d × d × d. The bottom's last digits should be ${suffix} repeated (…${repeated(suffix, 6)}): every last digit that matches, counting from the right until the first that does not, scores 1.`,
+  u: (_m, c, { suffix }) => matchedEnd(c.d, suffix) - cube(Number(babsQ(c.n)) - 1),
+  searches: [{ id: "end-in-the-pattern", propose: (_m, c, uStar, { suffix }) => {
+    const need = Math.max(1, Math.ceil(uStar - 1e-9)), out: LineTarget[] = [], sign = c.n < 0n ? -1n : 1n;
+    for (const L of [need, need + 1]) {
+      const tail = BigInt(repeated(suffix, L)), mod = 10n ** BigInt(L), keep = (c.d / mod) * mod;
+      for (const n of [keep + tail, tail, keep + mod + tail]) if (n > 0n) out.push({ c: q(sign, n) });
+    }
+    return out;
   } }],
 });
 
-// ------------------------------------------------------------------ 8. Prime Sliver (against size), on m
-
-const psU = (x: number, suffix: string) => {
-  if (x === 0 || x < 1 / LIMIT) return NaN;
-  const p = nearest(1 / x, primeWith(suffix), suffixFloor(suffix), 10 ** suffix.length, 2000);
-  return p === null ? NaN : log2(p) - 4 * abs(p * x - 1);
+const SMALL_PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199];
+const primeSpace: ParamSpace<{ p: number }> = {
+  size: SMALL_PRIMES.length, hint: "p, a prime from 2 to 199 (e.g. 3 or 7)",
+  draw: r => ({ p: SMALL_PRIMES[r.below(SMALL_PRIMES.length)]! }),
+  parse(text) { const p = Number(text.trim().replace(/^p\s*=\s*/, "")); return SMALL_PRIMES.includes(p) ? { p } : { invalid: "a prime from 2 to 199" }; },
+  label: p => String(p.p),
 };
-export const primeSliver = dynamicLine<{ suffix: string }>({
-  id: "prime-sliver", title: "Prime Sliver", goal: "the gradient one over a big prime with the dealt last digits", reads: ["m"], focus: ["si", "m"],
-  space: suffixSpace, peers: [{ suffix: "3" }, { suffix: "9" }],
-  card: ({ suffix }) => `The gradient (ignoring its sign) should be exactly one over a prime whose last digits are ${suffix}: a very gentle slope. The bigger the prime, the better (its binary digits); being off costs four times how far p × gradient is from 1.`,
-  u: (m, _c, { suffix }) => psU(abs(toNum(m)), suffix),
-  searches: [{ id: "big-enough-primes", propose: (m, _c, uStar, { suffix }) => {
-    const need = Math.max(2, 2 ** uStar), step = 10 ** suffix.length, ok = primeWith(suffix);
-    for (let n = suffixFloor(suffix)(need) + step, i = 0; i < 2000; n += step, i++) if (n >= need && ok(n)) return [{ m: q(Qn.sign(m) < 0 ? -1n : 1n, BigInt(n)) }];
-    return [];
+/** The gradient's prime depth: e·log2 p for p^e dividing its bottom, less the binary digits of the rest of the bottom and of the top. */
+export function primeDepthU(m: Q, p: number): number {
+  if (m.n === 0n) return NaN;
+  let d = m.d, e = 0;
+  const P = BigInt(p);
+  while (d % P === 0n) { d /= P; e++; }
+  return e * log2(p) - log2Big(d) - log2Big(babsQ(m.n));
+}
+const log2Big = (n: bigint): number => { const L = n.toString(2).length; return L <= 52 ? log2(Number(n)) : log2(Number(n >> BigInt(L - 52))) + (L - 52); };
+export const primeSliver = dynamicLine<{ p: number }>({
+  id: "prime-sliver", title: "Prime Sliver", goal: "the gradient 1 over a high power of the dealt prime p", reads: ["m"], focus: ["si", "m"],
+  space: primeSpace, peers: [{ p: 3 }, { p: 7 }],
+  card: ({ p }) => `Write the gradient as a fraction top/bottom in lowest terms (ignore its sign). The bottom should be made of ${p}'s: each ${p} that divides it scores the binary digits of ${p} (log2 ${p}). Everything else in the bottom costs its binary digits, and so does the top: the best gradients are 1/${p}, 1/${p * p}, 1/${p ** 3}, …`,
+  u: (m, _c, { p }) => primeDepthU(m, p),
+  searches: [{ id: "powers-of-p", propose: (m, _c, uStar, { p }) => {
+    const need = Math.max(1, Math.ceil(uStar / log2(p) - 1e-9)), sign = m.n < 0n ? -1n : 1n;
+    return [need, need + 1].map(e => ({ m: q(sign, BigInt(p) ** BigInt(e)) }));
   } }],
 });
 
-// ------------------------------------------------------------------ 9. Crossing Sliver (against size), on the x-crossing
-
+/** The continued fraction of |x| (whole parts, at most 200). */
+export function continuedFraction(x: Q): bigint[] {
+  let n = babsQ(x.n), d = x.d;
+  const out: bigint[] = [];
+  while (d !== 0n && out.length < 200) { out.push(n / d); [n, d] = [d, n % d]; }
+  return out;
+}
+/** The value of the continued fraction [a0; a1, …]. */
+export function fromContinued(as: readonly bigint[]): Q {
+  let n = as[as.length - 1]!, d = 1n;
+  for (let i = as.length - 2; i >= 0; i--) [n, d] = [as[i]! * n + d, n];
+  return q(n, d);
+}
+const patternSpace: ParamSpace<{ pattern: string }> = {
+  size: 4 + 16 + 64, hint: "the pattern of whole parts: 1 to 3 digits, each 1 to 4 (e.g. 1 or 12)",
+  draw: r => { const L = 1 + r.below(3); let t = ""; for (let i = 0; i < L; i++) t += String(1 + r.below(4)); return { pattern: t }; },
+  parse(text) { const s = text.trim().replace(/^pattern\s*=\s*/, ""); return /^[1-4]{1,3}$/.test(s) ? { pattern: s } : { invalid: "1 to 3 digits, each 1 to 4" }; },
+  label: p => p.pattern,
+};
+/** Leading whole parts matching the pattern repeated, less a quarter for each whole part after the first miss. */
+export function crossingPatternU(X: Q, pattern: string): number {
+  const cf = continuedFraction(X);
+  let k = 0;
+  while (k < cf.length && cf[k] === BigInt(pattern[k % pattern.length]!)) k++;
+  return k - (cf.length - k) / 4;
+}
 /** The x-crossing −c/m of y = mx + c (null for a flat line). */
 const crossing = (m: Q, c: Q): Q | null => (Qn.isZero(m) ? null : Qn.div(Qn.neg(c), m));
-export const crossingSliver = dynamicLine<{ suffix: string }>({
-  id: "crossing-sliver", title: "Crossing Sliver", goal: "the line crossing the x-axis at one over a big whole number", reads: ["X"], focus: ["crossing", "x0"],
-  space: endSpace, peers: [{ suffix: "7" }, { suffix: "11" }],
-  card: ({ suffix }) => `The line should cross the x-axis (ignoring the sign) at exactly one over a whole number ending in ${suffix} (1/${suffix}, 1/${Number(suffix) + 10 ** suffix.length}, …): very close to (0, 0). The closer, the better (the binary digits of the whole number); being off costs four times how far n × crossing is from 1.`,
-  u: (m, c, { suffix }) => { const X = crossing(m, c); return X === null ? NaN : ufU(abs(toNum(X)), suffix); },
-  searches: [{ id: "small-enough-crossings", propose: (m, c, uStar, { suffix }) => {
-    const step = 10 ** suffix.length, e = Number(suffix) % step, need = Math.max(1, Math.ceil(2 ** uStar - 1e-9));
-    const first = need + ((e - need) % step + step) % step, out: LineTarget[] = [];
-    for (const n of [first, first + step]) {
-      if (n <= 0 || n >= LIMIT) continue;
-      const X = q(1n, BigInt(n));
-      if (!Qn.isZero(m)) out.push({ c: Qn.neg(Qn.mul(m, X)) }, { c: Qn.mul(m, X) });   // keep the gradient
-      if (!Qn.isZero(c)) out.push({ m: Qn.neg(Qn.div(c, X)) });                          // keep the y-intercept
+export const crossingSliver = dynamicLine<{ pattern: string }>({
+  id: "crossing-sliver", title: "Crossing Pattern", goal: "the x-crossing's continued fraction following the dealt pattern", reads: ["X"], focus: ["crossing", "x0"],
+  space: patternSpace, peers: [{ pattern: "1" }, { pattern: "12" }],
+  card: ({ pattern }) => `Find where the line crosses the x-axis and ignore its sign. Write that number as a continued fraction: take its whole part, flip what is left over (1 divided by it), take that whole part, and so on until nothing is left. The whole parts should follow ${pattern} repeated (${[...Array(6)].map((_, i) => pattern[i % pattern.length]).join(", ")}, …): each one that matches, from the first until the first miss, scores 1; every whole part after that costs ¼.`,
+  u: (m, c, { pattern }) => { const X = crossing(m, c); return X === null ? NaN : crossingPatternU(X, pattern); },
+  searches: [{ id: "pattern-crossings", propose: (m, c, uStar, { pattern }) => {
+    const need = Math.max(1, Math.ceil(uStar - 1e-9)), out: LineTarget[] = [];
+    for (const k of [need, need + 1, need + 2]) {
+      const X = fromContinued(Array.from({ length: k }, (_, i) => BigInt(pattern[i % pattern.length]!)));
+      for (const x of [X, Qn.neg(X)]) {
+        if (!Qn.isZero(m)) out.push({ c: Qn.neg(Qn.mul(m, x)) });    // keep the gradient
+        if (!Qn.isZero(c)) out.push({ m: Qn.neg(Qn.div(c, x)) });    // keep the y-intercept
+      }
     }
     return out;
   } }],

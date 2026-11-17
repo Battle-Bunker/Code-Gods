@@ -76,7 +76,7 @@ test("parts are the recorded terms on every family and a walk of states: no seco
 
 test("moves: each really improves the utility, at the price it quotes; the cheapest for the main part leads, the frontier ascends", () => {
   for (const [f, p, st] of [
-    [emptyTank, {}, mc(-3, 10)], [primeHug, { suffix: "3" }, mc(4, -3)], [circleKiss, { k: 5 }, mc(q(3, 4), 6)], [crossingSliver, { suffix: "7" }, mc(7, -2)], [squareTriangle, { k: 3 }, mc(-1, 3)],
+    [emptyTank, {}, mc(-3, 10)], [primeHug, { suffix: "3" }, mc(4, -3)], [circleKiss, { k: 5 }, mc(q(3, 4), 6)], [crossingSliver, { pattern: "1" }, mc(7, -2)], [squareTriangle, { k: 3 }, mc(-1, 3)],
   ] as const) {
     const r = rule(f as RuleFamily<LineState, unknown>, p, lineQ);
     const before = evaluateObject(lineType, r.family, r.params, st, lineQ).score;

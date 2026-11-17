@@ -36,12 +36,33 @@ candidates set the energy for the fraction and area rules, which is what the def
 lower it is not measured. How this could be wrong: one line per rule; the climb's six steps and coarse amounts are this
 build's choice, and a longer climb would match more often.
 
-### Seen narrowly: the slivers' good lines cost about 0
+### Fine structure: Unit Fraction, Prime Sliver and Crossing Pattern (17 Nov, a coordinator's trial)
 
-Unit Fraction, Prime Sliver and Crossing Sliver at u ≈ 12 (c, m or X about 1/5000): 69–72 of 72 same-size starts are
-already as good, so the energy is 0–0.3 bits. A start of the same size as 1/5003 is ±1/n with n near 5000, and the
-rule's utility barely tells 1/4999 from 1/5003. This is the definition working as written (same size gives away the
-precision these rules ask for); whether these rules or the start's size should change is the owner's call.
+Measured first (seen narrowly): under the old formulas (1/n nearest the reading, 4 × the distance off) their good lines
+cost 0–0.3 bits, because 69–72 of 72 same-size starts were already as good: size-only rules in disguise. The
+coordinator redesigned them as fine-structure rules on the whole numbers they read, counted in whole units, so a
+same-size start almost never qualifies (the owner: rules "that grow in utility and energy in fine structure rather
+than magnitude"):
+
+| Rule | Reads | Utility (bigger better) | Space |
+|---|---|---|---|
+| Unit Fraction | c | the bottom's last digits matching the dealt digits repeated (counted from the right) − (\|top\| − 1)³ | 99 suffixes |
+| Prime Sliver | m | e·log2 p for p^e dividing the bottom − log2 (the rest of the bottom) − log2 \|top\| | p a prime 2–199 (46) |
+| Crossing Pattern | X | leading continued-fraction whole parts of \|X\| matching the dealt pattern repeated − ¼ × the whole parts after the first miss | patterns of 1–3 digits 1–4 (84) |
+
+Energy against depth (seen narrowly: one line per depth, K = 12, mean of three seeds; lib/v2-linear scripts/depth-probe.ts):
+
+| Unit Fraction 3: c = 1/13, 1/133, 1/1333, 1/13333, 1/1333333, 1/133333333 | 11, 17, 24, 30, 44, 57 bits |
+|---|---|
+| Prime Sliver 3: m = 1/3, 1/3², 1/3⁴, 1/3⁶, 1/3⁹, 1/3¹² | 6, 9, 16, 22, 31, 41 bits |
+| Crossing Pattern 1: X = 5/3, 13/8, 55/34, 233/144, 1597/987 (4–16 ones) | 6, 14, 24, 33, 46 bits |
+
+Built and tested (test/dynamic-families.test.ts): energy rises with depth for each, and at most one of 12 same-size
+starts already qualifies at the deepest state tested. The agents' scores follow (lib/v2-agents dynamic-catalogue.ts,
+both languages tested against the engine). A finite continued fraction ends in a whole part of 2 or more, so the
+pattern "1" always misses its last term ([1; 1, …, 1, 1] is written [1; 1, …, 2]); harmless, every state pays it.
+How this could be wrong: one line per depth; a random same-size start is the definition's reference, and players reach
+these states by multiplying or by adding to a digit tail, which may be cheaper than this estimator's routes find.
 
 ## The estimator before 17 Nov (deleted)
 
@@ -115,9 +136,9 @@ better), the readings it `reads`, and its own `searches` (heuristics that propos
 | Multiples | c | (log2\|n\| − √\|c − n\|) × (k's in n − other factors): the owner's example | up | k 2–12 |
 | Fine Bottom | c | log2 (k-part of c's bottom) − 2 log2 (rest of the bottom) | fractions | k 2–9 |
 | Next-door Bottom | m | log2 gcd(\|top\| + t, bottom) − log2 (the rest of the bottom) | fractions | t 1–9 |
-| Unit Fraction | c | log2 n − 4 \|n·c − 1\|, n the whole number ending in the suffix nearest 1/\|c\| | down | 99 suffixes |
-| Prime Sliver | m | log2 p − 4 \|p·m − 1\|, p the prime ending in the suffix nearest 1/\|m\| | down | 444 suffixes |
-| Crossing Sliver | X | log2 n − 4 \|n·X − 1\|, X = −c/m, n the whole number ending in the suffix nearest 1/\|X\| | X towards 0 | 99 suffixes |
+| Unit Fraction | c | the bottom's last digits matching the suffix repeated − (\|top\| − 1)³ (fine structure, 17 Nov) | finer bottoms | 99 suffixes |
+| Prime Sliver | m | e·log2 p for p^e dividing the bottom − log2 (rest of the bottom) − log2 \|top\| (17 Nov) | deeper powers of p | 46 primes |
+| Crossing Pattern | X | leading continued-fraction whole parts of \|X\| following the pattern − ¼ per whole part after the first miss (17 Nov) | longer patterns | 84 patterns |
 | Stepping Coefficients | a, b, c | log2 max(\|a\|, \|b\|, \|c\|) − 2(\|b − a − d\| + \|c − b − d\|), ax + by + c = 0 in lowest whole numbers, b > 0 | up, in steps | d ±1–30 |
 | Circle Kiss | m, c | ½ log2(p² + q²) − 4 \|c²/(1 + m²) − R²\|, m = p/q: touch the circle of radius R (Pythagorean tilts) | finer tilts | R 1–60 |
 | Square Triangle | m, c (the area c²/2\|m\|) | log2 n − 2√\|area − n²\|, n the multiple of k with n² nearest | area up | k 2–30 |
@@ -145,11 +166,11 @@ Labels as above. Several rows assumed tables or tie-breakers, and the adaptation
 | 3, 3a Tie-breaker tied to the main part | Adapted: no tie-breakers. Precision is a term of the utility (cubed or ×4 distance to the anchor the main part chose), so a step to a new anchor restarts the precision climb. |
 | 4 Dealable instances | Built: large spaces (RuleFamily.space); two peers listed per family. |
 | 5 Perpendicular | Not measured: the PMI table is computed from value tables (exempt in v2-rule-check). |
-| 6 Opponents | By construction: on c, Power Hug and Multiples pull up and Unit Fraction pulls down (Fine Bottom wants fractions); on m, Prime Hug pulls up, Prime Sliver down, Next-door Bottom wants fractions; on the x-crossing, Crossing Sliver pulls towards 0 against Square Triangle's big area (area = \|c·X\|/2); Stepping Coefficients' big a, b, c oppose every rule that wants a simple gradient or intercept; Circle Kiss ties c to m (c² = R²(1 + m²)). |
-| 7 Kinds | Powers, large primes, k-multiples, denominators of a base, divisibility of top + t by bottom, unit fractions (on c and on X), prime reciprocals, arithmetic steps, Pythagorean tilts, square areas: no kind shared by more than two. |
+| 6 Opponents | By construction: on c, Power Hug and Multiples pull the y-intercept up while Unit Fraction wants its top 1 and a long digit tail on its bottom (Fine Bottom wants a bottom of k's: the two bottoms disagree); on m, Prime Hug pulls up, Prime Sliver wants a bottom that is a power of p, Next-door Bottom a bottom dividing top + t; on the x-crossing, Crossing Pattern wants a continued fraction of small dealt whole parts against Square Triangle's big area (area = \|c·X\|/2); Stepping Coefficients' big a, b, c oppose every rule that wants a simple gradient or intercept; Circle Kiss ties c to m (c² = R²(1 + m²)). |
+| 7 Kinds | Powers, large primes, k-multiples, denominators of a base, divisibility of top + t by bottom, digit tails of a bottom, prime-power bottoms, continued-fraction patterns, arithmetic steps, Pythagorean tilts, square areas: no kind shared by more than two. |
 | 10 Small bump | Not measured. Guess: the cubed terms make every off-anchor bump expensive in utility, but energy, not utility, is paid, so the loss is the energy of a slightly worse state. |
 | 12 Writable from the card | Each card states the formula in words. Not tested with a reader. |
-| 13 Lives on the rationals | Fine Bottom, Next-door Bottom, Unit Fraction, Prime Sliver and Crossing Sliver need fractions by construction; Circle Kiss's tangent lines have fractional gradients (p/q from a triple) and intercepts (R·h/q); Stepping Coefficients' lines have gradient −a/(a + d). |
+| 13 Lives on the rationals | Fine Bottom, Next-door Bottom, Unit Fraction and Prime Sliver need fractions by construction (their bottoms carry the score), Crossing Pattern a fractional crossing past its first whole part; Circle Kiss's tangent lines have fractional gradients (p/q from a triple) and intercepts (R·h/q); Stepping Coefficients' lines have gradient −a/(a + d). |
 
 How this could be wrong: K = 12 is noisy. A rule whose good states are cheap from most same-size starts scores near 0
 however good it is. The floor and heuristics are only what is coded, so a cheaper route nobody coded overvalues a state.

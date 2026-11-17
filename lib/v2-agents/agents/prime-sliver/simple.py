@@ -1,5 +1,5 @@
 # Prime Sliver · Simple
-# Main part: the gradient one over a big prime with the dealt last digits. Secondary preference: whichever you were dealt ().
+# Main part: the gradient 1 over a high power of the dealt prime p. Secondary preference: whichever you were dealt ().
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -73,14 +73,14 @@ def factors_n(n):
 
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
-    x = abs(num(m))
-    if x == 0 or x < 1 / LIMIT:
-        return None
-    P = nearest_n(1 / x, prime_with(p["suffix"]), suffix_floor(p["suffix"], 1 / x), 10 ** len(p["suffix"]), 2000)
-    if P is None:
-        return None
-    main = math.log2(P) - 4 * abs(P * x - 1)
-    # main: binary digits of the dealt prime p with 1/p nearest the gradient, less four times how far p × gradient is from 1
+    if m == 0:
+        return None                                   # a flat gradient has no bottom worth scoring
+    d, e = m.denominator, 0
+    while d % p["p"] == 0:                             # how many p's divide the bottom
+        d //= p["p"]
+        e += 1
+    main = e * math.log2(p["p"]) - math.log2(d) - math.log2(abs(m.numerator))
+    # main: log2 p for each p dividing the gradient's bottom, less the binary digits of the rest of the bottom and of the top (bigger is better)
     def tier(t):   # each secondary, in order (None: ranks last)
         return None   # none described (a family with no tie-breakers)
     return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
