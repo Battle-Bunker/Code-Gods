@@ -106,12 +106,17 @@ turn that adds more energy than it costs is marked **pump**.
   the continued-fraction lens cost 17 to 77 bits for Bearing, 46 to 72 for Golden Path (– past 12 terms: the lens holds
   16 per parameter) and 21 to 53 for Archimedes, against 2 to 16 bits of energy added.
 - Energy rises with depth for Bearing, Golden Path, Ring, Archimedes, Hensel, Whole Stair, Corner and Long Run.
-- **Flag, Prime Palette:** its energy stops rising at about 39 bits while its utility climbs from 13 to 33. A deeper
-  rung is one cheap turn away for a same-size start in the prime-exponent lens (one more 3 is adding to an exponent).
-- **Flag, Shared Secret:** its energy stays at about 8 bits from utility 6 to utility 32. The estimator reaches its deep
-  states cheaply from same-size starts, so as built its utility does not measure rarity.
-- **Flag, Kin:** a trivial line (y = 2x + 3) scores 3.2 with energy 7.9, about the same as its first rungs. Its ladder
-  is also shallow (the candidates stop at utility 12).
+- **Retired (17 Nov), Prime Palette:** its energy stopped rising at about 39 bits while its utility climbed from 13 to
+  33: a deeper rung is one cheap turn away for a same-size start in the prime-exponent lens (one more 3 is adding to an
+  exponent). Code deleted; old-rule-ideas.md says why.
+- **Retired (17 Nov), Shared Secret:** its energy stayed at about 8 bits from utility 6 to utility 32: a, b, c's shared
+  factors are the gradient's and the y-intercept's bottoms seen from the other side, so the gradient-and-intercept lens
+  reaches any level cheaply. Code deleted; old-rule-ideas.md says why.
+- **Kin, fixed (17 Nov):** its candidates stopped at utility 12 (they stepped the partner's bottom 64 times at most).
+  They now keep one fraction and choose its Farey neighbour at the size the level needs, both ways round; the ladder
+  below climbs to utility 33 and 67 bits. A trivial line (y = 2x + 3, utility 3.2, energy about 8–9) still scores like
+  the first rung: small fractions are often neighbours, so a small line is good at its size (energy is per size).
+  Not dealt yet: it is to pass the interaction check first.
 - Knife edges, as their designers said: +1 sends Hensel and Prime Palette to 0. The approach rules keep part of their
   value under +1 (Bearing 52 → 48 bits at depth 27; Archimedes 57 → 59).
 - Ring's trivial lines score up to 12 bits (y = −x + 1 lies near a tangent), and its ladder is noisy (one rung reads
@@ -200,7 +205,7 @@ Trivial lines (y = x, 2x + 3, x/2 + 1, −x + 1, 3x + 1): best energy 0.0 (u -0.
 
 Trivial lines (y = x, 2x + 3, x/2 + 1, −x + 1, 3x + 1): best energy 0.0 (u 0.7).
 
-#### Prime Palette (3 gradient top), 33 ms an estimate
+#### Prime Palette (3 gradient top), retired 17 Nov; 33 ms an estimate
 | rung (m, c) | u | energy | after +1 on its number: u, energy | next rung: cheapest turn (cf lens) | energy added |
 |---|---|---|---|---|---|
 | 9/2, 7/3 | 3.2 | 13.5 | 0.0, 0.0 | 14.3 (24.6) | 4.7 |
@@ -226,17 +231,22 @@ Trivial lines (y = x, 2x + 3, x/2 + 1, −x + 1, 3x + 1): best energy 6.7 (u 1.6
 
 Trivial lines (y = x, 2x + 3, x/2 + 1, −x + 1, 3x + 1): best energy 0.0 (u 0.0).
 
-#### Kin (-), 25 ms an estimate
+#### Kin (-), its candidates fixed (17 Nov), 77 ms an estimate
 | rung (m, c) | u | energy | after +1 on its number: u, energy | next rung: cheapest turn (cf lens) | energy added |
 |---|---|---|---|---|---|
-| 3/2, 1 | 3.2 | 3.3 | 3.2, 9.4 | 23.3 (23.3) | 7.6 |
-| 3/2, 4/3 | 4.0 | 10.9 | 4.6, 11.4 | 32.4 (39.0) | 3.8 |
-| 3/2, 16/11 | 8.0 | 14.7 | 8.2, 13.4 | 27.1 (27.1) | 6.5 |
-| 3/2, 64/43 | 12.0 | 21.2 | 12.0, 22.1 |  |  |
+| 3/2, 4/3 | 4.0 | 9.7 | 4.6, 10.1 | 37.3 (41.7) | 1.0 |
+| 3/2, 7/5 | 5.6 | 10.8 | 6.0, 10.5 | 33.4 (33.4) | 6.9 |
+| 3/2, 25/17 | 9.3 | 17.7 | 9.4, 19.2 | 37.0 (37.0) | 8.9 |
+| 3/2, 97/65 | 13.2 | 26.6 | 13.2, 30.9 | 38.1 (38.1) | 9.1 |
+| 3/2, 385/257 | 17.2 | 35.7 | 17.2, 38.7 | 71.1 (71.1) | 21.5 |
+| 3/2, 6145/4097 | 25.2 | 57.2 | 25.2, 52.6 | 71.2 (71.2) | 9.9 |
+| 3/2, 98305/65537 | 33.2 | 67.1 | 33.2, 68.3 |  |  |
 
-Trivial lines (y = x, 2x + 3, x/2 + 1, −x + 1, 3x + 1): best energy 7.9 (u 3.2).
+Trivial lines (y = x, 2x + 3, x/2 + 1, −x + 1, 3x + 1): best energy 8.9 (u 3.2). The knock (+1 on the y-intercept's
+top) keeps the utility here because the gradient's bottom is 2: the cross-product moves by 2. With a big gradient bottom
+q it moves by q, and the utility falls by about log2 q (built: the formula).
 
-#### Shared Secret (-), 56 ms an estimate
+#### Shared Secret (-), retired 17 Nov; 56 ms an estimate
 | rung (m, c) | u | energy | after +1 on its number: u, energy | next rung: cheapest turn (cf lens) | energy added |
 |---|---|---|---|---|---|
 | 3/4, -3/5 | 5.9 | 9.8 | 2.3, 5.6 | 33.4 (33.4) | -2.0 |

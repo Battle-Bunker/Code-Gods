@@ -1,14 +1,13 @@
 /**
  * Line rules from the two rule brainstorms (17 Nov). Eight are dealt since the coordinator's trial of 17 Nov (dealt.ts):
- * Bearing, Golden Path, Ring, Archimedes, Hensel, Whole Stair, Corner, Long Run. Prime Palette, Kin and Shared Secret are
- * still candidates, NOT dealt (candidateFamilies). Built from the shortlist of the two
+ * Bearing, Golden Path, Ring, Archimedes, Hensel, Whole Stair, Corner, Long Run. Kin is still a candidate, NOT dealt
+ * (candidateFamilies); Prime Palette and Shared Secret are retired (old-rule-ideas.md). Built from the shortlist of the two
  * brainstorms (docs/engine-v2/redesign/rules-arithmetic.md and rules-geometry.md on the claude/rules-* branches). Each is
  * one pure real utility of the line, with candidates for the estimator and a card. They appear only in the rules mirror's
  * "Candidate rules (not dealt)" group; measurements are in docs/engine-v2/energy.md ("Candidate rules").
  *
  * Approach rules (aim at an irrational target, score digits of agreement): Bearing, Golden Path, Ring, Archimedes.
- * Exactness rules (exact solutions at every height): Hensel, Whole Stair, Corner, Prime Palette, Long Run, Kin, Shared
- * Secret. Nothing is computed at import time.
+ * Exactness rules (exact solutions at every height): Hensel, Whole Stair, Corner, Long Run, Kin. Nothing is computed at import time.
  */
 import { gcd, q, Qn, type ParamSpace, type Q, type RuleFamily } from "@workspace/v2-core";
 import type { LineState } from "./line.ts";
@@ -286,7 +285,7 @@ export const corner = dynamicLine<{ k: number }>({
   } }],
 });
 
-// ------------------------------------------------------------------ number readers for Prime Palette and Long Run
+// ------------------------------------------------------------------ number readers for Long Run
 
 const PARTS = ["gradient top", "gradient bottom", "y-intercept top", "y-intercept bottom"] as const;
 export type Part = (typeof PARTS)[number];
@@ -299,32 +298,6 @@ function withPart(m: Q, c: Q, on: Part, v: bigint): LineTarget | null {
   if (on === "y-intercept top") return { c: q(sign(c) * v, c.d) };
   return { c: q(c.n, v) };
 }
-
-// ------------------------------------------------------------------ 8. Prime Palette (exactness): dealt primes dividing one number
-
-export interface PaletteP { readonly primes: readonly number[]; readonly on: Part }
-const PALETTES: PaletteP[] = [{ primes: [3], on: "gradient top" }, { primes: [2, 5], on: "y-intercept bottom" }, { primes: [7], on: "y-intercept top" }, { primes: [3, 11], on: "gradient bottom" }];
-export function paletteU(n: bigint, primes: readonly number[]): number {
-  if (n === 0n) return 0;
-  let u = 0;
-  for (const p of primes) { const P = BigInt(p); while (n % P === 0n) { n /= P; u += log2(p); } }
-  return u;
-}
-export const primePalette = dynamicLine<PaletteP>({
-  id: "prime-palette", title: "Prime Palette", goal: "the dealt primes dividing the dealt number many times", reads: ["m", "c"], focus: ["si", "m"],
-  space: listSpace(PALETTES, p => `${p.primes.join(",")} ${p.on}`, "primes and a number: one of " + PALETTES.map(p => `${p.primes.join(",")} ${p.on}`).join("; ")),
-  peers: [PALETTES[0]!, PALETTES[1]!],
-  card: ({ primes, on }) => `Write the gradient and the y-intercept as fractions in lowest terms and look at the ${on}. Every time ${primes.join(" or ")} divides it, you score that prime's size in binary digits.`,
-  u: (m, c, p) => paletteU(partOf(m, c, p.on), p.primes),
-  searches: [{ id: "multiply-in", propose: (m, c, uStar, p) => {
-    const n = partOf(m, c, p.on) || 1n, out: LineTarget[] = [];
-    for (let extra = 1n, i = 0; i < 64 && out.length < 3; i++, extra *= BigInt(p.primes[0]!)) {
-      const t = withPart(m, c, p.on, n * extra);
-      if (t && paletteU(n * extra, p.primes) >= uStar - 1e-9) out.push(t);
-    }
-    return out;
-  } }],
-});
 
 // ------------------------------------------------------------------ 9. Long Run (exactness): the longest run of a digit in a base
 
@@ -368,46 +341,28 @@ export const kin = dynamicLine<Record<string, never>>({
   card: () => `Write the gradient as p/q and the y-intercept as r/s in lowest terms. Cross-multiply: p × s and r × q. They are close kin when the two differ by 1. You score twice the binary digits of the biggest of p, q, r, s, less the binary digits of the difference.`,
   u: (m, c) => kinU(m, c),
   searches: [{ id: "neighbours", propose: (m, c, uStar) => {
-    // Keep the gradient p/q; r/s with p·s − r·q = ±1 (extended Euclid), stepped by (p, q) to the needed size.
-    const p = m.n, qq = m.d, out: LineTarget[] = [];
-    if (p === 0n) return out;
-    const [g, x] = (() => { let [r0, r1, s0, s1] = [babs(p), qq, 1n, 0n]; while (r1 !== 0n) { const k = r0 / r1; [r0, r1] = [r1, r0 - k * r1]; [s0, s1] = [s1, s0 - k * s1]; } return [r0, s0]; })();
-    if (g !== 1n) return out;
-    const s0 = ((x * (p < 0n ? -1n : 1n)) % qq + qq) % qq || qq;   // p·s ≡ 1 (mod q)
-    for (let j = 0n; j < 64n && out.length < 3; j++) {
-      const s = s0 + j * qq, r = (p * s - 1n) / qq;
-      if (s <= 0n) continue;
-      const cc = q(r, s);
-      if (kinU(m, cc) >= uStar - 1e-9) out.push({ c: cc });
-    }
+    // Keep one fraction a/b and choose the other, x/y, with a·y − x·b = ±1 (extended Euclid), its bottom stepped by b
+    // straight to the size the level needs (2·log2 of the biggest number, less log2 1). Both ways round, both signs.
+    const out: LineTarget[] = [], need = 2n ** BigInt(Math.max(0, Math.ceil(uStar / 2)));
+    const partners = (a: bigint, b: bigint): Q[] => {
+      const res: Q[] = [];
+      if (a === 0n) return res;
+      let [r0, r1, s0, s1] = [babs(a), b, 1n, 0n];
+      while (r1 !== 0n) { const k = r0 / r1; [r0, r1] = [r1, r0 - k * r1]; [s0, s1] = [s1, s0 - k * s1]; }
+      if (r0 !== 1n) return res;
+      for (const one of [1n, -1n]) {
+        // a·y ≡ one (mod b): y0 in 1..b, then y = y0 + j·b with y ≥ need.
+        const y0 = ((((one * s0 * (a < 0n ? -1n : 1n)) % b) + b) % b) || b;
+        const j0 = y0 >= need ? 0n : (need - y0 + b - 1n) / b;
+        for (const j of [j0, j0 + 1n]) { const y = y0 + j * b; res.push(q((a * y - one) / b, y)); }
+      }
+      return res;
+    };
+    for (const cc of partners(m.n, m.d)) if (kinU(m, cc) >= uStar - 1e-9) out.push({ c: cc });
+    for (const mm of partners(c.n, c.d)) if (kinU(mm, c) >= uStar - 1e-9) out.push({ m: mm });
     return out;
   } }],
 });
 
-// ------------------------------------------------------------------ 11. Shared Secret (exactness): a, b, c sharing factors pairwise
-
-export function secretU(m: Q, c: Q): number {
-  const [a, b, cc] = abcOf(m, c);
-  if (a === 0n || cc === 0n) return 0;
-  return log2Big(gcd(babs(a), b)) + log2Big(gcd(b, babs(cc))) + log2Big(gcd(babs(cc), babs(a)));
-}
-export const sharedSecret = dynamicLine<Record<string, never>>({
-  id: "shared-secret", title: "Shared Secret", goal: "each pair of a, b, c sharing a big factor", reads: ["gen"], focus: ["gen", "b"],
-  space: listSpace([{}], () => "-", "no parameters"), peers: [{}],
-  card: () => `Write the line as a·x + b·y + c = 0 with whole numbers sharing no factor all three. Each pair of them may still share a factor: score the binary digits of what a and b share, b and c share, and c and a share (a or c of 0 scores nothing).`,
-  u: (m, c) => secretU(m, c),
-  searches: [{ id: "x-y-z", propose: (m, _c, uStar) => {
-    // a = xy, b = yz, c = zx with x, y, z pairwise coprime (consecutive odd numbers near 2^(u*/3) and powers of 2).
-    const base = Math.max(3, Math.ceil(2 ** (uStar / 3))), out: LineTarget[] = [];
-    for (let i = 0; i < 6 && out.length < 3; i++) {
-      const x = BigInt(base + 2 * i) | 1n, y = x + 2n, z = 1n << BigInt(Math.max(1, Math.ceil(log2(base))));
-      if (gcd(x, y) !== 1n || gcd(y, z) !== 1n || gcd(x, z) !== 1n) continue;
-      const a = x * y * (m.n < 0n ? 1n : -1n), b = y * z, cc = z * x;
-      out.push({ m: q(-a, b), c: q(-cc, b) });
-    }
-    return out;
-  } }],
-});
-
-/** The candidate rules still on trial, never dealt (no agents): Prime Palette, Kin and Shared Secret (energy.md flags). */
-export const candidateFamilies: readonly RuleFamily<LineState, any>[] = [primePalette, kin, sharedSecret];
+/** The candidate rules still on trial, never dealt (no agents): Kin (energy.md, "Candidate rules"). Prime Palette and Shared Secret are retired (old-rule-ideas.md). */
+export const candidateFamilies: readonly RuleFamily<LineState, any>[] = [kin];
