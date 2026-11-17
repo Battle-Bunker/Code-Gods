@@ -97,7 +97,7 @@ function Tryout({ rule, my, state, want, sites, testPrefix = "", objectId }: { r
               <Delta label="Your points on it" from={out.from.points} to={out.to.points} fmt={pointsText} testId={tid("text-what-if-points")} />
             </dl>
             {want !== null && <p className="text-xs text-muted-foreground">Points assume the others' bits on this {rule.type.id} stay as they are now ({bitsText(Math.max(0, want))}): their rules are secret, so nobody can tell how much they would want it after.</p>}
-            <p className="text-xs text-muted-foreground" data-testid={tid("text-what-if-charge")}>An agent would spend about {energyText(out.charge)} on this change, plus what it reads first.</p>
+            <p className="text-xs text-muted-foreground" data-testid={tid("text-what-if-charge")}>This turn costs {energyText(out.charge)}: {out.naming.toFixed(1)} bits to name its moves and {out.surprise.toFixed(1)} bits of surprise (an agent pays this plus what it reads first).</p>
             {objectId && !testPrefix && <LockWarning objectId={objectId} call={{ mutator: choice.id, site, args: wireArgs(choice.args, args) }} noun={rule.type.id} />}
           </div>
         ) : null}
