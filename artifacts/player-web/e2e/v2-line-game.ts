@@ -148,7 +148,7 @@ try {
     // The act log's times read as the countdown does ("3:39 left"), not elapsed (persona walk: 0:13 beside 3:39 left).
     await feed.locator("[data-testid^=row-move-] p:visible").getByText(/^\d+:\d\d left/).first().waitFor({ timeout: 60_000 });
     // Its own row, or inside a tug-of-war entry (contested lines fold their moves under "Show the N moves").
-    const mine = feed.locator("[data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed (a line|line \d+).*Your rarity/ }).first();
+    const mine = feed.locator("[data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed (a line|line \d+).*Your energy/ }).first();
     await mine.waitFor({ state: "attached", timeout: 60_000 });
     const folded = mine.locator("xpath=ancestor::details[1]");
     if (await folded.count() && (await folded.getAttribute("open")) === null) await folded.locator("summary").click();
@@ -220,7 +220,7 @@ try {
       await edit.click();
       await page.getByTestId("pane-forge").getByText(new RegExp(`${name}, version \\d+`)).first().waitFor({ timeout: 10_000 });
     }
-    assert.match(sentence, /Your rarity ([\d.,]+ → [\d.,]+ bits?|stayed [\d.,]+ bits?)/, `the move says your rarity in bits: ${sentence}`);
+    assert.match(sentence, /Your energy ([\d.,]+ → [\d.,]+ bits?|stayed [\d.,]+ bits?)/, `the move says your energy in bits: ${sentence}`);
     assert.match(sentence, /Points on this line [−\d.,]+ → [−\d.,]+|Points on this line stayed|No points on this line/, `the move says the points before → after: ${sentence}`);
     assert.match(sentence, FORMULA, `the move says yours × others' = points: ${sentence}`);
     // Live, the others' sums are blurred (W3 #608, v1 peerNoiseBits): the figure is written as an estimate.
@@ -312,7 +312,7 @@ try {
     assert.match(await line.getByTestId("text-line-formula").innerText(), FORMULA, "One line says yours × others' = points");
     // What a bit is, on tap (a phone has no hover).
     await line.getByTestId("button-bits-help-line").click();
-    await page.getByTestId("text-bits-help").getByText(/Each bit = twice as rare\./).waitFor();
+    await page.getByTestId("text-bits-help").getByText(/Energy, in bits:/).waitFor();
     await page.keyboard.press("Escape");
     await page.getByTestId("text-bits-help").waitFor({ state: "detached" });
     if (label === "desktop") {

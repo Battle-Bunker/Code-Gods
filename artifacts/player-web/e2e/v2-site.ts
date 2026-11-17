@@ -286,9 +286,11 @@ try {
       await shot(page, `v2-turnover-end-${label}`);
       // The replay: at its end the same retired lines.
       await page.getByTestId("button-watch-replay").click();
-      // The replay opens at the start, before anything retired; at its end, the same retired lines.
+      // The replay opens on its end (as v1's did: the final board), so "Go to the end" is disabled there; the same retired lines.
       await page.getByTestId("replay-bar").waitFor({ timeout: 60_000 });
-      await page.getByTestId("button-replay-end").click();
+      const toEnd = page.getByTestId("button-replay-end");
+      await toEnd.waitFor();
+      if (await toEnd.isEnabled()) await toEnd.click();
       const replayRetired = page.getByTestId("pane-objects").getByTestId("retired-lines");
       await replayRetired.locator("[data-testid^=row-retired-]").first().waitFor({ timeout: 60_000 });
       assert.equal(await replayRetired.locator("[data-testid^=row-retired-]").count(), banked, "the replay's end shows the same retired lines");

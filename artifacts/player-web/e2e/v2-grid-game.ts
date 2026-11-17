@@ -248,7 +248,7 @@ try {
     if (await rarer.count()) assert.match(await rarer.innerText(), /^For your rule this grid is rarer than \d{1,3} of 1,000 random grids \(1 in [\d.,]+( \w+)? by chance\)\.$/);
     // What a bit is, on tap (a phone has no hover).
     await line.getByTestId("button-bits-help-line").click();
-    await page.getByTestId("text-bits-help").getByText(/Each bit = twice as rare\./).waitFor();
+    await page.getByTestId("text-bits-help").getByText(/Energy, in bits:/).waitFor();
     assert.doesNotMatch(await page.getByTestId("text-bits-help").innerText(), /\blines?\b/, "the bits help says grid, not line");
     // Closed as a phone closes it: a second tap on its button (Escape needs the focus inside the popover).
     await line.getByTestId("button-bits-help-line").click();
