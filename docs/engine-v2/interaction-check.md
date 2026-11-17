@@ -46,7 +46,7 @@ Script: `lib/v2-linear/scripts/interaction-check.ts` (`pairs|triples|approach`; 
   −32, Corner + Stepping Coefficients −62). Pairs reading different numbers (gradient against y-intercept: Prime
   Balance, Unit Fraction with the gradient rules) barely touch each other (pulls near 0).
 - **One approach does not raise most rules.** Of 1,215 first-turn options from 24 newborns, the median raises 3 of the
-  12 rules by 2+ bits; 9 is the most (one option), and 113 options raise 7 or more. Those are first turns from tiny
+  12 rules by 2+ bits; 9 is the most (one option), and 114 options raise 7 or more. Those are first turns from tiny
   newborn lines (a step up in size raises most energies from near 0); the best gain per bit was 38 summed bits for a
   7.7-bit turn (y = −x + 2 to y = −4x + 2), about 3 bits for each of six rules. Guess: harmless (small values), but it
   is the one place a single cheap move pays several seats at once.
