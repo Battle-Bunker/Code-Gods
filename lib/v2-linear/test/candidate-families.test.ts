@@ -30,3 +30,22 @@ test("candidates are never dealt, and each one's candidates reach the utility as
     assert.ok(hit.length > 0, `${F.id}: no candidate reaches 6`);
   }
 });
+
+test("Hensel is graded: the exact count is a floor, a top a step from a deep lift keeps all but a bit, random tops score little", () => {
+  const h = { k: 2, p: 7 }, L = Math.log2(7), r = lineRule(hensel.dynamic!, h);
+  const deep = r.candidates(fromMC(q(5), q(1)), 8 * L).find(t => r.u(t) >= 8 * L - 1e-9);
+  assert.ok(deep, "a lift 8 levels deep");
+  const m = q(-deep!.a, deep!.b), uDeep = r.u(deep!);
+  for (const k of [1n, -1n, 2n]) {
+    const knocked = r.u(fromMC(q(m.n + k, m.d), q(1)));
+    near(knocked, uDeep - Math.log2(1 + Math.abs(Number(k))), `a knock of ${k} costs log2(1 + ${k})`, 1e-6);
+  }
+  // 3² − 2 = 7 (one level) and 10² − 2·1 = 98 = 2·7² (two): the count is a floor.
+  assert.ok(u(hensel, h, q(3), q(1)) >= L - 1e-9 && u(hensel, h, q(10), q(1)) >= 2 * L - 1e-9);
+  // p dividing the bottom: no top qualifies.
+  assert.equal(u(hensel, h, q(3, 7), q(1)), 0);
+  // Tops 1..2000 over bottoms 1..3: the mean is a few bits (2 or 3 levels' worth would make every line good).
+  let sum = 0, n = 0;
+  for (let b = 1n; b <= 3n; b++) for (let t = 1n; t <= 2000n; t++) { if (t % b === 0n && b > 1n) continue; sum += u(hensel, h, q(t, b), q(1)); n++; }
+  assert.ok(sum / n < 2 * L, `mean over random tops ${sum / n}`);
+});

@@ -3,7 +3,7 @@
 // energy it adds, and trivial lines. Not a test. Output: markdown rows for energy.md.
 import { physicsOf, q, Qn, type Q } from "@workspace/v2-core";
 import { lineQ as V } from "../test/config.ts";
-import { candidateFamilies, estimateLine, fromMC, lensById, lineRule, routePrice, type Line } from "../src/index.ts";
+import { candidateFamilies, dynamicFamilies, estimateLine, fromMC, lensById, lineRule, routePrice, type Line } from "../src/index.ts";
 const lambda = physicsOf(V).gravity;
 const E = (F: any, p: any, l: Line) => { const r = lineRule(F.dynamic, p); return [0, 1].map(i => estimateLine(l, r, V, { seed: `c${i}` }).energy).reduce((a, b) => a + b, 0) / 2; };
 const U = (F: any, p: any, l: Line) => lineRule(F.dynamic, p).u(l);
@@ -21,7 +21,7 @@ function knock(id: string, p: any, l: Line): Line {
 }
 const base = fromMC(q(3, 2), q(7, 3)), cf = lensById("cf");
 const only = process.argv[2];
-for (const F of candidateFamilies) {
+for (const F of [...new Set([...dynamicFamilies, ...candidateFamilies])] as any[]) {
   if (only && F.id !== only) continue;
   const p = F.dealable({ params: { domain: "Q" } } as never)[0], r = lineRule(F.dynamic!, p);
   // The ladder: from a plain line, the rule's candidate with the smallest utility at or above each level.

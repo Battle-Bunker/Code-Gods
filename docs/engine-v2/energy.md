@@ -112,7 +112,8 @@ turn that adds more energy than it costs is marked **pump**.
   states cheaply from same-size starts, so as built its utility does not measure rarity.
 - **Flag, Kin:** a trivial line (y = 2x + 3) scores 3.2 with energy 7.9, about the same as its first rungs. Its ladder
   is also shallow (the candidates stop at utility 12).
-- Knife edges, as their designers said: +1 sends Hensel and Prime Palette to 0. The approach rules keep part of their
+- Knife edges, as their designers said: +1 sends Prime Palette to 0, and sent Hensel to 0 until it was graded (17 Nov,
+  below: a step from a deep lift now costs log2 2 = 1 bit of utility and almost no energy). The approach rules keep part of their
   value under +1 (Bearing 52 → 48 bits at depth 27; Archimedes 57 → 59).
 - Ring's trivial lines score up to 12 bits (y = −x + 1 lies near a tangent), and its ladder is noisy (one rung reads
   17 bits lower than the one before; two seeds).
@@ -169,12 +170,52 @@ Trivial lines (y = x, 2x + 3, x/2 + 1, −x + 1, 3x + 1): best energy 12.4 (u 4.
 
 Trivial lines (y = x, 2x + 3, x/2 + 1, −x + 1, 3x + 1): best energy 6.1 (u 0.7).
 
-#### Hensel (2 7), 16 ms an estimate
-| rung (m, c) | u | energy | after +1 on its number: u, energy | next rung: cheapest turn (cf lens) | energy added |
-|---|---|---|---|---|---|
-| 3, 7/3 | 2.8 | 0.0 | 2.8, 6.6 | 18.6 (24.0) | 10.8 |
-| 10, 7/3 | 5.6 | 10.8 | 2.8, 10.5 | 47.8 (57.1) | 9.5 |
+#### Hensel (2 7), graded (17 Nov)
 
+Ungraded, Hensel scored e·log2 p for p^e dividing top² − D·bottom², and a +1 on the top sent it to 0 (a p-adic count
+is a knife edge: adding 1 changes the number mod p). Graded, it scores the best over levels e of e·log2 p less
+log2(1 + the distance from the top to the nearest top for which p^e divides it). The exact count is a floor (the top
+itself is at distance 0); a top k steps from a deep lift keeps all but log2(1 + k) bits; a random top scores a few
+bits at every level (mean 4.7 for D 2, p 7 and 3.8 for D 7, p 3 over tops 1–2,000 and bottoms 1–3), and a random
+same-size start scores the same, so the baseline does not show in energy. No new parameter: the distance is weighed in
+bits, as Archimedes weighs its difference. Ladder from y = 5x + 7/3 (the rule's own lift candidates; two seeds;
+`scripts/hensel-knock.ts`); the knock is by the least k that keeps the bottom (a +1 on an odd top over 2 would reduce
+the fraction and change the bottom):
+
+| rung gradient | u | energy | knocked: k, u, energy | Archimedes (D 2) u there |
+|---|---|---|---|---|
+| 3 | 2.8 | 0.0 | 1, 2.8, 0.0 | 0.7 |
+| 10 | 5.6 | 10.8 | 1, 4.6, 11.0 | 0.1 |
+| 108 | 8.4 | 17.1 | 1, 7.4, 17.0 | 0.0 |
+| 4567 | 14.0 | 25.3 | 1, 13.0, 25.1 | 0.0 |
+| 1802916 | 22.5 | 35.6 | 1, 21.5, 35.5 | 0.0 |
+| 5916488742 | 33.7 | 48.1 | 1, 32.7, 48.0 | 0.0 |
+
+Hensel (D 7, p 3): 3.2 → 19.0 utility and 0 → 31.4 bits over five rungs; knocked by 1, each keeps all but 0.5–1 bit of
+utility and loses at most 1.4 bits of energy.
+
+The tension with Archimedes stays (built: the same number, top² − D·bottom²): Archimedes wants it small against the
+numbers' size, Hensel wants p^e to divide it, and |top² − D·bottom²| ≥ p^e when it does, so a line good for both needs
+top² − D·bottom² = ±p^e·(small), a narrow set (Archimedes reads 0.0–0.7 on every Hensel rung above).
+
+The design-principles check for graded Hensel (labels as above):
+
+| Row | Status |
+|---|---|
+| 1 Unbounded | Built: e has no top; the level loop runs to the size of top² + D·bottom². |
+| 2 Climbed all game | Not measured. |
+| 3, 3a Tie-breakers | Adapted: none; precision is the distance term. |
+| 4 Instances | Built: 5 (D, p). |
+| 5 Perpendicular | Not measured. |
+| 6 Opponents | Built: Archimedes on the same number (above); Whole Stair and Corner read the same gradient. |
+| 7 Kinds | p-adic depth: no other dealt rule rewards divisibility by a dealt prime. |
+| 10 Small bump | Seen narrowly (table above): a knock of 1 keeps all but 1 bit of utility and almost all the energy. |
+| 12 Writable from the card | The card states the formula in words. Not tested with a reader. |
+| 13 Rationals | Built: every bottom not divisible by p has its lifts (the tops ±r·bottom mod p^e), so fractions climb as whole numbers do. |
+
+How this could be wrong: one ladder per (D, p); two seeds; the knock is one perturbation (a knock of about p^e/2
+still loses level e, as it should); graded, a top near a lift is now worth almost as much, so a cheap knock no longer
+destroys a held line: whether that makes Hensel lines too easy to hold is a question for the interaction check.
 
 #### Whole Stair (1), 218 ms an estimate
 | rung (m, c) | u | energy | after +1 on its number: u, energy | next rung: cheapest turn (cf lens) | energy added |
@@ -323,7 +364,7 @@ measurements of the first eight: "Candidate rules, not dealt" above (they were m
 | Golden Path | m | the continued fraction follows a dealt word | 8 words |
 | Ring | a, b, c | touch a circle no line touches exactly | 5 circles |
 | Archimedes | m | top² − D·bottom² tiny against the numbers' size | 9 D |
-| Hensel | m | p divides top² − D·bottom² many times | 5 (D, p) |
+| Hensel | m | p divides top² − D·bottom² many times, or the top is near one where it does (graded) | 5 (D, p) |
 | Whole Stair | m | rise² + run² = n × a square | 5 n |
 | Corner | m | 2n·top·bottom a square | 6 n |
 | Long Run | one dealt number | the longest run of a digit in a base | 4 |

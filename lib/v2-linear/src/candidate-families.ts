@@ -177,12 +177,50 @@ export const archimedes = dynamicLine<{ k: number }>({
 
 export interface HenselP { readonly k: number; readonly p: number }
 const HENSEL: HenselP[] = [{ k: 2, p: 7 }, { k: 3, p: 11 }, { k: 5, p: 11 }, { k: 2, p: 17 }, { k: 7, p: 3 }];
+/** The roots r_e of x² ≡ D (mod p^e), e = 1, 2, … (index e − 1), lifted once per (D, p) and kept; empty when D is no square mod p. */
+const henselRoots = new Map<string, bigint[]>();
+function henselRoot(D: number, p: number, e: number): bigint | null {
+  const key = `${D} ${p}`;
+  let rs = henselRoots.get(key);
+  if (!rs) { const r1 = liftRoot(D, p, 1); rs = r1 === null ? [] : [r1]; henselRoots.set(key, rs); }
+  if (!rs.length) return null;
+  const P = BigInt(p), d = BigInt(D);
+  while (rs.length < e) {
+    // Newton's step from p^k to p^(k+1): r ← r − (r² − D)·(2r)⁻¹.
+    const mod = P ** BigInt(rs.length + 1), r = rs[rs.length - 1]!;
+    rs.push((((r - (r * r - d) * modInverse(2n * r, mod)) % mod) + mod) % mod);
+  }
+  return rs[e - 1]!;
+}
+const modInverse = (a: bigint, n: bigint): bigint => {
+  let [t, nt, r, nr] = [0n, 1n, n, ((a % n) + n) % n];
+  while (nr !== 0n) { const k = r / nr; [t, nt] = [nt, t - k * nt]; [r, nr] = [nr, r - k * nr]; }
+  return ((t % n) + n) % n;
+};
+/**
+ * Hensel, graded (17 Nov): the best over levels e of e·log2 p less log2(1 + the distance from the top to the nearest
+ * top t' with p^e dividing t'² − D·bottom²). A top where p divides it e times scores at least e·log2 p (distance 0); one
+ * a step away keeps all but a bit, where the ungraded count fell to 0. Exact at any size (bigint).
+ */
 export function henselU(m: Q, { k: D, p }: HenselP): number {
-  let N = babs(m.n) ** 2n - BigInt(D) * m.d * m.d, e = 0;
-  if (N === 0n) return 0;
-  const P = BigInt(p);
-  while (N % P === 0n) { N /= P; e++; }
-  return e * log2(p);
+  const P = BigInt(p), t = babs(m.n), b = m.d, L = log2(p);
+  // p dividing the bottom: top² − D·bottom² ≡ top² (mod p), and the top is coprime to the bottom, so no top qualifies.
+  if (b % P === 0n) return 0;
+  // Levels up to the size of top² + D·bottom² and one more: a deeper level's nearest top lies a whole p^e away.
+  const ceiling = t * t + BigInt(D) * b * b;
+  let best = 0, mod = 1n;
+  for (let e = 1; mod <= ceiling; e++) {
+    mod *= P;
+    const r = henselRoot(D, p, e);
+    if (r === null) break;
+    const want = (r * b) % mod;
+    for (const root of [want, (mod - want) % mod]) {
+      const d = (((t - root) % mod) + mod) % mod, dist = d < mod - d ? d : mod - d;
+      const score = e * L - log2Big(1n + dist);
+      if (score > best) best = score;
+    }
+  }
+  return best;
 }
 /** x with x² ≡ D (mod p^k) (Hensel's lift), or null. */
 function liftRoot(D: number, p: number, k: number): bigint | null {
@@ -196,10 +234,10 @@ function liftRoot(D: number, p: number, k: number): bigint | null {
   return r;
 }
 export const hensel = dynamicLine<HenselP>({
-  id: "hensel", whole: true, title: "Hensel", goal: "the dealt prime dividing top² − D·bottom² many times", reads: ["m"], focus: ["si", "m"],
+  id: "hensel", whole: true, title: "Hensel", goal: "the dealt prime dividing top² − D·bottom² many times, or a top near one that does", reads: ["m"], focus: ["si", "m"],
   space: listSpace(HENSEL, h => `${h.k} ${h.p}`, "D and p: one of " + HENSEL.map(h => `${h.k} ${h.p}`).join(", ")),
   peers: [HENSEL[0]!, HENSEL[1]!],
-  card: ({ k, p }) => `Write the gradient as top/bottom in lowest terms. Work out top × top − ${k} × bottom × bottom. Score log2 ${p} for every time ${p} divides it.`,
+  card: ({ k, p }) => `Write the gradient as top/bottom in lowest terms and work out top × top − ${k} × bottom × bottom. If ${p} divides it e times, you score e × log2 ${p}. A top near such a top scores nearly as much: you score your best over e of e × log2 ${p} less log2(1 + the distance from your top to the nearest top that makes ${p}^e divide it).`,
   u: (m, _c, h) => henselU(m, h),
   searches: [{ id: "lift", propose: (m, _c, uStar, h) => {
     const need = Math.max(1, Math.ceil(uStar / log2(h.p) - 1e-9)), out: LineTarget[] = [];

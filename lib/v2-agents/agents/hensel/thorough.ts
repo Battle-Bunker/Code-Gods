@@ -1,5 +1,5 @@
 // Hensel · Thorough
-// Main part: the dealt prime dividing top² − D·bottom² many times. Secondary preference: whichever you were dealt ().
+// Main part: the dealt prime dividing top² − D·bottom² many times, or a top near one that does. Secondary preference: whichever you were dealt ().
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -35,10 +35,21 @@ function gcdB(a, b) { while (b !== 0n) [a, b] = [b, a % b]; return a; }
 
 // How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
-  let N = m.n * m.n - BigInt(p.k) * m.d * m.d, e = 0;   // top² − D·bottom²
-  if (N !== 0n) while (N % BigInt(p.p) === 0n) { N /= BigInt(p.p); e++; }
-  const main = e * Math.log2(p.p);
-  // main: log2 p for every time p divides top² − D·bottom²
+  const P = BigInt(p.p), D = BigInt(p.k), t = m.n < 0n ? -m.n : m.n, b = m.d, L = Math.log2(p.p);
+  const lg = n => { const k = Math.max(0, n.toString(2).length - 53); return Math.log2(Number(n >> BigInt(k))) + k; };
+  const inv = (a, n) => { let [x, nx, g, ng] = [0n, 1n, n, ((a % n) + n) % n]; while (ng !== 0n) { const k = g / ng; [x, nx] = [nx, x - k * nx]; [g, ng] = [ng, g - k * ng]; } return ((x % n) + n) % n; };
+  let main = 0, mod = 1n, r = -1n;   // r: a root of x² ≡ D (mod p^e), lifted level by level
+  for (let x = 1n; x < P; x++) if ((x * x - D) % P === 0n) { r = x; break; }
+  if (b % P !== 0n && r >= 0n) for (let e = 1; mod <= t * t + D * b * b; e++) {
+    mod *= P;
+    if (e > 1) r = (((r - (r * r - D) * inv(2n * r, mod)) % mod) + mod) % mod;   // Hensel's lift to p^e
+    const want = (r * b) % mod;
+    for (const root of [want, (mod - want) % mod]) {   // the tops making p^e divide it are ±r·bottom mod p^e
+      const d = (((t - root) % mod) + mod) % mod, dist = d < mod - d ? d : mod - d;
+      main = Math.max(main, e * L - lg(1n + dist));
+    }
+  }
+  // main: the best over e of e·log2 p less log2(1 + the distance to the nearest top making p^e divide top² − D·bottom²)
   return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     return null;
   })];
