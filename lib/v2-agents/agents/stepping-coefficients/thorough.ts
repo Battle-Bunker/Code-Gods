@@ -42,7 +42,7 @@ function score(m, c, p, tie) {
   a /= g; b /= g; cc /= g;
   const top = [a, b, cc].reduce((t, x) => (ab(x) > t ? ab(x) : t), 0n);
   if (top === 0n) return null;
-  const lg = n => { const L = n.toString(2).length; return L <= 52 ? Math.log2(Number(n)) : Math.log2(Number(n >> BigInt(L - 52))) + (L - 52); };   // log2 of a whole number, any size
+  const lg = n => { const L = Math.max(0, n.toString(2).length - 53); return Math.log2(Number(n >> BigInt(L))) + L; };
   const main = lg(top) - 2 * (Number(ab(b - a - BigInt(p.k))) + Number(ab(cc - b - BigInt(p.k))));
   // main: binary digits of the biggest of a, b, c, less twice how far each step is from d
   return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
