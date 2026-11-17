@@ -3,9 +3,8 @@
  * points and energy always visible, also on a phone: ux-lessons 2.5), the clock, the planning line and the dock.
  * Seated players and spectators get the same frame; panes show what the viewer may see.
  *
- * An ended game whose replay the human opened (`replay.open`: the results, the room's past games, or `?replay` on the
- * game's URL) is shown in replay: the replay bar takes the clock's place, the dock takes the replay's arrangement, and
- * every pane answers from the replay at the playhead (src/replay/controller.tsx).
+ * An ended game is shown in its replay (v1), from the moment it ends: the Timeline takes the assistant's place, the
+ * dock takes the replay's arrangement, and every pane answers from the replay at the playhead (src/replay/controller.tsx).
  */
 import { DriftToast } from "@/panes/drift";
 import { fixedLength } from "./timer-text";
@@ -31,7 +30,7 @@ import { PanelConfirmations } from "@/panes/panel-policy";
 import { composerKey, requestComposer } from "@/panes/assistant-request";
 import { useFilePanels } from "@/panels/store";
 import { filePane } from "@workspace/v2-client";
-import { ReplayBar } from "@/replay/bar";
+import { ReplayLoading } from "@/replay/bar";
 import { ChatButton } from "@/site/components/chat-button";
 import { OwnerMenu } from "./owner-menu";
 import { parseMoment } from "@/replay/moment-link";
@@ -102,8 +101,10 @@ function BarError(props: ErrorFallbackProps) {
 }
 
 /**
- * `?replay` on a game's URL opens its replay (`replay.open`) when the game has ended, once; the parameter then leaves
- * the URL whatever happened (a game still running has no replay yet, and must not open one by itself when it ends).
+ * An ended game is its replay (v1): the moment the game ends, and whenever an ended game is opened, its replay is opened
+ * in the view state (`replay.open`, on its final board), so the screen is the same either way and no reload is needed.
+ * A moment link (`?replay&t=…&as=…`, "Copy a link to this moment") then moves it there, as that player; the parameters
+ * leave the URL whatever happened (a game still running has none to open yet).
  */
 function ReplayRoute({ header }: { header: Header }) {
   const { gameId } = header, ended = header.phase === "ended";
@@ -111,23 +112,26 @@ function ReplayRoute({ header }: { header: Header }) {
   const open = useAffordance("replay.open");
   const seek = useAffordance("replay.seek");
   const watchAs = useAffordance("replay.watchAs");
-  const done = useRef(false);
+  const opening = useRef<string | null>(null);
+  const linked = useRef(false);
   useEffect(() => {
     const q = new URLSearchParams(location.search);
-    if (done.current || !q.has("replay")) return;
-    if (ended && !replaying && !open.available) return;   // the room is still loading
-    done.current = true;
-    // A moment link (`&t=…&as=…`, "Copy a link to this moment") opens the replay there, as that player.
+    const leave = () => { q.delete("replay"); q.delete("t"); q.delete("as"); navigate(`${location.pathname}${q.size ? `?${q}` : ""}`, { replace: true }); };
+    if (!ended) { if (q.has("replay") && !linked.current) { linked.current = true; leave(); } return; }
+    if (!replaying) {
+      // Once per game shown (the stored view may already hold it); never before the room has loaded.
+      if (!open.available || opening.current === gameId) return;
+      opening.current = gameId;
+      void open.run({ gameId }).catch((e: unknown) => toast({ title: "The replay did not open", description: failureText(e), variant: "destructive" }));
+      return;
+    }
+    if (linked.current || !q.has("replay")) return;
+    linked.current = true;
     const moment = parseMoment(location.search);
-    q.delete("replay"); q.delete("t"); q.delete("as");
-    const leave = () => navigate(`${location.pathname}${q.size ? `?${q}` : ""}`, { replace: true });
-    if (!ended) { leave(); return; }
-    // Then the moment, if the link names one; a replay already open (the view is stored) only moves to it.
-    const toMoment = () => Promise.resolve()
+    Promise.resolve()
       .then(() => moment.as && header.roster.some(m => m.memberId === moment.as) ? watchAs.run({ memberId: moment.as }) : undefined)
-      .then(() => moment.worldSeconds !== null ? seek.run({ worldSeconds: moment.worldSeconds }) : undefined);
-    (replaying ? toMoment() : open.run({ gameId }).then(toMoment))
-      .then(leave, (e: unknown) => { leave(); toast({ title: "The replay did not open", description: failureText(e), variant: "destructive" }); });
+      .then(() => moment.worldSeconds !== null ? seek.run({ worldSeconds: moment.worldSeconds }) : undefined)
+      .then(leave, (e: unknown) => { leave(); toast({ title: "The replay did not move there", description: failureText(e), variant: "destructive" }); });
   }, [gameId, ended, replaying, open, seek, watchAs, header.roster]);
   return null;
 }
@@ -137,11 +141,12 @@ const StableDock = memo(Dock);
 
 /** The screen under the site header: the bars and the dock, in play or, for an ended game, in its replay. */
 function GameBody({ header, owner }: { header: Header; owner: boolean }) {
-  const replaying = useReplaying();
+  // An ended game is its replay (v1), from the moment it ends: ReplayRoute opens it in the view state at once.
+  const replaying = useReplaying() || header.phase === "ended";
   return (
     <ReplayProvider gameId={header.gameId} active={replaying} seat={header.me}>
       <ErrorBoundary FallbackComponent={BarError}><GameBar header={header} /></ErrorBoundary>
-      {replaying ? <ReplayBar /> : <GameTimer header={header} />}
+      {replaying ? <ReplayLoading /> : <GameTimer header={header} />}
       {!replaying && <ErrorBoundary FallbackComponent={BarError}><PlanningBar header={header} owner={owner} /></ErrorBoundary>}
       <GameDock phase={replaying ? "replay" : header.phase} />
       {!replaying && <DriftToast />}

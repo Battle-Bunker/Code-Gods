@@ -11,6 +11,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAffordance } from "@workspace/v2-affordances/react";
+import { REPLAY_END } from "@workspace/v2-affordances";
 import { api } from "@workspace/engine/convex/_generated/api";
 import { useLive } from "@/site/lib/convex";
 import { appAccessToken, engineSite } from "@/core/connection";
@@ -107,7 +108,8 @@ export function ReplayProvider({ gameId, active, seat, children }: { gameId: str
   const index = active && load.status === "ready" ? load.index : null;
   const shown = useView().replay;
   const view = shown && shown.gameId === gameId ? shown : null;
-  const cursor = view?.cursor ?? { seq: 0 };
+  // Until replay.open has reached the view (the game ended a moment ago), the final board, where a replay opens.
+  const cursor = view?.cursor ?? REPLAY_END;
   const cursorKey = JSON.stringify(cursor);
   const playing = !!view?.playing && !!index;
   const speed = view?.speed ?? 1;

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { dockGroups, EMPTY_VIEW, parseDock } from "@workspace/v2-affordances";
-import { closePlan, columns, defaultPanes, dockFor, openPlan, PANE_IDS, PANES, paneTitle, readingOrder, shownPanes, storedPane, storedSlugOf, filePane, fileIdOf } from "../src/panels.ts";
+import { closePlan, columns, defaultPanes, keepShown, dockFor, openPlan, PANE_IDS, PANES, paneTitle, readingOrder, shownPanes, storedPane, storedSlugOf, filePane, fileIdOf } from "../src/panels.ts";
 
 test("a stored panel opens as a pane of its own in every phase, and keeps its slug", () => {
   // Catches: shownPanes dropping a stored panel's pane as an unknown id, so "Open as a pane" shows nothing.
@@ -137,14 +137,28 @@ test("the assistant pane is offered in every phase, so a player can ask for help
 });
 
 test("in a replay the replay's own entry is never drawn, the replay's defaults show, and the results do not lead", () => {
+  // Catches (the owner, 17 November): an ended game's replay without v1's Timeline in the assistant's place, or
+  // without the rest of the owner's layout (goal over leaderboard, lines, my agents).
   // Catches: the replay pane (replay.open adds it) taking the whole screen, or the results pane covering the playhead.
   const opened = { panes: [{ pane: "replay", place: "main" as const }] };
   assert.deepEqual(shownPanes(opened, "replay"), defaultPanes("replay"));
   const panes = defaultPanes("replay").map(p => p.pane);
-  assert.ok(panes.includes("objects") && panes.includes("feed") && panes.includes("race"), panes.join());
+  assert.deepEqual(defaultPanes("replay"), [
+    { pane: "my-card", place: "main" }, { pane: "objects", place: "main" }, { pane: "agents", place: "right" },
+    { pane: "race", place: "right" }, { pane: "timeline", place: "bottom" },
+  ]);
+  assert.ok(!panes.includes("assistant"), panes.join());
   const own = { panes: [{ pane: "replay", place: "main" as const }, { pane: "race", place: "main" as const }] };
-  assert.deepEqual(shownPanes(own, "replay"), [{ pane: "race", place: "main" }]);
-  for (const id of ["forge", "agents", "overview", "results"] as const) assert.ok(!PANES[id].phases.includes("replay"), `${id} has nothing to show in a replay`);
+  assert.deepEqual(shownPanes(own, "replay"), [{ pane: "race", place: "main" }, { pane: "timeline", place: "bottom" }]);
+  // Coming from the live game (the owner's layout stored), the Timeline takes the assistant's place; the stored
+  // assistant is neither closed nor joined by a stored Timeline, so the next game still has its assistant.
+  const fromLive = { panes: defaultPanes("live") };
+  assert.deepEqual(shownPanes(fromLive, "replay"), defaultPanes("replay"));
+  assert.deepEqual(keepShown(fromLive, "replay"), []);
+  for (const id of ["forge", "overview"] as const) assert.ok(!PANES[id].phases.includes("replay"), `${id} has nothing to show in a replay`);
+  assert.deepEqual(PANES.timeline.phases, ["replay"], "the Timeline is the replay's only");
+  // The results stay reachable in the replay from the pane menu and the palette, never opened over the playhead.
+  assert.ok(PANES.results.phases.includes("replay"));
   assert.ok(!shownPanes({ panes: [{ pane: "results", place: "main" }] }, "replay").some(p => p.pane === "results"));
 });
 

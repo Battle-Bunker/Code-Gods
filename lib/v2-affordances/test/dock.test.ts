@@ -90,7 +90,7 @@ test("the assistant's conversation stays in front: opened at a place, or after a
   // (On a replay: every game screen's default already gives the assistant a row of its own.)
   const replay: AffordanceContext = { ...live, context: "replay" };
   const opened = applyView(EMPTY_VIEW, "view.openPane", { pane: "assistant", place: "right" }, replay).view;
-  assert.equal(formatDock(opened.dock.replay!), "row(my-card 28, objects 42, column(feed 50, race 25, assistant 25) 30)");
+  assert.equal(formatDock(opened.dock.replay!), "column(row(column(my-card 50, race 50) 33, objects 37, agents 30) 67, row(timeline 50, assistant 50) 33)");
   const delegated: AffordanceContext = { ...replay, grant: "act" };
   const arranged = applyView(opened, "view.arrangeDock", { dock: "row(objects 70, column(race 50, *feed|assistant 50) 30)" }, delegated).view;
   assert.equal(formatDock(arranged.dock.replay!), "row(objects 70, column(race 50, feed|*assistant 50) 30)");
