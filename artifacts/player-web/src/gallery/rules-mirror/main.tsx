@@ -8,7 +8,7 @@
  */
 import { StrictMode, useEffect, useMemo, useState, type ReactElement } from "react";
 import { createRoot } from "react-dom/client";
-import { argBits, energyOf, Qn, q, rng, type Q, type RuleFamily } from "@workspace/v2-core";
+import { argBits, eliasBits, energyOf, Qn, q, rng, type Q, type RuleFamily } from "@workspace/v2-core";
 import { describeLine, dynamicFamilies, fromMC, lensById, lensSurprise, lineQ, mutationBits, lineType, roundHalfAway, type Line, type LensId, type LineState } from "@workspace/v2-linear";
 import "./style.css";
 
@@ -24,23 +24,23 @@ interface Turn { readonly words: string; readonly to: string; readonly naming: n
 function exampleTurns(l: Line): Turn[] {
   const out: Turn[] = [];
   // Each turn is one mutation: its naming bits are that mutation's; its surprise is over the lens's numbers before and
-  // after (in lowest terms).
+  // after (in lowest terms), with the bits that name the lens (arg −1: a swap or round, named by its pair).
   const one = (lensId: LensId, words: string, arg: number, edit: (ns: bigint[]) => bigint[] | null) => {
     const lens = lensById(lensId), xs = lens.numbers(l);
     if (!xs) return;
     const ts = edit(xs.slice());
     const t = ts && lens.line(ts, l), back = t && lens.numbers(t);
     if (!t || !back) return;
-    out.push({ words: `${lens.title}: ${words}`, to: describeLine(t), naming: mutationBits(lens, arg), surprise: lensSurprise(xs, back) });
+    out.push({ words: `${lens.title}: ${words}`, to: describeLine(t), naming: mutationBits(lens, Math.max(0, arg), arg < 0), surprise: lensSurprise(xs, back) });
   };
   one("mc", "add 1 to the y-intercept's top", argBits(1n, true), ns => { ns[2] = ns[2]! + 1n; return ns; });
-  one("mc", "multiply the y-intercept's top by 10", argBits(10n, false), ns => { ns[2] = ns[2]! * 10n; return ns; });
+  one("mc", "multiply the y-intercept's top by 10", eliasBits(10n), ns => { ns[2] = ns[2]! * 10n; return ns; });
   one("mc", "add 1,000 to the y-intercept's top", argBits(1000n, true), ns => { ns[2] = ns[2]! + 1000n; return ns; });
-  one("mc", "swap the gradient's top and bottom", 0, ns => (ns[0] === 0n ? null : [ns[0]! < 0n ? -ns[1]! : ns[1]!, ns[0]! < 0n ? -ns[0]! : ns[0]!, ns[2]!, ns[3]!]));
-  one("mc", "round the y-intercept", 0, ns => (ns[3] === 1n ? null : [ns[0]!, ns[1]!, roundHalfAway(q(ns[2]!, ns[3]!)), 1n]));
-  one("xc", "add 1 to the x-crossing's top", argBits(1n, true), ns => { ns[0] = ns[0]! + 1n; return ns; });
+  one("mc", "swap the gradient's top and bottom", -1, ns => (ns[0] === 0n ? null : [ns[0]! < 0n ? -ns[1]! : ns[1]!, ns[0]! < 0n ? -ns[0]! : ns[0]!, ns[2]!, ns[3]!]));
+  one("mc", "round the y-intercept", -1, ns => (ns[3] === 1n ? null : [ns[0]!, ns[1]!, roundHalfAway(q(ns[2]!, ns[3]!)), 1n]));
+  one("xy", "add 1 to the x-crossing's top", argBits(1n, true), ns => { ns[0] = ns[0]! + 1n; return ns; });
   one("abc", "add 1 to a", argBits(1n, true), ns => { ns[0] = ns[0]! + 1n; return ns; });
-  one("ma", "multiply the area's top by 4", argBits(4n, false), ns => { ns[2] = ns[2]! * 4n; return ns; });
+  one("mA", "multiply the area's top by 4", eliasBits(4n), ns => { ns[2] = ns[2]! * 4n; return ns; });
   return out;
 }
 
