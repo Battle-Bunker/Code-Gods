@@ -73,6 +73,15 @@ tuple scores. An idea worth reviving is rewritten as one pure utility (dynamic-f
 | Root Tilt | `tree-split-root-tilt` | The gradient, ignoring its sign, should agree with √2 = 1.41421356… in as many leading digits as possible (the whole part counts: 2.65 agrees with 2.6457… in 3 digits). More digits are better. |
 | Surd Intercept | `tree-split-surd-intercept` | The y-intercept, ignoring its sign, should agree with (1 + √5) / 2 = 1.61803398… in as many leading digits as possible (the whole part counts). More digits are better. |
 | Near Origin | `tree-split-near-origin` | Find where the line crosses the x-axis and take 1 over its distance from (0, 0) (a crossing at 1/4 or −1/4 gives 4). The targets are the whole numbers leaving 3 when divided by 7 (3, 10, 17, …). Find the target nearest that number: the bigger it is, the better (so the closer the crossing to (0, 0)). |
+Plus two candidates of 17 Nov, never dealt, retired the same day (code deleted; energy.md, "Candidate rules", keeps their
+measurements): **Prime Palette** (`prime-palette`): the dealt primes dividing one dealt number many times, log2 p for
+each; its energy stopped rising at about 39 bits because the prime-exponent lens makes one more small prime one cheap
+add, and with a prime past 13 (outside that lens) it would be Hensel's kind of score (p-adic divisibility) and a knife
+edge under +1. **Shared Secret** (`shared-secret`): a, b, c of the line sharing factors pairwise, the binary digits of
+the three gcds; its energy stayed near 8 bits at any depth because the shared factors are the gradient's and the
+y-intercept's bottoms seen from the other side (y = 3/4·x − 3/5 is −15x + 20y + 12 = 0: gcds 5, 4, 3), so the
+gradient-and-intercept lens reaches any level in a turn. Both are representation shortcuts the owner wants kept
+(decision 25), so the rules, not the lenses, go.
 Plus Smooth Hug (`smooth-hug`, dynamic, removed 16 Nov in #1162): the y-intercept right on a number made only of the dealt primes; √(prime factors) − distance³.
 
 # Old grid rule ideas

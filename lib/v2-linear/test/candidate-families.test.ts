@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { q, type Q } from "@workspace/v2-core";
-import { archimedes, bearing, candidateFamilies, corner, dynamicFamilies, fromMC, goldenPath, hensel, kin, lineRule, longRun, primePalette, sharedSecret, wholeStair } from "../src/index.ts";
+import { archimedes, bearing, candidateFamilies, corner, dynamicFamilies, fromMC, goldenPath, hensel, kin, lineRule, longRun, wholeStair } from "../src/index.ts";
 
 const u = (F: { dynamic?: unknown }, p: unknown, m: Q, c: Q) => (F as typeof bearing).dynamic!.u({ lines: [fromMC(m, c)] }, p as never);
 const near = (a: number, b: number, what: string, tol = 1e-9) => assert.ok(Math.abs(a - b) < tol, `${what}: ${a} against ${b}`);
@@ -14,11 +14,8 @@ test("worked utilities", () => {
   near(u(hensel, { k: 2, p: 7 }, q(3), q(1)), Math.log2(7), "3² − 2 = 7");
   near(u(wholeStair, { k: 1 }, q(3, 4), q(1)), Math.log2(5), "3, 4, 5");
   near(u(corner, { k: 5 }, q(1, 10), q(1)), Math.log2(10), "2·5·1·10 = 10²");
-  near(u(primePalette, { primes: [3], on: "gradient top" }, q(9, 2), q(1)), 2 * Math.log2(3), "9 = 3²");
   near(u(longRun, { b: 7, d: 3, on: "y-intercept top" }, q(1), q(24)), Math.log2(7), "24 = 33 in base 7");
   near(u(kin, {}, q(3, 2), q(1)), 2 * Math.log2(3), "3·1 − 1·2 = 1");
-  // a = xy, b = yz, c = zx with x, y, z = 3, 5, 2: 15x + 10y + 6 = 0 → gcds 5, 2, 3.
-  near(u(sharedSecret, {}, q(-15, 10), q(-6, 10)), Math.log2(30), "15, 10, 6");
 });
 
 test("candidates are never dealt, and each one's candidates reach the utility asked for", () => {
@@ -28,5 +25,13 @@ test("candidates are never dealt, and each one's candidates reach the utility as
     const p = F.dealable({ params: { domain: "Q" } } as never)[0], r = lineRule(F.dynamic!, p);
     const hit = r.candidates(fromMC(q(3, 2), q(7, 3)), 6).filter(t => t.b !== 0n && r.u(t) >= 6 - 1e-9);
     assert.ok(hit.length > 0, `${F.id}: no candidate reaches 6`);
+  }
+});
+
+test("Kin's candidates reach any level in one step, keeping one fraction and choosing its neighbour", () => {
+  const r = lineRule(kin.dynamic!, {});
+  for (const level of [8, 16, 33, 64]) {
+    const hit = r.candidates(fromMC(q(3, 2), q(7, 3)), level).filter(t => t.b !== 0n && r.u(t) >= level - 1e-9);
+    assert.ok(hit.length >= 2, `level ${level}: ${hit.length} candidates`);
   }
 });
