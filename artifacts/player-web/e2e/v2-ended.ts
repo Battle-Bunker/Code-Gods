@@ -4,7 +4,8 @@
  * grids, is played to its natural end at desktop against the LIVE local engine; then every pane of the ended game is
  * opened from the dock's own pane menu and must hold its content: the goal, the objects and one object with its views,
  * the act log and the public log (now naming who moved), the agents and their code, the chat, the leaderboard, the
- * assistant, the charts and the rules. The same URL then serves the replay.
+ * assistant, the charts and the rules. An ended game is its replay (v1): the screen becomes it at the end, without a
+ * reload, and the same URL opened again serves it.
  *
  *   pnpm --filter @workspace/player-web run e2e:ended        (SKIP_DEPLOY=1 reuses the uploaded build)
  */
@@ -75,6 +76,9 @@ async function open(page: Page, pane: string) {
   else if (!await section.count()) {
     await page.locator("[data-testid^=button-pane-menu-]").first().click();
     await page.getByTestId(`button-open-pane-${pane}`).click();
+    // Opened into a group of tabs (the replay's bottom row holds several by now): bring it to the front.
+    await page.getByTestId(`tab-${pane}`).or(section).first().waitFor({ timeout: 15_000 });
+    if (await page.getByTestId(`tab-${pane}`).count() && !await section.isVisible()) await page.getByTestId(`tab-${pane}`).click({ position: { x: 6, y: 10 } });
   }
   await section.waitFor({ timeout: 15_000 });
   return section;
@@ -101,9 +105,12 @@ async function endedGame(page: Page, preset: string, noun: string) {
   await chat.getByTestId("input-chat").fill(said);
   await chat.getByTestId("button-send-chat").click();
   await chat.getByText(said).waitFor({ timeout: 15_000 });
-  await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
-  await page.getByTestId("pane-results").getByText(/You finished \S+ of 3 with/).waitFor({ timeout: 20_000 });
-  console.log(`${label}: the game ended`);
+  // At the end the screen becomes the replay in this document: the Timeline in the assistant's place.
+  await page.evaluate(() => { (window as unknown as { sameDoc: boolean }).sameDoc = true; });
+  await page.locator('[data-testid="pane-timeline"] [data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 180_000 });
+  assert.ok(await page.evaluate(() => (window as unknown as { sameDoc?: boolean }).sameDoc), `${label}: the replay opened without a reload`);
+  assert.equal(await page.getByTestId("pane-assistant").count(), 0, `${label}: the Timeline stands in the assistant's place`);
+  console.log(`${label}: the game ended and its replay opened`);
 
   const checked: string[] = [];
   const ok = (pane: string) => checked.push(pane);
@@ -138,13 +145,17 @@ async function endedGame(page: Page, preset: string, noun: string) {
   const feed = await open(page, "feed");
   await feed.locator("[data-testid=text-move-line], [data-testid=text-tug-line]").first().waitFor({ timeout: 15_000 });
   ok("feed");
-  await feed.getByTestId("button-feed-mode-all").click();
-  await feed.locator("[data-testid^=row-log]").first().waitFor({ timeout: 15_000 });
-  const log = await feed.locator("[data-testid=text-log-line]").allInnerTexts();
-  assert.ok(log.length > 0, `${label}: the public log has rows`);
-  for (const l of log) assert.doesNotMatch(l, new RegExp(`^(${noun[0]!.toUpperCase()}${noun.slice(1)} \\d+ changed|Another player)|\\babout \\d`), `${label}: after the end the log is attributed and exact: ${l}`);
-  console.log(`${label}: public log after the end: ${log[0]}`);
-  ok("public log");
+  // The public log (every player's moves, attributed) is a live read: the replay's act log is the watched player's
+  // moves at the playhead, so the log's "all" mode is not offered in a replay (a known gap, reported).
+  if (await feed.getByTestId("button-feed-mode-all").count()) {
+    await feed.getByTestId("button-feed-mode-all").click();
+    await feed.locator("[data-testid^=row-log]").first().waitFor({ timeout: 15_000 });
+    const log = await feed.locator("[data-testid=text-log-line]").allInnerTexts();
+    assert.ok(log.length > 0, `${label}: the public log has rows`);
+    for (const l of log) assert.doesNotMatch(l, new RegExp(`^(${noun[0]!.toUpperCase()}${noun.slice(1)} \\d+ changed|Another player)|\\babout \\d`), `${label}: after the end the log is attributed and exact: ${l}`);
+    console.log(`${label}: public log after the end: ${log[0]}`);
+    ok("public log");
+  } else console.log(`${label}: the public log is not offered in the replay`);
   // The agents and their code.
   const agents = await open(page, "agents");
   const agent = agents.locator("[data-testid^=row-agent-]").first();
@@ -155,8 +166,11 @@ async function endedGame(page: Page, preset: string, noun: string) {
   assert.match(await source.innerText(), /\b(function|def|const|return)\b/, `${label}: the agent's code is readable`);
   // After the end nothing is edited or put back; how energy works is still there to read.
   assert.equal(await agent.locator("[data-testid^=button-agent-edit-], [data-testid^=button-put-back-]").count(), 0, `${label}: no edit after the end`);
-  await agents.getByTestId("details-energy-how").locator("summary").click();
-  assert.match(await agents.getByTestId("details-energy-how").innerText(), /power/, `${label}: how energy works`);
+  // How energy works sits with the viewer's live energy, which a replay (the watched player at the playhead) has not.
+  if (await agents.getByTestId("details-energy-how").count()) {
+    await agents.getByTestId("details-energy-how").locator("summary").click();
+    assert.match(await agents.getByTestId("details-energy-how").innerText(), /power/, `${label}: how energy works`);
+  } else console.log(`${label}: how energy works is not in the replay's My agents`);
   ok("agents");
   // The chat, the leaderboard, the charts, the rules, the assistant, the player's own panels.
   const chatPane = await open(page, "public-chat");
@@ -171,9 +185,11 @@ async function endedGame(page: Page, preset: string, noun: string) {
   // The leaderboard keeps its race chart; the final table is Results' (one table, not three: persona walk, round 5).
   const race = await open(page, "race");
   await race.getByTestId("race-chart").waitFor({ timeout: 15_000 });
-  await race.getByTestId("race-ended-note").waitFor();
+  // In the replay the leaderboard is the standings at the playhead (v1's score chart); at the end, the final ones.
+  await race.getByTestId("leaderboard").waitFor({ timeout: 15_000 });
   ok("race");
-  for (const pane of ["points-over-time", "others-care", "rules", "overview", "assistant", "my-panels"]) {
+  // "Where am I" (the next step in a running game) has nothing to say in a replay, so the pane menu does not offer it.
+  for (const pane of ["points-over-time", "others-care", "rules", "assistant", "my-panels"]) {
     const s = await open(page, pane);
     await page.waitForTimeout(300);
     assert.ok((await s.innerText()).trim().length > 20, `${label}: ${pane} has content after the end`);
@@ -226,16 +242,18 @@ async function endedGame(page: Page, preset: string, noun: string) {
   await noErrors("every pane");
   await page.screenshot({ path: path.join(shots, `ended-${label}.png`) });
 
-  // The same URL serves the replay.
-  await page.goto(`${gameUrl}?replay`);
-  await page.locator('[data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 30_000 });
+  // The same URL, opened again, serves the replay.
+  await page.goto(gameUrl);
+  // The panes opened above share the bottom row with the Timeline as tabs: it is there, in front or behind one.
+  await page.getByTestId("text-phase").getByText(/replay/i).waitFor({ timeout: 30_000 });
+  await page.getByTestId("tab-timeline").or(page.getByTestId("pane-timeline")).first().waitFor({ timeout: 30_000 });
   ok("replay at the same URL");
   console.log(`${label}: after the end: ${checked.join(", ")}`);
 }
 
 /**
- * A phone after the buzzer (playtest round 26, 08): the page opens at "How the game went", scrolling up from the bottom
- * never jumps back, "What earned your points" can be reached, and "See it line by line" opens Lines.
+ * A phone after the buzzer (playtest round 26, 08): the replay with its Timeline, "How the game went" from a pane's
+ * menu, scrolling up from the bottom never jumps back, "What earned your points" can be reached, and "See it line by line" opens Lines.
  */
 async function phoneEnd(browser: any) {
   const { context, page, errors } = await signIn(browser, "bob", { width: 390, height: 844 });
@@ -248,10 +266,12 @@ async function phoneEnd(browser: any) {
   await page.getByTestId("text-forge-status").getByText(/is summoned/).waitFor({ timeout: 60_000 });
   const startNow = page.getByTestId("button-start-world");
   if (await startNow.count()) { await startNow.click(); await startNow.click().catch(() => {}); }
-  await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
+  // At the end the phone shows the replay: its Timeline is on the page, and How the game went opens from a pane's menu.
   const scroller = page.getByTestId("dock-stacked");
+  await page.locator('[data-testid="pane-timeline"] [data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 180_000 });
+  await page.locator("[data-testid^=button-pane-menu-]").first().click();
+  await page.getByTestId("button-open-pane-results").click();
   await page.getByTestId("pane-results").getByText(/You finished/).waitFor({ timeout: 20_000 });
-  assert.equal(await scroller.evaluate((el: HTMLElement) => el.scrollTop), 0, "phone: the end opens at How the game went");
   await page.getByTestId("text-summary-next").waitFor({ timeout: 15_000 });
   // The playtester's steps (round 26/27): the top bar's "See it line by line", then "How the game went" from the row of
   // pane names, then the mouse wheel at the centre of the screen, 700 px at a time.
@@ -278,7 +298,7 @@ async function phoneEnd(browser: any) {
   await page.screenshot({ path: path.join(shots, "ended-phone.png") });
   assert.deepEqual(errors, [], "phone: no page errors");
   await context.close();
-  console.log("phone: after the buzzer the page opens at the result, scrolls without jumping, and See it line by line opens Lines");
+  console.log("phone: after the buzzer the replay opens, the result is a pane away, scrolls without jumping, and See it line by line opens Lines");
 }
 
 const browser = await chromium.launch();

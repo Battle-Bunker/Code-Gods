@@ -240,13 +240,14 @@ try {
     await goal.getByTestId("text-goal-main").waitFor();
     if (!await goal.locator(".v2v-part").first().isVisible()) await goal.getByText(/A worked example/).first().click();
     await goal.locator(".v2v-part").first().waitFor();
-    // v1's "How rare is each rule score?" (the owner: a card tells a player their precise incentives) and its example
-    // to randomise or edit.
+    // "What is each level worth?" (the owner: a card tells a player their precise incentives): lines at rising levels
+    // of the rule and their energy; and the example to randomise or edit.
     // The owner's words: a secondary preference, never a tie-breaker (v1 forbade "tie-break" in player text).
     assert.doesNotMatch(await goal.innerText(), /tie-?break/i, `${label}: the card says secondary preference`);
-    await goal.getByTestId("details-rarity-scale").locator("summary").click();
-    const rows = await goal.getByTestId("list-rarity-scale").locator("li").allInnerTexts();
-    assert.ok(rows.length >= 2 && rows.every(r => /: 1 in [\d.,]+.* by chance \([\d.]+ bits?\)$/.test(r)), `${label}: the rarity table: ${rows.join(" | ")}`);
+    await goal.getByTestId("details-energy-ladder").locator("summary").click();
+    await goal.getByTestId("list-energy-ladder").locator("li").nth(1).waitFor({ timeout: 15_000 });
+    const rows = await goal.getByTestId("list-energy-ladder").locator("li").allInnerTexts();
+    assert.ok(rows.every(r => /^−?[\d,]+\.\d\d: .+ is worth [\d,]+\.\d\d bits?$/.test(r)), `${label}: the ladder: ${rows.join(" | ")}`);
     if (label === "desktop") {
       await goal.getByTestId("button-edit-example").click();
       await goal.getByTestId("input-example-m").fill("-3");

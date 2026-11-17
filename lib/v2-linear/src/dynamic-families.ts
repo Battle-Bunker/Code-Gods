@@ -16,10 +16,26 @@ import { gcd, q, Qn, ref, rng, type DynamicRule, type ElementValue, type ParamSp
 import type { LineState } from "./line.ts";
 import { drawSuffix, isSuffix } from "./numbers.ts";
 import { fromMC } from "./line.ts";
+import { lensById, lensMoves } from "./lens-routes.ts";
 
 const num = (v: ElementValue): Q | null => (v.kind === "number" ? v.q : null);
 const abs = Math.abs, log2 = Math.log2;
 
+/**
+ * The work meter of the rules' own searches (17 Nov: every estimate's work is bounded by the work budget, candidate
+ * generation included). The line estimator fills it per start from that start's share of the budget (energy.ts); each
+ * utility a search scores costs one unit (as many as the estimator charges for scoring a state of the start's size), and
+ * once it is empty the utilities read worst (−∞) and `cut` is set, so a search keeps
+ * what it found and stops paying. Outside an estimate it never runs dry.
+ */
+export const searchMeter = { left: Infinity, cut: false, unit: 1 };
+/** One utility's worth of search work (`unit`: the estimator's size cost of the state, energy.ts): false (and the meter
+ *  marked cut) once the meter is empty. */
+export function searchTick(): boolean {
+  if (searchMeter.left <= 0) { searchMeter.cut = true; return false; }
+  searchMeter.left -= searchMeter.unit;
+  return true;
+}
 /** A target for a start: new values for the readings it names (the rest stay the start's). */
 export interface LineTarget { readonly m?: Q; readonly c?: Q }
 export interface DynamicLineSpec<P> {
@@ -34,6 +50,9 @@ export interface DynamicLineSpec<P> {
   readonly reads: readonly ("m" | "c" | "X" | "gen" | "area")[];
   /** The utility of y = mx + c; NaN is the worst. */
   u(m: Q, c: Q, p: P): number;
+  /** The same utility from the line's own a, b, c (primitive, b > 0), for a rule that reads them: it skips the round
+   *  trip through two fractions (four gcds an evaluation; 17 Nov, estimator time). */
+  readonly uABC?: (a: bigint, b: bigint, c: bigint, p: P) => number;
   /** Where u is read, for the views' focus mark: a representation and its element. */
   readonly focus: readonly [rep: string, el: string];
   readonly space: ParamSpace<P>;
@@ -51,7 +70,7 @@ export function dynamicLine<P>(s: DynamicLineSpec<P>): RuleFamily<LineState, P> 
   };
   const dynamic: DynamicRule<LineState, P> = {
     reads: s.reads,
-    u: (st, p) => { const x = mc(st); return x ? s.u(x[0], x[1], p) : NaN; },
+    u: (st, p) => { const l = st.lines[0]!; if (s.uABC) return l.b === 0n ? NaN : s.uABC(l.a, l.b, l.c, p); const x = mc(st); return x ? s.u(x[0], x[1], p) : NaN; },
     // The rule's candidates (energy.ts): the targets its searches propose, each a line one turn away.
     candidates: (st, uStar, p) => {
       const x = mc(st), r = rng("line-candidates");   // fixed per call, so a seeded estimate repeats
@@ -143,6 +162,25 @@ export function fromContinued(as: readonly bigint[]): Q {
   for (let i = as.length - 2; i >= 0; i--) [n, d] = [as[i]! * n + d, n];
   return q(n, d);
 }
+/**
+ * The single mutations of the given lenses (the climb's moves: small adds, small multiples, negate, swap, round) that
+ * pass `ok`, cheapest naming first, at most `keep`. For a rule whose cheap routes go through a lens the estimator prices
+ * but does not climb (the intercepts and area lenses; 17 Nov, estimator-accuracy.md).
+ */
+export function lensNeighbours(m: Q, c: Q, ids: readonly ("xy" | "mA" | "abc" | "mc")[], ok: (t: LineTarget) => boolean, keep: number): LineTarget[] {
+  const line = fromMC(m, c), moves: { t: LineTarget; bits: number }[] = [];
+  for (const id of ids) {
+    const lens = lensById(id), ns = lens.numbers(line);
+    if (!ns) continue;
+    for (const mv of lensMoves(lens, line, ns)) {
+      if (!searchTick()) break;   // building each move's line is work too (the area lens's most of all)
+      if (mv.to.b === 0n) continue;
+      const t = { m: q(-mv.to.a, mv.to.b), c: q(-mv.to.c, mv.to.b) };
+      if (ok(t)) moves.push({ t, bits: mv.bits });
+    }
+  }
+  return moves.sort((x, y) => x.bits - y.bits).slice(0, keep).map(x => x.t);
+}
 // ------------------------------------------------------------------ 10. Stepping Coefficients, on a, b, c
 
 /** a, b, c of ax + by + c = 0 in lowest whole numbers, b > 0 (y = mx + c is −m·x + y − c = 0). */
@@ -152,6 +190,7 @@ function abcOf(m: Q, c: Q): [bigint, bigint, bigint] {
 }
 const babs = (x: bigint) => (x < 0n ? -x : x);
 const stepU = (a: bigint, b: bigint, c: bigint, d: number) => {
+  if (!searchTick()) return -Infinity;
   // Exact at any size: the size from the bigint, each step's miss as a bigint (a float of it only past 2^53, where the
   // penalty is already vast).
   const top = [a, b, c].reduce((t, x) => (babs(x) > t ? babs(x) : t), 0n), D = BigInt(d);
@@ -169,6 +208,7 @@ export const steppingCoefficients = dynamicLine<{ k: number }>({
   space: stepSpace, peers: [{ k: 3 }, { k: -5 }],
   card: ({ k }) => `Write the line as a·x + b·y + c = 0 with whole numbers that share no factor (b positive). The three numbers should go up in steps of ${k}: b = a + ${k} and c = b + ${k}. Bigger numbers score more (the binary digits of the biggest of a, b, c); every unit a step is off costs 2.`,
   u(m, c, { k }) { const [a, b, cc] = abcOf(m, c); return stepU(a, b, cc, k); },
+  uABC: (a, b, c, { k }) => stepU(a, b, c, k),
   searches: [{ id: "big-enough-steps", propose: (m, c, uStar, { k }) => {
     // a, a + d, a + 2d with gcd(a, d) = 1 (so they share no factor) and b = a + d > 0, the biggest at least 2^u*.
     const [a0] = abcOf(m, c), K = BigInt(k), out: LineTarget[] = [];
@@ -182,6 +222,17 @@ export const steppingCoefficients = dynamicLine<{ k: number }>({
       }
     }
     return out;
+  } }, { id: "repair-one", propose: (m, c, uStar, { k }) => {
+    // One number put back in step (a = b − d, b = a + d or c − d, c = b + d), and every single mutation of the
+    // intercepts and area lenses (a swap there reorders a, b, c: the routes a larger search found; 17 Nov).
+    const [a, b, cc] = abcOf(m, c), K = BigInt(k), out: LineTarget[] = [];
+    const ok = (x: bigint, y: bigint, z: bigint) => y > 0n && stepU(x, y, z, k) >= uStar - 1e-9;
+    // With a's and c's signs kept or flipped (a negate is a cheap mutation), and each one-number repair of that.
+    for (const sa of [1n, -1n]) for (const sc of [1n, -1n]) {
+      const A = sa * a, C = sc * cc;
+      for (const [x, y, z] of [[A, b, C], [b - K, b, C], [A, A + K, C], [A, C - K, C], [A, b, b + K]] as const) if ((x !== a || z !== cc || y !== b) && ok(x, y, z)) out.push({ m: q(-x, y), c: q(-z, y) });
+    }
+    return [...out, ...lensNeighbours(m, c, ["xy"], t => { const [x, y, z] = abcOf(t.m!, t.c!); return ok(x, y, z); }, 8)];
   } }],
 });
 
@@ -206,6 +257,7 @@ function depth(n: bigint, p: number): [number, bigint] {
 }
 /** Twice the shallower depth, less the gap between the depths and the binary digits of what is left of top and bottom. */
 export function primeBalanceU(c: Q, p: number, q: number): number {
+  if (!searchTick()) return -Infinity;
   if (c.n === 0n) return NaN;
   const [ep, restT] = depth(babsQ(c.n), p), [eq, restB] = depth(c.d, q);
   return 2 * Math.min(ep, eq) - abs(ep - eq) - log2Big(restT) - log2Big(restB);
@@ -231,6 +283,7 @@ function recurrence(a: number, top: bigint): bigint[] {
 }
 /** The index n of the term nearest the gradient's bottom, less how far the bottom and the top are from x(n) and x(n+1). */
 export function recurrenceU(m: Q, a: number): number {
+  if (!searchTick()) return -Infinity;
   const t = babsQ(m.n), d = m.d, xs = recurrence(a, d * 2n + 2n);
   let n = 0;
   for (let i = 1; i < xs.length - 1; i++) if (babsQ(xs[i]! - d) < babsQ(xs[n]! - d)) n = i;

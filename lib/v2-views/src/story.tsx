@@ -3,7 +3,7 @@
  * annotation and the faces; neither computes a score of its own.
  */
 import type { ReactElement, ReactNode } from "react";
-import type { ScaleRow } from "./example.ts";
+import type { LadderRow } from "./example.ts";
 import { compareScores, representation, tieBreakerIds, type ObjectType, type Score, type Variant } from "@workspace/v2-core";
 import { annotate, type RuleRef } from "./annotate.ts";
 import { changesBetween, withParams } from "./contributors.ts";
@@ -25,8 +25,8 @@ export interface GoalCardProps<S, P> {
   readonly exampleOpen?: boolean;
   /** Controls for the worked example (v1's 🎲 Randomise and ✏️ Edit), drawn above it. */
   readonly exampleTools?: ReactNode;
-  /** v1's "How rare is each rule score?" (rarityScale): what each main-part value is worth, rarer going down. */
-  readonly scale?: readonly ScaleRow[];
+  /** "What is each level worth?" (ladderRungs, ladderRow): lines at rising levels of the rule and their energy. */
+  readonly ladder?: readonly LadderRow[];
 }
 
 /** The main part's sentence and each dealt preference's in order, from the layers (null when the family has no main sentence). */
@@ -47,7 +47,7 @@ function cardLines<S, P>(rule: RuleRef<S, P>, tbIds: readonly string[]): { main:
  * The rule's card: its name and sentence; the player's own object explained (its parts on their rulers, its bits, the
  * moves that would make it rarer), when there is one; then the worked example. No steps (owner decision 23).
  */
-export function GoalCard<S, P>({ rule, example, value, mine, exampleOpen, exampleTools, scale }: GoalCardProps<S, P>): ReactElement {
+export function GoalCard<S, P>({ rule, example, value, mine, exampleOpen, exampleTools, ladder }: GoalCardProps<S, P>): ReactElement {
   const f = rule.family;
   const noun = nounOf(rule.type);
   const tbId = rule.tieBreaker === undefined ? (f.tieBreakers[0]?.id ?? null) : rule.tieBreaker;
@@ -77,13 +77,13 @@ export function GoalCard<S, P>({ rule, example, value, mine, exampleOpen, exampl
         <p className="v2v-goal-hint">Tap a part to see only its marks; point at a number to find it in every view.</p>
         <ExpandedFace rule={rule} state={example} value={value} improvement={!mine} />
       </details>
-      {scale && scale.length > 1 && (
-        <details className="v2v-goal-scale" data-testid="details-rarity-scale">
-          <summary className="v2v-goal-sub">How rare is each rule score?</summary>
-          <ul className="v2v-goal-scale-rows" data-testid="list-rarity-scale">
-            {scale.map(r => <li key={r.main}>{r.text}</li>)}
+      {ladder && ladder.length > 1 && (
+        <details className="v2v-goal-scale" data-testid="details-energy-ladder">
+          <summary className="v2v-goal-sub">What is each level worth?</summary>
+          <ul className="v2v-goal-scale-rows" data-testid="list-energy-ladder">
+            {ladder.map(r => <li key={r.text}>{r.text}</li>)}
           </ul>
-          <p className="v2v-goal-hint">Each row is the lowest score with that main-part value, from random {nounOf(rule.type)}s. Your points on a {nounOf(rule.type)} are your bits × the others' bits, so each bit of yours adds the others' bits to your points. Rarer scores than these are worth more still: there is no top.</p>
+          <p className="v2v-goal-hint">Each row is a {nounOf(rule.type)} at a level of your rule (the worked example, then your rule's own search above it) and its energy: what it costs on average to reach a {nounOf(rule.type)} at least as good, in one turn, from a random {nounOf(rule.type)} of the same size. A {nounOf(rule.type)}'s energy depends on its size too, so another at the same level can be worth more or less. Your points on a {nounOf(rule.type)} are its energy for you × the sum of the other players' energies on it. There is no top.</p>
         </details>
       )}
       {!mine && <p className="v2v-goal-hint">{`Hover one of your ${noun}s (or tap it) to see how it scores.`}</p>}

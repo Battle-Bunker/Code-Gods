@@ -87,16 +87,16 @@ test("a pane opened for the human never covers the assistant's conversation whil
 test("the assistant's conversation stays in front: opened at a place, or after an assistant arranges the dock", () => {
   // Catches (real-assistant walk): opened from a pane's menu it joined behind the tab there, and an assistant's own
   // "Arrange the dock" put another tab over the conversation it was still answering in.
-  // (On the planning screen: the live screen's default already gives the assistant a row of its own.)
-  const planning: AffordanceContext = { ...live, context: "planning" };
-  const opened = applyView(EMPTY_VIEW, "view.openPane", { pane: "assistant", place: "right" }, planning).view;
-  assert.equal(formatDock(opened.dock.planning!), "row(column(overview 45, my-card 55) 33, objects 37, column(forge 50, assistant 50) 30)");
-  const delegated: AffordanceContext = { ...planning, grant: "act" };
-  const arranged = applyView(opened, "view.arrangeDock", { dock: "row(objects 70, column(forge 50, *overview|assistant 50) 30)" }, delegated).view;
-  assert.equal(formatDock(arranged.dock.planning!), "row(objects 70, column(forge 50, overview|*assistant 50) 30)");
+  // (On a replay: every game screen's default already gives the assistant a row of its own.)
+  const replay: AffordanceContext = { ...live, context: "replay" };
+  const opened = applyView(EMPTY_VIEW, "view.openPane", { pane: "assistant", place: "right" }, replay).view;
+  assert.equal(formatDock(opened.dock.replay!), "column(row(column(my-card 50, race 50) 33, objects 37, agents 30) 67, row(timeline 50, assistant 50) 33)");
+  const delegated: AffordanceContext = { ...replay, grant: "act" };
+  const arranged = applyView(opened, "view.arrangeDock", { dock: "row(objects 70, column(race 50, *feed|assistant 50) 30)" }, delegated).view;
+  assert.equal(formatDock(arranged.dock.replay!), "row(objects 70, column(race 50, feed|*assistant 50) 30)");
   // The human's own arrangement is the human's: a tab they bring forward stays forward.
-  const human = applyView(opened, "view.arrangeDock", { dock: "row(objects 70, column(forge 50, *overview|assistant 50) 30)" }, planning).view;
-  assert.equal(formatDock(human.dock.planning!), "row(objects 70, column(forge 50, overview|assistant 50) 30)");
+  const human = applyView(opened, "view.arrangeDock", { dock: "row(objects 70, column(race 50, *feed|assistant 50) 30)" }, replay).view;
+  assert.equal(formatDock(human.dock.replay!), "row(objects 70, column(race 50, feed|assistant 50) 30)");
 });
 
 test("opening a pane never hides the one the player acted from: One line opened from Results sits beside it", () => {
@@ -104,7 +104,7 @@ test("opening a pane never hides the one the player acted from: One line opened 
   const ended: AffordanceContext = { ...live, context: "ended" };
   const v = applyView(EMPTY_VIEW, "view.openObject", { objectId: "o1" }, ended).view;
   const tree = v.dock.ended!;
-  assert.equal(formatDock(tree), "row(my-card 28, column(results 50, object 50) 44, column(race 50, assistant 50) 28)");
+  assert.equal(formatDock(tree), "column(row(column(my-card 50, race 50) 33, column(results 60, objects 18, object 22) 37, agents 30) 67, assistant 33)");
   // Every pane of the screen is still the active tab of its group.
   const fronts = dockGroups(tree).map(l => l.group.active);
   for (const p of ["my-card", "results", "race", "object"]) assert.ok(fronts.includes(p), `${p} in view: ${formatDock(tree)}`);

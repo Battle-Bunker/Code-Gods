@@ -22,7 +22,7 @@ export type Kind = "greedy" | "hopper" | "saver" | "knocker";
 export interface SimOpts {
   gravity?: number; power?: number; store?: number; K?: number; band?: number; seed?: string; seats?: number;
   worldSeconds?: number; startLines?: number; birthEvery?: number; opsPerSecond?: number; share?: number;
-  kinds?: Kind[]; saveTo?: number; quiet?: boolean; rot?: number;
+  kinds?: Kind[]; saveTo?: number; quiet?: boolean; rot?: number; agentStart?: number;
 }
 
 const READ_BITS = 16;
@@ -99,7 +99,7 @@ export function simulate(o: SimOpts = {}) {
     const F = dynamicFamilies.find(f => f.id === fam)! as any;
     const rule: LineRule = lineRule(F.dynamic, pr.params);
     const kind = kinds[(i + (o.rot ?? 0)) % kinds.length]!;
-    return { i, fam, params: pr.params, rule, kind, balance: 0, spent: 0, turns: 0, skips: 0, byLens: {} as Record<string, number>, byMove: {} as Record<string, number>, bitsByTurn: [] as number[], knocks: 0 };
+    return { i, fam, params: pr.params, rule, kind, balance: o.agentStart ?? 0, spent: 0, turns: 0, skips: 0, byLens: {} as Record<string, number>, byMove: {} as Record<string, number>, bitsByTurn: [] as number[], knocks: 0 };
   });
   let estimates = 0, estMs = 0;
   const est = (l: Line, s: (typeof seats)[number], K?: number, sd?: string) => {

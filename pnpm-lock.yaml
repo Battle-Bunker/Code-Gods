@@ -639,6 +639,9 @@ importers:
       '@types/react-dom':
         specifier: 'catalog:'
         version: 19.3.0(@types/react@19.3.0)
+      '@workspace/v2-economy':
+        specifier: workspace:*
+        version: link:../v2-economy
       '@workspace/v2-grid':
         specifier: workspace:*
         version: link:../v2-grid

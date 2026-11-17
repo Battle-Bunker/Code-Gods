@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dockGroups, EMPTY_VIEW, parseDock } from "@workspace/v2-affordances";
-import { closePlan, columns, defaultPanes, dockFor, openPlan, PANE_IDS, PANES, paneTitle, readingOrder, shownPanes, storedPane, storedSlugOf, filePane, fileIdOf } from "../src/panels.ts";
+import { applyView, dockGroups, EMPTY_VIEW, parseDock, type ViewState } from "@workspace/v2-affordances";
+import { closePlan, columns, defaultPanes, keepShown, dockFor, openPlan, PANE_IDS, PANES, paneTitle, readingOrder, shownPanes, storedPane, storedSlugOf, filePane, fileIdOf } from "../src/panels.ts";
 
 test("a stored panel opens as a pane of its own in every phase, and keeps its slug", () => {
   // Catches: shownPanes dropping a stored panel's pane as an unknown id, so "Open as a pane" shows nothing.
@@ -74,11 +74,10 @@ test("the middle is never empty, and a phone reads main first", () => {
   assert.deepEqual(readingOrder(defaultPanes("live")), ["my-card", "objects", "agents", "race", "assistant"]);
 });
 
-test("an arrangement made in planning meets the world's defaults when the world starts", () => {
+test("an arrangement made in planning is the player's on the live screen too (one default for both)", () => {
   const planning = { panes: [{ pane: "forge", place: "main" as const }, { pane: "my-card", place: "left" as const }] };
   const live = shownPanes(planning, "live").map(p => p.pane);
-  assert.ok(live.includes("objects") && live.includes("agents") && live.includes("race"), "the lines, the agents and the leaderboard appear");
-  assert.ok(!live.includes("forge"), "the planning screen's agent code stays behind (it came along as a tab inside the live panes)");
+  assert.deepEqual(live, ["forge", "my-card"], "the player's own arrangement wins");
   assert.ok(!shownPanes(planning, "ended").some(p => p.pane === "forge"), "no forge after the end");
 });
 
@@ -98,7 +97,7 @@ test("an arrangement made after a game's end meets the planning defaults when th
   const ended = { panes: [{ pane: "results", place: "main" as const }, { pane: "my-card", place: "left" as const }, { pane: "assistant", place: "right" as const }] };
   const planning = shownPanes(ended, "planning").map(p => p.pane);
   for (const d of defaultPanes("planning")) assert.ok(planning.includes(d.pane), d.pane);
-  assert.ok(!planning.includes("assistant"), "another screen's default stays on its screen (the live screen's assistant)");
+  assert.ok(planning.includes("assistant"), "the assistant is in the one default");
 });
 
 test("every stored pane shows: nothing is dropped to make room", () => {
@@ -138,14 +137,39 @@ test("the assistant pane is offered in every phase, so a player can ask for help
 });
 
 test("in a replay the replay's own entry is never drawn, the replay's defaults show, and the results do not lead", () => {
+  // Catches (the owner, 17 November): an ended game's replay without v1's Timeline in the assistant's place, or
+  // without the rest of the owner's layout (goal over leaderboard, lines, my agents).
   // Catches: the replay pane (replay.open adds it) taking the whole screen, or the results pane covering the playhead.
   const opened = { panes: [{ pane: "replay", place: "main" as const }] };
   assert.deepEqual(shownPanes(opened, "replay"), defaultPanes("replay"));
   const panes = defaultPanes("replay").map(p => p.pane);
-  assert.ok(panes.includes("objects") && panes.includes("feed") && panes.includes("race"), panes.join());
+  assert.deepEqual(defaultPanes("replay"), [
+    { pane: "my-card", place: "main" }, { pane: "objects", place: "main" }, { pane: "agents", place: "right" },
+    { pane: "race", place: "right" }, { pane: "timeline", place: "bottom" },
+  ]);
+  assert.ok(!panes.includes("assistant"), panes.join());
   const own = { panes: [{ pane: "replay", place: "main" as const }, { pane: "race", place: "main" as const }] };
-  assert.deepEqual(shownPanes(own, "replay"), [{ pane: "race", place: "main" }]);
-  for (const id of ["forge", "agents", "overview", "results"] as const) assert.ok(!PANES[id].phases.includes("replay"), `${id} has nothing to show in a replay`);
+  assert.deepEqual(shownPanes(own, "replay"), [{ pane: "race", place: "main" }, { pane: "timeline", place: "bottom" }]);
+  // Coming from the live game (the owner's layout stored), the Timeline takes the assistant's place; the stored
+  // assistant is neither closed nor joined by a stored Timeline, so the next game still has its assistant.
+  const fromLive = { panes: defaultPanes("live") };
+  assert.deepEqual(shownPanes(fromLive, "replay"), defaultPanes("replay"));
+  assert.deepEqual(keepShown(fromLive, "replay"), []);
+  // Opened in the replay, the assistant comes back beside the Timeline (v1: opening it puts it back).
+  const ctx = { context: "replay", principal: { signedIn: true, member: true, seated: true, owner: false, admin: false } } as const;
+  let both = { ...EMPTY_VIEW, panes: defaultPanes("live") } as ViewState;
+  for (const op of openPlan(both, "replay", "assistant")) both = applyView(both, op.id, op.args, ctx).view;
+  const showing = shownPanes(both, "replay").map(p => p.pane);
+  assert.ok(showing.includes("assistant") && showing.includes("timeline"), showing.join());
+  // With the results open in the replay, a closed pane stays closed (the results do not mark a carried-over screen).
+  let withResults = { ...EMPTY_VIEW, panes: defaultPanes("live") } as ViewState;
+  for (const op of openPlan(withResults, "replay", "results")) withResults = applyView(withResults, op.id, op.args, ctx).view;
+  for (const op of closePlan(withResults, "replay", "agents")) withResults = applyView(withResults, op.id, op.args, ctx).view;
+  assert.ok(!shownPanes(withResults, "replay").some(p => p.pane === "agents"), "a pane closed in the replay stays closed");
+  for (const id of ["forge", "overview"] as const) assert.ok(!PANES[id].phases.includes("replay"), `${id} has nothing to show in a replay`);
+  assert.deepEqual(PANES.timeline.phases, ["replay"], "the Timeline is the replay's only");
+  // The results stay reachable in the replay from the pane menu and the palette, never opened over the playhead.
+  assert.ok(PANES.results.phases.includes("replay"));
   assert.ok(!shownPanes({ panes: [{ pane: "results", place: "main" }] }, "replay").some(p => p.pane === "results"));
 });
 
@@ -180,6 +204,8 @@ test("pane blurbs fit every game: none says “a line” (the palette showed it 
 test("planning shows the board (W3 #931: the starting objects are born, valued and scored at game start)", () => {
   for (const id of ["objects", "object", "what-if"] as const) assert.ok(PANES[id].phases.includes("planning"), id);
   assert.ok(defaultPanes("planning").some(p => p.pane === "objects" && p.place === "main"), "the lines are in the middle in planning");
-  // Still no act log or leaderboard before the world starts: nothing has moved yet.
-  for (const id of ["feed", "race"] as const) assert.ok(!PANES[id].phases.includes("planning"), id);
+  // Still no act log before the world starts: nothing has moved yet. The leaderboard sits in its place, empty (the owner's
+  // layout is the default of every screen).
+  assert.ok(!PANES.feed.phases.includes("planning"));
+  assert.ok(PANES.race.phases.includes("planning") && defaultPanes("planning").some(p => p.pane === "race"));
 });

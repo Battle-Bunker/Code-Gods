@@ -1,9 +1,9 @@
 /**
  * The desktop dock gives every open pane a usable size (playtest round 1, item 1), against the LIVE local engine. At
  * 1920×1080 and 1280×720, in a practice game:
- *   planning, live and ended: every pane of the default arrangement has a body at least 300 px wide and 220 px tall and
+ *   planning, live and the ended game's replay: every pane of the default arrangement has a body at least 300 px wide and 220 px tall and
  *   its key elements (the goal card's rule, the lines' sort, the act log, the agent's stats line,
- *   the leaderboard's chart, the results' headline and "Watch the replay") lie wholly inside the pane, inside the window → pointing at a line shows its detail over the list (the dock unchanged)
+ *   the leaderboard's chart, the Timeline's play button and slider, the results' headline) lie wholly inside the pane, inside the window → pointing at a line shows its detail over the list (the dock unchanged)
  *   → a dragged gutter is stored and comes back after a reload.
  * At 390×844 the phone stays stacked, and the forge's "Open My agents" adds My agents to the stack (every other pane
  * stays in the jump row) and scrolls to it (a persona walk saw it replace the stack with Lines).
@@ -81,7 +81,9 @@ const KEY: Record<string, string | string[]> = {
   // The agent's stats line (energy, moves, skips, failures, spend, points: round 2 saw it cut at 1440×900).
   agents: "[data-testid^=text-agent-work-]",
   race: "[data-testid=race-chart], [data-testid=race-empty]",
-  results: ["[data-testid=text-results-headline]", "[data-testid=button-watch-replay]"],
+  results: ["[data-testid=text-results-headline]"],
+  // The replay's play button and slider (the Timeline in the assistant's place).
+  timeline: ["[data-testid=button-replay-play], [data-testid=button-replay-pause]", "[data-testid=input-replay-seek]"],
 };
 
 /** Every pane named is on screen with a usable body, and its key element is wholly inside it. */
@@ -162,9 +164,11 @@ try {
     const { context, page, errors } = await signIn(browser, who, viewport);
     await practiceGame(page, 75);
     await page.getByTestId("dock-desktop").waitFor();
-    await usable(page, ["overview", "my-card", "forge"], `${label} planning`);
+    // The owner's layout is the default of every screen, planning included (no "Where am I" or "Agent code").
+    await usable(page, ["my-card", "objects"], `${label} planning`);
+    await ownersLayout(page, `${label} planning`);
+    assert.ok(!(await dockText(page)).includes("|"), `${label}: no tabs in planning: ${await dockText(page)}`);
     await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-planning.png`) });
-    if (who === "admin") await closeButtons(page, "overview", `${label} planning`);
 
     await page.getByTestId("button-summon-first").click();
     await page.getByTestId("text-forge-status").getByText(/is summoned/).waitFor({ timeout: 60_000 });
@@ -205,8 +209,13 @@ try {
     await page.getByTestId("pane-what-if").getByTestId("select-what-if-change").waitFor({ timeout: 15_000 });
     assert.equal(await page.getByTestId("what-if-empty").count(), 0, `${label}: What if has the line`);
     assert.equal(await page.getByTestId("pane-object").count(), 0, `${label}: still no One line pane`);
+    // Opening places the pane, then brings it to the front (two view writes): a close between them is undone by the
+    // second (a race reported to the coordinator, 17 November). Let the opening finish first.
+    await page.waitForTimeout(1500);
     await page.getByTestId("button-close-what-if").click();
     await page.getByTestId("pane-what-if").waitFor({ state: "detached", timeout: 10_000 });
+    await page.waitForTimeout(3000);
+    assert.equal(await page.getByTestId("pane-what-if").count(), 0, `${label}: What if stays closed: ${await dockText(page)}`);
     // The act log's "This line now" opens the same overlay.
     const moveLink = page.locator("[data-testid^=button-open-move-]").first();
     if (await moveLink.count()) {
@@ -218,13 +227,22 @@ try {
 
     // A dragged gutter is the human's arrangement: stored for the room, and back after a reload.
     const before = await dockText(page);
-    const sash = page.locator(".dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash").first();
-    const s = await sash.boundingBox() as Box;
-    await page.mouse.move(s.x + s.width / 2, s.y + s.height / 2);
+    // The gutter on the right edge of the goal card's column.
+    const goalBox = await page.getByTestId("pane-my-card").boundingBox() as Box;
+    let s: Box | null = null;
+    for (const sash of await page.locator(".dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash").all()) {
+      const b = await sash.boundingBox();
+      if (b && b.height > 20 && Math.abs(b.x + b.width / 2 - (goalBox.x + goalBox.width)) < 12 && b.y <= goalBox.y + goalBox.height && b.y + b.height >= goalBox.y) { s = b; break; }
+    }
+    assert.ok(s, `${label}: the goal column's gutter`);
+    // Grabbed beside the goal card's top, away from where gutters cross.
+    const grabY = goalBox.y + 40;
+    await page.mouse.move(s!.x + s!.width / 2, grabY);
     await page.mouse.down();
-    await page.mouse.move(s.x + s.width / 2 + 60, s.y + s.height / 2, { steps: 8 });
+    await page.mouse.move(s!.x + s!.width / 2 + 60, grabY, { steps: 8 });
     await page.mouse.up();
-    await page.waitForFunction((b: string) => document.querySelector("[data-testid=dock-desktop]")?.getAttribute("data-dock") !== b, before, { timeout: 10_000 });
+    await page.waitForFunction((b: string) => document.querySelector("[data-testid=dock-desktop]")?.getAttribute("data-dock") !== b, before, { timeout: 10_000 })
+      .catch(async (e: Error) => { await page.screenshot({ path: path.join(shots, "dock-drag-failed.png") }); console.log("DRAG", JSON.stringify(s), before); throw e; });
     const dragged = await dockText(page);
     assert.ok(leftColumn(dragged) > leftColumn(before) + 2, `the left column grew: ${before} → ${dragged}`);
     await page.waitForTimeout(1500);
@@ -251,11 +269,21 @@ try {
       await page.locator(`[data-testid=dock-desktop]${want}`).waitFor({ timeout: 5_000 });
     }
 
-    await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
+    // An ended game is its replay (v1): the owner's layout with the Timeline in the assistant's place.
+    await page.locator('[data-testid="pane-timeline"] [data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 180_000 });
+    console.log(`${label}: replay dock: ${await dockText(page)}`);
+    // My agents in a replay lists the watched player's agents from the record (no live work line to measure).
+    // At 720 px tall the goal and the leaderboard share the top two thirds of the dock (176 px each, under the 220 the
+    // other screens give them): the Timeline's row is the replay's, and a room without AI has no assistant row to take.
+    await usable(page, viewport.height >= 1000 ? ["my-card", "race", "objects", "timeline"] : ["objects"], `${label} replay`);
+    // At 720 the Timeline's row is 173 px: its play button and slider are in view (the events scroll under them).
+    for (const sel of KEY.timeline!) assert.ok(await page.getByTestId("pane-timeline").locator([sel].flat()[0]!).first().isVisible(), `${label}: the Timeline's ${sel} is in view`);
+    await page.getByTestId("pane-agents").waitFor();
+    await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-replay.png`) });
+    // How the game went is a pane away (any pane's menu).
+    await page.locator("[data-testid^=button-pane-menu-]").first().click();
+    await page.getByTestId("button-open-pane-results").click();
     await page.getByTestId("pane-results").getByText(/You finished/).waitFor({ timeout: 20_000 });
-    console.log(`${label}: ended dock: ${await dockText(page)}`);
-    await usable(page, ["results", "my-card", "race"], `${label} ended`);
-    await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-ended.png`) });
     // Opening a pane never hides the one acted from: from Results, open the line-by-line list; Results stays in view.
     const endedDock = await dockText(page);
     await page.getByTestId("pane-results").getByTestId("button-line-by-line-results").click();
@@ -266,6 +294,7 @@ try {
     assert.ok(await page.getByTestId("pane-results").getByText(/You finished/).first().isVisible(), `${label}: Results' headline still in view`);
     noneClosed(endedDock, await dockText(page), `${label} from Results`);
     console.log(`${label}: opened from Results, all in view: ${await dockText(page)}`);
+    if (who === "admin") await closeButtons(page, "agents", `${label} ended`);
     assert.deepEqual(errors, [], `${label}: page errors`);
     await context.close();
   }
@@ -282,10 +311,10 @@ try {
     assert.doesNotMatch(nav.bg, /\/ 0?\.\d+\)$|,\s*0?\.\d+\)$/, `phone: the pane-name row is opaque: ${nav.bg}`);
     assert.ok(Number(nav.z) >= 10, `phone: the pane-name row is above the panes: z-index ${nav.z}`);
     const jumps = async () => (await page.locator("[data-testid^=button-jump-]").evaluateAll((els: Element[]) => els.map(e => e.getAttribute("data-testid")!.slice("button-jump-".length))));
-    await closeButtons(page, "overview", "phone planning");
+    await closeButtons(page, "race", "phone planning");
     await page.screenshot({ path: path.join(shots, "dock-phone-closed.png") });
     const first = await jumps();
-    assert.ok(first.includes("forge") && first.includes("my-card"), first.join());
+    assert.ok(first.includes("objects") && first.includes("my-card") && !first.includes("forge") && !first.includes("overview"), first.join());
     await page.getByTestId("button-summon-first").click();
     await page.getByTestId("text-forge-status").getByText(/is summoned/).waitFor({ timeout: 60_000 });
     const open = page.getByTestId("button-open-agents");

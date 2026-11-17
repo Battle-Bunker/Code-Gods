@@ -101,7 +101,7 @@ function Program({ agentId, name }: { agentId: string; name: string }) {
   return (
     <div className="mt-1 space-y-2">
       {live && <button type="button" className="underline underline-offset-4" onClick={() => void requestForge({ kind: "agent", agentId }, openPane)} data-testid={`button-agent-edit-${agentId}`}>Edit {name} in Agent code</button>}
-      {rows.length > 1 && (
+      {rows.length > 1 && !programs.some(p => "recorded" in p) && (
         <table className="w-full tabular-nums" data-testid={`table-agent-versions-${agentId}`}>
           <thead><tr className="text-left text-muted-foreground"><th className="font-normal">Version</th><th className="font-normal text-right">Moves</th><th className="font-normal text-right">Points gained</th><th className="font-normal text-right">A move</th><th /></tr></thead>
           <tbody>{rows.map((r, i) => (
