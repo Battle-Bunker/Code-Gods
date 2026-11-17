@@ -168,7 +168,8 @@ export function shownPanes(view: Pick<ViewState, "panes">, phase: GamePhase): Op
   // Before the world (arranged in planning) or after the end (the last game's results): the phase's defaults join.
   // Planning and the live game share one default (the owner's layout); an arrangement stored on the end screen holds the
   // results, so the next game's screens meet their defaults again.
-  const fromOtherPhase = phase !== "ended" && view.panes.some(p => p.pane === "results");
+  // The replay holds the results too (an ended game is its replay): there they are the player's own.
+  const fromOtherPhase = phase !== "ended" && phase !== "replay" && view.panes.some(p => p.pane === "results");
   const lacksDefaults = !own.some(p => defaults.some(d => d.pane === p.pane));
   if (own.length && (fromOtherPhase || lacksDefaults)) {
     panes = [...defaults.filter(d => !own.some(p => p.pane === d.pane)), ...own];
