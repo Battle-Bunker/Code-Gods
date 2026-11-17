@@ -121,14 +121,16 @@ let fresh = 0;
 export function estimateLine(s: Line, rule: LineRule, variant: Variant, o: LineEstimateOpts = {}): LineEstimate {
   const physics = physicsOf(variant), lambda = physics.gravity;
   const K = o.K ?? physics.estimatorStarts, band = o.band ?? physics.sameSizeBand, seed = o.seed ?? `fresh:${Date.now()}:${fresh++}:${Math.random()}`;
-  // Work: each distinct state scored. Past the budget a start's search stops (OutOfWork) and it costs its upper bound.
+  // Work: each distinct state scored. Each start gets an even share of what is left of the budget (`limit`); past it
+  // the start's climb stops and its routes found so far count (OutOfWork), and only a start that could not even price
+  // its candidates costs its upper bound.
   const memo = new Map<string, number>(), budget = physics.estimatorWork;
-  let work = 0, bound = false;
+  let work = 0, bound = false, limit = budget;
   const u = (l: Line) => {
     const k = keyOf(l);
     let v = memo.get(k);
     if (v === undefined) {
-      if (work >= budget) throw new OutOfWork();
+      if (work >= limit) throw new OutOfWork();
       work++;
       v = isVertical(l) ? NaN : rule.u(l); if (Number.isNaN(v)) v = -Infinity; memo.set(k, v);
     }
@@ -143,23 +145,30 @@ export function estimateLine(s: Line, rule: LineRule, variant: Variant, o: LineE
   const CLIMB: readonly LensId[] = [rule.lens, "mc", "cf", "pe"];
   const spaces = LENSES.filter(l => CLIMB.includes(l.id)).sort((a, b) => CLIMB.indexOf(a.id) - CLIMB.indexOf(b.id)).map(l => lensSpace(lambda, l, u));
   const all: RouteSpace<Line> = { key: keyOf, u, moves: function* () {}, surprise: () => 0, name: (x, t) => routePrice(lambda, x, t).total };
-  const climb = (x: Line, uS: number, _sp: RouteSpace<Line>, bound = Infinity) => {
-    let best: { readonly target: Line; readonly bits: number } | null = null, cap = bound;
-    for (const sp of spaces) {
-      const c = greedyClimb(x, uS, sp, cap, 6);
-      if (c && c.bits < cap) { best = c; cap = c.bits; }
+  const climb = (x: Line, uS: number, _sp: RouteSpace<Line>, ceiling = Infinity) => {
+    let best: { readonly target: Line; readonly bits: number } | null = null, cap = ceiling;
+    try {
+      for (const sp of spaces) {
+        const c = greedyClimb(x, uS, sp, cap, 6);
+        if (c && c.bits < cap) { best = c; cap = c.bits; }
+      }
+    } catch (e) {
+      if (!(e instanceof OutOfWork)) throw e;
+      bound = true;   // the climb was cut: the start keeps the direct turn, its candidates and the climbs that finished
     }
     return best;
   };
-  const samples: LineSample[] = lineStarts(s, rule.lens, K, seed, band).map(x => {
+  const starts = lineStarts(s, rule.lens, K, seed, band);
+  const samples: LineSample[] = starts.map((x, i) => {
+    limit = work + Math.floor((budget - work) / (starts.length - i));
     try {
       const cands = o.candidates === false ? [] : rule.candidates(x, uStar).filter(t => !isVertical(t));
       const c = startCost(x, s, uStar, all, cands, climb);
       return { from: x, cost: c.cost, best: c.best, universal: c.universal, by: c.by };
     } catch (e) {
       if (!(e instanceof OutOfWork)) throw e;
-      // The upper bound: the price of reaching exactly this state (a start already as good would cost 0, but telling
-      // needs the work that ran out).
+      // Out of work before the climb (the start's own utility or its candidates'): the upper bound, the price of
+      // reaching exactly this state (a start already as good would cost 0, but telling needs the work that ran out).
       bound = true;
       const direct = routePrice(lambda, x, s).total;
       return { from: x, cost: direct, best: direct, universal: direct, by: "bound" };

@@ -38,7 +38,7 @@ test("the panels pane is offered in every phase", () => {
 
 test("an empty view follows the phase's defaults; an own arrangement is kept", () => {
   assert.deepEqual(shownPanes(EMPTY_VIEW, "planning"), defaultPanes("planning"));
-  const own = { panes: [{ pane: "feed", place: "main" as const }] };
+  const own = { panes: [{ pane: "race", place: "main" as const }] };
   assert.deepEqual(shownPanes(own, "live"), own.panes);
 });
 
@@ -56,7 +56,7 @@ test("opening a pane on an empty view keeps the defaults first, and the pane joi
 
 test("opening a pane never closes another (round 1: One line evicted What just changed)", () => {
   const full = { panes: [...defaultPanes("live"), { pane: "object", place: "main" as const }, { pane: "public-chat", place: "right" as const }] };
-  for (const pane of ["rules", "assistant", "others-care", "points-over-time"]) {
+  for (const pane of ["rules", "feed", "others-care", "points-over-time"]) {
     const ops = openPlan(full, "live", pane);
     assert.deepEqual(ops.map(o => o.id), ["view.openPane", "view.openPane"], pane);
   }
@@ -64,20 +64,20 @@ test("opening a pane never closes another (round 1: One line evicted What just c
 });
 
 test("opening an open pane brings it to the front of its tab group, without opening it twice", () => {
-  assert.deepEqual(openPlan({ panes: [{ pane: "feed", place: "right" }] }, "live", "feed"), [{ id: "view.openPane", args: { pane: "feed" } }]);
+  assert.deepEqual(openPlan({ panes: [{ pane: "race", place: "right" }] }, "live", "race"), [{ id: "view.openPane", args: { pane: "race" } }]);
 });
 
 test("the middle is never empty, and a phone reads main first", () => {
   const c = columns([{ pane: "feed", place: "right" }, { pane: "agents", place: "bottom" }]);
   assert.deepEqual(c.main, ["feed"]);
-  assert.deepEqual(readingOrder(defaultPanes("live")), ["objects", "my-card", "feed", "agents", "race"]);
+  // The owner's order on a phone (17 November): the goal, the lines, the agents, the leaderboard, the assistant.
+  assert.deepEqual(readingOrder(defaultPanes("live")), ["my-card", "objects", "agents", "race", "assistant"]);
 });
 
-test("an arrangement made in planning meets the world's defaults when the world starts", () => {
+test("an arrangement made in planning is the player's on the live screen too (one default for both)", () => {
   const planning = { panes: [{ pane: "forge", place: "main" as const }, { pane: "my-card", place: "left" as const }] };
   const live = shownPanes(planning, "live").map(p => p.pane);
-  assert.ok(live.includes("objects") && live.includes("feed"), "the lines and the act log appear");
-  assert.ok(live.includes("forge"), "the player's own pane stays");
+  assert.deepEqual(live, ["forge", "my-card"], "the player's own arrangement wins");
   assert.ok(!shownPanes(planning, "ended").some(p => p.pane === "forge"), "no forge after the end");
 });
 
@@ -97,7 +97,7 @@ test("an arrangement made after a game's end meets the planning defaults when th
   const ended = { panes: [{ pane: "results", place: "main" as const }, { pane: "my-card", place: "left" as const }, { pane: "assistant", place: "right" as const }] };
   const planning = shownPanes(ended, "planning").map(p => p.pane);
   for (const d of defaultPanes("planning")) assert.ok(planning.includes(d.pane), d.pane);
-  assert.ok(planning.includes("assistant"), "the player's own pane stays");
+  assert.ok(planning.includes("assistant"), "the assistant is in the one default");
 });
 
 test("every stored pane shows: nothing is dropped to make room", () => {
@@ -121,7 +121,7 @@ test("closing a default pane keeps the other defaults", () => {
 
 test("moving an open pane is one move", () => {
   const view = { panes: defaultPanes("live") };
-  assert.deepEqual(openPlan(view, "live", "feed", "left"), [{ id: "view.movePane", args: { pane: "feed", place: "left" } }]);
+  assert.deepEqual(openPlan(view, "live", "agents", "left"), [{ id: "view.movePane", args: { pane: "agents", place: "left" } }]);
 });
 
 test("the others-care, points-over-time and rules panes are offered where they have something to show", () => {
@@ -167,9 +167,9 @@ test("an assistant in front in planning is in front when the world starts (re-wa
   const front = { ...EMPTY_VIEW, panes, dock: { planning: parseDock("row(overview 25, my-card 40, forge|*assistant 35)") } };
   const groupOf = (v: typeof front) => dockGroups(dockFor(v, "live")!).find(l => l.group.tabs.includes("assistant"))!.group;
   assert.equal(groupOf(front).active, "assistant");
-  // Behind a tab in planning, it stays where the live screen puts it.
+  // The live screen's default gives the assistant a row of its own (the owner's layout), so it is in front there anyway.
   const behind = { ...front, dock: { planning: parseDock("row(overview 25, my-card 40, *forge|assistant 35)") } };
-  assert.notEqual(groupOf(behind).active, "assistant");
+  assert.equal(groupOf(behind).active, "assistant");
 });
 
 test("pane blurbs fit every game: none says “a line” (the palette showed it in a grid game)", () => {
@@ -179,6 +179,8 @@ test("pane blurbs fit every game: none says “a line” (the palette showed it 
 test("planning shows the board (W3 #931: the starting objects are born, valued and scored at game start)", () => {
   for (const id of ["objects", "object", "what-if"] as const) assert.ok(PANES[id].phases.includes("planning"), id);
   assert.ok(defaultPanes("planning").some(p => p.pane === "objects" && p.place === "main"), "the lines are in the middle in planning");
-  // Still no act log or leaderboard before the world starts: nothing has moved yet.
-  for (const id of ["feed", "race"] as const) assert.ok(!PANES[id].phases.includes("planning"), id);
+  // Still no act log before the world starts: nothing has moved yet. The leaderboard sits in its place, empty (the owner's
+  // layout is the default of every screen).
+  assert.ok(!PANES.feed.phases.includes("planning"));
+  assert.ok(PANES.race.phases.includes("planning") && defaultPanes("planning").some(p => p.pane === "race"));
 });

@@ -125,9 +125,10 @@ export function Dock({ phase, panes: components, stored: Stored, file: File }: {
   const seated = useIsSeated();
   // A spectator who has arranged nothing sees v1's spectator panes (viewerView), and plans their changes from the same.
   const view = useMemo(() => viewerView(aiOff ? { ...stored, panes: stored.panes.filter(p => p.pane !== "assistant") } : stored, phase, seated), [stored, aiOff, phase, seated]);
-  const open = useMemo(() => shownPanes(view, phase), [view, phase]);
+  // The live screen's defaults hold the assistant: a room without AI does not draw it.
+  const open = useMemo(() => shownPanes(view, phase).filter(p => !(aiOff && p.pane === "assistant")), [view, phase, aiOff]);
   const scope = useMemo(() => ({
-    phase, view, open,
+    phase, view, open, aiOff,
     body: (pane: string) => {
       const slug = storedSlugOf(pane);
       if (slug && Stored) return <Stored slug={slug} />;
@@ -136,7 +137,7 @@ export function Dock({ phase, panes: components, stored: Stored, file: File }: {
       const C = components[pane];
       return C ? <C /> : <p className="p-4 text-sm text-muted-foreground">This pane is not on this version of the game yet.</p>;
     },
-  }), [phase, view, open, components, Stored, File]);
+  }), [phase, view, open, aiOff, components, Stored, File]);
   const paneBack = usePaneBack(view);
   return (
     <PaneBackContext.Provider value={paneBack}>

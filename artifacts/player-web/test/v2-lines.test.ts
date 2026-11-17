@@ -40,10 +40,10 @@ test("payoff rectangle: one scale for both sides from the digest, so the area is
   assert.deepEqual(payoffRect({ rarity: 2, want: 3 }, digestScale(undefined), 40), { kind: "none", width: 0, height: 0 });
 });
 
-test("Why?: the line's score as yours × others' = points, then the main part or why it does not score", () => {
+test("Why?: the line's score as yours × others' = points, then what the rule read or why it does not score", () => {
   const v = { rarity: 3.4, want: 2 };
   assert.equal(whyLine(v, { sentence: "Distance from the gradient to the nearest prime: 1" }),
-    "your 3.40 bits × others' 2.00 bits = 6.80 points. Main part: Distance from the gradient to the nearest prime: 1.");
+    "your 3.40 bits × others' 2.00 bits = 6.80 points. Distance from the gradient to the nearest prime: 1.");
   assert.match(whyLine(v, { worst: "the line and the axes make no triangle" }), /This line does not score for your rule: the line and the axes make no triangle\.$/);
   assert.doesNotMatch(whyLine(v, {}), /payoff|object/);
 });
