@@ -10,6 +10,7 @@ import { chipRep, defaultRep, repText, RepView } from "@workspace/v2-views";
 import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMoves, useMyAgents, useMyRule, variantOf, type Move, useOthersBlurred, usePublicLog, type LogEntry } from "@/sdk";
 import { num, timeLeft } from "@/core/words";
 import { useReplaying } from "@/core/affordance-runtime";
+import { useReplayControls } from "@/replay/controller";
 import { callWords, moveSentence, moveWho } from "./move-line";
 import { foldTugs, tugSentence, type FeedItem } from "./tug-of-war";
 import { noteLines, tugNoteNumber } from "./move-notes";
@@ -236,7 +237,10 @@ function PublicLog() {
   const header = useGame();
   const blurred = useOthersBlurred();
   const log = usePublicLog();
-  const { results, status, loadMore } = log;
+  // In a replay, the moves up to the playhead (the log is the whole ended game's).
+  const world = useReplayControls()?.world;
+  const { status, loadMore } = log;
+  const results = useMemo(() => (world === undefined ? log.results : log.results.filter(r => r.worldSeconds <= world + 1e-9)), [log.results, world]);
   const onNearEnd = useCallback(() => { if (status === "CanLoadMore") loadMore(50); }, [status, loadMore]);
   if (!header || status === "LoadingFirstPage") return null;
   if (!results.length) return <p className="p-4 text-sm text-muted-foreground" data-testid="public-log-empty">No {objectWord(header.variant).one} has been born or moved yet.</p>;
@@ -257,8 +261,7 @@ export function FeedPane() {
   // A spectator has no points, so no "moves that changed your points": the public log is what they see.
   const [mode, setMode] = useState<FeedMode>(seated ? "mine" : "all");
   if (!header) return null;
-  // A replay's frame has the moves that concerned the player it is watched as; the public log is a live read.
-  if (replaying) return <ConcernsFeed />;
+  // In a replay the moves that changed your points are the watched player's at the playhead (the replay's frame).
   const tab = (m: FeedMode, label: string) => (
     <button type="button" aria-pressed={mode === m} onClick={() => setMode(m)} data-testid={`button-feed-mode-${m}`}
       className={`px-2 py-1 text-xs ${mode === m ? "border-b-2 border-primary font-semibold" : "text-muted-foreground"}`}>{label}</button>
@@ -269,7 +272,7 @@ export function FeedPane() {
         {seated && tab("mine", "Moves that changed your points")}
         {tab("all", "All moves (the public log)")}
       </div>
-      {seated && <div className="px-3 pt-2"><DriftInFeed /></div>}
+      {seated && !replaying && <div className="px-3 pt-2"><DriftInFeed /></div>}
       {mode === "mine" && seated ? <ConcernsFeed /> : <PublicLog />}
     </div>
   );

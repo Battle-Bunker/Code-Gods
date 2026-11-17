@@ -189,11 +189,13 @@ export function useTugs(): Tug[] | null | undefined {
   return replay ? null : live;
 }
 
-/** The public log (v1's): every move in the game, newest first, for room members; none in a replay (its frame has the moves). */
+/**
+ * The public log (v1's): every move in the game, newest first, for room members. In a replay too: the game has ended, so
+ * the log is exact and attributed; the pane shows the part up to the playhead.
+ */
 export function usePublicLog(pageSize = 50) {
   const { gameId } = useGameScope();
-  const replay = useReplaySource();
-  return useLivePaged(api.v2.playState.log, gameId && !replay ? { gameId } : "skip", pageSize);
+  return useLivePaged(api.v2.playState.log, gameId ? { gameId } : "skip", pageSize);
 }
 
 /** The first page of `v2/playState:agents` (the server's page is at most 50). */
