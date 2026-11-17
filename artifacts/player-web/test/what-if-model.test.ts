@@ -18,7 +18,7 @@ const rule = (family: string, _tieBreaker: string | null, variant = lineZ) => ({
 
 test("the choices are the board's lens moves, each with a lens, a number and (where it takes one) an amount", () => {
   const cs = mutatorChoices(lineZ);
-  assert.deepEqual(cs.map(c => c.id).sort(), [...lineZ.mutators].sort());
+  assert.deepEqual(cs.map(c => c.id).sort(), [...lineZ.mutators, "add-fraction"].sort());
   const add = cs.find(c => c.id === "add")!;
   assert.deepEqual(add.args.map(a => [a.name, a.kind]), [["lens", "choice"], ["at", "number"], ["k", "number"]]);
   assert.equal((add.args[0] as { choiceWords?: Record<string, string> }).choiceWords?.mc?.startsWith("gradient and y-intercept"), true);
@@ -86,4 +86,17 @@ test("a turn is a list of moves on one lens: What if prices them together, and r
   if (two.ok) { assert.equal(lineType.encode(two.after), "-12,6,-5"); assert.match(two.what, /then/); assert.ok(two.naming > 0 && two.surprise > 0); }
   const mixed = whatIf({ rule: rule("multiples", null), state, steps: [{ mutator: "add", args: { lens: "abc", at: "3", k: "1" } }], call: { mutator: "add", args: { lens: "mc", at: "3", k: "1" } }, value: null, want: null });
   assert.equal(mixed.ok, false);
+});
+
+test("add p/q is a convenience made as its whole-number moves, and priced as them", () => {
+  const state = lineType.decode("-4,2,-1");   // y = 2x + 1/2
+  const viaFraction = whatIf({ rule: rule("multiples", null, lineQ), state, call: { mutator: "add-fraction", args: { lens: "mc", param: "2", p: "1", q: "3" } }, value: null, want: null });
+  const viaMoves = whatIf({ rule: rule("multiples", null, lineQ), state, steps: [{ mutator: "mul", args: { lens: "mc", at: "4", k: "3" } }], call: { mutator: "add", args: { lens: "mc", at: "3", k: "4" } }, value: null, want: null });
+  assert.ok(viaFraction.ok && viaMoves.ok, viaFraction.ok ? "" : viaFraction.reason);
+  if (viaFraction.ok && viaMoves.ok) {
+    assert.equal(lineType.encode(viaFraction.after), "-12,6,-5");   // y = 2x + 5/6
+    assert.ok(Math.abs(viaFraction.price - viaMoves.price) < 1e-9);
+  }
+  const cf = mutatorChoices(lineQ).find(c => c.id === "add")!.args.find(a => a.name === "lens") as { choices: string[] };
+  assert.ok(cf.choices.includes("cf") && cf.choices.includes("pe"), "the continued-fraction and prime-exponent lenses can be pinned");
 });
