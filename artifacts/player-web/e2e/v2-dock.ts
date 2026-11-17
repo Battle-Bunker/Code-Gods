@@ -162,9 +162,11 @@ try {
     const { context, page, errors } = await signIn(browser, who, viewport);
     await practiceGame(page, 75);
     await page.getByTestId("dock-desktop").waitFor();
-    await usable(page, ["overview", "my-card", "forge"], `${label} planning`);
+    // The owner's layout is the default of every screen, planning included (no "Where am I" or "Agent code").
+    await usable(page, ["my-card", "objects"], `${label} planning`);
+    await ownersLayout(page, `${label} planning`);
+    assert.ok(!(await dockText(page)).includes("|"), `${label}: no tabs in planning: ${await dockText(page)}`);
     await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-planning.png`) });
-    if (who === "admin") await closeButtons(page, "overview", `${label} planning`);
 
     await page.getByTestId("button-summon-first").click();
     await page.getByTestId("text-forge-status").getByText(/is summoned/).waitFor({ timeout: 60_000 });
@@ -207,6 +209,8 @@ try {
     assert.equal(await page.getByTestId("pane-object").count(), 0, `${label}: still no One line pane`);
     await page.getByTestId("button-close-what-if").click();
     await page.getByTestId("pane-what-if").waitFor({ state: "detached", timeout: 10_000 });
+    await page.waitForTimeout(3000);
+    assert.equal(await page.getByTestId("pane-what-if").count(), 0, `${label}: What if stays closed: ${await dockText(page)}`);
     // The act log's "This line now" opens the same overlay.
     const moveLink = page.locator("[data-testid^=button-open-move-]").first();
     if (await moveLink.count()) {
@@ -218,13 +222,22 @@ try {
 
     // A dragged gutter is the human's arrangement: stored for the room, and back after a reload.
     const before = await dockText(page);
-    const sash = page.locator(".dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash").first();
-    const s = await sash.boundingBox() as Box;
-    await page.mouse.move(s.x + s.width / 2, s.y + s.height / 2);
+    // The gutter on the right edge of the goal card's column.
+    const goalBox = await page.getByTestId("pane-my-card").boundingBox() as Box;
+    let s: Box | null = null;
+    for (const sash of await page.locator(".dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash").all()) {
+      const b = await sash.boundingBox();
+      if (b && b.height > 20 && Math.abs(b.x + b.width / 2 - (goalBox.x + goalBox.width)) < 12 && b.y <= goalBox.y + goalBox.height && b.y + b.height >= goalBox.y) { s = b; break; }
+    }
+    assert.ok(s, `${label}: the goal column's gutter`);
+    // Grabbed beside the goal card's top, away from where gutters cross.
+    const grabY = goalBox.y + 40;
+    await page.mouse.move(s!.x + s!.width / 2, grabY);
     await page.mouse.down();
-    await page.mouse.move(s.x + s.width / 2 + 60, s.y + s.height / 2, { steps: 8 });
+    await page.mouse.move(s!.x + s!.width / 2 + 60, grabY, { steps: 8 });
     await page.mouse.up();
-    await page.waitForFunction((b: string) => document.querySelector("[data-testid=dock-desktop]")?.getAttribute("data-dock") !== b, before, { timeout: 10_000 });
+    await page.waitForFunction((b: string) => document.querySelector("[data-testid=dock-desktop]")?.getAttribute("data-dock") !== b, before, { timeout: 10_000 })
+      .catch(async (e: Error) => { await page.screenshot({ path: path.join(shots, "dock-drag-failed.png") }); console.log("DRAG", JSON.stringify(s), before); throw e; });
     const dragged = await dockText(page);
     assert.ok(leftColumn(dragged) > leftColumn(before) + 2, `the left column grew: ${before} → ${dragged}`);
     await page.waitForTimeout(1500);
@@ -266,6 +279,7 @@ try {
     assert.ok(await page.getByTestId("pane-results").getByText(/You finished/).first().isVisible(), `${label}: Results' headline still in view`);
     noneClosed(endedDock, await dockText(page), `${label} from Results`);
     console.log(`${label}: opened from Results, all in view: ${await dockText(page)}`);
+    if (who === "admin") await closeButtons(page, "agents", `${label} ended`);
     assert.deepEqual(errors, [], `${label}: page errors`);
     await context.close();
   }
@@ -282,10 +296,10 @@ try {
     assert.doesNotMatch(nav.bg, /\/ 0?\.\d+\)$|,\s*0?\.\d+\)$/, `phone: the pane-name row is opaque: ${nav.bg}`);
     assert.ok(Number(nav.z) >= 10, `phone: the pane-name row is above the panes: z-index ${nav.z}`);
     const jumps = async () => (await page.locator("[data-testid^=button-jump-]").evaluateAll((els: Element[]) => els.map(e => e.getAttribute("data-testid")!.slice("button-jump-".length))));
-    await closeButtons(page, "overview", "phone planning");
+    await closeButtons(page, "race", "phone planning");
     await page.screenshot({ path: path.join(shots, "dock-phone-closed.png") });
     const first = await jumps();
-    assert.ok(first.includes("forge") && first.includes("my-card"), first.join());
+    assert.ok(first.includes("objects") && first.includes("my-card") && !first.includes("forge") && !first.includes("overview"), first.join());
     await page.getByTestId("button-summon-first").click();
     await page.getByTestId("text-forge-status").getByText(/is summoned/).waitFor({ timeout: 60_000 });
     const open = page.getByTestId("button-open-agents");
