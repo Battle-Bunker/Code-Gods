@@ -76,6 +76,9 @@ async function open(page: Page, pane: string) {
   else if (!await section.count()) {
     await page.locator("[data-testid^=button-pane-menu-]").first().click();
     await page.getByTestId(`button-open-pane-${pane}`).click();
+    // Opened into a group of tabs (the replay's bottom row holds several by now): bring it to the front.
+    await page.getByTestId(`tab-${pane}`).or(section).first().waitFor({ timeout: 15_000 });
+    if (await page.getByTestId(`tab-${pane}`).count() && !await section.isVisible()) await page.getByTestId(`tab-${pane}`).click({ position: { x: 6, y: 10 } });
   }
   await section.waitFor({ timeout: 15_000 });
   return section;

@@ -273,7 +273,9 @@ try {
     await page.locator('[data-testid="pane-timeline"] [data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 180_000 });
     console.log(`${label}: replay dock: ${await dockText(page)}`);
     // My agents in a replay lists the watched player's agents from the record (no live work line to measure).
-    await usable(page, ["my-card", "race", "objects", "timeline"], `${label} replay`);
+    // At 720 px tall the goal and the leaderboard share the top two thirds of the dock (176 px each, under the 220 the
+    // other screens give them): the Timeline's row is the replay's, and a room without AI has no assistant row to take.
+    await usable(page, viewport.height >= 1000 ? ["my-card", "race", "objects", "timeline"] : ["objects", "timeline"], `${label} replay`);
     await page.getByTestId("pane-agents").waitFor();
     await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-replay.png`) });
     // How the game went is a pane away (any pane's menu).
