@@ -5,7 +5,7 @@
  * `v2Layouts` row for the room in view.
  */
 import { defineViewOps } from "@workspace/v2-affordances/convex";
-import { EMPTY_VIEW, type ViewState } from "@workspace/v2-affordances";
+import { EMPTY_VIEW, readView, type ViewState } from "@workspace/v2-affordances";
 import type { Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { callerOf, host } from "./define";
@@ -20,7 +20,8 @@ export const { op: apply, as: applyAs } = defineViewOps({
   async loadView(ctx, caller) {
     const c = callerOf({ caller });
     if (!c.userId) return EMPTY_VIEW;
-    return ((await rowOf(ctx as MutationCtx, c.userId, roomOf(caller)))?.view as ViewState | undefined) ?? EMPTY_VIEW;
+    const view = (await rowOf(ctx as MutationCtx, c.userId, roomOf(caller)))?.view as ViewState | undefined;
+    return view ? readView(view) : EMPTY_VIEW;
   },
   async saveView(ctx, caller, _scope, view) {
     const c = callerOf({ caller });

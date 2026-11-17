@@ -58,7 +58,8 @@ export function useView(): ViewState {
  * defaults) rather than tearing the screen down (ux-lessons 4.2); the next value the subscription delivers replaces it.
  */
 function useStoredView(roomId: string | undefined): ViewState {
-  return storedViewOf(useLive(api.v2.layout.current, roomId ? { roomId } : "skip").data);
+  const row = useLive(api.v2.layout.current, roomId ? { roomId } : "skip").data;
+  return useMemo(() => storedViewOf(row), [row]);
 }
 
 export function AffordanceRuntimeProvider({ context, scope, onSignIn, children }: {

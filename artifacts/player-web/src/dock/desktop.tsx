@@ -4,7 +4,7 @@
  *
  * It draws the phase's arrangement (v2-client `dockFor`: the human's arrangement of this screen, else its default,
  * holding exactly the shown panes) through the adapter, and reports the human's own changes back as `view.arrangeDock`:
- * a gesture in the dock (dragging a tab or a gutter, clicking a tab) ends with the dock read back and, when it differs,
+ * a gesture in the dock (dragging a pane by its header, or a gutter) ends with the dock read back and, when it differs,
  * stored for the room, so it survives a reload, the next game and another device. Arrangements from the server (an
  * assistant, another client, a pane opened) are applied between gestures with fromJSON({ reuseExistingPanels }), so a
  * pane's content survives a rearrangement.
@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DockviewReact, type DockviewApi, type DockviewReadyEvent, type DockviewTheme, type IDockviewPanelHeaderProps, type IDockviewPanelProps } from "dockview-react";
 import "dockview-react/dist/styles/dockview.css";
-import { dockKindOf, dockWithout, formatDock, isGroup, type DockNode } from "@workspace/v2-affordances";
+import { dockKindOf, formatDock, isLeaf, type DockNode } from "@workspace/v2-affordances";
 import { dockFor, droppedOnto, keepShown, type GamePhase, type ViewOp } from "@workspace/v2-client";
 import { useRuntime } from "@/core/affordance-runtime";
 import { toast } from "@/hooks/use-toast";
@@ -38,7 +38,7 @@ const theme: DockviewTheme = { name: "code-gods", className: "dockview-theme-cg"
 /** The same arrangement, weights within half a point (pixels read back round a little). */
 export function sameDock(a: DockNode | null, b: DockNode | null): boolean {
   if (!a || !b) return a === b;
-  if (isGroup(a) || isGroup(b)) return isGroup(a) && isGroup(b) && a.active === b.active && a.tabs.join("|") === b.tabs.join("|");
+  if (isLeaf(a) || isLeaf(b)) return isLeaf(a) && isLeaf(b) && a.pane === b.pane;
   return a.split === b.split && a.children.length === b.children.length
     && a.children.every((c, i) => Math.abs(a.sizes[i]! - b.sizes[i]!) < 0.5 && sameDock(c, b.children[i]!));
 }
@@ -70,12 +70,10 @@ export default function DesktopDock({ phase }: { phase: GamePhase }) {
   const save = useCallback((): boolean => {
     const dock = api.current;
     if (!dock) return false;
-    const drawn = fromDockview(dock.toJSON());
-    if (!drawn || sameDock(drawn, treeNow.current)) return false;
-    // A pane dropped onto the centre of another replaces it (v1), never stacks as a tab: the panes it landed on close.
-    const replaced = droppedOnto(treeNow.current, drawn);
-    const now = replaced.length ? dockWithout(drawn, p => replaced.includes(p)) : drawn;
-    if (!now) return false;
+    const now = fromDockview(dock.toJSON());
+    if (!now || sameDock(now, treeNow.current)) return false;
+    // A pane dropped onto another replaces it (production's dock): the pane it landed on closes.
+    const replaced = droppedOnto(treeNow.current, now);
     // The replaced panes close as the menu closes them (the shown panes kept first), then the arrangement is stored last.
     for (const pane of replaced) { const panel = dock.getPanel(pane); if (panel) dock.removePanel(panel); }
     const ops: ViewOp[] = replaced.length ? [...keepShown(viewNow.current, phase), ...replaced.map((pane): ViewOp => ({ id: "view.closePane", args: { pane } }))] : [];
@@ -101,7 +99,7 @@ export default function DesktopDock({ phase }: { phase: GamePhase }) {
     setReady(true);
   }, [apply]);
 
-  // A gesture is a drag of a gutter or a tab, or a click on a tab: it starts with a pointer down on a gutter or on a tab
+  // A gesture is a drag of a gutter or of a pane by its header: it starts with a pointer down on a gutter or on a header
   // outside its buttons, or with an HTML5 drag start, and ends with the pointer up or the drag's end (Chrome cancels the
   // pointer when a drag starts, so pointercancel is not an end). Clicks on buttons and in pane bodies are not gestures:
   // what they change goes through the view affordances. Until a gesture ends, arrangements from the server wait.

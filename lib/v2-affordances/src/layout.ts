@@ -9,7 +9,7 @@ import type { ObjectsShow, ObjectsSort } from "./objects-view.ts";
 import { AFFORDANCES, refusal, type AffordanceOf, type ClientAffordanceId, type Via } from "./directory.ts";
 import { OpFailure, type OpOutcome } from "./server.ts";
 import type { AffordanceContext } from "./types.ts";
-import { DockSyntaxError, defaultDock, dockActivate, dockGroups, dockInsert, dockKindOf, dockPanes, dockWithout, parseDock, type DockKind, type DockNode } from "./dock.ts";
+import { DockSyntaxError, defaultDock, dockInsert, dockKindOf, dockLeaves, dockPanes, dockWithout, normaliseDock, parseDock, type DockKind, type DockNode } from "./dock.ts";
 
 export type Place = "main" | "left" | "right" | "bottom";
 
@@ -53,6 +53,16 @@ export const REPLAY_END: ReplayCursor = { worldSeconds: 1e9, plus: 0 };
 /** The glossary's page for "How scoring works" (view.showScoring): not a term, so no request for a term opens it. */
 export const SCORING_PAGE = "@scoring";
 
+/**
+ * A stored view as the reducers read it: its arrangements tidied (an arrangement stored while the dock had tab groups
+ * becomes those panes stacked). Every reader of a stored row goes through it.
+ */
+export function readView(raw: ViewState): ViewState {
+  const dock: ViewState["dock"] = {};
+  for (const [kind, n] of Object.entries(raw.dock ?? {}) as [DockKind, DockNode][]) { const tidy = normaliseDock(n); if (tidy) dock[kind] = tidy; }
+  return { ...raw, dock };
+}
+
 export const EMPTY_VIEW: ViewState = {
   version: 0, panes: [], dock: {}, pins: {}, objects: { sort: "points", filter: {} }, focus: null, glossary: null, replay: null,
 };
@@ -86,32 +96,24 @@ const undock = (v: ViewState, pane: string) => eachDock(v, n => dockWithout(n, p
  * `dock` with `pane` placed and shown in the arrangement of the screen in view (that screen's default when the human
  * has none yet); outside a game screen nothing changes (the pane joins at its place when a game shows it).
  */
-function placed(dock: ViewState["dock"], pane: string, place: Place, ctx: AffordanceContext, show = true): ViewState["dock"] {
+function placed(dock: ViewState["dock"], pane: string, place: Place, ctx: AffordanceContext): ViewState["dock"] {
   const kind = dockKindOf(ctx.context);
   if (!kind) return dock;
   const tree = dock[kind] ?? defaultDock(kind);
-  // A pane the arrangement already places (a default the panes list did not hold yet) stays where it is, behind or in front.
+  // A pane the arrangement already places (a default the panes list did not hold yet) stays where it is.
   if (dockPanes(tree).includes(pane)) return dock;
-  return { ...dock, [kind]: dockInsert(tree, pane, place, show) };
+  return { ...dock, [kind]: dockInsert(tree, pane, place) };
 }
 /**
- * Opening `pane`: it joins the open panes and, unless the screen in view already places it, is shown there at its place,
- * nothing taken away to make room; an open one given a place moves there (out of every arrangement, then placed), and an
- * open one without a place comes to the front of its tab group.
+ * Opening `pane`: it joins the open panes and, unless the screen in view already places it, gets a pane of its own at
+ * its place, nothing taken away to make room; an open one given a place moves there (out of every arrangement, then
+ * placed); an open one without a place stays where it is.
  */
 function opened(v: ViewState, pane: string, place: Place | undefined, ctx: AffordanceContext): Omit<ViewState, "version"> {
   const open = v.panes.some(p => p.pane === pane);
   const panes = openPane(v, pane, place);
   const at = panes.find(p => p.pane === pane)!.place;
-  if (open && !place) {
-    // In front wherever it is arranged; on the screen in view, placed first if that arrangement lacks it.
-    const dock = eachDock(v, n => dockActivate(n, pane)), kind = dockKindOf(ctx.context);
-    return { ...v, panes, dock: kind && !dockPanes(dock[kind] ?? defaultDock(kind)).includes(pane) ? placed(dock, pane, at, ctx) : dock };
-  }
-  // A pane opened at a place joins that place behind the tab shown there (the panes on screen, stored before a change,
-  // keep their tabs); without a place, or moved, it comes to the front. The assistant always does: a conversation
-  // opened to talk in is no use behind a tab.
-  return { ...v, panes, dock: placed(open ? undock(v, pane) : v.dock, pane, at, ctx, open || !place || pane === "assistant") };
+  return { ...v, panes, dock: placed(open && place ? undock(v, pane) : v.dock, pane, at, ctx) };
 }
 /**
  * The arrangements after closing `pane`: out of the screen in view's (other screens keep its place there for when it is
@@ -140,16 +142,13 @@ function screenOf(ctx: AffordanceContext): DockKind {
   if (!kind) throw new OpFailure("Open a game first: only a game screen has a dock.");
   return kind;
 }
-/** v1's "Two panels": the first two shown panes stacked on the left; every other pane as tabs of one group on the right. */
+/** v1's "Two panels": the first two shown panes stacked on the left (62 %); every other pane stacked on the right. */
 function twoPanels(v: ViewState, tree: DockNode): DockNode {
   const open = isOpen(v);
-  const panes = [...dockPanes(tree).filter(open), ...v.panes.map(p => p.pane).filter(p => !dockPanes(tree).includes(p))];
-  const shown = [...dockGroups(tree).map(l => l.group.active).filter(open), ...panes];
-  const left = [...new Set(shown)].slice(0, 2);
-  const rest = panes.filter(p => !left.includes(p));
-  const stack: DockNode = left.length < 2 ? { tabs: left, active: left[0]! } : { split: "column", sizes: [50, 50], children: left.map(p => ({ tabs: [p], active: p })) };
-  if (!rest.length) return stack;
-  return { split: "row", sizes: [40, 60], children: [stack, { tabs: rest, active: shown.find(p => rest.includes(p)) ?? rest[0]! }] };
+  const panes = [...new Set([...dockPanes(tree).filter(open), ...v.panes.map(p => p.pane)])];
+  const column = (ps: string[]): DockNode => ps.length === 1 ? { pane: ps[0]! } : { split: "column", sizes: ps.map(() => 1), children: ps.map(pane => ({ pane })) };
+  const left = panes.slice(0, 2), rest = panes.slice(2);
+  return normaliseDock(rest.length ? { split: "row", sizes: [62, 38], children: [column(left), column(rest)] } : column(left))!;
 }
 
 export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
@@ -170,11 +169,7 @@ export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
     const { [kind]: _old, ...rest } = v.dock;
     if (!a.dock.trim()) return { ...v, dock: rest };
     try {
-      let tree = parseDock(a.dock);
-      // An assistant (a delegated caller) arranging the screen keeps its own conversation in front, as the human had it.
-      const before = v.dock[kind] ?? defaultDock(kind);
-      if (ctx.grant && dockGroups(before).some(l => l.group.active === "assistant") && dockPanes(tree).includes("assistant")) tree = dockActivate(tree, "assistant");
-      return { ...v, dock: { ...rest, [kind]: tree } };
+      return { ...v, dock: { ...rest, [kind]: parseDock(a.dock) } };
     }
     catch (e) { if (e instanceof DockSyntaxError) throw new OpFailure(e.message); throw e; }
   },
@@ -183,10 +178,10 @@ export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
     if (a.pane ? now === a.pane : now) return rest;
     if (a.pane) return { ...rest, maximised: a.pane };
     const kind = screenOf(ctx);
-    const groups = dockGroups(v.dock[kind] ?? defaultDock(kind)).filter(l => isOpen(v)(l.group.active));
-    if (!groups.length) throw new OpFailure("Name the pane to maximise.");
-    const largest = groups.reduce((best, l) => (l.rect.w * l.rect.h > best.rect.w * best.rect.h ? l : best));
-    return { ...rest, maximised: largest.group.active };
+    const leaves = dockLeaves(v.dock[kind] ?? defaultDock(kind)).filter(l => isOpen(v)(l.pane));
+    if (!leaves.length) throw new OpFailure("Name the pane to maximise.");
+    const largest = leaves.reduce((best, l) => (l.rect.w * l.rect.h > best.rect.w * best.rect.h ? l : best));
+    return { ...rest, maximised: largest.pane };
   },
   "view.twoPanels": (v, _a, ctx) => {
     const kind = screenOf(ctx);

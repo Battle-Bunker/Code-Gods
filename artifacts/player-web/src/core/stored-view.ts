@@ -2,11 +2,12 @@
  * The human's stored view state in a room, from `v2/layout:current` (`{layout, view, revision}`, or null before they
  * have one): the view operations' state is the row's `view`, written by `v2/ops/view` for every client and delegate.
  */
-import { EMPTY_VIEW, type ViewState } from "@workspace/v2-affordances";
+import { EMPTY_VIEW, readView, type ViewState } from "@workspace/v2-affordances";
 
 export function storedViewOf(row: { view?: unknown } | null | undefined): ViewState {
   // Loaded with no stored view yet: an empty view of its own, so a screen can tell it from the one drawn while loading.
-  return (row?.view as ViewState | null | undefined) ?? (row === undefined ? EMPTY_VIEW : NO_STORED_VIEW);
+  const view = row?.view as ViewState | null | undefined;
+  return view ? readView(view) : row === undefined ? EMPTY_VIEW : NO_STORED_VIEW;
 }
 /** The view of a room whose stored view has loaded and is empty (equal to EMPTY_VIEW, but not the same object). */
 export const NO_STORED_VIEW: ViewState = { ...EMPTY_VIEW };

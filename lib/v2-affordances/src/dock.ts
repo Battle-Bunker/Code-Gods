@@ -1,28 +1,27 @@
 /**
  * The dock's geometry (part of the human's view state, `ViewState.dock`): per kind of game screen, a tree of splits
- * whose leaves are tab groups of panes. It is library-independent (the desktop app maps it onto dockview), reduced by
- * the same code in the browser and on the server (`view.arrangeDock`), and travels as a short text an assistant can
- * read and write:
+ * whose leaves are single panes. It is library-independent (the desktop app maps it onto dockview), reduced by the
+ * same code in the browser and on the server (`view.arrangeDock`), and travels as a short text an assistant can read
+ * and write:
  *
- *   row(column(my-card 50, agents 50) 28, column(objects 45, object 55) 42, column(feed|*public-chat 55, race 45) 30)
+ *   row(column(my-card 50, agents 50) 28, objects 42, column(feed 55, race 45) 30)
  *
  * `row(...)` lays its children side by side, `column(...)` one above the other; the number after a child is its weight
- * (weights are shares, never pixels; a missing weight is an equal share); `a|b` is one group with tabs a and b, and `*`
- * marks the tab shown (else the first). Copied and cleaned from the v1 dock layout (archive/engine-v1,
- * lib/player-client/src/layout.ts), with tab groups instead of one pane per leaf.
+ * (weights are shares, never pixels; a missing weight is an equal share). A pane holds one panel: there are no tabs
+ * (production's dock, lib/player-client/src/layout.ts on `main`: one pane per leaf, a drop on a pane replaces it).
  */
 
 export const DOCK_KINDS = ["planning", "live", "ended", "replay"] as const;
 /** The game screens that each keep their own arrangement (a paused game keeps the live one). */
 export type DockKind = (typeof DOCK_KINDS)[number];
 export type DockDirection = "row" | "column";
-export type DockGroup = { tabs: string[]; active: string };
+export type DockLeaf = { pane: string };
 export type DockSplit = { split: DockDirection; sizes: number[]; children: DockNode[] };
-export type DockNode = DockGroup | DockSplit;
+export type DockNode = DockLeaf | DockSplit;
 
 export const DOCK_LIMITS = { panes: 24, depth: 6, text: 2000 } as const;
 
-export const isGroup = (n: DockNode): n is DockGroup => "tabs" in n;
+export const isLeaf = (n: DockNode): n is DockLeaf => "pane" in n;
 
 /** The dock a phase shows (null outside a game screen). */
 export function dockKindOf(phase: string): DockKind | null {
@@ -30,14 +29,14 @@ export function dockKindOf(phase: string): DockKind | null {
   return (DOCK_KINDS as readonly string[]).includes(phase) ? (phase as DockKind) : null;
 }
 
-/** Pane ids in reading order (depth first, left/top first; a group's tabs in order). */
+/** Pane ids in reading order (depth first, left/top first). */
 export function dockPanes(n: DockNode | null | undefined): string[] {
   if (!n) return [];
-  return isGroup(n) ? [...n.tabs] : n.children.flatMap(dockPanes);
+  return isLeaf(n) ? [n.pane] : n.children.flatMap(dockPanes);
 }
 
 export function depthOf(n: DockNode): number {
-  return isGroup(n) ? 1 : 1 + Math.max(0, ...n.children.map(depthOf));
+  return isLeaf(n) ? 1 : 1 + Math.max(0, ...n.children.map(depthOf));
 }
 
 const round = (x: number) => Math.round(x * 10) / 10;
@@ -52,16 +51,21 @@ function rescale(sizes: readonly (number | undefined)[], count: number): number[
 }
 
 /**
- * The tree made tidy: a pane kept in its first place only, a group's shown tab one of its tabs, empty groups and
- * splits dropped, a one-child split replaced by its child, a split inside a split of the same direction merged into it,
- * weights summing to 100. Null when nothing is left.
+ * The tree made tidy: a pane kept in its first place only, empty splits dropped, a one-child split replaced by its
+ * child, a split inside a split of the same direction merged into it, weights summing to 100. Null when nothing is
+ * left. An arrangement stored while the dock had tab groups (`{ tabs }`) reads as those panes stacked in a column.
  */
 export function normaliseDock(n: DockNode | null | undefined, seen = new Set<string>()): DockNode | null {
   if (!n) return null;
-  if (isGroup(n)) {
-    const tabs = n.tabs.filter(t => !seen.has(t) && (seen.add(t), true));
-    if (!tabs.length) return null;
-    return { tabs, active: tabs.includes(n.active) ? n.active : tabs[0]! };
+  const legacy = (n as { tabs?: unknown }).tabs;
+  if (Array.isArray(legacy)) {
+    const panes = legacy.filter((t): t is string => typeof t === "string");
+    return normaliseDock({ split: "column", sizes: panes.map(() => 1), children: panes.map(pane => ({ pane })) }, seen);
+  }
+  if (isLeaf(n)) {
+    if (seen.has(n.pane)) return null;
+    seen.add(n.pane);
+    return { pane: n.pane };
   }
   const scaled = rescale(n.sizes, n.children.length);
   const children: DockNode[] = [];
@@ -69,7 +73,7 @@ export function normaliseDock(n: DockNode | null | undefined, seen = new Set<str
   n.children.forEach((child, i) => {
     const kept = normaliseDock(child, seen);
     if (!kept) return;
-    if (!isGroup(kept) && kept.split === n.split) {
+    if (!isLeaf(kept) && kept.split === n.split) {
       kept.children.forEach((grand, j) => { children.push(grand); sizes.push((scaled[i]! * kept.sizes[j]!) / 100); });
     } else { children.push(kept); sizes.push(scaled[i]!); }
   });
@@ -81,14 +85,27 @@ export function normaliseDock(n: DockNode | null | undefined, seen = new Set<str
 /** The tree without the panes `drop` names (normalised). */
 export function dockWithout(n: DockNode | null | undefined, drop: (pane: string) => boolean): DockNode | null {
   if (!n) return null;
-  const strip = (m: DockNode): DockNode => isGroup(m) ? { tabs: m.tabs.filter(t => !drop(t)), active: m.active } : { ...m, children: m.children.map(strip) };
+  const strip = (m: DockNode): DockNode | null => {
+    if (isLeaf(m)) return drop(m.pane) ? null : m;
+    const kept = m.children.map((c, i) => ({ c: strip(c), size: m.sizes[i] ?? 0 })).filter((k): k is { c: DockNode; size: number } => !!k.c);
+    return kept.length ? { split: m.split, sizes: kept.map(k => k.size), children: kept.map(k => k.c) } : null;
+  };
   return normaliseDock(strip(n));
 }
 
-/** The tree with `pane`'s tab shown in its group (unchanged when it is not in the tree). */
-export function dockActivate(n: DockNode, pane: string): DockNode {
-  if (isGroup(n)) return n.tabs.includes(pane) ? { ...n, active: pane } : n;
-  return { ...n, children: n.children.map(c => dockActivate(c, pane)) };
+/** The tree with the pane `from` replaced by `to` in its place (production's "change this panel"); `to` leaves any other place. */
+export function dockReplace(n: DockNode, from: string, to: string): DockNode | null {
+  const swap = (m: DockNode): DockNode => isLeaf(m) ? (m.pane === from ? { pane: to } : m) : { ...m, children: m.children.map(swap) };
+  return normaliseDock(swap(dockWithout(n, p => p === to && from !== to) ?? n));
+}
+
+/** The tree with `pane` beside the pane `target` (production's "Add panel below / to the right"), or unchanged without it. */
+export function dockBeside(n: DockNode, target: string, pane: string, direction: "right" | "below"): DockNode {
+  const without = dockWithout(n, p => p === pane) ?? n;
+  const put = (m: DockNode): DockNode => isLeaf(m)
+    ? (m.pane === target ? { split: direction === "right" ? "row" : "column", sizes: [50, 50], children: [m, { pane }] } : m)
+    : { ...m, children: m.children.map(put) };
+  return normaliseDock(put(without)) ?? n;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -130,15 +147,10 @@ export function parseDock(text: string): DockNode {
       if (!eat(")")) fail('Expected "," or ")"');
       return { split: kw[1] as DockDirection, sizes: sizes as number[], children };
     }
-    const tabs: string[] = [];
-    let active: string | undefined;
-    do {
-      const star = eat("*");
-      const id = paneId();
-      tabs.push(id);
-      if (star) active = id;
-    } while (eat("|"));
-    return { tabs, active: active ?? tabs[0]! };
+    const pane = paneId();
+    space();
+    if (text[i] === "|") fail("A pane holds one panel (there are no tabs): put the panes in a row(...) or column(...)");
+    return { pane };
   };
   const root = node(1);
   space();
@@ -153,7 +165,7 @@ export function parseDock(text: string): DockNode {
 const num = (x: number) => String(round(x));
 /** The text form of a tree (parseDock reads it back to the same tree). */
 export function formatDock(n: DockNode): string {
-  if (isGroup(n)) return n.tabs.map((t, k) => (t === n.active && k > 0 ? `*${t}` : t)).join("|");
+  if (isLeaf(n)) return n.pane;
   return `${n.split}(${n.children.map((c, k) => `${formatDock(c)} ${num(n.sizes[k] ?? 0)}`).join(", ")})`;
 }
 
@@ -180,36 +192,36 @@ export const defaultDock = (kind: DockKind): DockNode => DEFAULT_TREES[kind];
 /** Where a pane goes when it is opened; the same four places the pane menu offers. */
 export type DockPlace = "main" | "left" | "right" | "bottom";
 type Rect = { x: number; y: number; w: number; h: number };
-type Leaf = { group: DockGroup; path: number[]; rect: Rect };
+type Leaf = { pane: string; path: number[]; rect: Rect };
 
-/** The groups in reading order, each with its share of the dock (x, y, width and height from 0 to 1). */
-export function dockGroups(n: DockNode, rect: Rect = { x: 0, y: 0, w: 1, h: 1 }, path: number[] = []): Leaf[] {
-  if (isGroup(n)) return [{ group: n, path, rect }];
+/** The panes in reading order, each with its share of the dock (x, y, width and height from 0 to 1). */
+export function dockLeaves(n: DockNode, rect: Rect = { x: 0, y: 0, w: 1, h: 1 }, path: number[] = []): Leaf[] {
+  if (isLeaf(n)) return [{ pane: n.pane, path, rect }];
   const total = n.sizes.reduce((a, b) => a + b, 0) || 1;
   let at = 0;
   return n.children.flatMap((child, i) => {
     const share = (n.sizes[i] ?? 0) / total;
     const r = n.split === "row" ? { x: rect.x + rect.w * at, y: rect.y, w: rect.w * share, h: rect.h } : { x: rect.x, y: rect.y + rect.h * at, w: rect.w, h: rect.h * share };
     at += share;
-    return dockGroups(child, r, [...path, i]);
+    return dockLeaves(child, r, [...path, i]);
   });
 }
 
 function replaceAt(n: DockNode, path: readonly number[], f: (m: DockNode) => DockNode): DockNode {
   if (!path.length) return f(n);
-  if (isGroup(n)) return n;
+  if (isLeaf(n)) return n;
   const [i, ...rest] = path;
   return { ...n, children: n.children.map((c, k) => (k === i ? replaceAt(c, rest, f) : c)) };
 }
 
 const EDGE = 1e-6;
 /**
- * The group a place means: the biggest group for "main", the widest group along the bottom for "bottom", else the last
- * group (the lowest) along that edge. A group showing the assistant's conversation is passed over while there is another: what the assistant
- * opens for the human never covers the conversation they are having with it.
+ * The pane a place means: the biggest pane for "main", the widest pane along the bottom for "bottom", else the last
+ * pane (the lowest) along that edge. The assistant's conversation is passed over while there is another pane: what the
+ * assistant opens for the human goes beside something else.
  */
 function anchorOf(all: Leaf[], place: DockPlace): Leaf {
-  const free = all.filter(l => l.group.active !== "assistant");
+  const free = all.filter(l => l.pane !== "assistant");
   const leaves = free.length ? free : all;
   const along = (f: (r: Rect) => boolean) => leaves.filter(l => f(l.rect)).at(-1);
   const bottom = leaves.filter(l => l.rect.y + l.rect.h > 1 - EDGE).reduce<Leaf | undefined>((best, l) => (!best || l.rect.w > best.rect.w + EDGE ? l : best), undefined);
@@ -218,29 +230,13 @@ function anchorOf(all: Leaf[], place: DockPlace): Leaf {
 }
 
 /**
- * The tree with `pane` added at `place` (unchanged when it is already in it): one line ("object") gets a group of its
- * own below the lines it is opened from (when they are in front), so the list stays in view; any other pane opened to
- * the front (`show`) gets a group of its own beside the group at that place, so nothing in view is covered (up to
- * MAX_SPLIT groups; then it is a tab in front there); a pane carried over from elsewhere joins behind the tab shown there.
- * Nothing is ever taken out to make room.
+ * The tree with `pane` added at `place` (unchanged when it is already in it): a pane of its own beside the pane at that
+ * place, side by side when that pane is wide, else below it, so nothing in view is covered or taken out.
  */
-export function dockInsert(n: DockNode | null, pane: string, place: DockPlace, show: boolean): DockNode {
-  if (!n) return { tabs: [pane], active: pane };
+export function dockInsert(n: DockNode | null, pane: string, place: DockPlace): DockNode {
+  if (!n) return { pane };
   if (dockPanes(n).includes(pane)) return n;
-  const leaves = dockGroups(n);
-  const lines = pane === "object" ? leaves.find(l => l.group.active === "objects") : undefined;
-  if (lines) return normaliseDock(replaceAt(n, lines.path, g => ({ split: "column", sizes: [45, 55], children: [g, { tabs: [pane], active: pane }] })))!;
-  const anchor = anchorOf(leaves, place);
-  // A pane opened to the front gets a group of its own beside the one at that place, so the pane the player acted from
-  // stays in view (One line opened from Results covered Results). Past MAX_SPLIT groups it becomes a tab instead.
-  if (show && leaves.length < MAX_SPLIT) {
-    const wide = anchor.rect.w * 16 > anchor.rect.h * 9 * 1.6;
-    return normaliseDock(replaceAt(n, anchor.path, g => ({ split: wide ? "row" : "column", sizes: [50, 50], children: [g, { tabs: [pane], active: pane }] })))!;
-  }
-  return replaceAt(n, anchor.path, g => {
-    const group = g as DockGroup;
-    return { tabs: [...group.tabs, pane], active: show ? pane : group.active };
-  });
+  const anchor = anchorOf(dockLeaves(n), place);
+  const wide = anchor.rect.w * 16 > anchor.rect.h * 9 * 1.6;
+  return normaliseDock(replaceAt(n, anchor.path, g => ({ split: wide ? "row" : "column", sizes: [50, 50], children: [g, { pane }] })))!;
 }
-/** Groups on one screen before an opened pane joins a group as a tab rather than splitting it. */
-export const MAX_SPLIT = 6;

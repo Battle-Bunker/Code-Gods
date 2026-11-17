@@ -17,7 +17,7 @@ const done = z.object({ ok: z.literal(true), layoutVersion: z.number().int() });
 export const viewOps = [
   affordance({
     id: "view.openPane", title: "Open a pane", group: "view", scope: "room",
-    description: "Opens a pane on the human's screen (and every client they have open), in front; given a place, it joins that place behind the tab shown there (open it again without a place to bring it to the front). An open pane given a place moves there. "+ "During planning, panes about the running world (the lines or grids list, the act log, the leaderboard, how the agents are doing) are not on the planning screen: opening one keeps it for when the world starts, so tell the human it shows then.",
+    description: "Opens a pane on the human's screen (and every client they have open), in a pane of its own beside the pane at its place (given a place, at that place); nothing is covered or closed. An open pane given a place moves there. "+ "During planning, panes about the running world (the lines or grids list, the act log, the leaderboard, how the agents are doing) are not on the planning screen: opening one keeps it for when the world starts, so tell the human it shows then.",
     tooltip: "Show a pane.", keywords: ["open", "show", "panel", "window"],
     params: obj({ pane, place: place.optional() }), result: done,
     contexts: IN_ROOM, caller: "member", effect: "write", confirm: "none", runs: "client",
@@ -38,9 +38,9 @@ export const viewOps = [
     id: "view.arrangeDock", title: "Arrange the dock", group: "view", scope: "room",
     description: "Lays out one game screen's panes on the human's desktop (kept for the room on every device; phones stack panes). "
       + "Text: row(...) side by side, column(...) stacked, a number after a child is its weight (a share), "
-      + "a|b is one group with tabs a and b, * marks the tab shown, e.g. row(column(my-card 50, agents 50) 30, objects 40, feed|*race 30). "
-      + "Open panes it leaves out join behind a tab at their place; closed panes it names show there once opened. Empty text restores the default.",
-    tooltip: "Lay out the screen.", keywords: ["arrange", "layout", "dock", "resize", "split", "tabs", "columns"],
+      + "each pane holds one panel (there are no tabs), e.g. row(column(my-card 50, agents 50) 30, objects 40, column(feed 50, race 50) 30). "
+      + "Open panes it leaves out join beside the pane at their place; closed panes it names show there once opened. Empty text restores the default.",
+    tooltip: "Lay out the screen.", keywords: ["arrange", "layout", "dock", "resize", "split", "columns"],
     params: obj({
       dock: z.string().max(DOCK_LIMITS.text).describe("The arrangement in the text form above, or empty for the default."),
       phase: z.enum(DOCK_KINDS).optional().describe("Which screen's arrangement: planning, live (also when paused), ended or replay; omit for the screen in view."),
@@ -50,8 +50,8 @@ export const viewOps = [
   }),
   affordance({
     id: "view.twoPanels", title: "Layout: Two panels", group: "view", scope: "room",
-    description: "v1's two-panel layout on the screen in view: its first two shown panes stacked on the left, every other pane as tabs of one group on the right. Kept like view.arrangeDock.",
-    tooltip: "Two panes stacked on the left, the others as tabs on the right.", keywords: ["layout", "preset", "two panels", "arrange", "dock"],
+    description: "v1's two-panel layout on the screen in view: its first two shown panes stacked on the left, every other pane stacked on the right. Kept like view.arrangeDock.",
+    tooltip: "Two panes stacked on the left, the others stacked on the right.", keywords: ["layout", "preset", "two panels", "arrange", "dock"],
     params: obj({}), result: done,
     contexts: GAME, caller: "member", effect: "write", confirm: "none", runs: "client",
   }),

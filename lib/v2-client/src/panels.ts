@@ -5,7 +5,7 @@
  * them and every client of theirs follows. How they are laid out on a desktop is the view state's `dock` (`dockFor`).
  * Player words only: points, rarity in bits, energy, power, "line".
  */
-import { defaultDock, dockGroups, dockInsert, dockKindOf, dockWithout, formatDock, parseDock, type DockNode, type Place, type ViewState } from "@workspace/v2-affordances";
+import { defaultDock, dockInsert, dockKindOf, dockPanes, dockWithout, formatDock, parseDock, type DockNode, type Place, type ViewState } from "@workspace/v2-affordances";
 
 /** A game's phase, or "replay": an ended game watched at a playhead (the replay's own arrangement). */
 export type GamePhase = "planning" | "live" | "paused" | "ended" | "replay";
@@ -147,7 +147,7 @@ const needsWorld = (id: string) => isPaneId(id) && !PANES[id].phases.includes("p
  * the lines and the act log for the whole game; one made after the end (with the results) meets the planning defaults
  * when the next game starts. An arrangement with none of the phase's default panes (a pane an
  * assistant opened on the empty view, which the server stores as it is) meets the defaults the same way, the defaults
- * first. Nothing is ever left out to make room (the desktop dock adds tabs). After the end the results come
+ * first. Nothing is ever left out to make room (the desktop dock splits a pane). After the end the results come
  * first even when not open (shown, not stored). Unknown pane ids are dropped (a pane removed since the view was saved); a stored panel's pane is shown in every phase.
  */
 export function shownPanes(view: Pick<ViewState, "panes">, phase: GamePhase): OpenPane[] {
@@ -186,8 +186,7 @@ export const homeOf = (pane: string): Place => (isPaneId(pane) ? PANES[pane].hom
 
 /**
  * What opening `pane` does: the panes on screen stay (`keepShown` first) and nothing is closed to make room. A pane not
- * shown joins at `place` (else its home) and is shown in front; a shown one comes to the front of its tab group, or
- * moves when given a place.
+ * shown joins at `place` (else its home) in a pane of its own; a shown one stays, or moves when given a place.
  */
 export function openPlan(view: Pick<ViewState, "panes">, phase: GamePhase, pane: string, place?: Place): ViewOp[] {
   const shown = shownPanes(view, phase).some(p => p.pane === pane);
@@ -206,43 +205,27 @@ export function closePlan(view: Pick<ViewState, "panes">, phase: GamePhase, pane
 /**
  * The desktop dock for a phase: the human's arrangement of that screen (else its default) holding exactly the shown
  * panes. A pane it names that is not shown (closed, or nothing to show in this phase, or an unknown id) is left out; a
- * shown pane it lacks joins at its place behind the tab shown there (a pane carried over from another screen never
- * covers one the screen arranged), except the one line, which opens below the lines. Null when nothing is shown.
+ * shown pane it lacks joins beside the pane at its place. Null when nothing is shown.
  */
 export function dockFor(view: Pick<ViewState, "panes" | "dock">, phase: GamePhase): DockNode | null {
   const kind = dockKindOf(phase) ?? "live";
   const shown = shownPanes(view, phase);
   const ids = new Set(shown.map(p => p.pane));
   const keep = (n: DockNode) => dockWithout(n, p => !ids.has(p));
-  // An arrangement holding none of the shown panes would put them all in one group: the default's places serve instead.
+  // An arrangement holding none of the shown panes: the default's places serve instead.
   let tree = (view.dock?.[kind] && keep(view.dock[kind])) || keep(defaultDock(kind));
-  // A pane joining this screen's dock goes behind its group's tab, except the assistant when it was in front in the
-  // arrangement it comes from (re-walk: the conversation went behind a tab when the world started).
-  const frontElsewhere = (pane: string) => Object.values(view.dock ?? {}).some(t => t && dockGroups(t).some(l => l.group.active === pane));
-  for (const p of shown) tree = dockInsert(tree, p.pane, p.place, p.pane === "assistant" && frontElsewhere(p.pane));
+  for (const p of shown) tree = dockInsert(tree, p.pane, p.place);
   return tree;
 }
 
 /**
- * The panes a drop replaced (v1: a pane dragged onto the centre of another replaces it, never stacks as a tab): the
- * other members of each group that a pane joined from another group. A move to an edge, a tab click and a gutter
- * dragged replace nothing; tabs a screen already had stay.
+ * The panes a drop replaced (production's dock: a pane dragged onto another replaces it): the panes drawn before that
+ * the dock read back no longer holds. A move to an edge and a gutter dragged replace nothing.
  */
 export function droppedOnto(before: DockNode | null, now: DockNode | null): string[] {
   if (!before || !now) return [];
-  const groupOf = new Map<string, number>();
-  dockGroups(before).forEach((l, i) => { for (const t of l.group.tabs) groupOf.set(t, i); });
-  const out: string[] = [];
-  for (const { group } of dockGroups(now)) {
-    const homes = new Set(group.tabs.map(t => groupOf.get(t)));
-    if (homes.size < 2) continue;
-    // The joiner is the pane whose old group the others did not share; the others are what it was dropped onto.
-    const counts = new Map<number | undefined, number>();
-    for (const t of group.tabs) counts.set(groupOf.get(t), (counts.get(groupOf.get(t)) ?? 0) + 1);
-    const joiner = group.tabs.find(t => counts.get(groupOf.get(t)) === 1 && t === group.active) ?? group.tabs.find(t => counts.get(groupOf.get(t)) === 1);
-    if (joiner) out.push(...group.tabs.filter(t => t !== joiner));
-  }
-  return out;
+  const kept = new Set(dockPanes(now));
+  return dockPanes(before).filter(p => !kept.has(p));
 }
 
 /** The phone's arrangement: columns left, main, right, then a bottom row; an empty column takes no room. */
