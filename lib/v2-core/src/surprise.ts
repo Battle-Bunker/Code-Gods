@@ -28,18 +28,28 @@ export function infoSize(n: bigint | number): number {
   return Math.log2(1 + Math.abs(n));
 }
 
-/** Elias gamma code length of a positive whole number k ≥ 1: 2⌊log2 k⌋ + 1. */
-export function eliasBits(k: bigint | number): number {
-  const big = typeof k === "bigint" ? k : BigInt(Math.round(k));
-  if (big < 1n) throw new Error(`eliasBits: ${k} is not a positive whole number`);
-  return 2 * (big.toString(2).length - 1) + 1;
+/** Rissanen's normalising constant for the universal code of the positive integers. */
+export const RISSANEN_C = 2.865064;
+
+/**
+ * Rissanen's universal code length of a positive whole number n ≥ 1, as a real bit count:
+ * L*(n) = log2 c + log2 n + log2 log2 n + … (positive terms only). Parameter-free, and it grows like log2 n (gamma
+ * doubled the bit length).
+ */
+export function universalBits(n: bigint | number): number {
+  const big = typeof n === "bigint" ? n : BigInt(Math.round(n));
+  if (big < 1n) throw new Error(`universalBits: ${n} is not a positive whole number`);
+  let bits = Math.log2(RISSANEN_C);
+  let x = log2Abs(big);
+  while (x > 0) { bits += x; x = Math.log2(x); }
+  return bits;
 }
 
 /** Bits of a whole-number argument k (k = 0 allowed), plus a sign bit when the argument can be negative. */
 export function argBits(k: bigint | number, signed: boolean): number {
   const big = typeof k === "bigint" ? k : BigInt(Math.round(k));
   const mag = big < 0n ? -big : big;
-  return eliasBits(mag + 1n) + (signed ? 1 : 0);
+  return universalBits(mag + 1n) + (signed ? 1 : 0);
 }
 
 /** Naming bits of one mutation: which mutation, which number, its argument, and the continue bit. */

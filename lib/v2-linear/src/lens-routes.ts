@@ -8,7 +8,7 @@
  * The lenses are the game's own (lens-moves.ts), seen through `Lens`; the prices below match its turn law (each
  * mutation's which + where + argument + continue bit, the lens named once a turn, the surprise of the overall change).
  */
-import { argBits, eliasBits, gcd, q, turnSurprise, type Q } from "@workspace/v2-core";
+import { argBits, universalBits, gcd, q, turnSurprise, type Q } from "@workspace/v2-core";
 import { isVertical, type Line } from "./line.ts";
 import { LENS_BITS, lenses as gameLenses } from "./lens-moves.ts";
 
@@ -52,7 +52,7 @@ export const MENU = 6;
 export const mutationBits = (lens: Lens, arg: number, onPair = false): number =>
   Math.log2(MENU) + Math.log2(onPair ? Math.max(1, lens.pairs.length) : lens.names.length) + arg + 1;
 /** A factor's bits (multiply, divide: lens-moves.ts uses the Elias code of the factor). */
-const factorBits = (f: bigint): number => eliasBits(f);
+const factorBits = (f: bigint): number => universalBits(f);
 /** The bits naming the turn's lens, paid once a turn. */
 export const TURN_BITS = LENS_BITS;
 const S = (a: bigint, b: bigint, crossed: boolean) => turnSurprise([a], [b], [crossed]);
