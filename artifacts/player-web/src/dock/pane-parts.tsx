@@ -152,12 +152,22 @@ export function PaneMenu({ pane }: { pane: string }) {
   );
 }
 
-/** A pane's header: its name, its menu, and (the one line) a close button. */
-export function PaneHeader({ pane, className = "" }: { pane: string; className?: string }) {
+/** A pane's close button, on every pane, always (the owner, 17 November). */
+export function PaneClose({ pane }: { pane: string }) {
   const { phase } = useDockScope();
-  const def = isPaneId(pane) ? PANES[pane] : null;
   const close = useAffordance("view.closePane");
   const ops = usePaneOps(phase);
+  const name = usePaneName();
+  return (
+    <button type="button" aria-label={`Close ${name(pane)}`} title={close.available ? `Close ${name(pane)}` : close.reason} disabled={!close.available}
+      className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-40" onPointerDown={own} onClick={() => void ops.close(pane)}
+      data-testid={`button-close-${pane}`}><X className="h-4 w-4" /></button>
+  );
+}
+
+/** A pane's header: its name, its menu and its close button. */
+export function PaneHeader({ pane, className = "" }: { pane: string; className?: string }) {
+  const def = isPaneId(pane) ? PANES[pane] : null;
   const name = usePaneName();
   const paneBack = useContext(PaneBackContext);
   return (
@@ -168,7 +178,7 @@ export function PaneHeader({ pane, className = "" }: { pane: string; className?:
       )}
       <h2 className="min-w-0 flex-1 truncate text-sm font-semibold" title={def?.blurb}>{name(pane)}</h2>
       <PaneMenu pane={pane} />
-      {pane === "object" && close.available && <button type="button" aria-label="Close" className="p-1 text-muted-foreground hover:text-foreground" onPointerDown={own} onClick={() => void ops.close(pane)}><X className="h-4 w-4" /></button>}
+      <PaneClose pane={pane} />
     </header>
   );
 }

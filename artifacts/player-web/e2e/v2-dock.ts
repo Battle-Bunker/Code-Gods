@@ -114,6 +114,26 @@ async function usable(page: Page, panes: string[], what: string) {
   }
 }
 
+/** Every open pane has its own close button, always (owner, 17 November); pressing one closes that pane only. */
+async function closeButtons(page: Page, close: string, what: string) {
+  const panes = await page.locator("section[data-pane]").evaluateAll((els: Element[]) => els.map(e => e.getAttribute("data-pane")!));
+  assert.ok(panes.length >= 2, `${what}: panes open: ${panes.join()}`);
+  for (const p of panes) assert.equal(await page.getByTestId(`button-close-${p}`).count(), 1, `${what}: ${p} has a close button`);
+  await page.getByTestId(`button-close-${close}`).click();
+  await page.getByTestId(`pane-${close}`).waitFor({ state: "detached", timeout: 10_000 });
+  for (const p of panes.filter(p => p !== close && p !== "assistant")) {
+    await page.getByTestId(`pane-${p}`).waitFor({ timeout: 10_000 }).catch(async () => {
+      await page.screenshot({ path: path.join(shots, "dock-close-failed.png") });
+      assert.fail(`${what}: closing ${close} closed ${p} too (open: ${panes.join()}; now: ${await page.locator("section[data-pane]").evaluateAll((els: Element[]) => els.map(e => e.getAttribute("data-pane")).join())})`);
+    });
+  }
+  // It stays closed once the stored view catches up.
+  await page.waitForTimeout(3000);
+  const now = await page.locator("section[data-pane]").evaluateAll((els: Element[]) => els.map(e => e.getAttribute("data-pane")!));
+  assert.ok(!now.includes(close), `${what}: ${close} came back after closing (now: ${now.join()})`);
+  console.log(`${what}: close buttons on ${panes.join(", ")}; closed ${close}`);
+}
+
 const dockText = (page: Page) => page.getByTestId("dock-desktop").getAttribute("data-dock") as Promise<string>;
 /** The left column's weight in the live arrangement (the first child of the row). */
 const leftColumn = (text: string) => Number(/^row\(column\(.*?\) (\d+(?:\.\d+)?),/.exec(text)?.[1] ?? NaN);
@@ -127,6 +147,7 @@ try {
     await page.getByTestId("dock-desktop").waitFor();
     await usable(page, ["overview", "my-card", "forge"], `${label} planning`);
     await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-planning.png`) });
+    if (who === "alice") await closeButtons(page, "overview", `${label} planning`);
 
     await page.getByTestId("button-summon-first").click();
     await page.getByTestId("text-forge-status").getByText(/is summoned/).waitFor({ timeout: 60_000 });
@@ -214,6 +235,8 @@ try {
     assert.doesNotMatch(nav.bg, /\/ 0?\.\d+\)$|,\s*0?\.\d+\)$/, `phone: the pane-name row is opaque: ${nav.bg}`);
     assert.ok(Number(nav.z) >= 10, `phone: the pane-name row is above the panes: z-index ${nav.z}`);
     const jumps = async () => (await page.locator("[data-testid^=button-jump-]").evaluateAll((els: Element[]) => els.map(e => e.getAttribute("data-testid")!.slice("button-jump-".length))));
+    await closeButtons(page, "overview", "phone planning");
+    await page.screenshot({ path: path.join(shots, "dock-phone-closed.png") });
     const first = await jumps();
     assert.ok(first.includes("forge") && first.includes("my-card"), first.join());
     await page.getByTestId("button-summon-first").click();
