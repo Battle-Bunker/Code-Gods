@@ -87,8 +87,8 @@ try {
   await page.getByTestId("text-forge-status").getByText(/is summoned/).waitFor({ timeout: 60_000 });
   const startNow = page.getByTestId("button-start-world");
   if (await startNow.count()) { await startNow.click(); await startNow.click().catch(() => {}); }
-  await page.locator("[data-testid^=row-line-]").first().click({ timeout: 30_000 });
-  const ask = page.getByTestId("pane-object").locator("[data-testid^=button-object-ask-]");
+  await page.locator("[data-testid^=marks-line-]").first().click({ timeout: 30_000 });
+  const ask = page.getByTestId("object-hover-detail").locator("[data-testid^=button-object-ask-]");
   await ask.waitFor({ timeout: 30_000 });
   const n = (await ask.getAttribute("data-testid"))!.slice("button-object-ask-".length);
   await ask.click();

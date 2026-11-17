@@ -239,8 +239,8 @@ try {
     await page.getByTestId("text-phase").getByText(/ended/i).waitFor({ timeout: 60_000 });
     // The end brings the results forward; the header's button brings Grids back.
     if (!await page.locator("[data-testid^=row-line-]").first().isVisible()) await page.getByTestId("button-line-by-line-bar").click();
-    await page.locator("[data-testid^=row-line-]").first().click();
-    const line = page.getByTestId("pane-object");
+    await page.locator("[data-testid^=marks-line-]").first().click();
+    const line = page.getByTestId("object-hover-detail");
     await line.locator(".v2v-grid, [data-scene=grid]").first().waitFor({ state: "attached", timeout: 20_000 });
     assert.match(await line.getByTestId("text-line-formula").innerText(), FORMULA, "One line says yours × others' = points");
     // v1's why?: how rare the grid is, as a share of random grids (only when it has bits).

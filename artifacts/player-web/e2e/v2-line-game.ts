@@ -306,8 +306,8 @@ try {
     assert.match(await why.innerText(), FORMULA, "a Lines row says yours × others' = points");
     if (label === "phone") await page.locator("[data-testid^=row-line-]").first().screenshot({ path: path.join(shots, "score-words-phone-lines-row.png") });
 
-    await page.locator("[data-testid^=row-line-]").first().click();
-    const line = page.getByTestId("pane-object");
+    await page.locator("[data-testid^=marks-line-]").first().click();
+    const line = page.getByTestId("object-hover-detail");
     await line.getByText("your rule's main view").first().waitFor({ timeout: 20_000 });   // the rule's own views first
     assert.match(await line.getByTestId("text-line-formula").innerText(), FORMULA, "One line says yours × others' = points");
     // What a bit is, on tap (a phone has no hover).

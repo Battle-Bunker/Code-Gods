@@ -19,6 +19,15 @@ deploy();
 const LOCKS_ON: Record<string, unknown> = process.env.LOCKS_SETTING ? JSON.parse(process.env.LOCKS_SETTING) : { locks: true };
 const LOCKS_OFF: Record<string, unknown> = Object.fromEntries(Object.entries(LOCKS_ON).map(([k, v]) => [k, typeof v === "boolean" ? false : v === "on" ? "off" : 0]));
 
+/** The overlay of line `n` (hovering or clicking its face in Lines), pinned open. */
+async function lineDetail(page: Page, n: number) {
+  const detail = page.getByTestId("object-hover-detail");
+  if (await detail.count()) return detail;
+  await (await openPane(page, "objects")).getByTestId(`marks-line-${n}`).click();
+  await detail.waitFor();
+  return detail;
+}
+
 async function openPane(page: Page, id: string) {
   const pane = page.getByTestId(`pane-${id}`);
   if (await page.getByTestId(`tab-${id}`).count()) await page.getByTestId(`tab-${id}`).click({ position: { x: 6, y: 10 } });
@@ -60,13 +69,13 @@ try {
     await game(page, LOCKS_ON);
     const lines = await openPane(page, "objects");
     await lines.locator('[data-testid^="row-line-"]').first().waitFor({ timeout: 30_000 });
-    const one = page.getByTestId("pane-object");
+    const one = page.getByTestId("object-hover-detail");
     // The first line, of the first few, that some ready-made predicate holds on (each is checked on the line before paying).
     let meets = false;
     for (let r = 0; r < 6 && !meets; r++) {
       const row = (await openPane(page, "objects")).locator('[data-testid^="row-line-"]').nth(r);
       line = Number((await row.getAttribute("data-testid"))!.replace("row-line-", ""));
-      await row.click();
+      await row.locator("[data-testid^=marks-line-]").click();
       await one.getByTestId("locks").waitFor({ timeout: 15_000 });
       await one.getByTestId("button-lock-open").click();
       await one.getByTestId("form-lock-create").waitFor();
@@ -109,14 +118,14 @@ try {
   });
 
   await check("setting on: the lock's energy decays over world time", async () => {
-    const one = await openPane(page, "object");
+    const one = await lineDetail(page, line);
     const before = await energyOf(page, 1);
     await page.waitForFunction(([n, e]: [number, number]) => Number(/Holds ([\d,.]+)/.exec(document.querySelector(`[data-testid=text-lock-energy-${n}]`)?.textContent ?? "")?.[1]?.replace(/,/g, "") ?? NaN) < e, [1, before] as [number, number], { timeout: 60_000 });
     await one.getByTestId("lock-1").waitFor();
   });
 
   await check("setting on: draining the lock to nothing removes it; the same change then breaks nothing", async () => {
-    const one = await openPane(page, "object");
+    const one = await lineDetail(page, line);
     await one.getByTestId("button-lock-energy-1").click();
     await one.getByTestId("button-lock-take-1").click();
     await one.getByTestId("input-lock-amount-1").fill(String(Math.ceil(await energyOf(page, 1)) + 1));
@@ -133,8 +142,8 @@ try {
     const lines = await openPane(page, "objects");
     const row = lines.locator('[data-testid^="row-line-"]').first();
     await row.waitFor({ timeout: 30_000 });
-    await row.click();
-    await page.getByTestId("pane-object").waitFor();
+    await row.locator("[data-testid^=marks-line-]").click();
+    await page.getByTestId("object-hover-detail").waitFor();
     await page.waitForTimeout(2_000);
     await openPane(page, "what-if");
     for (const sel of ['[data-testid="locks"]', '[data-testid="button-lock-open"]', '[data-testid="what-if-locks"]']) {

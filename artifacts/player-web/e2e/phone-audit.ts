@@ -19,7 +19,7 @@ const SITE = process.env.CODE_GODS_SITE_URL ?? "http://127.0.0.1:3211";
 const CLOUD = "http://127.0.0.1:3210";
 const shots = process.env.SHOTS_DIR ?? path.join(import.meta.dirname, "shots", "phone-audit");
 mkdirSync(shots, { recursive: true });
-const PANES = ["overview", "my-card", "objects", "object", "what-if", "feed", "agents", "forge", "race", "public-chat", "others-care", "points-over-time", "rules", "my-panels"];
+const PANES = ["overview", "my-card", "objects", "what-if", "feed", "agents", "forge", "race", "public-chat", "others-care", "points-over-time", "rules", "my-panels"];
 
 async function findings(page: Page, root: string) {
   return page.evaluate((sel: string) => {
@@ -72,7 +72,7 @@ for (const width of [360, 414]) {
       const menu = page.locator("[data-testid^=button-pane-menu-]").first();
       await menu.tap().catch(() => {});
       const item = page.getByTestId(`button-open-pane-${pane}`);
-      if (await item.count()) await item.tap(); else { await page.keyboard.press("Escape"); if (pane === "object") await page.locator("[data-testid^=row-line-]").first().tap().catch(() => {}); }
+      if (await item.count()) await item.tap(); else await page.keyboard.press("Escape");
       await page.waitForTimeout(800);
     }
     const sec = page.getByTestId(`pane-${pane}`);
@@ -81,6 +81,19 @@ for (const width of [360, 414]) {
     await sec.screenshot({ path: path.join(shots, `${width}-${pane}.png`) }).catch(() => {});
     const f = await findings(page, `[data-testid="pane-${pane}"]`);
     console.log(`- ${pane}: ${f.length ? "\n    " + f.slice(0, 12).join("\n    ") : "ok"}`);
+  }
+  // A line's detail: the overlay a tap on its face opens.
+  const face = page.locator("[data-testid^=marks-line-]").first();
+  if (await face.count()) {
+    await face.scrollIntoViewIfNeeded();
+    await face.tap();
+    const detail = page.getByTestId("object-hover-detail");
+    if (await detail.waitFor({ timeout: 10_000 }).then(() => true, () => false)) {
+      await detail.screenshot({ path: path.join(shots, `${width}-object-overlay.png`) }).catch(() => {});
+      const f = await findings(page, '[data-testid="object-hover-detail"]');
+      console.log(`- object overlay: ${f.length ? "\n    " + f.slice(0, 12).join("\n    ") : "ok"}`);
+      await page.keyboard.press("Escape");
+    } else console.log("- object overlay: did not open on a tap");
   }
   // The end page.
   await page.getByTestId("text-phase").filter({ hasText: /ended/i }).waitFor({ timeout: 120_000 }).catch(() => {});

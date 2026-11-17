@@ -119,9 +119,9 @@ async function endedGame(page: Page, preset: string, noun: string) {
   const row = objects.locator("[data-testid^=row-line-]").first();   // the rows keep one test id on every board
   await row.waitFor({ timeout: 15_000 });
   ok("objects");
-  await row.click();
-  await page.locator("[data-testid=pane-object], [data-testid=tab-object]").first().waitFor({ timeout: 15_000 });
-  const one = await open(page, "object");
+  await row.locator("[data-testid^=marks-line-]").click();
+  const one = page.getByTestId("object-hover-detail");
+  await one.waitFor({ timeout: 15_000 });
   await one.locator(".v2v").first().waitFor({ timeout: 15_000 });
   assert.ok((await one.innerText()).trim().length > 40, `${label}: one ${noun} shows its views`);
   ok("object");

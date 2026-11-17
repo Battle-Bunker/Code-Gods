@@ -160,7 +160,7 @@ try {
       await page.getByTestId("button-jump-objects").click();
       await page.locator("[data-testid^=row-line-]").first().waitFor({ state: "visible", timeout: 30_000 });
     }
-    await page.locator("[data-testid^=row-line-]").first().click();
+    await page.locator("[data-testid^=marks-line-]").first().click();
     await page.getByTestId("button-open-what-if").click();
     const whatIf = page.getByTestId("pane-what-if");
     await whatIf.getByTestId("what-if-result").waitFor({ timeout: 15_000 }).catch(async (e: Error) => { console.log("WHATIF", (await whatIf.innerText()).slice(0, 600)); throw e; });

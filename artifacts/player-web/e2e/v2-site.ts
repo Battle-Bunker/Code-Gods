@@ -211,13 +211,13 @@ try {
       assert.equal(doubled, null, `${label}: the word energy doubled: ${doubled}`);
       await noHorizontalScroll(page, `${label} game`);
       await shot(page, `v2-game-${label}`);
-      await row.click();
-      await page.getByTestId("pane-object").waitFor();
+      await row.locator("[data-testid^=marks-line-]").click();
+      await page.getByTestId("object-hover-detail").waitFor();
       await page.getByTestId("pane-objects").waitFor({ timeout: 5000 });   // the list a line is opened from stays
-      await page.getByTestId("pane-object").getByText("your rule's main view").first().waitFor();   // the rule's representations
+      await page.getByTestId("object-hover-detail").getByText("your rule's main view").first().waitFor();   // the rule's representations
       // Every control of the views fits the screen (round 11: "More views" ran past a 390 phone's right edge).
       const width = page.viewportSize()!.width;
-      for (const pane of ["pane-object", "pane-my-card"]) {
+      for (const pane of ["object-hover-detail", "pane-my-card"]) {
         if (!await page.getByTestId(pane).count() && await page.getByTestId("button-jump-my-card").count()) await page.getByTestId("button-jump-my-card").click();
         if (!await page.getByTestId(pane).count()) { console.log(`${label}: ${pane} not on screen; not measured`); continue; }
         await page.getByTestId(pane).locator(".v2v-switcher").first().waitFor({ timeout: 10_000 }).catch(() => {});
