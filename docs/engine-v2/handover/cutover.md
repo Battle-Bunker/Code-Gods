@@ -39,12 +39,11 @@ an estimate alone; fine inside a commit so far). (5) Golden Path's continued-fra
 parameter; deeper fractions cannot be pinned in it. (6) The design-principles table in energy.md still describes the
 retired line pool's opponents row; rewrite it for the dealt twelve.
 
-## Update, 17 Nov (Melbourne afternoon): the largest number; a gap under locks
+## Update, 17 Nov (Melbourne evening): the cap that came and went; a gap under locks
 
-- **#1198:** the room setting `largestNumber` (10^7 in `LINES_BEGINNER_PHYSICS` only) refuses any line mutation that takes
-  the line's largest |a|, |b|, |c| past it and past what the line had. Before it, simulated games ran lines to 40–500-bit
-  numbers where rules read NaN (energy 0) and single cheap turns added thousands of energy (balance harness,
-  `lib/v2-linear/scripts/balance-sim.ts`; seen narrowly).
+- **#1198, then #1205:** a cap on a line's a, b, c (`largestNumber`) was added and then removed at the owner's word ("a
+  hidden bug bomb"); gravity as the uphill toll (#1203, beginner λ 20) and exact rules (#1206, #1210) took its place.
+  Balance results: `docs/engine-v2/balance.md`.
 - **Open, only with the locks setting on:** `lockedAct` (v2-core locks.ts) applies calls one by one and never adds the
   turn's surprise (`type.turnSurprise`), so under locks an act pays naming bits only. Locks are a room override
   (`room.overrides.locks`); no preset turns them on, so ordinary play is unaffected. Fix before locks are offered:
