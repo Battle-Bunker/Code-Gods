@@ -60,6 +60,28 @@ if (process.argv[2] === "report") {
   process.exit(0);
 }
 
+// Recheck mode: the live estimate again, with the code as it now stands, on every state of earlier runs, against the
+// larger search's energy recorded then (to measure a change to the estimator).
+if (process.argv[2] === "recheck") {
+  const { readFileSync } = await import("node:fs");
+  const lines = process.argv.slice(3).flatMap(f => readFileSync(f, "utf8").split("\n").filter(Boolean).map(l => JSON.parse(l)));
+  console.log("| rule | bits | states | live then | live now | bound now (states) | larger search | now over it: mean (worst state) | ms now |");
+  console.log("|---|---|---|---|---|---|---|---|---|");
+  for (const F of dynamicFamilies) for (const B of [5, 10, 20, 40]) {
+    const mine = lines.filter(l => l.rule === F.id && l.B === B);
+    if (!mine.length) continue;
+    const now = mine.map(l => {
+      const [a, b, c] = (l.s as string).split(",").map(BigInt), s: Line = { a: a!, b: b!, c: c! };
+      const t0 = performance.now(), e = estimateLine(s, lineRule(F.dynamic as never, l.p), V, { seed: `acc:${l.s}` });
+      return { e: e.energy, bound: e.bound, ms: performance.now() - t0, big: l.eBig as number, then: l.eLive as number };
+    });
+    const mean = (f: (x: (typeof now)[number]) => number) => now.reduce((t, x) => t + f(x), 0) / now.length;
+    const over = now.map(x => x.e - x.big), worst = over.reduce((a, b) => (Math.abs(b) > Math.abs(a) ? b : a));
+    console.log(`| ${F.title} | ${B} | ${now.length} | ${mean(x => x.then).toFixed(1)} | ${mean(x => x.e).toFixed(1)} | ${now.filter(x => x.bound).length}/${now.length} | ${mean(x => x.big).toFixed(1)} | ${mean(x => x.e - x.big).toFixed(1)} (${worst.toFixed(1)}) | ${Math.round(mean(x => x.ms))} |`);
+  }
+  process.exit(0);
+}
+
 for (const F of dynamicFamilies) {
   if (only && F.id !== only) continue;
   const all = F.dealable(V as never) as unknown[];
