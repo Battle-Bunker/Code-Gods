@@ -192,7 +192,7 @@ try {
 
     await check(`${label}: a live line game shows your totals, the panes and the lines' faces`, async () => {
       const room = code();
-      const g = convexRun("v2/testing:seedGame", { owner: me.subject, practice: 2, code: room });
+      const g = convexRun("v2/testing:seedGame", { owner: me.subject, practice: 2, code: room, bound: true });
       await page.goto(`${SITE}/rooms/${room}/games/${g.gameId}?panels=on#top`);
       // v1's short link: an old long-id link is replaced by the room's code and the game's number, keeping ?… and #….
       await page.waitForURL(`${SITE}/rooms/${room}/games/1?panels=on#top`);
@@ -203,6 +203,12 @@ try {
       const row = page.locator("[data-testid^=row-line-]").first();
       await row.waitFor();
       await page.locator("[data-testid^=marks-line-]").first().waitFor();   // each row's face arrives with its own subscription
+      // Line 1's energy is a bound (the estimator ran out of work): a quiet ≤ beside it, explained on hover.
+      const mark = page.getByTestId("mark-bound-line-1");
+      await mark.waitFor({ timeout: 15_000 });
+      assert.equal(await mark.innerText(), "≤");
+      assert.match(await mark.getAttribute("title") ?? "", /^At most this much: the estimate ran out of time/);
+      assert.equal(await page.locator("[data-testid^=mark-bound-line-]").count(), 1, "only the bound energy is marked");
       await page.locator("[data-testid^=button-pane-menu-]").first().click();
       await page.getByTestId("button-open-pane-feed").click();
       await page.getByTestId("pane-feed").getByText(/Your agent\b/).first().waitFor();   // \b: not the folded table's "Your agents' move"

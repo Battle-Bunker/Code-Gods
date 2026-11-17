@@ -130,7 +130,7 @@ function valuesAt(game: Doc<"v2Games">, seats: SeatRule[], wire: string, objectI
     .map(v => ({ ...v, ...shownAt(v, readingNoise(game, v.memberId, objectReading(objectId, version))) }));
 }
 /** The disclosed fields of a value row, with its filter (disclose.ts quadrantOf, on the disclosed others' sum). */
-const shownOf = (v: Value) => ({ shownWant: v.shownWant, shownPoints: v.shownPoints, quadrant: quadrantOf(v.rarityBits, v.shownWant) });
+const shownOf = (v: Value) => ({ shownWant: v.shownWant, shownPoints: v.shownPoints, quadrant: quadrantOf(v.rarityBits, v.shownWant), bound: v.bound });
 
 /** Writes a new object's state and every player's value; returns the values. */
 async function addObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[], number: number, wire: string, world: number) {

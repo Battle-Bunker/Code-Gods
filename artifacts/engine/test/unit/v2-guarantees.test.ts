@@ -22,8 +22,8 @@ test("a player's object read carries their own value and the others' total, noth
   assert.deepEqual(Object.keys(json.value).sort(), ["bornAt", "changedAt", "changesSince", "knownAt", "lookPrice", "number", "objectId", "retiredAt", "state", "value", "version"].sort(),
     "a new top-level field on the object read needs a look at what it discloses (retiredAt: when the line retired, public like its birth)");
   // `parts` is the caller's OWN bits split by their own rule's layers (a tree-valued rule's points tree): still nothing per
-  // other player.
-  assert.deepEqual(fieldsOf(json.value.value.fieldType).sort(), ["parts", "points", "rarityBits", "score", "version", "want"].sort(),
+  // other player. `bound` says the caller's own energy is an upper bound (the estimator's budget ran out): their own figure.
+  assert.deepEqual(fieldsOf(json.value.value.fieldType).sort(), ["bound", "parts", "points", "rarityBits", "score", "version", "want"].sort(),
     "the value is the caller's own: score, bits (and their own layers' parts), points, and `want` (the others' total), never a per-player breakdown");
 });
 

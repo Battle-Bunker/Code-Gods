@@ -373,6 +373,8 @@ export const v2Tables = {
     objectId: v.id("v2Objects"), gameId: v.id("v2Games"), memberId: v.id("v2Members"), number: v.number(),
     score: scoreWireV, level: legacyLevel, rarityBits: v.number(), want: v.number(), points: v.number(), ...shownFields,
     version: v.number(), changedAt: v.number(), quadrant: v.optional(quadrantV),
+    /** rarityBits is an upper bound: the estimator's work budget ran out before it found the energy (absent: found). */
+    bound: v.optional(v.boolean()),
     /** The last moves on it that concerned this player (at most HISTORY, oldest first): their agents' `history`. */
     recent: v.optional(v.array(v.object({ mine: v.boolean(), pointsBefore: v.number(), pointsAfter: v.number() }))),
     /** The line retired (turnover, retirement-design.md); absent: live. The sorts below list live and retired apart. */

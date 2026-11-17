@@ -60,7 +60,7 @@ export const object = query({
     return {
       objectId: object._id, number: object.number, bornAt: object.bornAt, retiredAt: object.retiredAt, state: state.state, version: state.version, changedAt: state.changedAt,
       // The others' sum and the points as disclosed while live (disclose.ts), exact after the end.
-      value: value ? { score: value.score, rarityBits: value.rarityBits, ...disclosed(game, value), version: value.version, parts: await ownParts(ctx, game, member._id, state.state) } : null,
+      value: value ? { score: value.score, rarityBits: value.rarityBits, ...disclosed(game, value), version: value.version, parts: await ownParts(ctx, game, member._id, state.state), ...(value.bound ? { bound: true } : {}) } : null,
     };
   },
 });

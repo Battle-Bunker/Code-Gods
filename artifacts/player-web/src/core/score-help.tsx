@@ -50,6 +50,13 @@ export function LineByLine({ testId, className }: { testId: string; className?: 
 }
 
 /** "tied", beside a place another player shares. */
+/** The one line a bound energy's marker explains on hover. */
+export const BOUND_NOTE = "At most this much: the estimate ran out of time before it found this line's exact energy for your rule.";
+/** Beside an energy that is an upper bound, not a found value (the estimator's work budget ran out). */
+export function BoundMark({ testId }: { testId?: string }) {
+  return <span className="cursor-help text-muted-foreground" title={BOUND_NOTE} aria-label={BOUND_NOTE} data-testid={testId}>≤</span>;
+}
+
 export function TiedMark({ testId }: { testId?: string }) {
   return <span className="border px-1 text-[10px] font-medium uppercase text-muted-foreground" title={TIE_NOTE} data-testid={testId}>tied</span>;
 }
