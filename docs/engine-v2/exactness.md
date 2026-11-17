@@ -1,12 +1,14 @@
 # Silent cutoffs and inexact arithmetic in the dealt line rules and the estimator (17 Nov)
 
 The coordinator's list, for a fix that makes each rule exact at any size. Line numbers are on `develop` after #1205.
-**Status:** #1206 fixed Stepping Coefficients (both rows), Whole Stair, Corner, Golden Path and Recurrence Pair, and
-deleted the unused prime helpers that held the last 10^10 guard (the agents' copies follow, #1208). Open: Bearing, Ring,
-Unit Fraction's tidy-up and the estimator's `sameBits`. The nearest prime with a digit suffix (exact Miller–Rabin,
-stepping through the suffix) takes 0.1–1.3 ms up to 10^40 in Node, so no table is needed when a prime rule returns.
-Labels: **cutoff** (a size past which the rule answers NaN, a constant or a capped value), **inexact** (float arithmetic
-that loses the whole-number answer past 2^53). "Exact" in the fix column means bigint arithmetic, with `log2Big` for a size.
+**Status: every row is done.** #1206 fixed Stepping Coefficients, Whole Stair, Corner, Golden Path and Recurrence Pair
+and deleted the unused prime helpers that held the last 10^10 guard (the agents' copies follow, #1208). The next PR
+made Bearing exact (tan φ in whole-number fixed point to 2·bits(bottom) + 64 bits; 2 µs a call on small lines, 0.1 ms
+at 10^40), Ring exact (|N² − ρM| in bigint), dropped both rules' cap of 50, made Unit Fraction's penalty a bigint cube,
+and made the estimator's large same-size starts keep random low digits. The agents' Ring is exact too; their Bearing
+is a float approximation without the cap (exact to about 2^−50 of the gradient). The nearest prime with a digit
+suffix (exact Miller–Rabin, stepping through the suffix) takes 0.1–1.3 ms up to 10^40 in Node, so no table is needed
+when a prime rule returns.
 
 | Rule | Where | What | Effect | Fix |
 |---|---|---|---|---|

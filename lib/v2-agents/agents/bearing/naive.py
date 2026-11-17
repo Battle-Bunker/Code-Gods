@@ -71,7 +71,7 @@ def factors_n(n):
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     diff = abs(num(m) - math.tan(p["deg"] * math.pi / 180))   # how far the gradient is from tan φ
-    main = 50 if diff == 0 else min(50, -math.log2(diff))
+    main = -math.log2(diff or 2 ** -1074)
     # main: one point per binary digit of the gradient matching tan of the dealt angle
     def tier(t):   # each secondary, in order (None: ranks last)
         return None   # none described (a family with no tie-breakers)

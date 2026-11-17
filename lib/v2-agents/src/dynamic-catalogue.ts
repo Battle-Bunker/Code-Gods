@@ -170,10 +170,10 @@ export const DYNAMIC_CATALOGUE: readonly FamilyEntry[] = [
   ]),
   entry("bearing", "one point per binary digit of the gradient matching tan of the dealt angle", [
     "const diff = Math.abs(num(m) - Math.tan(p.deg * Math.PI / 180));   // how far the gradient is from tan φ",
-    "const main = Math.min(50, -Math.log2(diff));",
+    "const main = -Math.log2(diff || 2 ** -1074);",
   ], [
     "diff = abs(num(m) - math.tan(p[\"deg\"] * math.pi / 180))   # how far the gradient is from tan φ",
-    "main = 50 if diff == 0 else min(50, -math.log2(diff))",
+    "main = -math.log2(diff or 2 ** -1074)",
   ]),
   entry("golden-path", "leading continued-fraction steps of the gradient following the dealt pattern", [
     "let n = m.n < 0n ? -m.n : m.n, d = m.d, k = 0, i = 0, on = true;   // the gradient's continued fraction, step by step",
@@ -196,16 +196,19 @@ export const DYNAMIC_CATALOGUE: readonly FamilyEntry[] = [
     "let a = -m.n * (L / m.d), b = L, cc = -c.n * (L / c.d);",
     "const g = gcdB(gcdB(ab(a), b), ab(cc));",
     "a /= g; b /= g; cc /= g;",
-    "const dist = Math.abs(Number(a * BigInt(p.u) + b * BigInt(p.v) + cc)) / Math.sqrt(Number(a) ** 2 + Number(b) ** 2);",
-    "const main = Math.min(50, -Math.log2(Math.abs(dist - Math.sqrt(p.rho))));",
+    "// distance N/√M from the centre against √ρ, exactly: |N/√M − √ρ| = |N² − ρM| / ((N + √(ρM))·√M)",
+    "const N = ab(a * BigInt(p.u) + b * BigInt(p.v) + cc), M = a * a + b * b, R = BigInt(p.rho), gap = ab(N * N - R * M);",
+    "const lg = n => { const L = Math.max(0, n.toString(2).length - 53); return Math.log2(Number(n >> BigInt(L))) + L; };",
+    "const main = 0.5 * lg(M) + lg(N + BigInt(root(R * M)) + 1n) - lg(gap || 1n);",
   ], [
     "L = m.denominator * c.denominator // math.gcd(m.denominator, c.denominator)   # a, b, c in lowest whole numbers",
     "a, b, cc = -m.numerator * (L // m.denominator), L, -c.numerator * (L // c.denominator)",
     "g = math.gcd(math.gcd(abs(a), b), abs(cc))",
     "a, b, cc = a // g, b // g, cc // g",
-    "dist = abs(float(a * p[\"u\"] + b * p[\"v\"] + cc)) / math.sqrt(float(a) ** 2 + float(b) ** 2)",
-    "gap = abs(dist - math.sqrt(p[\"rho\"]))",
-    "main = 50 if gap == 0 else min(50, -math.log2(gap))",
+    "# distance N/√M from the centre against √ρ, exactly: |N/√M − √ρ| = |N² − ρM| / ((N + √(ρM))·√M)",
+    "N, M = abs(a * p[\"u\"] + b * p[\"v\"] + cc), a * a + b * b",
+    "gap = abs(N * N - p[\"rho\"] * M)",
+    "main = 0.5 * math.log2(M) + math.log2(N + math.isqrt(p[\"rho\"] * M) + 1) - math.log2(gap or 1)",
   ]),
   entry("archimedes", "binary digits of top² + D·bottom² less those of |top² − D·bottom²|", [
     "const t = m.n < 0n ? -m.n : m.n, u = m.d, D = BigInt(p.k);",

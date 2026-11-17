@@ -76,3 +76,28 @@ test("the dealt rules are exact far past 2^53 and have no silent size cutoff (17
   const us = step.dynamic!.u({ lines: [line] }, { k: 3 });
   assert.ok(Math.abs(us - log2Big(A + 6n)) < 1e-9, String(us));
 });
+
+test("Bearing and Ring have no ceiling and stay exact deep down; large same-size starts keep random low digits", async () => {
+  const { bearingU, ringU, tanFixed } = await import("../src/candidate-families.ts");
+  const { continuedFraction } = await import("../src/dynamic-families.ts");
+  const { q: Q } = await import("@workspace/v2-core");
+  // A convergent of tan 37° with a bottom of about 2^100 matches about 200 binary digits (the old float version stopped at 50).
+  const cf = continuedFraction(Q(tanFixed(37, 400), 1n << 400n));
+  let [p0, q0, p1, q1] = [1n, 0n, cf[0]!, 1n];
+  for (let i = 1; q1 < 1n << 100n; i++) [p0, q0, p1, q1] = [p1, q1, cf[i]! * p1 + p0, cf[i]! * q1 + q0];
+  const u = bearingU(Q(p1, q1), 37);
+  assert.ok(u > 190 && u < 260, String(u));
+  assert.ok(bearingU(Q(p1 + 1n, q1), 37) < 110, "one more on top loses about half");
+  // Ring (2, 1, ρ = 7): the line 3x − 2y + c = 0 with c the nearest whole number to the tangent's, scaled up 2^60.
+  const big = 1n << 60n, a = 3n * big, b = -2n * big, M = a * a + b * b;
+  let lo = 0n, hi = 1n << 70n;   // c ≈ √(7M) − (2a + b), by bisection on c² vs 7M
+  const target = (cc: bigint) => (2n * a + b + cc) ** 2n - 7n * M;
+  while (hi - lo > 1n) { const mid = (lo + hi) / 2n; if (target(mid) < 0n) lo = mid; else hi = mid; }
+  const m = Q(-a, b), c = Q(-lo, b);
+  assert.ok(ringU(m, c, { u: 2, v: 1, rho: 7 }) > 55, String(ringU(m, c, { u: 2, v: 1, rho: 7 })));
+  // Starts for a line with an 80-bit intercept top: not all multiples of a large power of two.
+  const { lineStarts } = await import("../src/energy.ts");
+  const starts = lineStarts(fromMC(Q(3n, 2n), Q((1n << 80n) + 12345n, 7n)), "mc", 12, "lowbits", 0.5);
+  const oddish = starts.filter(l => { const t = l.c < 0n ? -l.c : l.c; return t % (1n << 20n) !== 0n; }).length;
+  assert.ok(oddish >= 10, `${oddish} of ${starts.length}`);
+});

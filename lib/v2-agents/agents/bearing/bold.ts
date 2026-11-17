@@ -36,7 +36,7 @@ function gcdB(a, b) { while (b !== 0n) [a, b] = [b, a % b]; return a; }
 // How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   const diff = Math.abs(num(m) - Math.tan(p.deg * Math.PI / 180));   // how far the gradient is from tan φ
-  const main = Math.min(50, -Math.log2(diff));
+  const main = -Math.log2(diff || 2 ** -1074);
   // main: one point per binary digit of the gradient matching tan of the dealt angle
   return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
     return null;
