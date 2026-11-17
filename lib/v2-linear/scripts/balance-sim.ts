@@ -151,7 +151,7 @@ export function simulate(o: SimOpts = {}) {
           pool.push(cur);
         }
       }
-      for (const t of s.rule.candidates(l, u0).slice(0, 12)) {
+      for (const t of Number.isFinite(u0) ? s.rule.candidates(l, u0).slice(0, 12) : []) {
         if (t.b === 0n || !(s.rule.u(t) > u0)) continue;
         const rp = routePrice(V.physics!.gravity as number, l, t);
         if (!rp.lens || rp.total > budget) continue;
@@ -201,9 +201,11 @@ export function simulate(o: SimOpts = {}) {
       s.balance -= read + x.bits; s.spent += read + x.bits; s.turns++; s.bitsByTurn.push(x.bits);
       s.byLens[x.lens] = (s.byLens[x.lens] ?? 0) + 1;
       for (const c of x.calls) s.byMove[c.mutator] = (s.byMove[c.mutator] ?? 0) + 1;
+      const prev = key(L.line), prevLine = L.line;
       L.line = x.to; L.commits++; L.states.add(key(x.to)); L.lastCommit = t; L.commitTimes.push(t);
-      const Eb = L.E;
+      const Eb = L.E, lb = L.line === x.to ? null : null;
       L.E = seats.map(z => est(L.line, z));
+      if (process.env.TRACE && L.E[s.i]! - Eb[s.i]! > Math.max(100, 3 * x.bits)) console.error(JSON.stringify({ t, fam: s.fam, params: s.params, bits: x.bits, calls: x.calls, from: prev, to: key(x.to), Eb: Eb[s.i], Ea: L.E[s.i], uB: s.rule.u(prevLine), uA: s.rule.u(x.to) }));
       log.push([t, s.i, lines.indexOf(L), Math.round(x.bits * 10) / 10, x.calls.length, Math.round((L.E[s.i]! - Eb[s.i]!) * 10) / 10, Math.round(L.E.reduce((a, e, j) => a + (j === s.i ? 0 : e - Eb[j]!), 0) * 10) / 10]);
     }
     if ((t + 1) % 30 === 0) snaps.push({ t: t + 1, points: totals(), energy: energies(), balance: seats.map(s => s.balance), turns: seats.map(s => s.turns) });
