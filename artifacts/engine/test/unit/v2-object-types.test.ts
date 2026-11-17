@@ -47,8 +47,8 @@ test("a grid representation's mutators name their arguments, with choices for ce
   const cell = ms[0]!.args[0]!;
   assert.equal(cell.label, "Which cell");
   assert.equal((cell as { choices?: Record<string, string> }).choices?.r0c0, "row 1, column 1");
-  const turn = mutatorsOf("cart", "line-q-lenses").find(m => m.id === "rot.turn")!;
-  assert.deepEqual(turn.args.map(a => [a.name, a.label]), [["centre", "Where to pin it"], ["turn", "How far to turn"]]);
+  const add = mutatorsOf("si", "line-q").find(m => m.id === "add")!;
+  assert.deepEqual(add.args.map(a => a.name), ["lens", "at", "k"]);
 });
 test("Grids · beginner deals every grid rule, main part only, on the grid board", async () => {
   const { presetOf } = await import("../../convex/v2/presets.ts");

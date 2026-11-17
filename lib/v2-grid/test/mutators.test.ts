@@ -12,18 +12,6 @@ const run = (mutator: string, args: Record<string, string>, s = B) => {
 };
 const near = (a: number, b: number) => Math.abs(a - b) < 0.01;
 
-test("cells.add adds to one cell and pays its size times a unit fee, plus half the growth", () => {
-  const r = run("cells.add", { cell: "r0c0", k: "2" }) as { rows: string[]; price: { total: number; surcharge: number } };
-  assert.deepEqual(r.rows, ["2120", "3001", "0000", "9000"]);
-  assert.ok(near(r.price.surcharge, 1));
-  // which (log2 12) and the cell (4 bits) are o; k = 2 is twice a unit move's whole fee rate(o) (far moves are dear).
-  const rate = amountCode(whichBits(grid4, "cells.add") + 4, 1, false).rate;
-  assert.ok(near(r.price.total, 2 * rate + 1), String(r.price.total));
-  assert.ok(rate > whichBits(grid4, "cells.add") + 4 + 1 && rate < whichBits(grid4, "cells.add") + 4 + 1.01, String(rate));
-  assert.ok(isInvalid(run("cells.add", { cell: "r3c0", k: "1" })), "past the cap");
-  assert.ok(isInvalid(run("cells.add", { cell: "r0c0", k: "-1" })), "below 0");
-});
-
 test("cells.swap swaps two cells at no energy", () => {
   const r = run("cells.swap", { a: "r0c1", b: "r3c0" }) as { rows: string[]; price: { surcharge: number } };
   assert.deepEqual(r.rows, ["0920", "3001", "0000", "1000"]);

@@ -1,16 +1,15 @@
 /**
- * The act charge (spec §6.1; docs/energy-model.md §2):
+ * The act charge (owner, 17 Nov: energy IS bits):
  *
- *   charge = R/κ + (committed ? W + β·W² : 0)
+ *   charge = R/κ + (committed ? W : 0)
  *
- * R is the bits the act read (the offer's bits plus its queries'), W the sum of its calls' prices. κ and β are economy
- * constants, not room settings: reads are κ times cheaper than changes, and a radical act costs superlinearly.
+ * R is the bits the act read (the offer's bits plus its queries'), W the turn's price in bits (v2-core surprise.ts:
+ * its mutations' naming bits plus the surprise of its overall change). Big steps cost super-linearly through the
+ * surprise, not through a surcharge.
  */
 
 /** Reads are this many times cheaper than changes (docs/energy-model.md §2.1). */
 export const KAPPA = 32;
-/** The superlinear surcharge on a change of W bits: β·W² (docs/energy-model.md §4.3). */
-export const BETA = 0.05;
 /** Energy bits charged per bit read: 1/κ. */
 export const READ_PRICE = 1 / KAPPA;
 
@@ -19,10 +18,9 @@ function bits(value: number, what: string): number {
   return value;
 }
 
-/** What a committed change costs: W + β·W², W the sum of the calls' prices. */
+/** What a committed change costs: W, the sum of the turn's prices, in bits. */
 export function changeCharge(callBits: readonly number[]): number {
-  const w = callBits.reduce((sum, b) => sum + bits(b, "call price"), 0);
-  return w + BETA * w * w;
+  return callBits.reduce((sum, b) => sum + bits(b, "call price"), 0);
 }
 
 /** What reading `readBits` bits costs: R/κ. */

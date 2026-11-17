@@ -12,26 +12,6 @@ import { mc } from "./helpers.ts";
 const BIG = 10n ** 30n + 7n;
 const state = (a: bigint, b: bigint, c: bigint): LineState => ({ lines: [normalise(a, b, c) as Line] });
 
-test("a line past 10^6 is on the board, read at its φ, and reached by an ordinary call priced by φ", () => {
-  for (const v of [lineZ, lineQ]) {
-    const s = state(-3n, 1n, -BIG);   // y = 3x + 10^30 + 7
-    assert.ok(!isInvalid(lineType.canonical(s, v)), `${v.id}: accepted`);
-    assert.deepEqual(lineType.decode(lineType.encode(s)), s);
-    const phi = lineType.readLength(s, v);
-    const want = v === lineZ ? mixedIntBits(3n) + mixedIntBits(BIG) : LINE_Q_CODES.a.bits(-3n) + LINE_Q_CODES.b.bits(1n) + LINE_Q_CODES.c.bits(-BIG);
-    assert.equal(phi, want);
-    assert.ok(phi > lineType.readLength(mc(3, 1_000_000), v), "bigger numbers are dearer, never refused");
-  }
-  // Stretching y = 1000x + 1000 by 10^4 lands past the old box: allowed, and its fee includes φ's rise.
-  const from = mc(1000, 1000);
-  const r = applyCall(lineType, lineZ, from, { mutator: "mach.stretch", site: 0, args: { f: "10000" } });
-  assert.ok(!isInvalid(r), isInvalid(r) ? r.invalid : "");
-  if (!isInvalid(r)) {
-    assert.deepEqual(r.result, mc(10_000_000, 10_000_000));
-    assert.ok(r.price.total >= lineType.readLength(r.result, lineZ) - lineType.readLength(from, lineZ));
-  }
-});
-
 test("every family and tie-breaker evaluates huge lines quickly (bounded trial division, coin and prime windows)", () => {
   const lines = [
     state(-3n, 1n, -BIG), state(-BIG, 1n, -5n), state(-BIG, 1n, -BIG - 2n), state(-(2n ** 100n), 1n, 6n), state(-2n, 1n, -(10n ** 200n + 1n)),

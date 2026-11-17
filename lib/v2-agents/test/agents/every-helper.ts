@@ -8,7 +8,7 @@ function agent(offer: Offer) {
   const seen = [
     g.family, g.card.length > 0 ? "card" : "", before.bits === null ? "no bits" : "bits", String(before.layers.length), Q.toString(before.main), before.tiebreak === null ? "none" : "some",
     Q.toString(t3), area.undefined ? "no triangle" : Q.toString(area),
-    String(energy(offer)), String(price(offer, move("si.shift", { k: 0 })) === null),
+    String(energy(offer)), String(price(offer, move("add", { lens: "mc", at: 3, k: 0 })) === null),
     String(prime(7)), String(prime(Q.of(9, 1))), String(prime(Q.of(1, 2))), String(square(49)), String(square(50)),
     String(near(Q.of(-7, 2), prime)), String(near(Q.of(10), square)),
     String(prime(2n ** 61n - 1n)), String(prime(2n ** 61n + 1n)), String(prime("7")), String(prime(true)),
@@ -16,6 +16,6 @@ function agent(offer: Offer) {
     String(near(-20000, prime)), String(near(200000000, square)), String(near(Q.of(-3, 2), square)),
     String(near(25, prime, 3)), String(near(8, prime, 3)), String(near(Q.of(-40), prime, 1)), String(near(Q.of(39, 2), prime, 9)), String(near(10, n => n % 2 === 1, 7)),
   ];
-  const plan = cheapest(offer, [[move("si.shift", { k: 2 }), move("si.shift", { k: -1 })], move("si.shift", { k: 1 }), move("nope", {})]);
+  const plan = cheapest(offer, [[move("add", { lens: "mc", at: 3, k: 2 }), move("add", { lens: "mc", at: 3, k: -1 })], move("add", { lens: "mc", at: 3, k: 1 }), move("nope", {})]);
   return [...(plan ?? []), move("probe", { r: seen.join("|") })];
 }

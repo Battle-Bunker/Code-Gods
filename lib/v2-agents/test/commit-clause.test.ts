@@ -18,11 +18,11 @@ const q = (n: number) => Qn.q(n);
 const rule = { family: "prime-hug", params: { suffix: "1" }, tieBreaker: null };
 const otherRule = { family: "multiples", params: { k: 3 }, tieBreaker: null };
 const values = undefined, others = [{ rule: otherRule }];
-const state = { lines: [fromMC(q(11), q(80))] };   // y = 11x + 80: 81 = 3⁴ is one shift up
-const shift = (k: number) => ({ lines: [fromMC(q(11), q(80 + k))] });
+const state = { lines: [fromMC(q(11), q(81))] };   // y = 11x + 81
+const shift = (k: number) => ({ lines: [fromMC(q(11), q(81 + k))] });
 const source = {
-  typescript: (k: number) => `function agent(offer) { return onlyIfBetter([move("si.shift", { k: ${k} })]); }`,
-  python: (k: number) => `def agent(offer):\n    return only_if_better([move("si.shift", k=${k})])\n`,
+  typescript: (k: number) => `function agent(offer) { return onlyIfBetter([move("add", { lens: "mc", at: 3, k: ${k} })]); }`,
+  python: (k: number) => `def agent(offer):\n    return only_if_better([move("add", lens="mc", at=3, k=${k})])\n`,
 };
 const host = (disclosed?: (e: string) => number) =>
   new EngineHost({ type: lineType, variant: lineQ, state, rule, energy: 100, values, others, energySeed: "7", ...(disclosed ? { disclosed } : {}) });
@@ -35,7 +35,9 @@ const act = (language: "typescript" | "python", k: number, extra: { commitClause
 
 // One shift raises the player's points and the other lowers them (found, not assumed).
 const points = (s: typeof state, disclosed?: (e: string) => number) => host(disclosed).payoffAt(s)!.points;
-const [up, down] = [1, -1].sort((a, b) => points(shift(b)) - points(shift(a)));
+// (Searched over small shifts, so a change in the energy estimate moves the pick rather than breaking the test.)
+const KS = [1, -1, 2, -2, 3, -3];
+const up = KS.find(k => points(shift(k)) > points(state)), down = KS.find(k => points(shift(k)) < points(state));
 
 test("the payoff the clause decides on: own bits exact, the others' sum as disclosed, points own × max(0, others)", () => {
   const h = host(), p = h.payoffAt(state)!;
@@ -98,8 +100,8 @@ for (const language of ["typescript", "python"] as const) {
   });
   test(`${language}: asking othersAfter on the plan first, the clause charges nothing more for it`, async () => {
     const src = language === "typescript"
-      ? `function agent(offer) { const plan = [move("si.shift", { k: ${up} })]; offer.othersAfter(plan); return onlyIfBetter(plan); }`
-      : `def agent(offer):\n    plan = [move("si.shift", k=${up})]\n    offer.others_after(plan)\n    return only_if_better(plan)\n`;
+      ? `function agent(offer) { const plan = [move("add", { lens: "mc", at: 3, k: ${up} })]; offer.othersAfter(plan); return onlyIfBetter(plan); }`
+      : `def agent(offer):\n    plan = [move("add", lens="mc", at=3, k=${up})]\n    offer.others_after(plan)\n    return only_if_better(plan)\n`;
     const asked = await run(src), plain = await act(language, up!, { commitClause: true });
     assert.equal(asked.record.outcome, "committed");
     assert.ok(Math.abs(asked.record.readBits - plain.record.readBits) < 1e-9, `${asked.record.readBits} against ${plain.record.readBits}`);

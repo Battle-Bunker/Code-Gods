@@ -28,18 +28,18 @@ test("a view costs its coordinates once; repeats and derived elements are free; 
 test("a quote of an unread state charges the read of its first mutator's representation, once", () => {
   const host = new FakeHost({ line: { m: 1, c: 5 }, rule: { family: "m-meets-c", params: {} } });
   const q = ok(host.handle({ op: "quote", calls: [{ mutator: "seq.step", site: 0, args: { k: "2" } }, { mutator: "si.shift", site: 0, args: { k: "-1" } }] }, ctx));
-  assert.deepEqual(q.result, { valid: true, bits: [6, 4], total: 10, charge: 10 + 0.05 * 100 });
+  assert.deepEqual(q.result, { valid: true, bits: [6, 4], total: 10, charge: 10 });
   assert.equal(q.bits, 12, "seq read in full");
   assert.equal(ok(host.handle({ op: "quote", calls: [] }, ctx)).bits, 0);
   const bad = ok(host.handle({ op: "quote", calls: [{ mutator: "si.tilt", site: 0, args: { k: "1/2" } }] }, ctx));
   assert.deepEqual(bad.result, { valid: false, reason: "si.tilt: k must be a nonzero integer", bits: [], total: 0, charge: 0 });
 });
 
-test("settle applies the calls in order and charges R/κ + W + βW²; an invalid call fails the whole act", () => {
+test("settle applies the calls in order and charges R/κ + W; an invalid call fails the whole act", () => {
   const host = new FakeHost({ line: { m: 1, c: 5 }, rule: { family: "m-meets-c", params: {} } });
   host.handle({ op: "view", rep: "si" }, ctx);
   const done = host.settle('[{"mutator":"seq.step","site":0,"args":{"k":"2"}}]');
-  assert.deepEqual(done, { outcome: "committed", prices: [6], total: 6, readBits: 12, charge: 12 / 32 + 6 + 0.05 * 36, state: { m: "3", c: "3" } });
+  assert.deepEqual(done, { outcome: "committed", prices: [6], total: 6, readBits: 12, charge: 12 / 32 + 6, state: { m: "3", c: "3" } });
   const failed = new FakeHost({ line: { m: 1, c: 5 }, rule: { family: "m-meets-c", params: {} } }).settle('[{"mutator":"si.tilt","site":0,"args":{"k":"0"}}]');
   assert.equal(failed.outcome, "failed");
   assert.deepEqual(failed.state, { m: "1", c: "5" });

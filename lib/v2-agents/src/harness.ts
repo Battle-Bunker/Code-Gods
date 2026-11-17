@@ -165,7 +165,7 @@ export async function runHarness<S>(boxes: Sandboxes, input: HarnessInput<S>): P
       // The mover's own move starts a new gain, or ends the old one (a drop it made itself is not a tug-of-war).
       if (after[i]! > before[i]!) gains[object]!.set(i, { charge: record.charge, pointsAfter: after[i]! }); else gains[object]!.delete(i);
       const change = record.charge - record.readBits / SPEC_ECONOMY.kappa;
-      if (record.changeBits > 0) for (const c of record.calls) add(s.changes, c.rep, change * c.price.total / record.changeBits);
+      if (record.changeBits > 0) { const named = record.calls.reduce((t, c) => t + c.price.total, 0); for (const c of record.calls) add(s.changes, c.rep, named > 0 ? change * c.price.total / named : change / record.calls.length); }   // the turn's surprise shared like its naming bits
     }
   }
 

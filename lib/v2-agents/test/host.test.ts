@@ -59,19 +59,19 @@ test("myScore charges the rule's views and reports each layer; myRule and budget
   assert.deepEqual(ask(alone, { op: "myScore" }).result.score, s.result.score, "tieBreaker null: the utility alone");
 });
 
-test("the first quote charges the first mutator's view; the price is v2-core's, the charge W + βW²", () => {
+test("the first quote charges the first mutator's view; the price is v2-core's, the charge W (energy is bits)", () => {
   const h = host();
-  const calls = [{ mutator: "si.shift", site: 0, args: { k: "-1" } }];
+  const calls = [{ mutator: "add", site: 0, args: { lens: "mc", at: "3", k: "-1" } }];
   const first = ask(h, { op: "quote", calls });
   assert.equal(first.bits, PHI);
   const applied = applyCalls(lineType, lineZ, state, calls);
   assert.ok(!isInvalid(applied));
   assert.deepEqual(first.result.bits, applied.prices.map(p => p.total));
-  assert.equal(first.result.charge, applied.total + SPEC_ECONOMY.beta * applied.total ** 2);
+  assert.equal(first.result.charge, applied.total);
   assert.equal(ask(h, { op: "quote", calls }).bits, 0);
-  const bad = ask(h, { op: "quote", calls: [{ mutator: "si.shift", site: 0, args: { k: "0" } }] });
+  const bad = ask(h, { op: "quote", calls: [{ mutator: "add", site: 0, args: { lens: "mc", at: "3", k: "0" } }] });
   assert.equal(bad.result.valid, false);
-  assert.match(bad.result.reason, /k/);
+  assert.match(bad.result.reason, /adding 0/);
 });
 
 test("bad requests are host errors, not exceptions", () => {
@@ -85,15 +85,15 @@ test("bad requests are host errors, not exceptions", () => {
 const act = async (source: string, language: "typescript" | "python" = "typescript", liveObjects = 8) =>
   runAct(await boxes.get(language), { type: lineType, variant: lineZ, state, rule, program: { language, source }, seed: "1", energy: 50, liveObjects });
 
-test("a committed act is charged R/κ + W + βW², the offer included in R", async () => {
-  const { record, state: after } = await act(`function agent(o) { look(o, "si"); return [move("si.shift", { k: -1 })]; }`);
+test("a committed act is charged R/κ + W, the offer included in R", async () => {
+  const { record, state: after } = await act(`function agent(o) { look(o, "si"); return [move("add", { lens: "mc", at: 3, k: -1 })]; }`);
   assert.equal(record.outcome, "committed");
   assert.equal(record.offerBits, 3);
   assert.equal(record.readBits, PHI + 3);
   assert.deepEqual(record.readsByRep, { si: PHI, offer: 3 });
   const w = record.calls[0]!.price.total;
-  assert.equal(record.changeBits, w);
-  assert.equal(record.charge, (PHI + 3) / 32 + w + 0.05 * w * w);
+  assert.ok(record.changeBits > w, "the turn's surprise is added to its naming bits");
+  assert.equal(record.charge, (PHI + 3) / 32 + record.changeBits);
   assert.equal(lineType.encode(after), lineType.encode({ lines: [fromMC(q(2), q(2))] }));
   assert.equal(record.after, lineType.encode(after));
 });
@@ -102,9 +102,9 @@ test("skips, invalid calls and broken programs change nothing and are charged th
   const skip = await act(`def agent(offer):\n    look(offer, "si")\n    return None\n`, "python");
   assert.equal(skip.record.outcome, "skipped");
   assert.equal(skip.record.charge, (PHI + 3) / 32);
-  const invalid = await act(`function agent(o) { look(o, "si"); return [move("si.shift", { k: 0 })]; }`);
+  const invalid = await act(`function agent(o) { look(o, "si"); return [move("add", { lens: "mc", at: 3, k: 0 })]; }`);
   assert.equal(invalid.record.outcome, "failed");
-  assert.match(invalid.record.reason!, /k/);
+  assert.match(invalid.record.reason!, /adding 0/);
   assert.equal(invalid.record.charge, (PHI + 3) / 32);
   assert.equal(invalid.state, state);
   const broken = await act(`function agent(o) { look(o, "si"); throw new Error("oops"); }`);
@@ -119,7 +119,7 @@ test("skips, invalid calls and broken programs change nothing and are charged th
 test("unique objects: a plan onto a state another object holds is not allowed, so a quote refuses it", () => {
   const at = { lines: [fromMC(q(2), q(3))] }, held = lineType.encode({ lines: [fromMC(q(2), q(4))] });
   const host = new EngineHost({ type: lineType, variant: lineZ, state: at, rule: { family: "power-hug", params: { k: 3 } }, energy: 10, occupied: e => e === held });
-  const up = host.price([{ mutator: "si.shift", site: 0, args: { k: "1" } }]), down = host.price([{ mutator: "si.shift", site: 0, args: { k: "-1" } }]);
+  const up = host.price([{ mutator: "add", site: 0, args: { lens: "mc", at: "3", k: "1" } }]), down = host.price([{ mutator: "add", site: 0, args: { lens: "mc", at: "3", k: "-1" } }]);
   assert.deepEqual([up.valid, up.valid ? "" : up.reason], [false, "another object is already in that state"]);
   assert.equal(down.valid, true);
 });

@@ -17,14 +17,14 @@ const host = (first: RuleRef, second: RuleRef) => new EngineHost({ type: lineTyp
 
 const requests: HostRequest[] = [
   { op: "myRule" }, { op: "myScore" }, { op: "budget" }, { op: "worth" }, { op: "recent" },
-  { op: "othersAfter", calls: [{ mutator: "si.shift", site: 0, args: { k: "1" } }] },
-  { op: "othersAfter", calls: [{ mutator: "si.tilt", site: 0, args: { k: "3" } }, { mutator: "si.shift", site: 0, args: { k: "-2" } }] },
+  { op: "othersAfter", calls: [{ mutator: "add", site: 0, args: { lens: "mc", at: "3", k: "1" } }] },
+  { op: "othersAfter", calls: [{ mutator: "add", site: 0, args: { lens: "mc", at: "1", k: "3" } }, { mutator: "add", site: 0, args: { lens: "mc", at: "3", k: "-2" } }] },
   { op: "othersAfter", calls: [{ mutator: "no.such", site: 0, args: {} }] },
   { op: "othersAfter", calls: "nonsense" },
   { op: "othersAfter" },
   { op: "rarity", score: null },
   { op: "view", rep: "si" },
-  { op: "quote", calls: [{ mutator: "si.shift", site: 0, args: { k: "1" } }] },
+  { op: "quote", calls: [{ mutator: "add", site: 0, args: { lens: "mc", at: "3", k: "1" } }] },
 ] as never;
 
 test("agent code cannot tell apart two opponents whose rules differ but whose totals agree", () => {
