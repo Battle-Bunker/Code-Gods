@@ -182,9 +182,11 @@ async function endedGame(page: Page, preset: string, noun: string) {
   // The leaderboard keeps its race chart; the final table is Results' (one table, not three: persona walk, round 5).
   const race = await open(page, "race");
   await race.getByTestId("race-chart").waitFor({ timeout: 15_000 });
-  await race.getByTestId("race-ended-note").waitFor();
+  // In the replay the leaderboard is the standings at the playhead (v1's score chart); at the end, the final ones.
+  await race.getByTestId("leaderboard").waitFor({ timeout: 15_000 });
   ok("race");
-  for (const pane of ["points-over-time", "others-care", "rules", "overview", "assistant", "my-panels"]) {
+  // "Where am I" (the next step in a running game) has nothing to say in a replay, so the pane menu does not offer it.
+  for (const pane of ["points-over-time", "others-care", "rules", "assistant", "my-panels"]) {
     const s = await open(page, pane);
     await page.waitForTimeout(300);
     assert.ok((await s.innerText()).trim().length > 20, `${label}: ${pane} has content after the end`);
