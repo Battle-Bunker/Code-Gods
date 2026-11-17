@@ -70,7 +70,9 @@ export function nearbyPrimes(x: Q): bigint[] {
 export function isqrt(n: bigint): bigint {
   if (n < 0n) throw new RangeError("isqrt of a negative number");
   if (n < 2n) return n;
-  let x = 1n << BigInt(Math.ceil(n.toString(2).length / 2));
+  // A start from the float square root of the top 52 bits, just above the root, then Newton (one or two steps).
+  const L = n.toString(16).length * 4, sh = Math.max(0, L - 52) & ~1;
+  let x = (BigInt(Math.ceil(Math.sqrt(Number(n >> BigInt(sh))))) + 1n) << BigInt(sh / 2);
   for (;;) {
     const y = (x + n / x) >> 1n;
     if (y >= x) return x;

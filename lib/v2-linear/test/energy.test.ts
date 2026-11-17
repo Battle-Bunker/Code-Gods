@@ -64,9 +64,11 @@ test("the estimator's work budget: past it each start costs its upper bound (exa
   const ring = dynamicFamilies.find(f => f.id === "ring")!;
   const rule = lineRule(ring.dynamic!, ring.dealable(lineQ)[0]);
   const s = fromMC(q(3n, 2n), q(-41n, 6n));
-  const full = estimateLine(s, rule, lineQ, { seed: "w" });
+  // A generous budget: nothing is cut (the beginner budget cuts Ring's own search on most starts since 17 Nov, and says so).
+  const roomy = withPhysics(lineQ, { ...LINES_BEGINNER_PHYSICS, estimatorWork: 1_000_000 });
+  const full = estimateLine(s, rule, roomy, { seed: "w" });
   assert.equal(full.bound, false);
-  assert.ok(full.work <= LINES_BEGINNER_PHYSICS.estimatorWork);
+  assert.ok(estimateLine(s, rule, lineQ, { seed: "w" }).work <= LINES_BEGINNER_PHYSICS.estimatorWork + 1e-9);
   // A budget of one: only the state itself is scored; every start costs the price of reaching exactly it.
   const tiny = withPhysics(lineQ, { ...LINES_BEGINNER_PHYSICS, estimatorWork: 1 });
   const cut = estimateLine(s, rule, tiny, { seed: "w" });

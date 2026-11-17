@@ -111,6 +111,58 @@ Bearing 10, Golden Path 5, Ring 5 and 10, Archimedes 5, Hensel 5 and 10, Whole S
 small-line gap is not a missing heuristic: on a small line the larger search finds many distinct cheap targets and the
 soft minimum sums them. Without these fixes the test fails (Corner, Ring, Whole Stair, Stepping Coefficients).
 
+## Time bounded by the work budget (17 Nov, after #1222)
+
+The coordinator: an estimate runs inside a commit's mutation (1 s limit; the energy-cost gate fails at 600 ms), so no
+estimate may take more than about 50 ms in Node at any size, and every rule's work, its own search included, must count
+against the work budget. Before this, the climbs were bounded but the rules' searches were not: at 40 bits Whole Stair
+took 0.8 s an estimate (816 ms of it its search), Ring 0.3 s, Corner and Stepping Coefficients 0.16 s.
+
+What changed (built):
+- **A search meter.** Each utility a rule's search scores costs a unit; the estimator fills the meter per start with half
+  that start's share of the budget (the rest prices the search's targets and runs the climbs) and adds what the search
+  spent to the start's work. Once empty, utilities read worst, the searches stop, and the estimate is flagged a bound.
+  The searches try their cheapest moves first, so a cut drops the dear ones.
+- **Work by size.** A state costs its largest coefficient's binary length over 80 (at least 1) against the budget, and a
+  search's try the same: a 40-bit line's state cost about three times a 5-bit one's in time. Not rounded: a rounded
+  cost halved the work at a size threshold and with it the accuracy (Archimedes at 40 bits went 1.3 → 27 bits over).
+- **A candidate that runs out prices as worst** instead of ending its start (the start keeps its direct turn).
+- **Whole Stair's slowness, the cause:** its Pythagorean search rebuilt the list of every triple below u = 400 (tens of
+  thousands) and scored each, on every call (70 ms a start). The list is now built once per n, sorted by ratio, and
+  searched outwards from the start's gradient.
+- **Rules reading a, b, c** (Ring, Stepping Coefficients) score straight from the line's own a, b, c (`uABC`): the round
+  trip through two fractions cost four gcds a state (half of Ring's time). isqrt starts from a float estimate.
+- Ring's candidates keep the one-number scan only; Stepping Coefficients' lens moves use the intercepts lens only (the
+  area lens's moves cost most of its time).
+
+Per rule and size (seen narrowly: the probe's states, Node on this container, timings vary about ±20 % run to run):
+
+| rule | ms an estimate, 5 / 10 / 20 / 40 bits | before (#1222) | live over the larger search, 5 / 10 / 20 / 40 | before (#1222) |
+|---|---|---|---|---|
+| Bearing | 33 / 30 / 26 / 38 | 33 / 36 / 38 / 47 | 1.8 / 4.9 / 2.8 / 0.6 | 1.8 / 4.7 / 2.8 / 0.6 |
+| Golden Path | 12 / 14 / 17 / 25 | 15 / 17 / 23 / 27 | 3.9 / 0.5 / 0.1 / 1.3 | 3.9 / 0.5 / 0.1 / 1.3 |
+| Ring | 26 / 28 / 60 / 96 | 46 / 56 / 101 / 343 | 5.6 / 5.1 / 3.2 / 8.9 | 4.9 / 3.4 / -0.1 / 2.3 |
+| Archimedes | 20 / 21 / 22 / 36 | 20 / 22 / 27 / 38 | 3.8 / 1.9 / 0.7 / 1.3 | 3.8 / 1.9 / 0.7 / 1.3 |
+| Hensel | 11 / 20 / 23 / 29 | 11 / 19 / 20 / 23 | 3.4 / 4.5 / 1.6 / 0.0 | 3.4 / 4.5 / 1.6 / 0.0 |
+| Whole Stair | 38 / 26 / 43 / 55 | 56 / 120 / 808 / 932 | 5.1 / 10.2 / 9.4 / 2.7 | 1.2 / 7.1 / 1.1 / 1.2 |
+| Corner | 28 / 27 / 36 / 55 | 56 / 79 / 89 / 145 | 1.5 / 3.0 / 10.2 / 1.8 | 1.4 / 1.2 / 2.7 / -3.0 |
+| Long Run | 4 / 10 / 18 / 29 | 3 / 8 / 17 / 29 | 0.6 / 2.6 / 0.0 / 1.9 | 0.6 / 2.6 / 0.0 / 1.9 |
+| Prime Balance | 23 / 24 / 25 / 39 | 24 / 30 / 27 / 44 | 1.1 / 0.7 / 0.9 / 1.4 | 1.1 / 0.7 / 0.9 / 1.4 |
+| Recurrence Pair | 17 / 23 / 23 / 23 | 16 / 22 / 22 / 25 | 1.2 / 0.4 / 0.6 / 0.8 | 1.2 / 0.4 / 0.6 / 0.8 |
+| Unit Fraction | 14 / 26 / 39 / 55 | 13 / 24 / 35 / 56 | 1.2 / 1.4 / 1.7 / 1.8 | 1.2 / 1.4 / 1.7 / 1.8 |
+| Stepping Coefficients | 18 / 24 / 33 / 46 | 28 / 35 / 68 / 141 | 0.1 / 1.1 / -1.8 / 2.7 | 0.1 / 0.5 / -1.8 / 0.9 |
+
+So: every rule is within about 65 ms at every size except Ring (60 ms at 20 bits, about 90 at 40); the Convex
+runtime was not measured (the local engine's watch step fails here downloading its dashboard through the proxy).
+Accuracy gave: Whole Stair 5–10 bits more over at 5–20 bits (its useful search needs about 3,000 tries a start;
+unbounded it is within 1.1–1.4 at 5, 20 and 40 bits but costs 280–310 ms), Corner 8 more at 20 bits, Ring 1–7 more at
+20–40 bits, Stepping Coefficients 2 more at 40; Bearing, Archimedes, Prime Balance, Unit Fraction and the rest unchanged.
+The regression test now also asserts a mean of at most 150 ms an estimate per rule and size (three times the aim, for
+slower CI machines) at 5, 10, 20 and 40 bits, and its accuracy ratchet was moved to these values.
+
+How this could be wrong: timings on one machine under load from other work; 4–8 states per cell; the search meter's
+half share and the 80-bit unit are my choices (cheap to change; neither is a room setting yet: the work budget itself is, estimatorWork).
+
 ## Before and after the fix (seen narrowly)
 
 "Live then" is the live estimate as the probe ran it (before #1218); "live now" the same states and starts rechecked
