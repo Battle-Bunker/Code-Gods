@@ -51,7 +51,7 @@ export function lineRule<P>(rule: DynamicRule<LineState, P>, params: P): LineRul
   const st = (l: Line): LineState => ({ lines: [l] });
   return {
     u: l => rule.u(st(l), params), reads: rule.reads,
-    propose: (x, uStar, r) => rule.searches.flatMap(h => h.propose(st(x), uStar, params, r).map(t => t.lines[0]!)),
+    propose: (x, uStar, r) => (rule.searches ?? []).flatMap(h => h.propose(st(x), uStar, params, r).map(t => t.lines[0]!)),
   };
 }
 

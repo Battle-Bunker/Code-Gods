@@ -113,26 +113,41 @@ however good it is. The floor and heuristics are only what is coded, so a cheape
 ## Grids (17 Nov)
 
 Every grid setup deals nine rules, each ONE pure function from the 4 × 4 board to a real number (lib/v2-grid
-dynamic-families.ts; the old grid families are one line each in old-rule-ideas.md). A board's energy for a rule
-(lib/v2-grid energy.ts, `GRID_K` = 8):
+dynamic-families.ts; the old grid families are one line each in old-rule-ideas.md).
 
-    energy(s) = mean over K boards x from the walk's law of min(direct(x → s), floor(x), heuristics(x))
+### The estimator on the owner's definition of 17 Nov (built; lib/v2-core free-energy.ts, lib/v2-grid energy.ts)
 
-- **Starts**: grids have no sizes, so a start is a board from the walk's law (the owner: "measuring the expected
-  heuristic energy cost of reaching a given utility or higher from a globally random state").
-- **direct**: rewrite x into s cell by cell (each cell's change in the cheapest split into single acts).
-- **floor** (every rule): each single move of the variant: every rearrangement and every amount move by ±1 or ±2.
-- **heuristics**: seven rules are a sum over disjoint groups of cells (rows, columns, corner boxes, diagonals, mirror
-  pairs). For those the estimator lists each group's anchors (the group contents the rule rewards: multiples of k,
-  primes less t, squares plus j, rows adding to T, powers of b, every pair), prices rewriting the group onto each, keeps
-  the Pareto front of price and utility per group, and merges the fronts exactly, so a board's energy is the cheapest
-  combination of group rewrites reaching its utility. Adding Rows solves one row from the other two; Census fixes one
-  surplus cell at a time; Snake lays each of the ten snakes, a cell at a time.
-- This fixes the trial's fault: with only the generic floor the whole-board rewrite bound every good board. Now the
-  heuristics set every sample (seen narrowly: one climbed board per rule, K = 8, the rewrite never the cheapest).
-- **Cost** (seen narrowly): 2–11 ms an estimate in Node; in the Convex runtime a grids-beginner commit took a median
-  229 ms and at most 296 ms, a look at every object at most 239 ms (test/v2-energy-cost.test.ts, one game, four seats,
-  the local backend on this machine).
+The owner: a state's energy for a rule is "the surprise of reaching a value at least this good from a random start that
+is augmented by rule-specific heuristics primarily for performance, in a way that makes evaluated energy less sensitive
+to those particular heuristics".
+
+    energy(s) = mean over starts x of c(x),   c(x) = −log2 Σ over distinct one-turn routes 2^−bits(route)
+
+- **Bits** (built): energy is bits, no factor. A grid has no size, so a turn costs naming bits only: per mutation,
+  which move (log2 12), which cells or lines (log2 of the choices), the amount (v2-core surprise.ts `argBits`: a
+  self-delimiting code and a sign bit, 4 bits for ±1, 8 for ±9) and one "continue" bit. Changing one cell by ±1
+  names 12.6 bits. The direct rewrite and the anchors price a changed cell at the ±1 rate (a cheap floor).
+- **Starts** (built): uniformly random boards, stratified: across the K = 20 starts each cell's digit is a
+  Latin-hypercube draw (each digit twice).
+- **Routes per start** (built), in order of importance: (1) universal, no rule code: the direct turn onto s (rewrite
+  the cells that differ: the ceiling) and a cost-aware greedy climb over every single mutation of the variant (the best
+  utility gain per naming bit, the gain capped at what is still needed, until u ≥ u(s)); (2) the rule's: the separable
+  rules' cheapest group rewrites onto their anchors (a Pareto front per group, merged; up to four boards) and
+  `candidates` (Adding Rows solves a line, Census fixes a surplus cell at a time, Snake lays each of the ten snakes).
+  Distinct routes (by target board) are summed; c(x) = 0 when x already qualifies. The climb runs last and gives up
+  once it is 16 bits dearer than the best route found (it would add under 2^−16).
+- **A candidate only lowers c(x)** (built, tested: test/energy.test.ts): the soft minimum over a larger set of routes.
+- **Spread and time** (seen narrowly: one climbed board per rule, its first dealt parameters, 8 seeds, Node on this
+  machine): repeat sd 2–7% of the energy, mean 3.3%; 12–36 ms an estimate. `Estimate.spread` reports the standard
+  error of the mean over the starts.
+- **Which route wins** (seen narrowly, same boards, K = 20, six seeds): the universal climb is the cheapest route on
+  70–100% of starts for six rules (Census and Snake: all), on 52% for Adding Rows, and on about 30% for Row Multiples
+  and Power Diagonals, where the anchors (whole rows or diagonals onto multiples or powers) win. Climbed boards cost 40–95 bits; random boards 0–10.
+- How this could be wrong: the climb takes one step at a time, so a route that needs a worse board on the way (a row
+  rewritten through a poor middle) is found only by a rule's anchors; the direct turn rewrites cell by cell, so a
+  rearrangement onto s (a swap, a turn) is priced higher than its own naming; K = 20 is still noisy on states whose
+  starts split between "already there" and "far".
+
 - **One-digit boards** (the Seesaw and Mirrormancer bug): each parameter space leaves out the instances whose anchors
   hold a one-digit row, column or box (1111 × d): Row Multiples' k never divides 1111 × d, Prime Columns' 1111 × d + t is
   never prime, Square Boxes' 1111 × d − j is never a square. Tested: no one-digit board comes within 1 of a climbed board
@@ -154,7 +169,7 @@ The design-principles check (design-principles.md, adapted as above; labels as a
 
 | Row | Status |
 |---|---|
-| 1 Unbounded main part | Not possible on a finite board: every utility has a top. Each top is far (seen narrowly: climbed boards cost 130–680 energy against 0–10 for random ones), and the rules' tops disagree (row 6). |
+| 1 Unbounded main part | Not possible on a finite board: every utility has a top. Each top is far (seen narrowly: climbed boards cost 40–95 bits against 0–10 for random ones, 17 Nov estimator), and the rules' tops disagree (row 6). |
 | 2 Climbed all game | Not measured. |
 | 3, 3a Tie-breakers | None by design (decision 50): precision is the 4 log2(1 + distance) term. |
 | 4 Dealable instances | Built: 21 to 112,035 per rule (above); two peers dealt each. |

@@ -15,9 +15,9 @@
  * Gap wants one half of the board d more than the other.
  *
  * A rule whose utility is a sum over disjoint groups of cells (`parts`) gives the estimator its anchors: the group
- * contents worth reaching (energy.ts combines the cheapest per group). The others give their own searches.
+ * contents worth reaching (energy.ts combines the cheapest per group). The others give their own candidates.
  */
-import { q, ref, type DynamicRule, type Invalid, type ParamSpace, type Rng, type RuleFamily, type Search } from "@workspace/v2-core";
+import { q, ref, type DynamicRule, type Invalid, type ParamSpace, type RuleFamily } from "@workspace/v2-core";
 import { at, cellName, type GridState } from "./grid.ts";
 import { boxes, cols, rows } from "./units.ts";
 
@@ -51,7 +51,8 @@ export interface GridRuleSpec<P> {
   readonly peers: readonly P[];
   u?(cells: readonly number[], p: P, n: number): number;
   readonly parts?: GridParts<P>;
-  readonly searches?: readonly Search<GridState, P>[];
+  /** Boards reachable in one turn from x worth trying for utility uStar (free-energy.ts): the rule's own heuristic. */
+  candidates?(x: GridState, uStar: number, p: P): readonly GridState[];
   /** The cells the views pick out (focus marks), for a rule that reads only some of the board. */
   focus?(n: number, p: P): readonly number[];
 }
@@ -65,7 +66,7 @@ export function dynamicGrid<P>(s: GridRuleSpec<P>): RuleFamily<GridState, P> {
     if (parts) return parts.groups(n, p).reduce((t, g) => t + parts.part(g.map(i => cells[i]!), p), 0);
     return s.u!(cells, p, n);
   };
-  const dynamic: GridDynamicRule<P> = { reads: ["cells"], u: (st, p) => u(st.cells, p), searches: s.searches ?? [], ...(parts ? { parts } : {}) };
+  const dynamic: GridDynamicRule<P> = { reads: ["cells"], u: (st, p) => u(st.cells, p), ...(s.candidates ? { candidates: s.candidates } : {}), ...(parts ? { parts } : {}) };
   return {
     id: s.id, title: s.title, card: p => s.card(p), params: [], dealable: () => s.peers, depends: [...new Set(["cells", s.rep])],
     main: { id: "utility", title: s.goal, rep: s.rep, sense: "max", sentence: p => s.card(p) },
@@ -266,7 +267,8 @@ const addingSpace: ParamSpace<AddingParams> = {
   },
   label: p => `${p.by} ${p.a + 1} ${p.b + 1} ${p.c + 1}`,
 };
-const linesBy = (n: number, by: "rows" | "columns") => (by === "rows" ? rows(n) : cols(n));
+const LINES = new Map<string, number[][]>();
+const linesBy = (n: number, by: "rows" | "columns") => { const k = `${n}${by}`; let l = LINES.get(k); if (!l) LINES.set(k, l = by === "rows" ? rows(n) : cols(n)); return l; };
 const readLine = (cells: readonly number[], g: readonly number[]) => numOf(g.map(i => cells[i]!));
 const withLine = (cells: readonly number[], g: readonly number[], v: number): number[] | null => {
   if (v < 0 || v >= 10 ** g.length || !Number.isInteger(v)) return null;
@@ -287,27 +289,24 @@ export const addingRows = dynamicGrid<AddingParams>({
     const L = linesBy(n, by), A = readLine(cells, L[a]!), B = readLine(cells, L[b]!), C = readLine(cells, L[c]!);
     return log2(1 + C) - 4 * log2(1 + abs(A + B - C));
   },
-  searches: [{
-    id: "solve",
-    propose: (st, _u, { a, b, c, by }) => {
-      const n = sideOf(st.cells), L = linesBy(n, by), [ga, gb, gc] = [L[a]!, L[b]!, L[c]!], x = st.cells;
-      const A = readLine(x, ga), B = readLine(x, gb), C = readLine(x, gc), top = 10 ** n - 1;
-      // Targets for line c: its value now, the sum now, and each one-digit raise of either; then solve b (or a) for it.
-      const Cs = new Set([C, A + B]);
-      for (const base of [C, A + B]) for (let k = 0; k < n; k++) for (let dgt = 0; dgt < 10; dgt++) {
-        const ds = digitsOf(Math.min(base, top), n); ds[k] = dgt; Cs.add(numOf(ds));
-      }
-      Cs.add(top);
-      const out: GridState[] = [];
-      for (const V of Cs) {
-        if (V > top) continue;
-        const withC = withLine(x, gc, V)!;
-        for (const [g, other] of [[gb, A], [ga, B]] as const) { const t = withLine(withC, g, V - other); if (t) out.push({ cells: t }); }
-        if (V === A + B) out.push({ cells: withC });
-      }
-      return out;
-    },
-  }],
+  candidates: (st, _u, { a, b, c, by }) => {
+    const n = sideOf(st.cells), L = linesBy(n, by), [ga, gb, gc] = [L[a]!, L[b]!, L[c]!], x = st.cells;
+    const A = readLine(x, ga), B = readLine(x, gb), C = readLine(x, gc), top = 10 ** n - 1;
+    // Targets for line c: its value now, the sum now, and each one-digit raise of either; then solve b (or a) for it.
+    const Cs = new Set([C, A + B]);
+    for (const base of [C, A + B]) for (let k = 0; k < n; k++) for (let dgt = 0; dgt < 10; dgt++) {
+      const ds = digitsOf(Math.min(base, top), n); ds[k] = dgt; Cs.add(numOf(ds));
+    }
+    Cs.add(top);
+    const out: GridState[] = [];
+    for (const V of Cs) {
+      if (V > top) continue;
+      const withC = withLine(x, gc, V)!;
+      for (const [g, other] of [[gb, A], [ga, B]] as const) { const t = withLine(withC, g, V - other); if (t) out.push({ cells: t }); }
+      if (V === A + B) out.push({ cells: withC });
+    }
+    return out;
+  },
 });
 
 // ------------------------------------------------------------------ 8. Census: exactly c_d copies of each digit d
@@ -338,23 +337,20 @@ export const census = dynamicGrid<{ counts: string }>({
   space: censusSpace,
   peers: [{ counts: "2121212122" }, { counts: "3011302033" }],
   u: (cells, { counts }) => { const c = countsOf(cells); return -c.reduce((t, k, d) => t + abs(k - Number(counts[d])), 0); },
-  searches: [{
-    id: "match",
-    // Fix the board one cell at a time: a surplus digit's cell becomes the nearest missing digit, cheapest first.
-    propose: (st, _u, { counts }) => {
-      const cur = st.cells.slice(), want = [...counts].map(Number), out: GridState[] = [];
-      for (let step = 0; step < 16; step++) {
-        const have = countsOf(cur), missing = want.flatMap((w, d) => (have[d]! < w ? [d] : []));
-        if (!missing.length) break;
-        let best: [number, number] | null = null, bestCost = Infinity;
-        cur.forEach((x, i) => { if (have[x]! > want[x]!) for (const d of missing) if (abs(d - x) < bestCost) { bestCost = abs(d - x); best = [i, d]; } });
-        if (!best) break;
-        cur[best[0]] = best[1];
-        out.push({ cells: cur.slice() });
-      }
-      return out;
-    },
-  }],
+  // Fix the board one cell at a time: a surplus digit's cell becomes the nearest missing digit, cheapest first.
+  candidates: (st, _u, { counts }) => {
+    const cur = st.cells.slice(), want = [...counts].map(Number), out: GridState[] = [];
+    for (let step = 0; step < 16; step++) {
+      const have = countsOf(cur), missing = want.flatMap((w, d) => (have[d]! < w ? [d] : []));
+      if (!missing.length) break;
+      let best: [number, number] | null = null, bestCost = Infinity;
+      cur.forEach((x, i) => { if (have[x]! > want[x]!) for (const d of missing) if (abs(d - x) < bestCost) { bestCost = abs(d - x); best = [i, d]; } });
+      if (!best) break;
+      cur[best[0]] = best[1];
+      out.push({ cells: cur.slice() });
+    }
+    return out;
+  },
 });
 
 // ------------------------------------------------------------------ 9. Snake: every step along the snake is s (round the clock)
@@ -362,7 +358,14 @@ export const census = dynamicGrid<{ counts: string }>({
 export interface SnakeParams { readonly s: number; readonly start: "top-left" | "top-right" | "bottom-left" | "bottom-right"; readonly by: "rows" | "columns" }
 const STARTS = ["top-left", "top-right", "bottom-left", "bottom-right"] as const;
 /** The snake path: along the first row (or column) from the start corner, back along the next, and so on. */
-export function snakePath(n: number, { start, by }: Pick<SnakeParams, "start" | "by">): number[] {
+const PATHS = new Map<string, number[]>();
+export function snakePath(n: number, p: Pick<SnakeParams, "start" | "by">): number[] {
+  const k = `${n}:${p.start}:${p.by}`;
+  let path = PATHS.get(k);
+  if (!path) PATHS.set(k, path = layPath(n, p));
+  return path;
+}
+function layPath(n: number, { start, by }: Pick<SnakeParams, "start" | "by">): number[] {
   const top = start.startsWith("top"), left = start.endsWith("left"), out: number[] = [];
   // by rows: lanes are rows from the start's row, the first run away from the start's side; by columns the same, turned.
   const [laneFirst, runFirst] = by === "rows" ? [top, left] : [left, top];
@@ -388,25 +391,20 @@ export const snake = dynamicGrid<SnakeParams>({
   space: snakeSpace,
   peers: [{ s: 3, start: "top-left", by: "rows" }, { s: 7, start: "bottom-right", by: "columns" }],
   u: (cells, p, n) => { const path = snakePath(n, p); let t = 0; for (let i = 1; i < path.length; i++) t -= clock(cells[path[i]!]! - cells[path[i - 1]!]! - p.s); return t; },
-  searches: [{
-    id: "lay",
-    // The ten full snakes (one per first number), and each reached a cell at a time, cheapest first.
-    propose: (st, _u, p) => {
-      const n = sideOf(st.cells), path = snakePath(n, p), out: GridState[] = [];
-      for (let c0 = 0; c0 < 10; c0++) {
-        const target = st.cells.slice();
-        path.forEach((i, k) => { target[i] = (c0 + k * p.s) % 10; });
-        const order = path.filter(i => target[i] !== st.cells[i]).sort((i, j) => abs(target[i]! - st.cells[i]!) - abs(target[j]! - st.cells[j]!));
-        const cur = st.cells.slice();
-        for (const i of order) { cur[i] = target[i]!; out.push({ cells: cur.slice() }); }
-      }
-      return out;
-    },
-  }],
+  // The ten full snakes (one per first number), and each reached a cell at a time, cheapest first.
+  candidates: (st, _u, p) => {
+    const n = sideOf(st.cells), path = snakePath(n, p), out: GridState[] = [];
+    for (let c0 = 0; c0 < 10; c0++) {
+      const target = st.cells.slice();
+      path.forEach((i, k) => { target[i] = (c0 + k * p.s) % 10; });
+      const order = path.filter(i => target[i] !== st.cells[i]).sort((i, j) => abs(target[i]! - st.cells[i]!) - abs(target[j]! - st.cells[j]!));
+      const cur = st.cells.slice();
+      for (const i of order) { cur[i] = target[i]!; out.push({ cells: cur.slice() }); }
+    }
+    return out;
+  },
 });
 
 /** The dealt grid rules (every grid setup deals these). */
 export const dynamicGridFamilies = [rowMultiples, primeColumns, squareBoxes, lightRows, mirrorGap, powerDiagonals, addingRows, census, snake] as const;
 export type DynamicGridFamily = (typeof dynamicGridFamilies)[number];
-// Rng is used by the Search contract's signature.
-export type { Rng };
