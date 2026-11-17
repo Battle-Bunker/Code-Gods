@@ -51,3 +51,28 @@ test("the fine-structure rules: a better state costs more, and a same-size start
     assert.ok(deep.samples.filter(x => x.cost === 0).length <= 1, `${F.id}: ${deep.samples.filter(x => x.cost === 0).length} starts already qualify`);
   }
 });
+
+test("the dealt rules are exact far past 2^53 and have no silent size cutoff (17 Nov)", async () => {
+  const { cornerU, wholeStairU, goldenPathU } = await import("../src/candidate-families.ts");
+  const { dynamicFamilies: dealt } = await import("../src/dealt.ts");
+  const { fromMC } = await import("../src/line.ts");
+  const { q: Q } = await import("@workspace/v2-core");
+  const log2Big = (n: bigint) => { const L = n.toString(2).length; return L <= 52 ? Math.log2(Number(n)) : Math.log2(Number(n >> BigInt(L - 52))) + (L - 52); };
+  // Corner: 2·5·top·bottom a square at 10^30 (top = k², bottom = 90 = 2·5·9: A = (30k)²); one more on top is off it.
+  const k = 10n ** 15n + 1n, top = k * k;
+  assert.ok(Math.abs(cornerU(Q(top, 90n), 5) - 0.5 * log2Big(10n * top * 90n)) < 1e-9);
+  assert.ok(cornerU(Q(top + 1n, 90n), 5) < cornerU(Q(top, 90n), 5) - 1);
+  // Whole Stair: a primitive Pythagorean step (u² − v², 2uv) at 10^24 has a whole slanted edge.
+  const u = 10n ** 12n + 1n, v = 2n, rise = u * u - v * v, run = 2n * u * v;
+  assert.ok(Math.abs(wholeStairU(Q(rise, run), 1) - 0.5 * log2Big(rise * rise + run * run)) < 1e-9);
+  assert.ok(wholeStairU(Q(rise + 2n, run), 1) < wholeStairU(Q(rise, run), 1) - 1);
+  // Golden Path: 300 steps of 1s (consecutive Fibonacci numbers) all count.
+  let [a, b] = [1n, 1n];
+  for (let i = 0; i < 300; i++) [a, b] = [b, a + b];
+  assert.ok(goldenPathU(Q(b, a), "1") >= 299);
+  // Stepping Coefficients at 10^20: a, a + 3, a + 6 score their size, not NaN.
+  const step = dealt.find(f => f.id === "stepping-coefficients")!;
+  const A = 10n ** 20n, line = fromMC(Q(-A, A + 3n), Q(-(A + 6n), A + 3n));
+  const us = step.dynamic!.u({ lines: [line] }, { k: 3 });
+  assert.ok(Math.abs(us - log2Big(A + 6n)) < 1e-9, String(us));
+});

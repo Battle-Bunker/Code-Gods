@@ -12,6 +12,7 @@
  */
 import { gcd, q, Qn, type ParamSpace, type Q, type RuleFamily } from "@workspace/v2-core";
 import type { LineState } from "./line.ts";
+import { isqrt } from "./numbers.ts";
 import { continuedFraction, dynamicLine, fromContinued, type LineTarget } from "./dynamic-families.ts";
 
 const log2 = Math.log2, abs = Math.abs;
@@ -190,10 +191,12 @@ export const hensel = dynamicLine<HenselP>({
 
 const SUMS2 = [1, 2, 5, 10, 13];
 export function wholeStairU(m: Q, n: number): number {
-  const p = Number(babs(m.n)), qq = Number(m.d), h2 = p * p + qq * qq;
-  if (p === 0 || h2 > 2 ** 100) return NaN;
-  const c = Math.round(Math.sqrt(h2 / n));
-  return 0.5 * log2(h2) - log2(1 + abs(h2 - n * c * c));
+  // Exact at any size (bigint): the distance from rise² + run² to the nearest n × a square.
+  const p = babs(m.n), qq = m.d, h2 = p * p + qq * qq, N = BigInt(n);
+  if (p === 0n) return NaN;
+  const c0 = isqrt(h2 / N);
+  const dist = [c0, c0 + 1n].map(c => babs(h2 - N * c * c)).reduce((x, y) => (y < x ? y : x));
+  return 0.5 * log2Big(h2) - log2Big(1n + dist);
 }
 /** Primitive Pythagorean (A, B) with hypotenuse below `top` (at most 400², whatever is asked), both orders. */
 function triples(top: number): [number, number][] {
@@ -228,10 +231,11 @@ export const wholeStair = dynamicLine<{ k: number }>({
 
 const SQFREE = [1, 2, 3, 5, 6, 7];
 export function cornerU(m: Q, n: number): number {
-  const A = 2 * n * Number(babs(m.n)) * Number(m.d);
-  if (A === 0 || A > 2 ** 100) return NaN;
-  const s = Math.round(Math.sqrt(A));
-  return 0.5 * log2(A) - log2(1 + abs(A - s * s));
+  // Exact at any size (bigint): the distance from 2n·top·bottom to the nearest square.
+  const A = 2n * BigInt(n) * babs(m.n) * m.d;
+  if (A === 0n) return NaN;
+  const s = isqrt(A), dist = [s, s + 1n].map(r => babs(A - r * r)).reduce((x, y) => (y < x ? y : x));
+  return 0.5 * log2Big(A) - log2Big(1n + dist);
 }
 export const corner = dynamicLine<{ k: number }>({
   id: "corner", title: "Corner", goal: "2n × top × bottom of the gradient a square", reads: ["m"], focus: ["si", "m"],

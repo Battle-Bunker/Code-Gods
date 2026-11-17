@@ -71,7 +71,7 @@ def factors_n(n):
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     t, d, xs = abs(m.numerator), m.denominator, [1, p["k"]]   # the sequence 1, a, …
-    while xs[-1] <= 2 * d + 2 and len(xs) < 400:
+    while xs[-1] <= 2 * d + 2:
         xs.append(p["k"] * xs[-1] + xs[-2])
     n = 0                                             # the term nearest the bottom
     for i in range(1, len(xs) - 1):

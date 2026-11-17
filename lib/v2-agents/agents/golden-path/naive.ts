@@ -33,7 +33,7 @@ function gcdB(a, b) { while (b !== 0n) [a, b] = [b, a % b]; return a; }
 // How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   let n = m.n < 0n ? -m.n : m.n, d = m.d, k = 0, i = 0, on = true;   // the gradient's continued fraction, step by step
-  while (d !== 0n && i < 200) { const a = n / d; if (on && a === BigInt(p.word[i % p.word.length])) k++; else on = false; [n, d] = [d, n % d]; i++; }
+  while (d !== 0n) { const a = n / d; if (on && a === BigInt(p.word[i % p.word.length])) k++; else on = false; [n, d] = [d, n % d]; i++; }
   const main = k;
   // main: leading continued-fraction steps of the gradient following the dealt pattern
   return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order

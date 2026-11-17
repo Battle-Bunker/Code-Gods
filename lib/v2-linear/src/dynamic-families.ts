@@ -10,23 +10,13 @@
  * against Square Triangle (the area |c·X|/2 big). On a, b, c: Stepping Coefficients (big, in steps) against everything
  * that wants a small or simple gradient or intercept. Circle Kiss ties c to m (c² = R²(1 + m²)) and wants fine tilts.
  *
- * Every utility is cheap (a few thousand steps at most) and treats numbers past 10^10 as beyond its reach (NaN, the
- * worst), a bound on the cost of a reading.
+ * Every utility is exact at any size (whole-number arithmetic; a float only for a size or a penalty).
  */
 import { gcd, q, Qn, ref, rng, type DynamicRule, type ElementValue, type ParamSpace, type Q, type Rng, type RuleFamily } from "@workspace/v2-core";
 import type { LineState } from "./line.ts";
 import { drawSuffix, isSuffix } from "./numbers.ts";
 import { fromMC } from "./line.ts";
 
-const LIMIT = 1e10;
-/** Primality of a whole number below LIMIT (trial division: at most 10^5 steps). */
-function isPrimeN(n: number): boolean {
-  if (n < 2 || !Number.isInteger(n)) return false;
-  if (n % 2 === 0) return n === 2;
-  if (n % 3 === 0) return n === 3;
-  for (let i = 5; i * i <= n; i += 6) if (n % i === 0 || n % (i + 2) === 0) return false;
-  return true;
-}
 const num = (v: ElementValue): Q | null => (v.kind === "number" ? v.q : null);
 const abs = Math.abs, log2 = Math.log2, cube = (d: number) => abs(d) * abs(d) * abs(d);
 
@@ -84,39 +74,8 @@ export function dynamicLine<P>(s: DynamicLineSpec<P>): RuleFamily<LineState, P> 
   };
 }
 
-// ------------------------------------------------------------------ number helpers (floats, below LIMIT)
+// ------------------------------------------------------------------ number helpers
 
-const toNum = (v: Q): number => Qn.toNumber(v);
-/** The nearest whole n ≥ 1 to x with ok(n), within `reach` steps of `step` each way (ties: the lower). */
-function nearest(x: number, ok: (n: number) => boolean, from: (x: number) => number = Math.floor, step = 1, reach = 4000): number | null {
-  let f = from(x);
-  while (f < 1) f += step;   // the first candidate at or above 1, keeping the step's alignment
-  let lo: number | null = null, hi: number | null = null;
-  for (let n = f, i = 0; n >= 1 && i < reach; n -= step, i++) if (ok(n)) { lo = n; break; }
-  for (let n = f + step, i = 0; i < reach; n += step, i++) if (ok(n)) { hi = n; break; }
-  if (lo === null) return hi;
-  if (hi === null) return lo;
-  return x - lo <= hi - x ? lo : hi;
-}
-/** The whole numbers ≥ 1 with ok, from x upward and downward, nearest first (at most k). */
-function around(x: number, ok: (n: number) => boolean, k: number, reach = 4000): number[] {
-  const out: number[] = [];
-  for (let n = Math.max(1, Math.ceil(x)), i = 0; i < reach && out.length < k; n++, i++) if (ok(n)) out.push(n);
-  for (let n = Math.max(1, Math.ceil(x) - 1), i = 0; n >= 1 && i < reach && out.length < 2 * k; n--, i++) if (ok(n)) out.push(n);
-  return out;
-}
-/** The numbers ending in the suffix, nearest x: start from the first at or below. */
-const suffixFloor = (suffix: string) => (x: number) => { const mod = 10 ** suffix.length, e = Number(suffix); return Math.floor((x - e) / mod) * mod + e; };
-const primeWith = (suffix: string) => (n: number) => n < LIMIT && n % 10 ** suffix.length === Number(suffix) && isPrimeN(n);
-/** Prime factors with repeats (n < LIMIT). */
-function factors(n: number): number[] {
-  const out: number[] = [];
-  let x = abs(Math.round(n));
-  for (let p = 2; p * p <= x; p++) while (x % p === 0) { out.push(p); x /= p; }
-  if (x > 1) out.push(x);
-  return out;
-}
-const signedQ = (v: number, like: Q) => q(BigInt(Qn.sign(like) < 0 ? -v : v));
 const intRange = (lo: number, hi: number, hint: string, peers: number[]): { space: ParamSpace<{ k: number }>; peers: { k: number }[] } => ({
   peers: peers.map(k => ({ k })),
   space: {
@@ -175,7 +134,7 @@ export const unitFraction = dynamicLine<{ suffix: string }>({
 export function continuedFraction(x: Q): bigint[] {
   let n = babsQ(x.n), d = x.d;
   const out: bigint[] = [];
-  while (d !== 0n && out.length < 200) { out.push(n / d); [n, d] = [d, n % d]; }
+  while (d !== 0n) { out.push(n / d); [n, d] = [d, n % d]; }
   return out;
 }
 /** The value of the continued fraction [a0; a1, …]. */
@@ -193,9 +152,11 @@ function abcOf(m: Q, c: Q): [bigint, bigint, bigint] {
 }
 const babs = (x: bigint) => (x < 0n ? -x : x);
 const stepU = (a: bigint, b: bigint, c: bigint, d: number) => {
-  const top = [a, b, c].reduce((t, x) => (babs(x) > t ? babs(x) : t), 0n);
-  if (top >= BigInt(LIMIT)) return NaN;
-  return log2(Number(top)) - 2 * (abs(Number(b - a) - d) + abs(Number(c - b) - d));
+  // Exact at any size: the size from the bigint, each step's miss as a bigint (a float of it only past 2^53, where the
+  // penalty is already vast).
+  const top = [a, b, c].reduce((t, x) => (babs(x) > t ? babs(x) : t), 0n), D = BigInt(d);
+  if (top === 0n) return NaN;
+  return log2Big(top) - 2 * (Number(babs(b - a - D)) + Number(babs(c - b - D)));
 };
 const stepSpace: ParamSpace<{ k: number }> = {
   size: 60, hint: "d, a whole number from −30 to 30, not 0",
@@ -210,12 +171,13 @@ export const steppingCoefficients = dynamicLine<{ k: number }>({
   u(m, c, { k }) { const [a, b, cc] = abcOf(m, c); return stepU(a, b, cc, k); },
   searches: [{ id: "big-enough-steps", propose: (m, c, uStar, { k }) => {
     // a, a + d, a + 2d with gcd(a, d) = 1 (so they share no factor) and b = a + d > 0, the biggest at least 2^u*.
-    const [a0] = abcOf(m, c), need = Math.ceil(2 ** Math.max(0, uStar) - 1e-9) + 2 * abs(k), out: LineTarget[] = [];
-    for (const base of [Number(babs(a0)), need]) for (const sign of [1, -1]) {
-      for (let a = sign * Math.max(1, base), i = 0; i < 40 && out.length < 4 && abs(a) < LIMIT; a += sign, i++) {
-        const b = a + k, cc = b + k;
-        if (b <= 0 || Number(gcd(BigInt(abs(a)), BigInt(abs(k)))) !== 1 || stepU(BigInt(a), BigInt(b), BigInt(cc), k) < uStar - 1e-9) continue;
-        out.push({ m: q(BigInt(-a), BigInt(b)), c: q(BigInt(-cc), BigInt(b)) });
+    const [a0] = abcOf(m, c), K = BigInt(k), out: LineTarget[] = [];
+    const need = BigInt(Math.ceil(2 ** Math.min(1000, Math.max(0, uStar)) - 1e-9)) + 2n * babs(K);
+    for (const base of [babs(a0), need]) for (const sign of [1n, -1n]) {
+      for (let a = sign * (base > 1n ? base : 1n), i = 0; i < 40 && out.length < 4; a += sign, i++) {
+        const b = a + K, cc = b + K;
+        if (b <= 0n || gcd(babs(a), babs(K)) !== 1n || stepU(a, b, cc, k) < uStar - 1e-9) continue;
+        out.push({ m: q(-a, b), c: q(-cc, b) });
         break;
       }
     }
@@ -264,7 +226,7 @@ export const primeBalance = dynamicLine<{ p: number; q: number }>({
 /** The dealt recurrence x0 = 1, x1 = a, x(n+1) = a·x(n) + x(n−1), up to past `top`. */
 function recurrence(a: number, top: bigint): bigint[] {
   const xs = [1n, BigInt(a)];
-  while (xs[xs.length - 1]! <= top && xs.length < 400) xs.push(BigInt(a) * xs[xs.length - 1]! + xs[xs.length - 2]!);
+  while (xs[xs.length - 1]! <= top) xs.push(BigInt(a) * xs[xs.length - 1]! + xs[xs.length - 2]!);
   return xs;
 }
 /** The index n of the term nearest the gradient's bottom, less how far the bottom and the top are from x(n) and x(n+1). */
