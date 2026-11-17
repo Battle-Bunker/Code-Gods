@@ -6,7 +6,7 @@
  */
 import { summonFirst } from "./first-summon";
 import { useState } from "react";
-import { objectWord, useAgentPrograms, useAgentCount, useGame, useGameScope, useMe, useMyAgents, useMyAgentPages, useAgentEnergy, type Agent } from "@/sdk";
+import { objectWord, useAgentPrograms, useAgentCount, useGame, useGameScope, useMe, useMyAgents, useMyAgentPages, useAgentEnergy, useReplaySource, type Agent } from "@/sdk";
 import { useOpenPane } from "@/dock/open-pane";
 import { AffordanceButton, Tip } from "@/site/components/action";
 import { energyAmount } from "@/core/words";
@@ -126,17 +126,21 @@ export function AgentsPane() {
   const openPane = useOpenPane(header?.phase ?? "planning");
   // A summon already accepted counts even while the list lags it (ux 1.8): never offer the first summon again.
   const count = useAgentCount();
+  const replay = useReplaySource();
   if (!header) return null;
+  const energyHow = (
+    <details className="text-xs" data-testid="details-energy-how">
+      <summary className="cursor-pointer text-muted-foreground underline underline-offset-4">How energy works</summary>
+      <p className="mt-1 text-muted-foreground">{ENERGY_HOW}</p>
+    </details>
+  );
   if (!seated) return <p className="p-4 text-sm text-muted-foreground" data-testid="agents-spectator">Each player's agents are private to them. You're watching, so there are none to show.</p>;
   const none = agents !== undefined && agents.length === 0 && count === 0;
   const power = me && (
     <div className={`space-y-1 px-4 py-3 ${none ? "border-b" : "border-t"}`} data-testid="text-own-power">
       <p>Your energy <Energy value={me.energy} testId="text-own-energy" /> <span className="text-muted-foreground">(for summoning and replacing agents)</span></p>
       <p className="text-muted-foreground" data-testid="text-power-explained">{powerSentence(me.power, (agents ?? []).map(a => a.share))}</p>
-      <details className="text-xs" data-testid="details-energy-how">
-        <summary className="cursor-pointer text-muted-foreground underline underline-offset-4">How energy works</summary>
-        <p className="mt-1 text-muted-foreground">{ENERGY_HOW}</p>
-      </details>
+      {energyHow}
     </div>
   );
   // With agents, they come first: "is my agent working?" is answered at the top of the pane, before how power works.
@@ -154,6 +158,8 @@ export function AgentsPane() {
         <AgentList first={agents ?? []} power={me?.power} />
       )}
       {!none && power}
+      {/* A replay has no live energy of yours to show: the help on its own, as in the game. */}
+      {!me && replay && <div className="border-t px-4 py-3">{energyHow}</div>}
     </div>
   );
 }

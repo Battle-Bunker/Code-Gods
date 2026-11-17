@@ -50,3 +50,11 @@ body { margin: 0; background: var(--rm-bg); color: var(--rm-ink); }
 .rm-turns th { white-space: nowrap; }
 .rm-turns td:nth-child(n + 2) { white-space: nowrap; }
 .rm-group { margin: 16px 0 4px; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.04em; color: var(--rm-muted, #6b6b6b); }
+
+/* The rule's code (components/rule-code.tsx, as on "Your secret goal"), collapsed. */
+.rm-code details { margin: 0.5rem 0 1rem; font-size: 0.8rem; }
+.rm-code summary { cursor: pointer; color: var(--rm-muted, #6b6b6b); }
+.rm-code pre { max-height: 18rem; overflow: auto; white-space: pre-wrap; word-break: break-word; background: rgba(0, 0, 0, 0.05); padding: 0.5rem; font-size: 0.72rem; line-height: 1.35; }
+.rm-code code { font-family: ui-monospace, monospace; }
+/* Beside an energy that is an upper bound (the estimator's work budget ran out): quiet, explained on hover. */
+.rm-bound { cursor: help; color: var(--rm-muted, #6b6b6b); }
