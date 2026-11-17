@@ -101,7 +101,8 @@ export const { op: look, as: lookAs } = defineOp("object.look", "mutation", asyn
   // queries an object we can calculate energies again as a natural noise function"); the stored row is the commit's.
   const rule = await myRuleRow(env.ctx, game._id, member._id), fresh = rule && knownFamily(rule.family)?.dynamic ? rule : null;
   for (const { o, st, value } of seen) {
-    const own = fresh ? { ...value, bound: undefined, ...valueOf(decode(st.state, game.variant), game.variant, fresh, scopeOf(game).objects) } : value;
+    const f = fresh ? valueOf(decode(st.state, game.variant), game.variant, fresh, scopeOf(game).objects) : null;
+    const own = f ? { ...value, rarityBits: f.rarityBits, bound: "bound" in f ? f.bound : undefined } : value;
     await tell(env.ctx, game, member._id, { objectId: o._id, number: o.number, state: st.state, version: st.version, score: own.score, rarityBits: own.rarityBits, bound: own.bound, ...measured(game, own) }, clock.worldSeconds);   // each look measures afresh (decision 32)
   }
   await appendEvent(env.ctx, game._id, "command", { kind: "look", memberId: member._id, objects: seen.map(s => s.o._id), price, worldSeconds: clock.worldSeconds });
