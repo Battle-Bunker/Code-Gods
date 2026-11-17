@@ -59,22 +59,22 @@ test("moving or closing a pane takes it out of every arrangement; reopening an o
 test("opening a pane shows it on the screen in view and takes nothing away; one line opens below the lines", () => {
   // Catches: opening a pane evicting another (round 1: One line evicted What just changed).
   let v = applyView(EMPTY_VIEW, "view.openPane", { pane: "public-chat", place: "right" }, live).view;
-  assert.equal(formatDock(v.dock.live!), "row(column(my-card 45, agents 55) 33, objects 37, column(feed 50, race|public-chat 50) 30)", "at a place: behind the tab there");
+  assert.equal(formatDock(v.dock.live!), "column(row(column(my-card 50, race 50) 33, objects 37, column(agents 50, public-chat 50) 30) 67, assistant 33)", "at a place: beside the pane there, never a tab");
   v = applyView(v, "view.openPane", { pane: "public-chat" }, live).view;
   const tree = v.dock.live!;
   assert.deepEqual(dockPanes(tree).filter(p => p !== "public-chat"), dockPanes(defaultDock("live")), "every default pane stays");
-  assert.equal(formatDock(tree), "row(column(my-card 45, agents 55) 33, objects 37, column(feed 50, race|*public-chat 50) 30)");
+  assert.equal(formatDock(tree), "column(row(column(my-card 50, race 50) 33, objects 37, column(agents 50, public-chat 50) 30) 67, assistant 33)");
   v = applyView(v, "view.openObject", { objectId: "o1" }, live).view;
-  assert.equal(formatDock(v.dock.live!), "row(column(my-card 45, agents 55) 33, column(objects 45, object 55) 37, column(feed 50, race|*public-chat 50) 30)");
+  assert.equal(formatDock(v.dock.live!), "column(row(column(my-card 50, race 50) 33, column(objects 45, object 55) 37, column(agents 50, public-chat 50) 30) 67, assistant 33)");
   const room = applyView(EMPTY_VIEW, "view.openPane", { pane: "rules" }, { ...live, context: "room" }).view;
   assert.deepEqual(room.dock, {}, "the room page has no dock: the pane joins when a game shows it");
 });
 
 test("a view stored before the dock existed still reduces, and a no-op stays a no-op", () => {
-  const { dock: _, ...old } = { ...EMPTY_VIEW, version: 2, panes: [{ pane: "feed", place: "right" as const }] };
-  const same = applyView(old as ViewState, "view.openPane", { pane: "feed" }, live);
+  const { dock: _, ...old } = { ...EMPTY_VIEW, version: 2, panes: [{ pane: "race", place: "right" as const }] };
+  const same = applyView(old as ViewState, "view.openPane", { pane: "race" }, live);
   assert.deepEqual([same.outcome.ok, same.changed], [true, false]);
-  const r = applyView(old as ViewState, "view.closePane", { pane: "feed" }, live);
+  const r = applyView(old as ViewState, "view.closePane", { pane: "race" }, live);
   assert.deepEqual(r.view.dock, {});
 });
 
@@ -87,14 +87,16 @@ test("a pane opened for the human never covers the assistant's conversation whil
 test("the assistant's conversation stays in front: opened at a place, or after an assistant arranges the dock", () => {
   // Catches (real-assistant walk): opened from a pane's menu it joined behind the tab there, and an assistant's own
   // "Arrange the dock" put another tab over the conversation it was still answering in.
-  const opened = applyView(EMPTY_VIEW, "view.openPane", { pane: "assistant", place: "right" }, live).view;
-  assert.equal(formatDock(opened.dock.live!), "row(column(my-card 45, agents 55) 33, objects 37, column(feed 50, race 25, assistant 25) 30)");
-  const delegated: AffordanceContext = { ...live, grant: "act" };
-  const arranged = applyView(opened, "view.arrangeDock", { dock: "row(objects 70, column(feed 50, *race|assistant 50) 30)" }, delegated).view;
-  assert.equal(formatDock(arranged.dock.live!), "row(objects 70, column(feed 50, race|*assistant 50) 30)");
+  // (On a replay: every game screen's default already gives the assistant a row of its own.)
+  const replay: AffordanceContext = { ...live, context: "replay" };
+  const opened = applyView(EMPTY_VIEW, "view.openPane", { pane: "assistant", place: "right" }, replay).view;
+  assert.equal(formatDock(opened.dock.replay!), "column(row(column(my-card 50, race 50) 33, objects 37, agents 30) 67, row(timeline 50, assistant 50) 33)");
+  const delegated: AffordanceContext = { ...replay, grant: "act" };
+  const arranged = applyView(opened, "view.arrangeDock", { dock: "row(objects 70, column(race 50, *feed|assistant 50) 30)" }, delegated).view;
+  assert.equal(formatDock(arranged.dock.replay!), "row(objects 70, column(race 50, feed|*assistant 50) 30)");
   // The human's own arrangement is the human's: a tab they bring forward stays forward.
-  const human = applyView(opened, "view.arrangeDock", { dock: "row(objects 70, column(feed 50, *race|assistant 50) 30)" }, live).view;
-  assert.equal(formatDock(human.dock.live!), "row(objects 70, column(feed 50, race|assistant 50) 30)");
+  const human = applyView(opened, "view.arrangeDock", { dock: "row(objects 70, column(race 50, *feed|assistant 50) 30)" }, replay).view;
+  assert.equal(formatDock(human.dock.replay!), "row(objects 70, column(race 50, feed|assistant 50) 30)");
 });
 
 test("opening a pane never hides the one the player acted from: One line opened from Results sits beside it", () => {
@@ -102,7 +104,7 @@ test("opening a pane never hides the one the player acted from: One line opened 
   const ended: AffordanceContext = { ...live, context: "ended" };
   const v = applyView(EMPTY_VIEW, "view.openObject", { objectId: "o1" }, ended).view;
   const tree = v.dock.ended!;
-  assert.equal(formatDock(tree), "row(my-card 28, column(results 50, object 50) 44, race 28)");
+  assert.equal(formatDock(tree), "column(row(column(my-card 50, race 50) 33, column(results 60, objects 18, object 22) 37, agents 30) 67, assistant 33)");
   // Every pane of the screen is still the active tab of its group.
   const fronts = dockGroups(tree).map(l => l.group.active);
   for (const p of ["my-card", "results", "race", "object"]) assert.ok(fronts.includes(p), `${p} in view: ${formatDock(tree)}`);
@@ -113,18 +115,19 @@ test("v1's Reset layout and Layout: Two panels, on the screen in view", () => {
   let v = ok(applyView(EMPTY_VIEW, "view.arrangeDock", { dock: "row(objects 60, feed|*race 40)", phase: "planning" }, live));
   // Two panels: the screen's two first shown panes stacked on the left, every other pane in one group on the right.
   v = ok(applyView(v, "view.twoPanels", {}, live));
-  assert.equal(formatDock(v.dock.live!), "row(column(my-card 50, agents 50) 40, objects|feed|race 60)");
+  assert.equal(formatDock(v.dock.live!), "row(column(my-card 50, race 50) 40, objects|agents|assistant 60)");
   assert.equal(formatDock(v.dock.planning!), "row(objects 60, feed|*race 40)", "other screens keep theirs");
   // From a screen of fewer panes: the two stacked, nothing on the right.
   const two = ok(applyView(v, "view.arrangeDock", { dock: "row(objects, race)" }, live));
   assert.equal(formatDock(ok(applyView(two, "view.twoPanels", {}, live)).dock.live!), "column(objects 50, race 50)");
   // Panes the human closed are left out (they are not drawn): the left column holds two panes that show.
   const open = { ...EMPTY_VIEW, panes: ["agents", "objects", "race", "assistant"].map(pane => ({ pane, place: "main" as const })) };
-  assert.equal(formatDock(ok(applyView(open, "view.twoPanels", {}, live)).dock.live!), "row(column(agents 50, objects 50) 40, race|assistant 60)");
-  assert.equal(ok(applyView(open, "view.maximisePane", {}, live)).maximised, "objects", "the largest group that shows");
+  assert.equal(formatDock(ok(applyView(open, "view.twoPanels", {}, live)).dock.live!), "row(column(race 50, objects 50) 40, agents|assistant 60)");
+  assert.equal(ok(applyView(open, "view.maximisePane", {}, live)).maximised, "assistant", "the largest group that shows (the assistant's full-width row)");
   // Reset: the screen in view back to its default.
-  v = ok(applyView(v, "view.resetLayout", {}, live));
+  v = ok(applyView(ok(applyView(v, "view.openPane", { pane: "feed" }, live)), "view.resetLayout", {}, live));
   assert.deepEqual(Object.keys(v.dock), ["planning"]);
+  assert.deepEqual(v.panes, [], "reset is the default layout: the panes opened since close (the owner, 17 November)");
   assert.equal(applyView(v, "view.resetLayout", {}, { ...live, context: "room" }).outcome.ok, false, "the room page has no dock");
 });
 
@@ -135,9 +138,9 @@ test("v1's Maximise or restore: one pane over the others, a toggle; without a pa
   assert.deepEqual(v.dock, {}, "the arrangement is untouched");
   v = ok(applyView(v, "view.maximisePane", { pane: "feed" }, live));
   assert.equal(v.maximised ?? null, null, "the same pane again restores the others");
-  // The palette's row gives no pane: the live default's largest group is the lines list.
+  // The palette's row gives no pane: the live default's largest group is the assistant's full-width row.
   v = ok(applyView(v, "view.maximisePane", {}, live));
-  assert.equal(v.maximised, "objects");
+  assert.equal(v.maximised, "assistant");
   v = ok(applyView(v, "view.maximisePane", {}, live));
   assert.equal(v.maximised ?? null, null);
   // Closing the maximised pane restores the others.

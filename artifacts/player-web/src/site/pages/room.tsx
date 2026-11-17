@@ -68,7 +68,7 @@ function StepButton({ step, room, primary }: { step: Step; room: Room; primary?:
     case "practice": return <PracticeButton primary={!!primary} />;
     case "start": return <AffordanceButton id="game.start" args={{}} label="Start game" busyLabel="Starting…" tone={tone} testId="button-start-game" />;
     case "invite": return <button type="button" onClick={() => copyInvite(room.code)} className={primary ? "bg-primary text-primary-foreground px-4 py-2 text-sm font-medium" : "border px-3 py-2 text-sm"} data-testid="button-copy-invite">Copy invite link</button>;
-    case "openGame": return room.game ? <Link href={gamePath(room.code, room.game.gameId)} className="bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold" data-testid="link-active-game">Open game {room.game.number}</Link> : null;
+    case "openGame": return room.game ? <Link href={gamePath(room.code, String(room.game.number))} className="bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold" data-testid="link-active-game">Open game {room.game.number}</Link> : null;
     case "play": return <AffordanceButton id="room.setSpectator" args={{ spectator: false }} label="Play the next game" tone={tone} testId="button-play" />;
     case "watch": return <AffordanceButton id="room.setSpectator" args={{ spectator: true }} label="Watch instead" tone="quiet" testId="button-watch" />;
   }
@@ -117,11 +117,11 @@ function PastGames({ room }: { room: Room }) {
         <ul className="divide-y">
           {history.results.map((g, i) => (
             <li key={g.gameId} className="px-4 py-2.5 text-sm flex flex-wrap gap-x-4">
-              <Link href={gamePath(room.code, g.gameId)} className="underline underline-offset-4" data-testid={`link-past-game-${g.gameId}`}>Game {g.number}</Link>
-              <span className="text-muted-foreground" data-testid={`text-game-winners-${g.gameId}`}>{g.winner ? `won by ${names.get(g.winner) ?? "a player who left"}` : "no winner"}{g.endedAt ? ` · ${new Date(g.endedAt).toLocaleString()}` : ""}</span>
+              <Link href={gamePath(room.code, String(g.number))} className="underline underline-offset-4" data-testid={`link-past-game-${g.number}`}>Game {g.number}</Link>
+              <span className="text-muted-foreground" data-testid={`text-game-winners-${g.number}`}>{g.winner ? `won by ${names.get(g.winner) ?? "a player who left"}` : "no winner"}{g.endedAt ? ` · ${new Date(g.endedAt).toLocaleString()}` : ""}</span>
               {g.endedAt !== null && (
                 <AffordanceButton id="replay.open" args={{ gameId: g.gameId }} label="Watch the replay" busyLabel="Opening…" tone="link" testId={`button-replay-${g.gameId}`}
-                  onDone={() => navigate(gamePath(room.code, g.gameId))} />
+                  onDone={() => navigate(gamePath(room.code, String(g.number)))} />
               )}
               {/* The last game dealt again (game.rematch): the same rules and seed, to compare what the players changed. */}
               {i === 0 && g.endedAt !== null && !room.game && room.members.find(m => m.me)?.owner && (
@@ -178,14 +178,14 @@ function MemberRoom({ roomId, code }: { roomId: string; code: string }) {
   const q = useLive(api.v2.rooms.get, { roomId });
   const room = q.data;
   // Launch: take viewers to the new game, but never on first load (the status sentence covers that).
-  const gameId = room?.game?.gameId ?? null;
+  const gameId = room?.game?.gameId ?? null, gameNumber = room?.game?.number ?? null;
   const seen = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     if (!room) return;
     const prev = seen.current;
     seen.current = gameId;
-    if (prev !== undefined && gameId && prev !== gameId) navigate(gamePath(room.code, gameId));
-  }, [gameId, room, navigate]);
+    if (prev !== undefined && gameId && prev !== gameId && gameNumber !== null) navigate(gamePath(room.code, String(gameNumber)));
+  }, [gameId, gameNumber, room, navigate]);
   const aiOff = useLive(api.v2.assistant.status, roomId ? { roomId: roomId as Id<"v2Rooms"> } : "skip").data?.off ?? null;
   const context = affordanceContext({ signedIn: isAuthenticated, admin: !!user?.isAdmin, room: room ?? null, aiOff });
   return (

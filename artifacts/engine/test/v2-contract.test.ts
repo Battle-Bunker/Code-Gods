@@ -197,3 +197,14 @@ test("account.approveConnection: a member approves a device for a v2 room, lower
   const row = await admin.query("v2/testing:device", { deviceId });
   assert.deepEqual([row.status, row.subject, row.permission], ["approved", bo.userId, "read"]);
 });
+
+test("a game link's short id (room code and game number) and its long id resolve to the game by index", async () => {
+  const header = await ada.query("v2/games:header", { gameId });
+  const { code: room } = await ada.query("v2/rooms:get", { roomId });
+  const want = { gameId, room, number: header.number };
+  assert.deepEqual(await ada.query("v2/games:resolve", { room, game: String(header.number) }), want);
+  assert.deepEqual(await ada.query("v2/games:resolve", { room: room.toLowerCase(), game: String(header.number) }), want, "codes are case-blind");
+  assert.deepEqual(await ada.query("v2/games:resolve", { room, game: gameId }), want, "an old long-id link still resolves");
+  assert.equal(await errorCode(ada.query("v2/games:resolve", { room, game: "999" })), "NOT_FOUND");
+  assert.equal(await errorCode(anonymous.query("v2/games:resolve", { room, game: gameId })), "UNAUTHENTICATED");
+});

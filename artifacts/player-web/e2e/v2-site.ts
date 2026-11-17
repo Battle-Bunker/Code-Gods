@@ -193,7 +193,9 @@ try {
     await check(`${label}: a live line game shows your totals, the panes and the lines' faces`, async () => {
       const room = code();
       const g = convexRun("v2/testing:seedGame", { owner: me.subject, practice: 2, code: room });
-      await page.goto(`${SITE}/rooms/${room}/games/${g.gameId}`);
+      await page.goto(`${SITE}/rooms/${room}/games/${g.gameId}?panels=on#top`);
+      // v1's short link: an old long-id link is replaced by the room's code and the game's number, keeping ?… and #….
+      await page.waitForURL(`${SITE}/rooms/${room}/games/1?panels=on#top`);
       await page.getByTestId("text-my-total").getByText(/points/).waitFor();   // "…" until the standings arrive
       assert.match(await page.getByTestId("text-my-energy").innerText(), /^Energy [\d,]+\.\d\d/);
       for (const pane of ["objects", "my-card", "feed", "agents", "race"]) await page.getByTestId(`pane-${pane}`).waitFor();

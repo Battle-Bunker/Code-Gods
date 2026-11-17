@@ -200,7 +200,7 @@ try {
         await p.page.waitForURL(new RegExp(`/rooms/${code}$`), { timeout: 30_000 });
         const gameId = gameUrl.split("/").at(-1)!;
         await p.page.getByTestId(`link-past-game-${gameId}`).waitFor({ timeout: 30_000 });
-        assert.equal(await p.page.getByTestId(`link-past-game-${gameId}`).getAttribute("href"), `/rooms/${code}/games/${gameId}`);
+        assert.equal(await p.page.getByTestId(`link-past-game-${gameId}`).getAttribute("href"), `/rooms/${code}/games/${gameId}`, "the short link: the game's number in its room");
         assert.ok(await p.page.evaluate(() => (window as unknown as { sameDoc?: boolean }).sameDoc), `${p.who}'s page reloaded`);
       }
     });

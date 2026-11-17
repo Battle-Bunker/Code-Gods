@@ -5,7 +5,7 @@
  * them and every client of theirs follows. How they are laid out on a desktop is the view state's `dock` (`dockFor`).
  * Player words only: points, rarity in bits, energy, power, "line".
  */
-import { defaultDock, dockGroups, dockInsert, dockKindOf, dockWithout, formatDock, parseDock, type DockNode, type Place, type ViewState } from "@workspace/v2-affordances";
+import { defaultDock, dockGroups, dockInsert, dockKindOf, dockPanes, dockWithout, formatDock, parseDock, type DockNode, type Place, type ViewState } from "@workspace/v2-affordances";
 
 /** A game's phase, or "replay": an ended game watched at a playhead (the replay's own arrangement). */
 export type GamePhase = "planning" | "live" | "paused" | "ended" | "replay";
@@ -21,7 +21,7 @@ const BOARD: readonly GamePhase[] = ["planning", ...WORLD];
 export const REPLAY_PANE = "replay";
 const docked = (p: { pane: string }) => p.pane !== REPLAY_PANE;
 
-export const PANE_IDS = ["overview", "my-card", "objects", "object", "what-if", "feed", "agents", "forge", "race", "public-chat", "results", "others-care", "points-over-time", "rules", "assistant", "my-panels", "code-output"] as const;
+export const PANE_IDS = ["overview", "my-card", "objects", "object", "what-if", "feed", "agents", "forge", "race", "public-chat", "results", "others-care", "points-over-time", "rules", "assistant", "my-panels", "code-output", "timeline"] as const;
 export type PaneId = (typeof PANE_IDS)[number];
 
 export interface PaneDefinition {
@@ -45,9 +45,9 @@ export const PANES: Readonly<Record<PaneId, PaneDefinition>> = {
   object: def({ id: "object", title: "One line", blurb: "One line in every representation your rule reads, with why it scores.", phases: BOARD, keywords: ["expanded", "representations", "compare"], home: "main" }),
   "what-if": def({ id: "what-if", title: "What if", blurb: "Try a change and see what it does to your rarity in bits and your points, without making it.", phases: BOARD, keywords: ["what if", "try", "preview", "price", "change", "quote"], home: "main" }),
   feed: def({ id: "feed", title: "What just changed", blurb: "Every move that changed your points, and why.", phases: WORLD, keywords: ["act log", "moves", "why", "feed"], home: "right" }),
-  agents: def({ id: "agents", title: "My agents", blurb: "Your agents, their energy, and what they spent it on.", phases: PLAY, keywords: ["energy", "power", "share"], home: "left" }),
+  agents: def({ id: "agents", title: "My agents", blurb: "Your agents, their energy, and what they spent it on.", phases: ALL, keywords: ["energy", "power", "share"], home: "left" }),
   forge: def({ id: "forge", title: "Agent code", blurb: "Write, check, summon and replace your agents.", phases: ["planning", "live", "paused"], keywords: ["code", "summon", "replace", "editor"], home: "main" }),
-  race: def({ id: "race", title: "Leaderboard", blurb: "Who's winning, and is anyone catching up.", phases: WORLD, keywords: ["standings", "scores", "race"], home: "right" }),
+  race: def({ id: "race", title: "Leaderboard", blurb: "Who's winning, and is anyone catching up.", phases: BOARD, keywords: ["standings", "scores", "race"], home: "right" }),
   "public-chat": def({ id: "public-chat", title: "Public chat", blurb: "Everything said to everyone.", phases: ALL, keywords: ["talk", "message", "pitch"], home: "right" }),
   "others-care": def({ id: "others-care", title: "What others care about", blurb: "Every line by your bits and the others' bits: who cares about what.", phases: WORLD, keywords: ["others", "want", "deals", "scatter"], home: "main" }),
   "points-over-time": def({ id: "points-over-time", title: "Your points over time", blurb: "Your points at every scoreboard, rising and falling.", phases: WORLD, keywords: ["history", "chart", "points", "trend"], home: "main" }),
@@ -55,7 +55,9 @@ export const PANES: Readonly<Record<PaneId, PaneDefinition>> = {
   assistant: def({ id: "assistant", title: "Your assistant", blurb: "Ask your assistant for help, or let it play for you.", phases: ALL, keywords: ["assistant", "ask", "help", "autopilot", "ai"], home: "right" }),
   "my-panels": def({ id: "my-panels", title: "Your panels", blurb: "Panels you or your assistant wrote: open, edit, roll back or turn them off.", phases: ALL, keywords: ["panels", "custom", "widgets", "code"], home: "right" }),
   "code-output": def({ id: "code-output", title: "Code results", blurb: "Your scripts' runs over the game's data: the table or JSON each returned, what it printed, and its code.", phases: ALL, keywords: ["code", "script", "run", "analysis", "results", "table"], home: "main" }),
-  results: def({ id: "results", title: "How the game went", blurb: "Final standings and why you finished where you did.", phases: ["ended"], keywords: ["end", "winner", "final"], home: "main" }),
+  results: def({ id: "results", title: "How the game went", blurb: "Final standings and why you finished where you did.", phases: ["ended", "replay"], keywords: ["end", "winner", "final"], home: "main" }),
+  // v1's Timeline panel: the replay's controls, its slider with the key moments and every event; in the assistant's place.
+  timeline: def({ id: "timeline", title: "Timeline", blurb: "Play the game back: step, jump to key moments, and every event in order.", phases: ["replay"], keywords: ["replay", "scrub", "history", "events"], home: "bottom" }),
 };
 
 export const isPaneId = (v: unknown): v is PaneId => typeof v === "string" && (PANE_IDS as readonly string[]).includes(v);
@@ -78,15 +80,23 @@ export const paneTitle = (id: string): string => (isPaneId(id) ? PANES[id].title
 export type OpenPane = { pane: string; place: Place };
 
 /** The arrangement a new player sees in each phase (before they change anything). */
+/**
+ * The owner's layout (17 November), the default of every game screen: in this order on a phone the goal, the lines, the
+ * agents, the leaderboard, the assistant (a room without AI does not draw it: dock.tsx). "Where am I" and "Agent code"
+ * are opened from the palette or the pane menu.
+ */
+const OWNERS_LAYOUT: readonly OpenPane[] = [
+  { pane: "my-card", place: "main" }, { pane: "objects", place: "main" }, { pane: "agents", place: "right" },
+  { pane: "race", place: "right" }, { pane: "assistant", place: "bottom" },
+];
+
 export function defaultPanes(phase: GamePhase): OpenPane[] {
   switch (phase) {
-    case "planning": return [{ pane: "objects", place: "main" }, { pane: "my-card", place: "left" }, { pane: "overview", place: "left" }, { pane: "forge", place: "right" }];
-    case "ended": return [{ pane: "results", place: "main" }, { pane: "my-card", place: "left" }, { pane: "race", place: "right" }];
-    case "replay": return [{ pane: "objects", place: "main" }, { pane: "my-card", place: "left" }, { pane: "feed", place: "right" }, { pane: "race", place: "right" }];
-    default: return [
-      { pane: "objects", place: "main" }, { pane: "my-card", place: "left" }, { pane: "feed", place: "right" },
-      { pane: "agents", place: "bottom" }, { pane: "race", place: "bottom" },
-    ];
+    // The owner's layout is the default of every game screen (17 November); the end screen adds the results.
+    case "ended": return [{ pane: "results", place: "main" }, ...OWNERS_LAYOUT];
+    // An ended game is its replay (v1): the owner's layout with the Timeline in the assistant's place.
+    case "replay": return OWNERS_LAYOUT.map(p => (p.pane === "assistant" ? { pane: "timeline", place: "bottom" } : p));
+    default: return [...OWNERS_LAYOUT];
   }
 }
 
@@ -137,8 +147,6 @@ export function spectatorArrange(view: Pick<ViewState, "panes" | "dock">, phase:
 }
 
 const inPhase = (id: string, phase: GamePhase) => (isPaneId(id) ? PANES[id].phases.includes(phase) : storedSlugOf(id) !== null || fileIdOf(id) !== null);
-/** A pane that needs the world (not offered in planning). */
-const needsWorld = (id: string) => isPaneId(id) && !PANES[id].phases.includes("planning");
 
 /**
  * The panes to show now: the human's own arrangement once they have one (an empty view follows the phase's default),
@@ -150,19 +158,40 @@ const needsWorld = (id: string) => isPaneId(id) && !PANES[id].phases.includes("p
  * first. Nothing is ever left out to make room (the desktop dock adds tabs). After the end the results come
  * first even when not open (shown, not stored). Unknown pane ids are dropped (a pane removed since the view was saved); a stored panel's pane is shown in every phase.
  */
+/** The panes a game screen shows by default (a replay's act log is one players open themselves). */
+const OTHER_DEFAULTS = new Set((["planning", "live", "ended"] as const).flatMap(p => defaultPanes(p).map(d => d.pane)));
+
 export function shownPanes(view: Pick<ViewState, "panes">, phase: GamePhase): OpenPane[] {
   const own = view.panes.filter(p => docked(p) && inPhase(p.pane, phase));
   const defaults = defaultPanes(phase);
   let panes = own.length ? own : defaults;
   // Before the world (arranged in planning) or after the end (the last game's results): the phase's defaults join.
-  const fromOtherPhase = phase === "planning" ? view.panes.some(p => docked(p) && needsWorld(p.pane)) : !view.panes.some(p => docked(p) && needsWorld(p.pane));
+  // Planning and the live game share one default (the owner's layout); an arrangement stored on the end screen holds the
+  // results, so the next game's screens meet their defaults again.
+  const fromOtherPhase = phase !== "ended" && view.panes.some(p => p.pane === "results");
   const lacksDefaults = !own.some(p => defaults.some(d => d.pane === p.pane));
   if (own.length && (fromOtherPhase || lacksDefaults)) {
     panes = [...defaults.filter(d => !own.some(p => p.pane === d.pane)), ...own];
   }
+  // Another screen's default panes stay on their screen (they came along as tabs inside this screen's panes: the
+  // planning screen's next step and agent code inside the live game), unless the player put them in this screen's own
+  // arrangement: a screen shows its defaults, what the player arranged on it and the other panes the player opened.
+  const kind = dockKindOf(phase) ?? "live";
+  const arranged = new Set(dockPanes((view as Partial<Pick<ViewState, "dock">>).dock?.[kind]));
+  const mine = new Set(defaults.map(d => d.pane));
+  panes = panes.filter(p => mine.has(p.pane) || arranged.has(p.pane) || !OTHER_DEFAULTS.has(p.pane));
   if (phase === "ended" && !panes.some(p => p.pane === "results")) return [{ pane: "results", place: "main" }, ...panes];
+  // v1's replay: the Timeline in the assistant's place (shown, not stored, so the next game keeps its assistant), or
+  // joining at the bottom; an arrangement that already holds the Timeline is the human's own.
+  if (phase === "replay" && !panes.some(p => p.pane === TIMELINE)) {
+    return panes.some(p => p.pane === "assistant") ? panes.map(p => (p.pane === "assistant" ? { pane: TIMELINE, place: p.place } : p)) : [...panes, { pane: TIMELINE, place: "bottom" }];
+  }
   return panes;
 }
+const TIMELINE = "timeline";
+/** The replay's Timeline standing in for the stored assistant (shownPanes): neither is opened or closed for it. */
+const standsIn = (view: Pick<ViewState, "panes">, phase: GamePhase) =>
+  phase === "replay" && view.panes.some(p => p.pane === "assistant") && !view.panes.some(p => p.pane === TIMELINE);
 
 export type ViewOp = { id: "view.openPane" | "view.closePane" | "view.movePane" | "view.arrangeDock"; args: Record<string, unknown> };
 
@@ -173,10 +202,11 @@ export type ViewOp = { id: "view.openPane" | "view.closePane" | "view.movePane" 
  * changes only this screen's arrangement, so a closed pane keeps its place on the other screens. None when they agree.
  */
 export function keepShown(view: Pick<ViewState, "panes">, phase: GamePhase): ViewOp[] {
-  const shown = shownPanes(view, phase);
+  const stand = standsIn(view, phase);
+  const shown = shownPanes(view, phase).filter(p => !(stand && p.pane === TIMELINE));
   const stored = view.panes.filter(docked);
   return [
-    ...stored.filter(p => !shown.some(s => s.pane === p.pane)).map((p): ViewOp => ({ id: "view.closePane", args: { pane: p.pane } })),
+    ...stored.filter(p => !shown.some(s => s.pane === p.pane) && !(stand && p.pane === "assistant")).map((p): ViewOp => ({ id: "view.closePane", args: { pane: p.pane } })),
     ...shown.filter(s => !stored.some(p => p.pane === s.pane)).map((p): ViewOp => ({ id: "view.openPane", args: { pane: p.pane, place: p.place } })),
   ];
 }
@@ -190,6 +220,9 @@ export const homeOf = (pane: string): Place => (isPaneId(pane) ? PANES[pane].hom
  * moves when given a place.
  */
 export function openPlan(view: Pick<ViewState, "panes">, phase: GamePhase, pane: string, place?: Place): ViewOp[] {
+  // The assistant opened in a replay comes back beside the Timeline standing in for it (v1: "opening it puts it back"):
+  // the Timeline is stored too, so both are the human's own.
+  if (pane === "assistant" && standsIn(view, phase)) return [{ id: "view.openPane", args: { pane: TIMELINE, place: "bottom" } }, { id: "view.openPane", args: { pane } }];
   const shown = shownPanes(view, phase).some(p => p.pane === pane);
   const ops = keepShown(view, phase);
   if (shown && place) return [...ops, { id: "view.movePane", args: { pane, place } }];
@@ -218,8 +251,9 @@ export function dockFor(view: Pick<ViewState, "panes" | "dock">, phase: GamePhas
   let tree = (view.dock?.[kind] && keep(view.dock[kind])) || keep(defaultDock(kind));
   // A pane joining this screen's dock goes behind its group's tab, except the assistant when it was in front in the
   // arrangement it comes from (re-walk: the conversation went behind a tab when the world started).
-  const frontElsewhere = (pane: string) => Object.values(view.dock ?? {}).some(t => t && dockGroups(t).some(l => l.group.active === pane));
-  for (const p of shown) tree = dockInsert(tree, p.pane, p.place, p.pane === "assistant" && frontElsewhere(p.pane));
+  // A pane joining this screen's dock gets a place of its own beside the pane at its place, never a tab inside another
+  // (the coordinator, 17 November: nothing arrives as a tab by default).
+  for (const p of shown) tree = dockInsert(tree, p.pane, p.place, true);
   return tree;
 }
 

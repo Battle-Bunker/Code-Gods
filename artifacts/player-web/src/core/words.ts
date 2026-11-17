@@ -58,7 +58,7 @@ export const blurredNote = (one = "line") => `While the game runs, each ${one}'s
 export const blurredEndedNote = (one = "line") => `Each ${one}'s figures are exact now the game has ended. During the game, how much the others wanted each ${one} was blurred to keep their rules secret; the totals were exact throughout.`;
 /** Beside the total, while the room blurs the others' bits: the total itself is exact (W3 #662, the coordinator's call 15). */
 export const exactTotalNote = (one = "line") => `Your total is counted exactly at every count, although the points shown on each ${one} are estimates while the game runs.`;
-export const othersNote = (one = "line") => `Others' bits: every other player's rarity on this ${one}, added together. A ${one} scores when it is rare for you and for them.`;
+export const othersNote = (one = "line") => `Others' bits: every other player's energy in bits on this ${one}, added together. A ${one} scores only when it is worth energy both to you and to them.`;
 /** When the standings were counted (world seconds): a move's points join a total only at the next count. */
 export const countedNote = (worldSeconds: number | null | undefined, length?: number | null): string | null =>
   worldSeconds == null ? null : `Totals are counted every few seconds; this one ${length ? `with ${timeLeft(worldSeconds, length)}` : `at ${clock(worldSeconds)}`}, so a move's points join the total at the next count.`;

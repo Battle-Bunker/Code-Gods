@@ -57,7 +57,7 @@ export const viewOps = [
   }),
   affordance({
     id: "view.resetLayout", title: "Reset layout", group: "view", scope: "room",
-    description: "Puts the screen in view's dock back to its default arrangement (view.arrangeDock with empty text). Open panes stay open.",
+    description: "Puts the screen in view back to its default layout: the default panes in the default arrangement (other panes close).",
     tooltip: "Back to this screen's default layout.", keywords: ["layout", "default", "reset", "arrange", "dock"],
     params: obj({}), result: done,
     contexts: GAME, caller: "member", effect: "write", confirm: "none", runs: "client",

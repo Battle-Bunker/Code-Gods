@@ -34,8 +34,9 @@ export function bitsLine(a: Annotation): string {
 }
 
 /** One part in one line: "● main part: y-intercept 25 · 2 above 23" / "◆ tie-breaker: that prime 23". */
-export function partLine(p: Contributor): string {
-  const g = `${partGlyph(p.depth)} ${p.name}:`;
+export function partLine(p: Contributor, alone = false): string {
+  // A rule of one utility (owner decision 50): its only part goes without a name ("main part" says nothing alone).
+  const g = alone ? partGlyph(p.depth) : `${partGlyph(p.depth)} ${p.name}:`;
   if (p.brief) return `${g} ${p.brief}`;
   const said = p.source.filter(x => x.text);
   const what = p.source.length > 3 ? p.title : said.map(x => `${x.label} ${x.text}`).join(", ");
@@ -46,8 +47,8 @@ export function partLine(p: Contributor): string {
 
 /** The main part's one line, without its glyph (the Lines row's "Why?"). */
 export function mainLine<S, P>(_rule: RuleRef<S, P>, _state: S, a: Annotation, site = 0): string {
-  const p = a.sites[site]?.parts[0];
-  return p ? partLine(p).replace(/^\S+ [^:]+: /, "") : "";
+  const parts = a.sites[site]?.parts ?? [], p = parts[0];
+  return p ? partLine(p, parts.length === 1).replace(parts.length === 1 ? /^\S+ / : /^\S+ [^:]+: /, "") : "";
 }
 
 // ------------------------------------------------------------------ compact face
@@ -92,7 +93,7 @@ export function CompactFace<S, P>(props: CompactFaceProps<S, P>): ReactElement {
       {bits && <div className="v2v-face-foot"><span className="v2v-rarity" data-worst={a.score === null ? "" : undefined} title={BITS_HELP}>{bits}</span></div>}
       {a.worst
         ? <div className="v2v-face-why">{a.worst}</div>
-        : parts.map(p => <div key={p.term} className="v2v-face-part" data-role={p.role} title={p.sentence}>{partLine(p)}</div>)}
+        : parts.map(p => <div key={p.term} className="v2v-face-part" data-role={p.role} title={p.sentence}>{partLine(p, parts.length === 1)}</div>)}
       {next && <div className="v2v-face-next" title={next.words} data-testid={a.score === null ? "text-to-score" : undefined}>{a.score === null ? "To score" : "next"}: {next.words}{a.score === null && next.text.length <= 28 && !next.words.includes(next.text) ? ` → ${next.text}` : ""}{next.bits !== null ? ` → ${fmtBits(next.bits)}` : ""}</div>}
     </div>
   );
@@ -160,7 +161,7 @@ export function PartsList({ parts, active, onActive, onSelect, selected }: Parts
             (e.currentTarget.parentElement?.children[next] as HTMLElement | undefined)?.focus();
           }}>
           <div className="v2v-part-head">
-            <span className="v2v-part-name">{partGlyph(p.depth)} {p.name[0]!.toUpperCase() + p.name.slice(1)}: {p.title}</span>
+            <span className="v2v-part-name">{partGlyph(p.depth)} {parts.length === 1 ? p.title[0]!.toUpperCase() + p.title.slice(1) : `${p.name[0]!.toUpperCase() + p.name.slice(1)}: ${p.title}`}</span>
             <span className="v2v-part-aim">{p.aim}</span>
           </div>
           <div className="v2v-part-sentence">{p.sentence}</div>
@@ -502,7 +503,7 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
             off-screen and the tester could not find it). */}
         {sel !== null && (
           <p className="v2v-selchip" role="status" data-role={sa.parts[sel]!.role}>
-            {partGlyph(sa.parts[sel]!.depth)} {sa.parts[sel]!.name} selected: only its marks are drawn in the views{" "}
+            {partGlyph(sa.parts[sel]!.depth)} {sa.parts.length === 1 ? "your rule" : sa.parts[sel]!.name} selected: only its marks are drawn in the views{" "}
             <button type="button" aria-label="Clear the selection" onClick={() => setSelected(null)}>Clear</button>
           </p>
         )}
