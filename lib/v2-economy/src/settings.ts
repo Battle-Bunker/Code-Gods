@@ -44,10 +44,13 @@ export const GRIDS_BEGINNER_ECONOMY: Economy = Object.freeze({ ...LINES_BEGINNER
  * Gravity 20 since the uphill toll (17 Nov evening, owner: a rise of s bits costs λ·s/2 more): in simulated games
  * (balance harness, 2 seeds, seen narrowly) lines ended at a median 5 bits, at most 11, every line still moving, 35% of
  * turns up (λ 10: lines up to 41 bits; λ 5: 42).
+ * estimatorWork 5,000 states scored per estimate (17 Nov, seen narrowly: 60 estimates on simulated end lines at λ 20 and
+ * 5 scored a median 253, p90 3,389, at most 11,065, about 87 a millisecond in Node): the heaviest few percent come back as
+ * "bound, not found" (an upper bound), which keeps a commit's estimates inside the server's time gate.
  */
-export const LINES_BEGINNER_PHYSICS: Physics = Object.freeze({ gravity: 20, estimatorStarts: 12, sameSizeBand: 0.5, newbornBitRate: 1 });
-/** Grids: only the estimator's start count applies (a board has no size, no gravity, and is born by its walk). */
-export const GRIDS_BEGINNER_PHYSICS: Physics = Object.freeze({ gravity: 1, estimatorStarts: 20, sameSizeBand: 0.5, newbornBitRate: 1 });
+export const LINES_BEGINNER_PHYSICS: Physics = Object.freeze({ gravity: 20, estimatorStarts: 12, sameSizeBand: 0.5, newbornBitRate: 1, estimatorWork: 5_000 });
+/** Grids: only the estimator's start count applies (a board has no size, no gravity, and is born by its walk; the grid estimator does not read estimatorWork yet). */
+export const GRIDS_BEGINNER_PHYSICS: Physics = Object.freeze({ gravity: 1, estimatorStarts: 20, sameSizeBand: 0.5, newbornBitRate: 1, estimatorWork: 1_000_000_000 });
 
 /** The physics of each variant the beginner configurations deal; undefined for a variant no configuration sets. */
 export function physicsForVariant(variantId: string): Physics | undefined {

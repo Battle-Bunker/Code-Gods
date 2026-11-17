@@ -14,6 +14,12 @@ export interface Physics {
   readonly sameSizeBand: number;
   /** Newborn numbers: each extra bit of size is 2^rate times rarer (rate 1: P(bit length L) ∝ 2^−L). */
   readonly newbornBitRate: number;
+  /**
+   * The estimator's work budget per estimate: how many distinct states it may score (the utility's evaluations) across
+   * all its starts. Past it, each remaining start costs its upper bound, the price of reaching exactly this state, and
+   * the estimate is flagged "bound, not found".
+   */
+  readonly estimatorWork: number;
 }
 
 /** The bounds each setting must keep. */
@@ -22,16 +28,18 @@ export const PHYSICS_LIMITS: Readonly<Record<keyof Physics, { readonly min: numb
   estimatorStarts: Object.freeze({ min: 1, max: 10_000 }),
   sameSizeBand: Object.freeze({ min: 0, max: 8 }),
   newbornBitRate: Object.freeze({ min: 0.05, max: 16 }),
+  estimatorWork: Object.freeze({ min: 1, max: 1e9 }),
 });
 
 /** Throws on a setting that is missing or not a finite number within PHYSICS_LIMITS. */
 export function assertPhysics(p: unknown): asserts p is Physics {
-  if (typeof p !== "object" || p === null) throw new Error("the game's physics settings are missing (gravity, estimatorStarts, sameSizeBand, newbornBitRate)");
+  if (typeof p !== "object" || p === null) throw new Error("the game's physics settings are missing (gravity, estimatorStarts, sameSizeBand, newbornBitRate, estimatorWork)");
   for (const key of Object.keys(PHYSICS_LIMITS) as (keyof Physics)[]) {
     const v = (p as Record<string, unknown>)[key], { min, max } = PHYSICS_LIMITS[key];
     if (typeof v !== "number" || !Number.isFinite(v) || v < min || v > max) throw new Error(`physics setting ${key} must be a number from ${min} to ${max}`);
   }
   if (!Number.isInteger((p as Physics).estimatorStarts)) throw new Error("physics setting estimatorStarts must be a whole number");
+  if (!Number.isInteger((p as Physics).estimatorWork)) throw new Error("physics setting estimatorWork must be a whole number");
 }
 
 /** The variant with the game's physics settings (checked). */
