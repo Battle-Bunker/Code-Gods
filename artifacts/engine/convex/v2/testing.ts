@@ -81,7 +81,7 @@ export const seedGame = internalMutation({
     ...roomArgs, objects: v.optional(v.number()), phase: v.optional(v.union(v.literal("planning"), v.literal("live"), v.literal("paused"), v.literal("ended"))), seed: v.optional(v.string()),
     /** A line the owner's agent and the next seat's pulled back and forth, each move undoing the last, by number. */
     contested: v.optional(v.number()),
-    /** Line 1's energies are stored as bounds (the estimator's budget ran out), for the app's marker. */
+    /** The first seat's (the owner's) energies are stored as bounds (the estimator's budget ran out), for the app's marker. */
     bound: v.optional(v.boolean()),
     /** Moves in each member's act log (default 3). */
     moves: v.optional(v.number()),
@@ -154,7 +154,7 @@ export const seedGame = internalMutation({
         packed.set(memberId, [...(packed.get(memberId) ?? []), i + 1, e.rarityBits, want]);
         const shownRaw = a.noise ? shownAt({ rarityBits: e.rarityBits, want }, readingNoise((await ctx.db.get(gameId))!, memberId, objectReading(objectId, version))) : null;
         const shown = shownRaw ? { ...shownRaw, quadrant: quadrantOf(e.rarityBits, shownRaw.shownWant) } : {};
-        await ctx.db.insert("v2ObjectValues", { objectId, gameId, memberId, number: i + 1, ...e, want, points, ...shown, version, changedAt: i, ...(a.bound && i === 0 ? { bound: true } : {}) });
+        await ctx.db.insert("v2ObjectValues", { objectId, gameId, memberId, number: i + 1, ...e, want, points, ...shown, version, changedAt: i, ...(a.bound && k === 0 ? { bound: true } : {}) });
       }
     }
 

@@ -49,7 +49,7 @@ export const object = query({
       const k = await knownOf(ctx, object._id, member._id);
       return {
         objectId: object._id, number: object.number, bornAt: object.bornAt, retiredAt: object.retiredAt, state: k?.state ?? "", version: k?.version ?? 0, changedAt: state.changedAt,
-        value: k ? { score: k.score, rarityBits: k.rarityBits, want: k.want, points: k.points, version: k.version, parts: await ownParts(ctx, game, member._id, k.state) } : null,
+        value: k ? { score: k.score, rarityBits: k.rarityBits, want: k.want, points: k.points, version: k.version, parts: await ownParts(ctx, game, member._id, k.state), ...(k.bound ? { bound: true } : {}) } : null,
         knownAt: k?.learnedAt ?? null, changesSince: state.version - (k?.version ?? 0),
         // What a look at it costs now (decision 35): its full read at the read price times the game's weight.
         // (none on a retired line: it is told to every player as it retires)

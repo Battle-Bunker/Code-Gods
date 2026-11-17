@@ -259,6 +259,8 @@ export const v2Tables = {
     gameId: v.id("v2Games"), memberId: v.id("v2Members"), objectId: v.id("v2Objects"), number: v.number(),
     state: v.string(), version: v.number(), learnedAt: v.number(), score: scoreWireV, rarityBits: v.number(), want: v.number(), points: v.number(),
     quadrant: v.optional(quadrantV),
+    /** rarityBits is an upper bound (the estimator's budget ran out), as last told; absent: found. */
+    bound: v.optional(v.boolean()),
     /** The line retired (turnover); absent: live. Every per-player sort lists live and retired apart. */
     retired: v.optional(v.literal(true)),
   }).index("by_object_member", ["objectId", "memberId"])

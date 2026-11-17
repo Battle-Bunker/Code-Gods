@@ -140,7 +140,7 @@ async function addObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule
   for (const val of values) {
     await ctx.db.insert("v2ObjectValues", { objectId, gameId: game._id, memberId: val.memberId as Id<"v2Members">, number, score: val.score, rarityBits: val.rarityBits, want: val.want, points: val.points, ...shownOf(val), version: 1, changedAt: world });
     // Paid observation: a birth is public, so every player is told it (knowledge.ts).
-    if (paysToRead(game)) await tell(ctx, game, val.memberId as Id<"v2Members">, { objectId, number, state: wire, version: 1, score: val.score, rarityBits: val.rarityBits, want: val.shownWant, points: val.shownPoints }, world);
+    if (paysToRead(game)) await tell(ctx, game, val.memberId as Id<"v2Members">, { objectId, number, state: wire, version: 1, score: val.score, rarityBits: val.rarityBits, bound: val.bound, want: val.shownWant, points: val.shownPoints }, world);
   }
   return { objectId, values };
 }
@@ -325,7 +325,7 @@ async function reknow(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[],
     // (Retired lines keep what was banked: their rows are past this range.)
     const mine = valuesOf(decode(k.state, game.variant), game.variant, seats, scope, penaltyWeightOf(game)).find(x => x.memberId === memberId);
     if (!mine) continue;
-    await ctx.db.patch(k._id, { score: mine.score, rarityBits: mine.rarityBits, points: mine.rarityBits * Math.max(0, k.want), quadrant: quadrantOf(mine.rarityBits, k.want) });
+    await ctx.db.patch(k._id, { score: mine.score, rarityBits: mine.rarityBits, points: mine.rarityBits * Math.max(0, k.want), quadrant: quadrantOf(mine.rarityBits, k.want), bound: mine.bound });
     const at = 3 * (k.number - 1);
     while (packed.length < at) packed.push(0);
     packed.splice(at, 3, k.number, mine.rarityBits, k.want);
@@ -763,7 +763,7 @@ export const commit = internalMutation({
       if (!committed && paysToRead(game) && st.version === act.version) {
         const row = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", act.objectId).eq("memberId", act.memberId as Id<"v2Members">)).unique();
         const seen = (act.input as { value?: { mine: number; others: number; points: number } } | undefined)?.value;
-        if (row) await tell(ctx, game, act.memberId as Id<"v2Members">, { objectId: act.objectId, number: act.number, state: st.state, version: st.version, score: row.score, rarityBits: row.rarityBits, ...(seen ? agentSeen(row, seen) : measured(game, row)) }, world);
+        if (row) await tell(ctx, game, act.memberId as Id<"v2Members">, { objectId: act.objectId, number: act.number, state: st.state, version: st.version, score: row.score, rarityBits: row.rarityBits, bound: row.bound, ...(seen ? agentSeen(row, seen) : measured(game, row)) }, world);
       }
       if (!committed) continue;
       const { before, after } = await changeObject(ctx, game, seats, act.objectId, record.after, world, act.memberId);
@@ -771,7 +771,7 @@ export const commit = internalMutation({
       // The mover is told the object its agent changed, free (decision 36).
       if (paysToRead(game)) {
         const mine = after.find(x => x.memberId === act.memberId)!;
-        await tell(ctx, game, act.memberId as Id<"v2Members">, { objectId: act.objectId, number: act.number, state: record.after, version: st.version + 1, score: mine.score, rarityBits: mine.rarityBits, ...measured(game, mine) }, world);
+        await tell(ctx, game, act.memberId as Id<"v2Members">, { objectId: act.objectId, number: act.number, state: record.after, version: st.version + 1, score: mine.score, rarityBits: mine.rarityBits, bound: mine.bound, ...measured(game, mine) }, world);
       }
       const was = logBits(game, [...before.values()]), now = logBits(game, after);
       await ctx.db.insert("v2Log", {
@@ -859,7 +859,7 @@ export const exactValues = internalMutation({
       if (!paid) continue;
       const st = await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", r.objectId)).unique();
       if (!st) continue;
-      const told = { state: st.state, version: st.version, score: r.score, rarityBits: r.rarityBits, want: r.want, points: r.points, quadrant };
+      const told = { state: st.state, version: st.version, score: r.score, rarityBits: r.rarityBits, want: r.want, points: r.points, quadrant, bound: r.bound };
       const known = await ctx.db.query("v2Knowledge").withIndex("by_object_member", q => q.eq("objectId", r.objectId).eq("memberId", memberId)).unique();
       if (known) await ctx.db.patch(known._id, told);   // learnedAt kept: the "recent" sort stays the order of telling
       else await ctx.db.insert("v2Knowledge", { gameId, memberId, objectId: r.objectId, number: r.number, learnedAt: world, ...told, ...(r.retired ? { retired: true as const } : {}) });

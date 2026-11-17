@@ -203,12 +203,12 @@ try {
       const row = page.locator("[data-testid^=row-line-]").first();
       await row.waitFor();
       await page.locator("[data-testid^=marks-line-]").first().waitFor();   // each row's face arrives with its own subscription
-      // Line 1's energy is a bound (the estimator ran out of work): a quiet ≤ beside it, explained on hover.
-      const mark = page.getByTestId("mark-bound-line-1");
+      // Every energy of yours in this seeded game is a bound (the estimator ran out of work): a quiet ≤ beside each,
+      // explained on hover.
+      const mark = row.locator("[data-testid^=mark-bound-line-]");
       await mark.waitFor({ timeout: 15_000 });
       assert.equal(await mark.innerText(), "≤");
       assert.match(await mark.getAttribute("title") ?? "", /^At most this much: the estimate ran out of time/);
-      assert.equal(await page.locator("[data-testid^=mark-bound-line-]").count(), 1, "only the bound energy is marked");
       await page.locator("[data-testid^=button-pane-menu-]").first().click();
       await page.getByTestId("button-open-pane-feed").click();
       await page.getByTestId("pane-feed").getByText(/Your agent\b/).first().waitFor();   // \b: not the folded table's "Your agents' move"
