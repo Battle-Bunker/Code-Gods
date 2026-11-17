@@ -164,10 +164,12 @@ gives the mean of (best found − exact MIN) over 100 starts.
 
 | Goal | Exact | 10 walks | 100 | 1,000 |
 |---|---|---|---|---|
-| Prime Hug, best (dense goal) | 14.66 | +29.8 | +1.0 | +0.39 |
-| Multiples, best | 13.65 | +35.2 | +30 | +11.1 |
-| Power Hug, best (4 states) | 14.16 | none found | none | 77 of 100 starts found none |
-| 3^11 only | 31.66 | none | none | none |
+| Prime Hug, best (dense goal) | 14.66 | +44.5 (83 of 100 starts found none) | +15.7 (10 none) | +0.39 |
+| Multiples, best | 13.65 | +48.8 (95 none) | +43.6 (76 none) | +11.1 (4 none) |
+| Power Hug, best (4 states) | 14.16 | 100 none | 97 none | 77 none |
+| 3^11 only | 31.66 | 100 none | 100 none | 100 none |
+
+A start that found no route counts as 64 bits.
 
 Sampling from the jiggle finds a goal at a rate of about 2^−(surprise), so it only works for dense goals. Its bias
 always points upward and shrinks as walks are added.
