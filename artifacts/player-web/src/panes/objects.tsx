@@ -4,7 +4,7 @@
  * to its line (`v2/play:object`), dropped when it scrolls away (docs/convex-read-architecture.md R1). A row: the line
  * drawn in your rule's main view (or the representation pinned for the family) with its marks, your bits (rarity) and points,
  * the points rectangle (width = your bits, height = the others' bits added together, area = your points: ux-lessons 2.8)
- * and "Why?" from the rule's main part. Clicking a row opens it in One line (`view.openObject`). The order is the human's
+ * and "Why?" from the rule's main part. Pointing at a line's face (or tapping it) shows its detail over the list (components/object-hover.tsx). The order is the human's
  * view state (`view.sortObjects`), so an assistant can sort it for them. A spectator sees every line by number, as text.
  */
 import { isPaid, KEEP_FRESH_SHARE, lookAllPrice, seenShort, watcherTypeOf } from "./seen";
@@ -21,7 +21,7 @@ import { annotate, CompactFace, ObjectChip, type Annotation } from "@workspace/v
 import { decodeState, defaultRepOf, objectTypeOf, objectWord, useDigest, useGame, useGameScope, useMoves, useMyAgents, useMyObject, useMyObjects, useMyRule, useObjectIds, useReplaySource, useSpectatorObjectIds, type GameRule, useOthersBlurred } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
 import { useWide } from "@/core/use-wide";
-import { usePaneOps } from "@/dock/open-pane";
+import { ObjectHover } from "@/components/object-hover";
 import { VirtualRows } from "@/components/virtual-rows";
 import { BitsHelp } from "@/core/score-help";
 import { listMaxHeight } from "@/lib/virtual-window";
@@ -108,19 +108,17 @@ function ShowControl() {
   );
 }
 
-function LineRow({ objectId, number, rule, value, rep, scale, focused, contested, onOpen, variant }: {
-  objectId: string; number: number; rule: GameRule | null; value: ((u: Score) => number) | null; rep: string; scale: PayoffScale; focused: boolean; contested: boolean; onOpen: (objectId: string) => void; variant: string;
+function LineRow({ objectId, number, rule, value, rep, scale, contested, variant }: {
+  objectId: string; number: number; rule: GameRule | null; value: ((u: Score) => number) | null; rep: string; scale: PayoffScale; contested: boolean; variant: string;
 }) {
   const blurred = useOthersBlurred();
   const o = useMyObject(objectId);
   const word = objectWord(variant);
   const state = useMemo(() => (o ? decodeState(o.state, variant) : null), [o?.state, variant]); // eslint-disable-line react-hooks/exhaustive-deps
   const a: Annotation | null = useMemo(() => (rule && state ? annotate(rule, state) : null), [rule, state]);
-  const open = () => onOpen(objectId);
   const shell = (body: ReactNode) => (
-    <div role="button" tabIndex={0} onClick={open} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } }}
-      data-testid={`row-line-${number}`} aria-label={`Open ${word.one} ${number}`} aria-current={focused || undefined}
-      className={`flex h-full min-w-0 cursor-pointer items-start gap-3 overflow-hidden border-t border-[hsl(var(--card-border))] px-3 py-2 hover:bg-muted/50 ${focused ? "bg-primary/10" : ""}`}>
+    <div data-testid={`row-line-${number}`}
+      className="flex h-full min-w-0 items-start gap-3 overflow-hidden border-t border-[hsl(var(--card-border))] px-3 py-2">
       {body}
     </div>
   );
@@ -129,9 +127,11 @@ function LineRow({ objectId, number, rule, value, rep, scale, focused, contested
   const v = o.value;
   const main = a?.sites[0]?.parts[0];
   return shell(<>
-    <div className="shrink-0" data-testid={`marks-line-${number}`} data-rep={rep}>
-      {rule ? <CompactFace rule={rule} state={state} annotation={a ?? undefined} rep={rep} value={value ?? undefined} toScore /> : <ObjectChip type={objectTypeOf(variant)} state={state} />}
-    </div>
+    <ObjectHover objectId={objectId} label={`${word.One} ${number}`} className="shrink-0" testId={`marks-line-${number}`}>
+      <span data-rep={rep}>
+        {rule ? <CompactFace rule={rule} state={state} annotation={a ?? undefined} rep={rep} value={value ?? undefined} toScore /> : <ObjectChip type={objectTypeOf(variant)} state={state} />}
+      </span>
+    </ObjectHover>
     <div className="min-w-0 flex-1 space-y-1.5 text-xs">
       <p className="flex flex-wrap items-baseline gap-x-2">
         <span className="font-semibold">{word.One} {number}</span>
@@ -192,17 +192,9 @@ function SeatedLines() {
   const contested = useMemo(() => contestedLines(foldTugs(moves.results)), [moves.results]);
   const digest = useDigest();
   const ids = useObjectIds(serverSort(view.objects.sort), 30, view.objects.filter.show ?? "all");
-  const openObject = useAffordance("view.openObject");
-  const panes = usePaneOps(useReplaySource() ? "replay" : header?.phase ?? "live");
   const scale = useMemo(() => digestScale(digest?.packed), [digest?.packed]);
   const rule = my?.rule ?? null;
   const rep = rule ? pinnedRep(view, rule.family.id, my!.row.primary) : defaultRepOf(header?.variant);
-  const onOpen = useCallback(async (objectId: string) => {
-    // The pane first (the arrangement on screen kept, at most five), then the line in it.
-    if (!await panes.open("object")) return;
-    try { await openObject.run({ objectId }); }
-    catch (e) { toast({ title: `The ${objectWord(header?.variant).one} did not open`, description: e instanceof Error ? e.message : String(e), variant: "destructive" }); }
-  }, [panes, openObject]);
   const { status, loadMore } = ids;
   // Hold the order while the player points at the list (and a second after a tap): the rows must not move under them.
   const [hold, setHold] = useState<string[] | null>(null);
@@ -233,7 +225,7 @@ function SeatedLines() {
       <TurnoverNote />
       <LookAll ids={loadedIds} many={objectWord(header?.variant).many} one={objectWord(header?.variant).one} variant={header?.variant ?? ""} />
       <VirtualRows rows={results} rowHeight={ROW_H} maxHeight={maxHeight} keyOf={r => r.objectId} onNearEnd={onNearEnd} testId="lines-list"
-        render={r => <LineRow objectId={r.objectId} number={r.number} rule={rule} value={my?.bits ?? null} rep={rep} scale={scale} focused={view.focus?.objectId === r.objectId} contested={contested.has(r.objectId)} onOpen={onOpen} variant={header?.variant ?? ""} />} />
+        render={r => <LineRow objectId={r.objectId} number={r.number} rule={rule} value={my?.bits ?? null} rep={rep} scale={scale} contested={contested.has(r.objectId)} variant={header?.variant ?? ""} />} />
       <ListFooter text={listFooter({ shown: results.length, packed: header?.turnover ? undefined : digest?.packed, show: view.objects.filter.show ?? "all", more: status !== "Exhausted", many: objectWord(header?.variant).many })} />
       <RetiredLines />
     </div>
