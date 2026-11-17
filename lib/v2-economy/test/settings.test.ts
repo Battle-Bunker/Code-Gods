@@ -8,7 +8,7 @@ test("Lines · beginner: the starting energy fits the planning store, and the fi
   const e = LINES_BEGINNER_ECONOMY;
   assert.doesNotThrow(() => assertEconomy(e));
   const whole = e.powerPerSecond * e.fullChargeSeconds;
-  assert.equal(whole, 960);   // the coordinator's call 17: 4 a second, a 240 s store
+  assert.equal(whole, 720);   // 17 Nov: 3 a second, a 240 s store
   assert.ok(e.startingEnergy <= whole);
   // Today's dearest beginner starter (599 bits, ÷ 16 at power 4: about 37): so cheap that the first agent may take the
   // most power a first agent takes.

@@ -14,7 +14,7 @@ export const HELPERS: readonly { readonly name: string; readonly ts: string; rea
   { name: "peek", ts: `peek(offer, "seq", "term", { n: 3 })`, py: `peek(offer, "seq", "term", {"n": 3})`, says: "one number of a view, some with an input" },
   { name: "goal", ts: "goal(offer)", py: "goal(offer)", says: "your rule: .family, .params, .tieBreaker (Python .tie_breaker), .card, .layers. Free" },
   { name: "progress", ts: "progress(offer)", py: "progress(offer)", says: "the score on this line now: .main, .tiebreak (bigger is better), .bits (its worth; null / None if unknown). Costs reading the rule's views" },
-  { name: "move", ts: `move("si.tilt", { k: 1 })`, py: `move("si.tilt", k=1)`, says: "one change; a plan is a list of moves" },
+  { name: "move", ts: `move("add", { lens: "mc", at: 3, k: 1 })`, py: `move("add", lens="mc", at=3, k=1)`, says: "one change; a plan is a list of moves on ONE lens" },
   { name: "price", ts: "price(offer, plan)", py: "price(offer, plan)", says: "the energy a plan would cost, or null / None if it is not allowed. Changes nothing" },
   { name: "cheapest", ts: "cheapest(offer, plans)", py: "cheapest(offer, plans)", says: "the cheapest allowed plan of several (often one change through different views), as a list; null / None if none" },
   { name: "energy", ts: "energy(offer)", py: "energy(offer)", says: "the agent's energy" },
@@ -116,7 +116,7 @@ const WORDS: Readonly<Record<string, PrimerWords>> = {
   line: {
     title: "lines", one: "line", many: "lines",
     game: "The game is played on lines: every piece is one line, read in several views. Each player has a rule about lines: one number to make big, its utility (for example \"the y-intercept right on a power of 3: a bigger power scores a little more, and every bit off costs the distance cubed\"). A line's energy for a rule is what it would cost to reach a line at least that good from a random line of the same size; it is estimated afresh each time, so it jitters.",
-    prices: "A move by k costs k moves by 1, so a big jump never saves; ×6 (mach.stretch) costs ×2 plus ×3. Numbers made of small primes are cheap (24), big primes dear (23).",
+    prices: "A turn pins ONE lens (a list of whole numbers: mc = gradient top, bottom, y-intercept top, bottom; xy = the two intercepts; abc = ax + by + c = 0; mA = gradient and area) and moves its numbers; it also pays its surprise: for each number of the lens, (s + 0.35)² / 1.39 bits, s the change in log2(1 + |n|). Rising costs more than falling, and a big jump costs more than the same rise in small turns.",
     deal: "\"I leave line 4's y-intercept alone if you keep its gradient prime\"",
     typescript: "the same shape with Q for arithmetic",
     example: () => null,   // the dynamic families' starters carry long number helpers: too long for the primer
@@ -124,7 +124,7 @@ const WORDS: Readonly<Record<string, PrimerWords>> = {
   grid: {
     title: "grids", one: "board", many: "boards",
     game: "The game is played on boards: every piece is a 4×4 board of the numbers 0 to 9 (cells r0c0 … r3c3, row by row, counted from 0), read in several views. Each player has a rule about boards: one number to make big, its utility (for example \"read each row as a number: every row a big multiple of 7, and every step off costs 4 × log2(1 + the distance)\"). A board's energy for a rule is what it would cost to reach a board at least that good from a random board; it is estimated afresh each time, so it jitters.",
-    prices: "A move by k costs k moves by 1, so climb in small steps; a change that raises the board's total pays a surcharge of half the growth, so big numbers are rare and dear; rearranging (swaps, turns, writing a row backwards) pays none.",
+    prices: "A board has no size: a turn costs only the bits that name its moves.",
     deal: "\"I leave board 4's top row alone if you keep its corners big\"",
     typescript: "the same shape, with plain numbers (a view's numbers are Q: Q.toNumber reads them)",
     helpers: {
@@ -170,7 +170,7 @@ AN AGENT. A program in Python or TypeScript that defines agent(offer). Each turn
 
 WHAT COSTS ENERGY.
 - Looking: each view read costs a little, once per turn (looking again is free; all views together cost at most one full look). Looking is about 32 times cheaper than a change.
-- Changing: each move is priced by the view it is made through: which move, how big its numbers are, and a surcharge when the new ${one} takes more to write down. ${w.prices} A turn's changes cost W + 0.05·W², so a few small moves beat one huge plan.
+- Changing: energy is bits. Each move pays the bits that name it (which move, where, its amount) plus one. ${w.prices}
 - Thinking is free but capped: about half a million steps and 64 calls to the game (looks, goal, prices) per turn. So: look once, try many changes in your own code, price only the best few, and make the cheapest. The same change often costs different amounts through different views; choosing the view is the skill.
 - Summoning costs energy by the program's length; comments are free, so explain in comments. Replacing a program costs only the change, so deal edits are cheap.
 - Energy moves with power. If the store cannot pay a summon: give the agents a small share each (Split power), pay, then share power out again.

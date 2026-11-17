@@ -64,7 +64,9 @@ type Priced = [price: number, line: Line];
 /** Applies and prices moves on one variant: a move it does not offer is refused (null). */
 class Mover {
   readonly v: Variant;
-  constructor(v: Variant) { this.v = v; }
+  // Interim until the estimator moves to the new turn law (v2-core surprise.ts): it prices its routes with the old
+  // moves on every board, whatever the board's menu.
+  constructor(v: Variant) { this.v = { ...v, mutators: allMutators.map(m => m.id), which: undefined }; }
   apply(mv: Mv, l: Line): Priced | null {
     if (!this.v.mutators.includes(mv.id)) return null;
     const m = BY_ID.get(mv.id)!, r = m.apply({ lines: [l] }, 0, mv.args as never, this.v as never);

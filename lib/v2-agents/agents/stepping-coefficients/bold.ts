@@ -56,28 +56,17 @@ const PROTECT = [];    // lines where you promised not to lower the others, e.g.
 
 function agent(offer) {
   if (LEAVE.includes(offer.object)) return null;   // a deal: leave this line alone
-  if (saving(offer)) return null;   // under 10 s of your income in hand: save up for a move (the game still tells you the line)
-  // A tug-of-war (another player taking back your gains on this line, 3 times lately) burns energy on both
-  // sides: tell your owner, who can make a deal. (Leaving the line instead gives it away: try it and compare.)
+  if (saving(offer)) return null;   // under 10 s of your income in hand: save up for a move
+  // A tug-of-war (another player taking back your gains on this line, 3 times lately): tell your owner.
   contested(offer, 3);
   const v = look(offer, "si");      // the line as y = mx + c
   const rule = goal(offer);         // your rule (free)
   const m = v.m, c = v.c, p = rule.params, tie = rule.tieBreaker;
-  // A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.
-  if (!Q.isQ(m)) return climb(offer, tips(offer).filter(([plan]) => !PROTECT.includes(offer.object) || fair(offer, plan)).map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]), null, QUOTES);
-  const tries = [];                 // [plan, m after, c after]: changes tried in the agent's own head
-  for (let k = -FAR; k <= FAR; k++) {
-    if (k === 0) continue;
-    tries.push([move("si.shift", { k }), m, Q.add(c, k)]);     // move the line up or down
-    tries.push([move("si.tilt", { k }), Q.add(m, k), c]);      // make it steeper or flatter
-    for (let j = -FAR; j <= FAR; j++) {                          // both at once
-      if (j !== 0) tries.push([[move("si.shift", { k }), move("si.tilt", { k: j })], Q.add(m, j), Q.add(c, k)]);
-    }
-  }
-  tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
-  let options = scoreEach(tries, ([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches (fewer on a big line)
+  // [plan, m after, c after]: whole-number steps on one lens, tried in the agent's own head
+  const tries = lensSteps(m, c, FAR);
+  let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches
   // A promise: on these lines, only steps that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));
-  // The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or null.
+  // The step that raises your points most for its price, weighing the QUOTES best; or null.
   return climb(offer, options, score(m, c, p, tie), QUOTES);
 }

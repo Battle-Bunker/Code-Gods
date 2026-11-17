@@ -53,47 +53,17 @@ const PROTECT = [];    // lines where you promised not to lower the others, e.g.
 
 function agent(offer) {
   if (LEAVE.includes(offer.object)) return null;   // a deal: leave this line alone
-  if (saving(offer)) return null;   // under 10 s of your income in hand: save up for a move (the game still tells you the line)
-  // A tug-of-war (another player taking back your gains on this line, 3 times lately) burns energy on both
-  // sides: tell your owner, who can make a deal. (Leaving the line instead gives it away: try it and compare.)
+  if (saving(offer)) return null;   // under 10 s of your income in hand: save up for a move
+  // A tug-of-war (another player taking back your gains on this line, 3 times lately): tell your owner.
   contested(offer, 3);
   const v = look(offer, "si");      // the line as y = mx + c
   const rule = goal(offer);         // your rule (free)
   const m = v.m, c = v.c, p = rule.params, tie = rule.tieBreaker;
-  // A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.
-  if (!Q.isQ(m)) return climb(offer, tips(offer).filter(([plan]) => !PROTECT.includes(offer.object) || fair(offer, plan)).map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]), null, QUOTES);
-  const tries = [];                 // [plan, m after, c after]: changes tried in the agent's own head
-  for (let k = -FAR; k <= FAR; k++) {
-    if (k === 0) continue;
-    tries.push([move("si.shift", { k }), m, Q.add(c, k)]);   // move the line up or down
-    tries.push([move("si.tilt", { k }), Q.add(m, k), c]);   // make it steeper or flatter
-    tries.push([move("seq.step", { k }), Q.add(m, k), Q.sub(c, k)]);   // change the pattern's step, keeping y(1)
-    tries.push([move("cart.pivot", { x0: -1, k }), Q.add(m, k), Q.add(c, k)]);   // turn the line about its point at x = -1 (m and c both change by k)
-    const f = k > 0 ? k + 1 : k - 1;
-    tries.push([move("mach.stretch", { f }), Q.mul(m, f), Q.mul(c, f)]);   // multiply every output by f (m and c both)
-  }
-  tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
-  tries.push(...shortcuts(m, c, rule.mutators));   // other views the game offers: mirrors, a slide, turns, one intercept moved
-  let options = scoreEach(tries, ([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches (fewer on a big line)
+  // [plan, m after, c after]: whole-number steps on one lens, tried in the agent's own head
+  const tries = lensSteps(m, c, FAR);
+  let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches
   // A promise: on these lines, only steps that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));
-  // The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or null.
-  const one = climb(offer, options, score(m, c, p, tie), QUOTES);
-  if (one || PROTECT.includes(offer.object)) return one;
-  // No single step helps: look two steps ahead (each step, then a shift or tilt by 1) and take the first
-  // step of the best pair, though it may lower your points for a moment. It weighs the 4 best pairs: a few more small reads.
-  // The first steps: the 6 best for your rule (options are tries with their scores, in the same order).
-  const firsts = tries.slice(0, options.length).map((t, i) => [t, options[i][1]]).filter(([[, m1]]) => Q.isQ(m1))
-    .sort((a, b) => (better(a[1], b[1]) ? -1 : better(b[1], a[1]) ? 1 : 0)).slice(0, 6).map(([t]) => t);
-  const pairs = [];
-  for (const [plan, m1, c1] of firsts) {
-    if (stepsLeft() < 0.45 * stepBudget()) break;   // a big line: weigh fewer pairs rather than fail
-    const first = Array.isArray(plan) ? plan : [plan];
-    for (const k of [-1, 1]) {
-      pairs.push([[...first, move("si.shift", { k })], score(m1, Q.add(c1, k), p, tie)]);
-      pairs.push([[...first, move("si.tilt", { k })], score(Q.add(m1, k), c1, p, tie)]);
-    }
-  }
-  const two = climb(offer, pairs, score(m, c, p, tie), 4);
-  return two ? two.slice(0, -1) : null;
+  // The step that raises your points most for its price, weighing the QUOTES best; or null.
+  return climb(offer, options, score(m, c, p, tie), QUOTES);
 }

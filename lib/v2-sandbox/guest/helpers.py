@@ -454,6 +454,48 @@ def worth(offer):
         return None
 
 
+def lens_steps(m, c, far):
+    """Whole-number steps on the gradient-and-intercept lens (owner, 17 Nov), each (plan, m after, c after)."""
+    out = []
+    if not isinstance(m, Fraction) or not isinstance(c, Fraction):
+        return out
+    n = [m.numerator, m.denominator, c.numerator, c.denominator]
+
+    def push(plan, nn):
+        if nn[1] >= 1 and nn[3] >= 1:
+            out.append((plan, Fraction(nn[0], nn[1]), Fraction(nn[2], nn[3])))
+    for i in range(4):
+        for k in range(1, far + 1):
+            for sk in (k, -k):
+                nn = list(n)
+                nn[i] += sk
+                push(call("add", lens="mc", at=i + 1, k=sk), nn)
+        for f in (2, 3):
+            nn = list(n)
+            nn[i] *= f
+            push(call("mul", lens="mc", at=i + 1, k=f), nn)
+            if n[i] % f == 0 and n[i] != 0:
+                dd = list(n)
+                dd[i] //= f
+                push(call("div", lens="mc", at=i + 1, k=f), dd)
+        if i % 2 == 0 and n[i] != 0:
+            nn = list(n)
+            nn[i] = -n[i]
+            push(call("neg", lens="mc", at=i + 1), nn)
+    for j in (0, 1):
+        t, b = n[2 * j], n[2 * j + 1]
+        if b != 1:
+            nn = list(n)
+            nn[2 * j] = _math.floor(Fraction(t, b) + Fraction(1, 2))
+            nn[2 * j + 1] = 1
+            push(call("round", lens="mc", at=j + 1), nn)
+        if t != 0:
+            nn = list(n)
+            nn[2 * j], nn[2 * j + 1] = (-b, -t) if t < 0 else (b, t)
+            push(call("swap", lens="mc", at=j + 1), nn)
+    return out
+
+
 def rounding(m, c):
     out = []
     if not isinstance(m, Fraction) or not isinstance(c, Fraction):

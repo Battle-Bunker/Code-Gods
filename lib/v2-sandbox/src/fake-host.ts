@@ -126,7 +126,6 @@ export interface Settlement {
 }
 
 export const KAPPA = 32;
-export const BETA = 0.05;
 const ok = (result: unknown, bits: number): HostReply => ({ ok: true, result, bits } as HostReply);
 const err = (error: string): HostReply => ({ ok: false, error });
 
@@ -166,7 +165,7 @@ export class FakeHost implements AgentHost {
       case "myRule": return ok({ family: this.rule.family, params: this.rule.params, tieBreaker: null, card: FAMILIES[this.rule.family].card, layers: [{ id: "gap", title: "the gap", sense: "min" }] }, 0);
       case "myScore": return this.score();
       case "quote": return this.quote(request.calls);
-      case "budget": return ok({ energy: this.energy, readPrice: 1 / KAPPA, beta: BETA, hostCallsLeft: context.hostCallsLeft }, 0);
+      case "budget": return ok({ energy: this.energy, readPrice: 1 / KAPPA, hostCallsLeft: context.hostCallsLeft }, 0);
       case "worth": return err("the toy game does not say what lines are worth");
       case "rarity": return err("the toy game does not say what scores are worth");
       case "othersAfter": return err("the toy game does not say what lines are worth to others");
@@ -272,7 +271,7 @@ export class FakeHost implements AgentHost {
     const priced = this.price(calls);
     if (!priced.valid) return ok({ valid: false, reason: priced.reason, bits: [], total: 0, charge: 0 }, bits);
     const total = priced.prices.reduce((a, b) => a + b, 0);
-    return ok({ valid: true, bits: priced.prices, total, charge: total + BETA * total * total }, bits);
+    return ok({ valid: true, bits: priced.prices, total, charge: total }, bits);
   }
 
   /** Apply what an act returned (the sandbox's untrusted calls text), as the engine's act step 3–4 does. */
@@ -290,7 +289,7 @@ export class FakeHost implements AgentHost {
     const total = priced.prices.reduce((a, b) => a + b, 0);
     return {
       outcome: "committed", prices: priced.prices, total, readBits: this.readBits,
-      charge: reads + total + BETA * total * total, state: { m: String(this.state.m), c: String(this.state.c) },
+      charge: reads + total, state: { m: String(this.state.m), c: String(this.state.c) },
     };
   }
 }

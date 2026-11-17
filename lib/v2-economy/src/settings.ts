@@ -22,9 +22,11 @@ export interface Economy {
  * test holds the two equal; 130 at 715 bits until the beginner lines dealt the dynamic families, 16 Nov).
  */
 export const LINES_BEGINNER_ECONOMY: Economy = Object.freeze({
-  powerPerSecond: 4,
+  // 17 Nov (energy IS bits): a typical turn costs about 12 bits (one add on a lens: naming ≈ 11, surprise ≈ 1), so
+  // 3 bits a second over a 300 s world buys about 75 typical turns a seat, plus the start.
+  powerPerSecond: 3,
   fullChargeSeconds: 240,
-  startingEnergy: 150,
+  startingEnergy: 100,
   opportunitiesPerSecond: 3,
 });
 
@@ -32,7 +34,7 @@ export const LINES_BEGINNER_ECONOMY: Economy = Object.freeze({
  * `Grids · beginner`: the lines' economy with the start that buys about three typical grid starters (a board's agent
  * reads 16 cells, not y = mx + c, so it is longer and dearer): 3 × the median grid starter's 511 bits ÷ 16 ≈ 100 (17 Nov: the nine dynamic grid rules; 140 before).
  */
-export const GRIDS_BEGINNER_ECONOMY: Economy = Object.freeze({ ...LINES_BEGINNER_ECONOMY, startingEnergy: 100 });
+export const GRIDS_BEGINNER_ECONOMY: Economy = Object.freeze({ ...LINES_BEGINNER_ECONOMY, startingEnergy: 70 });
 
 /** The bounds a room's economy must keep. */
 export const ECONOMY_LIMITS = Object.freeze({

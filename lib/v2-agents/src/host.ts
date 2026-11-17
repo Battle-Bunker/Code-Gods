@@ -21,7 +21,7 @@ import {
   lockFee, lockRate, Qn, ratBits, type ActLock, type LockLanguage, type LockOpWire, type LockProgram, type LockRates, type PredicateRunner,
   joinTieBreakers, representation, ruleLayers, type Call, type TieBreaker, type ElementRef, type ElementValue, type ObjectType, type Price, type RuleFamily, type Variant,
 } from "@workspace/v2-core";
-import { BETA, KAPPA } from "@workspace/v2-economy";
+import { KAPPA } from "@workspace/v2-economy";
 
 import type { AgentHost, ElementValueWire, HostContext, HostReply, HostRequest } from "@workspace/v2-sandbox";
 
@@ -39,9 +39,8 @@ export interface RuleRef {
  */
 export interface Economy {
   readonly kappa: number;
-  readonly beta: number;
 }
-export const SPEC_ECONOMY: Economy = { kappa: KAPPA, beta: BETA };
+export const SPEC_ECONOMY: Economy = { kappa: KAPPA };
 
 export interface HostInput<S> {
   readonly type: ObjectType<S>;
@@ -106,8 +105,8 @@ export const RECENT_BITS_PER_MOVE = 2;
 /** Notes an act may leave its owner, and their length. */
 export const NOTES_PER_ACT = 3, NOTE_CHARS = 200;
 
-/** The energy an act's changes cost (§6.1): W + β·W². */
-export const changeCharge = (w: number, e: Economy = SPEC_ECONOMY): number => w + e.beta * w * w;
+/** The energy an act's change costs: its price W in bits (owner, 17 Nov: energy IS bits). */
+export const changeCharge = (w: number, _e: Economy = SPEC_ECONOMY): number => w;
 
 const wire = (v: ElementValue): ElementValueWire => {
   switch (v.kind) {
@@ -256,7 +255,7 @@ export class EngineHost<S> implements AgentHost {
       }, 0);
       case "myScore": return this.score();
       case "quote": return this.quote(request.calls);
-      case "budget": return ok({ energy: this.energy, income: this.input.income ?? null, readPrice: 1 / this.economy.kappa, beta: this.economy.beta, hostCallsLeft: context.hostCallsLeft }, 0);
+      case "budget": return ok({ energy: this.energy, income: this.input.income ?? null, readPrice: 1 / this.economy.kappa, hostCallsLeft: context.hostCallsLeft }, 0);
       case "worth": {
         // Worth was a table's rarity: rules scored by energy (decision 50) do not answer it, so agents climb their own
         // utility (the guest's climb) and weigh the others through othersAfter.

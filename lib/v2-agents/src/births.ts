@@ -3,6 +3,7 @@ import { rng, walkStep, type ObjectType, type Variant } from "@workspace/v2-core
 
 export function births<S>(type: ObjectType<S>, variant: Variant, seed: string, count: number): S[] {
   const r = rng("births", seed);
+  if (type.newborn) return Array.from({ length: count }, () => type.newborn!(variant, r));
   let s = type.origin(variant);
   const out: S[] = [];
   for (let i = 0; i < variant.birthMixSteps * 4; i++) s = walkStep(type, variant, s, r);   // burn-in
