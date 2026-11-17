@@ -160,9 +160,18 @@ export function estimateLine(s: Line, rule: LineRule, variant: Variant, o: LineE
   // ending the start (it keeps the direct turn and what was already priced), and the estimate is a bound.
   const soft = (l: Line) => { try { return u(l); } catch (e) { if (!(e instanceof OutOfWork)) throw e; bound = true; return -Infinity; } };
   const all: RouteSpace<Line> = { key: keyOf, u: soft, moves: function* () {}, surprise: () => 0, name: (x, t) => routePrice(lambda, x, t).total };
+  // Every single move from the start that already reaches the level is a route of its own (the climb's first step
+  // scores these anyway): on a small line there are many, and the estimate sums them (17 Nov: without them small lines
+  // read 3–6 bits above a larger search).
+  let extra: { target: Line; bits: number }[] = [];
   const climb = (x: Line, uS: number, _sp: RouteSpace<Line>, ceiling = Infinity) => {
     let best: { readonly target: Line; readonly bits: number } | null = null, cap = ceiling;
     try {
+      for (const sp of spaces) for (const mv of sp.moves(x)) {
+        if (u(mv.to) < uS - 1e-9) continue;
+        const bits = mv.bits + sp.surprise(x, mv.to);
+        if (bits < ceiling) extra.push({ target: mv.to, bits });
+      }
       for (const sp of spaces) {
         const c = greedyClimb(x, uS, sp, cap, 6);
         if (c && c.bits < cap) { best = c; cap = c.bits; }
@@ -186,7 +195,8 @@ export function estimateLine(s: Line, rule: LineRule, variant: Variant, o: LineE
         try { cands = rule.candidates(x, uStar).filter(t => !isVertical(t)); }
         finally { work += share - Math.max(0, searchMeter.left); if (searchMeter.cut) bound = true; searchMeter.left = Infinity; searchMeter.cut = false; searchMeter.unit = 1; }
       }
-      const c = startCost(x, s, uStar, all, cands, climb);
+      extra = [];
+      const c = startCost(x, s, uStar, all, cands, climb, extra);
       return { from: x, cost: c.cost, best: c.best, universal: c.universal, by: c.by };
     } catch (e) {
       if (!(e instanceof OutOfWork)) throw e;

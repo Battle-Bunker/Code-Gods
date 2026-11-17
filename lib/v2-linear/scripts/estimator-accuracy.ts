@@ -10,9 +10,10 @@
 // Not a test. Usage: node --experimental-strip-types scripts/estimator-accuracy.ts [ruleId|all] [sizes] [NODES]
 // Output: one markdown row per rule and size, and a JSON line per state on stderr.
 import { greedyClimb, physicsOf, q, rng as makeRng, softMinBits, withPhysics, type RouteSpace } from "@workspace/v2-core";
-import { lineQ as V } from "../test/config.ts";
+import { lineQ as V0 } from "../test/config.ts";
 import { dynamicFamilies, estimateLine, fromMC, isVertical, lensById, lensSpace, lensPrice, lensSurprise, lineRule, TURN_BITS, lineStarts, LENSES, routePrice, type Line, type LensId } from "../src/index.ts";
 
+const V = process.env.WORK ? withPhysics(V0, { ...physicsOf(V0), estimatorWork: Number(process.env.WORK) }) : V0;
 const physics = physicsOf(V), lambda = physics.gravity;
 // The live routes without the work budget: none up to 10 bits; 20 times the budget beyond (unlimited takes minutes there).
 const VU = (B: number) => withPhysics(V, { ...physics, estimatorWork: B <= 10 ? 1_000_000_000 : 20 * physics.estimatorWork });

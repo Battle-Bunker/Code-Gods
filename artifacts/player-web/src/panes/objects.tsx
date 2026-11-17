@@ -23,7 +23,7 @@ import { useView } from "@/core/affordance-runtime";
 import { useWide } from "@/core/use-wide";
 import { ObjectHover } from "@/components/object-hover";
 import { VirtualRows } from "@/components/virtual-rows";
-import { BitsHelp } from "@/core/score-help";
+import { BitsHelp, BoundMark } from "@/core/score-help";
 import { listMaxHeight } from "@/lib/virtual-window";
 import { contestedLines, foldTugs } from "./tug-of-war";
 import { toast } from "@/hooks/use-toast";
@@ -138,7 +138,7 @@ function LineRow({ objectId, number, rule, value, rep, scale, contested, variant
         <NewMark bornAt={o.bornAt} number={number} />
         {contested && <span className="border border-destructive/60 px-1 text-[10px] font-medium uppercase text-destructive" data-testid={`badge-contested-line-${number}`}
           title={`Your agent and another player's keep moving this ${word.one} back and forth: both of you burn energy. Talk to them.`}>tug-of-war</span>}
-        {v && <span data-testid={`text-points-line-${number}`}>{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
+        {v && <span data-testid={`text-points-line-${number}`}>{"bound" in v && v.bound && <><BoundMark testId={`mark-bound-line-${number}`} /> </>}{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
         {isPaid(o) && <SeenNote o={o} number={number} />}
       </p>
       {v && <PointsRectangle number={number} rarity={v.rarityBits} want={v.want} scale={widen(scale, v.rarityBits, v.want)} approx={blurred} />}

@@ -16,7 +16,11 @@ export const DEFAULT_PENALTY_WEIGHT = 1;
 /** A game's w: its setting, else v1's default. */
 export const penaltyWeightOf = (game: { settings: object }): number =>
   (game.settings as { penaltyWeight?: number }).penaltyWeight ?? DEFAULT_PENALTY_WEIGHT;
-export interface Value { memberId: string; score: (string | null)[] | null; rarityBits: number; want: number; points: number; /** With a defence goal: the badness h in bits. */ badnessBits?: number }
+export interface Value {
+  memberId: string; score: (string | null)[] | null; rarityBits: number; want: number; points: number; /** With a defence goal: the badness h in bits. */ badnessBits?: number
+  /** The estimator's work budget ran out: rarityBits is an upper bound on the energy, not one it found. */
+  bound?: true
+}
 
 export { decode, encode, typeOf, variantOf } from "./variants.ts";
 import { encode, typeOf, variantOf } from "./variants.ts";
@@ -46,7 +50,7 @@ export function valueWithParts(state: unknown, variantId: string, rule: DealtRul
   const e = energyOf(type, family as never, rule.params, state, variant, estimate);
   // The estimator's work budget ran out (physics estimatorWork): the energy is an upper bound, not a found value.
   if (e.bound) console.log(`energy bound, not found: ${rule.family} on ${variantId}`);
-  return { value: { score, rarityBits: e.energy }, parts: null as ValuePart[] | null };
+  return { value: { score, rarityBits: e.energy, ...(e.bound ? { bound: true as const } : {}) }, parts: null as ValuePart[] | null };
 }
 
 /** Every seated player's value of a state, with want (the others' rarity) and points. */
