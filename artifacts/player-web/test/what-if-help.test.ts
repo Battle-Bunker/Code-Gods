@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { PRESETS } from "@workspace/engine/convex/v2/presets.ts";
 import { variantMutators } from "@workspace/v2-core";
 import { objectTypeOf, variantOf } from "../src/sdk/object-types.ts";
-import { formError, mutatorChoices, wireArgs } from "../src/panes/what-if-model.ts";
+import { ADD_FRACTION, formError, mutatorChoices, wireArgs } from "../src/panes/what-if-model.ts";
 
 const variants = [...new Set(PRESETS.map(p => p.variant))];
 
@@ -26,7 +26,7 @@ test("every move's every argument has a label, a hint, a start the form accepts,
         if (!a.optional) assert.ok(a.start !== "", `${where}: a starting value`);
       }
       assert.equal(formError(c.args, start), null, `${id} ${c.id}: the form accepts its own start`);
-      assert.doesNotThrow(() => byId.get(c.id)!.args(variant).decode(wireArgs(c.args, start)), `${id} ${c.id}: the move takes its start`);
+      if (c.id !== ADD_FRACTION) assert.doesNotThrow(() => byId.get(c.id)!.args(variant).decode(wireArgs(c.args, start)), `${id} ${c.id}: the move takes its start`);   // add p/q is made as moves, not one
     }
   }
 });

@@ -11,6 +11,7 @@ import { energyOf, evaluateObject, Qn, representation, variantMutators, type Q, 
 import { objectTypeOf } from "../sdk/object-types.ts";
 import { typesetNumbers } from "@workspace/v2-views/format";
 import type { GameRule } from "../sdk/rule.ts";
+import { expandAdd, LENSES, type LineState } from "@workspace/v2-linear";
 
 /**
  * One argument: a number (`fractions`: whether it may be a fraction; a stretch factor may be one even on a
@@ -43,7 +44,7 @@ const MAX_CHOICES = 12;
 /** The board's moves, in the line type's order, each with its arguments. */
 export function mutatorChoices(variant: Variant): MutatorChoice[] {
   const type = objectTypeOf(variant.id);
-  return variantMutators(type, variant).map(m => {
+  const out: MutatorChoice[] = variantMutators(type, variant).map(m => {
     const rep = m.reps.find(r => type.representations.some(x => x.id === r)) ?? m.reps[0]!;
     // Every argument costing at most 12 bits, cheapest first: enough to tell numbers from words and to see fractions.
     const combos = [...(m.args(variant).enumerate?.(12) ?? [])] as Record<string, Q | string>[];
@@ -71,6 +72,42 @@ export function mutatorChoices(variant: Variant): MutatorChoice[] {
     const known = type.representations.some(x => x.id === rep);
     return { id: m.id, rep, repTitle: known ? representation(type, rep).title.split(":")[0]!.trim() : "other moves", title: m.title, args };
   });
+  if (type.id !== "line") return out;
+  // A convenience, not a move: add a fraction p/q to a parameter, made and priced as the whole-number mutations it
+  // expands into (v2-linear expandAdd: multiply the bottom, then add to the top).
+  const pairLenses = LENSES.filter(l => l.pairs.length > 0);
+  out.push({
+    id: ADD_FRACTION, rep: "si", repTitle: "slope-intercept", title: "add a fraction p/q to a parameter (made as whole-number moves)",
+    args: [
+      { name: "lens", kind: "choice", choices: pairLenses.map(l => l.id), start: "mc", label: "Which lens", hint: "a lens with fractions", choiceWords: Object.fromEntries(pairLenses.map(l => [l.id, l.title])) },
+      { name: "param", kind: "number", fractions: false, start: "2", label: "Which fraction (1 = the first)", hint: "a whole number from 1" },
+      { name: "p", kind: "number", fractions: false, start: "1", label: "Top p", hint: "a whole number, e.g. 1 or −2" },
+      { name: "q", kind: "number", fractions: false, start: "3", label: "Bottom q", hint: "a whole number of 1 or more" },
+    ],
+  });
+  return out;
+}
+
+/** The id of the "add p/q" convenience (What if only; it is made as the moves it expands into). */
+export const ADD_FRACTION = "add-fraction";
+/**
+ * The whole-number calls "add p/q to fraction `param` of `lens`" expands into on a line (v2-linear expandAdd), or why
+ * not. `site` is the line.
+ */
+export function expandAddFraction(state: LineState, site: number, args: Record<string, string>): { mutator: string; site: number; args: Record<string, string> }[] | string {
+  const lens = LENSES.find(l => l.id === args.lens);
+  if (!lens || !lens.pairs.length) return "pick a lens with fractions";
+  const j = Number(args.param) - 1, pair = lens.pairs[j];
+  if (!pair) return `the ${lens.id} lens has fractions 1 to ${lens.pairs.length}`;
+  let p: bigint, qq: bigint;
+  try { p = BigInt(wireNumber(args.p ?? "")); qq = BigInt(wireNumber(args.q ?? "")); } catch { return "p and q are whole numbers"; }
+  if (qq < 1n) return "q is 1 or more";
+  const ns = lens.numbers(state.lines[site]!);
+  if (!ns) return `the ${lens.id} lens cannot read this line`;
+  const [t, b] = pair;
+  return expandAdd(ns[t]!, ns[b]!, p, qq).map(st => ({
+    mutator: st.kind, site, args: { lens: lens.id, at: String((st.on === "top" ? t : b) + 1), k: String(st.k) },
+  }));
 }
 
 /** Why a typed number is not one this argument takes, or null when it is (`words`: words it takes instead of a number). */
@@ -151,7 +188,18 @@ export function standing(rule: GameRule, state: unknown, value: ((u: Score) => n
  */
 export function whatIf(i: WhatIfInput, from?: Standing): WhatIf {
   try {
-    const calls = [...(i.steps ?? []), i.call].map(c => ({ mutator: c.mutator, site: c.site ?? 0, args: c.args }));
+    const raw = [...(i.steps ?? []), i.call].map(c => ({ mutator: c.mutator, site: c.site ?? 0, args: c.args }));
+    // Expand each "add p/q" against the line as the moves before it leave it.
+    const calls: { mutator: string; site: number; args: Record<string, string> }[] = [];
+    for (const c of raw) {
+      if (c.mutator !== ADD_FRACTION) { calls.push(c); continue; }
+      const now = calls.length ? hostOn(i.rule, i.state).price(calls) : { valid: true as const, result: i.state };
+      if (!now.valid) return { ok: false, reason: now.reason };
+      const ex = expandAddFraction(now.result as LineState, c.site, c.args);
+      if (typeof ex === "string") return { ok: false, reason: ex };
+      if (!ex.length) return { ok: false, reason: "adding 0 changes nothing" };
+      calls.push(...ex);
+    }
     const host = hostOn(i.rule, i.state);
     const q = host.handle({ op: "quote", calls } as never, CONTEXT);
     if (!q.ok) return { ok: false, reason: q.error };

@@ -454,6 +454,22 @@ def worth(offer):
         return None
 
 
+def add_fraction(lens, param, top, bottom, p, q):
+    """The moves that add p/q to fraction `param` (1, 2) of a lens [top, bottom, top, bottom]: multiply the bottom to
+    a common bottom, then add to the top (1/2 + 1/3: the bottom x3, then the top +4, giving 5/6)."""
+    top, bottom, p, q = int(top), int(bottom), int(p), int(q)
+    if bottom < 1 or q < 1:
+        raise ValueError("bottoms are 1 or more")
+    L = (bottom // _math.gcd(bottom, q)) * q
+    f, at, out = L // bottom, 2 * param - 1, []
+    k = top * f + p * (L // q) - top
+    if f > 1:
+        out.append(call("mul", lens=lens, at=at + 1, k=str(f)))
+    if k != 0:
+        out.append(call("add", lens=lens, at=at, k=str(k)))
+    return out
+
+
 def lens_steps(m, c, far):
     """Whole-number steps on the gradient-and-intercept lens (owner, 17 Nov), each (plan, m after, c after)."""
     out = []
