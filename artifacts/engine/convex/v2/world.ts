@@ -43,7 +43,10 @@ export function valueWithParts(state: unknown, variantId: string, rule: DealtRul
   // valued badness through tables: the room refuses them (lobby.ts), and a stored one is ignored.
   void objects; void defence; void weight;
   if (!family.dynamic) return { value: { score, rarityBits: 0 }, parts: null as ValuePart[] | null };
-  return { value: { score, rarityBits: energyOf(type, family as never, rule.params, state, variant, estimate).energy }, parts: null as ValuePart[] | null };
+  const e = energyOf(type, family as never, rule.params, state, variant, estimate);
+  // The estimator's work budget ran out (physics estimatorWork): the energy is an upper bound, not a found value.
+  if (e.bound) console.log(`energy bound, not found: ${rule.family} on ${variantId}`);
+  return { value: { score, rarityBits: e.energy }, parts: null as ValuePart[] | null };
 }
 
 /** Every seated player's value of a state, with want (the others' rarity) and points. */
