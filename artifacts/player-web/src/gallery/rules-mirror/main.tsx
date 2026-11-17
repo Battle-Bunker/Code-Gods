@@ -10,13 +10,16 @@ import { StrictMode, useEffect, useMemo, useState, type ReactElement } from "rea
 import { createRoot } from "react-dom/client";
 import { argBits, universalBits, energyOf, physicsOf, Qn, q, rng, type Q, type RuleFamily } from "@workspace/v2-core";
 import { variantOf } from "../../sdk/object-types.ts";
-import { applySteps, CF_SLOTS, describeLine, expandAdd, dynamicFamilies, fromMC, lensById, lensSurprise, mutationBits, lineType, roundHalfAway, type Line, type LensId, type LineState } from "@workspace/v2-linear";
+import { applySteps, candidateFamilies, CF_SLOTS, describeLine, expandAdd, dynamicFamilies, fromMC, lensById, lensSurprise, mutationBits, lineType, roundHalfAway, type Line, type LensId, type LineState } from "@workspace/v2-linear";
 import "./style.css";
 /** Lines · beginner's board with its configuration's physics (gravity, estimator starts). */
 const lineQ = variantOf("line-q");
 
 type Family = RuleFamily<LineState, unknown>;
 const FAMILIES = dynamicFamilies as readonly Family[];
+/** The shortlisted candidate rules (candidate-families.ts): shown to try and measure, never dealt in a game. */
+const CANDIDATES = candidateFamilies as readonly Family[];
+const ALL = [...FAMILIES, ...CANDIDATES];
 /** Estimates shown per line, each the mean over the server's own number of random starts: their range is the jitter. */
 const ESTIMATES = 3;
 
@@ -94,7 +97,7 @@ const EXAMPLES: readonly Example[] = [
 
 function App(): ReactElement {
   const [familyId, setFamilyId] = useState(FAMILIES[0]!.id);
-  const family = FAMILIES.find(f => f.id === familyId)!;
+  const family = ALL.find(f => f.id === familyId)!, isCandidate = CANDIDATES.includes(family);
   const [params, setParams] = useState<unknown>(() => family.dealable(lineQ)[0]);
   const [paramText, setParamText] = useState("");
   const [paramError, setParamError] = useState<string | null>(null);
@@ -103,7 +106,7 @@ function App(): ReactElement {
   const [seed, setSeed] = useState(1);
 
   const chooseFamily = (id: string) => {
-    const f = FAMILIES.find(x => x.id === id)!;
+    const f = ALL.find(x => x.id === id)!;
     setFamilyId(id); setParams(f.dealable(lineQ)[0]); setParamText(""); setParamError(null);
   };
   const space = family.space;
@@ -125,6 +128,13 @@ function App(): ReactElement {
   const spread = estimates.length ? estimates.reduce((a, b) => a + b.spread, 0) / estimates.length : NaN;
   const turns = useMemo(() => (state ? exampleTurns(state.lines[0]!) : []), [mText, cText]);
 
+  const pick = (f: Family) => (
+    <button key={f.id} type="button" className={f.id === familyId ? "rm-pick rm-on" : "rm-pick"} onClick={() => chooseFamily(f.id)}>
+      <span>{f.title}</span>
+      <span className="rm-muted rm-reads">reads {f.dynamic!.reads.map(r => ({ m: "the gradient", c: "the y-intercept", X: "the x-crossing", gen: "a, b, c", area: "the area" } as Record<string, string>)[r] ?? r).join(" and ")}</span>
+    </button>
+  );
+
   return (
     <div className="rm-root">
       <div className="rm-page">
@@ -139,15 +149,12 @@ function App(): ReactElement {
         </header>
         <div className="rm-grid">
           <nav className="rm-list" aria-label="Rules">
-            {FAMILIES.map(f => (
-              <button key={f.id} type="button" className={f.id === familyId ? "rm-pick rm-on" : "rm-pick"} onClick={() => chooseFamily(f.id)}>
-                <span>{f.title}</span>
-                <span className="rm-muted rm-reads">reads {f.dynamic!.reads.map(r => ({ m: "the gradient", c: "the y-intercept", X: "the x-crossing", gen: "a, b, c", area: "the area" } as Record<string, string>)[r] ?? r).join(" and ")}</span>
-              </button>
-            ))}
+            {FAMILIES.map(f => pick(f))}
+            <h3 className="rm-group">Candidate rules (not dealt)</h3>
+            {CANDIDATES.map(f => pick(f))}
           </nav>
           <main className="rm-main">
-            <h2>{family.title}</h2>
+            <h2>{family.title}{isCandidate && <span className="rm-muted"> · a candidate, not dealt in any game</span>}</h2>
             <p className="rm-card">{family.card(params as never, null)}</p>
 
             <h3>Parameters</h3>

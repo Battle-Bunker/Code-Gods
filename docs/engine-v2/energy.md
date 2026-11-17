@@ -87,6 +87,167 @@ pattern "1" always misses its last term ([1; 1, …, 1, 1] is written [1; 1, …
 How this could be wrong: one line per depth; a random same-size start is the definition's reference, and players reach
 these states by multiplying or by adding to a digit tail, which may be cheaper than this estimator's routes find.
 
+
+## Candidate rules, not dealt (seen narrowly, 17 Nov)
+
+The shortlist of the two rule brainstorms (docs/engine-v2/redesign/rules-arithmetic.md and rules-geometry.md on the
+claude/rules-* branches), built as pure utilities with candidates and cards in lib/v2-linear candidate-families.ts and
+shown only in the rules mirror's "Candidate rules (not dealt)" group. Measured with the real estimator (Lines ·
+beginner physics, two seeds averaged; lib/v2-linear scripts/candidate-probe.ts). Each ladder is the rule's own
+candidate with the smallest utility at or above 2, 4, 8, 12, 16, 24 and 32, from y = 3/2 x + 7/3. "After +1" adds 1 to
+the number the rule reads (the gradient's top, the y-intercept's top, c in a, b, c, or the dealt number). "Next rung" is
+the cheapest single turn from this rung to the next over all six lenses, with the continued-fraction lens's own price
+in brackets (– when that lens cannot read both lines). "Energy added" is the next rung's energy less this one's; a
+turn that adds more energy than it costs is marked **pump**.
+
+**Headlines.**
+- No pump found: on every ladder the turn to the next rung costs more than the energy it adds, usually 2 to 10 times
+  more. The designers' worry, copying continued-fraction terms cheaply, does not show here: one more correct term in
+  the continued-fraction lens cost 17 to 77 bits for Bearing, 46 to 72 for Golden Path (– past 12 terms: the lens holds
+  16 per parameter) and 21 to 53 for Archimedes, against 2 to 16 bits of energy added.
+- Energy rises with depth for Bearing, Golden Path, Ring, Archimedes, Hensel, Whole Stair, Corner and Long Run.
+- **Flag, Prime Palette:** its energy stops rising at about 39 bits while its utility climbs from 13 to 33. A deeper
+  rung is one cheap turn away for a same-size start in the prime-exponent lens (one more 3 is adding to an exponent).
+- **Flag, Shared Secret:** its energy stays at about 8 bits from utility 6 to utility 32. The estimator reaches its deep
+  states cheaply from same-size starts, so as built its utility does not measure rarity.
+- **Flag, Kin:** a trivial line (y = 2x + 3) scores 3.2 with energy 7.9, about the same as its first rungs. Its ladder
+  is also shallow (the candidates stop at utility 12).
+- Knife edges, as their designers said: +1 sends Hensel and Prime Palette to 0. The approach rules keep part of their
+  value under +1 (Bearing 52 → 48 bits at depth 27; Archimedes 57 → 59).
+- Ring's trivial lines score up to 12 bits (y = −x + 1 lies near a tangent), and its ladder is noisy (one rung reads
+  17 bits lower than the one before; two seeds).
+
+How this could be wrong: one ladder per rule from one plain line; two seeds; the ladder's rungs are the rule's own
+candidates, so a cheaper path the candidates do not know is not priced; the trivial lines are five.
+
+#### Bearing (37), 48 ms an estimate
+| rung (m, c) | u | energy | after +1 on its number: u, energy | next rung: cheapest turn (cf lens) | energy added |
+|---|---|---|---|---|---|
+| 1, 7/3 | 2.0 | 3.3 | -0.3, 6.8 | 25.5 (49.0) | 11.7 |
+| 3/4, 7/3 | 8.1 | 15.0 | 2.0, 3.3 | 38.4 (38.4) | 16.0 |
+| 52/69, 7/3 | 13.8 | 31.0 | 6.1, 25.0 | 23.3 (23.3) | 8.3 |
+| 159/211, 7/3 | 21.1 | 39.3 | 7.7, 33.7 | 77.2 (77.2) | 13.1 |
+| 7739/10270, 7/3 | 26.7 | 52.4 | 13.3, 47.7 | 17.5 (17.5) | 1.8 |
+| 7898/10481, 7/3 | 33.5 | 54.2 | 13.4, 52.0 |  |  |
+
+Trivial lines (y = x, 2x + 3, x/2 + 1, −x + 1, 3x + 1): best energy 7.0 (u -1.2).
+
+#### Golden Path (1), 24 ms an estimate
+| rung (m, c) | u | energy | after +1 on its number: u, energy | next rung: cheapest turn (cf lens) | energy added |
+|---|---|---|---|---|---|
+| 5/3, 7/3 | 2.0 | 5.4 | 0.0, 0.0 | 32.4 (45.7) | 10.1 |
+| 13/8, 7/3 | 4.0 | 15.5 | 2.0, 5.1 | 52.6 (72.3) | 15.5 |
+| 89/55, 7/3 | 8.0 | 31.0 | 4.0, 15.3 | 61.2 (72.3) | 9.5 |
+| 610/377, 7/3 | 12.0 | 40.5 | 6.0, 26.2 | 68.3 (–) | 7.9 |
+| 4181/2584, 7/3 | 16.0 | 48.5 | 8.0, 36.4 | 118.0 (–) | 13.8 |
+| 196418/121393, 7/3 | 24.0 | 62.2 | 12.0, 45.2 | 130.6 (–) | 12.0 |
+| 9227465/5702887, 7/3 | 32.0 | 74.2 | 16.0, 52.9 |  |  |
+
+Trivial lines (y = x, 2x + 3, x/2 + 1, −x + 1, 3x + 1): best energy 0.0 (u 1.0).
+
+#### Ring (2 1 7), 109 ms an estimate
+| rung (m, c) | u | energy | after +1 on its number: u, energy | next rung: cheapest turn (cf lens) | energy added |
+|---|---|---|---|---|---|
+| 3/2, -41/6 | 4.8 | 19.9 | 3.0, 14.7 | 51.7 (65.9) | 15.3 |
+| 3/2, -325/48 | 10.6 | 35.2 | 6.4, 21.2 | 28.7 (28.7) | 11.7 |
+| 3/2, -1733/256 | 13.4 | 46.9 | 8.9, 26.1 | 69.0 (69.0) | 20.1 |
+| 3/2, -41593/6144 | 19.8 | 67.0 | 13.5, 32.3 | 124.4 (126.9) | -17.0 |
+| 3/2, -42591245/6291456 | 24.6 | 50.0 | 22.9, 43.8 | 90.1 (112.3) | 49.3 |
+| 3/2, -681459913/100663296 | 34.3 | 99.3 | 27.4, 49.1 |  |  |
+
+Trivial lines (y = x, 2x + 3, x/2 + 1, −x + 1, 3x + 1): best energy 12.4 (u 4.7).
+
+#### Archimedes (2), 39 ms an estimate
+| rung (m, c) | u | energy | after +1 on its number: u, energy | next rung: cheapest turn (cf lens) | energy added |
+|---|---|---|---|---|---|
+| 3/2, 7/3 | 4.1 | 0.0 | 1.6, 3.5 | 26.8 (37.3) | 20.5 |
+| 17/12, 7/3 | 9.2 | 20.5 | 4.1, 0.0 | 37.3 (37.3) | 10.1 |
+| 99/70, 7/3 | 14.3 | 30.7 | 6.6, 15.2 | 21.3 (21.3) | 5.2 |
+| 239/169, 7/3 | 16.8 | 35.9 | 7.9, 24.3 | 53.2 (53.2) | 10.9 |
+| 3363/2378, 7/3 | 24.4 | 46.8 | 11.7, 32.0 | 53.2 (53.2) | 10.2 |
+| 47321/33461, 7/3 | 32.1 | 57.0 | 15.5, 59.0 |  |  |
+
+Trivial lines (y = x, 2x + 3, x/2 + 1, −x + 1, 3x + 1): best energy 6.1 (u 0.7).
+
+#### Hensel (2 7), 16 ms an estimate
+| rung (m, c) | u | energy | after +1 on its number: u, energy | next rung: cheapest turn (cf lens) | energy added |
+|---|---|---|---|---|---|
+| 3, 7/3 | 2.8 | 0.0 | 2.8, 6.6 | 18.6 (24.0) | 10.8 |
+| 10, 7/3 | 5.6 | 10.8 | 2.8, 10.5 | 47.8 (57.1) | 9.5 |
+
+
+#### Whole Stair (1), 218 ms an estimate
+| rung (m, c) | u | energy | after +1 on its number: u, energy | next rung: cheapest turn (cf lens) | energy added |
+|---|---|---|---|---|---|
+| 4/3, 7/3 | 2.3 | 11.1 | 1.0, 5.5 | 31.0 (42.3) | 7.3 |
+| 15/8, 7/3 | 4.1 | 18.4 | 0.2, 0.0 | 44.5 (78.5) | 14.9 |
+| 231/160, 7/3 | 8.1 | 33.3 | 1.1, 5.8 | 80.5 (96.9) | 19.0 |
+| 3596/2403, 7/3 | 12.1 | 52.4 | 3.1, 12.1 | 75.9 (104.6) | 12.2 |
+| 57225/38152, 7/3 | 16.1 | 64.6 | 2.6, 12.7 |  |  |
+
+Trivial lines (y = x, 2x + 3, x/2 + 1, −x + 1, 3x + 1): best energy 0.0 (u -0.5).
+
+#### Corner (5), 36 ms an estimate
+| rung (m, c) | u | energy | after +1 on its number: u, energy | next rung: cheapest turn (cf lens) | energy added |
+|---|---|---|---|---|---|
+| 1/10, 7/3 | 3.3 | 11.0 | 1.8, 8.9 | 36.6 (73.3) | 5.3 |
+| 40, 7/3 | 4.3 | 16.3 | 0.9, 6.8 | 20.8 (70.7) | 10.3 |
+| 6760, 7/3 | 8.0 | 26.6 | 4.6, 19.2 | 89.1 (94.5) | 9.2 |
+| 1681000, 7/3 | 12.0 | 35.8 | 8.5, 32.1 | 98.4 (103.8) | 7.7 |
+| 429549160, 7/3 | 16.0 | 43.5 | 12.5, 46.6 | 257.3 (263.4) | 18.7 |
+| 28147511092840, 7/3 | 24.0 | 62.2 | 20.5, 77.7 | 170.9 (280.1) | 16.1 |
+| 1844674410806928896, 7/3 | 32.0 | 78.3 | 32.0, 78.3 |  |  |
+
+Trivial lines (y = x, 2x + 3, x/2 + 1, −x + 1, 3x + 1): best energy 0.0 (u 0.7).
+
+#### Prime Palette (3 gradient top), 33 ms an estimate
+| rung (m, c) | u | energy | after +1 on its number: u, energy | next rung: cheapest turn (cf lens) | energy added |
+|---|---|---|---|---|---|
+| 9/2, 7/3 | 3.2 | 13.5 | 0.0, 0.0 | 14.3 (24.6) | 4.7 |
+| 27/2, 7/3 | 4.8 | 18.2 | 0.0, 0.0 | 16.8 (42.3) | 9.8 |
+| 729/2, 7/3 | 9.5 | 28.0 | 0.0, 0.0 | 18.4 (43.0) | 5.5 |
+| 6561/2, 7/3 | 12.7 | 33.5 | 0.0, 0.0 | 19.3 (58.6) | 3.2 |
+| 177147/2, 7/3 | 17.4 | 36.7 | 0.0, 0.0 | 20.8 (98.2) | 2.4 |
+| 43046721/2, 7/3 | 25.4 | 39.2 | 0.0, 0.0 | 20.6 (106.8) | 0.1 |
+| 10460353203/2, 7/3 | 33.3 | 39.3 | 0.0, 0.0 |  |  |
+
+Trivial lines (y = x, 2x + 3, x/2 + 1, −x + 1, 3x + 1): best energy 6.7 (u 1.6).
+
+#### Long Run (7 3 y-intercept top), 28 ms an estimate
+| rung (m, c) | u | energy | after +1 on its number: u, energy | next rung: cheapest turn (cf lens) | energy added |
+|---|---|---|---|---|---|
+| 3/2, 367/3 | 2.8 | 16.5 | 0.0, 0.0 | 35.3 (38.8) | 5.7 |
+| 3/2, 2572/3 | 5.6 | 22.2 | 2.8, 15.1 | 38.7 (42.3) | 5.4 |
+| 3/2, 18007/3 | 8.4 | 27.6 | 5.6, 24.5 | 63.9 (67.5) | 6.8 |
+| 3/2, 882367/3 | 14.0 | 34.4 | 11.2, 30.8 | 48.4 (52.0) | 2.1 |
+| 3/2, 6176572/3 | 16.8 | 36.5 | 14.0, 35.9 | 106.1 (109.8) | 10.7 |
+| 3/2, 2118564367/3 | 25.3 | 47.2 | 22.5, 47.0 | 93.9 (118.9) | 8.1 |
+| 3/2, 726667578052/3 | 33.7 | 55.3 | 30.9, 53.7 |  |  |
+
+Trivial lines (y = x, 2x + 3, x/2 + 1, −x + 1, 3x + 1): best energy 0.0 (u 0.0).
+
+#### Kin (-), 25 ms an estimate
+| rung (m, c) | u | energy | after +1 on its number: u, energy | next rung: cheapest turn (cf lens) | energy added |
+|---|---|---|---|---|---|
+| 3/2, 1 | 3.2 | 3.3 | 3.2, 9.4 | 23.3 (23.3) | 7.6 |
+| 3/2, 4/3 | 4.0 | 10.9 | 4.6, 11.4 | 32.4 (39.0) | 3.8 |
+| 3/2, 16/11 | 8.0 | 14.7 | 8.2, 13.4 | 27.1 (27.1) | 6.5 |
+| 3/2, 64/43 | 12.0 | 21.2 | 12.0, 22.1 |  |  |
+
+Trivial lines (y = x, 2x + 3, x/2 + 1, −x + 1, 3x + 1): best energy 7.9 (u 3.2).
+
+#### Shared Secret (-), 56 ms an estimate
+| rung (m, c) | u | energy | after +1 on its number: u, energy | next rung: cheapest turn (cf lens) | energy added |
+|---|---|---|---|---|---|
+| 3/4, -3/5 | 5.9 | 9.8 | 2.3, 5.6 | 33.4 (33.4) | -2.0 |
+| 7/8, -7/9 | 9.0 | 7.8 | 1.6, 4.8 | 58.7 (82.3) | 0.7 |
+| 17/16, -17/19 | 12.3 | 8.5 | 4.2, 6.6 | 70.3 (146.5) | -0.9 |
+| 41/64, -41/43 | 16.8 | 7.6 | 5.4, 7.2 | 98.3 (189.3) | -0.0 |
+| 257/256, -257/259 | 24.0 | 7.5 | 5.2, 6.9 | 115.9 (238.4) | -0.0 |
+| 1627/2048, -1627/1629 | 32.3 | 7.5 | 7.5, 7.2 |  |  |
+
+Trivial lines (y = x, 2x + 3, x/2 + 1, −x + 1, 3x + 1): best energy 2.1 (u 1.0).
+
 ## The estimator before 17 Nov (deleted)
 
 What follows described the estimator that the section above replaces (act charges, `LINE_K`, floor and heuristics);
