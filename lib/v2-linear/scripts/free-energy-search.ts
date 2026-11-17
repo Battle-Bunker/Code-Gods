@@ -101,13 +101,15 @@ function search(x: number, u: Float64Array, uStar: number, budget: number, ub = 
     }
     return false;
   };
+  let pops = 0;
   while (hn > 0) {
     pop();
+    pops++;
     const c = pc, t = pt, a = pa_, b = pb_;
     radius = c;
     if (c >= ub) return done(ub);
     if (expanded >= budget) return done(Infinity);
-    if ((expanded & 255) === 0 && performance.now() - t0 > msBudget) return done(Infinity);
+    if ((pops & 255) === 0 && performance.now() - t0 > msBudget) return done(Infinity);
     if (t === 0) { if (settle(a, c)) return done(c); }
     else if (t === 1) { for (let y = bStart[a], e = bStart[a] + bSize[a]; y < e; y++) if (settle(y, c)) return done(c); }
     else if (t === 2) {
