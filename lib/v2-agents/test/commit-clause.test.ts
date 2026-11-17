@@ -18,8 +18,9 @@ const q = (n: number) => Qn.q(n);
 const rule = { family: "prime-hug", params: { suffix: "1" }, tieBreaker: null };
 const otherRule = { family: "multiples", params: { k: 3 }, tieBreaker: null };
 const values = undefined, others = [{ rule: otherRule }];
-const state = { lines: [fromMC(q(11), q(81))] };   // y = 11x + 81
-const shift = (k: number) => ({ lines: [fromMC(q(11), q(81 + k))] });
+let C0 = 81;   // y = 11x + C0: chosen below so that one small shift raises the points and another lowers them
+let state = { lines: [fromMC(q(11), q(C0))] };
+const shift = (k: number) => ({ lines: [fromMC(q(11), q(C0 + k))] });
 const source = {
   typescript: (k: number) => `function agent(offer) { return onlyIfBetter([move("add", { lens: "mc", at: 3, k: ${k} })]); }`,
   python: (k: number) => `def agent(offer):\n    return only_if_better([move("add", lens="mc", at=3, k=${k})])\n`,
@@ -37,7 +38,13 @@ const act = (language: "typescript" | "python", k: number, extra: { commitClause
 const points = (s: typeof state, disclosed?: (e: string) => number) => host(disclosed).payoffAt(s)!.points;
 // (Searched over small shifts, so a change in the energy estimate moves the pick rather than breaking the test.)
 const KS = [1, -1, 2, -2, 3, -3];
-const up = KS.find(k => points(shift(k)) > points(state)), down = KS.find(k => points(shift(k)) < points(state));
+let up: number | undefined, down: number | undefined;
+for (const c0 of [81, ...Array.from({ length: 80 }, (_, i) => 40 + i)]) {
+  C0 = c0; state = { lines: [fromMC(q(11), q(C0))] };
+  const here = points(state);
+  up = KS.find(k => points(shift(k)) > here); down = KS.find(k => points(shift(k)) < here);
+  if (up !== undefined && down !== undefined) break;
+}
 
 test("the payoff the clause decides on: own bits exact, the others' sum as disclosed, points own × max(0, others)", () => {
   const h = host(), p = h.payoffAt(state)!;
