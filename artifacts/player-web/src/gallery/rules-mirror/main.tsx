@@ -11,6 +11,8 @@ import { createRoot } from "react-dom/client";
 import { argBits, universalBits, energyOf, physicsOf, Qn, q, rng, type Q, type RuleFamily } from "@workspace/v2-core";
 import { variantOf } from "../../sdk/object-types.ts";
 import { applySteps, candidateFamilies, CF_SLOTS, describeLine, expandAdd, dynamicFamilies, fromMC, lensById, lensSurprise, mutationBits, lineType, roundHalfAway, type Line, type LensId, type LineState } from "@workspace/v2-linear";
+import { RuleCode } from "../../components/rule-code.tsx";
+import { BOUND_NOTE } from "../../core/words.ts";
 import "./style.css";
 /** Lines · beginner's board with its configuration's physics (gravity, estimator starts). */
 const lineQ = variantOf("line-q");
@@ -102,7 +104,7 @@ function App(): ReactElement {
   const [paramText, setParamText] = useState("");
   const [paramError, setParamError] = useState<string | null>(null);
   const [mText, setMText] = useState("2"), [cText, setCText] = useState("3");
-  const [estimates, setEstimates] = useState<{ energy: number; spread: number }[]>([]);
+  const [estimates, setEstimates] = useState<{ energy: number; spread: number; bound: boolean }[]>([]);
   const [seed, setSeed] = useState(1);
 
   const chooseFamily = (id: string) => {
@@ -119,12 +121,14 @@ function App(): ReactElement {
   // Fresh randomness on every estimate (the server re-estimates on each change and each look).
   useEffect(() => {
     if (!state) { setEstimates([]); return; }
-    const out: { energy: number; spread: number }[] = [];
-    for (let i = 0; i < ESTIMATES; i++) { const e = energyOf(lineType, family, params, state, lineQ); out.push({ energy: e.energy, spread: e.spread ?? NaN }); }
+    const out: { energy: number; spread: number; bound: boolean }[] = [];
+    for (let i = 0; i < ESTIMATES; i++) { const e = energyOf(lineType, family, params, state, lineQ); out.push({ energy: e.energy, spread: e.spread ?? NaN, bound: !!e.bound }); }
     setEstimates(out);
   }, [familyId, params, mText, cText, seed]);
   const es = estimates.map(e => e.energy), mean = es.length ? es.reduce((a, b) => a + b, 0) / es.length : NaN;
   const lo = es.length ? Math.min(...es) : NaN, hi = es.length ? Math.max(...es) : NaN;
+  // The estimator ran out of its work budget on some estimate: the energy is an upper bound, as the game marks it.
+  const bound = estimates.some(e => e.bound);
   const spread = estimates.length ? estimates.reduce((a, b) => a + b.spread, 0) / estimates.length : NaN;
   const turns = useMemo(() => (state ? exampleTurns(state.lines[0]!) : []), [mText, cText]);
 
@@ -156,6 +160,8 @@ function App(): ReactElement {
           <main className="rm-main">
             <h2>{family.title}{isCandidate && <span className="rm-muted"> · a candidate, not dealt in any game</span>}</h2>
             <p className="rm-card">{family.card(params as never, null)}</p>
+            {/* As "Your secret goal" shows it: the family's real source and the parameters chosen here. */}
+            <div className="rm-code"><RuleCode key={family.id} familyId={family.id} params={params} /></div>
 
             <h3>Parameters</h3>
             <div className="rm-row">
@@ -188,7 +194,7 @@ function App(): ReactElement {
                 <dt>Utility</dt><dd>{fmt(u)}</dd>
                 <dt>Energy</dt>
                 <dd>
-                  {fmt(mean)} bits ± {fmt(spread)} <span className="rm-muted">(the mean of {ESTIMATES} estimates; they ranged {fmt(lo)} to {fmt(hi)})</span>{" "}
+                  {bound && <><span className="rm-bound" title={BOUND_NOTE} aria-label={BOUND_NOTE} data-testid="mark-bound-mirror">≤</span> </>}{fmt(mean)} bits ± {fmt(spread)} <span className="rm-muted">(the mean of {ESTIMATES} estimates; they ranged {fmt(lo)} to {fmt(hi)})</span>{" "}
                   <button type="button" onClick={() => setSeed(seed + 1)}>Estimate again</button>
                 </dd>
                 <dt>Some turns from here</dt>

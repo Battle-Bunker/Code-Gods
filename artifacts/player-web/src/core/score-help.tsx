@@ -8,7 +8,7 @@ import { objectWord, useGame, useReplaySource } from "@/sdk";
 import { usePaneOps } from "@/dock/open-pane";
 import { toast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { BITS_HELP, eachEntryText, othersNote, seeEachText, TIE_NOTE } from "./words";
+import { BITS_HELP, BOUND_NOTE, eachEntryText, othersNote, seeEachText, TIE_NOTE } from "./words";
 
 /** A "?" beside a figure in bits: "Each bit = twice as rare." on hover and on tap. */
 export function BitsHelp({ testId = "button-bits-help" }: { testId?: string }) {
@@ -49,8 +49,6 @@ export function LineByLine({ testId, className }: { testId: string; className?: 
   );
 }
 
-/** The one line a bound energy's marker explains on hover. */
-export const BOUND_NOTE = "At most this much: the estimate ran out of time before it found this line's exact energy for your rule.";
 /** Beside an energy that is an upper bound, not a found value (the estimator's work budget ran out). */
 export function BoundMark({ testId }: { testId?: string }) {
   return <span className="cursor-help text-muted-foreground" title={BOUND_NOTE} aria-label={BOUND_NOTE} data-testid={testId}>≤</span>;
