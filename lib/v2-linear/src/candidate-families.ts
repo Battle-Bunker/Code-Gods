@@ -256,7 +256,7 @@ const STAIRS = new Map<number, { r: number; rise: number; run: number; u: number
 function stairsFor(k: number) {
   let list = STAIRS.get(k);
   if (list) return list;
-  const [s0, t0] = ([[1, 0], [1, 1], [2, 1], [3, 1], [3, 2]] as const).find(([a, b]) => a * a + b * b === k)!;
+  const [s0, t0] = [...Array(4)].flatMap((_, a) => [...Array(4)].map((__, b) => [a, b] as const)).find(([a, b]) => a * a + b * b === k)!;
   list = [];
   for (let u = 2; u < 400; u++) for (let v = 1; v < u; v++) {
     if ((u - v) % 2 === 0 || Number(gcd(BigInt(u), BigInt(v))) !== 1) continue;
