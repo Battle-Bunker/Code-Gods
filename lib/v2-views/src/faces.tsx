@@ -30,7 +30,7 @@ export const GOOD_FOR_BOTH = "good for both";
 /** "2.13 bits (1 in 4.4 by chance)", or "not scoring"; empty without the rule's value function. */
 export function bitsLine(a: Annotation): string {
   if (a.score === null) return "not scoring";
-  return a.bits === null ? "" : `${fmtBits(a.bits)} (${chanceText(a.bits)} by chance)`;
+  return a.bits === null ? "" : `${fmtBits(a.bits)} of energy`;
 }
 
 /** One part in one line: "● main part: y-intercept 25 · 2 above 23" / "◆ tie-breaker: that prime 23". */
@@ -237,7 +237,7 @@ export function MovesList<S>({ list, noun, bits, others }: MovesListProps<S>): R
         <div className="v2v-move-order" role="group" aria-label="Order the moves">
           {(["points", "rarity"] as const).map(o => (
             <button key={o} type="button" aria-pressed={order === o} data-testid={`button-order-${o}`} onClick={() => setOrder(o)}>
-              {o === "points" ? "Best for points" : "Best for my rarity"}
+              {o === "points" ? "Best for points" : "Best for my energy"}
             </button>
           ))}
           {others.now !== null && <span className="v2v-move-now">The others now: {others.approx ? "about " : ""}{fmtBits(others.now)} together</span>}
@@ -258,7 +258,7 @@ export function MovesList<S>({ list, noun, bits, others }: MovesListProps<S>): R
               ? <span className="v2v-move-bits" data-testid="text-move-unavailable">Not available: {noun} {taken} is already like this, and no two {noun}s may be the same.</span>
               : m.bits !== null && (others
                 ? <span className="v2v-move-bits">→ {theirs !== null ? scoreFormula(m.bits, theirs, others.approx) : `your ${fmtBits(m.bits)} × others' …`}{points !== null && nowPoints !== null && <b className="v2v-move-delta"> ({about}{signed(points - nowPoints)} from now)</b>}</span>
-                : <span className="v2v-move-bits">→ {fmtBits(m.bits)} ({chanceText(m.bits)} by chance)</span>)}
+                : <span className="v2v-move-bits">→ {fmtBits(m.bits)} of energy</span>)}
           </li>
         ))}
       </ol>
@@ -522,7 +522,7 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
         <details className="v2v-working">
           <summary>How it was worked out</summary>
           <ul>{sa.working.map((w, i) => <li key={i}>{w}</li>)}</ul>
-          {a.bits !== null && <p>{`${fmtBits(a.bits)}: only ${chanceText(a.bits)} random ${a.noun}s are at least this good on both parts. ${BITS_HELP}`}</p>}
+          {a.bits !== null && <p>{`${fmtBits(a.bits)} of energy. ${BITS_HELP}`}</p>}
         </details>
       </div>
     </div>

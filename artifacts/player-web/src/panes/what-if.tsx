@@ -7,7 +7,7 @@
  */
 import { useMemo, useState } from "react";
 import { MoveSketch, ObjectChip } from "@workspace/v2-views";
-import type { LineState } from "@workspace/v2-linear";
+import { LENSES, type LineState } from "@workspace/v2-linear";
 import { decodeState, objectWord, useGame, useGameScope, useMyObject, useMyRule, type GameRule, type MyRule } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
 import { bitsText, chanceText, energyText, pointsText } from "@/core/words";
@@ -27,6 +27,14 @@ function Delta({ label, from, to, fmt, testId }: { label: string; from: number |
       <dd>{fmt(from)} → <b className={dir === "up" ? "text-primary" : dir === "down" ? "text-destructive" : ""}>{fmt(to)}</b></dd>
     </div>
   );
+}
+
+/** The names of what a lens move's "at" picks: the lens's numbers, or its fractions for a swap or a round. */
+function atNames(move: string, lensId: string): string[] | null {
+  const lens = LENSES.find(l => l.id === lensId);
+  if (!lens) return null;
+  if (move === "swap" || move === "round") return lens.pairs.map(([t]) => lens.names[t]!.replace(/ top$/, ""));
+  return [...lens.names];
 }
 
 function Tryout({ rule, my, state, want, sites, testPrefix = "", objectId }: { rule: GameRule; my: MyRule; state: unknown; want: number | null; sites: number; testPrefix?: string; objectId?: string }) {
@@ -73,7 +81,11 @@ function Tryout({ rule, my, state, want, sites, testPrefix = "", objectId }: { r
         {choice.args.map(a => (
           <label key={`${choice.id}:${a.name}`} className="flex max-w-[16rem] flex-col gap-1">
             <span className="text-xs text-muted-foreground" data-testid={tid(`label-what-if-${a.name}`)}>{a.label}</span>
-            {a.kind === "choice" ? (
+            {a.name === "at" && args.lens && atNames(choice.id, args.lens) ? (
+              <select value={args.at} onChange={e => setArgs({ ...args, at: e.target.value })} className={field} data-testid={tid("select-what-if-at")}>
+                {atNames(choice.id, args.lens)!.map((n, i) => <option key={n} value={String(i + 1)}>{n}</option>)}
+              </select>
+            ) : a.kind === "choice" ? (
               <select value={args[a.name]} onChange={e => setArgs({ ...args, [a.name]: e.target.value })} className={field} data-testid={tid(`select-what-if-${a.name}`)}>
                 {a.choices.map(v => <option key={v} value={v}>{a.choiceWords?.[v] ?? v}</option>)}
               </select>
@@ -99,7 +111,7 @@ function Tryout({ rule, my, state, want, sites, testPrefix = "", objectId }: { r
               <MoveSketch before={(state as LineState).lines[site]!} after={(out.after as LineState).lines[site]!} call={{ mutator: choice.id, args: wireArgs(choice.args, args) }} />
             )}
             <dl className="space-y-1">
-              <Delta label="Your rarity" from={out.from.rarity} to={out.to.rarity} fmt={b => `${bitsText(b)} (${chanceText(b)} by chance)`} testId={tid("text-what-if-rarity")} />
+              <Delta label="Your energy" from={out.from.rarity} to={out.to.rarity} fmt={b => bitsText(b)} testId={tid("text-what-if-rarity")} />
               <Delta label="Your points on it" from={out.from.points} to={out.to.points} fmt={pointsText} testId={tid("text-what-if-points")} />
             </dl>
             {want !== null && <p className="text-xs text-muted-foreground">Points assume the others' bits on this {rule.type.id} stay as they are now ({bitsText(Math.max(0, want))}): their rules are secret, so nobody can tell how much they would want it after.</p>}

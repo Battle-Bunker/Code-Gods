@@ -22,7 +22,7 @@ export function BitsHelp({ testId = "button-bits-help" }: { testId?: string }) {
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-auto max-w-xs p-2 text-xs" data-testid="text-bits-help">
-        Rarity is counted in bits. {BITS_HELP} A {word.one} worth 3 bits to you turns up 1 time in 8 by chance. {othersNote(word.one)}
+        {BITS_HELP} {othersNote(word.one)}
       </PopoverContent>
     </Popover>
   );
