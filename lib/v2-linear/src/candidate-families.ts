@@ -20,7 +20,6 @@ const babs = (x: bigint) => (x < 0n ? -x : x);
 const log2Big = (n: bigint): number => { n = babs(n); if (n === 0n) return -Infinity; const L = n.toString(2).length; return L <= 52 ? log2(Number(n)) : log2(Number(n >> BigInt(L - 52))) + (L - 52); };
 const toNum = (v: Q) => Qn.toNumber(v);
 /** Floats carry about 52 bits: an approach utility is capped there. */
-const CAP = 50;
 const sign = (v: Q) => (v.n < 0n ? -1n : 1n);
 
 /** A parameter space over a fixed list, typed back by its label. */
@@ -33,12 +32,6 @@ function listSpace<P>(items: readonly P[], label: (p: P) => string, hint: string
   };
 }
 const isSquare = (n: number) => Number.isInteger(Math.sqrt(n));
-/** The continued fraction of a positive float (at most `n` terms; floats limit it to about 15). */
-function floatCf(x: number, n = 18): bigint[] {
-  const out: bigint[] = [];
-  for (let i = 0; i < n && Number.isFinite(x); i++) { const a = Math.floor(x); out.push(BigInt(a)); if (x - a < 1e-12) break; x = 1 / (x - a); }
-  return out;
-}
 /** The convergents p/q of [a0; a1, …]. */
 function convergents(as: readonly bigint[]): Q[] {
   const out: Q[] = [];
@@ -51,7 +44,40 @@ function convergents(as: readonly bigint[]): Q[] {
 // ------------------------------------------------------------------ 1. Bearing (approach): the gradient at tan φ
 
 const DEGREES = Array.from({ length: 89 }, (_, i) => i + 1).filter(d => d !== 45);
-export const bearingU = (m: Q, deg: number) => Math.min(CAP, -log2(abs(toNum(m) - Math.tan((deg * Math.PI) / 180))));
+/**
+ * tan(deg°) in fixed point, ⌊tan·2^P⌉ as a bigint, to P bits (whole-number arithmetic: Machin's π, Taylor series for sine
+ * and cosine with 32 guard bits). Memoised by angle and precision.
+ */
+const TAN = new Map<string, bigint>();
+function arctanInv(x: bigint, one: bigint): bigint {   // atan(1/x)·one
+  let term = one / x, sum = term, k = 1n, sign = -1n;
+  const x2 = x * x;
+  while (term !== 0n) { term /= x2; const t = term / (2n * k + 1n); sum += sign * t; sign = -sign; k++; }
+  return sum;
+}
+export function tanFixed(deg: number, P: number): bigint {
+  const key = `${deg}:${P}`, hit = TAN.get(key);
+  if (hit !== undefined) return hit;
+  const G = BigInt(P + 32), one = 1n << G;
+  const pi = 4n * (4n * arctanInv(5n, one) - arctanInv(239n, one));
+  const x = (pi * BigInt(deg)) / 180n, x2 = (x * x) >> G;
+  let sin = 0n, cos = 0n, term = x, n = 1n;
+  while (term !== 0n) { sin += term; term = -((term * x2) >> G) / ((n + 1n) * (n + 2n)); n += 2n; }
+  term = one; n = 0n;
+  while (term !== 0n) { cos += term; term = -((term * x2) >> G) / ((n + 1n) * (n + 2n)); n += 2n; }
+  const t = ((sin << BigInt(P)) + cos / 2n) / cos;
+  TAN.set(key, t);
+  return t;
+}
+/**
+ * Bearing's utility, exact at any size: −log2 |m − tan φ|. tan φ is irrational for every dealt angle and algebraic, so
+ * |m − tan φ| is far above 2^−(2·bits(bottom) + 64) (Roth): tan to that precision decides it.
+ */
+export function bearingU(m: Q, deg: number): number {
+  const P = 2 * m.d.toString(2).length + babs(m.n).toString(2).length + 64, T = tanFixed(deg, P);
+  const num = babs((m.n << BigInt(P)) - T * m.d);   // |m − tan|·bottom·2^P
+  return P + log2Big(m.d) - log2Big(num === 0n ? 1n : num);
+}
 export const bearing = dynamicLine<{ deg: number }>({
   id: "bearing", title: "Bearing", goal: "the line pointing at the dealt angle", reads: ["m"], focus: ["si", "m"],
   space: listSpace(DEGREES.map(deg => ({ deg })), p => String(p.deg), "a whole number of degrees from 1 to 89, not 45 (e.g. 37)"),
@@ -59,7 +85,7 @@ export const bearing = dynamicLine<{ deg: number }>({
   card: ({ deg }) => `Your line should point ${deg}° above flat: its gradient should be tan ${deg}° = ${Math.tan((deg * Math.PI) / 180).toFixed(6)}…, which no fraction ever equals. You score one point for every binary digit of the gradient that matches.`,
   u: (m, _c, { deg }) => bearingU(m, deg),
   searches: [{ id: "convergents", propose: (_m, _c, uStar, { deg }) =>
-    convergents(floatCf(Math.tan((deg * Math.PI) / 180))).filter(v => bearingU(v, deg) >= uStar - 1e-9).slice(0, 3).map(v => ({ m: v })) }],
+    convergents(continuedFraction(q(tanFixed(deg, Math.ceil(Math.max(0, uStar)) + 64), 1n << BigInt(Math.ceil(Math.max(0, uStar)) + 64)))).filter(v => bearingU(v, deg) >= uStar - 1e-9).slice(0, 3).map(v => ({ m: v })) }],
 });
 
 // ------------------------------------------------------------------ 2. Golden Path (approach): the gradient's continued fraction follows a word
@@ -93,9 +119,12 @@ function abcOf(m: Q, c: Q): [bigint, bigint, bigint] {
 export interface RingP { readonly u: number; readonly v: number; readonly rho: number }
 const RINGS: RingP[] = [{ u: 2, v: 1, rho: 7 }, { u: 0, v: 0, rho: 3 }, { u: -1, v: 3, rho: 11 }, { u: 3, v: -2, rho: 6 }, { u: 1, v: 1, rho: 19 }];
 export function ringU(m: Q, c: Q, { u, v, rho }: RingP): number {
-  const [a, b, cc] = abcOf(m, c), norm = Math.sqrt(Number(a) ** 2 + Number(b) ** 2);
-  const d = abs(Number(a * BigInt(u) + b * BigInt(v) + cc)) / norm;
-  return Math.min(CAP, -log2(abs(d - Math.sqrt(rho))));
+  // Exact at any size: with N = |a·u + b·v + c| and M = a² + b², the distance is N/√M and
+  // |N/√M − √ρ| = |N² − ρM| / ((N + √(ρM))·√M), every part a whole number but the last sum's root (a sum, no cancellation).
+  // ρ is never a square times a sum of two squares here (every dealt ρ has a prime 3 mod 4 to an odd power), so N² ≠ ρM.
+  const [a, b, cc] = abcOf(m, c), N = babs(a * BigInt(u) + b * BigInt(v) + cc), M = a * a + b * b, R = BigInt(rho);
+  const gap = babs(N * N - R * M);
+  return 0.5 * log2Big(M) + log2Big(N + isqrt(R * M) + 1n) - log2Big(gap === 0n ? 1n : gap);
 }
 export const ring = dynamicLine<RingP>({
   id: "ring", title: "Ring", goal: "the line just touching the dealt circle", reads: ["gen"], focus: ["gen", "c"],

@@ -74,9 +74,10 @@ def score(m, c, p, tie):
     a, b, cc = -m.numerator * (L // m.denominator), L, -c.numerator * (L // c.denominator)
     g = math.gcd(math.gcd(abs(a), b), abs(cc))
     a, b, cc = a // g, b // g, cc // g
-    dist = abs(float(a * p["u"] + b * p["v"] + cc)) / math.sqrt(float(a) ** 2 + float(b) ** 2)
-    gap = abs(dist - math.sqrt(p["rho"]))
-    main = 50 if gap == 0 else min(50, -math.log2(gap))
+    # distance N/√M from the centre against √ρ, exactly: |N/√M − √ρ| = |N² − ρM| / ((N + √(ρM))·√M)
+    N, M = abs(a * p["u"] + b * p["v"] + cc), a * a + b * b
+    gap = abs(N * N - p["rho"] * M)
+    main = 0.5 * math.log2(M) + math.log2(N + math.isqrt(p["rho"] * M) + 1) - math.log2(gap or 1)
     # main: one point per binary digit to which the line's distance from the centre matches the radius
     def tier(t):   # each secondary, in order (None: ranks last)
         return None   # none described (a family with no tie-breakers)

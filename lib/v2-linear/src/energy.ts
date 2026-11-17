@@ -12,7 +12,7 @@
  *   `candidates`, summed by distinct target line.
  * Nothing is computed at import time.
  */
-import { gcd, latinHypercube, physicsOf, meanAndSpread, q, Qn, rng as makeRng, startCost, greedyClimb, type DynamicRule, type Estimate, type EstimateOpts, type Q, type RouteSpace, type Variant } from "@workspace/v2-core";
+import { gcd, latinHypercube, physicsOf, meanAndSpread, q, Qn, rng as makeRng, startCost, greedyClimb, type DynamicRule, type Estimate, type EstimateOpts, type Q, type RouteSpace, type Rng, type Variant } from "@workspace/v2-core";
 import { isVertical, type Line, type LineState } from "./line.ts";
 import { LENSES, lensById, lensMoves, lensPrice, lensSurprise, routePrice, type Lens, type LensId } from "./lens-routes.ts";
 
@@ -46,11 +46,20 @@ export function lineRule<P>(rule: DynamicRule<LineState, P>, params: P): LineRul
 
 // ------------------------------------------------------------------ starts of the same size
 
-/** n with log2 |n| at t of the band above log2 |v| (0 stays 0). */
-const sameBits = (v: bigint, t: number, band: number): bigint => {
+/** log2 of a whole number at any size. */
+const log2Big = (n: bigint): number => { const L = Math.max(0, n.toString(2).length - 53); return Math.log2(Number(n >> BigInt(L))) + L; };
+/**
+ * n with log2 |n| at t of the band above log2 |v| (0 stays 0). Past 2^53 the top 52 bits come from the size and the low
+ * bits are drawn uniformly, so a large start is not a multiple of a large power of two.
+ */
+const sameBits = (v: bigint, t: number, band: number, r: Rng): bigint => {
   if (v === 0n) return 0n;
-  const L = Math.log2(Number(v < 0n ? -v : v));
-  return BigInt(Math.max(1, Math.round(2 ** (L + band * t))));
+  const e = log2Big(v < 0n ? -v : v) + band * t, k = Math.max(0, Math.floor(e) - 52);
+  const top = BigInt(Math.max(1, Math.round(2 ** (e - k))));
+  if (k === 0) return top;
+  let low = 0n;
+  for (let i = 0; i < k; i += 32) low = (low << 32n) | BigInt(r.uint32());
+  return (top << BigInt(k)) | (low & ((1n << BigInt(k)) - 1n));
 };
 /** K starts for s in the rule's lens: each whole number of s's information size, stratified. */
 export function lineStarts(s: Line, lensId: LensId, K: number, seed: string, band: number): Line[] {
@@ -58,7 +67,7 @@ export function lineStarts(s: Line, lensId: LensId, K: number, seed: string, ban
   if (!base) return [];
   const r = makeRng("line-starts", seed), bottoms = new Set(lens.pairs.map(p => p[1]));
   const grid = latinHypercube(K, base.length, () => r.unit(), k => r.below(k)), out: Line[] = [];
-  const draw = (i: number, t: number) => { const n = sameBits(base[i]!, t, band); return bottoms.has(i) || (lens.id === "abc" && i === 1) ? n : r.bit() ? n : -n; };
+  const draw = (i: number, t: number) => { const n = sameBits(base[i]!, t, band, r); return bottoms.has(i) || (lens.id === "abc" && i === 1) ? n : r.bit() ? n : -n; };
   for (const row of grid) {
     for (let attempt = 0; attempt < 8; attempt++) {
       const ns = base.map((_, i) => draw(i, attempt === 0 ? row[i]! : r.unit()));
