@@ -13,7 +13,7 @@ import { LINES_BEGINNER_ECONOMY, LINES_BEGINNER_PHYSICS, opportunities, pickByEn
 import { lineQ, lineType } from "../src/type.ts";
 import { lenses, readLens } from "../src/lens-moves.ts";
 import { preset } from "../src/presets.ts";
-import { dynamicFamilies } from "../src/dynamic-families.ts";
+import { dynamicFamilies } from "../src/dealt.ts";
 import { estimateLine, lineRule, type LineRule } from "../src/energy.ts";
 import { routePrice, LENSES } from "../src/lens-routes.ts";
 import type { Line, LineState } from "../src/line.ts";

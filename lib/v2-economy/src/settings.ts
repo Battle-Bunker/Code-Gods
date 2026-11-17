@@ -41,10 +41,14 @@ export const GRIDS_BEGINNER_ECONOMY: Economy = Object.freeze({ ...LINES_BEGINNER
  * energy income and gravity strength"). The engine has no defaults: these are the only values, read by the server's and
  * the app's variants (physicsForVariant). Lines: gravity λ = 1 (the resting law ∝ 2^−H; a rise costs λ·s more than a
  * fall), 12 estimator starts within half a bit of the state's size, newborn numbers' bit lengths with P(L) ∝ 2^−L.
+ * largestNumber 10,000,000 (17 Nov, docs/engine-v2/balance.md): without it lines ran to 40- to 500-bit numbers within a
+ * game, where several rules read NaN (energy 0: a cheap ×10 zeroed a rival) or lost float exactness; at 10^7 every
+ * dealt rule is exact (Corner's 2n·top·bottom and Whole Stair's top² + bottom² stay below 2^53, Stepping Coefficients
+ * below its 10^10).
  */
-export const LINES_BEGINNER_PHYSICS: Physics = Object.freeze({ gravity: 1, estimatorStarts: 12, sameSizeBand: 0.5, newbornBitRate: 1 });
-/** Grids: only the estimator's start count applies (a board has no size, no gravity, and is born by its walk). */
-export const GRIDS_BEGINNER_PHYSICS: Physics = Object.freeze({ gravity: 1, estimatorStarts: 20, sameSizeBand: 0.5, newbornBitRate: 1 });
+export const LINES_BEGINNER_PHYSICS: Physics = Object.freeze({ gravity: 1, estimatorStarts: 12, sameSizeBand: 0.5, newbornBitRate: 1, largestNumber: 10_000_000 });
+/** Grids: only the estimator's start count applies (a board has no size, no gravity, no a, b, c, and is born by its walk). */
+export const GRIDS_BEGINNER_PHYSICS: Physics = Object.freeze({ gravity: 1, estimatorStarts: 20, sameSizeBand: 0.5, newbornBitRate: 1, largestNumber: 1 });
 
 /** The physics of each variant the beginner configurations deal; undefined for a variant no configuration sets. */
 export function physicsForVariant(variantId: string): Physics | undefined {

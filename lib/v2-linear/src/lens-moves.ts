@@ -199,6 +199,10 @@ export const lensMoves: readonly Mutator<LineState, MoveArgs>[] = KINDS.map(spec
     if ("invalid" in m) return m;
     const built = inDomain(lens.build(m, l), lineParams(variant));
     if ("invalid" in built) return built;
+    // The game's largest number (physics setting largestNumber): a, b, c may not grow past it.
+    const cap = BigInt(physicsOf(variant).largestNumber), top = (x: Line) => [x.a, x.b, x.c].reduce((t, v) => (v < 0n ? -v : v) > t ? (v < 0n ? -v : v) : t, 0n);
+    const after = top(built);
+    if (after > cap && after > top(l)) return { invalid: `that would make the line's largest number (a, b or c in ax + by + c = 0) ${after}, past ${cap}, the largest number this game allows` };
     return { lines: state.lines.map((x, i) => (i === site ? built : x)) };
   },
   inverse: { kind: "none", note: "turns are priced as a whole; there is no exact potential" },

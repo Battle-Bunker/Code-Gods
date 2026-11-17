@@ -6,7 +6,7 @@
 import { withPhysics } from "@workspace/v2-core";
 import { LINES_BEGINNER_PHYSICS } from "@workspace/v2-economy";
 import { lineQ } from "../src/type.ts";
-import { dynamicFamilies } from "../src/dynamic-families.ts";
+import { dynamicFamilies } from "../src/dealt.ts";
 import { estimateLine, lineRule } from "../src/energy.ts";
 import { simulate } from "./balance-sim.ts";
 
