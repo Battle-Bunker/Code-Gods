@@ -1,8 +1,9 @@
 /**
- * The replay bar (integration plan W5-5): under the game bar while a replay is open, at every width. Play and pause,
- * a step to the move before or after, the start and the end, a slider over the whole game, the speed, whose eyes it is
- * watched through, and closing it. Every control is a `replay.*` view affordance (or `view.closePane` for the
- * replay), so an assistant can drive the same replay and every client of the human follows.
+ * The replay's controls, drawn as v1's Timeline panel (in the assistant's place) once the replay is ready, and as a bar
+ * under the game bar while it loads: play and pause, a step to the move before or after, the start and the end, a
+ * slider over the whole game with its key moments, every event in order, the speed and whose eyes it is watched
+ * through. Every control is a `replay.*` view affordance, so an assistant can drive the same replay and every client
+ * of the human follows. An ended game is its replay (v1), so there is no closing it.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { jumpTarget, keyMoments } from "./moments";
@@ -10,9 +11,8 @@ import { around, replayEvents, type ReplayEventRow } from "./events";
 import { programKey, type ReplayProgram } from "./fold";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { objectWord, useGame } from "@/sdk";
-import { Download, Link2, Pause, Play, SkipBack, SkipForward, StepBack, StepForward, X } from "lucide-react";
+import { Download, Link2, Pause, Play, SkipBack, SkipForward, StepBack, StepForward } from "lucide-react";
 import { useAffordance } from "@workspace/v2-affordances/react";
-import { REPLAY_PANE } from "@workspace/v2-client";
 import { clock } from "@/core/words";
 import { toast } from "@/hooks/use-toast";
 import { downloadReplayFile, useReplayControls } from "./controller";
@@ -27,6 +27,16 @@ const failed = (e: unknown) => toast({ title: "The replay did not move", descrip
 
 const btn = "inline-flex h-9 min-w-9 items-center justify-center gap-1 border border-[hsl(var(--card-border))] bg-background px-2 text-sm hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed";
 
+/** v1's Timeline panel: the replay's controls and events, once the replay is ready (until then the bar says where it is). */
+export function TimelinePane() {
+  return <div className="h-full overflow-auto" data-testid="timeline"><ReplayBar /></div>;
+}
+
+/** Under the game bar while the replay loads (or could not): what is happening, and Try again. */
+export function ReplayLoading() {
+  return useReplayControls()?.index === null ? <ReplayBar /> : null;
+}
+
 export function ReplayBar() {
   const c = useReplayControls();
   const play = useAffordance("replay.play");
@@ -35,7 +45,6 @@ export function ReplayBar() {
   const step = useAffordance("replay.step");
   const speed = useAffordance("replay.speed");
   const watchAs = useAffordance("replay.watchAs");
-  const close = useAffordance("view.closePane");
   const [drag, setDrag] = useState<number | null>(null);
   // An agent's program opened from the event list (v1's agent-code dialog).
   const [code, setCode] = useState<{ agentId: string; version: number } | null>(null);
@@ -70,11 +79,6 @@ export function ReplayBar() {
   const noun = objectWord(useGame()?.variant).one;
   const events = useMemo(() => (index ? replayEvents(index, noun) : []), [index, noun]);
   if (!c) return null;
-  const closeButton = (
-    <button type="button" className={btn} onClick={() => void close.run({ pane: REPLAY_PANE }).catch(failed)} disabled={!close.available} data-testid="button-replay-close">
-      <X className="h-4 w-4" aria-hidden />Close the replay
-    </button>
-  );
   const ix = c.index;
   if (!ix) {
     const text = c.load.status === "error" ? `The replay could not load: ${c.load.message}`
@@ -83,7 +87,6 @@ export function ReplayBar() {
       <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2 text-sm" data-testid="replay-bar" data-status={c.load.status}>
         <span className={`flex-1 min-w-[12rem] ${c.load.status === "error" ? "text-destructive" : "text-muted-foreground"}`} data-testid="text-replay-status">{text}</span>
         {c.load.status === "error" && <button type="button" className={btn} onClick={c.retry} data-testid="button-replay-retry">Try again</button>}
-        {closeButton}
       </div>
     );
   }
@@ -211,8 +214,6 @@ export function ReplayBar() {
         <button type="button" className={btn} onClick={() => void downloadReplayFile(ix.gameId).catch(failed)} data-testid="button-replay-download" title="The game's whole record, as a JSON file">
           <Download className="h-4 w-4" aria-hidden />Download
         </button>
-        <span className="flex-1" />
-        {closeButton}
       </div>
     </div>
   );
@@ -223,11 +224,11 @@ export function ReplayBar() {
  * marked, the ones still to come are faint, and a click goes to that moment. Collapsed until opened.
  */
 function EventList({ rows, applied, onSeek, onCode }: { rows: readonly ReplayEventRow[]; applied: number; onSeek: (seq: number) => void; onCode: (p: { agentId: string; version: number }) => void }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const shown = open ? around(rows, applied) : [];
   const current = [...rows].reverse().find(r => r.at <= applied)?.at;
   return (
-    <details className="text-xs" onToggle={e => setOpen((e.currentTarget as HTMLDetailsElement).open)} data-testid="replay-events">
+    <details open={open} className="text-xs" onToggle={e => setOpen((e.currentTarget as HTMLDetailsElement).open)} data-testid="replay-events">
       <summary className="cursor-pointer text-muted-foreground underline-offset-4 hover:underline">Events ({rows.length})</summary>
       {open && (
         <ol className="mt-1 max-h-56 space-y-0.5 overflow-auto">

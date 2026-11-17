@@ -173,7 +173,8 @@ export const DEFAULT_DOCKS: Readonly<Record<DockKind, string>> = {
   planning: "column(row(column(my-card 50, race 50) 33, objects 37, agents 30) 67, assistant 33)",
   live: "column(row(column(my-card 50, race 50) 33, objects 37, agents 30) 67, assistant 33)",
   ended: "column(row(column(my-card 50, race 50) 33, column(results 60, objects 40) 37, agents 30) 67, assistant 33)",
-  replay: "row(my-card 28, objects 42, column(feed 50, race 50) 30)",
+  // An ended game is its replay (v1): the same layout with the replay's Timeline in the assistant's place.
+  replay: "column(row(column(my-card 50, race 50) 33, objects 37, agents 30) 67, timeline 33)",
 };
 const DEFAULT_TREES = Object.fromEntries(DOCK_KINDS.map(k => [k, parseDock(DEFAULT_DOCKS[k])])) as Record<DockKind, DockNode>;
 /** A screen's default arrangement (parsed once; the trees are never changed in place). */
