@@ -240,6 +240,9 @@ importers:
       '@workspace/v2-core':
         specifier: workspace:*
         version: link:../../lib/v2-core
+      '@workspace/v2-economy':
+        specifier: workspace:*
+        version: link:../../lib/v2-economy
       '@workspace/v2-grid':
         specifier: workspace:*
         version: link:../../lib/v2-grid

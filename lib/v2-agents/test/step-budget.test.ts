@@ -5,11 +5,12 @@
  *
  * What would break: a starter (or a guest helper it calls) whose work per act grows past the margin.
  */
+import { lineQ, grid4 } from "./config.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { Qn, type ObjectType, type Variant } from "@workspace/v2-core";
-import { grid4, gridPresets, gridType } from "@workspace/v2-grid";
-import { fromMC, lineQ, lineType, presets } from "@workspace/v2-linear";
+import { gridPresets, gridType } from "@workspace/v2-grid";
+import { fromMC, lineType, presets } from "@workspace/v2-linear";
 import { pairPresets, pairQ, pairType } from "@workspace/v2-pair";
 import { DEFAULT_LIMITS } from "@workspace/v2-sandbox";
 import { births } from "../src/births.ts";

@@ -3,9 +3,10 @@
  * What would break: any host reply (a result, a charge, an error) that differs between two opponents whose rules
  * differ but whose worth totals are the same, i.e. agent code learning more than the others' summed bits.
  */
+import { lineZ } from "./config.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fromMC, lineType, lineZ } from "@workspace/v2-linear";
+import { fromMC, lineType } from "@workspace/v2-linear";
 import { q } from "@workspace/v2-core";
 import type { HostRequest } from "@workspace/v2-sandbox";
 import { EngineHost, type RuleRef } from "../src/index.ts";

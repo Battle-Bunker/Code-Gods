@@ -1,7 +1,8 @@
 /** The engine host's read accounting (spec §3.1, §6.2–§6.3) and one act's outcomes and charge (§6.1). */
+import { lineZ } from "./config.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { fromMC, lineType, lineZ } from "@workspace/v2-linear";
+import { fromMC, lineType } from "@workspace/v2-linear";
 import { applyCalls, isInvalid, q, Qn } from "@workspace/v2-core";
 import type { HostReply, HostRequest } from "@workspace/v2-sandbox";
 import { EngineHost, runAct, sandboxes, SPEC_ECONOMY, type RuleRef } from "../src/index.ts";

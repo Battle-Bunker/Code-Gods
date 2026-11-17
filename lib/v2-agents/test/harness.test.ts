@@ -1,7 +1,8 @@
 /** The harness: a fixed budget, utilities on every player's rule, energy split by view, bits from the value functions. */
+import { lineZ } from "./config.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { lineType, lineZ } from "@workspace/v2-linear";
+import { lineType } from "@workspace/v2-linear";
 import { exampleFor, sandboxes, startersFor } from "../src/index.ts";
 import { formatReport, runHarness } from "../src/harness.ts";
 

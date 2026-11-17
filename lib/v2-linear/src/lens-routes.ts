@@ -55,21 +55,21 @@ export const mutationBits = (lens: Lens, arg: number, onPair = false): number =>
 const factorBits = (f: bigint): number => universalBits(f);
 /** The bits naming the turn's lens, paid once a turn. */
 export const TURN_BITS = LENS_BITS;
-const S = (a: bigint, b: bigint, crossed: boolean) => turnSurprise([a], [b], [crossed]);
+const S = (lambda: number, a: bigint, b: bigint, crossed: boolean) => turnSurprise(lambda, [a], [b], [crossed]);
 const crosses = (a: bigint, b: bigint) => (a < 0n && b > 0n) || (a > 0n && b < 0n);
 
 /** The cheapest single-number path from a to b: naming bits and whether it crosses zero (an add through 0). */
-export function numberNaming(lens: Lens, a: bigint, b: bigint): { readonly bits: number; readonly crossed: boolean } {
+export function numberNaming(lambda: number, lens: Lens, a: bigint, b: bigint): { readonly bits: number; readonly crossed: boolean } {
   if (a === b) return { bits: 0, crossed: false };
   const neg = mutationBits(lens, 0);
   if (b === -a) return { bits: neg, crossed: false };
   let bits = mutationBits(lens, argBits(b - a, true)), crossed = crosses(a, b);
   // Across zero: negate first, then add (no crossing, so no long path's surprise), when that is the cheaper whole.
-  if (crossed) { const nb = neg + mutationBits(lens, argBits(b + a, true)); if (nb + S(a, b, false) < bits + S(a, b, true)) { bits = nb; crossed = false; } }
+  if (crossed) { const nb = neg + mutationBits(lens, argBits(b + a, true)); if (nb + S(lambda, a, b, false) < bits + S(lambda, a, b, true)) { bits = nb; crossed = false; } }
   const scale = (big: bigint, small: bigint) => {   // big = small·f
     if (small === 0n || big % small !== 0n) return;
     const f = big / small, fb = mutationBits(lens, babs(f) >= 2n ? factorBits(babs(f)) : 0) + (f < 0n ? neg : 0);
-    if (babs(f) >= 2n && fb + S(a, b, false) < bits + S(a, b, crossed)) { bits = fb; crossed = false; }
+    if (babs(f) >= 2n && fb + S(lambda, a, b, false) < bits + S(lambda, a, b, crossed)) { bits = fb; crossed = false; }
   };
   scale(b, a);   // multiply a by f
   scale(a, b);   // divide a by f
@@ -77,10 +77,10 @@ export function numberNaming(lens: Lens, a: bigint, b: bigint): { readonly bits:
 }
 
 /** A turn's price in one lens from numbers xs to ts: naming (cheapest list) and surprise. */
-export function lensPrice(lens: Lens, xs: readonly bigint[], ts: readonly bigint[]): { readonly naming: number; readonly surprise: number } {
+export function lensPrice(lambda: number, lens: Lens, xs: readonly bigint[], ts: readonly bigint[]): { readonly naming: number; readonly surprise: number } {
   const n = xs.length, inPair = new Set(lens.pairs.flat());
   let naming = 0, surprise = 0;
-  for (let i = 0; i < n; i++) if (!inPair.has(i)) { const p = numberNaming(lens, xs[i]!, ts[i]!); naming += p.bits; surprise += S(xs[i]!, ts[i]!, p.crossed); }
+  for (let i = 0; i < n; i++) if (!inPair.has(i)) { const p = numberNaming(lambda, lens, xs[i]!, ts[i]!); naming += p.bits; surprise += S(lambda, xs[i]!, ts[i]!, p.crossed); }
   for (const [t, b] of lens.pairs) {
     const [x0, x1, t0, t1] = [xs[t]!, xs[b]!, ts[t]!, ts[b]!];
     const op = mutationBits(lens, 0, true);
@@ -94,8 +94,8 @@ export function lensPrice(lens: Lens, xs: readonly bigint[], ts: readonly bigint
     if (t0 !== 0n && x0 % t0 === 0n && x0 !== t0 && (x0 / t0) > 0n) aims.push([x0, t1 * (x0 / t0)]);
     let best = Infinity, bestS = 0;
     for (const [c, y0, y1] of pre) for (const [a0, a1] of aims) {
-      const p0 = numberNaming(lens, y0, a0), p1 = numberNaming(lens, y1, a1), total = c + p0.bits + p1.bits;
-      const s = S(x0, t0, p0.crossed) + S(x1, t1, p1.crossed);
+      const p0 = numberNaming(lambda, lens, y0, a0), p1 = numberNaming(lambda, lens, y1, a1), total = c + p0.bits + p1.bits;
+      const s = S(lambda, x0, t0, p0.crossed) + S(lambda, x1, t1, p1.crossed);
       if (total + s < best + bestS) { best = total; bestS = s; }
     }
     naming += best; surprise += bestS;
@@ -107,7 +107,7 @@ export const roundHalf = (t: bigint, b: bigint): bigint => { const num = 2n * t 
 export const roundHalfAway = (v: Q): bigint => roundHalf(v.n, v.d);
 
 /** The cheapest one-turn route from x onto t over the lenses: its lens, naming and surprise (Infinity when none names t). */
-export function routePrice(x: Line, t: Line, lenses: readonly Lens[] = LENSES): { readonly lens: LensId | null; readonly naming: number; readonly surprise: number; readonly total: number } {
+export function routePrice(lambda: number, x: Line, t: Line, lenses: readonly Lens[] = LENSES): { readonly lens: LensId | null; readonly naming: number; readonly surprise: number; readonly total: number } {
   let out: { lens: LensId | null; naming: number; surprise: number; total: number } = { lens: null, naming: Infinity, surprise: Infinity, total: Infinity };
   if (x.a === t.a && x.b === t.b && x.c === t.c) return { lens: null, naming: 0, surprise: 0, total: 0 };
   for (const lens of lenses) {
@@ -115,7 +115,7 @@ export function routePrice(x: Line, t: Line, lenses: readonly Lens[] = LENSES): 
     if (!xs || !ts) continue;
     const back = lens.line(ts, x);
     if (!back || back.a !== t.a || back.b !== t.b || back.c !== t.c) continue;
-    const p = lensPrice(lens, xs, ts), total = p.naming + TURN_BITS + p.surprise;
+    const p = lensPrice(lambda, lens, xs, ts), total = p.naming + TURN_BITS + p.surprise;
     if (total < out.total) out = { lens: lens.id, naming: p.naming + TURN_BITS, surprise: p.surprise, total };
   }
   return out;
@@ -152,6 +152,6 @@ export function* lensMoves(lens: Lens, x: Line, xs: readonly bigint[]): Generato
 }
 
 /** The lens's surprise from x's numbers to z's (each crossing of zero as an add's), with the bits naming the lens. */
-export function lensSurprise(xs: readonly bigint[], zs: readonly bigint[]): number {
-  return turnSurprise(xs, zs, xs.map((a, i) => crosses(a, zs[i]!))) + TURN_BITS;
+export function lensSurprise(lambda: number, xs: readonly bigint[], zs: readonly bigint[]): number {
+  return turnSurprise(lambda, xs, zs, xs.map((a, i) => crosses(a, zs[i]!))) + TURN_BITS;
 }

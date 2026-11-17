@@ -12,13 +12,12 @@
  * the rule's own `candidates`. Nothing is computed at import time; move lists and anchors are built per variant and
  * rule on first use.
  */
-import { argBits, latinHypercube, meanAndSpread, rng as makeRng, startCost, whichBits, type Estimate, type EstimateOpts, type Mutator, type RouteSpace, type Variant } from "@workspace/v2-core";
+import { argBits, latinHypercube, physicsOf, meanAndSpread, rng as makeRng, startCost, whichBits, type Estimate, type EstimateOpts, type Mutator, type RouteSpace, type Variant } from "@workspace/v2-core";
 import { encodeGrid, gridParams, inDomain, type GridState } from "./grid.ts";
 import type { GridDynamicRule } from "./dynamic-families.ts";
 import { gridMutators, type GridArgs } from "./mutators.ts";
 
 /** Starts a server estimate averages. */
-export const GRID_STARTS = 20;
 /** The "continue" bit each mutation of a turn carries. */
 const CONTINUE = 1;
 
@@ -242,7 +241,7 @@ export interface GridEstimate extends Estimate { readonly spread: number; readon
 let fresh = 0;
 /** energy(s) under a grid rule on a variant, in bits: the mean of c(x) over stratified uniform boards. */
 export function estimateGrid<P>(s: GridState, rule: GridDynamicRule<P>, params: P, v: Variant, o: EstimateOpts = {}): GridEstimate {
-  const K = o.K ?? GRID_STARTS, seed = o.seed ?? `fresh:${Date.now()}:${fresh++}:${Math.random()}`;
+  const K = o.K ?? physicsOf(v).estimatorStarts, seed = o.seed ?? `fresh:${Date.now()}:${fresh++}:${Math.random()}`;
   const sp = space(rule, params, v), climb = climbGrid(rule, params, v), raw = rule.u(s, params), uStar = Number.isNaN(raw) ? -Infinity : raw;
   const samples = gridStarts(v, K, seed).map(x => {
     const cands = [...(rule.parts ? separable(rule, params, x.cells, s.cells, uStar, v) : []), ...(rule.candidates?.(x, uStar, params) ?? []).filter(t => !("invalid" in inDomain(t, v)))];

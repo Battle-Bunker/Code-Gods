@@ -14,7 +14,7 @@
 import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { q } from "@workspace/v2-core";
-import { crossingSliver, encodeLine, fromMC, lensMutators, lineQ, lineQLenses, lineType, lineZ, multiples, normalise, powerHug, primeHug, squareTriangle, steppingCoefficients, type Line, type LineState } from "@workspace/v2-linear";
+import { crossingSliver, encodeLine, fromMC, lensMutators, lineType, multiples, normalise, powerHug, primeHug, squareTriangle, steppingCoefficients, type Line, type LineState } from "@workspace/v2-linear";
 import { annotate, bitsLine, CompactFace, ExpandedFace, GameSummary, GoalCard, MoveLine, MoveSketch, ObjectChip, summarise, type RuleRef } from "@workspace/v2-views";
 import { valueFor } from "./values";
 import { abc, autoLines, CURATED, mc, type LineFamily } from "./line-examples";
@@ -22,6 +22,10 @@ import { emptyTank, treePrimeIntercept } from "@workspace/v2-views/demo";
 import "@workspace/v2-views/styles.css";
 import { GridsSection } from "./v2-grids";
 import { canonicalPair, pairQ, pairType, wholeAnswer, type PairState } from "@workspace/v2-pair";
+import { variantOf as configuredVariant } from "../sdk/object-types.ts";
+const lineQ = configuredVariant("line-q");
+const lineZ = configuredVariant("line-z");
+const lineQLenses = configuredVariant("line-q-lenses");
 
 type Family = LineFamily;
 const ruleOf = (family: Family, params: unknown): RuleRef<LineState, unknown> => ({ type: lineType, family, params, variant: lineQ });

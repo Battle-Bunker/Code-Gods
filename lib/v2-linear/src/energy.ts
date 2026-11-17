@@ -12,7 +12,7 @@
  *   `candidates`, summed by distinct target line.
  * Nothing is computed at import time.
  */
-import { gcd, latinHypercube, meanAndSpread, q, Qn, rng as makeRng, startCost, greedyClimb, type DynamicRule, type Estimate, type EstimateOpts, type Q, type RouteSpace, type Variant } from "@workspace/v2-core";
+import { gcd, latinHypercube, physicsOf, meanAndSpread, q, Qn, rng as makeRng, startCost, greedyClimb, type DynamicRule, type Estimate, type EstimateOpts, type Q, type RouteSpace, type Variant } from "@workspace/v2-core";
 import { isVertical, type Line, type LineState } from "./line.ts";
 import { LENSES, lensById, lensMoves, lensPrice, lensSurprise, routePrice, type Lens, type LensId } from "./lens-routes.ts";
 
@@ -53,7 +53,7 @@ const sameBits = (v: bigint, t: number, band: number): bigint => {
   return BigInt(Math.max(1, Math.round(2 ** (L + band * t))));
 };
 /** K starts for s in the rule's lens: each whole number of s's information size, stratified. */
-export function lineStarts(s: Line, lensId: LensId, K: number, seed: string, band = 0.5): Line[] {
+export function lineStarts(s: Line, lensId: LensId, K: number, seed: string, band: number): Line[] {
   const lens = lensById(lensId === "mA" ? "mc" : lensId), base = lens.numbers(s);
   if (!base) return [];
   const r = makeRng("line-starts", seed), bottoms = new Set(lens.pairs.map(p => p[1]));
@@ -73,10 +73,8 @@ export function lineStarts(s: Line, lensId: LensId, K: number, seed: string, ban
 
 // ------------------------------------------------------------------ the energy
 
-/** Starts a server estimate averages. */
-export const LINE_STARTS = 12;
 export interface LineEstimateOpts extends EstimateOpts {
-  /** The band of start sizes above s's, in bits (½). */
+  /** The band of start sizes above s's, in bits: the game's physics setting sameSizeBand unless given. */
   readonly band?: number;
   /** Use the rule's candidates (true) or the universal routes alone (false). */
   readonly candidates?: boolean;
@@ -86,20 +84,24 @@ export interface LineEstimate extends Estimate { readonly spread: number; readon
 
 const keyOf = (l: Line) => `${l.a},${l.b},${l.c}`;
 /** One lens's route space (the climb's moves, naming and surprise). */
-function lensSpace(lens: Lens, u: (l: Line) => number): RouteSpace<Line> {
+function lensSpace(lambda: number, lens: Lens, u: (l: Line) => number): RouteSpace<Line> {
   const nums = (l: Line) => lens.numbers(l);
   return {
     key: keyOf, u,
     *moves(y) { const ys = nums(y); if (ys) yield* lensMoves(lens, y, ys); },
-    surprise: (x, z) => { const xs = nums(x), zs = nums(z); return xs && zs ? lensSurprise(xs, zs) : Infinity; },
-    name: (x, t) => { const xs = nums(x), ts = nums(t); return xs && ts ? lensPrice(lens, xs, ts).naming : Infinity; },
+    surprise: (x, z) => { const xs = nums(x), zs = nums(z); return xs && zs ? lensSurprise(lambda, xs, zs) : Infinity; },
+    name: (x, t) => { const xs = nums(x), ts = nums(t); return xs && ts ? lensPrice(lambda, lens, xs, ts).naming : Infinity; },
   };
 }
 
 let fresh = 0;
-/** energy(s) under a line rule, in bits: the mean of c(x) over same-size starts. The variant is not read (lens moves are every board's). */
-export function estimateLine(s: Line, rule: LineRule, _variant?: Variant, o: LineEstimateOpts = {}): LineEstimate {
-  const K = o.K ?? LINE_STARTS, seed = o.seed ?? `fresh:${Date.now()}:${fresh++}:${Math.random()}`;
+/**
+ * energy(s) under a line rule, in bits: the mean of c(x) over same-size starts. The variant carries the game's physics
+ * settings (gravity, estimatorStarts, sameSizeBand); there are no defaults.
+ */
+export function estimateLine(s: Line, rule: LineRule, variant: Variant, o: LineEstimateOpts = {}): LineEstimate {
+  const physics = physicsOf(variant), lambda = physics.gravity;
+  const K = o.K ?? physics.estimatorStarts, band = o.band ?? physics.sameSizeBand, seed = o.seed ?? `fresh:${Date.now()}:${fresh++}:${Math.random()}`;
   const memo = new Map<string, number>();
   const u = (l: Line) => {
     const k = keyOf(l);
@@ -110,8 +112,8 @@ export function estimateLine(s: Line, rule: LineRule, _variant?: Variant, o: Lin
   const uStar = u(s);
   if (uStar === -Infinity) return { energy: 0, spread: 0, u: uStar, K: 0, samples: [] };
   // The rule's own lens first, so its climb's cost bounds the others'.
-  const spaces = [...LENSES].sort((a, b) => Number(b.id === rule.lens) - Number(a.id === rule.lens)).map(l => lensSpace(l, u));
-  const all: RouteSpace<Line> = { key: keyOf, u, moves: function* () {}, surprise: () => 0, name: (x, t) => routePrice(x, t).total };
+  const spaces = [...LENSES].sort((a, b) => Number(b.id === rule.lens) - Number(a.id === rule.lens)).map(l => lensSpace(lambda, l, u));
+  const all: RouteSpace<Line> = { key: keyOf, u, moves: function* () {}, surprise: () => 0, name: (x, t) => routePrice(lambda, x, t).total };
   const climb = (x: Line, uS: number, _sp: RouteSpace<Line>, bound = Infinity) => {
     let best: { readonly target: Line; readonly bits: number } | null = null, cap = bound;
     for (const sp of spaces) {
@@ -120,7 +122,7 @@ export function estimateLine(s: Line, rule: LineRule, _variant?: Variant, o: Lin
     }
     return best;
   };
-  const samples: LineSample[] = lineStarts(s, rule.lens, K, seed, o.band).map(x => {
+  const samples: LineSample[] = lineStarts(s, rule.lens, K, seed, band).map(x => {
     const cands = o.candidates === false ? [] : rule.candidates(x, uStar).filter(t => !isVertical(t));
     const c = startCost(x, s, uStar, all, cands, climb);
     return { from: x, cost: c.cost, best: c.best, universal: c.universal, by: c.by };

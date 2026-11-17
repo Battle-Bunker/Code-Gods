@@ -7,7 +7,7 @@
  * A turn's price (v2-core surprise.ts): each mutation's naming bits, plus the surprise of the lens's numbers' overall
  * change, plus the bits that name the lens.
  */
-import { argBits, universalBits, gcd, turnSurprise, type ArgCode, type Call, type Invalid, type Mutator, type Rng, type Variant } from "@workspace/v2-core";
+import { argBits, universalBits, gcd, physicsOf, turnSurprise, type ArgCode, type Call, type Invalid, type Mutator, type Rng, type Variant } from "@workspace/v2-core";
 import { inDomain, lineParams, normalise, type Line, type LineState } from "./line.ts";
 
 export interface Lens {
@@ -229,18 +229,20 @@ export function lineTurnSurprise(before: LineState, after: LineState, calls: rea
     if ("invalid" in n0 || "invalid" in n1) return;
     n0.forEach((x, j) => { b.push(x); af.push(n1[j]!); cr.push(crossed.get(`${i}:${j}`) ?? false); });
   });
-  return turnSurprise(b, af, cr) + LENS_BITS;
+  return turnSurprise(physicsOf(variant).gravity, b, af, cr) + LENS_BITS;
 }
 
 /**
  * A newborn line: a lens drawn at random, its whole numbers drawn so each extra bit of size is a fixed factor rarer
- * (bit length L ≥ 1 with P(L) ∝ 2^(−L), uniform within the length; tops get a random sign, bottoms are ≥ 1). Lenses
+ * (bit length L ≥ 1 with P(L) ∝ 2^(−rate·L), the game's newbornBitRate; uniform within the length; tops get a random sign, bottoms are ≥ 1). Lenses
  * that cannot build a line from the draw are redrawn.
  */
 export function newbornLine(r: Rng, variant: Variant): Line {
+  // Each extra bit of length is 2^rate times rarer (the game's physics setting newbornBitRate).
+  const more = 2 ** -physicsOf(variant).newbornBitRate;
   const draw = (): bigint => {
     let L = 1;
-    while (L < 40 && r.below(2) === 1) L++;
+    while (L < 40 && r.unit() < more) L++;
     const lo = 2 ** (L - 1);
     return BigInt(lo + r.below(lo));
   };

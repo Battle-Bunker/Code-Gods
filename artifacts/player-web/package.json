@@ -105,6 +105,7 @@
     "@workspace/v2-agents": "workspace:*",
     "@workspace/v2-client": "workspace:*",
     "@workspace/v2-core": "workspace:*",
+    "@workspace/v2-economy": "workspace:*",
     "@workspace/v2-grid": "workspace:*",
     "@workspace/v2-pair": "workspace:*",
     "@workspace/v2-grid-boards": "workspace:*",

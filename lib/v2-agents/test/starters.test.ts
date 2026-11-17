@@ -9,13 +9,14 @@
  *  - each example gains value on some newborn line, its main part never falling (ux: a beginner's first agent visibly works);
  *  - every one is payable from the beginner preset's starting energy, at about the same price in both languages.
  */
+import { lineQ, lineZ } from "./config.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { isGridTypeFamily } from "../src/grid-starters.ts";
 import { readFileSync } from "node:fs";
 import { evaluateSite, q, Qn, scoreToWire, type Variant } from "@workspace/v2-core";
 import { firstAgentShare, GRIDS_BEGINNER_ECONOMY, LINES_BEGINNER_ECONOMY, summonPriceScale } from "@workspace/v2-economy";
-import { fromMC, lineType, lineQ, lineZ, presets, type LineState } from "@workspace/v2-linear";
+import { fromMC, lineType, presets, type LineState } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
 import {
   BEGINNER_STARTING_ENERGY, GRID_BEGINNER_STARTING_ENERGY, births, CATALOGUE, check, stale, undescribed, EngineHost, exampleFor, runAct, sandboxes, scoreSource, shippedAgents, shippedPath,
