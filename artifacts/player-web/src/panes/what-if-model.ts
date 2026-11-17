@@ -123,6 +123,8 @@ export interface WhatIfInput {
   rule: GameRule;
   state: unknown;
   call: { mutator: string; site?: number; args: Record<string, string> };
+  /** Moves already in this turn, made before `call` (a turn is a list of moves on one lens). */
+  steps?: readonly { mutator: string; site?: number; args: Record<string, string> }[];
   /** The rule's worth in bits at a score (owner decision 23), null when unknown. */
   value: ((u: Score) => number) | null;
   /** How much the others want this line now (null for a spectator, or before any value). */
@@ -149,16 +151,16 @@ export function standing(rule: GameRule, state: unknown, value: ((u: Score) => n
  */
 export function whatIf(i: WhatIfInput, from?: Standing): WhatIf {
   try {
-    const calls = [{ mutator: i.call.mutator, site: i.call.site ?? 0, args: i.call.args }];
+    const calls = [...(i.steps ?? []), i.call].map(c => ({ mutator: c.mutator, site: c.site ?? 0, args: c.args }));
     const host = hostOn(i.rule, i.state);
     const q = host.handle({ op: "quote", calls } as never, CONTEXT);
     if (!q.ok) return { ok: false, reason: q.error };
     const quote = q.result as { valid: boolean; reason?: string; total: number; charge: number };
     const priced = host.price(calls);
     if (!quote.valid || !priced.valid) return { ok: false, reason: (quote.reason ?? "this move is not allowed").replace(/^[\w.]+: /, "") };
-    const m = mutatorOf(i.rule, i.call.mutator);
+    const say = (c: { mutator: string; args: Record<string, string> }) => { const m = mutatorOf(i.rule, c.mutator); return m.describe(m.args(i.rule.variant).decode(c.args)); };
     return {
-      ok: true, after: priced.result, what: typesetNumbers(m.describe(m.args(i.rule.variant).decode(i.call.args))), price: quote.total, charge: quote.charge,
+      ok: true, after: priced.result, what: typesetNumbers(calls.map(say).join(", then ")), price: quote.total, charge: quote.charge,
       naming: priced.prices.reduce((t, p) => t + p.total, 0), surprise: quote.total - priced.prices.reduce((t, p) => t + p.total, 0),
       from: from ?? standing(i.rule, i.state, i.value, i.want), to: standing(i.rule, priced.result, i.value, i.want),
     };

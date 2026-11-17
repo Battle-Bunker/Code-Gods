@@ -929,7 +929,11 @@ def climb(offer, options, now, most=None):
     quoted = [(v, plan, price(offer, plan)) for v, plan in ranked[:4]]
     # The best step it can pay for within its allowance; else a bigger one (the next rung of a ladder) paid from
     # energy saved up in hand, no debt.
-    pick = next((q for q in quoted if q[2] is not None and q[2] <= cap), None) or next((q for q in quoted if q[2] is not None and q[2] <= saved), None)
+    # Energy is bits: of the steps it can pay for, the one with the most points gained per bit spent.
+    def per_bit(within):
+        ok = [q for q in quoted if q[2] is not None and q[2] <= within]
+        return max(ok, key=lambda q: (q[0] - value) / max(q[2], 1e-9)) if ok else None
+    pick = per_bit(cap) or per_bit(saved)
     return _as_plan(pick[1]) if pick else None
 
 

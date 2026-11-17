@@ -74,3 +74,13 @@ test("a move the board refuses says why in words", () => {
   const bottom = whatIf({ rule: rule("power-hug", null), state: lineType.decode("-2,1,-3"), call: { mutator: "add", args: { lens: "mc", at: "2", k: "-1" } }, value: null, want: null });
   assert.equal(bottom.ok, false);
 });
+
+test("a turn is a list of moves on one lens: What if prices them together, and refuses a second lens", () => {
+  // The owner's example: 1/2 + 1/3 is made by multiplying the bottom by 3 (1/6), then adding 4 to the top (5/6).
+  const state = lineType.decode("-4,2,-1");   // y = 2x + 1/2
+  const two = whatIf({ rule: rule("power-hug", null, lineQ), state, steps: [{ mutator: "mul", args: { lens: "mc", at: "4", k: "3" } }], call: { mutator: "add", args: { lens: "mc", at: "3", k: "4" } }, value: null, want: null });
+  assert.ok(two.ok, two.ok ? "" : two.reason);
+  if (two.ok) { assert.equal(lineType.encode(two.after), "-12,6,-5"); assert.match(two.what, /then/); assert.ok(two.naming > 0 && two.surprise > 0); }
+  const mixed = whatIf({ rule: rule("power-hug", null), state, steps: [{ mutator: "add", args: { lens: "abc", at: "3", k: "1" } }], call: { mutator: "add", args: { lens: "mc", at: "3", k: "1" } }, value: null, want: null });
+  assert.equal(mixed.ok, false);
+});
