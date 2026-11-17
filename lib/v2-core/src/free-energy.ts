@@ -78,8 +78,8 @@ export interface StartCost<S> {
   readonly routes: number;
 }
 
-/** c(x) for one start: the universal routes and the rule's candidates, summed by distinct target (the climb last, bounded). */
-export function startCost<S>(x: S, s: S, uStar: number, sp: RouteSpace<S>, candidates: readonly S[] = [], climber: typeof greedyClimb<S> = greedyClimb): StartCost<S> {
+/** c(x) for one start: the universal routes and the rule's candidates, summed by distinct target (the climb last, bounded; `extra`: further routes the climber reports). */
+export function startCost<S>(x: S, s: S, uStar: number, sp: RouteSpace<S>, candidates: readonly S[] = [], climber: typeof greedyClimb<S> = greedyClimb, extra: readonly { readonly target: S; readonly bits: number }[] = []): StartCost<S> {
   if (uOf(sp, x) >= uStar - 1e-9) return { cost: 0, best: 0, by: "already", universal: 0, routes: 0 };
   const routes = new Map<string, number>();
   let best = Infinity, by: StartCost<S>["by"] = "none";
@@ -94,6 +94,8 @@ export function startCost<S>(x: S, s: S, uStar: number, sp: RouteSpace<S>, candi
   for (const t of candidates) if (uOf(sp, t) >= uStar - 1e-9) add(t, sp.name(x, t) + sp.surprise(x, t), "candidate");
   const climb = climber(x, uStar, sp, best + 16);
   if (climb) { add(climb.target, climb.bits, "climb"); universal = Math.min(universal, climb.bits); }
+  // Routes the climber met on its way (a type may report them in `extra` while it climbs): each a distinct target.
+  for (const r of extra) { add(r.target, r.bits, "climb"); universal = Math.min(universal, r.bits); }
   return { cost: softMinBits(routes.values()), best, by, universal, routes: routes.size };
 }
 

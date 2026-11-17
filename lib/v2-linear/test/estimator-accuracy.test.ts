@@ -23,9 +23,8 @@ const rows: Row[] = JSON.parse(readFileSync(new URL("./fixtures/estimator-accura
  * targets; the rest is search the budget no longer pays for (Whole Stair, Corner at 20 bits).
  */
 const KNOWN: Readonly<Record<string, number>> = {
-  "bearing 10": 5.5, "golden-path 5": 4.5, "ring 5": 6.5, "ring 10": 6, "ring 20": 4, "archimedes 5": 4.5, "hensel 5": 4,
-  "hensel 10": 5, "whole-stair 5": 6, "whole-stair 10": 11, "whole-stair 20": 10, "corner 10": 4, "corner 20": 11,
-  "long-run 10": 3,
+  "bearing 10": 5.5, "golden-path 5": 4.5, "ring 5": 6.5, "ring 10": 5.5, "archimedes 5": 4.5, "hensel 5": 4,
+  "hensel 10": 5, "whole-stair 5": 4, "whole-stair 10": 8.5, "whole-stair 20": 4, "corner 20": 5, "long-run 10": 3,
 };
 const LIMIT = (rule: string, B: number) => KNOWN[`${rule} ${B}`] ?? (B >= 20 ? 3 : 2);
 /**

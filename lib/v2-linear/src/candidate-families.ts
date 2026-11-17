@@ -241,9 +241,13 @@ const SUMS2 = [1, 2, 5, 10, 13];
 export function wholeStairU(m: Q, n: number): number {
   if (!searchTick()) return -Infinity;
   // Exact at any size (bigint): the distance from rise² + run² to the nearest n × a square.
-  const p = babs(m.n), qq = m.d, h2 = p * p + qq * qq, N = BigInt(n);
+  const p = babs(m.n), qq = m.d;
   if (p === 0n) return NaN;
-  const c0 = isqrt(h2 / N);
+  return stairFromH(p * p + qq * qq, n);
+}
+/** Whole Stair's value from H = rise² + run²: half its binary digits less those of its distance from n × a square. */
+function stairFromH(h2: bigint, n: number): number {
+  const N = BigInt(n), c0 = isqrt(h2 / N);
   const dist = [c0, c0 + 1n].map(c => babs(h2 - N * c * c)).reduce((x, y) => (y < x ? y : x));
   return 0.5 * log2Big(h2) - log2Big(1n + dist);
 }
@@ -252,37 +256,52 @@ export function wholeStairU(m: Q, n: number): number {
  * orders, turned by s + ti: rise = |A·s − B·t|, run = |A·t + B·s|, so rise² + run² = n·(A² + B²)² exactly. Built once per n
  * and kept sorted by rise/run (the old search rebuilt and scanned the whole list on every call: 70 ms a start).
  */
-const STAIRS = new Map<number, { r: number; rise: number; run: number; u: number }[]>();
+const STAIRS = new Map<number, { r: number; rise: number; run: number; u: number }[][]>();
+/** The steps for n, in buckets by ⌊log2(rise² + run²)⌋ (a step's value: exact, so twice its value), each sorted by ratio. */
 function stairsFor(k: number) {
-  let list = STAIRS.get(k);
-  if (list) return list;
+  let buckets = STAIRS.get(k);
+  if (buckets) return buckets;
   const [s0, t0] = [...Array(4)].flatMap((_, a) => [...Array(4)].map((__, b) => [a, b] as const)).find(([a, b]) => a * a + b * b === k)!;
-  list = [];
+  buckets = [];
   for (let u = 2; u < 400; u++) for (let v = 1; v < u; v++) {
     if ((u - v) % 2 === 0 || Number(gcd(BigInt(u), BigInt(v))) !== 1) continue;
     for (const [A, B] of [[u * u - v * v, 2 * u * v], [2 * u * v, u * u - v * v]]) {
       const rise = abs(A! * s0 - B! * t0), run = abs(A! * t0 + B! * s0);
-      if (rise > 0 && run > 0) list.push({ r: rise / run, rise, run, u });
+      if (rise === 0 || run === 0) continue;
+      const b = Math.floor(log2(rise * rise + run * run));
+      (buckets[b] ??= []).push({ r: rise / run, rise, run, u });
     }
   }
-  list.sort((a, b) => a.r - b.r);
-  STAIRS.set(k, list);
-  return list;
+  for (const list of buckets) list?.sort((a, b) => a.r - b.r);
+  STAIRS.set(k, buckets);
+  return buckets;
 }
-/** The three exact steps nearest |m| in rise/run (outwards from it, in ratio order) with u below √(2^(u* + 1)). */
+/**
+ * The exact steps nearest |m| in rise/run that reach the level (2·u* bits of rise² + run²) without passing u² ≥ 2^(u*+1):
+ * from each size bucket that can, the nearest on either side by binary search; the three nearest overall.
+ */
 function stairSteps(m: Q, uStar: number, k: number): LineTarget[] {
-  const list = stairsFor(k), x = abs(toNum(m)) || 1, top = Math.max(64, 2 ** (uStar + 1));
-  let lo = 0, hi = list.length;
-  while (lo < hi) { const mid = (lo + hi) >> 1; if (list[mid]!.r < x) lo = mid + 1; else hi = mid; }
-  const found: { t: LineTarget; d: number }[] = [];
-  for (let i = 0; i < 2 * list.length && found.length < 3 && searchMeter.left > 0; i++) {
-    // Alternate outwards from the ratio: lo, lo − 1, lo + 1, lo − 2, …
-    const j = lo + (i % 2 ? -((i + 1) >> 1) : i >> 1), e = list[j];
-    if (!e || e.u * e.u >= top) continue;
-    const v = q(BigInt(e.rise), BigInt(e.run));
-    if (wholeStairU(v, k) >= uStar - 1e-9) found.push({ t: { m: Qn.mul(q(sign(m)), v) }, d: abs(e.r - x) });
+  const buckets = stairsFor(k), x = abs(toNum(m)) || 1, top = Math.max(64, 2 ** (uStar + 1));
+  const near: { e: { r: number; rise: number; run: number; u: number }; d: number }[] = [];
+  for (let b = Math.max(0, Math.floor(2 * uStar) - 1); b < buckets.length; b++) {
+    const list = buckets[b];
+    if (!list) continue;
+    let lo = 0, hi = list.length;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (list[mid]!.r < x) lo = mid + 1; else hi = mid; }
+    for (const dir of [-1, 1]) for (let j = dir < 0 ? lo - 1 : lo, n = 0; j >= 0 && j < list.length && n < 3; j += dir) {
+      const e = list[j]!;
+      if (e.u * e.u >= top) continue;
+      near.push({ e, d: abs(e.r - x) }); n++;
+    }
   }
-  return found.sort((a, b) => a.d - b.d).map(f => f.t);
+  near.sort((a, b) => a.d - b.d);
+  const found: LineTarget[] = [];
+  for (const { e } of near) {
+    if (found.length >= 3 || searchMeter.left <= 0) break;
+    const v = q(BigInt(e.rise), BigInt(e.run));
+    if (wholeStairU(v, k) >= uStar - 1e-9) found.push({ m: Qn.mul(q(sign(m)), v) });
+  }
+  return found;
 }
 /** The divisors of n (trial division to 2^10; past that, n's factors found that far and the rest whole). */
 function divisors(n: bigint): bigint[] {
@@ -336,7 +355,7 @@ export const wholeStair = dynamicLine<{ k: number }>({
   u: (m, _c, { k }) => wholeStairU(m, k),
   searches: [{ id: "pythagorean", propose: (m, _c, uStar, { k }) => stairSteps(m, uStar, k) }, { id: "one-number", propose: (m, c, uStar, { k }) => {
     const ok = (t: LineTarget) => wholeStairU(t.m ?? m, k) >= uStar - 1e-9;
-    return [...(k === 1 ? legLines(m, c, ok, 6) : []), ...oneNumberScan(m, c, ok, 128, 6, true)];
+    return [...(k === 1 ? legLines(m, c, ok, 6) : []), ...screenedScan(m, c, uStar, stairModel(k), ok, J_SCREEN, 6)];
   } }],
 });
 
@@ -348,6 +367,10 @@ export function cornerU(m: Q, n: number): number {
   // Exact at any size (bigint): the distance from 2n·top·bottom to the nearest square.
   const A = 2n * BigInt(n) * babs(m.n) * m.d;
   if (A === 0n) return NaN;
+  return cornerFromA(A);
+}
+/** Corner's value from A = 2n·top·bottom: half its binary digits less those of its distance from a square. */
+function cornerFromA(A: bigint): number {
   const s = isqrt(A), dist = [s, s + 1n].map(r => babs(A - r * r)).reduce((x, y) => (y < x ? y : x));
   return 0.5 * log2Big(A) - log2Big(1n + dist);
 }
@@ -371,7 +394,8 @@ export const corner = dynamicLine<{ k: number }>({
     return out.slice(0, 4);
   } }, { id: "one-number", propose: (m, c, uStar, { k }) =>
     // One number of a lens moved so 2n·top·bottom is a square or near one (the routes a larger search found; 17 Nov).
-    nearSquareLines(m, c, t => { const mm = t.m ?? m; return 2n * BigInt(k) * babs(mm.n) * mm.d; }, t => cornerU(t.m ?? m, k) >= uStar - 1e-9, 128, 6) }],
+    [...nearSquareLines(m, c, t => { const mm = t.m ?? m; return 2n * BigInt(k) * babs(mm.n) * mm.d; }, t => cornerU(t.m ?? m, k) >= uStar - 1e-9, 0, 6),
+     ...screenedScan(m, c, uStar, cornerModel(k), t => cornerU(t.m ?? m, k) >= uStar - 1e-9, J_SCREEN, 6)] }],
 });
 
 // ------------------------------------------------------------------ one number at a time, in the lenses a turn pins
@@ -470,6 +494,57 @@ function nearSquareLines(m: Q, c: Q, A: (t: LineTarget) => bigint, ok: (t: LineT
   found.sort((x, y) => (x.d < y.d ? -1 : x.d > y.d ? 1 : 0));
   return found.slice(0, keep).map(f => f.t);
 }
+
+/**
+ * A one-number scan screened by direct arithmetic (17 Nov): for each number z of a lens that moves the gradient, `model`
+ * gives the rule's value as a closed form of z (true while no shared factor changes as z moves), so a try costs one
+ * isqrt and a tenth of a search unit; only a try that screens at the level asked builds its line and is scored exactly
+ * (a full unit). Tries go outwards from z0 (±1, ±2, …, up to J), then the multiples and exact divisions by 2–16.
+ */
+function screenedScan(m: Q, c: Q, uStar: number, model: (one: OneNumber, z0: bigint, sg: bigint) => ((z: bigint) => number) | null, ok: (t: LineTarget) => boolean, J: number, keep: number): LineTarget[] {
+  const models: { one: OneNumber; z0: bigint; sg: bigint; f: (z: bigint) => number }[] = [];
+  for (const one of oneNumbers(m, c)) {
+    if (!one.movesM || one.z0 === 0n) continue;
+    const z0 = babs(one.z0), sg = one.z0 < 0n ? -1n : 1n;
+    if (!searchTick()) break;   // reading the model costs a line or two
+    const f = model(one, z0, sg);
+    if (f) models.push({ one, z0, sg, f });
+  }
+  const found: { t: LineTarget; d: bigint }[] = [], screen = searchMeter.unit / 10;
+  const tryZ = (x: (typeof models)[number], z: bigint) => {
+    if (z <= 0n || z === x.z0) return;
+    searchMeter.left -= screen;
+    if (x.f(z) < uStar - 0.5) return;
+    const t = x.one.at(x.sg * z);
+    if (t && ok(t)) found.push({ t, d: babs(z - x.z0) });
+  };
+  for (let j = 1n; j <= BigInt(J) && found.length < keep && searchMeter.left > 0; j++) for (const x of models) { tryZ(x, x.z0 + j); tryZ(x, x.z0 - j); }
+  for (let f = 2n; f <= 16n && found.length < keep && searchMeter.left > 0; f++) for (const x of models) { tryZ(x, x.z0 * f); if (x.z0 % f === 0n) tryZ(x, x.z0 / f); }
+  found.sort((x, y) => (x.d < y.d ? -1 : x.d > y.d ? 1 : 0));
+  return found.slice(0, keep).map(f => f.t);
+}
+/** Corner's model: A = 2n·top·bottom is K·z for a number z of the gradient (K read one step from z0). */
+const cornerModel = (k: number) => (one: OneNumber, z0: bigint, sg: bigint): ((z: bigint) => number) | null => {
+  const t1 = one.at(sg * (z0 + 1n));
+  if (!t1?.m) return null;
+  const A1 = 2n * BigInt(k) * babs(t1.m.n) * t1.m.d;
+  if (A1 <= 0n || A1 % (z0 + 1n) !== 0n) return null;
+  const K = A1 / (z0 + 1n);
+  return z => cornerFromA(K * z);
+};
+/** Whole Stair's model: one leg is α·z and the other β (read at two steps from z0), so H = α²z² + β². */
+const stairModel = (k: number) => (one: OneNumber, z0: bigint, sg: bigint): ((z: bigint) => number) | null => {
+  const t1 = one.at(sg * (z0 + 1n)), t2 = one.at(sg * (z0 + 2n));
+  if (!t1?.m || !t2?.m) return null;
+  for (const [leg, other] of [[(v: Q) => babs(v.n), (v: Q) => v.d], [(v: Q) => v.d, (v: Q) => babs(v.n)]] as const) {
+    const a1 = leg(t1.m), alpha = leg(t2.m) - a1, beta = other(t1.m);
+    if (alpha > 0n && other(t2.m) === beta && a1 === alpha * (z0 + 1n)) return z => stairFromH(alpha * alpha * z * z + beta * beta, k);
+  }
+  return null;
+};
+
+/** How far out the screened scans go, either side of a number. */
+const J_SCREEN = 512;
 
 // ------------------------------------------------------------------ number readers for Prime Palette and Long Run
 

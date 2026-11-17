@@ -163,6 +163,28 @@ slower CI machines) at 5, 10, 20 and 40 bits, and its accuracy ratchet was moved
 How this could be wrong: timings on one machine under load from other work; 4–8 states per cell; the search meter's
 half share and the 80-bit unit are my choices (cheap to change; neither is a room setting yet: the work budget itself is, estimatorWork).
 
+## Accuracy back within the time bound (17 Nov, after #1225)
+
+The coordinator: the accuracy given back at game sizes over-rewards a seat dealt Whole Stair or Corner; get every rule
+back to about 3 bits at 5, 10 and 20 bits with every estimate at or under about 100 ms in Node. What changed (built):
+- **Screened scans** for Corner and Whole Stair: for each number of a lens that moves the gradient, the rule's value is a
+  closed form of that number (Corner: A = K·z; Whole Stair: H = α²z² + β²), so a try costs one isqrt and a tenth of a
+  search unit, and only a try that screens at the level builds its line and is scored exactly. The scans reach ±512.
+- **Whole Stair's exact steps** are bucketed by size as well as sorted by ratio: the old outward scan spent its whole
+  share on triples too small for the level (at 20 bits only u ≥ 340 qualifies) and found nothing on half the starts.
+- **Every single move from the start that already reaches the level** counts as a route (the climb's first step scores
+  them anyway); small lines have many.
+- Raising the work budget to 10,000 was measured and not taken: it closed the 20-bit gaps (all within 3) but moved the
+  5- and 10-bit ones by under a bit and would double the 40-bit times.
+
+Seen narrowly (same states; mean bits over the larger search at 5 / 10 / 20 bits, before → after; ms at 40 bits after):
+Whole Stair 5.1 / 10.2 / 9.4 → 2.9 / 7.2 / 3.2 (69 ms); Corner 1.5 / 3.0 / 10.2 → 1.3 / 1.6 / 4.0 (91 ms); Ring
+5.6 / 5.1 / 3.2 → 5.4 / 4.5 / 2.7 (81 ms); the rest within 0.5 of before or better; every estimate at or under 97 ms at
+any size. Still over 3 bits: Whole Stair at 10 bits (two-number near misses), Corner at 20 (4.0), and the small-line
+gaps present since the first run (Bearing 10 bits 4.3, Golden Path 5 bits 3.9, Ring 5 and 10 bits, Archimedes 5 bits
+3.6, Hensel 5 and 10 bits): those did not move with twice the budget, so they are the larger search's multi-mutation
+turns and its many cheap targets, not work the estimator ran out of. The test's limits were tightened to these values.
+
 ## Before and after the fix (seen narrowly)
 
 "Live then" is the live estimate as the probe ran it (before #1218); "live now" the same states and starts rechecked
