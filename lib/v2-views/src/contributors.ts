@@ -205,9 +205,13 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
   // A ladder family's main part on a rung is a level (Prime Landing's levels of digits, Smooth Intercept's of primes): its
   // number means little on its own, so the family's own words for the term are said instead ("on 75: 3 of the dealt
   // primes multiplied, level 2"). Off the ladder the distance (below 0) says it plainly.
-  const valueText = isUndef(value) ? value.undefined : rule.family.keepsParams && role === "main" && term.label && Qn.sign(value) > 0 ? typesetNote(term.label) : readable(value);
   // "dealt" is our word for a rule's parameters, not a player's (round 29: "as big a dealt prime as possible").
   const title = withParams(layer.title, rule.params).replace(/\bdealt /g, "");
+  // The family's words for the term, unless they only repeat the title (a one-utility rule's label is its goal: the
+  // Lines row said "the line just touching the circle: the line just touching the dealt circle"); then the number.
+  const note = rule.family.keepsParams && role === "main" && term.label && !isUndef(value) && Qn.sign(value) > 0 ? typesetNote(term.label) : null;
+  const words = (t: string) => t.replace(/\bdealt /g, "").toLowerCase().trim();
+  const valueText = isUndef(value) ? value.undefined : note && words(note) !== words(title) ? note : readable(value);
   const wants = withParams(layer.sentence(rule.params), rule.params).replace(/^(Tie-breaker|Secondary|Third|Then):\s*/, "");
   const aim = layer.sense === "min" ? "the closer, the better" : "the bigger, the better";
 

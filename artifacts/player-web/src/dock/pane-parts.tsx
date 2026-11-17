@@ -25,7 +25,7 @@ export type StoredPaneComponent = (props: { slug: string }) => ReactNode;
  * What every pane of the dock needs: the phase, the view state the dock draws (without the panes this room cannot
  * show: the assistant in a room without AI), the panes shown, and how to draw a pane's body.
  */
-export interface DockScope { phase: GamePhase; view: ViewState; open: OpenPane[]; body(pane: string): ReactNode }
+export interface DockScope { phase: GamePhase; view: ViewState; open: OpenPane[]; body(pane: string): ReactNode; /** A room without AI: the assistant is not drawn. */ aiOff?: boolean }
 export const DockScopeContext = createContext<DockScope | null>(null);
 
 /** "Back to the previous view" (v1's pane history; dock/history.ts): whether a pane has one, and going back to it. */

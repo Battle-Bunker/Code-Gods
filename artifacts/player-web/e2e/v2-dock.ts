@@ -1,6 +1,6 @@
 /**
  * The desktop dock gives every open pane a usable size (playtest round 1, item 1), against the LIVE local engine. At
- * 1440×900 and 1280×720, in a practice game:
+ * 1920×1080 and 1280×720, in a practice game:
  *   planning, live and ended: every pane of the default arrangement has a body at least 300 px wide and 220 px tall and
  *   its key elements (the goal card's rule, the lines' sort, the act log, the agent's stats line,
  *   the leaderboard's chart, the results' headline and "Watch the replay") lie wholly inside the pane, inside the window → pointing at a line shows its detail over the list (the dock unchanged)
@@ -134,20 +134,37 @@ async function closeButtons(page: Page, close: string, what: string) {
   console.log(`${what}: close buttons on ${panes.join(", ")}; closed ${close}`);
 }
 
+/**
+ * The owner's live layout (17 November): your secret goal over the leaderboard on the left, the lines in the middle, my
+ * agents on the right, and the assistant in a full-width row below (when the room has AI); no act log.
+ */
+async function ownersLayout(page: Page, label: string) {
+  const box = async (p: string) => { const l = page.getByTestId(`pane-${p}`); return await l.count() ? await l.boundingBox() as Box | null : null; };
+  const [goal, race, lines, agents, assistant] = await Promise.all(["my-card", "race", "objects", "agents", "assistant"].map(box));
+  assert.ok(goal && race && lines && agents, `${label}: the four top panes`);
+  assert.equal(await page.getByTestId("pane-feed").count(), 0, `${label}: no act log by default`);
+  assert.ok(Math.abs(goal.x - race.x) < 4 && race.y > goal.y, `${label}: the goal over the leaderboard`);
+  assert.ok(lines.x > goal.x + goal.width - 4 && agents.x > lines.x + lines.width - 4, `${label}: goal | lines | agents`);
+  if (assistant) {
+    assert.ok(assistant.y >= lines.y + lines.height - 4 && assistant.width > 0.9 * (agents.x + agents.width - goal.x), `${label}: the assistant in a full-width row below`);
+    console.log(`${label}: the owner's layout, the assistant ${Math.round(assistant.height)} px tall below`);
+  } else console.log(`${label}: the owner's layout (no assistant in this room)`);
+}
+
 const dockText = (page: Page) => page.getByTestId("dock-desktop").getAttribute("data-dock") as Promise<string>;
-/** The left column's weight in the live arrangement (the first child of the row). */
-const leftColumn = (text: string) => Number(/^row\(column\(.*?\) (\d+(?:\.\d+)?),/.exec(text)?.[1] ?? NaN);
+/** The left column's weight in the live arrangement (the goal card's column). */
+const leftColumn = (text: string) => Number(/column\(my-card [^)]*\) (\d+(?:\.\d+)?),/.exec(text)?.[1] ?? NaN);
 
 const browser = await chromium.launch();
 try {
-  for (const [who, viewport] of [["alice", { width: 1440, height: 900 }], ["carol", { width: 1280, height: 720 }]] as const) {
+  for (const [who, viewport] of [["admin", { width: 1920, height: 1080 }], ["carol", { width: 1280, height: 720 }]] as const) {
     const label = `${viewport.width}×${viewport.height}`;
     const { context, page, errors } = await signIn(browser, who, viewport);
     await practiceGame(page, 75);
     await page.getByTestId("dock-desktop").waitFor();
     await usable(page, ["overview", "my-card", "forge"], `${label} planning`);
     await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-planning.png`) });
-    if (who === "alice") await closeButtons(page, "overview", `${label} planning`);
+    if (who === "admin") await closeButtons(page, "overview", `${label} planning`);
 
     await page.getByTestId("button-summon-first").click();
     await page.getByTestId("text-forge-status").getByText(/is summoned/).waitFor({ timeout: 60_000 });
@@ -155,7 +172,8 @@ try {
     if (await startNow.count()) { await startNow.click(); await startNow.click().catch(() => {}); }
     await page.getByTestId("text-phase").getByText("Running").waitFor({ timeout: 30_000 });
     await page.locator("[data-testid^=marks-line-]").first().waitFor({ timeout: 30_000 });
-    await usable(page, ["my-card", "objects", "feed", "agents", "race"], `${label} live`);
+    await usable(page, ["my-card", "objects", "agents", "race"], `${label} live`);
+    await ownersLayout(page, label);
     await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-live.png`) });
     console.log(`${label}: planning and live defaults usable: ${await dockText(page)}`);
 
@@ -214,10 +232,10 @@ try {
     assert.equal(after, dragged, "the arrangement is stored and comes back after a reload");
     console.log(`${label}: dragged and kept across a reload: ${after}`);
     // Maximise (v1): one pane over the others on this screen only, never stored; Escape brings the others back.
-    await page.getByTestId("button-pane-menu-feed").click();
-    await page.getByTestId("button-maximise-pane-feed").click();
-    await page.locator("[data-testid=dock-desktop][data-maximised=feed]").waitFor({ timeout: 5_000 });
-    assert.ok(await page.getByTestId("pane-feed").isVisible(), `${label}: the maximised pane shows`);
+    await page.getByTestId("button-pane-menu-race").click();
+    await page.getByTestId("button-maximise-pane-race").click();
+    await page.locator("[data-testid=dock-desktop][data-maximised=race]").waitFor({ timeout: 5_000 });
+    assert.ok(await page.getByTestId("pane-race").isVisible(), `${label}: the maximised pane shows`);
     assert.ok(!await page.getByTestId("pane-objects").isVisible(), `${label}: the others are behind it`);
     assert.equal(await dockText(page), after, `${label}: maximising stores nothing`);
     await page.keyboard.press("Escape");

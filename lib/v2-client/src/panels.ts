@@ -83,9 +83,11 @@ export function defaultPanes(phase: GamePhase): OpenPane[] {
     case "planning": return [{ pane: "objects", place: "main" }, { pane: "my-card", place: "left" }, { pane: "overview", place: "left" }, { pane: "forge", place: "right" }];
     case "ended": return [{ pane: "results", place: "main" }, { pane: "my-card", place: "left" }, { pane: "race", place: "right" }];
     case "replay": return [{ pane: "objects", place: "main" }, { pane: "my-card", place: "left" }, { pane: "feed", place: "right" }, { pane: "race", place: "right" }];
+    // The owner's layout (17 November); in this order on a phone: the goal, the lines, the agents, the leaderboard,
+    // the assistant (a room without AI does not draw it: dock.tsx).
     default: return [
-      { pane: "objects", place: "main" }, { pane: "my-card", place: "left" }, { pane: "feed", place: "right" },
-      { pane: "agents", place: "bottom" }, { pane: "race", place: "bottom" },
+      { pane: "my-card", place: "main" }, { pane: "objects", place: "main" }, { pane: "agents", place: "right" },
+      { pane: "race", place: "right" }, { pane: "assistant", place: "bottom" },
     ];
   }
 }

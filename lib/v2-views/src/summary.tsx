@@ -114,8 +114,8 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
   // What earned: the best few that scored, each through its main part, and its score's arithmetic.
   const best = [...input.objects].filter(o => o.points > 0).sort((a, b) => b.points - a.points).slice(0, BEST);
   const earned = best.map(o => {
-    const main = contributors(rule, o.state).parts[0];
-    return { number: o.number, ...(o.id ? { id: o.id } : {}), state: o.state, points: o.points, chain: main ? partLine(main) : "", formula: scoreFormula(o.bits, o.want) };
+    const parts = contributors(rule, o.state).parts, main = parts[0];
+    return { number: o.number, ...(o.id ? { id: o.id } : {}), state: o.state, points: o.points, chain: main ? partLine(main, parts.length === 1) : "", formula: scoreFormula(o.bits, o.want) };
   });
   const sum = best.reduce((t, o) => t + o.points, 0);
   const earnedNote = best.length
