@@ -18,7 +18,7 @@
 import {
   energyOf,
   actRunner, applyCalls, applyLockChanges, elementDecl, refKey, elementValue, evaluateObject, isInvalid, lockedAct, lockEnergyAt, LOCK_OPS_PER_ACT, lockProgram,
-  lockFee, lockRate, Qn, ratBits, type ActLock, type LockLanguage, type LockOpWire, type LockProgram, type LockRates, type PredicateRunner,
+  lockFee, lockRate, Qn, argBits, universalBits, type ActLock, type LockLanguage, type LockOpWire, type LockProgram, type LockRates, type PredicateRunner,
   joinTieBreakers, representation, ruleLayers, type Call, type TieBreaker, type ElementRef, type ElementValue, type ObjectType, type Price, type RuleFamily, type Variant,
 } from "@workspace/v2-core";
 import { KAPPA } from "@workspace/v2-economy";
@@ -118,12 +118,14 @@ const wire = (v: ElementValue): ElementValueWire => {
   }
 };
 
-/** An element value's code length (§3.1): rat per number, both coordinates of a point, 1 bit for undefined. */
+/** A rational's read bits (17 Nov, the turn law's code): its top with a sign, its bottom ≥ 1 (v2-core argBits, universalBits). */
+const qBits = (x: { n: bigint; d: bigint }): number => argBits(x.n, true) + universalBits(x.d);
+/** An element value's code length: each number top and bottom, both coordinates of a point, 1 bit for undefined. */
 export function valueBits(v: ElementValue): number {
   switch (v.kind) {
-    case "number": return ratBits(v.q);
-    case "point": return ratBits(v.x) + ratBits(v.y);
-    case "segment": return ratBits(v.from.x) + ratBits(v.from.y) + ratBits(v.to.x) + ratBits(v.to.y);
+    case "number": return qBits(v.q);
+    case "point": return qBits(v.x) + qBits(v.y);
+    case "segment": return qBits(v.from.x) + qBits(v.from.y) + qBits(v.to.x) + qBits(v.to.y);
     case "symbol": return 2; // a guess: symbols are short words from a few choices; none is a coordinate today
     case "undefined": return 1;
   }

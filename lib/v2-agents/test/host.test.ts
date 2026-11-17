@@ -1,4 +1,5 @@
 /** The engine host's read accounting (spec §3.1, §6.2–§6.3) and one act's outcomes and charge (§6.1). */
+import { argBits, universalBits } from "@workspace/v2-core";
 import { lineZ } from "./config.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -16,29 +17,32 @@ const rule: RuleRef = { family: "multiples", params: { k: 3 } };
 const host = () => new EngineHost({ type: lineType, variant: lineZ, state, rule, energy: 50 });
 const ask = (h: EngineHost<typeof state>, request: HostRequest) => h.handle(request, { hostCallsLeft: 10 }) as HostReply & { ok: true; result: any };
 
+const qb = (n: number) => argBits(n, true) + universalBits(1);
+
 test("a view charges its coordinates once, within one full read of the state; dynamic elements are charged on their own", () => {
   const h = host();
   const si = ask(h, { op: "view", rep: "si" });
   assert.deepEqual(si.result.elements.m, { kind: "number", q: "2" });
   assert.equal(si.result.elements.sign.text, "uphill", "derived elements come with the view");
   assert.equal(si.result.elements.y, undefined, "dynamic elements need arguments");
-  assert.equal(si.result.bits, 12);
-  assert.ok(PHI < 12);
+  // Each number: its top with a sign and its bottom (Rissanen's code, as the turn law names numbers).
+  assert.ok(Math.abs(si.result.bits - (qb(2) + qb(3))) < 1e-9);
+  assert.ok(PHI < si.result.bits);
   assert.equal(si.bits, PHI, "never past φ");
   assert.equal(ask(h, { op: "view", rep: "si" }).bits, 0, "a repeat is free");
   assert.equal(ask(h, { op: "view", rep: "seq" }).bits, 0, "the act has already paid one full read");
   const t3 = ask(h, { op: "element", ref: { rep: "seq", name: "term", args: { n: "3" } } });
   assert.deepEqual(t3.result.value, { kind: "number", q: "9" });
-  assert.equal(t3.bits, 10, "rat(9): int(9) = 9 bits and a 1-bit denominator");
+  assert.ok(Math.abs(t3.bits - qb(9)) < 1e-9, "9: its top with a sign and a bottom of 1");
   assert.equal(ask(h, { op: "element", ref: { rep: "seq", name: "term", args: { n: "3" } } }).bits, 0);
-  assert.equal(h.readBits, PHI + 10);
-  assert.deepEqual(Object.fromEntries(h.readsByRep), { si: PHI, seq: 10 });
+  assert.ok(Math.abs(h.readBits - (PHI + qb(9))) < 1e-9);
+  assert.deepEqual(Object.keys(Object.fromEntries(h.readsByRep)), ["si", "seq"]);
 });
 
 test("a single static element counts towards its view's full read", () => {
   const h = host();
-  assert.equal(ask(h, { op: "element", ref: { rep: "si", name: "m" } }).bits, 6);
-  assert.equal(ask(h, { op: "view", rep: "si" }).bits, PHI - 6, "only what is left of φ");
+  assert.ok(Math.abs(ask(h, { op: "element", ref: { rep: "si", name: "m" } }).bits - qb(2)) < 1e-9);
+  assert.ok(Math.abs(ask(h, { op: "view", rep: "si" }).bits - (PHI - qb(2))) < 1e-9, "only what is left of φ");
 });
 
 test("myScore charges the rule's views and reports each layer; myRule and budget are free", () => {

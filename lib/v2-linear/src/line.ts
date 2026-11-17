@@ -2,7 +2,7 @@
  * The line object (spec §12.1): a tuple of k lines, each the primitive integer triple (a, b, c) of a·x + b·y + c = 0
  * with gcd 1 and b > 0, or b = 0 and a > 0.
  */
-import { gcd, mixedIntBits, mixedIntCode, Qn, q, stepsIntCode, type Invalid, type IntCode, type Q, type Variant } from "@workspace/v2-core";
+import { argBits, gcd, mixedIntCode, Qn, q, stepsIntCode, type Invalid, type IntCode, type Q, type Variant } from "@workspace/v2-core";
 
 export interface Line {
   readonly a: bigint;
@@ -77,10 +77,14 @@ export const xAt = (l: Line, t: Q): Q => q(-l.c * t.d - l.b * t.n, l.a * t.d);
 export const LINE_Q_CODES: { readonly a: IntCode; readonly b: IntCode; readonly c: IntCode } =
   { a: mixedIntCode(1 / 8), b: stepsIntCode(1 / 16), c: mixedIntCode(1 / 8) };
 
-/** φ (spec §12.2): the mixed number code (owner decision 17) on (m, c) for Z; LINE_Q_CODES on the primitive triple for Q. */
+/**
+ * φ, the bits of a full read (17 Nov: the turn law's own code, v2-core surprise.ts argBits, Rissanen's universal code
+ * with a sign bit): (m, c) as whole numbers on whole-number boards; the primitive triple (a, b, c) on fraction boards,
+ * b ≥ 0 so it carries no sign.
+ */
 export function lineBits(l: Line, p: LineParams): number {
-  if (p.domain === "Z") return mixedIntBits(-l.a) + mixedIntBits(-l.c);
-  return LINE_Q_CODES.a.bits(l.a) + LINE_Q_CODES.b.bits(l.b) + LINE_Q_CODES.c.bits(l.c);
+  if (p.domain === "Z") return argBits(-l.a, true) + argBits(-l.c, true);
+  return argBits(l.a, true) + argBits(l.b, false) + argBits(l.c, true);
 }
 
 export const encodeLine = (l: Line): string => `${l.a},${l.b},${l.c}`;
