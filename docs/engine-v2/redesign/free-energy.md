@@ -116,3 +116,135 @@ How this could be wrong:
 - In two dimensions, and with real rule geometry, the number of routes may matter far more or far less.
 - The q = 1 fit to MIN may be a coincidence of this kernel.
 - Plain-simulation timings are Node on this machine, not the Convex runtime.
+
+# Cheapest route by search, with no horizon (17 November, the redirect)
+
+The owner: "I don't like the need for a horizon dial. Can we estimate the cheapest route using heuristic aided random
+search without a horizon dial?" So the target is MIN: the cheapest route, in bits of surprise, from a same-size start
+into {u ≥ u*}.
+
+The script is `lib/v2-linear/scripts/free-energy-search.ts`, which takes about six minutes. It uses the same toy as
+above; the toy itself now lives in `free-energy-toy.ts`. Each act names its kind, so an additive act and a
+multiplicative act are separate edges. Exact MIN comes from relaxing route costs over the whole space.
+
+## 1. Universal search (built; numbers seen narrowly, Node on this machine)
+
+The search is Dijkstra on the bits of surprise, starting from the start state. It evaluates u on each settled state
+and stops at the first one with u ≥ u*. Nothing in it is rule-specific. It does use the kernel's own structure, which
+is generic:
+
+- An additive act depends only on the height bin it starts from, so the first settled state of each bin expands its
+  additive moves once, as a block.
+- Multiples and divisors are generated lazily, in order of cost.
+
+**Exactness.** Over 200 starts on each of 14 goals, the search agreed with exact MIN within 1.4·10⁻¹⁴ (exact by
+construction once it stops). When the budget runs out at radius r, MIN ≥ r is certified.
+
+| Answer (bits) | Routes | Median states settled | Median ms |
+|---|---|---|---|
+| 0–5 | 128 | 2 | 0.01 |
+| 5–10 | 629 | 3 | 0.01 |
+| 10–15 | 1,360 | 3,427 | 0.83 |
+| 15–20 | 39 | 7,401 | 1.74 |
+| 30–40 (3^11) | 200 | 175,867 | 374 |
+
+The time grows at about 2^(c/2) in the answer c, from 13 to 32 bits. The radius certified with no goal anywhere
+(median of 30 starts) was:
+
+| Time | Radius certified | States settled |
+|---|---|---|
+| 1 ms | 18 bits | 19k |
+| 10 ms | 20 bits | 26k |
+| 100 ms | 27 bits | 71k |
+
+## 2. Sampled routes (seen narrowly)
+
+Each start ran jiggle walks, and every walk stopped once its own cost passed the best route found so far. The table
+gives the mean of (best found − exact MIN) over 100 starts.
+
+| Goal | Exact | 10 walks | 100 | 1,000 |
+|---|---|---|---|---|
+| Prime Hug, best (dense goal) | 14.66 | +44.5 (83 of 100 starts found none) | +15.7 (10 none) | +0.39 |
+| Multiples, best | 13.65 | +48.8 (95 none) | +43.6 (76 none) | +11.1 (4 none) |
+| Power Hug, best (4 states) | 14.16 | 100 none | 97 none | 77 none |
+| 3^11 only | 31.66 | 100 none | 100 none | 100 none |
+
+A start that found no route counts as 64 bits.
+
+Sampling from the jiggle finds a goal at a rate of about 2^−(surprise), so it only works for dense goals. Its bias
+always points upward and shrinks as walks are added.
+
+## 3. Heuristics as aids (built; seen narrowly)
+
+A rule lists candidate goal states: its anchors, ±2. A route to each candidate is priced in closed form: 1 to 8 equal
+additive strides, optionally with one multiply or divide (f ≤ 64) at the start or the end. The search then runs
+seeded with that bound, and stops as soon as its frontier reaches the bound.
+
+- **The aids never raised an estimate.** The estimate is the minimum of the search and the bound (by construction),
+  and in tests 0 of 2,800 routes came out below the exact value.
+- **For exact-target goals the candidates alone were exact.** Power Hug's best, the near 3^8 goal, and the 3^11-only
+  goal all had a heuristic mean equal to exact MIN. Certifying that answer is what costs (at 2,000 states the bracket
+  stays open).
+- **For common goals the candidates were poor and the search was cheap.** The median goal's bound was 6.7 against an
+  exact 3.5, and the search fixed every one.
+- **Rare target 3^11 from smaller starts**, at a budget of 2,000 states:
+
+  | Start size | Exact | Search alone | With heuristic |
+  |---|---|---|---|
+  | 12 bits | 31.8 | [13.6, ∞] | [13.6, 31.8], exact |
+  | 8 bits | 40.7 | [17.9, ∞] | [17.9, 47.2] |
+  | 4 bits | 52.5 | [29.6, ∞] | [29.6, ∞] |
+
+  The coded routes (one shortcut) miss the chains of multiplies these starts need. A richer route list would close
+  the gap.
+
+## 4. The state's energy
+
+Energy = the mean over stratified same-size starts of the best route found (the upper bound), reporting the certified
+share beside it. The table gives 5 repeats per row, with the heuristic plus 2,000 states per start.
+
+| Goal | Exact | K = 1,000: mean (sd) | K = 5,000: mean (sd) | Certified share | ms per estimate at K = 1,000 |
+|---|---|---|---|---|---|
+| Power Hug, median | 3.43 | 3.45 (0.085) | 3.42 (0.034) | 100% | 326 |
+| Power Hug, best | 14.12 | 14.11 (0.008) | 14.12 (0.003) | 0% | 853 |
+| Prime Hug, best | 14.66 | 14.66 (0.006) | 14.66 (0.002) | 0% | 1,856 |
+| Multiples, best | 13.72 | 13.73 (0.013) | 13.72 (0.006) | 30% | 2,156 |
+| Bigger is better, best | 6.23 | 6.23 (0.003) | 6.23 (0.001) | 100% | 148 |
+| 3^8 within 1 (near) | 13.72 | 13.72 (0.013) | 13.72 (0.002) | 21% | 1,250 |
+| 3^11 only | 31.72 | 31.72 (0.008) | 31.72 (0.002) | 0% | 625 |
+
+- **The spread between repeats** is at most 2.5% (median goals at K = 1,000) and under 0.1% for rare goals. Stratified
+  starts make the size class nearly deterministic here.
+- **The upper bounds were exact even where uncertified.** So the clean report is the upper bound plus the certified
+  share; the bracket's lower end mostly measures the search budget.
+- **The time is far over a commit's budget**: 0.15 to 2 s per estimate at K = 1,000 in Node. Spending 2,000 states on
+  each of 1,000 starts is the cost. Almost all of it goes on certifying, and certifying does not change the number.
+
+## 5. Behaviour (seen narrowly)
+
+- **Sparser goals score higher**: medians about 3 bits, best about 14, 3^11 about 32.
+- **Near is modestly cheaper than exact**: 13.72 against 14.12.
+- **Bigger is better does not score about 0** under MIN: 3.1 bits at the median, 6.2 at the best. The cheapest act at
+  12 bits pays about 6 bits of landing (the digits of where it lands), and half the starts must act. Under MIN, the
+  floor of every energy is the price of one act at that size. The discounted SUM above did not have this floor (about
+  1 bit).
+
+## Verdict (guess)
+
+"Energy = the mean of the cheapest route found by cost-ordered search, heuristics as optional aids" is exact, needs no
+horizon, never overstates through its aids, and its average over stratified starts is stable to about 1%. As a game
+measure it is tractable only with heuristics doing nearly all the work:
+
+- Use the heuristic route list as the estimate.
+- Spend a small per-start search budget, about 50 to 200 states, to catch the cheap common-goal routes the list
+  misses.
+- Report the certified share rather than paying for certification.
+
+What breaks:
+
+- Real lines have two unbounded rational parameters, and their bins are not this regular, so the per-bin expansion
+  trick may not carry over.
+- Rare goals rely entirely on the route list being complete, as the 8- and 4-bit starts show.
+- MIN carries a floor of one act's price, so bigger is better is not 0. Either subtract the size class's cheapest-act
+  price, or accept the floor.
+- Node timings scaled to the Convex runtime are unknown.
