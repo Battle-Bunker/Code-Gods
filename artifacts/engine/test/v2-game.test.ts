@@ -8,13 +8,14 @@
  * What would break: an agent never acting or never committing; values or points diverging from the record; an act
  * whose outcome depends on anything the record does not hold (a replay that cannot reproduce the game).
  */
+import { variantOf } from "../convex/v2/variants.ts";
 import { valueObjects } from "../convex/v2/world.ts";
 import { actReadings } from "../convex/v2/disclose.ts";
 import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { hasStarters, runAct, type ActRecord } from "@workspace/v2-agents";
-import { lineQ, lineType } from "@workspace/v2-linear";
-import { gridType, grid4 } from "@workspace/v2-grid";
+import { lineType } from "@workspace/v2-linear";
+import { gridType } from "@workspace/v2-grid";
 import { pairType, pairQ } from "@workspace/v2-pair";
 import type { ObjectType, Variant } from "@workspace/v2-core";
 import { createSandbox, type Language, type Sandbox } from "@workspace/v2-sandbox";
@@ -224,8 +225,8 @@ test("the stored replay: built once at the end, served only to a member with a J
 });
 }
 
-gameSuite("lines-beginner", lineType, lineQ);
-gameSuite("grids-beginner", gridType, grid4);   // the dynamic grid rules (energy.md, Grids)
+gameSuite("lines-beginner", lineType, variantOf("line-q"));
+gameSuite("grids-beginner", gridType, variantOf("grid-4-d10"));   // the dynamic grid rules (energy.md, Grids)
 // Two lines as one object (docs/engine-v2/two-line-systems.md) and the coloured boards: withheld since the value tables
 // went (17 Nov) until their rules are restated as utilities (deal.ts playable).
 test("lines-pairs and grids-original-colours are withheld: not listed, refused", async () => {
