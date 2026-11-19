@@ -24,7 +24,7 @@ const rows: Row[] = JSON.parse(readFileSync(new URL("./fixtures/estimator-accura
  */
 const KNOWN: Readonly<Record<string, number>> = {
   "bearing 10": 5.5, "golden-path 5": 4.5, "ring 5": 6.5, "ring 10": 5.5, "archimedes 5": 4.5, "hensel 5": 4,
-  "hensel 10": 5, "whole-stair 5": 4, "whole-stair 10": 8.5, "whole-stair 20": 4, "corner 20": 5, "long-run 10": 3,
+  "hensel 10": 4.5, "whole-stair 5": 4, "whole-stair 10": 8.5, "whole-stair 20": 4, "corner 20": 5, "long-run 10": 3,
 };
 const LIMIT = (rule: string, B: number) => KNOWN[`${rule} ${B}`] ?? (B >= 20 ? 3 : 2);
 /**

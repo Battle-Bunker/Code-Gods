@@ -1,5 +1,5 @@
 # Hensel · Bold
-# Main part: the dealt prime dividing top² − D·bottom² many times. Secondary preference: whichever you were dealt ().
+# Main part: the dealt prime dividing top² − D·bottom² many times, or a top near one that does. Secondary preference: whichever you were dealt ().
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -73,12 +73,24 @@ def factors_n(n):
 
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
-    N, e = m.numerator * m.numerator - p["k"] * m.denominator * m.denominator, 0   # top² − D·bottom²
-    while N != 0 and N % p["p"] == 0:
-        N //= p["p"]
-        e += 1
-    main = e * math.log2(p["p"])
-    # main: log2 p for every time p divides top² − D·bottom²
+    P, D, t, b, L = p["p"], p["k"], abs(m.numerator), m.denominator, math.log2(p["p"])
+    def inv(a, n):   # the inverse of a modulo n
+        return pow(a % n, -1, n)
+    main, mod = 0, 1
+    r = next((x for x in range(1, P) if (x * x - D) % P == 0), None)   # a root of x² ≡ D (mod p^e), lifted level by level
+    if b % P != 0 and r is not None:
+        e = 0
+        while mod <= t * t + D * b * b:
+            e += 1
+            mod *= P
+            if e > 1:
+                r = (r - (r * r - D) * inv(2 * r, mod)) % mod   # Hensel's lift to p^e
+            want = (r * b) % mod
+            for root in (want, (mod - want) % mod):   # the tops making p^e divide it are ±r·bottom mod p^e
+                d = (t - root) % mod
+                dist = d if d < mod - d else mod - d
+                main = max(main, e * L - math.log2(1 + dist))
+    # main: the best over e of e·log2 p less log2(1 + the distance to the nearest top making p^e divide top² − D·bottom²)
     def tier(t):   # each secondary, in order (None: ranks last)
         return None   # none described (a family with no tie-breakers)
     return [main] + [tier(t) for t in (tie.split(">") if tie else [])]

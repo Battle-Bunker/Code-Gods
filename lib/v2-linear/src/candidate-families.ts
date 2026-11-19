@@ -194,13 +194,55 @@ export const archimedes = dynamicLine<{ k: number }>({
 
 export interface HenselP { readonly k: number; readonly p: number }
 const HENSEL: HenselP[] = [{ k: 2, p: 7 }, { k: 3, p: 11 }, { k: 5, p: 11 }, { k: 2, p: 17 }, { k: 7, p: 3 }];
-export function henselU(m: Q, { k: D, p }: HenselP): number {
+/** The roots r_e of x² ≡ D (mod p^e), e = 1, 2, … (index e − 1), lifted once per (D, p) and kept; empty when D is no square mod p. */
+const henselRoots = new Map<string, bigint[]>();
+function henselRoot(D: number, p: number, e: number): bigint | null {
+  const key = `${D} ${p}`;
+  let rs = henselRoots.get(key);
+  if (!rs) { const r1 = liftRoot(D, p, 1); rs = r1 === null ? [] : [r1]; henselRoots.set(key, rs); }
+  if (!rs.length) return null;
+  const P = BigInt(p), d = BigInt(D);
+  while (rs.length < e) {
+    // Newton's step from p^k to p^(k+1): r ← r − (r² − D)·(2r)⁻¹.
+    const mod = P ** BigInt(rs.length + 1), r = rs[rs.length - 1]!;
+    rs.push((((r - (r * r - d) * modInverse(2n * r, mod)) % mod) + mod) % mod);
+  }
+  return rs[e - 1]!;
+}
+const modInverse = (a: bigint, n: bigint): bigint => {
+  let [t, nt, r, nr] = [0n, 1n, n, ((a % n) + n) % n];
+  while (nr !== 0n) { const k = r / nr; [t, nt] = [nt, t - k * nt]; [r, nr] = [nr, r - k * nr]; }
+  return ((t % n) + n) % n;
+};
+/**
+ * Hensel, graded (17 Nov): the best over levels e of e·log2 p less log2(1 + the distance from the top to the nearest
+ * top t' with p^e dividing t'² − D·bottom²). A top where p divides it e times scores at least e·log2 p (distance 0); one
+ * a step away keeps all but a bit, where the ungraded count fell to 0. Exact at any size (bigint).
+ */
+export function henselU(m: Q, h: HenselP): number {
   if (!searchTick()) return -Infinity;
-  let N = babs(m.n) ** 2n - BigInt(D) * m.d * m.d, e = 0;
-  if (N === 0n) return 0;
-  const P = BigInt(p);
-  while (N % P === 0n) { N /= P; e++; }
-  return e * log2(p);
+  return henselOf(babs(m.n), m.d, h);
+}
+/** Hensel's value of a top t and bottom b (no search charge: the screened scan's model). */
+function henselOf(t: bigint, b: bigint, { k: D, p }: HenselP): number {
+  const P = BigInt(p), L = log2(p);
+  // p dividing the bottom: top² − D·bottom² ≡ top² (mod p), and the top is coprime to the bottom, so no top qualifies.
+  if (b % P === 0n) return 0;
+  // Levels up to the size of top² + D·bottom² and one more: a deeper level's nearest top lies a whole p^e away.
+  const ceiling = t * t + BigInt(D) * b * b;
+  let best = 0, mod = 1n;
+  for (let e = 1; mod <= ceiling; e++) {
+    mod *= P;
+    const r = henselRoot(D, p, e);
+    if (r === null) break;
+    const want = (r * b) % mod;
+    for (const root of [want, (mod - want) % mod]) {
+      const d = (((t - root) % mod) + mod) % mod, dist = d < mod - d ? d : mod - d;
+      const score = e * L - log2Big(1n + dist);
+      if (score > best) best = score;
+    }
+  }
+  return best;
 }
 /** x with x² ≡ D (mod p^k) (Hensel's lift), or null. */
 function liftRoot(D: number, p: number, k: number): bigint | null {
@@ -214,24 +256,33 @@ function liftRoot(D: number, p: number, k: number): bigint | null {
   return r;
 }
 export const hensel = dynamicLine<HenselP>({
-  id: "hensel", whole: true, title: "Hensel", goal: "the dealt prime dividing top² − D·bottom² many times", reads: ["m"], focus: ["si", "m"],
+  id: "hensel", whole: true, title: "Hensel", goal: "the dealt prime dividing top² − D·bottom² many times, or a top near one that does", reads: ["m"], focus: ["si", "m"],
   space: listSpace(HENSEL, h => `${h.k} ${h.p}`, "D and p: one of " + HENSEL.map(h => `${h.k} ${h.p}`).join(", ")),
   peers: [HENSEL[0]!, HENSEL[1]!],
-  card: ({ k, p }) => `Write the gradient as top/bottom in lowest terms. Work out top × top − ${k} × bottom × bottom. Score log2 ${p} for every time ${p} divides it.`,
+  card: ({ k, p }) => `Write the gradient as top/bottom in lowest terms and work out top × top − ${k} × bottom × bottom. If ${p} divides it e times, you score e × log2 ${p}. A top near such a top scores nearly as much: you score your best over e of e × log2 ${p} less log2(1 + the distance from your top to the nearest top that makes ${p}^e divide it).`,
   u: (m, _c, h) => henselU(m, h),
+  // Graded, its utility loops over every level up to the line's size: about three ordinary evaluations' time.
+  cost: 3,
   searches: [{ id: "lift", propose: (m, _c, uStar, h) => {
-    const need = Math.max(1, Math.ceil(uStar / log2(h.p) - 1e-9)), out: LineTarget[] = [];
-    for (const k of [need, need + 1]) {
-      const r = liftRoot(h.k, h.p, k), mod = BigInt(h.p) ** BigInt(k);
+    // The nearest top with p^e dividing top² − D·bottom², at the levels that reach u*, and (graded) the top short of it
+    // on the start's side by as much as the level allows: e·log2 p − log2(1 + d) ≥ u* for d up to 2^(e·log2 p − u*) − 1.
+    const L = log2(h.p), need = Math.max(1, Math.ceil(uStar / L - 1e-9)), out: LineTarget[] = [];
+    for (const k of [need, need + 1, need + 2, need + 3]) {
+      const r = henselRoot(h.k, h.p, k), mod = BigInt(h.p) ** BigInt(k);
       if (r === null) continue;
       const u = m.d, t0 = babs(m.n), want = (r * u) % mod;
+      const slack = BigInt(Math.max(0, Math.floor(2 ** Math.min(1000, k * L - uStar) - 1 + 1e-9)));
       for (const root of [want, (mod - want) % mod]) {
         const delta = ((root - t0) % mod + mod) % mod, t = t0 + (delta > mod / 2n ? delta - mod : delta);
-        if (t !== 0n) out.push({ m: q(sign(m) * t, u) });
+        for (const tt of k <= need + 1 ? [t, t > t0 ? t - slack : t + slack] : [t > t0 ? t - slack : t + slack]) {
+          if (tt !== 0n && (tt - t0) * (t - t0) >= 0n) out.push({ m: q(sign(m) * tt, u) });
+        }
       }
     }
     return out;
-  } }],
+  } }, { id: "one-number", propose: (m, c, uStar, h) =>
+    // One number of a lens moved near a lift (the routes a larger search found; 17 Nov), screened by the closed form.
+    [...henselOneNumber(m, c, uStar, h), ...screenedScan(m, c, uStar, henselModel(h), t => henselU(t.m ?? m, h) >= uStar - 1e-9, J_SCREEN, 6, 1)] }],
 });
 
 // ------------------------------------------------------------------ 6. Whole Stair (exactness): rise² + run² = n × a square
@@ -497,10 +548,10 @@ function nearSquareLines(m: Q, c: Q, A: (t: LineTarget) => bigint, ok: (t: LineT
 /**
  * A one-number scan screened by direct arithmetic (17 Nov): for each number z of a lens that moves the gradient, `model`
  * gives the rule's value as a closed form of z (true while no shared factor changes as z moves), so a try costs one
- * isqrt and a tenth of a search unit; only a try that screens at the level asked builds its line and is scored exactly
+ * isqrt and a tenth of a search unit (`screenCost`: a model dearer than an isqrt charges more); only a try that screens at the level asked builds its line and is scored exactly
  * (a full unit). Tries go outwards from z0 (±1, ±2, …, up to J), then the multiples and exact divisions by 2–16.
  */
-function screenedScan(m: Q, c: Q, uStar: number, model: (one: OneNumber, z0: bigint, sg: bigint) => ((z: bigint) => number) | null, ok: (t: LineTarget) => boolean, J: number, keep: number): LineTarget[] {
+function screenedScan(m: Q, c: Q, uStar: number, model: (one: OneNumber, z0: bigint, sg: bigint) => ((z: bigint) => number) | null, ok: (t: LineTarget) => boolean, J: number, keep: number, screenCost = 0.1): LineTarget[] {
   const models: { one: OneNumber; z0: bigint; sg: bigint; f: (z: bigint) => number }[] = [];
   for (const one of oneNumbers(m, c)) {
     if (!one.movesM || one.z0 === 0n) continue;
@@ -509,7 +560,7 @@ function screenedScan(m: Q, c: Q, uStar: number, model: (one: OneNumber, z0: big
     const f = model(one, z0, sg);
     if (f) models.push({ one, z0, sg, f });
   }
-  const found: { t: LineTarget; d: bigint }[] = [], screen = searchMeter.unit / 10;
+  const found: { t: LineTarget; d: bigint }[] = [], screen = searchMeter.unit * screenCost;
   const tryZ = (x: (typeof models)[number], z: bigint) => {
     if (z <= 0n || z === x.z0) return;
     searchMeter.left -= screen;
@@ -532,6 +583,54 @@ const cornerModel = (k: number) => (one: OneNumber, z0: bigint, sg: bigint): ((z
   return z => cornerFromA(K * z);
 };
 /** Whole Stair's model: one leg is α·z and the other β (read at two steps from z0), so H = α²z² + β². */
+/** Hensel's model: the top or the bottom of the gradient is α·z for a number z (the other fixed), read at two steps. */
+const henselModel = (h: HenselP) => (one: OneNumber, z0: bigint, sg: bigint): ((z: bigint) => number) | null => {
+  const t1 = one.at(sg * (z0 + 1n)), t2 = one.at(sg * (z0 + 2n));
+  if (!t1?.m || !t2?.m) return null;
+  const top1 = babs(t1.m.n), top2 = babs(t2.m.n), bot1 = t1.m.d, bot2 = t2.m.d;
+  if (bot1 === bot2 && top2 - top1 > 0n && top1 === (top2 - top1) * (z0 + 1n)) { const a = top2 - top1; return z => henselOf(a * z, bot1, h); }
+  if (top1 === top2 && bot2 - bot1 > 0n && bot1 === (bot2 - bot1) * (z0 + 1n)) { const a = bot2 - bot1; return z => henselOf(top1, a * z, h); }
+  return null;
+};
+/**
+ * Graded Hensel, one number at a time, by modular arithmetic (17 Nov): when the moved number z scales the top (top = α·z,
+ * bottom β) the tops at level e are α·z ≡ ±r_e·β (mod p^e), so z runs in two progressions of step p^e (α a unit mod p);
+ * when it scales the bottom (bottom = α·z, top τ), τ² ≡ D·α²·z² gives z ≡ ±τ·(r_e·α)⁻¹. For each level that can reach u*
+ * the z nearest z0 in each progression, and the z short of it by the level's slack (e·log2 p − log2(1 + d) ≥ u* for d
+ * up to 2^(e·log2 p − u*) − 1, applied to the top, so d/α on z).
+ */
+function henselOneNumber(m: Q, c: Q, uStar: number, h: HenselP): LineTarget[] {
+  const P = BigInt(h.p), L = log2(h.p), need = Math.max(1, Math.ceil(uStar / L - 1e-9)), out: { t: LineTarget; d: bigint }[] = [];
+  for (const one of oneNumbers(m, c)) {
+    if (!one.movesM || one.z0 === 0n || searchMeter.left <= 0) continue;
+    const z0 = babs(one.z0), sg = one.z0 < 0n ? -1n : 1n;
+    const t1 = one.at(sg * (z0 + 1n)), t2 = one.at(sg * (z0 + 2n));
+    if (!t1?.m || !t2?.m || !searchTick()) continue;
+    const top1 = babs(t1.m.n), top2 = babs(t2.m.n), bot1 = t1.m.d, bot2 = t2.m.d;
+    const scalesTop = bot1 === bot2 && top2 > top1 && top1 === (top2 - top1) * (z0 + 1n);
+    const scalesBot = top1 === top2 && bot2 > bot1 && bot1 === (bot2 - bot1) * (z0 + 1n);
+    if (!scalesTop && !scalesBot) continue;
+    const alpha = scalesTop ? top2 - top1 : bot2 - bot1;
+    for (let e = need; e <= need + 3; e++) {
+      const r = henselRoot(h.k, h.p, e), mod = P ** BigInt(e);
+      if (r === null || alpha % P === 0n) break;
+      const ai = modInverse(alpha, mod);
+      const slack = BigInt(Math.max(0, Math.floor(2 ** Math.min(1000, e * L - uStar) - 1 + 1e-9))) / (scalesTop ? alpha : 1n);
+      for (const root of [r, mod - r]) {
+        // z ≡ root·β·α⁻¹ (top scaled) or z ≡ τ·(root·α)⁻¹ (bottom scaled), mod p^e.
+        const want = scalesTop ? (((root * bot1) % mod) * ai) % mod : (top1 % mod) * modInverse((root * alpha) % mod, mod) % mod;
+        const dz = (((want - z0) % mod) + mod) % mod, z = z0 + (dz > mod / 2n ? dz - mod : dz);
+        for (const zz of [z, z > z0 ? z - slack : z + slack]) {
+          if (zz <= 0n || zz === z0 || (zz - z0) * (z - z0) < 0n) continue;
+          const t = one.at(sg * zz);
+          if (t && henselU(t.m ?? m, h) >= uStar - 1e-9) out.push({ t, d: babs(zz - z0) });
+        }
+      }
+    }
+  }
+  out.sort((x, y) => (x.d < y.d ? -1 : x.d > y.d ? 1 : 0));
+  return out.slice(0, 8).map(o => o.t);
+}
 const stairModel = (k: number) => (one: OneNumber, z0: bigint, sg: bigint): ((z: bigint) => number) | null => {
   const t1 = one.at(sg * (z0 + 1n)), t2 = one.at(sg * (z0 + 2n));
   if (!t1?.m || !t2?.m) return null;

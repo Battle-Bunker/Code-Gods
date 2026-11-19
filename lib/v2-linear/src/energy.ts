@@ -30,6 +30,8 @@ export function readings(l: Line): Readings | null {
 /** A line rule as the estimator takes it: u of a line, the lens its starts are drawn in, and its candidate targets. */
 export interface LineRule {
   u(l: Line): number;
+  /** Work units per evaluation of u (DynamicRule.cost; 1 by default). */
+  readonly cost?: number;
   readonly lens: LensId;
   candidates(x: Line, uStar: number): readonly Line[];
 }
@@ -40,7 +42,7 @@ export const lensOfReads = (reads: readonly string[]): LensId =>
 export function lineRule<P>(rule: DynamicRule<LineState, P>, params: P): LineRule {
   const st = (l: Line): LineState => ({ lines: [l] });
   return {
-    u: l => rule.u(st(l), params), lens: lensOfReads(rule.reads),
+    u: l => rule.u(st(l), params), lens: lensOfReads(rule.reads), cost: rule.cost,
     candidates: (x, uStar) => (rule.candidates?.(st(x), uStar, params) ?? []).map(t => t.lines[0]!),
   };
 }
@@ -143,7 +145,7 @@ export function estimateLine(s: Line, rule: LineRule, variant: Variant, o: LineE
     let v = memo.get(k);
     if (v === undefined) {
       if (work >= limit) throw new OutOfWork();
-      work += sizeCost(l);
+      work += sizeCost(l) * (rule.cost ?? 1);
       v = isVertical(l) ? NaN : rule.u(l); if (Number.isNaN(v)) v = -Infinity; memo.set(k, v);
     }
     return v;
@@ -191,7 +193,7 @@ export function estimateLine(s: Line, rule: LineRule, variant: Variant, o: LineE
       let cands: Line[] = [];
       if (o.candidates !== false) {
         const share = Math.floor((limit - work) / 2);
-        searchMeter.left = share; searchMeter.cut = false; searchMeter.unit = sizeCost(x);
+        searchMeter.left = share; searchMeter.cut = false; searchMeter.unit = sizeCost(x) * (rule.cost ?? 1);
         try { cands = rule.candidates(x, uStar).filter(t => !isVertical(t)); }
         finally { work += share - Math.max(0, searchMeter.left); if (searchMeter.cut) bound = true; searchMeter.left = Infinity; searchMeter.cut = false; searchMeter.unit = 1; }
       }
