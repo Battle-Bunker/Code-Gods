@@ -220,7 +220,7 @@ export const homeOf = (pane: string): Place => (isPaneId(pane) ? PANES[pane].hom
  * shown joins at `place` (else its home) and is shown in front; a shown one comes to the front of its tab group, or
  * moves when given a place.
  */
-export function openPlan(view: Pick<ViewState, "panes">, phase: GamePhase, pane: string, place?: Place): ViewOp[] {
+export function openPlan(view: Pick<ViewState, "panes"> & Partial<Pick<ViewState, "dock">>, phase: GamePhase, pane: string, place?: Place): ViewOp[] {
   // The assistant opened in a replay comes back beside the Timeline standing in for it (v1: "opening it puts it back"):
   // the Timeline is stored too, so both are the human's own.
   if (pane === "assistant" && standsIn(view, phase)) return [{ id: "view.openPane", args: { pane: TIMELINE, place: "bottom" } }, { id: "view.openPane", args: { pane } }];
@@ -228,8 +228,12 @@ export function openPlan(view: Pick<ViewState, "panes">, phase: GamePhase, pane:
   const ops = keepShown(view, phase);
   if (shown && place) return [...ops, { id: "view.movePane", args: { pane, place } }];
   const front: ViewOp = { id: "view.openPane", args: { pane } };
-  // A pane the arrangement already places joins there; the last op brings it to the front (a no-op when it is).
-  return shown ? [...ops, front] : [...ops, { id: "view.openPane", args: { pane, place: place ?? homeOf(pane) } }, front];
+  if (shown) return [...ops, front];
+  const open: ViewOp = { id: "view.openPane", args: { pane, place: place ?? homeOf(pane) } };
+  // Opened at a place, a pane gets a place of its own, in front: one write, so a close right after it is never undone by
+  // a later one. Only a pane this screen's arrangement already holds (behind another) needs bringing to the front.
+  const kind = dockKindOf(phase) ?? "live";
+  return dockPanes(view.dock?.[kind] ?? defaultDock(kind)).includes(pane) ? [...ops, open, front] : [...ops, open];
 }
 
 /** Closing a shown pane: the shown arrangement kept, then the pane closed. */

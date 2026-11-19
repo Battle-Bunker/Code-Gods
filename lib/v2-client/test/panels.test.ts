@@ -49,16 +49,16 @@ test("after the end the results are shown first even when not open", () => {
 
 test("opening a pane on an empty view keeps the defaults first, and the pane joins at its home", () => {
   const ops = openPlan(EMPTY_VIEW, "planning", "public-chat");
-  assert.deepEqual(ops.map(o => o.args.pane), [...defaultPanes("planning").map(p => p.pane), "public-chat", "public-chat"]);
+  assert.deepEqual(ops.map(o => o.args.pane), [...defaultPanes("planning").map(p => p.pane), "public-chat"]);
   assert.ok(ops.every(o => o.id === "view.openPane"));
-  assert.deepEqual(ops.slice(-2).map(o => o.args), [{ pane: "public-chat", place: "right" }, { pane: "public-chat" }], "joins at its home, then comes to the front");
+  assert.deepEqual(ops.at(-1)!.args, { pane: "public-chat", place: "right" }, "joins at its home (a place of its own, in front)");
 });
 
 test("opening a pane never closes another (round 1: One line evicted What just changed)", () => {
   const full = { panes: [...defaultPanes("live"), { pane: "object", place: "main" as const }, { pane: "public-chat", place: "right" as const }] };
   for (const pane of ["rules", "feed", "others-care", "points-over-time"]) {
     const ops = openPlan(full, "live", pane);
-    assert.deepEqual(ops.map(o => o.id), ["view.openPane", "view.openPane"], pane);
+    assert.deepEqual(ops.map(o => o.id), ["view.openPane"], pane);
   }
   assert.equal(shownPanes({ panes: [...full.panes, { pane: "rules", place: "main" }] }, "live").length, 8);
 });
@@ -184,7 +184,7 @@ test("arranging panes in a replay keeps the replay open", () => {
 });
 
 test("opening one line keeps every pane", () => {
-  assert.deepEqual(openPlan({ panes: defaultPanes("live") }, "live", "object"), [{ id: "view.openPane", args: { pane: "object", place: "main" } }, { id: "view.openPane", args: { pane: "object" } }]);
+  assert.deepEqual(openPlan({ panes: defaultPanes("live") }, "live", "object"), [{ id: "view.openPane", args: { pane: "object", place: "main" } }]);
 });
 
 test("an assistant in front in planning is in front when the world starts (re-walk: it landed behind a tab)", () => {
@@ -208,4 +208,18 @@ test("planning shows the board (W3 #931: the starting objects are born, valued a
   // layout is the default of every screen).
   assert.ok(!PANES.feed.phases.includes("planning"));
   assert.ok(PANES.race.phases.includes("planning") && defaultPanes("planning").some(p => p.pane === "race"));
+});
+
+test("opening a pane not on screen is one view write, so a quick close right after it is never undone", () => {
+  // Catches (the dock e2e, 17 Nov): What if opened from a line, then closed at once, came back: the open's second write
+  // (bring it to the front) landed after the close and opened it again.
+  const ctx = { context: "live", principal: { signedIn: true, member: true, seated: true, owner: false, admin: false } } as const;
+  let v = { ...EMPTY_VIEW, panes: defaultPanes("live") } as ViewState;
+  const plan = openPlan(v, "live", "what-if");
+  assert.deepEqual(plan.filter(op => op.args.pane === "what-if"), [{ id: "view.openPane", args: { pane: "what-if", place: "main" } }]);
+  for (const op of plan) v = applyView(v, op.id, op.args, ctx).view;
+  assert.ok(shownPanes(v, "live").some(p => p.pane === "what-if"), "it is on screen after the one write");
+  // A pane this screen's arrangement already holds (behind another) is still brought to the front.
+  const behind = { ...v, dock: { ...v.dock, live: parseDock("row(objects|*what-if 50, agents 50)") }, panes: v.panes.filter(p => p.pane !== "what-if") } as ViewState;
+  assert.deepEqual(openPlan(behind, "live", "what-if").filter(op => op.args.pane === "what-if").map(op => op.args), [{ pane: "what-if", place: "main" }, { pane: "what-if" }]);
 });
