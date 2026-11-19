@@ -146,3 +146,67 @@ No change recommended to the beginner configuration tonight. Gravity 20, income 
    - The saver ranks last: holding energy draws offers (selection by balance), and each skipped offer costs its reads.
 
    How it could be wrong: 10 games; the knocker also climbs when climbing pays, so its lead is not purely from knocks.
+
+## Follow-ups (17 Nov runs, written up 20 Nov)
+
+All of this is seen narrowly: harness bots at gravity 20, income 3, 600 s unless said, on develop as of 17 Nov evening (after #1222). Runs per row: 1–2 games, with seeds s0 and s1.
+
+**Built** (harness only, `lib/v2-linear/scripts/balance-sim.ts`):
+- a points-aware climber (`points`): it weighs its four best steps by the change in that line's points (own energy × the others' sum, all at K = 4) per bit, and skips when none raises them;
+- `boundRule`, which scores a cut-off ("bound, not found") estimate one of three ways: kept as the engine does today; B, capped at the previous value plus the move's cost; or C, held at the previous value.
+
+### Are climbs undone by the game or by the bots?
+
+| Seats | Games | Others' loss per mover's gain | End utility per seat·line (median / p90 / max) | Total points | Largest line (bits) |
+|---|---|---|---|---|---|
+| Four own-energy climbers (greedy, hopper) | 2 | 62% | 0.1 / 8.2 / 13.9 | 1.9k; 14M (a bound outlier) | 664 |
+| Two points-aware, greedy, hopper | 2 | 77% | 0.2 / 8.0 / 15.2 | 1.1k; 380k (bound) | 246 |
+| Four points-aware | 1 | 89% | 0.3 / 13.0 / 14.8 | 20k | 15 |
+| Base mix (greedy, hopper, saver, knocker) | 2 | 87% | 0.0 / 5.6 / 12.7 | 4.0k; 112k (bound) | 115 |
+
+- Points-aware seats still undo most of each other's gains (89% in the one all-points game).
+- Guess: the undoing comes from the game (rules in tension on 3–5 shared lines), not from bots that ignore points.
+- The all-points game had the smallest lines and the most points. In the mixed games the points-aware seats ranked worst (2.75 of 4).
+- How this could be wrong:
+  - one all-points game;
+  - the points-aware bot sees energies at K = 4, noisier than the server's K = 12;
+  - it only weighs single mutations.
+
+### The knocker
+
+| Game set | Knocker's mean rank (of 4) |
+|---|---|
+| Base, bound kept (2 games) | 1.5 |
+| Base, option C | 1.5 |
+| Base, option B | 2.0 |
+| Two knockers (1 game) | both in the top two |
+
+The total-points figures are dominated by bound outliers, so they cannot say what knocking costs. How this could be wrong: 1–2 games per row.
+
+### Options B and C for a cut-off estimate (harness only; the owner decides)
+
+| Case | Largest line (bits) | Seats' energy at the end | Own gain on commits whose estimate was a bound |
+|---|---|---|---|
+| The 651-bit game, bound kept | 651 | 26, 519, 835, 0 | 3,389 of 4,488 |
+| The same game, B | 66 | 43, 19, 115, 18 | 725 |
+| The same game, C | 133 | 10, 12, 100, 0 | 0 |
+| Ordinary play, kept (2 games) | 115 | totals 4.0k; 112k | — |
+| Ordinary play, B (2 games) | 87 | totals 7.8k; 27k | — |
+| Ordinary play, C (2 games) | 162 (median 20) | totals 1.1k; 1.4k | — |
+
+- Both options stop the 651-bit runaway.
+- B keeps lines smallest and still lets a bound move earn up to its cost.
+- C pays nothing for a bound move, but lines still grew larger in ordinary play (median 20 bits against 6.5). Guess: under C a big move's damage to others is also frozen.
+- How this could be wrong: one game for the 651 case, two for ordinary play.
+
+### Longer games and more lines
+
+- **1,200 s** (2 games):
+  - end utility median −0.2, p90 8.0, max 27.8;
+  - one game ran a line to 1,357 bits;
+  - in the other, 286 of 660 commits were bounds, gaining 8,666 energy.
+
+  Bounds grow with game length as lines grow. Rungs in the ladders' middle appear only alongside bound-driven runaway.
+- **6 starting lines** (2 games): others' loss per mover's gain 91%, end utility p90 5.6. More lines did not reduce the undoing.
+
+How this could be wrong: two games each. The 1,200 s games kept the engine's bound scoring, so they mix the two effects.
