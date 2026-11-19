@@ -61,8 +61,9 @@ export default function DesktopDock({ phase }: { phase: GamePhase }) {
     const dock = api.current;
     if (!dock || gesture.current) return;
     if (!target) { dock.clear(); return; }
-    if (sameDock(fromDockview(dock.toJSON()), target)) return;
-    dock.fromJSON(toDockview(target, { width: dock.width, height: dock.height }, name), { reuseExistingPanels: true });
+    const json = toDockview(target, { width: dock.width, height: dock.height }, name);
+    if (sameDock(fromDockview(dock.toJSON()), fromDockview(json))) return;
+    dock.fromJSON(json, { reuseExistingPanels: true });
   }, [name]);
   useEffect(() => { apply(tree); }, [tree, apply]);
 
@@ -71,7 +72,9 @@ export default function DesktopDock({ phase }: { phase: GamePhase }) {
     const dock = api.current;
     if (!dock) return false;
     const drawn = fromDockview(dock.toJSON());
-    if (!drawn || sameDock(drawn, treeNow.current)) return false;
+    // Compared with the arrangement as drawn at this size (the adapter keeps short panes at their least height).
+    const target = treeNow.current && fromDockview(toDockview(treeNow.current, { width: dock.width, height: dock.height }));
+    if (!drawn || (target && sameDock(drawn, target))) return false;
     // A pane dropped onto the centre of another replaces it (v1), never stacks as a tab: the panes it landed on close.
     const replaced = droppedOnto(treeNow.current, drawn);
     const now = replaced.length ? dockWithout(drawn, p => replaced.includes(p)) : drawn;

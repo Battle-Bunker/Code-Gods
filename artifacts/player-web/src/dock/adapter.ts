@@ -31,12 +31,42 @@ export function panelOf(pane: string, title: string): GroupviewPanelState {
   return { id: pane, contentComponent: "pane", tabComponent: "pane", title, params: {}, ...(keepsMounted(pane) ? { renderer: "always" as const } : {}) };
 }
 
+/**
+ * A pane's least height on screen, so a short window keeps every pane usable (1280×720: the goal over the leaderboard
+ * got 168 px each above a full-width bottom row, in a dock about 505 px tall): MIN_PANE_PX, and the full-width bottom
+ * row's pane (the assistant, a replay's Timeline) giving way first, down to MIN_BOTTOM_PX, enough for its controls.
+ * Two stacked panes and the bottom row (2 × 180 + 120) fit that dock. Display only: the stored shares are kept.
+ */
+export const MIN_PANE_PX = 180, MIN_BOTTOM_PX = 120;
+const BOTTOM_PANES = new Set(["assistant", "timeline"]);
+/** The least height of a node: a group's own, a column's children stacked, a row's tallest child. */
+export function minHeight(node: DockNode): number {
+  if (isGroup(node)) return node.tabs.some(t => BOTTOM_PANES.has(t)) ? MIN_BOTTOM_PX : MIN_PANE_PX;
+  const mins = node.children.map(minHeight);
+  return node.split === "column" ? mins.reduce((a, b) => a + b, 0) : Math.max(...mins);
+}
+/**
+ * Heights in a column: each child its share of `span`, raised to its least height where it falls short, the difference
+ * taken from the children with room above theirs (in proportion to that room). When the column cannot fit every least
+ * height, the shares stand.
+ */
+export function columnHeights(children: readonly DockNode[], shares: readonly number[], span: number): number[] {
+  const total = shares.reduce((a, b) => a + b, 0) || 1;
+  const px = shares.map(w => (span * w) / total), mins = children.map(minHeight);
+  if (mins.reduce((a, b) => a + b, 0) > span) return px;
+  const need = px.reduce((t, h, i) => t + Math.max(0, mins[i]! - h), 0);
+  if (need <= 0) return px;
+  const room = px.map((h, i) => Math.max(0, h - mins[i]!)), spare = room.reduce((a, b) => a + b, 0);
+  return px.map((h, i) => (h < mins[i]! ? mins[i]! : h - (need * room[i]!) / spare));
+}
+
 /** `node` laid out along its parent's axis with extent `size`; its own children divide `span`. */
 function toGrid(node: DockNode, orientation: DockDirection, size: number, span: number): Grid {
   if (isGroup(node)) return { type: "leaf", size, data: { id: `g-${node.tabs[0]}`, views: node.tabs, activeView: node.active } };
   if (node.split !== orientation) return { type: "branch", size, data: [toGrid(node, other(orientation), span, size)] };
   const total = node.sizes.reduce((a, b) => a + b, 0) || 1;
-  return { type: "branch", size, data: node.children.map((child, i) => toGrid(child, other(orientation), (span * node.sizes[i]!) / total, size)) };
+  const extents = orientation === "column" ? columnHeights(node.children, node.sizes, span) : node.sizes.map(w => (span * w) / total);
+  return { type: "branch", size, data: node.children.map((child, i) => toGrid(child, other(orientation), extents[i]!, size)) };
 }
 
 /** The arrangement as dockview JSON for a container of `size` (dockview rescales any size proportionally). */
