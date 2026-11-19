@@ -442,6 +442,23 @@ export const corner = dynamicLine<{ k: number }>({
       }
     }
     return out.slice(0, 4);
+  } }, { id: "squares-near", propose: (m, _c, uStar, { k }) => {
+    // The same squares near the gradient's value (19 Nov: the routes a larger search found keep |m| and name it in
+    // bigger numbers): |m| = a²/(2n·b²) with a/b the convergents of √(2n·|m|), or 2n·a²/b² with a/b those of √(|m|/2n).
+    const p = babs(m.n), qd = m.d, K = BigInt(2 * k), P = 64n, out: LineTarget[] = [];
+    if (p === 0n) return out;
+    for (const [num, den, mk] of [[K * p * qd, qd, (a: bigint, b: bigint) => q(a * a, K * b * b)], [p * qd, K * qd, (a: bigint, b: bigint) => q(K * a * a, b * b)]] as const) {
+      // √(num)/den to 64 binary places: √(num·den²·4^P)/(den·2^P)... as √(num/den²) = √num/den.
+      const r = q(isqrt(num << (2n * P)), den << P);
+      let n = 0;
+      for (const v of convergents(continuedFraction(r).slice(0, 40))) {
+        if (n >= 2 || !searchTick()) break;
+        const t = mk(v.n, v.d);
+        if (t.n === 0n) continue;
+        if (cornerU(t, k) >= uStar - 1e-9) { out.push({ m: Qn.mul(q(sign(m)), t) }); n++; }
+      }
+    }
+    return out;
   } }, { id: "one-number", propose: (m, c, uStar, { k }) =>
     // One number of a lens moved so 2n·top·bottom is a square or near one (the routes a larger search found; 17 Nov).
     [...nearSquareLines(m, c, t => { const mm = t.m ?? m; return 2n * BigInt(k) * babs(mm.n) * mm.d; }, t => cornerU(t.m ?? m, k) >= uStar - 1e-9, 0, 6),
