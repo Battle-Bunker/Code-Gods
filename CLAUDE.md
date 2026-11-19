@@ -150,6 +150,9 @@ priority." So, in v2 work (decision 15):
 
 ## Orientation
 
+- **Post-mortem of the engine v2 rebuild and scoring redesign (11–20 November 2026), written when the owner changed
+  direction:** `docs/post-mortem-2026-11-20.md`. Read it before resuming any of that work. What each unfinished session
+  planned: `docs/engine-v2/handover/` (status notes under `status/`).
 - Product rules and history: `.agents/memory/*.md`.
 - Architecture: `docs/convex-migration-plan.md`; how pages read Convex: `docs/convex-read-architecture.md`.
 - API: `docs/engine-api.md`.
